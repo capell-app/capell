@@ -1,3 +1,60 @@
+.capell-default-theme {
+    --capell-default-theme-foreground: #0f172a;
+    --capell-default-theme-muted: #334155;
+    --capell-default-theme-surface: #f8fafc;
+    --color-base: 15 23 42;
+    --color-heading: 15 23 42;
+    --color-muted: 51 65 85;
+    --color-page: #f8fafc;
+    background: var(--capell-default-theme-surface);
+    color: var(--capell-default-theme-foreground);
+    color-scheme: light;
+}
+
+.capell-default-theme__brand,
+.capell-default-theme__content :where(h1) {
+    color: var(--capell-default-theme-foreground);
+}
+
+.capell-default-theme__content {
+    color: var(--capell-default-theme-muted);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not(.light) .capell-default-theme {
+        --capell-default-theme-foreground: #f8fafc;
+        --capell-default-theme-muted: #cbd5e1;
+        --capell-default-theme-surface: #020617;
+        --color-base: 203 213 225;
+        --color-heading: 248 250 252;
+        --color-muted: 148 163 184;
+        --color-page: #020617;
+        color-scheme: dark;
+    }
+}
+
+:root.dark .capell-default-theme {
+    --capell-default-theme-foreground: #f8fafc;
+    --capell-default-theme-muted: #cbd5e1;
+    --capell-default-theme-surface: #020617;
+    --color-base: 203 213 225;
+    --color-heading: 248 250 252;
+    --color-muted: 148 163 184;
+    --color-page: #020617;
+    color-scheme: dark;
+}
+
+:root.light .capell-default-theme {
+    --capell-default-theme-foreground: #0f172a;
+    --capell-default-theme-muted: #334155;
+    --capell-default-theme-surface: #f8fafc;
+    --color-base: 15 23 42;
+    --color-heading: 15 23 42;
+    --color-muted: 51 65 85;
+    --color-page: #f8fafc;
+    color-scheme: light;
+}
+
 .default-theme-skip-link {
     background: #ffffff;
     border: 1px solid
