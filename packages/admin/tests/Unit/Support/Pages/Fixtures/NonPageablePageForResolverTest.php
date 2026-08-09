@@ -21,7 +21,15 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use LogicException;
 
-/** @implements Pageable<self> */
+/**
+ * @implements Pageable<self>
+ *
+ * Deliberately does not extend Page: this fixture exists to prove
+ * DefaultPageTableStatusResolver::resolve() works against any Pageable
+ * implementer, not just Page. Pageable's @phpstan-require-extends Page
+ * constraint holds for production code but is intentionally violated here.
+ */
+// @phpstan-ignore class.missingExtends
 final class NonPageablePageForResolverTest extends Model implements Pageable, Publishable
 {
     use HasPublishDates;
