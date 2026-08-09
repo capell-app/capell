@@ -41,6 +41,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Collections\MediaCollection;
  * @property int|null $order_column
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
+ * @property CarbonImmutable|null $deleted_at
  * @property-read mixed $extension
  * @property-read mixed $human_readable_size
  * @property-read Model $model

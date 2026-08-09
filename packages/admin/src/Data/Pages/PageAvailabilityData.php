@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Data\Pages;
 
 use Capell\Admin\Data\RecordStateData;
-use Capell\Core\Models\Page;
+use Capell\Core\Contracts\Pageable;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Model;
 use Spatie\LaravelData\Data;
 
 final class PageAvailabilityData extends Data
@@ -17,9 +18,14 @@ final class PageAvailabilityData extends Data
         public readonly int $disabledUrlCount,
     ) {}
 
-    public static function fromPage(Page $page): self
+    /**
+     * @template TModel of Model
+     *
+     * @param  Model&Pageable<TModel>  $page
+     */
+    public static function fromPage(Model&Pageable $page): self
     {
-        $urls = $page->relationLoaded('pageUrls') ? $page->pageUrls : $page->pageUrls()->get();
+        $urls = $page->relationLoaded('pageUrls') ? $page->getRelation('pageUrls') : $page->pageUrls()->get();
         $totalUrlCount = $urls->count();
         $activeUrlCount = $urls->where('status', true)->count();
 
