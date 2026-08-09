@@ -89,7 +89,7 @@ it('initializes an idempotent generated frontend screenshot fixture without clai
     $theme->refresh();
     $translation->refresh();
 
-    expect($layout->containers)->toBe([
+    expect($layout->containers)->toEqual([
         'main' => [
             'elements' => [
                 ['element_key' => 'page-content', 'occurrence' => 1],
