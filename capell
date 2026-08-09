@@ -65,6 +65,7 @@ else
 fi
 
 app_exec=("${compose_command[@]}" exec --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer app)
+test_exec=("${compose_command[@]}" exec --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer --env APP_ENV=testing --env DB_CONNECTION=sqlite --env DB_DATABASE=:memory: --env DB_URL= app)
 app_run=("${compose_command[@]}" run --rm --no-deps --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer app)
 
 usage() {
@@ -146,7 +147,11 @@ case "$command_name" in
         fi
         ;;
     composer)
-        "${app_exec[@]}" composer "$@"
+        if [[ "${1:-}" = test* || "${1:-}" = preflight* ]]; then
+            "${test_exec[@]}" composer "$@"
+        else
+            "${app_exec[@]}" composer "$@"
+        fi
         ;;
     npm)
         "${app_exec[@]}" npm "$@"
@@ -155,10 +160,10 @@ case "$command_name" in
         "${app_exec[@]}" vendor/bin/pint "$@"
         ;;
     test)
-        "${app_exec[@]}" composer test "$@"
+        "${test_exec[@]}" composer test "$@"
         ;;
     pest)
-        "${app_exec[@]}" vendor/bin/pest "$@"
+        "${test_exec[@]}" vendor/bin/pest "$@"
         ;;
     analyze)
         "${app_exec[@]}" composer analyze "$@"

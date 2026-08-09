@@ -95,6 +95,9 @@ final class RegisterBlazeOptimizedViewsAction
             return false;
         }
 
-        return preg_match('/^\s*(?:declare\s*\(|use\s+[A-Za-z_\\\\])/m', $contents) === 1;
+        return preg_match(
+            '/(?:\A\s*<\?php\s*(?:declare\s*\(|use\s+[A-Za-z_\\\\])|@blaze-standard-compiler)/s',
+            $contents,
+        ) === 1;
     }
 }
