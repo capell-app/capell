@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\SiteDomains\NormalizeSiteDomainInputAction;
 use Capell\Core\Events\SiteCreated;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Illuminate\Database\Eloquent\Collection;
+use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -58,20 +60,22 @@ class SiteCreatedAction
                 continue;
             }
 
-            $urlParts = parse_url((string) $domain['url']);
-
-            if ($urlParts === false) {
+            try {
+                $domainInput = NormalizeSiteDomainInputAction::run(
+                    (string) $domain['url'],
+                    ($domain['use_host_domain'] ?? false) === true,
+                );
+            } catch (InvalidArgumentException) {
                 continue;
             }
 
             SiteDomain::query()->create([
                 'site_id' => $site->getKey(),
                 'language_id' => $domain['language_id'] ?? $site->language_id,
-                'scheme' => $urlParts['scheme'] ?? null,
-                'domain' => ($domain['use_host_domain'] ?? false) === true ? null : ($urlParts['host'] ?? null),
-                'path' => isset($urlParts['path']) && ! in_array(mb_rtrim($urlParts['path'], '/'), ['', '0'], true)
-                    ? mb_rtrim($urlParts['path'], '/')
-                    : null,
+                'scheme' => $domainInput->scheme,
+                'domain' => $domainInput->host,
+                'port' => $domainInput->port,
+                'path' => $domainInput->persistencePath(),
                 'default' => (bool) ($domain['default'] ?? false),
                 'status' => (bool) ($domain['status'] ?? true),
             ]);

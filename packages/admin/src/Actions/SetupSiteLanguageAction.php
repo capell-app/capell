@@ -9,7 +9,6 @@ use Capell\Core\Models\Site;
 use Illuminate\Support\Arr;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use RuntimeException;
 
 /**
  * @method static void run(Site $site, Language $language)
@@ -48,16 +47,13 @@ class SetupSiteLanguageAction
         if ($siteDomain !== null) {
             $path = '/' . $language->code;
 
-            $replica = $siteDomain->duplicate([
-                'full_url',
-            ]);
-            throw_if($replica === null, RuntimeException::class, 'Site domain could not be duplicated.');
-
-            $replica->fill([
+            $replica = $siteDomain->replicate([
+                'routing_identity',
+            ])->fill([
+                'default' => false,
                 'language_id' => $language->id,
                 'path' => $path,
             ]);
-
             $replica->save();
 
             return;

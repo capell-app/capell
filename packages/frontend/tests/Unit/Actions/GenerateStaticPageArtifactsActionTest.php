@@ -353,7 +353,7 @@ it('skips urls without an enabled site domain or writable html response', functi
     [, $siteWithoutDomain] = staticPageArtifactsRenderData('/missing-domain-static-test');
     SiteDomain::query()->where('site_id', $siteWithoutDomain->id)->delete();
 
-    [, $siteWithJson, $renderData] = staticPageArtifactsRenderData('/json-static-test');
+    [, $siteWithJson, $renderData] = staticPageArtifactsRenderData('/json-static-test', 'json.example.test');
 
     app()->instance(Kernel::class, new readonly class($renderData) implements Kernel
     {
@@ -389,7 +389,7 @@ it('skips urls without an enabled site domain or writable html response', functi
 /**
  * @return array{0: Page, 1: Site, 2: PublicPageRenderData}
  */
-function staticPageArtifactsRenderData(string $url): array
+function staticPageArtifactsRenderData(string $url, string $domain = 'example.test'): array
 {
     $page = Page::factory()
         ->withTranslations()
@@ -405,7 +405,7 @@ function staticPageArtifactsRenderData(string $url): array
             'site_id' => $site->id,
             'language_id' => $language->id,
             'scheme' => 'https',
-            'domain' => 'example.test',
+            'domain' => $domain,
             'path' => '/',
             'default' => true,
         ])
