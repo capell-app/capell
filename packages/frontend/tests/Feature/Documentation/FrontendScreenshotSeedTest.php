@@ -100,7 +100,7 @@ it('initializes an idempotent generated frontend screenshot fixture without clai
         ->and($page->translations()->sole()->is($translation))->toBeTrue()
         ->and($translation->title)->toBe('Welcome to Capell')
         ->and($translation->content)->toBe('<p>Build and publish a clear, durable site with Capell.</p><p>This is the ordinary published homepage rendered by the local application.</p>')
-        ->and($translation->meta)->toBe([
+        ->and($translation->meta)->toEqual([
             'label' => 'Home',
             'slug' => '/',
         ])
