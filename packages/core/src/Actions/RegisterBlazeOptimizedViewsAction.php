@@ -77,7 +77,11 @@ final class RegisterBlazeOptimizedViewsAction
         );
 
         foreach ($iterator as $file) {
-            if (! $file->isFile() || ! str_ends_with($file->getFilename(), '.blade.php')) {
+            if (! $file->isFile()) {
+                continue;
+            }
+
+            if (! str_ends_with((string) $file->getFilename(), '.blade.php')) {
                 continue;
             }
 
