@@ -1,7 +1,5 @@
 # Permissions & Approval
 
-![Capell Permissions & Approval screenshot](./images/screenshots/admin-dashboard.png)
-
 Capell Admin ships with **site-scoped RBAC** on top of Spatie's `laravel-permission` package, plus **page-type role restrictions**. The workspace approval workflow is supplied by the optional `capell-app/publishing-studio` package and documented in [PublishingStudio & Versions](https://docs.capell.app/publishing-studio/#approval-lifecycle).
 
 For an end-to-end walkthrough with a flow diagram and the email notifications sent at each transition, see [Page creation and approval flow](https://docs.capell.app/page-creation-and-approval-flow/) in the Publishing Studio docs.

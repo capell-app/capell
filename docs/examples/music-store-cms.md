@@ -1,7 +1,5 @@
 # Example: music store CMS
 
-![Capell Example: music store CMS screenshot](../images/admin-pages-list.png)
-
 This walkthrough shows how a real Capell project can be structured. The example is an independent music store with two branches, lessons, repairs, events, and editorial content.
 
 The goal is not to copy these exact names. It is to show how Capell turns a messy content brief into pages, widgets, settings, and workflows.

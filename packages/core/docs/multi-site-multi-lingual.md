@@ -1,8 +1,8 @@
 # Multi-site and Multi-lingual
 
-![Capell Multi-site and Multi-lingual screenshot](./images/screenshots/core-page-structure.png)
-
 Capell can run multiple websites and multiple languages from a single installation. Both features are built into the core and work together: each site can have its own set of languages, and every piece of content is translatable.
+
+For the canonical visual orientation to Core records, use the [Core overview](overview.md#screens-and-workflow). This guide stays focused on site and language behaviour.
 
 ---
 

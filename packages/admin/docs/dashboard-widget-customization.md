@@ -1,6 +1,8 @@
 # Dashboard Widgets: Programmatic API
 
-![Capell Dashboard Widgets: Programmatic API screenshot](./images/screenshots/admin-dashboard.png)
+[![Admin dashboard showing the surface where registered overview stats and widgets appear](./images/screenshots/admin-dashboard.png)](./images/screenshots/admin-dashboard.png)
+
+_The dashboard is direct orientation for this API: registered overview stats and Filament widgets resolve into its configured buckets._
 
 Use this guide when a package or app needs to register dashboard Filament widgets, add overview stats, or adjust dashboard defaults in code. For the admin/operator view of the feature, see [Admin dashboard Filament widgets](../../../docs/admin/dashboard-widgets.md).
 

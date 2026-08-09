@@ -1,7 +1,5 @@
 # Header Navigation Tree
 
-![Capell Header Navigation Tree screenshot](./images/screenshots/admin-dashboard.png)
-
 The header navigation tree is a dedicated Livewire dropdown in the Filament
 topbar. It is separate from the admin tools menu because it owns its own
 stateful loading, search, and pagination behaviour.
