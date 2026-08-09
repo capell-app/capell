@@ -39,6 +39,18 @@
 - Static analysis: `composer analyze`
 - Repository gate: `composer preflight`
 - Documentation contracts: `composer check:docs-links`, `composer check:docs-orphans`, `composer check:extension-surfaces`, and `composer check:stable-extension-api`
+- Pick host **or** container and stay there for a checkout. `phpstan.neon` pins
+  `tmpDir` to `var/phpstan/full`, and `docker-compose.yml` bind-mounts the repo
+  to `/home/capell/current`, so host and container share one cache while
+  disagreeing about absolute paths. Alternating `composer preflight` with
+  `./capell preflight` leaves the next run reporting
+  `Internal error: "phar://…/phpstorm-stubs/….stub" is not a file`. That is a
+  stale cache, never a code fault: clear `var/phpstan/full` (and `var/rector`)
+  and re-run in one context. Verify with
+  `grep -c /home/capell/current var/phpstan/full/resultCache.php`.
+- Each worktree has its own `var/`, so a branch can be green in a worktree and
+  red in the primary checkout for this reason alone. Compare caches before
+  reading code.
 
 ## Planning Notes
 
