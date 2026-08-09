@@ -4,41 +4,29 @@
   organisation's public front page (github.com/capell-app) — but only when
   the repository hosting it is public.
 
-  The capell-app/.github repository already exists (created
-  2026-05-26T16:41:09Z, verified via `gh api repos/capell-app/.github`) — it
-  is not something Ben needs to create. It is currently **private**, which is
-  the reason github.com/capell-app renders no public profile today: a private
-  .github repo's profile/README.md does not render anywhere public, the same
-  as if the repo didn't exist. It already contains its own profile/README.md
-  (1,623 bytes, read via
-  `gh api repos/capell-app/.github/contents/profile/README.md`), but that
-  content is an internal maintainer repo map and contribution-flow doc (which
-  repos are canonical, which are generated splits, where PRs get forwarded) —
-  it is not a public marketing profile and was not written to be one.
+  The capell-app/.github repository is public and this content is LIVE: it
+  was published to capell-app/.github at profile/README.md on 2026-07-30 and
+  renders today at github.com/capell-app (verified 2026-08-06). Earlier
+  revisions of this comment described the repo as private and the draft as
+  unpublished — that is no longer true.
 
-  So the outward-facing action for Ben is not "create the repo". It is:
-  (1) decide whether this draft replaces the existing internal
-  profile/README.md outright, or the two get merged (e.g. move the internal
-  repo-map content elsewhere first, such as CONTRIBUTING.md, so nothing is
-  lost); then (2) make the repository public. See
-  docs/github-repo-surface.md, section 8, for the exact sequence.
+  Because it is live, treat this file as the editable source and keep the two
+  in sync: an edit here is not visible to anyone until it is copied to
+  capell-app/.github. See docs/github-repo-surface.md, section 8.
 
-  Two links below were not found in any repo file and were inferred by
-  analogy with the live capell.app site rather than sourced from this
-  checkout: the X link (`https://x.com/capell_app`) and the Roadmap link
-  (`https://capell.app/roadmap`). Both resolve (HTTP 200 as of 2026-07-29),
-  but neither is confirmed against a repo source — treat both as needing
-  Ben's confirmation before this draft is published anywhere.
-
-  This draft is not published anywhere; it lives here in docs/ for review
-  only.
+  The lead paragraph mirrors the capell.app homepage hero deliberately. If the
+  site hero changes, change it here and in the root README.md together.
 -->
 
 # Capell
 
-![Fine-line engraved blueprint on deep navy showing Capell's foundation feeding two branching structures, with the Capell wordmark on the left](https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-readme-hero.jpg)
+![Dark grid-lined banner with the Capell wordmark and "Starts where custom builds end." beside a 3D model of a Laravel-marked Core foundation forking into a separate Filament Admin panel and a Frontend browser window fed by Blade, Livewire, Inertia, and Vue tiles](https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-readme-hero.jpg)
 
-**Capell is an open-source CMS for Laravel, built on Filament.**
+**This isn’t another CMS.**
+
+## The parts every custom CMS build ends up needing, already built.
+
+Capell is an open-source CMS for Laravel, built on Filament.
 
 Every page save appends a full-state revision: editors compare changes field by field, roll back, and roll forward without erasing history. Page types, layouts, URLs, and publishing rules are structured records in your Laravel app — managed in a Filament admin, rendered by your own frontend. And Capell is Composer packages, not a monolith: a free, MIT-licensed **Capell Foundation** plus verified extensions — search, SEO, publishing workflow, forms, themes, and more — whose migrations, data access, and removal paths you can inspect before they install.
 
