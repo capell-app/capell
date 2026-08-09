@@ -11,9 +11,11 @@ use Capell\Admin\Filament\Components\Tables\Actions\VisitUrlAction;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -28,6 +30,7 @@ use Filament\Actions\Testing\TestAction;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Sequence;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -527,7 +530,7 @@ it('page table status can be supplied by a package resolver', function (): void 
             return $query->whereKey($this->visiblePageId);
         }
 
-        public function resolve(Page $page): PageTableStatusData
+        public function resolve(Model&Pageable&Publishable $page): PageTableStatusData
         {
             return new PageTableStatusData(
                 label: 'Awaiting review',

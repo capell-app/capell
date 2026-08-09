@@ -8,6 +8,11 @@ use Capell\Core\Enums\PublishStatusEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Carbon\CarbonImmutable;
 
+/**
+ * @property CarbonImmutable|null $visible_from
+ * @property CarbonImmutable|null $visible_until
+ * @property CarbonImmutable|null $deleted_at
+ */
 interface Publishable
 {
     /** @return bool */
