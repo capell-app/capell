@@ -100,12 +100,22 @@ class SiteFactory extends Factory
                 );
 
                 if ($site->siteDomains->doesntContain('language_id', $language->id)) {
+                    $domainData = $siteDomainData;
+
+                    if (
+                        $language->id !== $site->language_id
+                        && array_key_exists('path', $domainData)
+                        && in_array($domainData['path'], [null, '', '/'], true)
+                    ) {
+                        $domainData['path'] = '/' . $language->code;
+                    }
+
                     $site->siteDomains()->save(
                         SiteDomain::factory()
                             ->state([
                                 'language_id' => $language->id,
                                 'site_id' => $site->id,
-                                ...($siteDomainData !== [] ? $siteDomainData : ['default' => $site->siteDomains->isEmpty()]),
+                                ...($domainData !== [] ? $domainData : ['default' => $site->siteDomains->isEmpty()]),
                             ])
                             ->make(),
                     );

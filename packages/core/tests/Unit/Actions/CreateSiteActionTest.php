@@ -18,7 +18,7 @@ it('creates a site with default theme type translation and domain records', func
 
     $site = CreateSiteAction::run(
         name: 'capell cms',
-        url: 'https://example.test/uk',
+        url: 'https://example.test:8443/uk',
         language: $english,
         languages: collect([$english, $french]),
         theme: $theme,
@@ -46,9 +46,11 @@ it('creates a site with default theme type translation and domain records', func
 
     expect($englishDomain->domain)->toBe('example.test')
         ->and($englishDomain->getRawOriginal('scheme'))->toBe('https')
+        ->and($englishDomain->port)->toBe(8443)
         ->and($englishDomain->path)->toBe('/uk')
         ->and($frenchDomain->domain)->toBe('example.test')
         ->and($frenchDomain->getRawOriginal('scheme'))->toBe('https')
+        ->and($frenchDomain->port)->toBe(8443)
         ->and($frenchDomain->path)->toBe('/fr/uk');
 });
 

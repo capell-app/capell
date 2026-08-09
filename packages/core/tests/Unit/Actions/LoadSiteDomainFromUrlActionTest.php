@@ -149,9 +149,10 @@ describe('LoadSiteDomainFromUrlAction', function (): void {
 
         expect($result)->not()->toBeNull();
         assert($result !== null);
-        expect($result[0])->toBe($fallbackDomain);
-        expect($result[0]->domain)->toBe('tenant.example.com');
-        expect($result[1])->toBe('/');
+        expect($result[0])->not->toBe($fallbackDomain)
+            ->and($result[0]->domain)->toBe('tenant.example.com')
+            ->and($fallbackDomain->domain)->toBeNull()
+            ->and($result[1])->toBe('/');
     });
 
     it('prefers null domains from the exact host site when falling back from a non-matching exact host path', function (): void {
@@ -187,9 +188,10 @@ describe('LoadSiteDomainFromUrlAction', function (): void {
 
         expect($result)->not()->toBeNull();
         assert($result !== null);
-        expect($result[0])->toBe($tenantDomain);
-        expect($result[0]->domain)->toBe('tenant.example.com');
-        expect($result[1])->toBe('/');
+        expect($result[0])->not->toBe($tenantDomain)
+            ->and($result[0]->domain)->toBe('tenant.example.com')
+            ->and($tenantDomain->domain)->toBeNull()
+            ->and($result[1])->toBe('/');
     });
 
     it('falls back to a null domain matching the request scheme and path', function (): void {
@@ -207,9 +209,10 @@ describe('LoadSiteDomainFromUrlAction', function (): void {
 
         expect($result)->not()->toBeNull();
         assert($result !== null);
-        expect($result[0])->toBe($fallbackDomain);
-        expect($result[0]->domain)->toBe('tenant.example.com');
-        expect($result[1])->toBe('/bar');
+        expect($result[0])->not->toBe($fallbackDomain)
+            ->and($result[0]->domain)->toBe('tenant.example.com')
+            ->and($fallbackDomain->domain)->toBeNull()
+            ->and($result[1])->toBe('/bar');
     });
 
     it('applies the request scheme to hostless domains without a configured scheme', function (): void {
@@ -227,11 +230,13 @@ describe('LoadSiteDomainFromUrlAction', function (): void {
 
         expect($result)->not()->toBeNull();
         assert($result !== null);
-        expect($result[0])->toBe($fallbackDomain);
-        expect($result[0]->domain)->toBe('tenant.example.com');
-        expect($result[0]->scheme)->toBe('http');
-        expect($result[0]->root_url)->toBe('http://tenant.example.com');
-        expect($result[1])->toBe('/about');
+        expect($result[0])->not->toBe($fallbackDomain)
+            ->and($result[0]->domain)->toBe('tenant.example.com')
+            ->and($result[0]->scheme)->toBe('http')
+            ->and($result[0]->root_url)->toBe('http://tenant.example.com')
+            ->and($fallbackDomain->domain)->toBeNull()
+            ->and($fallbackDomain->getRawOriginal('scheme'))->toBeNull()
+            ->and($result[1])->toBe('/about');
     });
 
     it('ignores disabled domains', function (): void {

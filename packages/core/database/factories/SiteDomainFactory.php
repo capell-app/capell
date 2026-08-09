@@ -22,9 +22,10 @@ class SiteDomainFactory extends Factory
     public function definition(): array
     {
         return [
-            'domain' => $this->faker->domainName(),
+            'domain' => $this->faker->unique()->domainName(),
             'scheme' => $this->faker->randomElement(['http', 'https']),
             'path' => $this->faker->optional()->domainWord(),
+            'port' => null,
             'language_id' => Language::factory(),
             'site_id' => fn (array $attributes) => Site::factory()
                 ->state([
@@ -51,6 +52,11 @@ class SiteDomainFactory extends Factory
     public function language(Language $language): static
     {
         return $this->set('language_id', $language);
+    }
+
+    public function port(int $port): static
+    {
+        return $this->set('port', $port);
     }
 
     public function path(): static

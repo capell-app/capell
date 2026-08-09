@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Aimeos\Nestedset\Collection as NestedsetCollection;
+use Capell\Core\Actions\SiteDomains\NormalizeSiteDomainInputAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Events\SiteReplicated;
 use Capell\Core\Models\Language;
@@ -119,16 +120,14 @@ class SiteReplicatedAction
         $isFirst = true;
 
         foreach ($domains as $domain) {
-            $urlParts = parse_url((string) ($domain['url'] ?? ''));
-            $scheme = $urlParts['scheme'] ?? null;
-            $host = $urlParts['host'] ?? null;
-            $path = $urlParts['path'] ?? null;
+            $domainInput = NormalizeSiteDomainInputAction::run((string) ($domain['url'] ?? ''));
 
             $site->siteDomains()->create([
                 'language_id' => $domain['language_id'] ?? null,
-                'scheme' => $scheme,
-                'domain' => $host,
-                'path' => $path,
+                'scheme' => $domainInput->scheme,
+                'domain' => $domainInput->host,
+                'port' => $domainInput->port,
+                'path' => $domainInput->persistencePath(),
                 'default' => $isFirst,
             ]);
 

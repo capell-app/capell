@@ -9,6 +9,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Event;
 
 it('belongs to a site', function (): void {
@@ -60,6 +61,56 @@ it('has a full url attribute', function (): void {
     $siteDomain = SiteDomain::factory()->createOne(['domain' => 'example.com', 'path' => '/test', 'scheme' => 'https']);
 
     expect($siteDomain->fullUrl)->toBe('https://example.com/test');
+});
+
+it('persists non-default ports in full urls and domain keys', function (): void {
+    $siteDomain = SiteDomain::factory()->createOne([
+        'domain' => 'localhost',
+        'path' => '/test',
+        'port' => 8081,
+        'scheme' => 'http',
+    ]);
+
+    expect($siteDomain->port)->toBe(8081)
+        ->and($siteDomain->fullUrl)->toBe('http://localhost:8081/test')
+        ->and($siteDomain->getDomainKey())->toBe('http-localhost-8081-test')
+        ->and($siteDomain->routing_identity)->toBeString()->toHaveLength(64);
+});
+
+it('normalizes explicit default ports to null', function (): void {
+    $siteDomain = SiteDomain::factory()->createOne([
+        'domain' => 'example.test',
+        'port' => 443,
+        'scheme' => 'https',
+    ]);
+
+    expect($siteDomain->port)->toBeNull()
+        ->and($siteDomain->root_url)->toBe('https://example.test');
+});
+
+it('rejects invalid ports', function (): void {
+    SiteDomain::factory()->createOne(['port' => 65536]);
+})->throws(InvalidArgumentException::class);
+
+it('enforces active routing identities while allowing soft-deleted history', function (): void {
+    $attributes = [
+        'domain' => 'unique.example.test',
+        'path' => '/en',
+        'port' => 8081,
+        'scheme' => 'http',
+    ];
+
+    $first = SiteDomain::factory()->createOne($attributes);
+
+    expect(fn (): SiteDomain => SiteDomain::factory()->createOne($attributes))
+        ->toThrow(QueryException::class);
+
+    $first->delete();
+
+    $replacement = SiteDomain::factory()->createOne($attributes);
+
+    expect($first->fresh()->routing_identity)->toBeNull()
+        ->and($replacement->routing_identity)->toBeString();
 });
 
 it('falls back to the request scheme when no scheme is configured', function (): void {

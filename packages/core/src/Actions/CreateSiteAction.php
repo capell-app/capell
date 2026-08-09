@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\SiteDomains\NormalizeSiteDomainInputAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
@@ -70,18 +71,17 @@ class CreateSiteAction
 
         $url ??= config('app.url');
 
-        $urlParts = parse_url((string) $url);
-
-        $urlParts = is_array($urlParts) ? $urlParts : [];
-
-        $scheme = $urlParts['scheme'] ?? null;
-        $domain = $urlParts['host'] ?? null;
-        $path = isset($urlParts['path']) && $urlParts['path'] !== '' ? '/' . ltrim($urlParts['path'], '/') : null;
+        $domainInput = NormalizeSiteDomainInputAction::run((string) $url);
+        $scheme = $domainInput->scheme;
+        $domain = $domainInput->host;
+        $port = $domainInput->port;
+        $path = $domainInput->persistencePath();
 
         $site->siteDomains()->firstOrCreate(
             [
                 'domain' => $domain,
                 'path' => $path,
+                'port' => $port,
                 'scheme' => $scheme,
             ],
             [
@@ -89,7 +89,7 @@ class CreateSiteAction
             ],
         );
 
-        $languages?->each(function (Language $siteLanguage) use ($domain, $language, $path, $scheme, $site): void {
+        $languages?->each(function (Language $siteLanguage) use ($domain, $language, $path, $port, $scheme, $site): void {
             if ($siteLanguage->id === $language->id) {
                 return;
             }
@@ -109,6 +109,7 @@ class CreateSiteAction
                 ],
                 [
                     'domain' => $domain,
+                    'port' => $port,
                     'scheme' => $scheme,
                     'path' => $siteLanguage->code . ($path === null ? null : '/' . mb_ltrim($path, '/')),
                 ],
@@ -126,14 +127,13 @@ class CreateSiteAction
         $languages ??= collect([$language]);
         $url ??= config('app.url');
 
-        $urlParts = parse_url((string) $url);
-        $urlParts = is_array($urlParts) ? $urlParts : [];
+        $domainInput = NormalizeSiteDomainInputAction::run((string) $url);
+        $scheme = $domainInput->scheme;
+        $domain = $domainInput->host;
+        $port = $domainInput->port;
+        $path = $domainInput->persistencePath();
 
-        $scheme = $urlParts['scheme'] ?? null;
-        $domain = $urlParts['host'] ?? null;
-        $path = isset($urlParts['path']) && $urlParts['path'] !== '' ? '/' . ltrim($urlParts['path'], '/') : null;
-
-        $languages->each(function (Language $siteLanguage) use ($domain, $language, $path, $scheme, $site): void {
+        $languages->each(function (Language $siteLanguage) use ($domain, $language, $path, $port, $scheme, $site): void {
             $site->translations()->firstOrCreate([
                 'language_id' => $siteLanguage->id,
             ], [
@@ -149,6 +149,7 @@ class CreateSiteAction
                 ],
                 [
                     'domain' => $domain,
+                    'port' => $port,
                     'scheme' => $scheme,
                     'path' => $siteLanguage->id === $language->id
                         ? $path

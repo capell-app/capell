@@ -61,6 +61,8 @@ trait HasMigrations
             '2026_08_05_000001_add_auto_update_policy_to_capell_extensions',
             '2026_08_06_000001_add_uuid_to_sites_table',
             '2026_08_06_000002_create_activity_buckets_table',
+            '2026_08_09_000001_add_port_to_site_domains_table',
+            '2026_08_09_000002_enforce_active_site_domain_origin_uniqueness',
         ];
     }
 

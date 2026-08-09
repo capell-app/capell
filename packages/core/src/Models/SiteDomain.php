@@ -6,6 +6,7 @@ namespace Capell\Core\Models;
 
 use Awobaz\Compoships\Compoships;
 use Bkwld\Cloner\Cloneable;
+use Capell\Core\Data\SiteDomains\SiteOriginData;
 use Capell\Core\Database\Factories\SiteDomainFactory;
 use Capell\Core\Models\Concerns\HasDefault;
 use Capell\Core\Models\Concerns\HasStatus;
@@ -14,6 +15,7 @@ use Capell\Core\Models\Contracts\Defaultable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Observers\SiteDomainObserver;
+use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -34,6 +36,8 @@ use Override;
  * @property string|null $domain
  * @property string|null $scheme
  * @property string|null $path
+ * @property int|null $port
+ * @property string|null $routing_identity
  * @property bool $status
  * @property bool $default
  * @property CarbonImmutable|null $deleted_at
@@ -73,6 +77,8 @@ use Override;
  * @method static Builder<static>|SiteDomain whereId($value)
  * @method static Builder<static>|SiteDomain whereLanguageId($value)
  * @method static Builder<static>|SiteDomain wherePath($value)
+ * @method static Builder<static>|SiteDomain wherePort($value)
+ * @method static Builder<static>|SiteDomain whereRoutingIdentity($value)
  * @method static Builder<static>|SiteDomain whereScheme($value)
  * @method static Builder<static>|SiteDomain whereSiteId($value)
  * @method static Builder<static>|SiteDomain whereStatus($value)
@@ -112,6 +118,8 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
         'domain',
         'language_id',
         'path',
+        'port',
+        'routing_identity',
         'scheme',
         'site_id',
         'status',
@@ -121,13 +129,16 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
 
     public function getDomainKey(): string
     {
-        $keys = [
-            is_string($this->scheme) && $this->scheme !== '' ? $this->scheme : 'https',
-            str_replace('.', '-', $this->getResolvedDomain()),
-        ];
+        $origin = $this->resolvedOrigin();
+        $keys = [$origin->scheme, str_replace(['.', ':'], '-', $origin->host)];
 
-        if (is_string($this->path) && $this->path !== '') {
-            $keys[] = str_replace('/', '.', mb_trim($this->path, '/'));
+        if (SiteDomainAddressing::defaultPort($origin->scheme) !== $origin->effectivePort) {
+            $keys[] = (string) $origin->effectivePort;
+        }
+
+        $path = SiteDomainAddressing::normalizePath($this->path);
+        if ($path !== '/') {
+            $keys[] = str_replace('/', '.', mb_trim($path, '/'));
         }
 
         return implode('-', $keys);
@@ -160,7 +171,7 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
     /** @return Attribute<string, never> */
     protected function rootUrl(): Attribute
     {
-        return Attribute::make(get: fn (): string => $this->scheme . '://' . $this->getResolvedDomain());
+        return Attribute::make(get: fn (): string => $this->resolvedOrigin()->rootUrl());
     }
 
     /** @return Attribute<string, never> */
@@ -195,6 +206,7 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
     {
         return [
             'default' => 'boolean',
+            'port' => 'integer',
             'status' => 'boolean',
         ];
     }
@@ -212,5 +224,14 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
         }
 
         return 'path-only';
+    }
+
+    private function resolvedOrigin(): SiteOriginData
+    {
+        $scheme = SiteDomainAddressing::normalizeScheme($this->scheme) ?? 'https';
+        $host = SiteDomainAddressing::normalizeHost($this->getResolvedDomain()) ?? 'path-only';
+        $port = SiteDomainAddressing::effectivePort($scheme, $this->port);
+
+        return new SiteOriginData($scheme, $host, $port);
     }
 }
