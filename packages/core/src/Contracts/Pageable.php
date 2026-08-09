@@ -20,7 +20,11 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
-/** @template TDeclaringModel of Model */
+/**
+ * @template TDeclaringModel of Model
+ *
+ * @phpstan-require-extends Page
+ */
 interface Pageable
 {
     public static function defaultOrdering(): PageOrderEnum;
