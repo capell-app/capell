@@ -1,6 +1,5 @@
 # Docs Ownership Rules
 
-
 Use this checklist before adding or moving documentation.
 
 ## Placement
@@ -17,6 +16,7 @@ Use this checklist before adding or moving documentation.
 
 - Update an existing page before adding a new file.
 - Every doc must be linked from `docs/README.md`, a section index, a package overview, or another doc.
+- Follow the [documentation visual standard](../standards/documentation-visuals.md) for linked originals, captions, theme-aware pairs, ownership, and evidence boundaries.
 - Do not keep "moved" stubs unless an external published URL needs a temporary redirect.
 - Do not document optional package behavior as built-in host behavior.
 - Keep package-specific install commands in the package that owns them.
@@ -34,5 +34,6 @@ Use this checklist before adding or moving documentation.
 ## Next
 
 - [Docs route map](../README.md)
+- [Documentation visuals](../standards/documentation-visuals.md)
 - [Host, package, or app code](package-boundaries.md)
 - [Package authoring](../packages/README.md)
