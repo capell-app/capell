@@ -314,6 +314,29 @@ function checkScreenshotManifests() {
                 invalidProvenance.push(`${manifestPath} -> ${entry.id} -> direct marketing-App source is forbidden`)
             }
 
+            if (entry.acceptedEvidence === true) {
+                if (manifest.provenancePolicy !== 'runner-only-v2') {
+                    invalidProvenance.push(
+                        `${manifestPath} -> ${entry.id} -> accepted evidence requires runner-only-v2`,
+                    )
+                }
+
+                if (entry.scenario === 'static-html') {
+                    invalidProvenance.push(
+                        `${manifestPath} -> ${entry.id} -> static HTML cannot be accepted product evidence`,
+                    )
+                }
+
+                if (
+                    typeof entry.receiptPath !== 'string' ||
+                    entry.receiptPath === ''
+                ) {
+                    invalidProvenance.push(
+                        `${manifestPath} -> ${entry.id} -> accepted evidence requires a durable receiptPath`,
+                    )
+                }
+            }
+
             if (
                 entry.required === true &&
                 outputPath &&
