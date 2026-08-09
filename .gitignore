@@ -79,6 +79,10 @@ playwright-report/
 blob-report/
 .playwright/
 /.pest/
+*.failed.html
+*.failed.json
+*.failed.png
+*.trace.zip
 
 # Analysis
 .phpstan.result.cache
