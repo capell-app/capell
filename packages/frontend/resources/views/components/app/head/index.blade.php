@@ -173,9 +173,15 @@
 <head>
     <meta charset="utf-8" />
 
-    <title>
-        @yield('meta_title', trans(strip_tags($title), $translationVariables))
-    </title>
+    @php
+        $metaTitle = trans(strip_tags($title), $translationVariables);
+
+        if (isset($__env) && $__env->hasSection('meta_title')) {
+            $metaTitle = $__env->yieldContent('meta_title', $metaTitle);
+        }
+    @endphp
+
+    <title>{{ $metaTitle }}</title>
 
     <base href="{{ $siteDomain?->full_url }}" />
 

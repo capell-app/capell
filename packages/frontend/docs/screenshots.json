@@ -18,7 +18,7 @@
             "docsPage": "packages/frontend/docs/overview.md",
             "output": "packages/frontend/docs/images/screenshots/frontend-published-page.png",
             "required": true,
-            "notes": "Resolved by the deployment screenshot runner after demo content is prepared.",
+            "notes": "Resolved by the deployment screenshot runner against the seeded published Welcome page.",
             "sameCaptureAs": "frontend-published-page"
         },
         {

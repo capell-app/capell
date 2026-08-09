@@ -42,7 +42,7 @@
             "targetType": "admin-surface",
             "target": "PageResource",
             "scenario": "admin-index",
-            "url": "/screenshot-fixtures/record-states/pages",
+            "url": "/pages",
             "waitFor": "tr:has-text('Scheduled page without an active URL'):has-text('Scheduled'):has-text('No active URL')",
             "interactions": [
                 {
@@ -53,7 +53,7 @@
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-pages-list.png",
             "required": true,
-            "notes": "Uses the request-time fixture at the real Pages resource URL to show a scheduled page whose only public URL is disabled."
+            "notes": "Uses deterministic local seed data at the real Pages resource URL to show a scheduled page whose only public URL is disabled."
         },
         {
             "id": "admin-layouts-list",
@@ -63,7 +63,7 @@
             "targetType": "admin-surface",
             "target": "LayoutResource",
             "scenario": "admin-index",
-            "url": "/screenshot-fixtures/record-states/layouts",
+            "url": "/layouts",
             "waitFor": ".capell-layout-card-record:has-text('Disabled unused layout'):has-text('Disabled'):has-text('Unused layout')",
             "interactions": [
                 {
@@ -74,7 +74,7 @@
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-layouts-list.png",
             "required": false,
-            "notes": "Uses the request-time fixture at the real Layouts resource URL to show a disabled layout with no page uses.",
+            "notes": "Uses deterministic local seed data at the real Layouts resource URL to show a disabled layout with no page uses.",
             "covers": [
                 "packages/admin/src/Filament/Resources/Layouts/Tables/LayoutsTable.php"
             ]
@@ -87,22 +87,22 @@
             "targetType": "admin-surface",
             "target": "MediaResource",
             "scenario": "admin-index",
-            "url": "/screenshot-fixtures/record-states/media",
+            "url": "/media",
             "waitFor": ".fi-ta",
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-ta-row:has-text('unused-screenshot-fixture.jpg'):has-text('No tracked uses')"
+                    "selector": ".fi-ta-row:has-text('capell-logo-reference.png'):has-text('No tracked uses')"
                 },
                 {
                     "type": "scrollIntoView",
-                    "selector": ".fi-ta-row:has-text('unused-screenshot-fixture.jpg'):has-text('No tracked uses')"
+                    "selector": ".fi-ta-row:has-text('capell-logo-reference.png'):has-text('No tracked uses')"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-list.png",
             "required": true,
-            "notes": "Uses the request-time fixture at the real Media resource URL to show an asset with zero tracked usage."
+            "notes": "Uses deterministic local seed data at the real Media resource URL to show an asset with zero tracked usage."
         },
         {
             "id": "admin-media-edit-focal-point",
@@ -112,12 +112,12 @@
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
             "scenario": "admin-index",
-            "url": "/screenshot-fixtures/record-states/media-editor",
+            "url": "/media/{first-record}/edit",
             "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Crop and focal point'))",
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-edit-focal-point.png",
             "required": false,
-            "notes": "Optional crop-tab capture at the real Media edit URL, backed by the zero-tracked-usage fixture."
+            "notes": "Optional crop-tab capture at the real Media edit URL, backed by deterministic local zero-tracked-usage seed data."
         },
         {
             "id": "admin-media-edit-localized-metadata",
@@ -127,7 +127,7 @@
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
             "scenario": "admin-index",
-            "url": "/screenshot-fixtures/record-states/media-editor",
+            "url": "/media/{first-record}/edit",
             "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Metadata'))",
             "beforeWait": [
                 {
@@ -148,7 +148,7 @@
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata.png",
             "required": false,
-            "notes": "Optional metadata-tab capture at the real Media edit URL, including the zero tracked usage state."
+            "notes": "Optional metadata-tab capture at the real Media edit URL, including the deterministic local zero-tracked-usage state."
         },
         {
             "id": "admin-page-layout-select-record-states",
@@ -158,7 +158,7 @@
             "targetType": "admin-surface",
             "target": "PageResource/EditPage/LayoutSelect",
             "scenario": "admin-index",
-            "url": "/screenshot-fixtures/record-states/page-editor",
+            "url": "/pages/{first-record}/edit",
             "waitFor": ".fi-select-input-option:has(.select-option-label)",
             "beforeWait": [
                 {
@@ -209,7 +209,7 @@
             "targetType": "admin-surface",
             "target": "PageResource/EditPage/EventSourcedHistoryRelationManager",
             "scenario": "admin-index",
-            "url": "/screenshot-fixtures/page-history",
+            "url": "/pages/{first-record}/edit",
             "waitFor": "button[wire\\:click*='rollback']",
             "beforeWait": [
                 {
@@ -240,7 +240,7 @@
             "targetType": "admin-action-modal",
             "target": "EventSourcedHistoryRelationManager/rollback",
             "scenario": "admin-index",
-            "url": "/screenshot-fixtures/page-history",
+            "url": "/pages/{first-record}/edit",
             "waitFor": ".fi-modal-open",
             "beforeWait": [
                 {
@@ -271,7 +271,7 @@
             "output": "packages/admin/docs/images/screenshots/admin-media-ai-doctor-image.png",
             "required": false,
             "notes": "Optional until the manifest grows action-dialog steps; points at the media surface used by Media AIOrchestrator.",
-            "sameCaptureAs": "admin-media-library"
+            "sameCaptureAs": "admin-media-list"
         }
     ]
 }

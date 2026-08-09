@@ -22,13 +22,17 @@ Marketplace extends these Capell surfaces:
 
 ## Screens And Workflow
 
-![Marketplace extensions page](images/screenshots/marketplace-extensions-page.png)
+Select any screenshot to open the full-resolution image.
 
-![Extension update advisories](images/screenshots/extension-update-advisories.png)
+| Extensions                                                                                                                                                             | Update advisories                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [![Marketplace extensions page](images/screenshots/marketplace-extensions-page.png)](images/screenshots/marketplace-extensions-page.png)                               | [![Extension update advisories](images/screenshots/extension-update-advisories.png)](images/screenshots/extension-update-advisories.png)                                             |
+| **Extension overview**                                                                                                                                                 | **Documentation and access**                                                                                                                                                         |
+| [![Marketplace extension detail overview](images/screenshots/marketplace-extension-detail-overview.png)](images/screenshots/marketplace-extension-detail-overview.png) | [![Marketplace extension docs and access](images/screenshots/marketplace-extension-detail-docs-and-access.png)](images/screenshots/marketplace-extension-detail-docs-and-access.png) |
 
-![Marketplace extension detail overview](images/screenshots/marketplace-extension-detail-overview.png)
+### Responsive extension detail
 
-![Marketplace extension docs and access](images/screenshots/marketplace-extension-detail-docs-and-access.png)
+[![Marketplace extension detail on mobile](images/screenshots/marketplace-extension-detail-mobile.png)](images/screenshots/marketplace-extension-detail-mobile.png)
 
 Screenshot contract:
 

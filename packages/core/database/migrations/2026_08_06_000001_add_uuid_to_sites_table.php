@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 
 return new class extends Migration
 {
+    /** @contract-migration-approved Column redefined via ->change() only to tighten nullability after the uuid backfill loop above has populated every row; no data is dropped. */
     public function up(): void
     {
         Schema::table('sites', function (Blueprint $table): void {

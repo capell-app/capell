@@ -24,9 +24,11 @@ Frontend extends these Capell surfaces:
 
 ## Screens And Workflow
 
-![Published Capell frontend page](images/screenshots/frontend-published-page.png)
+Select either screenshot to open the full-resolution image.
 
-![Frontend settings in the Capell admin](images/screenshots/frontend-settings.png)
+| Published page                                                                                                                      | Frontend settings                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| [![Published Capell frontend page](images/screenshots/frontend-published-page.png)](images/screenshots/frontend-published-page.png) | [![Frontend settings in the Capell admin](images/screenshots/frontend-settings.png)](images/screenshots/frontend-settings.png) |
 
 Screenshot contract:
 

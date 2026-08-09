@@ -31,6 +31,28 @@ it('registers an existing component directory for Blaze compilation', function (
     expect(resolve(BlazeConfig::class)->shouldFold($directory . '/button.blade.php'))->toBeFalse();
 });
 
+it('uses the standard Blade compiler for views with PHP namespace declarations', function (): void {
+    $directory = storage_path('framework/testing/blaze/php-components');
+    File::ensureDirectoryExists($directory);
+    File::put($directory . '/page.blade.php', <<<'BLADE'
+<?php
+
+declare(strict_types=1);
+use Illuminate\Support\Str;
+
+$label = Str::upper('page');
+?>
+<span>{{ $label }}</span>
+BLADE);
+
+    config()->set('capell.blaze.enabled', true);
+
+    $registered = RegisterBlazeOptimizedViewsAction::run($directory);
+
+    expect($registered)->toBeTrue();
+    expect(resolve(BlazeConfig::class)->shouldCompile($directory . '/page.blade.php'))->toBeFalse();
+});
+
 it('can opt a directory into memoization without folding', function (): void {
     $directory = storage_path('framework/testing/blaze/memo-components');
     File::ensureDirectoryExists($directory);

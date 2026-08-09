@@ -23,9 +23,11 @@ Installer extends these Capell surfaces:
 
 ## Screens And Workflow
 
-![Capell install page](images/screenshots/install-capell-page.png)
+Select either screenshot to open the full-resolution image.
 
-![Capell install guide page](images/screenshots/install-guide-page.png)
+| Installer                                                                                                        | Install guide                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| [![Capell install page](images/screenshots/install-capell-page.png)](images/screenshots/install-capell-page.png) | [![Capell install guide page](images/screenshots/install-guide-page.png)](images/screenshots/install-guide-page.png) |
 
 Screenshot contract:
 

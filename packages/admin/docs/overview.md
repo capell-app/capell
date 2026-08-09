@@ -22,13 +22,29 @@ Admin extends these Capell surfaces:
 
 ## Screens And Workflow
 
-![Capell admin dashboard](images/screenshots/admin-dashboard.png)
+Select any screenshot to open the full-resolution image.
 
-![Capell pages list](images/screenshots/admin-pages-list.png)
+| Dashboard                                                                                                   | Pages                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [![Capell admin dashboard](images/screenshots/admin-dashboard.png)](images/screenshots/admin-dashboard.png) | [![Capell pages list](images/screenshots/admin-pages-list.png)](images/screenshots/admin-pages-list.png)       |
+| **Media library**                                                                                           | **Site Health**                                                                                                |
+| [![Capell media library](images/screenshots/admin-media-list.png)](images/screenshots/admin-media-list.png) | [![Capell Site Health page](images/screenshots/site-health-page.png)](images/screenshots/site-health-page.png) |
 
-![Capell media library](images/screenshots/admin-media-list.png)
+### Publishing workflow
 
-![Capell Site Health page](images/screenshots/site-health-page.png)
+| Page status                                                                                                              | Bulk publishing                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![Page publish status panel](images/screenshots/publish-status-panel.png)](images/screenshots/publish-status-panel.png) | [![Bulk publish pages action](images/screenshots/bulk-publish-pages.png)](images/screenshots/bulk-publish-pages.png)                           |
+| **Page history**                                                                                                         | **Rollback preview**                                                                                                                           |
+| [![Page history timeline](images/screenshots/page-history-timeline.png)](images/screenshots/page-history-timeline.png)   | [![Page history rollback preview](images/screenshots/page-history-rollback-preview.png)](images/screenshots/page-history-rollback-preview.png) |
+
+### Media workflow
+
+| Replace an upload                                                                                                                                    | Set a focal point                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![Replace a media upload](images/screenshots/06-media-replace-upload.png)](images/screenshots/06-media-replace-upload.png)                          | [![Set a media focal point](images/screenshots/07-media-edit-focal-point.png)](images/screenshots/07-media-edit-focal-point.png)            |
+| **Localized metadata**                                                                                                                               | **Frontend rendering**                                                                                                                      |
+| [![Edit localized media metadata](images/screenshots/08-media-edit-localized-metadata.png)](images/screenshots/08-media-edit-localized-metadata.png) | [![Rendered media on the frontend](images/screenshots/10-frontend-media-rendering.png)](images/screenshots/10-frontend-media-rendering.png) |
 
 Screenshot contract:
 

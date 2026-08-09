@@ -7,3 +7,4 @@ packages/**/publishes/build/**
 tests/.pest/snapshots/
 # Signed Project Build fixtures are byte-addressed by digest.
 packages/core/tests/fixtures/project-build/artifacts/site-spec.json
+**/*.failed.json

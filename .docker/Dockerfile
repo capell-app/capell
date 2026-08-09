@@ -37,8 +37,11 @@ COPY start-container /usr/local/bin/start-container
 COPY php/php.ini /etc/php/8.4/cli/conf.d/99-capell.ini
 COPY php/xdebug.ini /etc/php/8.4/mods-available/xdebug.ini
 
+# current/var is pre-created so the named volume that masks it inherits
+# capell ownership; Docker would otherwise create that mount point as root
+# and the tool caches written there would fail. See docker-compose.yml.
 RUN chmod +x /usr/local/bin/start-container \
-    && mkdir -p /home/capell/.config/composer /home/capell/.npm \
+    && mkdir -p /home/capell/.config/composer /home/capell/.npm /home/capell/current/var \
     && chown -R capell:capell /home/capell
 
 WORKDIR /home/capell/current

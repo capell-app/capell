@@ -1,3 +1,4 @@
+{{-- @blaze-standard-compiler --}}
 @if ($isSystemPageLayout())
     <div
         {{ $attributes->merge(['class' => 'capell-component capell-layout-index flex min-h-screen flex-col bg-slate-50 text-slate-950']) }}

@@ -9,6 +9,11 @@ services:
         WWWUSER: '${WWWUSER:-1000}'
     volumes:
       - .:/home/capell/current
+      # Keep container tool caches off the bind mount. PHPStan and Rector store
+      # absolute paths in var/, and the container sees this repo as
+      # /home/capell/current while the host sees /Users/... — sharing one var/
+      # makes whichever ran last poison the other with unresolvable paths.
+      - capell-var:/home/capell/current/var
       - ~/.ssh:/home/capell/.ssh:ro
       - ~/.config/composer:/home/capell/.config/composer
     environment:
@@ -98,6 +103,8 @@ networks:
   capell-network:
 
 volumes:
+  capell-var:
+    driver: local
   mysql-data:
     driver: local
   redis-data:
