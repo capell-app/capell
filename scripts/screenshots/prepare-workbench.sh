@@ -4,11 +4,9 @@ set -euo pipefail
 
 REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP_URL="${CAPELL_FRONTEND_URL:-http://127.0.0.1:8145}"
-# The site's own domain is what Filament renders in the page URL badge and slug
-# field, so it decides what published documentation shows. Seed it with a real
-# domain rather than localhost. The app is still SERVED from APP_URL; the runner
-# maps requests for this origin back to the local one and never contacts it.
-DISPLAY_URL="${CAPELL_SCREENSHOT_DISPLAY_ORIGIN:-https://capell.app}"
+# The runner's isolated origin is rendered into the page URL badge and slug
+# field. Direct marketing-App origins are not accepted screenshot evidence.
+DISPLAY_URL="${CAPELL_SCREENSHOT_DISPLAY_ORIGIN:-http://127.0.0.1:8145}"
 DATABASE_PATH="${REPOSITORY_ROOT}/workbench/database/screenshots.sqlite"
 
 cd "${REPOSITORY_ROOT}"
