@@ -275,6 +275,7 @@ function manifestOutputPath(manifest, entry) {
 function checkScreenshotManifests() {
     const missingManifestOutputs = []
     const duplicateManifestIds = []
+    const invalidProvenance = []
 
     for (const manifestPath of screenshotManifests) {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
@@ -296,6 +297,10 @@ function checkScreenshotManifests() {
                 .at(0) ?? process.cwd()
         const ids = new Set()
 
+        if (manifest.generatedFor !== 'shared-capell-screenshot-runner' || manifest.provenancePolicy !== 'runner-only-v1') {
+            invalidProvenance.push(`${manifestPath} -> manifest must declare shared-capell-screenshot-runner / runner-only-v1`)
+        }
+
         for (const entry of manifest.entries ?? []) {
             if (ids.has(entry.id)) {
                 duplicateManifestIds.push(`${manifestPath} -> ${entry.id}`)
@@ -304,6 +309,10 @@ function checkScreenshotManifests() {
             ids.add(entry.id)
 
             const outputPath = manifestOutputPath(manifest, entry)
+
+            if (typeof entry.source === 'string' && /capell\.app|marketing/i.test(entry.source)) {
+                invalidProvenance.push(`${manifestPath} -> ${entry.id} -> direct marketing-App source is forbidden`)
+            }
 
             if (
                 entry.required === true &&
@@ -317,7 +326,7 @@ function checkScreenshotManifests() {
         }
     }
 
-    return { missingManifestOutputs, duplicateManifestIds }
+    return { missingManifestOutputs, duplicateManifestIds, invalidProvenance }
 }
 
 const markdownResult = checkMarkdownVisuals()
@@ -331,6 +340,7 @@ const failures = [
         manifestResult.missingManifestOutputs,
     ],
     ['Duplicate manifest IDs', manifestResult.duplicateManifestIds],
+    ['Invalid screenshot provenance declarations', manifestResult.invalidProvenance],
 ].filter(([, entries]) => entries.length > 0)
 
 if (failures.length > 0) {

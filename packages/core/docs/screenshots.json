@@ -1,7 +1,8 @@
 {
     "package": "core",
     "composerName": "capell-app/core",
-    "generatedFor": "deployment-screenshot-runner",
+    "generatedFor": "shared-capell-screenshot-runner",
+    "provenancePolicy": "runner-only-v1",
     "requiresInstalledPackage": true,
     "outputDirectory": "packages/core/docs/images/screenshots",
     "entries": [
