@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict')
 const test = require('node:test')
 
-const { coreRunnerArguments } = require('./run-core-screenshots')
+const { coreRunnerArguments, runnerCliPath } = require('./run-core-screenshots')
 
 test('scopes screenshot discovery to the Core repository', () => {
     assert.deepEqual(
@@ -23,6 +23,19 @@ test('scopes screenshot discovery to the Core repository', () => {
             'core',
         ],
     )
+})
+
+test('uses the explicit isolated shared runner when configured', () => {
+    const previous = process.env.CAPELL_SCREENSHOT_RUNNER_PATH
+    process.env.CAPELL_SCREENSHOT_RUNNER_PATH = '/tmp/capell-screenshot-runner'
+
+    assert.equal(
+        runnerCliPath(),
+        '/tmp/capell-screenshot-runner/src/cli.mjs',
+    )
+
+    if (previous === undefined) delete process.env.CAPELL_SCREENSHOT_RUNNER_PATH
+    else process.env.CAPELL_SCREENSHOT_RUNNER_PATH = previous
 })
 
 test('always passes the config, since the runner ignores it otherwise', () => {

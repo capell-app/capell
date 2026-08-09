@@ -10,7 +10,7 @@ const appUrl = 'http://127.0.0.1:8145'
 // domain; the runner serves every request for it from appUrl and aborts rather
 // than ever contacting the real host.
 const displayUrl =
-    process.env.CAPELL_SCREENSHOT_DISPLAY_ORIGIN ?? 'https://capell.app'
+    process.env.CAPELL_SCREENSHOT_DISPLAY_ORIGIN ?? 'http://127.0.0.1:8145'
 
 export default {
     schemaVersion: 1,
