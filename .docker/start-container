@@ -27,9 +27,14 @@ for user in root capell; do
     trust_git_directory "$user" /Users/ben/Sites/packages/capell/capell-packages-4
 done
 
-mkdir -p /home/capell/.config/composer /home/capell/.npm
+mkdir -p /home/capell/.config/composer /home/capell/.npm /home/capell/current/var
 mkdir -p /home/capell/current/bootstrap/cache /home/capell/current/database/migrations /home/capell/current/database/settings /home/capell/current/public/page-cache /home/capell/current/public/vendor /home/capell/current/storage/framework/cache/data /home/capell/current/storage/framework/sessions /home/capell/current/storage/framework/views /home/capell/current/storage/logs
 chown "${WWWUSER:-1000}:capell" /home/capell
+# var/ is a named volume (see docker-compose.yml) holding the container's own
+# PHPStan/Rector caches. Only the mount point needs fixing: it can be created
+# root-owned, and WWWUSER may have been remapped above, but everything written
+# inside it inherits the capell user, so no -R over a large cache tree.
+chown "${WWWUSER:-1000}:capell" /home/capell/current/var
 chown -R "${WWWUSER:-1000}:capell" /home/capell/.npm
 chown "${WWWUSER:-1000}:capell" /home/capell/.config 2>/dev/null || true
 chown -R "${WWWUSER:-1000}:capell" /home/capell/.config/composer 2>/dev/null || true
