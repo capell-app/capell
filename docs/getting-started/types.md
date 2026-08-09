@@ -28,19 +28,19 @@ That vocabulary keeps the editor-facing model simple without hiding the fact tha
 
 Core blueprints are quiet by design. They define structure and behaviour, not a finished brand.
 
-| Variation      | Family         | Short description                                                            |
-| -------------- | -------------- | ---------------------------------------------------------------------------- |
-| Default        | Page blueprint | A flexible page for ordinary content, landing pages, and simple publishing.  |
-| Home           | Page blueprint | The main entry page for a site, usually excluded from listings.              |
-| Page not found | Page blueprint | A fixed system page for missing URLs and not-found responses.                |
-| Maintenance    | Page blueprint | A fixed system page shown while a site or route is unavailable.              |
-| System         | Page blueprint | A protected page for internal, generated, or non-editorial output.           |
-| Default        | Site blueprint | The baseline site setup for domains, languages, pages, settings, and theme.  |
-| Default        | Theme blueprint| The baseline theme record used when a site has no specialist theme.          |
-| Default        | Layout         | A general-purpose layout for standard pages and content-led views.           |
-| Home           | Layout         | A homepage layout for the main site entry point and high-level content.      |
-| Results        | Layout         | A listing layout for search results, indexes, and grouped content.           |
-| System page    | Layout         | A locked layout for fixed system pages that should not use the page builder. |
+| Variation      | Family          | Short description                                                            |
+| -------------- | --------------- | ---------------------------------------------------------------------------- |
+| Default        | Page blueprint  | A flexible page for ordinary content, landing pages, and simple publishing.  |
+| Home           | Page blueprint  | The main entry page for a site, usually excluded from listings.              |
+| Page not found | Page blueprint  | A fixed system page for missing URLs and not-found responses.                |
+| Maintenance    | Page blueprint  | A fixed system page shown while a site or route is unavailable.              |
+| System         | Page blueprint  | A protected page for internal, generated, or non-editorial output.           |
+| Default        | Site blueprint  | The baseline site setup for domains, languages, pages, settings, and theme.  |
+| Default        | Theme blueprint | The baseline theme record used when a site has no specialist theme.          |
+| Default        | Layout          | A general-purpose layout for standard pages and content-led views.           |
+| Home           | Layout          | A homepage layout for the main site entry point and high-level content.      |
+| Results        | Layout          | A listing layout for search results, indexes, and grouped content.           |
+| System page    | Layout          | A locked layout for fixed system pages that should not use the page builder. |
 
 The important difference: a page blueprint controls what a page is allowed to do. A layout controls where page content appears. A theme blueprint controls how the finished page looks. (Here "layout" means the core [`Layout`](../reference/glossary.md#developer-terms) template a page renders into, not the ContentSections Layout Builder blocks.)
 
@@ -77,15 +77,23 @@ Choosing or creating a blueprint changes the editing experience and the runtime 
 
 The page create form is the clearest first example. Changing the page blueprint can change the editor fields and page behaviour. Changing the layout controls the frontend composition used by that page.
 
-![The layout and publish timing fields](../images/generated/admin/first-page-layout-publish-fields.png)
+[![The layout and publish timing fields](../images/generated/admin/first-page-layout-publish-fields.png)](../images/generated/admin/first-page-layout-publish-fields.png)
 
 Blueprint-specific fields can also appear in expandable sections or package-provided areas. A standard page might show summary and CTA fields. A specialist page blueprint can expose richer structured fields through its configurator or package extenders.
 
-![The Extra Content section on the page form](../images/generated/admin/first-page-extra-content.png)
+[![The Extra Content section on the page form](../images/generated/admin/first-page-extra-content.png)](../images/generated/admin/first-page-extra-content.png)
 
 ## Blueprint Configuration
 
 The Blueprints screen groups records by model family, such as pages, sites, themes, sections, and widgets. Each blueprint has a unique key used by configuration, templates, URL generation, and package integrations.
+
+| Browse blueprint families                                                                                                                                                                                                                                                                                                                                                                                                            | Define a blueprint                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/types-list-dark.png"><img src="../images/generated/admin/types-list.png" alt="Blueprints list grouped by page, site, and theme families"></picture><br>[Light](../images/generated/admin/types-list.png) · [Dark](../images/generated/admin/types-list-dark.png)                                                                             | <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/types-definition-dark.png"><img src="../images/generated/admin/types-definition.png" alt="Create Blueprint form with basic and custom creation modes"></picture><br>[Light](../images/generated/admin/types-definition.png) · [Dark](../images/generated/admin/types-definition-dark.png)                                                 |
+| **Configure frontend behaviour**                                                                                                                                                                                                                                                                                                                                                                                                     | **Configure the editor**                                                                                                                                                                                                                                                                                                                                                                                                          |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/types-page-frontend-settings-dark.png"><img src="../images/generated/admin/types-page-frontend-settings.png" alt="Page blueprint Frontend tab with rendering and cache controls"></picture><br>[Light](../images/generated/admin/types-page-frontend-settings.png) · [Dark](../images/generated/admin/types-page-frontend-settings-dark.png) | <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/types-page-admin-settings-dark.png"><img src="../images/generated/admin/types-page-admin-settings.png" alt="Page blueprint Admin tab with blueprint and form configurator controls"></picture><br>[Light](../images/generated/admin/types-page-admin-settings.png) · [Dark](../images/generated/admin/types-page-admin-settings-dark.png) |
+
+_The UI calls these records blueprints. Type-oriented names remain in compatibility APIs and lower-level contracts, but they refer to the subject a blueprint configures rather than a separate editor concept._
 
 For page blueprints, the frontend tab controls rendering and public behaviour. This is where a blueprint can choose the page component, cache behaviour, URL accessibility, listing visibility, sitemap inclusion, previous/next linking, and whether editors may change the layout on pages using that blueprint.
 

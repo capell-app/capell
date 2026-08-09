@@ -2,7 +2,7 @@
 
 This guide installs the current 1.x Capell foundation into a Laravel application. Use the Installer package for the normal path: it selects and requires the public packages, runs their lifecycle commands, configures Admin and Frontend, creates the first site and user, and refuses to report success when required health checks fail.
 
-![Capell guided installer showing environment and package checks](../images/generated/package-surfaces/install-guide-page.png)
+[![Capell guided installer showing environment and package checks](../images/generated/package-surfaces/install-guide-page.png)](../images/generated/package-surfaces/install-guide-page.png)
 
 Use the [Quickstart](quickstart.md) for a disposable demo. For an existing application, start at [Existing Laravel applications](#existing-laravel-applications).
 
@@ -147,7 +147,14 @@ Run the Laravel application with your normal local workflow, then open:
 - `/admin` for the admin where editors work;
 - `/` for the Capell-owned public page when the welcome route was replaced.
 
-![Capell Pages list after a healthy install](../images/admin-pages-list.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/admin-pages-list-dark.png">
+  <img src="../images/admin-pages-list.png" alt="Pages list after a healthy install with page state and actions available">
+</picture>
+
+[Light](../images/admin-pages-list.png) · [Dark](../images/admin-pages-list-dark.png)
+
+_A healthy install reaches the styled Pages resource with the expected records, state, and actions; this is separate from command success alone._
 
 Sign in with the created administrator, open **Pages**, save and publish a small change, and confirm the public URL updates. Continue with [Create your first page](create-your-first-page.md).
 

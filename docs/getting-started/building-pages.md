@@ -4,7 +4,7 @@ Start with the smallest page-building path that gives editors what they need. Mo
 
 A page does not have a direct `view_file` override. Give one page a custom Blade implementation by assigning it a dedicated layout with `master_file` and, where needed, `layout_file`. A widget can use its own `view_file`.
 
-![Diagram showing the progression from an HTML page body, through content blocks and Layout Builder widgets, to a dedicated Blade layout.](../images/generated/page-building-continuum.webp)
+[![Diagram showing the progression from an HTML page body, through content blocks and Layout Builder widgets, to a dedicated Blade layout.](../images/generated/page-building-continuum.webp)](../images/generated/page-building-continuum.webp)
 
 The diagram is an explanatory illustration, not a product screenshot. The screenshots below show real Capell admin surfaces.
 
@@ -23,7 +23,7 @@ The page type supplies the default. A page can opt out for its own body with `co
 
 Use HTML content for ordinary prose: headings, paragraphs, lists, links, and a page body that does not need editor-managed modules. It is the normal starting point for a simple About, policy, or contact page.
 
-![Capell's standard page content editor for writing a normal HTML page body.](../images/generated/admin/first-page-content-editor.png)
+[![Capell's standard page content editor for writing a normal HTML page body.](../images/generated/admin/first-page-content-editor.png)](../images/generated/admin/first-page-content-editor.png)
 
 _The standard page content editor. Its rich-text body is the smallest authoring surface for ordinary prose._
 
@@ -37,9 +37,11 @@ Move to blocks when a page body needs typed, reorderable units. The page type ca
 
 Blocks are a body-authoring choice, not a replacement for a page layout. Use the package-owned [Block Library documentation](https://docs.capell.app/packages/block-library) for available block types and custom block implementation details.
 
-![Capell's real Blocks editor with a typed content block and controls for configuring, cloning, and reordering it.](../images/generated/page-building-blocks-editor.png)
+| Work with a configured block                                                                                                                                                                                     | Add another typed block                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [![Blocks editor with a typed content block and controls for configuring, cloning, and reordering it](../images/generated/page-building-blocks-editor.png)](../images/generated/page-building-blocks-editor.png) | [![Blocks editor add menu offering Cards, Content, and Split image and HTML blocks](../../packages/admin/docs/images/screenshots/content-builder.png)](../../packages/admin/docs/images/screenshots/content-builder.png) |
 
-_The Blocks page-body editor on a page whose `content_structure_override` is Blocks. Each visible item is a typed content block; the editor can add, configure, clone, and reorder those items without opening Layout Builder._
+_The first screen proves block-level editing and ordering. The second proves that editors add from registered block types without opening Layout Builder._
 
 ## 3. Layout Builder widgets
 

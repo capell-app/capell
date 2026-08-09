@@ -114,13 +114,20 @@ Open:
 
 The Admin package should present a styled Pages workspace—not an unstyled Laravel or Filament shell:
 
-![Capell Pages list with seeded pages and publish status](../images/admin-pages-list.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/admin-pages-list-dark.png">
+  <img src="../images/admin-pages-list.png" alt="Pages list with seeded pages, publish status, page types, and actions">
+</picture>
+
+[Light](../images/admin-pages-list.png) · [Dark](../images/admin-pages-list-dark.png)
+
+_The seeded Pages workspace proves the Admin package, demo records, permissions, and Filament styling are working together._
 
 ## 4. Publish and recover one change
 
 In **Pages**, open a seeded page, change a short piece of text, and save it. Preview the page, publish the change, then confirm the public URL shows it.
 
-![Capell page editor with content and publishing controls](../images/generated/admin/admin-page-edit-form.png)
+[![Capell page editor with content and publishing controls](../images/generated/admin/admin-page-edit-form.png)](../images/generated/admin/admin-page-edit-form.png)
 
 Open the page's history relation after the save. Inspect the before/after change, preview a rollback, and cancel it unless you deliberately want to test page-only recovery. Page rollback restores the page and its owned content relationships; it does not restore the application database, media store, analytics counters, or infrastructure.
 
