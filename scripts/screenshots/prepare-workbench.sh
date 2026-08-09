@@ -93,3 +93,9 @@ php vendor/bin/testbench filament:assets
 # admin captures are actually styled — a stub theme.css renders every admin
 # page without panel CSS and the runner's stylesheet guard aborts the capture.
 node scripts/screenshots/build-filament-theme-css.mjs
+
+# The frontend installer generates a Tailwind input under resources/css, but a
+# browser cannot load that source path directly. Compile it to a stable public
+# fixture asset before the frontend screenshot seed binds the default theme to
+# it. This does not turn generated CSS into route-backed screenshot evidence.
+node scripts/screenshots/build-frontend-theme-css.mjs

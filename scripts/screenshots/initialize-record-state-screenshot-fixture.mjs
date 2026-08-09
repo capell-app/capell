@@ -22,7 +22,50 @@ function hasPageHistorySeed(entries) {
 }
 
 function hasFrontendPublishedPageSeed(entries) {
-    return entries.some((entry) => entry.id === 'frontend-published-page')
+    return entries.some((entry) =>
+        entry.id.startsWith('frontend-published-page'),
+    )
+}
+
+function frontendSeedCommand(frontendOrigin) {
+    const origin = new URL(frontendOrigin)
+    const localHostnames = new Set(['127.0.0.1', '::1', '[::1]', 'localhost'])
+
+    if (!localHostnames.has(origin.hostname)) {
+        throw new Error(
+            `Frontend screenshot fixtures require a local origin, received ${origin.origin}.`,
+        )
+    }
+
+    return `Workbench\\App\\Support\\FrontendScreenshotSeed::initialize(${JSON.stringify(origin.origin)});`
+}
+
+export function commandsForEntries(entries, frontendOrigin = null) {
+    const commands = []
+
+    if (hasRecordStateSeed(entries)) {
+        commands.push(
+            'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+        )
+    }
+
+    if (hasPageHistorySeed(entries)) {
+        commands.push('Workbench\\App\\Support\\PageHistoryFixture::editUrl();')
+    }
+
+    if (hasFrontendPublishedPageSeed(entries)) {
+        commands.push(frontendSeedCommand(frontendOrigin))
+    }
+
+    return commands
+}
+
+export function fixtureEnvironment(config, processEnvironment = process.env) {
+    return {
+        ...processEnvironment,
+        ...(config.environment ?? {}),
+        ...(config.serve?.environment ?? {}),
+    }
 }
 
 function initializeFixture(config, command) {
@@ -39,11 +82,7 @@ function initializeFixture(config, command) {
             ],
             {
                 cwd: config.appPath,
-                env: {
-                    ...process.env,
-                    ...(config.environment ?? {}),
-                    ...(config.serve?.environment ?? {}),
-                },
+                env: fixtureEnvironment(config),
                 stdio: 'inherit',
             },
         )
@@ -58,29 +97,18 @@ function initializeFixture(config, command) {
 
             rejectPromise(
                 new Error(
-                    `Could not initialize the record-state screenshot fixture (exit ${code ?? 'unknown'}).`,
+                    `Could not initialize the selected screenshot fixtures (exit ${code ?? 'unknown'}).`,
                 ),
             )
         })
     })
 }
 
-export default async function preCaptureRecordStateFixture({ config, entries }) {
-    const commands = []
-
-    if (hasRecordStateSeed(entries)) {
-        commands.push(
-            'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
-        )
-    }
-
-    if (hasPageHistorySeed(entries)) {
-        commands.push('Workbench\\App\\Support\\PageHistoryFixture::editUrl();')
-    }
-
-    if (hasFrontendPublishedPageSeed(entries)) {
-        commands.push('Workbench\\App\\Support\\FrontendScreenshotSeed::initialize();')
-    }
+export default async function preCaptureRecordStateFixture({
+    config,
+    entries,
+}) {
+    const commands = commandsForEntries(entries, config.frontendUrl)
 
     if (commands.length === 0) {
         return

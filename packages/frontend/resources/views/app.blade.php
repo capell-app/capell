@@ -31,6 +31,7 @@
     />
 
     <x-capell::app.body
+        body-class="capell-default-theme"
         :layout="$layout"
         :language="$language"
         :page-record="$pageRecord"

@@ -4,6 +4,12 @@ This guide explains the practical shape of Capell Frontend: how requests resolve
 
 ![Rendered Capell frontend page](../images/generated/package-surfaces/frontend-published-page.png)
 
+![Rendered Capell frontend page in dark mode](../images/generated/package-surfaces/frontend-published-page-dark.png)
+
+![Rendered Capell frontend page at mobile width](../images/generated/package-surfaces/frontend-published-page-mobile.png)
+
+![Rendered Capell frontend page at mobile width in dark mode](../images/generated/package-surfaces/frontend-published-page-mobile-dark.png)
+
 ## Request Flow
 
 A frontend request moves through site resolution, page resolution, layout selection, theme selection, and context building before Capell returns a response. The frontend package owns that request pipeline and the middleware around it.

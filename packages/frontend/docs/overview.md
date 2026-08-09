@@ -24,11 +24,15 @@ Frontend extends these Capell surfaces:
 
 ## Screens And Workflow
 
-Select either screenshot to open the full-resolution image.
+Select any screenshot to open the full-resolution image.
 
-| Published page                                                                                                                      | Frontend settings                                                                                                              |
-| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| [![Published Capell frontend page](images/screenshots/frontend-published-page.png)](images/screenshots/frontend-published-page.png) | [![Frontend settings in the Capell admin](images/screenshots/frontend-settings.png)](images/screenshots/frontend-settings.png) |
+| Desktop light                                                                                                                                                     | Desktop dark                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![Published Capell frontend page](images/screenshots/frontend-published-page.png)](images/screenshots/frontend-published-page.png)                               | [![Published Capell frontend page in dark mode](images/screenshots/frontend-published-page-dark.png)](images/screenshots/frontend-published-page-dark.png)                               |
+| Mobile light                                                                                                                                                      | Mobile dark                                                                                                                                                                              |
+| [![Published Capell frontend page at mobile width](images/screenshots/frontend-published-page-mobile.png)](images/screenshots/frontend-published-page-mobile.png) | [![Published Capell frontend page at mobile width in dark mode](images/screenshots/frontend-published-page-mobile-dark.png)](images/screenshots/frontend-published-page-mobile-dark.png) |
+
+[![Frontend settings in the Capell admin](images/screenshots/frontend-settings.png)](images/screenshots/frontend-settings.png)
 
 Screenshot contract:
 

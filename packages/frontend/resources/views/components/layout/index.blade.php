@@ -1,7 +1,7 @@
 {{-- @blaze-standard-compiler --}}
 @if ($isSystemPageLayout())
     <div
-        {{ $attributes->merge(['class' => 'capell-component capell-layout-index flex min-h-screen flex-col bg-slate-50 text-slate-950']) }}
+        {{ $attributes->merge(['class' => 'capell-component capell-layout-index capell-default-theme__layout flex min-h-screen flex-col']) }}
     >
         <main
             id="main"
@@ -9,7 +9,7 @@
         >
             <a
                 href="{{ $siteHomeUrl() }}"
-                class="mb-10 inline-flex items-center justify-center text-lg font-medium text-slate-950"
+                class="capell-default-theme__brand mb-10 inline-flex items-center justify-center text-lg font-medium"
             >
                 @if ($siteLogoBladeView())
                     @include($siteLogoBladeView(), ['class' => 'h-10 w-auto'])
@@ -26,7 +26,7 @@
                 :content="$pageTranslation()?->content ?? ''"
                 :content-type="$pageType()?->content_structure ?? $htmlContentStructure()"
                 :title="$pageTranslation()?->title ?? ''"
-                class="[&_h1]:text-slate-950 mx-auto max-w-2xl text-slate-700"
+                class="capell-default-theme__content mx-auto max-w-2xl"
                 heading-tag="h1"
                 heading-size="h1"
                 text-align="center"
