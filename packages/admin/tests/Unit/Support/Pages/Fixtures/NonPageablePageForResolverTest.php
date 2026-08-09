@@ -10,6 +10,7 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Concerns\HasPublishDates;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Language;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -32,6 +33,7 @@ use LogicException;
 // @phpstan-ignore class.missingExtends
 final class NonPageablePageForResolverTest extends Model implements Pageable, Publishable
 {
+    use HasFactory;
     use HasPublishDates;
     use SoftDeletes;
 
