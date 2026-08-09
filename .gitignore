@@ -59,6 +59,10 @@ coverage/
 .php_cs.cache
 .php-cs-fixer.cache
 .playwright-cli
+*.failed.html
+*.failed.json
+*.failed.png
+*.trace.zip
 
 # Analysis
 .phpstan.result.cache
