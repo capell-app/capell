@@ -18,7 +18,7 @@ $contracts = [
     'quality workflow runs PHPStan' => ['.github/workflows/code-quality-and-styling.yml', 'composer phpstan'],
     'quality workflow audits locked dependencies' => ['.github/workflows/code-quality-and-styling.yml', 'composer audit --locked'],
     'full test matrix covers Laravel 13' => ['scripts/test-all/TestAllMatrix.php', "'laravel' => '13.*'"],
-    'coverage workflow enforces 90% coverage' => ['.github/workflows/coverage-release.yml', '--coverage --min=90'],
+    'coverage workflow enforces 90% coverage' => ['.github/workflows/coverage-release.yml', 'Merge Clover shards and enforce 90% coverage'],
 ];
 
 /** @var array<string, string> $contents */

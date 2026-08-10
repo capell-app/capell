@@ -33,24 +33,30 @@
       CoverageWorkflowTest fails if the two files drift in any other way, so edit
       them together.
 
-      Coverage needs far more than a test worker does. In parallel mode each
+      Coverage needs more than a normal test worker does. In parallel mode each
       worker writes its coverage set to a temp file (~200MB each) and the parent
       deserialises and merges all of them, so the parent peaks in the multi GB
       range while the workers stay around 300MB. The limit applies to parent and
       workers alike, because PHPUnit's <ini> handling cannot distinguish them, so
-      it is sized for the parent's merge step.
+      it is sized for the parent's merge step without reserving most of a
+      hosted runner for one PHP process.
 
       Note for editors: XML forbids a double hyphen inside a comment, and this
       file is parsed by paratest before any test runs. Name PHPUnit flags in
       prose here, never with their leading hyphens, or the whole run dies in
       Builder.php with "Double hyphen within comment".
 
-      The parent's peak is driven by the coverage-php report, which Pest appends
-      to its own coverage flag because that serialized dump is how it computes
-      the min gate. php-code-coverage's Serializer therefore builds one
+      The parent's historical peak was driven by the coverage-php report, which
+      Pest appends to its own coverage flag because that serialized dump is how
+      it computes the min gate. php-code-coverage's Serializer therefore builds one
       `serialize()` string of the whole merged object in a single allocation,
       while still holding that object. Both live at once, so the limit has to
       cover roughly twice the merged set.
+
+      CI and the standard local Composer commands avoid that duplicate
+      serialization by requesting reports directly from PHPUnit. CI additionally
+      shards the tests, then merges the compact Clover reports and enforces the
+      line threshold separately.
 
       This value is not a guess, and each raise is recorded against a run that
       measured it:
@@ -60,14 +66,12 @@
                    reproduced locally at 4 processes with a 1163923456 byte
                    allocation; 12G is the first value that completed the run.
 
-      12G still fits a 16GB hosted runner, because the workers (~300MB each) have
-      exited by the time the parent serializes. Raise it only against a measured
-      allocation from a run that either completed or named the shortfall, not
-      against headroom. If it needs to go past ~14G, the answer is no longer a
-      limit: shard the coverage job and move the min gate onto the merged
-      clover, so no single process ever holds the whole set.
+      Those historical limits applied to the removed serialized report path.
+      Four gigabytes is the bounded limit for the direct-report path. Raise it
+      only against a measured allocation from a run that names the shortfall,
+      not against headroom.
     -->
-    <ini name="memory_limit" value="12G"/>
+    <ini name="memory_limit" value="4G"/>
     <server name="APP_ENV" value="testing"/>
     <env name="APP_KEY" value="12345678901234567890123456789012"/>
     <env name="BCRYPT_ROUNDS" value="4"/>
