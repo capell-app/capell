@@ -29,7 +29,7 @@ it('keeps the PHP memory limit owned solely by the phpunit configuration', funct
     // `--passthru-php`. The phpunit configuration is therefore the only place that
     // can set the limit, and any other declaration lies about the effective value.
     expect($mainConfiguration)->toContain('<ini name="memory_limit" value="1G"/>')
-        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="12G"/>');
+        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="4G"/>');
 
     // The coverage variant exists only to raise that limit for the parallel
     // runner's merge step. Everything else must stay in lockstep.
@@ -162,6 +162,28 @@ it('shards release coverage and enforces the threshold after merging Clover repo
         ->toContain('needs: generate-coverage')
         ->toContain('php scripts/merge-clover-coverage.php --output coverage/clover.xml')
         ->toContain('needs: merge-coverage')
+        ->not->toContain('vendor/bin/pest --coverage ')
+        ->not->toContain('--coverage-php');
+});
+
+it('avoids serialized Pest coverage reports in standard Composer coverage commands', function (): void {
+    $root = dirname(__DIR__, 2);
+    $composer = json_decode(
+        (string) file_get_contents($root . '/composer.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    $coverageCommands = implode("\n", (array) $composer['scripts']['coverage']);
+    $htmlCommands = implode("\n", (array) $composer['scripts']['coverage-report']);
+
+    expect($coverageCommands)
+        ->toContain('--coverage-clover=.cache/phpunit/coverage-clover.xml')
+        ->toContain('scripts/merge-clover-coverage.php')
+        ->not->toContain('vendor/bin/pest --coverage ')
+        ->not->toContain('--coverage-php')
+        ->and($htmlCommands)
+        ->toContain('--coverage-html=coverage')
         ->not->toContain('vendor/bin/pest --coverage ')
         ->not->toContain('--coverage-php');
 });

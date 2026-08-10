@@ -18,9 +18,9 @@ for ($index = 0; $index < count($arguments); $index++) {
     $inputPaths[] = $arguments[$index];
 }
 
-if ($outputPath === null || count($inputPaths) < 2) {
+if ($outputPath === null || $inputPaths === []) {
     throw new InvalidArgumentException(
-        'Usage: php scripts/merge-clover-coverage.php --output <path> <clover> <clover> [...]',
+        'Usage: php scripts/merge-clover-coverage.php --output <path> <clover> [<clover> ...]',
     );
 }
 

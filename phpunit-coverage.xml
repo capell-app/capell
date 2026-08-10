@@ -33,12 +33,13 @@
       CoverageWorkflowTest fails if the two files drift in any other way, so edit
       them together.
 
-      Coverage needs far more than a test worker does. In parallel mode each
+      Coverage needs more than a normal test worker does. In parallel mode each
       worker writes its coverage set to a temp file (~200MB each) and the parent
       deserialises and merges all of them, so the parent peaks in the multi GB
       range while the workers stay around 300MB. The limit applies to parent and
       workers alike, because PHPUnit's <ini> handling cannot distinguish them, so
-      it is sized for the parent's merge step.
+      it is sized for the parent's merge step without reserving most of a
+      hosted runner for one PHP process.
 
       Note for editors: XML forbids a double hyphen inside a comment, and this
       file is parsed by paratest before any test runs. Name PHPUnit flags in
@@ -52,10 +53,10 @@
       while still holding that object. Both live at once, so the limit has to
       cover roughly twice the merged set.
 
-      CI avoids that duplicate serialization by sharding the tests, requesting
-      only Clover from PHPUnit, then merging those compact reports and enforcing
-      the line threshold separately. The higher limit remains for local Composer
-      coverage commands, which intentionally retain Pest's detailed report.
+      CI and the standard local Composer commands avoid that duplicate
+      serialization by requesting reports directly from PHPUnit. CI additionally
+      shards the tests, then merges the compact Clover reports and enforces the
+      line threshold separately.
 
       This value is not a guess, and each raise is recorded against a run that
       measured it:
@@ -65,10 +66,12 @@
                    reproduced locally at 4 processes with a 1163923456 byte
                    allocation; 12G is the first value that completed the run.
 
-      Raise it only against a measured allocation from a local run that either
-      completed or named the shortfall, not against headroom.
+      Those historical limits applied to the removed serialized report path.
+      Four gigabytes is the bounded limit for the direct-report path. Raise it
+      only against a measured allocation from a run that names the shortfall,
+      not against headroom.
     -->
-    <ini name="memory_limit" value="12G"/>
+    <ini name="memory_limit" value="4G"/>
     <server name="APP_ENV" value="testing"/>
     <env name="APP_KEY" value="12345678901234567890123456789012"/>
     <env name="BCRYPT_ROUNDS" value="4"/>
