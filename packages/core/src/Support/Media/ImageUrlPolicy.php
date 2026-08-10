@@ -77,7 +77,7 @@ final class ImageUrlPolicy
         try {
             $settings = $this->settings();
 
-            if ($settings === null) {
+            if (! $settings instanceof CoreSettings) {
                 return $this->allowedDomains = ['images.unsplash.com'];
             }
 
@@ -99,7 +99,7 @@ final class ImageUrlPolicy
         try {
             $settings = $this->settings();
 
-            if ($settings === null) {
+            if (! $settings instanceof CoreSettings) {
                 return $this->allowRelativeUrls = true;
             }
 
