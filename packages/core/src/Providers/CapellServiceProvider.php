@@ -156,6 +156,7 @@ use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 use Capell\Core\Support\ProjectBuild\SiteSpecProjectBuildArtifactHandler;
 use Capell\Core\Support\Publishing\GatePublicationTransitionAuthorizer;
+use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Capell\Core\Support\Renderables\RenderableRegistry;
@@ -475,6 +476,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ThemeChromeRegistry::class);
         $this->app->singleton(ThemeInstallDefaultsRegistry::class);
         $this->app->singleton(InstallPatchRegistry::class);
+        $this->app->singleton(PublicationReadinessRegistry::class, fn ($app): PublicationReadinessRegistry => new PublicationReadinessRegistry($app));
         $this->app->singleton(PresentationPresetRegistry::class);
         $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(SiteAccessPolicyRegistry::class);

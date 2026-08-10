@@ -25,6 +25,7 @@ use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildPackageInstaller;
+use Capell\Core\Contracts\Publishing\PublicationReadinessContributor;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
@@ -52,6 +53,8 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildRouteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSignatureData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
+use Capell\Core\Data\Publishing\PublicationReadinessCheckData;
+use Capell\Core\Data\Publishing\PublicationReadinessContextData;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 use Capell\Core\Enums\Database\DatabaseFamily;
@@ -80,6 +83,7 @@ use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
+use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Testing\ExtensionTestHarness;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -150,6 +154,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.action.validate-project-build-bundle', 'action', ValidateProjectBuildManifestBundleAction::class, ExtensionSurfaceStability::Stable, 'Fail-closed signature and artifact validation for portable project manifests.', 'core.project-build-manifest-bundle'),
             $this->entry('core.action.verify-project-build-signature', 'action', VerifyProjectBuildManifestSignatureAction::class, ExtensionSurfaceStability::Stable, 'Ed25519 verification for portable project manifests.', 'core.project-build-manifest-signing'),
             $this->entry('core.contract.site-spec-applier', 'contract', SiteSpecApplier::class, ExtensionSurfaceStability::Stable, 'Package-owned SiteSpec application boundary.', 'core.site-spec-applier'),
+            $this->entry('core.contract.publication-readiness-contributor', 'contract', PublicationReadinessContributor::class, ExtensionSurfaceStability::Experimental, 'Package-owned publication readiness checks for publishable records.'),
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
             $this->entry('core.facade.capell-database', 'facade', CapellDatabase::class, ExtensionSurfaceStability::Experimental, 'Static database platform resolution facade.'),
             $this->entry('core.dto.database-index-definition', 'dto', DatabaseIndexDefinition::class, ExtensionSurfaceStability::Experimental, 'Portable database index definition.'),
@@ -175,6 +180,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.project-build-signature', 'dto', ProjectBuildSignatureData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build signature.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-site', 'dto', ProjectBuildSiteData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build site.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-site-spec-reference', 'dto', ProjectBuildSiteSpecReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build SiteSpec reference.', 'core.project-build-manifest-data'),
+            $this->entry('core.dto.publication-readiness-check', 'dto', PublicationReadinessCheckData::class, ExtensionSurfaceStability::Experimental, 'Typed publication readiness check result.'),
+            $this->entry('core.dto.publication-readiness-context', 'dto', PublicationReadinessContextData::class, ExtensionSurfaceStability::Experimental, 'Explicit site and language context for publication readiness.'),
             $this->entry('core.enum.frontend-route-reservation-type', 'enum', FrontendRouteReservationType::class, ExtensionSurfaceStability::Experimental, 'Supported frontend route reservation types.'),
             $this->entry('core.enum.database-capability', 'enum', DatabaseCapability::class, ExtensionSurfaceStability::Experimental, 'Portable database schema capabilities.'),
             $this->entry('core.enum.database-date-operation', 'enum', DatabaseDateOperation::class, ExtensionSurfaceStability::Experimental, 'Portable database date operations.'),
@@ -199,8 +206,10 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.tag.interaction-target-capability-contributor', 'tagged-service', InteractionTargetCapabilityContributor::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for interaction target capability contributors.'),
             $this->entry('core.tag.project-build-artifact-handler', 'tagged-service', ProjectBuildArtifactHandler::TAG, ExtensionSurfaceStability::Stable, 'Container tag for project build artifact handlers.', 'core.project-build-artifact-handler-registration'),
             $this->entry('core.tag.site-spec-applier', 'tagged-service', SiteSpecApplier::TAG, ExtensionSurfaceStability::Stable, 'Container tag for SiteSpec appliers.', 'core.site-spec-applier-registration'),
+            $this->entry('core.tag.publication-readiness-contributor', 'tagged-service', PublicationReadinessContributor::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for publication readiness contributors.'),
             $this->entry('core.registry.project-build-artifact-handler', 'registry', ProjectBuildArtifactHandlerRegistry::class, ExtensionSurfaceStability::Stable, 'Runtime registry for portable project build artifact handlers.', 'core.project-build-artifact-handler-registry'),
             $this->entry('core.registry.database-platform', 'registry', DatabasePlatformRegistry::class, ExtensionSurfaceStability::Experimental, 'Single runtime database platform resolution seam.'),
+            $this->entry('core.registry.publication-readiness', 'registry', PublicationReadinessRegistry::class, ExtensionSurfaceStability::Experimental, 'Ordered runtime publication readiness contributor registry.'),
             $this->entry('core.tag.database-platform', 'tagged-service', DatabasePlatform::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for database platform adapters.'),
             $this->entry('core.config.roles-admin', 'config', 'capell.roles.admin', ExtensionSurfaceStability::Experimental, 'Configured administrator role name.'),
             $this->entry('admin.contract.admin-tool-item', 'contract', 'Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem', ExtensionSurfaceStability::Experimental, 'Typed admin header tool contribution boundary.', owner: 'capell-app/admin'),

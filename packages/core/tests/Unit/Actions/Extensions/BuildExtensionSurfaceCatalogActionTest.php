@@ -75,6 +75,11 @@ it('catalogues every supported extension surface kind from explicit metadata', f
             'core.schema.project-build-manifest-v1',
             'core.tag.project-build-artifact-handler',
             'core.tag.site-spec-applier',
+            'core.contract.publication-readiness-contributor',
+            'core.dto.publication-readiness-check',
+            'core.dto.publication-readiness-context',
+            'core.tag.publication-readiness-contributor',
+            'core.registry.publication-readiness',
         );
 
     foreach ($catalog as $entry) {
