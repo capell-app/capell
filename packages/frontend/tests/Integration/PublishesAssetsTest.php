@@ -29,6 +29,9 @@ it('capell-frontend published build includes the default theme css entry', funct
 
     expect($manifest)
         ->toHaveKey('resources/css/capell-frontend.css')
+        ->toHaveKey('resources/js/stylesheet-recovery.js')
         ->and($manifest['resources/css/capell-frontend.css']['file'])->toBe('capell-frontend.css')
-        ->and(is_file(__DIR__ . '/../../publishes/build/capell-frontend.css'))->toBeTrue();
+        ->and($manifest['resources/js/stylesheet-recovery.js']['file'])->toBe('stylesheet-recovery.js')
+        ->and(is_file(__DIR__ . '/../../publishes/build/capell-frontend.css'))->toBeTrue()
+        ->and(is_file(__DIR__ . '/../../publishes/build/stylesheet-recovery.js'))->toBeTrue();
 });

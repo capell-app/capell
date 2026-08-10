@@ -115,6 +115,14 @@ Doctor and page-resource diagnostics report source validity, missing dependencie
 
 Tests should prove presence and absence, dependency order, placement, canonical deduplication, lazy activation, and that anonymous HTML/events contain only URLs, attributes, and opaque resource tokens—not Composer packages, internal handles, model IDs, selectors, field paths, permissions, or signed URLs.
 
+## Stylesheet recovery
+
+Critical-CSS-eligible stylesheets are rendered with Capell's stable recovery runtime. If the intended full stylesheet fails, the runtime loads the configured stable fallback, marks the document as `data-frontend-styles="fallback"`, and retries the intended URL with bounded cache-busting delays. A successful retry activates the full stylesheet, removes the fallback, marks the document as loaded, and dispatches `capell:stylesheet-recovered`.
+
+The package default fallback is `/vendor/capell-frontend/capell-frontend.css`. It keeps a failed page readable, but an application with a branded frontend bundle should configure `capell-frontend.stylesheet_recovery.fallback_url` to a stable, atomically published full bundle. The runtime is always published at `/vendor/capell-frontend/stylesheet-recovery.js`; keep package assets in the normal `laravel-assets` publication step.
+
+Recovery is the last safety net, not the release strategy. Content-hashed assets referenced by cacheable HTML must remain available for at least the complete HTML cache and stale-serving window. See [Server Configuration](server-config.md#release-safe-vite-assets).
+
 ## Breaking upgrade
 
 Mix, loose `css()`/`js()` builders, `FrontendAssetRequirementData`, `FrontendAssetManifestData`, `FrontendAssetContributor`, `FrontendAssetManifestRenderer`, `VendorAssetData::buildAsset()`, and `VendorAssetData::npmDependency()` were removed. Use typed source/factory declarations, `FrontendResourceContributor`, `FrontendResourcePlanRenderer`, and `FrontendPackageDependencyRegistry`.

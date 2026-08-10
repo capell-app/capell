@@ -20,7 +20,10 @@ use Illuminate\Foundation\Vite;
 
 final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanRenderer
 {
-    public function __construct(private readonly Vite $vite) {}
+    public function __construct(
+        private readonly Vite $vite,
+        private readonly StylesheetRecoveryRenderer $stylesheetRecovery,
+    ) {}
 
     public function render(FrontendResourcePlanData $plan, FrontendResourceContextData $context): RenderedFrontendResourcesData
     {
@@ -29,7 +32,11 @@ final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanR
         $bodyEnd = array_map($this->renderResource(...), $plan->bodyEndResources);
 
         return new RenderedFrontendResourcesData(
-            headHtml: implode(PHP_EOL, array_filter([...$hints, ...$head])),
+            headHtml: implode(PHP_EOL, array_filter([
+                ...$hints,
+                $this->requiresStylesheetRecovery($plan) ? $this->stylesheetRecovery->runtimeTag() : '',
+                ...$head,
+            ])),
             bodyEndHtml: implode(PHP_EOL, array_filter($bodyEnd)),
             lazyRuntimePayload: array_map($this->activationPayload(...), $plan->lazyActivationGraphs),
         );
@@ -42,12 +49,25 @@ final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanR
         $nonceAttribute = is_string($nonce) && $nonce !== '' ? ' nonce="' . e($nonce) . '"' : '';
 
         return match ($resource->kind) {
-            FrontendResourceKind::Style => '<link rel="stylesheet" href="' . e((string) $resource->url) . '"' . $attributes . '>',
+            FrontendResourceKind::Style => '<link rel="stylesheet" href="' . e((string) $resource->url) . '"' . $attributes . ($resource->criticalCssEligible ? $this->stylesheetRecovery->linkAttributes() : '') . '>',
             FrontendResourceKind::ModuleScript => '<script type="module" src="' . e((string) $resource->url) . '"' . ($resource->async ? ' async' : '') . $attributes . $nonceAttribute . '></script>',
             FrontendResourceKind::ClassicScript => '<script src="' . e((string) $resource->url) . '"' . ($resource->defer ? ' defer' : '') . ($resource->async ? ' async' : '') . $attributes . $nonceAttribute . '></script>',
             FrontendResourceKind::InlineStyle => '<style' . $nonceAttribute . '>' . $this->escapeClosingTag((string) $resource->content, 'style') . '</style>',
             FrontendResourceKind::InlineScript => '<script' . $nonceAttribute . '>' . $this->escapeClosingTag((string) $resource->content, 'script') . '</script>',
         };
+    }
+
+    private function requiresStylesheetRecovery(FrontendResourcePlanData $plan): bool
+    {
+        if (! $this->stylesheetRecovery->enabled()) {
+            return false;
+        }
+
+        return array_any(
+            $plan->headResources,
+            static fn (ResolvedFrontendResourceData $resource): bool => $resource->kind === FrontendResourceKind::Style
+                && $resource->criticalCssEligible,
+        );
     }
 
     private function securityAttributes(ResolvedFrontendResourceData $resource): string

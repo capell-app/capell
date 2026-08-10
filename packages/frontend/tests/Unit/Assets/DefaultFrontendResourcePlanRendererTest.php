@@ -64,6 +64,37 @@ it('keeps internal handles and composer package ownership out of lazy payloads',
         ->and($json)->not->toContain('capell-app/gallery', 'runtime"');
 });
 
+it('renders stable stylesheet recovery before critical stylesheets', function (): void {
+    resolve(Vite::class)->useCspNonce('recovery-nonce');
+    config()->set('capell-frontend.stylesheet_recovery', [
+        'enabled' => true,
+        'fallback_url' => '/build/fallback/resources/css/capell/frontend.css',
+        'runtime_url' => '/vendor/capell-frontend/stylesheet-recovery.js',
+    ]);
+
+    $style = FrontendResourceData::style(
+        'capell-app/marketing:frontend',
+        'capell-app/marketing',
+        new ExternalResourceSourceData('https://cdn.example.com/build/assets/frontend-old.css'),
+        criticalCssEligible: true,
+    );
+    $plan = ResolveFrontendResourcePlanAction::run([
+        new FrontendResourceContributionData($style),
+    ]);
+
+    $rendered = resolve(DefaultFrontendResourcePlanRenderer::class)->render($plan, frontendResourceContext());
+    $runtimePosition = strpos($rendered->headHtml, 'stylesheet-recovery.js');
+    $stylesheetPosition = strpos($rendered->headHtml, 'frontend-old.css');
+    throw_if($runtimePosition === false || $stylesheetPosition === false, RuntimeException::class, 'Recovery markup is incomplete.');
+
+    expect($rendered->headHtml)
+        ->toContain('<script src="/vendor/capell-frontend/stylesheet-recovery.js" nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime></script>')
+        ->toContain('data-capell-stylesheet-recovery')
+        ->toContain('data-capell-stylesheet-fallback="/build/fallback/resources/css/capell/frontend.css"')
+        ->and($runtimePosition)
+        ->toBeLessThan($stylesheetPosition);
+});
+
 function frontendResourceContext(): FrontendResourceContextData
 {
     return new FrontendResourceContextData(

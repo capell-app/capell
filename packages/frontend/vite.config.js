@@ -9,6 +9,7 @@ export default defineConfig(async () => {
                 input: [
                     'resources/css/capell-frontend.css',
                     'resources/js/capell-frontend.js',
+                    'resources/js/stylesheet-recovery.js',
                 ],
                 publicDirectory: 'publishes',
                 refresh: false,
@@ -22,6 +23,13 @@ export default defineConfig(async () => {
             outDir: './publishes/build',
             rollupOptions: {
                 output: {
+                    entryFileNames: (chunkInfo) => {
+                        if (chunkInfo.name === 'stylesheet-recovery') {
+                            return 'stylesheet-recovery.js'
+                        }
+
+                        return 'assets/[name]-[hash].js'
+                    },
                     assetFileNames: (assetInfo) => {
                         if (assetInfo.names?.includes('capell-frontend.css')) {
                             return 'capell-frontend.css'

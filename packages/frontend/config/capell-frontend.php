@@ -135,6 +135,12 @@ return [
     'default_layout' => 'default',
     'foundation_theme' => 'default',
 
+    'stylesheet_recovery' => [
+        'enabled' => env('CAPELL_FRONTEND_STYLESHEET_RECOVERY_ENABLED', true),
+        'fallback_url' => env('CAPELL_FRONTEND_STYLESHEET_FALLBACK_URL', '/vendor/capell-frontend/capell-frontend.css'),
+        'runtime_url' => env('CAPELL_FRONTEND_STYLESHEET_RECOVERY_RUNTIME_URL', '/vendor/capell-frontend/stylesheet-recovery.js'),
+    ],
+
     'tailwind' => [
         'imports' => [],
         'plugins' => [],
