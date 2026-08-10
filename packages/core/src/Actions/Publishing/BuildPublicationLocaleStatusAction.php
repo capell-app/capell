@@ -6,10 +6,12 @@ namespace Capell\Core\Actions\Publishing;
 
 use Capell\Core\Data\Publishing\PublicationLocaleStatusContextData;
 use Capell\Core\Data\Publishing\PublicationLocaleStatusData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildPublicationLocaleStatusAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PublicationLocaleStatusContextData $context): PublicationLocaleStatusData
