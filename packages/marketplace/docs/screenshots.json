@@ -18,36 +18,7 @@
             "waitFor": "table",
             "required": true,
             "sameCaptureAs": "admin-extensions-page",
-            "notes": "Resolved by the deployment screenshot runner after marketplace example data is prepared. Marketplace contributes the connection alert but not catalogue controls to the installed Extensions page."
-        },
-        {
-            "id": "extension-update-advisories",
-            "title": "Extension update advisories.",
-            "package": "marketplace",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "ExtensionsPage",
-            "scenario": "admin-index",
-            "url": "/extensions",
-            "waitFor": "table",
-            "required": true,
-            "sameCaptureAs": "marketplace-extensions-page",
-            "notes": "Resolved by the deployment screenshot runner after advisory snapshots are seeded. Marketplace contributes alerts but not catalogue controls to the installed Extensions page."
-        },
-        {
-            "id": "marketplace-extension-update-confirmation",
-            "title": "Marketplace extension update confirmation modal.",
-            "package": "marketplace",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "ExtensionsPage",
-            "scenario": "admin-index",
-            "url": "/extensions",
-            "waitFor": "table",
-            "docsPage": "packages/marketplace/README.md",
-            "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-update-confirmation.png",
-            "required": false,
-            "notes": "Resolved by the deployment screenshot runner after marketplace example data seeds an update-eligible extension row, then opens the row's update action. Covers MarketplaceCatalogueTable's updateMarketplaceExtension confirmation modal (name and current-version copy).",
+            "notes": "Resolved by the deployment screenshot runner after marketplace example data is prepared. Marketplace contributes the connection alert but not catalogue controls to the installed Extensions page. This capture covers the real catalogue table without claiming that an action modal is open.",
             "covers": [
                 "packages/marketplace/src/Filament/Support/MarketplaceCatalogueTable.php"
             ]

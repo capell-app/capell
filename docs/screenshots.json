@@ -57,22 +57,6 @@
             "notes": "Top-level docs copy of the package-owned localized media metadata screenshot."
         },
         {
-            "id": "docs-media-ai-doctor-image",
-            "title": "Media AI doctor image action for docs.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "MediaAIEditActionExtender",
-            "scenario": "admin-index",
-            "url": "/media",
-            "waitFor": "table",
-            "docsPage": "docs/admin/media-management.md",
-            "output": "docs/images/generated/package-surfaces/admin-media-ai-doctor-image.png",
-            "colorSchemes": ["light"],
-            "required": false,
-            "notes": "Top-level docs copy of the package-owned Media AI action screenshot."
-        },
-        {
             "id": "docs-install-guide-page",
             "title": "Install guide page for docs.",
             "package": "documentation",

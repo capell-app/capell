@@ -155,6 +155,8 @@ test('preserves required visuals, broken refs, manifest output, and duplicate ID
         ],
     })
     const repoRoot = createRepository({
+        'AGENTS.md': 'Repository agent instructions.',
+        'CLAUDE.md': 'Repository agent instructions.',
         'README.md': '`![Code example](docs/images/example.png)`',
         'PACKAGE.md': '![Broken](docs/images/missing.png)',
         'docs/screenshots.json': manifest,

@@ -45,14 +45,7 @@ Manage images and files for your sites from **Media** in the admin sidebar.
 
 When media AI tools are installed, media actions can inspect or improve images from the same admin workflow. Keep those tools package-owned; the default media surface should still work without them.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-media-ai-doctor-image-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/admin-media-ai-doctor-image.png" alt="Media library with the package-provided Doctor image action available">
-</picture>
-
-[Light](../../packages/admin/docs/images/screenshots/admin-media-ai-doctor-image.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-media-ai-doctor-image-dark.png)
-
-_The action is contributed by the optional Media AI package; Admin only supplies the extension surface._
+The action is contributed by the optional Media AI package; Admin only supplies the extension surface. Package documentation should show the action only after its capture contract opens or waits for that action explicitly.
 
 ## Replace or delete a file
 
