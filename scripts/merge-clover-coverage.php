@@ -7,8 +7,9 @@ const REQUIRED_COVERAGE_PERCENTAGE = 90.0;
 $arguments = array_slice($argv, 1);
 $outputPath = null;
 $inputPaths = [];
+$argumentCount = count($arguments);
 
-for ($index = 0; $index < count($arguments); $index++) {
+for ($index = 0; $index < $argumentCount; $index++) {
     if ($arguments[$index] === '--output') {
         $outputPath = $arguments[++$index] ?? null;
 
@@ -164,7 +165,7 @@ function updateFileMetrics(DOMElement $file): array
 
     $metrics = directChild($file, 'metrics');
 
-    if ($metrics !== null) {
+    if ($metrics instanceof DOMElement) {
         setCoverageMetrics($metrics, $methods, $coveredMethods, $statements, $coveredStatements);
     }
 
