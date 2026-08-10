@@ -8,6 +8,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Schema;
 
 final class AuditSiteDomainOriginsCommand extends Command
 {
@@ -17,6 +18,16 @@ final class AuditSiteDomainOriginsCommand extends Command
 
     public function handle(): int
     {
+        if (! Schema::hasTable('site_domains')) {
+            if ($this->option('json')) {
+                $this->line(json_encode(['conflicts' => []], JSON_THROW_ON_ERROR));
+            } else {
+                $this->info('No site-domain table exists; no normalized origin conflicts found.');
+            }
+
+            return self::SUCCESS;
+        }
+
         $groups = SiteDomain::query()
             ->withTrashed()
             ->whereNull('deleted_at')
