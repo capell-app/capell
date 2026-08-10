@@ -222,6 +222,7 @@ it('merges Clover statement hits before enforcing the release threshold', functi
 
     $merged = new DOMDocument;
     $merged->load($temporaryDirectory . '/merged.xml');
+
     $xpath = new DOMXPath($merged);
 
     $summary = implode("\n", $output);
