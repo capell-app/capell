@@ -9,6 +9,7 @@ use Capell\Core\Actions\ProjectBuild\InstallProjectBuildManifestAction;
 use Capell\Core\Actions\ProjectBuild\ValidateProjectBuildManifestBundleAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildTargetCompatibilityAction;
+use Capell\Core\Actions\Publishing\BuildPublicationLocaleStatusAction;
 use Capell\Core\Actions\PublishOutboundEventAction;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Database\DatabaseProvisioner;
@@ -55,6 +56,8 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildSiteData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildSiteSpecReferenceData;
 use Capell\Core\Data\Publishing\PublicationReadinessCheckData;
 use Capell\Core\Data\Publishing\PublicationReadinessContextData;
+use Capell\Core\Data\Publishing\PublicationLocaleStatusContextData;
+use Capell\Core\Data\Publishing\PublicationLocaleStatusData;
 use Capell\Core\Enums\Database\DatabaseCapability;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 use Capell\Core\Enums\Database\DatabaseFamily;
@@ -153,6 +156,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.action.project-build-signing-input', 'action', CanonicalizeProjectBuildManifestSigningInputAction::class, ExtensionSurfaceStability::Stable, 'Canonical detached-signature input for portable project manifests.', 'core.project-build-manifest-signing'),
             $this->entry('core.action.validate-project-build-bundle', 'action', ValidateProjectBuildManifestBundleAction::class, ExtensionSurfaceStability::Stable, 'Fail-closed signature and artifact validation for portable project manifests.', 'core.project-build-manifest-bundle'),
             $this->entry('core.action.verify-project-build-signature', 'action', VerifyProjectBuildManifestSignatureAction::class, ExtensionSurfaceStability::Stable, 'Ed25519 verification for portable project manifests.', 'core.project-build-manifest-signing'),
+            $this->entry('core.action.build-publication-locale-status', 'action', BuildPublicationLocaleStatusAction::class, ExtensionSurfaceStability::Experimental, 'Typed locale-scoped publication status projection.'),
             $this->entry('core.contract.site-spec-applier', 'contract', SiteSpecApplier::class, ExtensionSurfaceStability::Stable, 'Package-owned SiteSpec application boundary.', 'core.site-spec-applier'),
             $this->entry('core.contract.publication-readiness-contributor', 'contract', PublicationReadinessContributor::class, ExtensionSurfaceStability::Experimental, 'Package-owned publication readiness checks for publishable records.'),
             $this->entry('core.facade.capell-core', 'facade', CapellCore::class, ExtensionSurfaceStability::Experimental, 'Runtime package and model registry facade.'),
@@ -182,6 +186,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.project-build-site-spec-reference', 'dto', ProjectBuildSiteSpecReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build SiteSpec reference.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.publication-readiness-check', 'dto', PublicationReadinessCheckData::class, ExtensionSurfaceStability::Experimental, 'Typed publication readiness check result.'),
             $this->entry('core.dto.publication-readiness-context', 'dto', PublicationReadinessContextData::class, ExtensionSurfaceStability::Experimental, 'Explicit site and language context for publication readiness.'),
+            $this->entry('core.dto.publication-locale-status-context', 'dto', PublicationLocaleStatusContextData::class, ExtensionSurfaceStability::Experimental, 'Explicit publishable record, site, language, and clock context for publication status.'),
+            $this->entry('core.dto.publication-locale-status', 'dto', PublicationLocaleStatusData::class, ExtensionSurfaceStability::Experimental, 'Canonical locale-scoped publication visibility status.'),
             $this->entry('core.enum.frontend-route-reservation-type', 'enum', FrontendRouteReservationType::class, ExtensionSurfaceStability::Experimental, 'Supported frontend route reservation types.'),
             $this->entry('core.enum.database-capability', 'enum', DatabaseCapability::class, ExtensionSurfaceStability::Experimental, 'Portable database schema capabilities.'),
             $this->entry('core.enum.database-date-operation', 'enum', DatabaseDateOperation::class, ExtensionSurfaceStability::Experimental, 'Portable database date operations.'),

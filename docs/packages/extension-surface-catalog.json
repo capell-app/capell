@@ -33,6 +33,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.action.build-publication-locale-status",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\Publishing\\BuildPublicationLocaleStatusAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed locale-scoped publication status projection.",
+            "contractTestId": null
+        },
+        {
             "id": "core.action.install-project-build-manifest",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\InstallProjectBuildManifestAction",
@@ -501,6 +511,26 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build SiteSpec reference.",
             "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.publication-locale-status",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Publishing\\PublicationLocaleStatusData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Canonical locale-scoped publication visibility status.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.publication-locale-status-context",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Publishing\\PublicationLocaleStatusContextData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Explicit publishable record, site, language, and clock context for publication status.",
+            "contractTestId": null
         },
         {
             "id": "core.dto.publication-readiness-check",
