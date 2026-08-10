@@ -243,6 +243,16 @@
             "contractTestId": "core.project-build-manifest-install"
         },
         {
+            "id": "core.contract.publication-readiness-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Publishing\\PublicationReadinessContributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned publication readiness checks for publishable records.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.site-spec-applier",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\SiteSpec\\SiteSpecApplier",
@@ -491,6 +501,26 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed portable project build SiteSpec reference.",
             "contractTestId": "core.project-build-manifest-data"
+        },
+        {
+            "id": "core.dto.publication-readiness-check",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Publishing\\PublicationReadinessCheckData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed publication readiness check result.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.publication-readiness-context",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Publishing\\PublicationReadinessContextData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Explicit site and language context for publication readiness.",
+            "contractTestId": null
         },
         {
             "id": "core.dto.sql-fragment",
@@ -783,6 +813,16 @@
             "contractTestId": "core.project-build-artifact-handler-registry"
         },
         {
+            "id": "core.registry.publication-readiness",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\Publishing\\PublicationReadinessRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Ordered runtime publication readiness contributor registry.",
+            "contractTestId": null
+        },
+        {
             "id": "core.schema.project-build-manifest-v1",
             "kind": "schema",
             "identifier": "Capell\\Core\\Support\\ProjectBuild\\ProjectBuildManifestSchema",
@@ -841,6 +881,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Container tag for project build artifact handlers.",
             "contractTestId": "core.project-build-artifact-handler-registration"
+        },
+        {
+            "id": "core.tag.publication-readiness-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.publication-readiness-contributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for publication readiness contributors.",
+            "contractTestId": null
         },
         {
             "id": "core.tag.site-spec-applier",
