@@ -298,6 +298,7 @@ describe('undocumented data-capell-* runtime attributes', function (): void {
     })->with([
         'widget runtime' => '<div data-capell-widget-runtime="carousel" data-capell-widget-assets="[]">x</div>',
         'interaction' => '<button data-capell-interaction data-capell-interaction-event="click" data-capell-interaction-id="cta">Go</button>',
+        'stylesheet recovery' => '<link data-capell-stylesheet-recovery data-capell-stylesheet-fallback="/build/fallback/app.css" data-capell-stylesheet-fallback-active><script data-capell-stylesheet-recovery-runtime></script>',
         // The insights package renders a public, anonymous-facing consent banner
         // and analytics tracker. These data-capell-insights-* attributes are
         // client-side consent/analytics wiring, not an authoring surface.
