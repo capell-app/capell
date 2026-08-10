@@ -1,7 +1,5 @@
 # Settings Schema Registry
 
-![Capell Settings Schema Registry screenshot](./images/screenshots/admin-dashboard.png)
-
 The Settings Schema Registry is a runtime registry of settings form-builder. The admin **Settings** page renders first-party Capell settings groups (`core`, `admin`, and `frontend`) as tabs when they are registered. Marketplace and third-party package settings should be exposed through explicit extension management modal surfaces that reuse the same registry.
 
 ## Architecture

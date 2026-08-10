@@ -1,7 +1,5 @@
 # Subscriber Manager
 
-![Capell Subscriber Manager screenshot](./images/screenshots/core-page-structure.png)
-
 > **Who is this for?**
 > Package developers and advanced applications that need fine-grained, repeatable event subscriptions in Capell Core—particularly for validation gates and stateful listeners.
 

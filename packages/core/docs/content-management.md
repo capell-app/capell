@@ -1,8 +1,8 @@
 # Content Management
 
-![Capell Content Management screenshot](./images/screenshots/core-page-structure.png)
-
 Capell separates _pages_ (structure and URLs) from _content_ (the actual data displayed on pages). This separation, combined with a flexible content type system, lets you reuse and compose content across your site without duplication.
+
+For the canonical visual orientation to Core records, use the [Core overview](overview.md#screens-and-workflow). This guide stays focused on the content contract.
 
 ---
 

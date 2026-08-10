@@ -1,7 +1,5 @@
 # Extending Capell
 
-![Capell Extending Capell screenshot](./images/screenshots/core-page-structure.png)
-
 > **Who is this for?**
 > Developers who want to extend Capell with page types, model interceptors, event subscribers, settings, frontend hooks, or add-on packages.
 

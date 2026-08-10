@@ -2,7 +2,9 @@
 
 This guide explains the practical shape of Capell Frontend: how requests resolve, how cache behaviour works, how Tailwind inputs are aggregated, and which configuration points matter most in day-to-day site operations.
 
-![Rendered Capell frontend page](../images/generated/package-surfaces/frontend-published-page.png)
+[![Published Capell page rendered through the public Frontend request pipeline](../images/generated/package-surfaces/frontend-published-page.png)](../images/generated/package-surfaces/frontend-published-page.png)
+
+_The published page is the output of the request, cache, theme, and asset pipeline described below; editor metadata is absent from the anonymous HTML._
 
 ![Rendered Capell frontend page in dark mode](../images/generated/package-surfaces/frontend-published-page-dark.png)
 

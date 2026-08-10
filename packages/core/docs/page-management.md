@@ -21,7 +21,9 @@ Home
 
 Every page can have a parent, and every parent can have any number of children. The hierarchy is stored using a nested set model, which makes querying subtrees (e.g. "all descendants of Services") efficient.
 
-![Capell pages list showing the page hierarchy](images/screenshots/core-page-structure.png)
+[![Pages list showing the hierarchy backed by Core page records](images/screenshots/core-page-structure.png)](images/screenshots/core-page-structure.png)
+
+_The nested page structure is the behaviour this section explains: parents establish public paths and children can be queried and reordered as a subtree._
 
 ### Creating child pages
 

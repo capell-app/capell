@@ -503,32 +503,6 @@
             ]
         },
         {
-            "id": "first-page-title-slug-url",
-            "title": "Title, slug, and URL preview.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "PageResource/CreatePage",
-            "scenario": "admin-form",
-            "url": "/pages/create",
-            "waitFor": "form",
-            "docsPage": "docs/getting-started/create-your-first-page.md",
-            "output": "docs/images/generated/admin/first-page-title-slug-url.png",
-            "required": true,
-            "notes": "Shows the title input, generated URL preview, and slug edit affordance.",
-            "interactions": [
-                {
-                    "type": "waitFor",
-                    "selector": "label:has-text(\"Page title\")"
-                },
-                {
-                    "type": "scrollIntoView",
-                    "selector": "label:has-text(\"Page title\")",
-                    "block": "start"
-                }
-            ]
-        },
-        {
             "id": "first-page-parent-selector",
             "title": "Parent page selector.",
             "package": "documentation",
@@ -555,58 +529,6 @@
             ]
         },
         {
-            "id": "first-page-site-selector",
-            "title": "Site selector.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "PageResource/CreatePage",
-            "scenario": "admin-form",
-            "url": "/pages/create",
-            "waitFor": "form",
-            "docsPage": "docs/getting-started/create-your-first-page.md",
-            "output": "docs/images/generated/admin/first-page-site-selector.png",
-            "required": true,
-            "notes": "Shows the Site field that scopes the page to one public web property.",
-            "interactions": [
-                {
-                    "type": "waitFor",
-                    "selector": "[wire\\:partial=\"schema-component::form.site_id\"]"
-                },
-                {
-                    "type": "scrollIntoView",
-                    "selector": "[wire\\:partial=\"schema-component::form.site_id\"]",
-                    "block": "start"
-                }
-            ]
-        },
-        {
-            "id": "first-page-content-editor",
-            "title": "Content editor.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "PageResource/CreatePage",
-            "scenario": "admin-form",
-            "url": "/pages/create",
-            "waitFor": "form",
-            "docsPage": "docs/getting-started/create-your-first-page.md",
-            "output": "docs/images/generated/admin/first-page-content-editor.png",
-            "required": true,
-            "notes": "Shows the default rich content editor.",
-            "interactions": [
-                {
-                    "type": "waitFor",
-                    "selector": "label[for$=\".content\"]"
-                },
-                {
-                    "type": "scrollIntoView",
-                    "selector": "label[for$=\".content\"]",
-                    "block": "start"
-                }
-            ]
-        },
-        {
             "id": "page-building-blocks-editor",
             "title": "Page body Blocks editor.",
             "package": "documentation",
@@ -622,84 +544,6 @@
             "required": true,
             "notes": "The screenshot runner creates or refreshes a page with ContentStructure::Blocks as its per-page override, then redirects to Capell's real PageResource EditPage. This is the typed, reorderable page-body builder, not a Layout Builder widget surface.",
             "useCase": "An editor can see the page-level Blocks authoring path and its real add, configure, clone, and reorder controls before choosing it over HTML content."
-        },
-        {
-            "id": "first-page-extra-content",
-            "title": "Extra content section.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "PageResource/CreatePage",
-            "scenario": "admin-form",
-            "url": "/pages/create",
-            "waitFor": "form",
-            "docsPage": "docs/getting-started/create-your-first-page.md",
-            "output": "docs/images/generated/admin/first-page-extra-content.png",
-            "required": true,
-            "notes": "Shows the extra content accordion used for summary, label, and CTA fields.",
-            "interactions": [
-                {
-                    "type": "waitFor",
-                    "selector": "h3:has-text(\"Extra Content\")"
-                },
-                {
-                    "type": "scrollIntoView",
-                    "selector": "h3:has-text(\"Extra Content\")",
-                    "block": "start"
-                }
-            ]
-        },
-        {
-            "id": "first-page-layout-publish-fields",
-            "title": "Layout and publish timing fields.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "PageResource/CreatePage",
-            "scenario": "admin-form",
-            "url": "/pages/create",
-            "waitFor": "form",
-            "docsPage": "docs/getting-started/create-your-first-page.md",
-            "output": "docs/images/generated/admin/first-page-layout-publish-fields.png",
-            "required": true,
-            "notes": "Shows layout selection and visible-from scheduling fields.",
-            "interactions": [
-                {
-                    "type": "waitFor",
-                    "selector": "[wire\\:partial=\"schema-component::form.layout_id\"]"
-                },
-                {
-                    "type": "scrollIntoView",
-                    "selector": "[wire\\:partial=\"schema-component::form.layout_id\"]",
-                    "block": "start"
-                }
-            ]
-        },
-        {
-            "id": "first-page-save-actions",
-            "title": "Create and save as draft actions.",
-            "package": "documentation",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "PageResource/CreatePage",
-            "scenario": "admin-form",
-            "url": "/pages/create",
-            "waitFor": "form",
-            "docsPage": "docs/getting-started/create-your-first-page.md",
-            "output": "docs/images/generated/admin/first-page-save-actions.png",
-            "required": true,
-            "notes": "Shows create, save as draft, create another, and cancel actions.",
-            "interactions": [
-                {
-                    "type": "waitFor",
-                    "selector": "[id=\"content.form-actions\"]"
-                },
-                {
-                    "type": "scrollIntoView",
-                    "selector": "[id=\"content.form-actions\"]",
-                    "block": "start"
-                }
-            ]
         },
         {
             "id": "first-page-edit-settings-tab",

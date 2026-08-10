@@ -1,7 +1,5 @@
 # Static Site Extensions
 
-![Capell Static Site Extensions screenshot](./images/screenshots/core-page-structure.png)
-
 > **Who is this for?**
 > Developers adding custom output files (RSS feeds, alternate sitemaps, custom JSON exports) to the static-site export, or transforming the export process itself.
 

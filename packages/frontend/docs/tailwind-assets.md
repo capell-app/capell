@@ -1,7 +1,5 @@
 # Tailwind Assets Registry & Generator
 
-![Capell Tailwind Assets Registry & Generator screenshot](./images/screenshots/frontend-settings.png)
-
 This document explains how Tailwind assets are collected across Capell packages/providers and how the generator produces a single CSS directive file used by Tailwind.
 
 ## Overview

@@ -73,4 +73,4 @@ Use [Packages and extensions](packages/catalog.md) for add-on boundaries and aut
 
 Update an existing page before adding a new one, and link every new page from the narrowest relevant index. Keep optional-package behavior with its owning package and public frontend safety rules beside rendering guidance.
 
-Use [Docs ownership rules](development/docs-ownership.md) to choose the right location and avoid duplicate or orphaned pages.
+Use [Docs ownership rules](development/docs-ownership.md) to choose the right location and avoid duplicate or orphaned pages. Use the [documentation visual standard](standards/documentation-visuals.md) for screenshots, linked galleries, theme-aware pairs, diagrams, captions, and regeneration ownership.

@@ -50,12 +50,11 @@ it('features the page-building path from the documentation landing page', functi
         ->not->toContain('## Build pages with the right amount of structure');
 });
 
-it('keeps the guide illustration and documented screenshot captures available', function (): void {
+it('keeps the guide illustration and documented screenshot capture available', function (): void {
     $guide = pageBuildingGuideContents('docs/getting-started/building-pages.md');
 
     $paths = [
         'docs/images/generated/page-building-continuum.webp',
-        'docs/images/generated/admin/first-page-content-editor.png',
         'docs/images/generated/page-building-blocks-editor.png',
     ];
 
@@ -66,7 +65,7 @@ it('keeps the guide illustration and documented screenshot captures available', 
 
     expect($guide)
         ->toContain('page-building-blocks-editor.png')
-        ->toContain('The Blocks page-body editor');
+        ->toContain('The first screen proves block-level editing and ordering.');
 });
 
 it('declares deterministic screenshot provenance for guide-owned captures', function (): void {

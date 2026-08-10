@@ -1,7 +1,5 @@
 # Resource Contributions
 
-![Capell Resource Contributions screenshot](./images/screenshots/admin-dashboard.png)
-
 Capell's admin panel uses admin surface contributions to expose resources, pages, widgets, panel extenders, and related admin UI additions through one registry.
 
 ## Resources
