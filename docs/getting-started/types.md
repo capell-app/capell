@@ -77,11 +77,7 @@ Choosing or creating a blueprint changes the editing experience and the runtime 
 
 The page create form is the clearest first example. Changing the page blueprint can change the editor fields and page behaviour. Changing the layout controls the frontend composition used by that page.
 
-[![The layout and publish timing fields](../images/generated/admin/first-page-layout-publish-fields.png)](../images/generated/admin/first-page-layout-publish-fields.png)
-
 Blueprint-specific fields can also appear in expandable sections or package-provided areas. A standard page might show summary and CTA fields. A specialist page blueprint can expose richer structured fields through its configurator or package extenders.
-
-[![The Extra Content section on the page form](../images/generated/admin/first-page-extra-content.png)](../images/generated/admin/first-page-extra-content.png)
 
 ## Blueprint Configuration
 

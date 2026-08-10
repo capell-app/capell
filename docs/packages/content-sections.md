@@ -1,7 +1,5 @@
 # Content Sections
 
-![Capell Content Sections screenshot](../images/generated/admin/first-page-content-editor.png)
-
 > **Heads up:** Content Sections is an approved, optional **Capell Foundation** package. It is a Composer package you add to an app, not core host behaviour. Install it only when a site needs ready-made page sections.
 
 Content Sections ships around seventeen themeable page sections an editor can drop onto a page, with admin management and safe, package-owned rendering. It provides:

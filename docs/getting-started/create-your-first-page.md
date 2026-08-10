@@ -35,10 +35,6 @@ The first fields decide where the page lives before you write content.
 
 **Internal name** — the admin-facing name for the page record. It normally follows the page title, but you can keep the admin list clear when the frontend title is long or marketing-led.
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-site-selector-dark.png"><img src="../images/generated/admin/first-page-site-selector.png" alt="Site selector on the page form"></picture>
-
-[Light](../images/generated/admin/first-page-site-selector.png) · [Dark](../images/generated/admin/first-page-site-selector-dark.png)
-
 <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-parent-selector-dark.png"><img src="../images/generated/admin/first-page-parent-selector.png" alt="Parent Page selector on the page form"></picture>
 
 [Light](../images/generated/admin/first-page-parent-selector.png) · [Dark](../images/generated/admin/first-page-parent-selector-dark.png)
@@ -65,10 +61,6 @@ For more background, read [How Capell works](how-capell-works.md#the-core-model)
 
 **URL preview** — shows the Site domain and parent path before the slug. Use it as a quick check before saving.
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-title-slug-url-dark.png"><img src="../images/generated/admin/first-page-title-slug-url.png" alt="Title, slug, and URL preview fields on the page form"></picture>
-
-[Light](../images/generated/admin/first-page-title-slug-url.png) · [Dark](../images/generated/admin/first-page-title-slug-url-dark.png)
-
 Good first-page examples:
 
 | Page          | Title      | Slug       |
@@ -83,10 +75,6 @@ Keep slugs short, lowercase, and stable. Changing a slug after publishing change
 
 **Content** — the main body of the page.
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-content-editor-dark.png"><img src="../images/generated/admin/first-page-content-editor.png" alt="Page content editor for the main page body"></picture>
-
-[Light](../images/generated/admin/first-page-content-editor.png) · [Dark](../images/generated/admin/first-page-content-editor-dark.png)
-
 On a plain install, this is a rich text editor for headings, paragraphs, links, tables, lists, and simple formatting. When the page needs typed blocks or approved section composition, choose the supported path in [Build a page](building-pages.md): page-type blocks with a page-specific `content_structure_override`, or the optional Layout Builder package for containers, widgets, and widget assets.
 
 For your first page, keep it simple:
@@ -99,10 +87,6 @@ For your first page, keep it simple:
 ## Fill useful extra content
 
 Open **Extra Content** when the page needs supporting fields.
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-extra-content-dark.png"><img src="../images/generated/admin/first-page-extra-content.png" alt="Extra Content section on the page form"></picture>
-
-[Light](../images/generated/admin/first-page-extra-content.png) · [Dark](../images/generated/admin/first-page-extra-content-dark.png)
 
 The exact fields can vary by blueprint and installed packages, but the common ideas are:
 
@@ -120,10 +104,6 @@ You do not need to fill every field on the first pass. Add the content that help
 
 **Visible From** — scheduled availability. Leave it empty when the page should be available as soon as it is published.
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-layout-publish-fields-dark.png"><img src="../images/generated/admin/first-page-layout-publish-fields.png" alt="Layout and publish timing fields on the page form"></picture>
-
-[Light](../images/generated/admin/first-page-layout-publish-fields.png) · [Dark](../images/generated/admin/first-page-layout-publish-fields-dark.png)
-
 Page **Blueprint** is closely related to layout, but it is not the same thing. Blueprints define reusable editing, rendering, and behaviour rules:
 
 | Concept   | Practical meaning                                       |
@@ -139,10 +119,6 @@ Developers can register custom blueprints through Capell extension points. Read 
 Use **Save as Draft** while you are still editing. A draft is stored in the admin, but it is not the public version yet.
 
 Use **Create** or **Save changes** when you are ready to store the record normally. On a plain install, use **Save and Publish** or **Publish** when the page is ready to go live. If workflow packages are installed, publishing may move through [approvals](../../packages/admin/docs/permissions-and-approval.md), Publishing Studio, or scheduled publishing.
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-save-actions-dark.png"><img src="../images/generated/admin/first-page-save-actions.png" alt="Create, save, and save-as-draft actions on the page form"></picture>
-
-[Light](../images/generated/admin/first-page-save-actions.png) · [Dark](../images/generated/admin/first-page-save-actions-dark.png)
 
 For the first page, save a draft, then preview it.
 

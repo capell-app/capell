@@ -23,10 +23,6 @@ The page type supplies the default. A page can opt out for its own body with `co
 
 Use HTML content for ordinary prose: headings, paragraphs, lists, links, and a page body that does not need editor-managed modules. It is the normal starting point for a simple About, policy, or contact page.
 
-[![Capell's standard page content editor for writing a normal HTML page body.](../images/generated/admin/first-page-content-editor.png)](../images/generated/admin/first-page-content-editor.png)
-
-_The standard page content editor. Its rich-text body is the smallest authoring surface for ordinary prose._
-
 Set the page type's content structure to HTML when that is the normal shape for pages of that type. An editor can use the page's content mode control when one page needs a different shape; Capell records that as `content_structure_override`, rather than changing the type for every page.
 
 Use the [Create your first page](create-your-first-page.md) guide for the basic page workflow. Keep public rendering on the normal frontend path: templates receive prepared page data and should not query models or lazy-load relationships.
