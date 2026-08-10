@@ -86,6 +86,10 @@ if (! is_string($readme)) {
 foreach (glob($root . '/*.md') ?: [] as $path) {
     $fileName = basename($path);
 
+    if ($fileName === 'CLAUDE.md' && is_link($path) && readlink($path) === 'AGENTS.md') {
+        continue;
+    }
+
     if (! isset($allowedLookup[$fileName])) {
         $failures[] = $fileName;
     }
