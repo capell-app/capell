@@ -15,6 +15,10 @@ final class ImageUrlPolicy
 
     private ?bool $allowRelativeUrls = null;
 
+    private ?CoreSettings $settings = null;
+
+    private bool $settingsResolved = false;
+
     /**
      * @param  list<string>|null  $allowedDomains
      */
@@ -71,8 +75,7 @@ final class ImageUrlPolicy
         }
 
         try {
-            $settings = resolve(CoreSettings::class);
-            $domains = $settings->allowed_remote_image_domains;
+            $domains = $this->settings()?->allowed_remote_image_domains ?? ['images.unsplash.com'];
         } catch (Throwable) {
             $domains = ['images.unsplash.com'];
         }
@@ -98,11 +101,24 @@ final class ImageUrlPolicy
         }
 
         try {
-            $settings = resolve(CoreSettings::class);
-
-            return $this->allowRelativeUrls = $settings->allow_relative_image_urls;
+            return $this->allowRelativeUrls = $this->settings()?->allow_relative_image_urls ?? true;
         } catch (Throwable) {
             return $this->allowRelativeUrls = true;
+        }
+    }
+
+    private function settings(): ?CoreSettings
+    {
+        if ($this->settingsResolved) {
+            return $this->settings;
+        }
+
+        $this->settingsResolved = true;
+
+        try {
+            return $this->settings = resolve(CoreSettings::class);
+        } catch (Throwable) {
+            return null;
         }
     }
 
