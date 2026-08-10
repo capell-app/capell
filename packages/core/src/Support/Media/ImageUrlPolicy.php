@@ -74,16 +74,20 @@ final class ImageUrlPolicy
             return $this->allowedDomains;
         }
 
-        $settings = $this->settings();
+        try {
+            $settings = $this->settings();
 
-        if ($settings === null) {
+            if ($settings === null) {
+                return $this->allowedDomains = ['images.unsplash.com'];
+            }
+
+            return $this->allowedDomains = array_values(array_filter(
+                array_map(trim(...), $settings->allowed_remote_image_domains),
+                static fn (string $domain): bool => $domain !== '',
+            ));
+        } catch (Throwable) {
             return $this->allowedDomains = ['images.unsplash.com'];
         }
-
-        return $this->allowedDomains = array_values(array_filter(
-            array_map(trim(...), $settings->allowed_remote_image_domains),
-            static fn (string $domain): bool => $domain !== '',
-        ));
     }
 
     public function allowsRelativeUrls(): bool
@@ -92,13 +96,17 @@ final class ImageUrlPolicy
             return $this->allowRelativeUrls;
         }
 
-        $settings = $this->settings();
+        try {
+            $settings = $this->settings();
 
-        if ($settings === null) {
+            if ($settings === null) {
+                return $this->allowRelativeUrls = true;
+            }
+
+            return $this->allowRelativeUrls = $settings->allow_relative_image_urls;
+        } catch (Throwable) {
             return $this->allowRelativeUrls = true;
         }
-
-        return $this->allowRelativeUrls = $settings->allow_relative_image_urls;
     }
 
     private function settings(): ?CoreSettings
