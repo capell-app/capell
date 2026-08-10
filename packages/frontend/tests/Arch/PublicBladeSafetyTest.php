@@ -58,6 +58,10 @@ it('documents the allowed public frontend runtime data attributes', function ():
         'data-capell-page-language',
         'data-capell-cookie',
         'data-capell-origin-cookie',
+        'data-capell-stylesheet-recovery',
+        'data-capell-stylesheet-fallback',
+        'data-capell-stylesheet-recovery-runtime',
+        'data-capell-stylesheet-fallback-active',
     ]);
 });
 
@@ -193,5 +197,9 @@ function publicFrontendBladeAllowedRuntimeAttributes(): array
         'data-capell-page-language',
         'data-capell-cookie',
         'data-capell-origin-cookie',
+        'data-capell-stylesheet-recovery',
+        'data-capell-stylesheet-fallback',
+        'data-capell-stylesheet-recovery-runtime',
+        'data-capell-stylesheet-fallback-active',
     ];
 }

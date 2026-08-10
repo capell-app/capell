@@ -46,6 +46,10 @@ final class PublicOutputLeakPolicy
         'data-capell-cookie',
         'data-capell-origin-cookie',
         'data-capell-page-language',
+        'data-capell-stylesheet-recovery',
+        'data-capell-stylesheet-fallback',
+        'data-capell-stylesheet-recovery-runtime',
+        'data-capell-stylesheet-fallback-active',
     ];
 
     private const array BLOCKED_PUBLIC_VALUE_PATTERNS = [
