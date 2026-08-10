@@ -1,7 +1,5 @@
 # User Menu Registry
 
-![Capell User Menu Registry screenshot](./images/screenshots/admin-dashboard.png)
-
 Packages can add admin-only links to the Filament user menu through the Capell admin registry. Register items from a package service provider or admin provider after translations and routes are available.
 
 Use this for personal attention and work queues: assigned workflow tasks, mentions, due reminders, drafts, or reviews waiting on the current user. Do not use it for global system health, diagnostics, or package status unless the current user is directly responsible for the item.

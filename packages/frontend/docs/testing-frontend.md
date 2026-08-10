@@ -1,7 +1,5 @@
 # Testing Capell Frontend Pages
 
-![Capell Testing Capell Frontend Pages screenshot](./images/screenshots/frontend-published-page.png)
-
 Frontend page tests should prove the public site output works, not that the admin editor stored a particular internal shape. Start from the smallest useful surface:
 
 - use an Action or unit test for resolver, cache, or render-data behavior

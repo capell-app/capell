@@ -8,17 +8,23 @@ If you have not installed Capell yet, start with the [quickstart](quickstart.md)
 
 Open **Pages** from the sidebar. Pages are the main routable content records in Capell: they belong to a [Site](../reference/glossary.md#editing-terms), can sit inside a page tree, and publish to frontend URLs.
 
-![The Pages list in Capell Admin](../images/generated/admin/first-page-pages-list.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-pages-list-dark.png"><img src="../images/generated/admin/first-page-pages-list.png" alt="Pages list in Capell Admin before creating a page"></picture>
+
+[Light](../images/generated/admin/first-page-pages-list.png) · [Dark](../images/generated/admin/first-page-pages-list-dark.png)
 
 Click **New page** in the top-right corner.
 
-![The New page action on the Pages list](../images/generated/admin/first-page-new-page-action.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-new-page-action-dark.png"><img src="../images/generated/admin/first-page-new-page-action.png" alt="New page action on the Pages list"></picture>
+
+[Light](../images/generated/admin/first-page-new-page-action.png) · [Dark](../images/generated/admin/first-page-new-page-action-dark.png)
 
 ## Choose the page context
 
 The first fields decide where the page lives before you write content.
 
-![The top fields on the create page form](../images/generated/admin/first-page-create-top-fields.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-create-top-fields-dark.png"><img src="../images/generated/admin/first-page-create-top-fields.png" alt="Top fields on the create page form"></picture>
+
+[Light](../images/generated/admin/first-page-create-top-fields.png) · [Dark](../images/generated/admin/first-page-create-top-fields-dark.png)
 
 **Site** — which public website owns the page. Even on a single-site install, the Site carries the domain, languages, default pages, related sites, and brand-level details the frontend uses.
 
@@ -29,9 +35,9 @@ The first fields decide where the page lives before you write content.
 
 **Internal name** — the admin-facing name for the page record. It normally follows the page title, but you can keep the admin list clear when the frontend title is long or marketing-led.
 
-![The Site selector on the page form](../images/generated/admin/first-page-site-selector.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-parent-selector-dark.png"><img src="../images/generated/admin/first-page-parent-selector.png" alt="Parent Page selector on the page form"></picture>
 
-![The Parent Page selector on the page form](../images/generated/admin/first-page-parent-selector.png)
+[Light](../images/generated/admin/first-page-parent-selector.png) · [Dark](../images/generated/admin/first-page-parent-selector-dark.png)
 
 ## Understand parents and URLs
 
@@ -55,8 +61,6 @@ For more background, read [How Capell works](how-capell-works.md#the-core-model)
 
 **URL preview** — shows the Site domain and parent path before the slug. Use it as a quick check before saving.
 
-![The title, slug, and URL preview fields](../images/generated/admin/first-page-title-slug-url.png)
-
 Good first-page examples:
 
 | Page          | Title      | Slug       |
@@ -71,8 +75,6 @@ Keep slugs short, lowercase, and stable. Changing a slug after publishing change
 
 **Content** — the main body of the page.
 
-![The page content editor](../images/generated/admin/first-page-content-editor.png)
-
 On a plain install, this is a rich text editor for headings, paragraphs, links, tables, lists, and simple formatting. When the page needs typed blocks or approved section composition, choose the supported path in [Build a page](building-pages.md): page-type blocks with a page-specific `content_structure_override`, or the optional Layout Builder package for containers, widgets, and widget assets.
 
 For your first page, keep it simple:
@@ -85,8 +87,6 @@ For your first page, keep it simple:
 ## Fill useful extra content
 
 Open **Extra Content** when the page needs supporting fields.
-
-![The Extra Content section on the page form](../images/generated/admin/first-page-extra-content.png)
 
 The exact fields can vary by blueprint and installed packages, but the common ideas are:
 
@@ -104,8 +104,6 @@ You do not need to fill every field on the first pass. Add the content that help
 
 **Visible From** — scheduled availability. Leave it empty when the page should be available as soon as it is published.
 
-![The layout and publish timing fields](../images/generated/admin/first-page-layout-publish-fields.png)
-
 Page **Blueprint** is closely related to layout, but it is not the same thing. Blueprints define reusable editing, rendering, and behaviour rules:
 
 | Concept   | Practical meaning                                       |
@@ -121,8 +119,6 @@ Developers can register custom blueprints through Capell extension points. Read 
 Use **Save as Draft** while you are still editing. A draft is stored in the admin, but it is not the public version yet.
 
 Use **Create** or **Save changes** when you are ready to store the record normally. On a plain install, use **Save and Publish** or **Publish** when the page is ready to go live. If workflow packages are installed, publishing may move through [approvals](../../packages/admin/docs/permissions-and-approval.md), Publishing Studio, or scheduled publishing.
-
-![The create and save as draft actions](../images/generated/admin/first-page-save-actions.png)
 
 For the first page, save a draft, then preview it.
 
@@ -154,7 +150,9 @@ See [Troubleshooting](../operations/troubleshooting.md) if the page shows a 404,
 
 On edit screens, Capell shows additional page settings and package-provided fields. These can include SEO settings, canonical URL choices, cache behaviour, featured images, and other fields added by extensions.
 
-![The edit page settings tab](../images/generated/admin/first-page-edit-settings-tab.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-edit-settings-tab-dark.png"><img src="../images/generated/admin/first-page-edit-settings-tab.png" alt="Edit page Settings tab with page-specific controls"></picture>
+
+[Light](../images/generated/admin/first-page-edit-settings-tab.png) · [Dark](../images/generated/admin/first-page-edit-settings-tab-dark.png)
 
 For a first page, avoid tuning everything at once. Confirm the page renders first, then come back for SEO and sharing details.
 
@@ -175,7 +173,9 @@ Site-level details can apply across every page for that site:
 
 Site records live in the **Settings** area of the admin sidebar. Open **Sites** when you need to update the company, logo, favicon, brand, domain, language, or related site details behind the pages.
 
-![The Settings area where site-wide configuration is managed](../images/generated/admin/first-page-site-branding-settings.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-site-branding-settings-dark.png"><img src="../images/generated/admin/first-page-site-branding-settings.png" alt="Settings area where site-wide brand and domain configuration is managed"></picture>
+
+[Light](../images/generated/admin/first-page-site-branding-settings.png) · [Dark](../images/generated/admin/first-page-site-branding-settings-dark.png)
 
 Change Site details when the same value should affect the whole website. Change Page details when the value only belongs to one page.
 

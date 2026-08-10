@@ -1,7 +1,5 @@
 # Frontend Security
 
-![Capell Frontend Security screenshot](./images/screenshots/frontend-settings.png)
-
 ## HTML Content Rendering
 
 Capell sanitizes CMS HTML content by default through `RenderHtmlContentAction`.

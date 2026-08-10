@@ -1,7 +1,5 @@
 # Admin Multi-Language
 
-![Capell Admin Multi-Language screenshot](./images/screenshots/admin-pages-list.png)
-
 Capell Admin can show the Filament admin panel in the language selected by each admin user. The language selector appears in the Filament user menu and the same preference can also be edited on the user resource.
 
 This is an admin UI preference only. It does not change public frontend content language, site domains, page translations, or notification locale.

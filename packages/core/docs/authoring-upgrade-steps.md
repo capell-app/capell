@@ -1,7 +1,5 @@
 # Authoring an upgrade step
 
-![Capell Authoring an upgrade step screenshot](./images/screenshots/core-page-structure.png)
-
 Use an upgrade step for one-time operations that run at deploy time:
 
 - Backfilling new columns on existing rows

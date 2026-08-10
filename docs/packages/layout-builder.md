@@ -1,7 +1,5 @@
 # Layout Builder
 
-![Capell Layout Builder screenshot](../images/generated/admin/first-page-content-editor.png)
-
 > **Heads up:** Layout Builder is an approved, optional **Capell Foundation** package. It is a Composer package you add to an app, not core host behaviour. Install it only when a site needs visual page composition.
 
 Layout Builder is the visual layout and widget composition engine behind content-first page editing. It provides:

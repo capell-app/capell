@@ -1,7 +1,5 @@
 # Event Registry Hook System
 
-![Capell Event Registry Hook System screenshot](./images/screenshots/admin-dashboard.png)
-
 The Capell Admin package provides an event registry hook system that follows the Observer pattern, allowing other packages to subscribe to and receive events from specific classes.
 
 ## Usage

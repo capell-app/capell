@@ -28,7 +28,12 @@ The **top bar** on the right side has a **Clear Cache** button, a global search 
 
 Use **Clear Cache** when a saved or published change does not appear on the frontend. If that does not fix it, check [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). If the page never generates, check [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate) and confirm a queue worker is running.
 
-![Capell Pages workspace with page status, type, and actions](../images/admin-pages-list.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-dashboard-dark.png">
+  <img src="../../packages/admin/docs/images/screenshots/admin-dashboard.png" alt="Admin dashboard with site switcher, navigation, search, and operational widgets">
+</picture>
+
+[Light](../../packages/admin/docs/images/screenshots/admin-dashboard.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-dashboard-dark.png)
 
 If you installed with `--demo`, the widgets will already show sample content. If not, most widgets will show empty states — that's expected.
 
@@ -38,7 +43,12 @@ If you installed with `--demo`, the widgets will already show sample content. If
 
 Go to **Pages** in the sidebar. You'll see either an empty tree (fresh install) or the demo page hierarchy.
 
-![Capell pages list](../images/admin-pages-list.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/admin-pages-list-dark.png">
+  <img src="../images/admin-pages-list.png" alt="Pages workspace with hierarchy, publishing state, type, and actions">
+</picture>
+
+[Light](../images/admin-pages-list.png) · [Dark](../images/admin-pages-list-dark.png)
 
 The full [Create your first page](create-your-first-page.md) guide now covers the page form field by field, including Site, Parent Page, URL generation, Blueprints, Layouts, content, drafts, preview, publishing, site-wide branding, and useful next extensions such as ContentSections and Navigation. See [Blueprints](types.md) for the reusable editing, rendering, and behaviour rules behind pages, widgets, and layouts.
 
@@ -88,7 +98,12 @@ Go to **Settings** in the sidebar. A few things worth setting up early:
 
 **SEO defaults** — a fallback meta description pattern and default Open Graph image for pages that don't set their own.
 
-![Capell settings](../images/admin-settings.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/admin-settings-dark.png">
+  <img src="../images/admin-settings.png" alt="Capell Settings with site, language, and frontend configuration groups">
+</picture>
+
+[Light](../images/admin-settings.png) · [Dark](../images/admin-settings-dark.png)
 
 ---
 

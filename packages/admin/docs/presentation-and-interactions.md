@@ -1,7 +1,5 @@
 # Presentation And Interactions Admin Controls
 
-![Capell Presentation And Interactions Admin Controls screenshot](./images/screenshots/admin-dashboard.png)
-
 Capell Admin exposes shared Filament schema helpers for presentation settings and interaction triggers. Use these helpers whenever a Content Builder widget, Layout Builder block, or type-default form needs public delivery controls.
 
 The goal is a progressive editor experience:

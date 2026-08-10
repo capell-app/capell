@@ -1,7 +1,5 @@
 # Marketing Studio
 
-![Capell Marketing Studio screenshot](./images/screenshots/admin-dashboard.png)
-
 Marketing Studio is the editor-focused dashboard at `/admin/marketing-studio`. It keeps everyday marketing work under one primary sidebar item and moves technical resources into the dashboard Advanced area.
 
 ## Registering Actions

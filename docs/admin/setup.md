@@ -1,7 +1,5 @@
 # Admin Setup
 
-![Capell Admin Setup screenshot](../images/admin-settings.png)
-
 `capell:admin-setup` prepares the Capell Admin package and can integrate Capell Admin into a Filament panel without replacing custom panel configuration.
 
 ```sh
