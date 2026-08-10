@@ -65,6 +65,8 @@ test('strips fenced and inline code before parsing Markdown and HTML images', ()
 test('reports deterministic relationship warnings without creating failures', (t) => {
     const duplicateContents = Buffer.from('same image')
     const manifest = JSON.stringify({
+        generatedFor: 'shared-capell-screenshot-runner',
+        provenancePolicy: 'runner-only-v1',
         entries: [
             {
                 id: 'manifest-used',
@@ -141,6 +143,8 @@ test('reports deterministic relationship warnings without creating failures', (t
 
 test('preserves required visuals, broken refs, manifest output, and duplicate ID failures', (t) => {
     const manifest = JSON.stringify({
+        generatedFor: 'shared-capell-screenshot-runner',
+        provenancePolicy: 'runner-only-v1',
         entries: [
             {
                 id: 'duplicate',
