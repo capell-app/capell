@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\HtmlString;
+use Livewire\Blaze\Blaze;
 use Symfony\Component\HttpFoundation\Response;
 
 final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
@@ -112,9 +113,24 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
             return null;
         }
 
-        return Blade::render('<x-capell::layout />', [
-            '__env' => resolve(Factory::class),
-        ]);
+        if (! app()->bound('blaze')) {
+            return Blade::render('<x-capell::layout />', [
+                '__env' => resolve(Factory::class),
+            ]);
+        }
+
+        $wasBlazeEnabled = Blaze::isEnabled();
+        Blaze::disable();
+
+        try {
+            return Blade::render('<x-capell::layout />', [
+                '__env' => resolve(Factory::class),
+            ]);
+        } finally {
+            if ($wasBlazeEnabled) {
+                Blaze::enable();
+            }
+        }
     }
 
     private function hydratedLayoutGraphSlot(FrontendRenderContextData $context): ?string
