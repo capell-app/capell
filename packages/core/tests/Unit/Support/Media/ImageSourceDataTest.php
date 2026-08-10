@@ -56,6 +56,23 @@ it('uses a fresh image URL policy after an Octane request scope is flushed', fun
         ->and($secondPolicy->allows('/image.jpg'))->toBeTrue();
 });
 
+it('falls back to the safe image URL defaults when a partial settings record cannot load', function (): void {
+    $settings = Mockery::mock(CoreSettings::class);
+    $settings->shouldReceive('__get')
+        ->with('allowed_remote_image_domains')
+        ->andThrow(new RuntimeException('Core settings are incomplete.'));
+    $settings->shouldReceive('__get')
+        ->with('allow_relative_image_urls')
+        ->andThrow(new RuntimeException('Core settings are incomplete.'));
+
+    app()->instance(CoreSettings::class, $settings);
+
+    $policy = new ImageUrlPolicy;
+
+    expect($policy->allows('https://images.unsplash.com/photo.jpg'))->toBeTrue()
+        ->and($policy->allows('/storage/demo/photo.jpg'))->toBeTrue();
+});
+
 it('normalizes legacy string URLs into image source data', function (): void {
     $source = ResolveImageSourceDataAction::run('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80');
 

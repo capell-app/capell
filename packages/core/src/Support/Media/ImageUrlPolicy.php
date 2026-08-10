@@ -15,6 +15,10 @@ final class ImageUrlPolicy
 
     private ?bool $allowRelativeUrls = null;
 
+    private ?CoreSettings $settings = null;
+
+    private bool $settingsResolved = false;
+
     /**
      * @param  list<string>|null  $allowedDomains
      */
@@ -71,24 +75,19 @@ final class ImageUrlPolicy
         }
 
         try {
-            $settings = resolve(CoreSettings::class);
-            $domains = $settings->allowed_remote_image_domains;
+            $settings = $this->settings();
+
+            if (! $settings instanceof CoreSettings) {
+                return $this->allowedDomains = ['images.unsplash.com'];
+            }
+
+            return $this->allowedDomains = array_values(array_filter(
+                array_map(trim(...), $settings->allowed_remote_image_domains),
+                static fn (string $domain): bool => $domain !== '',
+            ));
         } catch (Throwable) {
-            $domains = ['images.unsplash.com'];
-        }
-
-        if (is_string($domains)) {
-            $domains = preg_split('/[\s,]+/', $domains) ?: [];
-        }
-
-        if (! is_array($domains)) {
             return $this->allowedDomains = ['images.unsplash.com'];
         }
-
-        return $this->allowedDomains = array_values(array_filter(
-            array_map(trim(...), $domains),
-            static fn (string $domain): bool => $domain !== '',
-        ));
     }
 
     public function allowsRelativeUrls(): bool
@@ -98,11 +97,30 @@ final class ImageUrlPolicy
         }
 
         try {
-            $settings = resolve(CoreSettings::class);
+            $settings = $this->settings();
+
+            if (! $settings instanceof CoreSettings) {
+                return $this->allowRelativeUrls = true;
+            }
 
             return $this->allowRelativeUrls = $settings->allow_relative_image_urls;
         } catch (Throwable) {
             return $this->allowRelativeUrls = true;
+        }
+    }
+
+    private function settings(): ?CoreSettings
+    {
+        if ($this->settingsResolved) {
+            return $this->settings;
+        }
+
+        $this->settingsResolved = true;
+
+        try {
+            return $this->settings = resolve(CoreSettings::class);
+        } catch (Throwable) {
+            return null;
         }
     }
 
