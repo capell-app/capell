@@ -11,6 +11,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildPublicationLocaleStatusAction
 {
+    // AsFake is part of the Core action contract and keeps this action testable.
     use AsFake;
     use AsObject;
 
