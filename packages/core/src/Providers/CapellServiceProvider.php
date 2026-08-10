@@ -8,6 +8,7 @@ use BackedEnum;
 use Capell\Core\Actions\BladeComponentFacadeResolver;
 use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
+use Capell\Core\Console\Commands\AuditSiteDomainOriginsCommand;
 use Capell\Core\Console\Commands\BackupHealthCommand;
 use Capell\Core\Console\Commands\CacheComponentsCommand;
 use Capell\Core\Console\Commands\ClearComponentsCacheCommand;
@@ -254,6 +255,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         }
 
         $package->hasCommands([
+            AuditSiteDomainOriginsCommand::class,
             CacheComponentsCommand::class,
             BackupHealthCommand::class,
             CloudBootstrapCommand::class,
