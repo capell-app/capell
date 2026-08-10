@@ -501,8 +501,13 @@ function checkScreenshotManifests({ cwd, repoRoots, screenshotManifests }) {
         )
         const ids = new Set()
 
-        if (manifest.generatedFor !== 'shared-capell-screenshot-runner' || manifest.provenancePolicy !== 'runner-only-v1') {
-            invalidProvenance.push(`${manifestPath} -> manifest must declare shared-capell-screenshot-runner / runner-only-v1`)
+        if (
+            manifest.generatedFor !== 'shared-capell-screenshot-runner' ||
+            manifest.provenancePolicy !== 'runner-only-v1'
+        ) {
+            invalidProvenance.push(
+                `${manifestPath} -> manifest must declare shared-capell-screenshot-runner / runner-only-v1`,
+            )
         }
 
         for (const entry of manifest.entries ?? []) {
@@ -516,8 +521,13 @@ function checkScreenshotManifests({ cwd, repoRoots, screenshotManifests }) {
 
             const outputPath = manifestOutputPath(manifest, entry)
 
-            if (typeof entry.source === 'string' && /capell\.app|marketing/i.test(entry.source)) {
-                invalidProvenance.push(`${manifestPath} -> ${entry.id} -> direct marketing-App source is forbidden`)
+            if (
+                typeof entry.source === 'string' &&
+                /capell\.app|marketing/i.test(entry.source)
+            ) {
+                invalidProvenance.push(
+                    `${manifestPath} -> ${entry.id} -> direct marketing-App source is forbidden`,
+                )
             }
 
             if (entry.acceptedEvidence === true) {
