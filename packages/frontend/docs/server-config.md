@@ -87,6 +87,23 @@ gzip_types
 
 If Brotli is available in the production proxy, enable it for the same MIME types. Do not audit through an uncompressed local PHP server when comparing Lighthouse scores for Capell frontend pages.
 
+### Release-safe Vite assets
+
+Do not serve `/build/assets/*` exclusively through a `current/public` symlink when HTML can be cached beyond a deployment. A cached page from release A can request A's content-hashed CSS after `current` points at release B; deleting or hiding A's build directory then turns a normal zero-downtime switch into a site-wide unstyled response.
+
+The host deployment must:
+
+1. attest every regular file under the release's `public/build/assets` directory;
+2. publish those files into shared, append-only storage before switching the live release;
+3. fail if an existing hashed filename has different bytes;
+4. serve `/build/assets/` from that shared store with immutable cache headers;
+5. atomically publish direct CSS entries under `/build/fallback/{entry}` with `no-cache` headers;
+6. verify shared delivery before and after the switch, and republish the rollback candidate's stable fallback before rollback.
+
+Retain old hashes for at least the longest HTML `max-age`, surrogate cache, stale-while-revalidate, browser history, and rollback window. A monotonic store with no automatic deletion is the safe initial policy; add garbage collection only when it can prove that no retained release or cache window still references a file.
+
+This contract covers JavaScript chunks, CSS, fonts, and other Vite outputs—not only the stylesheet that first exposed the problem. Edge-cache purging remains useful for fresh HTML, but it is not a substitute for retaining immutable assets.
+
 ---
 
 ## Static Artifacts

@@ -32,7 +32,7 @@ Installer and Marketplace config are loaded from their packages. Publish or over
 Source: `packages/core/config/capell.php`
 
 | Variable                                     | Default                                   | Used for                                                                                                                                                            |
-| -------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| -------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CAPELL_VERSION`                             | _(null)_                                  | Optional Capell version override for Marketplace health reports                                                                                                     |
 | `CAPELL_CACHE_PATH`                          | `bootstrap/cache/capell`                  | Directory used for Capell component cache files                                                                                                                     |
 | `CAPELL_CACHE_TTL`                           | `60`                                      | Default TTL in seconds for Capell's general cache helpers                                                                                                           |
@@ -105,7 +105,7 @@ Source: `packages/core/config/capell.php`
 
 The three activity-collection env vars above are read only when the Capell Admin package is absent. With Admin present — the normal case — Admin's own **Settings → Dashboard** values (`analytics_collection_enabled`, `analytics_search_collection_enabled`, `analytics_activity_retention_days`) take over instead, and the env vars are silently ignored. If the settings table is unreadable, Admin falls back to its own field defaults, not to these env vars. Configure activity collection through Admin in a normal install; the env vars exist for Admin-less or headless deployments. `CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE` has no Admin equivalent and is always read from config.
 
-Search-term recording is opt-in and currently has no built-in caller: enabling `CAPELL_ANALYTICS_SEARCH_COLLECTION_ENABLED` (or the Admin equivalent) does nothing on its own until a package records searches through `RecordSearchActivityAction`. When it does, the term is lowercased, whitespace-collapsed, and dropped if empty, over 160 characters, or the *entire* term matches an email, URL, or phone-number pattern — a query only containing an address, such as a bare email, is filtered; the same address inside a longer sentence is not.
+Search-term recording is opt-in and currently has no built-in caller: enabling `CAPELL_ANALYTICS_SEARCH_COLLECTION_ENABLED` (or the Admin equivalent) does nothing on its own until a package records searches through `RecordSearchActivityAction`. When it does, the term is lowercased, whitespace-collapsed, and dropped if empty, over 160 characters, or the _entire_ term matches an email, URL, or phone-number pattern — a query only containing an address, such as a bare email, is filtered; the same address inside a longer sentence is not.
 
 Raw activity rows are pruned daily by `capell:activity:prune`, scheduled at 00:35 UTC. `CAPELL_ANALYTICS_ACTIVITY_RETENTION_DAYS` (or its Admin equivalent) is clamped to 1–7 regardless of what is configured.
 
@@ -162,40 +162,43 @@ See [Admin domain and path](../admin/admin-domain.md) for path-only and subdomai
 
 Source: `packages/frontend/config/capell-frontend.php`
 
-| Variable                                               | Default                             | Used for                                                                        |
-| ------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------- |
-| `CAPELL_FRONTEND_LAYOUT_FILE`                          | `capell::app`                       | Default Blade layout for frontend page rendering                                |
-| `CAPELL_FRONTEND_CONTAINER_WIDTH_DEFAULT`              | _(null)_                            | Default layout container width key when the layout has no override              |
-| `CAPELL_FRONTEND_PUBLIC_AGGRESSIVE_PREFETCH`           | `false`                             | Enables Laravel Vite aggressive prefetching for public assets                   |
-| `CAPELL_HTML_CACHE`                                    | `true`                              | Enables static HTML cache reads                                                 |
-| `CAPELL_WRITE_HTML_CACHE`                              | `true`                              | Allows static HTML cache writes                                                 |
-| `CAPELL_PUBLIC_RENDER_DATA_CACHE`                      | `true`                              | Caches hydrated public render payloads                                          |
-| `CAPELL_MINIFY_HTML`                                   | `true`                              | Minifies rendered HTML before returning or caching                              |
-| `CAPELL_MODEL_EVENT_REGISTRATION_MODE`                 | `deferred`                          | Cache event tracking mode: `sync`, `deferred`, or `async`                       |
-| `CAPELL_FRONTEND_REGISTER_HOME_ROUTE`                  | `false`                             | Registers `/` to the Capell frontend controller                                 |
-| `CAPELL_FRONTEND_USE_SITE_DOMAIN_FOR_URLS`             | `false`                             | Rewrites generated frontend URLs to the resolved site domain                    |
-| `CAPELL_THROW_ON_NO_SITES`                             | `false`                             | Throws instead of returning 404 when no sites exist                             |
-| `CAPELL_AUTO_CREATE_SYSTEM_PAGES`                      | `true`                              | Auto-creates missing system pages when resolving fallback pages                 |
-| `CAPELL_FRONTEND_DEFAULT_SCHEME`                       | _(null)_                            | Optional forced scheme for generated frontend URLs, such as `https`             |
-| `CAPELL_SITE_BASE_URL`                                 | _(null)_                            | Base URL override for generated site URLs                                       |
-| `CAPELL_FRONTEND_PURGE_QUEUE`                          | `default`                           | Queue used for CDN purge jobs                                                   |
-| `CAPELL_FRONTEND_CDN_PROVIDER`                         | _(null)_                            | CDN purge provider: `cloudflare`, `fastly`, or `varnish`                        |
-| `CAPELL_FRONTEND_CLOUDFLARE_PURGE_TOKEN`               | _(null)_                            | Cloudflare API token for tag purges                                             |
-| `CAPELL_FRONTEND_CLOUDFLARE_ZONE_ID`                   | _(null)_                            | Cloudflare zone ID for tag purges                                               |
-| `CAPELL_FRONTEND_FASTLY_API_KEY`                       | _(null)_                            | Fastly API key for surrogate-key purges                                         |
-| `CAPELL_FRONTEND_VARNISH_URL`                          | _(null)_                            | Varnish endpoint used for BAN requests                                          |
-| `CAPELL_DEBUG_LOG`                                     | `false`                             | Adds frontend resolution debug logging                                          |
-| `CAPELL_FRONTEND_STATIC_ARTIFACTS_PATH`                | _(null)_                            | Override directory for `capell:generate-html` output; defaults to storage       |
-| `CAPELL_FRONTEND_TAILWIND_OUTPUT_CSS`                  | `resources/css/capell/frontend.css` | Path the generated frontend Tailwind stylesheet is written to                   |
-| `CAPELL_FRONTEND_EXTERNAL_INTEGRITY_POLICY`            | `warn`                              | Subresource-integrity policy for external assets: `off`, `warn`, or `require`   |
-| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_DEPTH`            | `20`                                | Maximum traversal depth when resolving which cache entries a change invalidates |
-| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_NODES`            | `5000`                              | Safety bound on nodes visited during cache-invalidation traversal               |
-| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_EDGES`            | `10000`                             | Safety bound on edges walked during cache-invalidation traversal                |
-| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED`      | `true`                              | Detects database queries executed from public Blade views                       |
-| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_MODE`         | `exception`                         | Guard reaction: `exception` to fail loudly, or `log` to record and continue     |
-| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_DOCS_URL`     | _(docs.capell.app symptom table)_   | Help URL embedded in the guard's error message                                  |
-| `CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_PASSED` | `false`                             | Records passing public render-contract checks as events                         |
-| `CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_FAILED` | `true`                              | Records failing public render-contract checks as events                         |
+| Variable                                               | Default                                          | Used for                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `CAPELL_FRONTEND_LAYOUT_FILE`                          | `capell::app`                                    | Default Blade layout for frontend page rendering                                |
+| `CAPELL_FRONTEND_CONTAINER_WIDTH_DEFAULT`              | _(null)_                                         | Default layout container width key when the layout has no override              |
+| `CAPELL_FRONTEND_PUBLIC_AGGRESSIVE_PREFETCH`           | `false`                                          | Enables Laravel Vite aggressive prefetching for public assets                   |
+| `CAPELL_FRONTEND_STYLESHEET_RECOVERY_ENABLED`          | `true`                                           | Enables stable fallback and bounded retry for failed critical stylesheets       |
+| `CAPELL_FRONTEND_STYLESHEET_FALLBACK_URL`              | `/vendor/capell-frontend/capell-frontend.css`    | Stable local stylesheet used while the intended asset is unavailable            |
+| `CAPELL_FRONTEND_STYLESHEET_RECOVERY_RUNTIME_URL`      | `/vendor/capell-frontend/stylesheet-recovery.js` | Stable local URL for the recovery runtime                                       |
+| `CAPELL_HTML_CACHE`                                    | `true`                                           | Enables static HTML cache reads                                                 |
+| `CAPELL_WRITE_HTML_CACHE`                              | `true`                                           | Allows static HTML cache writes                                                 |
+| `CAPELL_PUBLIC_RENDER_DATA_CACHE`                      | `true`                                           | Caches hydrated public render payloads                                          |
+| `CAPELL_MINIFY_HTML`                                   | `true`                                           | Minifies rendered HTML before returning or caching                              |
+| `CAPELL_MODEL_EVENT_REGISTRATION_MODE`                 | `deferred`                                       | Cache event tracking mode: `sync`, `deferred`, or `async`                       |
+| `CAPELL_FRONTEND_REGISTER_HOME_ROUTE`                  | `false`                                          | Registers `/` to the Capell frontend controller                                 |
+| `CAPELL_FRONTEND_USE_SITE_DOMAIN_FOR_URLS`             | `false`                                          | Rewrites generated frontend URLs to the resolved site domain                    |
+| `CAPELL_THROW_ON_NO_SITES`                             | `false`                                          | Throws instead of returning 404 when no sites exist                             |
+| `CAPELL_AUTO_CREATE_SYSTEM_PAGES`                      | `true`                                           | Auto-creates missing system pages when resolving fallback pages                 |
+| `CAPELL_FRONTEND_DEFAULT_SCHEME`                       | _(null)_                                         | Optional forced scheme for generated frontend URLs, such as `https`             |
+| `CAPELL_SITE_BASE_URL`                                 | _(null)_                                         | Base URL override for generated site URLs                                       |
+| `CAPELL_FRONTEND_PURGE_QUEUE`                          | `default`                                        | Queue used for CDN purge jobs                                                   |
+| `CAPELL_FRONTEND_CDN_PROVIDER`                         | _(null)_                                         | CDN purge provider: `cloudflare`, `fastly`, or `varnish`                        |
+| `CAPELL_FRONTEND_CLOUDFLARE_PURGE_TOKEN`               | _(null)_                                         | Cloudflare API token for tag purges                                             |
+| `CAPELL_FRONTEND_CLOUDFLARE_ZONE_ID`                   | _(null)_                                         | Cloudflare zone ID for tag purges                                               |
+| `CAPELL_FRONTEND_FASTLY_API_KEY`                       | _(null)_                                         | Fastly API key for surrogate-key purges                                         |
+| `CAPELL_FRONTEND_VARNISH_URL`                          | _(null)_                                         | Varnish endpoint used for BAN requests                                          |
+| `CAPELL_DEBUG_LOG`                                     | `false`                                          | Adds frontend resolution debug logging                                          |
+| `CAPELL_FRONTEND_STATIC_ARTIFACTS_PATH`                | _(null)_                                         | Override directory for `capell:generate-html` output; defaults to storage       |
+| `CAPELL_FRONTEND_TAILWIND_OUTPUT_CSS`                  | `resources/css/capell/frontend.css`              | Path the generated frontend Tailwind stylesheet is written to                   |
+| `CAPELL_FRONTEND_EXTERNAL_INTEGRITY_POLICY`            | `warn`                                           | Subresource-integrity policy for external assets: `off`, `warn`, or `require`   |
+| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_DEPTH`            | `20`                                             | Maximum traversal depth when resolving which cache entries a change invalidates |
+| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_NODES`            | `5000`                                           | Safety bound on nodes visited during cache-invalidation traversal               |
+| `CAPELL_CACHE_INVALIDATION_GRAPH_MAX_EDGES`            | `10000`                                          | Safety bound on edges walked during cache-invalidation traversal                |
+| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED`      | `true`                                           | Detects database queries executed from public Blade views                       |
+| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_MODE`         | `exception`                                      | Guard reaction: `exception` to fail loudly, or `log` to record and continue     |
+| `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_DOCS_URL`     | _(docs.capell.app symptom table)_                | Help URL embedded in the guard's error message                                  |
+| `CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_PASSED` | `false`                                          | Records passing public render-contract checks as events                         |
+| `CAPELL_FRONTEND_PUBLIC_RENDER_CONTRACT_RECORD_FAILED` | `true`                                           | Records failing public render-contract checks as events                         |
 
 The public view query guard is a development safeguard: queries belong in the render
 pipeline, not in Blade. Set `CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_MODE=log` in
@@ -235,7 +238,7 @@ CAPELL_SETUP_ADMIN_PASSWORD=password123
 Source: `packages/marketplace/config/capell-marketplace.php`
 
 | Variable                                                   | Default                                                    | Used for                                                                                     |
-| ---------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
+| ---------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `CAPELL_MARKETPLACE_ENABLED`                               | `true`                                                     | Enables Marketplace integration                                                              |
 | `CAPELL_INSTANCE_ID`                                       | _(null)_                                                   | Existing Marketplace instance ID                                                             |
 | `CAPELL_MARKETPLACE_URL`                                   | `https://capell.app/api/v1`                                | Marketplace API base URL                                                                     |
@@ -337,7 +340,7 @@ nothing until that package is installed, and searching this repository for a con
 finds none — which does not mean they are dead. Do not remove them.
 
 | Config key                                                                                      | Read by                                                                                  |
-| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `capell.publishing-studio.release_windows.*`, `.notifications.*`, `.review_policy.*`            | `capell-app/publishing-studio` (`ReleaseWindowGuard`) and `capell-app/automation-studio` |
 | `capell.sitemap.xml_path`, `.disk`, `.directory`                                                | `capell-app/site-discovery`                                                              |
 | `capell-admin.layout_builder.allowed_editor_modes`                                              | `capell-app/layout-builder` (`LayoutBuilderConfiguration`)                               |

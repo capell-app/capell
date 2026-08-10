@@ -13,5 +13,11 @@
     "name": "capell-frontend",
     "src": "resources/js/capell-frontend.js",
     "isEntry": true
+  },
+  "resources/js/stylesheet-recovery.js": {
+    "file": "stylesheet-recovery.js",
+    "name": "stylesheet-recovery",
+    "src": "resources/js/stylesheet-recovery.js",
+    "isEntry": true
   }
 }
