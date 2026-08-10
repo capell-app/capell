@@ -1,7 +1,5 @@
 # Relationship Diagnostics
 
-![Capell Relationship Diagnostics screenshot](./images/screenshots/core-page-structure.png)
-
 Capell can emit focused diagnostics when a page URL cannot resolve the active site domain needed to build `PageUrl::full_url`.
 
 Use this when errors look like:

@@ -6,6 +6,15 @@ Use Site Health before serving a Capell site from production domains and after a
 
 Open **System → Site Health** in the Capell admin before launch and after deployments that change public rendering, queues, cache, static output, or frontend assets.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/site-health-page-dark.png">
+  <img src="../../packages/admin/docs/images/screenshots/site-health-page.png" alt="Site Health page summarising cache, public-output, static-generation, optimizer, queue, and server checks">
+</picture>
+
+[Light](../../packages/admin/docs/images/screenshots/site-health-page.png) · [Dark](../../packages/admin/docs/images/screenshots/site-health-page-dark.png)
+
+_The aggregate page is the release-oriented view; focused reports below explain individual cache and URL findings._
+
 The page aggregates operational checks that affect whether public traffic can be served safely:
 
 - Public HTML cache status for each cacheable page URL: `HIT`, `MISS`, or `BYPASS`, with the cache file path and generated timestamp where available.
@@ -28,9 +37,17 @@ Treat red checks as release blockers. Treat amber checks as deployment risks tha
 
 **Cache status** lists every enabled, non-redirect page URL with its site, layout, public URL, cache status, cache file path, and generated timestamp. Use it to spot URLs that are expected to be cacheable but are missing files, bypassing cache, or tied to an uncached domain.
 
+[![Cache Freshness report with no stale cache or optimizer state](../images/generated/admin/cache-freshness-report.png)](../images/generated/admin/cache-freshness-report.png)
+
+_Healthy looks like no cache or optimizer state older than the content, layout, theme, or dependency data it serves._
+
 **Public-output safety** scans cached public HTML for authoring markers and signed admin URLs. A red result means unsafe admin/editor details reached cacheable output and the affected cache file should be cleared after the source leak is fixed.
 
-![Capell SEO audit page](../images/generated/admin/seo-audit-page.png)
+**URL health** checks for missing routes, duplicate paths, bad redirects, stale targets, and domain mismatches. It is the URL-specific report; SEO Audit remains a separate companion-package concern.
+
+[![URL Health report with no missing URLs, duplicate paths, stale redirects, or domain mismatches](../images/generated/admin/url-health-report.png)](../images/generated/admin/url-health-report.png)
+
+_Healthy looks like an empty report: every public URL resolves uniquely, redirects point at current targets, and domains match their site records._
 
 **Static generation** reports the static-site generation lock, newest generated public cache timestamp, and failed jobs related to static generation. Use it after cache clears, full static builds, or failed deployment jobs.
 
@@ -56,6 +73,15 @@ npm run screenshots
 - If a package adds its own authoring attributes, append them to `capell-frontend.public_html_authoring_markers`.
 
 ## Cache and static output
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/html-cache-maintenance-dark.png">
+  <img src="../images/generated/admin/html-cache-maintenance.png" alt="HTML Cache maintenance page showing global and per-site maintenance controls">
+</picture>
+
+[Light](../images/generated/admin/html-cache-maintenance.png) · [Dark](../images/generated/admin/html-cache-maintenance-dark.png)
+
+_Healthy looks like deliberate global and per-site maintenance state, with generated paths matching the site being operated. This screen belongs to the optional HTML Cache package rather than Core._
 
 - Set `CAPELL_HTML_CACHE=true` and `CAPELL_WRITE_HTML_CACHE=true` only when the installed HTML-cache/static package owns and documents a writable cache disk.
 - Configure the web server to serve generated static HTML only after the installed cache package documents the path and the safety tests pass for the site and installed packages.

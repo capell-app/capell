@@ -98,7 +98,7 @@ Listing the same class in both places defeats the gating you want: Laravel's pac
 
 Installer and Marketplace do declare buckets, and both name a class that also appears in their `extra.laravel.providers`. They are deliberate exceptions: the installer must be reachable before anything is enabled, and both packages are part of the platform rather than optional extensions. Do not copy that shape into a new package.
 
-Use the manifest buckets only for *additional* providers that must be gated — an install-only provider in `install`, or a second admin provider in `admin`. The bucket a provider sits in controls whether it loads at all; it does not filter by request context, so an `admin` provider still loads on frontend requests once the package is enabled. Keep admin-only work out of constructors and guard it inside the provider.
+Use the manifest buckets only for _additional_ providers that must be gated — an install-only provider in `install`, or a second admin provider in `admin`. The bucket a provider sits in controls whether it loads at all; it does not filter by request context, so an `admin` provider still loads on frontend requests once the package is enabled. Keep admin-only work out of constructors and guard it inside the provider.
 
 ## Config And Translations
 
@@ -231,10 +231,10 @@ This tutorial registers the render hook directly in the provider below. For a Ma
 
 The manifest has two different lifecycle blocks, and new packages should use only one of them.
 
-| Block      | Value                                                | Status                                          |
-| ---------- | ---------------------------------------------------- | ----------------------------------------------- |
-| `actions`  | Class-strings implementing `PackageLifecycleAction`  | Current. Use this.                              |
-| `commands` | Artisan command names such as `capell:blog-install`  | Legacy. CLI-only, and rejected by web installs. |
+| Block      | Value                                               | Status                                          |
+| ---------- | --------------------------------------------------- | ----------------------------------------------- |
+| `actions`  | Class-strings implementing `PackageLifecycleAction` | Current. Use this.                              |
+| `commands` | Artisan command names such as `capell:blog-install` | Legacy. CLI-only, and rejected by web installs. |
 
 Recognised keys are `actions.install`, `actions.uninstall`, `actions.setup`, and `actions.afterInstall`. `commands` mirrors them with `install`, `setup`, `demo`, `afterInstall`, each with an optional `*Params` string list, plus `doctor`.
 
@@ -490,7 +490,9 @@ Field names must match the settings property names exactly (`enabled`, `message`
 
 All labels go through translations. Do not inline user-facing English in a Filament component.
 
-![Capell admin settings page rendered from a package-registered settings group](../images/admin-settings.png)
+[![Capell Settings page rendering a package-registered settings group](../images/admin-settings.png)](../images/admin-settings.png)
+
+_This is direct UI evidence for the settings contribution: the package registers a group and Admin renders it without the package editing the Settings page._
 
 ## Provider Registration
 
@@ -574,11 +576,11 @@ final class AnnouncementBarServiceProvider extends AbstractPackageServiceProvide
 
 The base class offers three boot hooks:
 
-| Hook | Runs |
-| ---- | ---- |
-| `bootPackage()` | Always, including during `package:discover`. Metadata only. |
-| `bootInstalledPackage()` | Only when the package is installed. Normal registration. |
-| `bootWhenInstalled(callable)` | Same gate, for one-off blocks. |
+| Hook                          | Runs                                                        |
+| ----------------------------- | ----------------------------------------------------------- |
+| `bootPackage()`               | Always, including during `package:discover`. Metadata only. |
+| `bootInstalledPackage()`      | Only when the package is installed. Normal registration.    |
+| `bootWhenInstalled(callable)` | Same gate, for one-off blocks.                              |
 
 If a package has separate install/runtime/admin/frontend providers, keep provider buckets in `capell.json` aligned with those responsibilities. Do not register Filament resources from a frontend-only provider.
 
@@ -626,9 +628,7 @@ Use an AdminBridge when a package contributes more than one admin surface or nee
 
 ```blade
 @if ($announcement->enabled && $announcement->message !== '')
-    <aside class="announcement-bar">
-        {{ $announcement->message }}
-    </aside>
+    <aside class="announcement-bar">{{ $announcement->message }}</aside>
 @endif
 ```
 

@@ -1,7 +1,5 @@
 # Admin Tool Registry
 
-![Capell Admin Tool Registry screenshot](./images/screenshots/admin-dashboard.png)
-
 > **Who is this for?**
 > Package developers adding custom quick-action items to the Capell admin header toolbar.
 

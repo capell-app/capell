@@ -1,7 +1,5 @@
 # Install Debugging
 
-![Capell Install Debugging screenshot](./images/screenshots/core-page-structure.png)
-
 Capell installs are split into two responsibilities:
 
 - Install commands own schema state. They publish migration files, remove stale migration records during `--fresh`, run database migrations, publish settings migrations, and run settings migrations before setup code touches models or settings.

@@ -7,6 +7,10 @@ The admin theme workflow is **Theme Library -> Customize -> Preview -> Apply**. 
   <img alt="Theme Library admin workflow" src="../images/generated/admin/theme-library-admin-flow.png">
 </picture>
 
+[Light](../images/generated/admin/theme-library-admin-flow.png) · [Dark](../images/generated/admin/theme-library-admin-flow-dark.png)
+
+_The full workflow keeps discovery, customization, preview, and activation in one admin-owned path._
+
 ## What The Page Shows
 
 | Section          | Source                                                                          | What admins do                                                                                           |
@@ -75,6 +79,10 @@ Site-scoped admins can only apply themes to sites they manage.
   <source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/theme-customize-preview-apply-dark.png">
   <img alt="Customize, preview, and apply flow" src="../images/generated/admin/theme-customize-preview-apply.png">
 </picture>
+
+[Light](../images/generated/admin/theme-customize-preview-apply.png) · [Dark](../images/generated/admin/theme-customize-preview-apply-dark.png)
+
+_The preview uses unsaved admin state; Apply is the separate step that persists the selected scope and invalidates affected caches._
 
 ## How it works (developers)
 

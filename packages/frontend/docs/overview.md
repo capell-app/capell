@@ -32,7 +32,9 @@ Select any screenshot to open the full-resolution image.
 | Mobile light                                                                                                                                                      | Mobile dark                                                                                                                                                                              |
 | [![Published Capell frontend page at mobile width](images/screenshots/frontend-published-page-mobile.png)](images/screenshots/frontend-published-page-mobile.png) | [![Published Capell frontend page at mobile width in dark mode](images/screenshots/frontend-published-page-mobile-dark.png)](images/screenshots/frontend-published-page-mobile-dark.png) |
 
-[![Frontend settings in the Capell admin](images/screenshots/frontend-settings.png)](images/screenshots/frontend-settings.png)
+<picture><source media="(prefers-color-scheme: dark)" srcset="images/screenshots/frontend-settings-dark.png"><img src="images/screenshots/frontend-settings.png" alt="Frontend settings for public rendering and delivery"></picture>
+
+[Light](images/screenshots/frontend-settings.png) · [Dark](images/screenshots/frontend-settings-dark.png)
 
 Screenshot contract:
 

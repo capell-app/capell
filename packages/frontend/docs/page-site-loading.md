@@ -1,7 +1,5 @@
 # Frontend Page And Site Loading
 
-![Capell Frontend Page And Site Loading screenshot](./images/screenshots/frontend-published-page.png)
-
 Capell frontend requests resolve site, language, page, layout, and theme state before the public renderer runs.
 
 Use this when changing `capell-app/frontend` routing, cache behavior, runtime selection, or request-scoped frontend state.

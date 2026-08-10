@@ -1,7 +1,5 @@
 # Schema Hook Extenders
 
-![Capell Schema Hook Extenders screenshot](../images/screenshots/admin-dashboard.png)
-
 Use schema extenders when a package needs to add fields, tabs, sidebar components, or relation managers to a first-party admin resource without copying the resource schema. Keep page editor sidebar components lightweight: the sidebar is reserved for quick context such as parent/page image and publish state. Larger editorial controls should use translation hooks or full edit tabs.
 
 Prefer the abstract base classes when you only need one hook:

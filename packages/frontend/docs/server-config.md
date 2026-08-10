@@ -1,7 +1,5 @@
 # Server Configuration
 
-![Capell Server Configuration screenshot](./images/screenshots/frontend-settings.png)
-
 This document covers production server expectations for Capell Frontend, static artifact generation, and local cache settings.
 
 ---

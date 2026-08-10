@@ -1,7 +1,5 @@
 # Presentation Delivery
 
-![Capell Presentation Delivery screenshot](./images/screenshots/frontend-published-page.png)
-
 Presentation delivery is the shared runtime model for public widgets and Layout Builder blocks. It covers three related concerns:
 
 | Concern      | What it controls                                                                                        |
