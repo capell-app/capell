@@ -113,6 +113,41 @@ it('enforces active routing identities while allowing soft-deleted history', fun
         ->and($replacement->routing_identity)->toBeString();
 });
 
+it('rejects normalized origin collisions even when the first domain is disabled', function (): void {
+    $attributes = [
+        'domain' => 'Example.test.',
+        'path' => '/docs/',
+        'scheme' => 'HTTPS',
+        'status' => false,
+    ];
+
+    SiteDomain::factory()->createOne($attributes);
+
+    expect(fn (): SiteDomain => SiteDomain::factory()->createOne([
+        ...$attributes,
+        'domain' => 'example.test',
+        'path' => 'docs',
+        'scheme' => 'https',
+    ]))->toThrow(QueryException::class);
+});
+
+it('normalizes default ports and IPv6 hosts into one routing identity', function (): void {
+    $attributes = [
+        'domain' => '[2001:DB8::1]',
+        'path' => '/',
+        'scheme' => 'HTTPS',
+        'port' => 443,
+    ];
+
+    SiteDomain::factory()->createOne($attributes);
+
+    expect(fn (): SiteDomain => SiteDomain::factory()->createOne([
+        ...$attributes,
+        'domain' => '2001:db8::1',
+        'port' => null,
+    ]))->toThrow(QueryException::class);
+});
+
 it('falls back to the request scheme when no scheme is configured', function (): void {
     config(['capell-frontend.default_scheme' => null]);
     request()->server->set('HTTPS', 'off');
