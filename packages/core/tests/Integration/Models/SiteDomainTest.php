@@ -148,6 +148,27 @@ it('normalizes default ports and IPv6 hosts into one routing identity', function
     ]))->toThrow(QueryException::class);
 });
 
+it('allows distinct primary and mounted aliases to share an origin host', function (): void {
+    $primary = SiteDomain::factory()->createOne([
+        'domain' => 'example.test',
+        'path' => '/',
+        'scheme' => 'https',
+        'port' => null,
+        'default' => true,
+    ]);
+    $alias = SiteDomain::factory()->createOne([
+        'domain' => 'example.test',
+        'path' => '/fr',
+        'scheme' => 'https',
+        'port' => 443,
+        'default' => false,
+    ]);
+
+    expect($primary->routing_identity)
+        ->not->toBe($alias->routing_identity)
+        ->and($alias->port)->toBeNull();
+});
+
 it('falls back to the request scheme when no scheme is configured', function (): void {
     config(['capell-frontend.default_scheme' => null]);
     request()->server->set('HTTPS', 'off');
