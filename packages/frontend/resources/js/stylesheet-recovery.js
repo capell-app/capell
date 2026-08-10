@@ -2,6 +2,7 @@
     const selector = 'link[data-capell-stylesheet-recovery]'
     const retryDelays = [1000, 3000, 10000, 30000, 60000]
     const recovering = new WeakSet()
+    let activeRecoveries = 0
 
     const emit = (type, link) => {
         document.dispatchEvent(
@@ -13,14 +14,28 @@
         )
     }
 
-    const markFallback = () => {
+    const markFallback = (fallback) => {
+        if (!fallback.isConnected) {
+            return
+        }
+
         const root = document.documentElement
         root.dataset.frontendStyles = 'fallback'
+        delete root.dataset.frontendStylesLoaded
         root.classList.add('capell-frontend-styles-fallback')
+        root.classList.remove('capell-frontend-styles-loaded')
         emit('capell:stylesheet-fallback', root)
     }
 
-    const markLoaded = (link) => {
+    const markLoaded = (link, recoveryTarget = link) => {
+        if (recovering.delete(recoveryTarget)) {
+            activeRecoveries -= 1
+        }
+
+        if (activeRecoveries > 0) {
+            return
+        }
+
         const root = document.documentElement
         root.dataset.frontendStyles = 'loaded'
         root.dataset.frontendStylesLoaded = 'true'
@@ -54,7 +69,9 @@
         fallback.rel = 'stylesheet'
         fallback.href = href
         fallback.dataset.capellStylesheetFallbackActive = 'true'
-        fallback.addEventListener('load', markFallback, { once: true })
+        fallback.addEventListener('load', () => markFallback(fallback), {
+            once: true,
+        })
         document.head.appendChild(fallback)
     }
 
@@ -66,11 +83,15 @@
     }
 
     const scheduleRetry = (link, attempt = 0) => {
-        if (attempt >= retryDelays.length) {
+        if (!recovering.has(link) || attempt >= retryDelays.length) {
             return
         }
 
         window.setTimeout(() => {
+            if (!recovering.has(link)) {
+                return
+            }
+
             const retry = link.cloneNode(false)
             retry.href = retryUrl(link.href, attempt)
             retry.dataset.capellStylesheetRetry = 'true'
@@ -83,7 +104,7 @@
                 () => {
                     activate(retry)
                     link.remove()
-                    markLoaded(retry)
+                    markLoaded(retry, link)
                 },
                 { once: true },
             )
@@ -105,6 +126,7 @@
         }
 
         recovering.add(link)
+        activeRecoveries += 1
         ensureFallback(link)
         scheduleRetry(link)
     }
