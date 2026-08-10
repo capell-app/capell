@@ -342,6 +342,7 @@ function shouldRequireVisual(filePath) {
         ignoredMarkdownFiles.has(normalizedPath) ||
         ignoredMarkdownFiles.has(basename) ||
         basename === 'AGENTS.md' ||
+        basename === 'CLAUDE.md' ||
         normalizedPath.includes('/docs/')
     ) {
         return false

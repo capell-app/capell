@@ -257,22 +257,6 @@
             "output": "packages/admin/docs/images/screenshots/page-history-rollback-preview.png",
             "required": true,
             "notes": "Authentic validated roll-forward preview showing the target revision, reversible append-only recovery explanation, and real field-level differences before confirmation."
-        },
-        {
-            "id": "admin-media-ai-doctor-image",
-            "title": "Media AIOrchestrator doctor image action.",
-            "package": "admin",
-            "surface": "admin",
-            "targetType": "admin-surface",
-            "target": "MediaAIEditActionExtender",
-            "scenario": "admin-index",
-            "url": "/media",
-            "waitFor": "table",
-            "docsPage": "packages/media-ai/docs/overview.md",
-            "output": "packages/admin/docs/images/screenshots/admin-media-ai-doctor-image.png",
-            "required": false,
-            "notes": "Optional until the manifest grows action-dialog steps; points at the media surface used by Media AIOrchestrator.",
-            "sameCaptureAs": "admin-media-list"
         }
     ]
 }
