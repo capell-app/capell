@@ -117,7 +117,7 @@ Tests should prove presence and absence, dependency order, placement, canonical 
 
 ## Stylesheet recovery
 
-Critical-CSS-eligible stylesheets are rendered with Capell's stable recovery runtime. If the intended full stylesheet fails, the runtime loads the configured stable fallback, marks the document as `data-frontend-styles="fallback"`, and retries the intended URL with bounded cache-busting delays. A successful retry activates the full stylesheet, removes the fallback, marks the document as loaded, and dispatches `capell:stylesheet-recovered`.
+Critical-CSS-eligible stylesheets are rendered with Capell's stable recovery runtime. If the intended full stylesheet fails, the runtime loads the configured stable fallback, marks the document as `data-frontend-styles="fallback"`, and retries the intended URL with bounded cache-busting delays. A successful retry activates the full stylesheet, removes the fallback, marks the document as loaded, and dispatches `capell:stylesheet-recovered`. When more than one eligible stylesheet is present, the fallback remains active until every failed stylesheet has recovered.
 
 The package default fallback is `/vendor/capell-frontend/capell-frontend.css`. It keeps a failed page readable, but an application with a branded frontend bundle should configure `capell-frontend.stylesheet_recovery.fallback_url` to a stable, atomically published full bundle. The runtime is always published at `/vendor/capell-frontend/stylesheet-recovery.js`; keep package assets in the normal `laravel-assets` publication step.
 
