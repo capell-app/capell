@@ -45,12 +45,17 @@
       prose here, never with their leading hyphens, or the whole run dies in
       Builder.php with "Double hyphen within comment".
 
-      The parent's peak is driven by the coverage-php report, which Pest appends
-      to its own coverage flag because that serialized dump is how it computes
-      the min gate. php-code-coverage's Serializer therefore builds one
+      The parent's historical peak was driven by the coverage-php report, which
+      Pest appends to its own coverage flag because that serialized dump is how
+      it computes the min gate. php-code-coverage's Serializer therefore builds one
       `serialize()` string of the whole merged object in a single allocation,
       while still holding that object. Both live at once, so the limit has to
       cover roughly twice the merged set.
+
+      CI avoids that duplicate serialization by sharding the tests, requesting
+      only Clover from PHPUnit, then merging those compact reports and enforcing
+      the line threshold separately. The higher limit remains for local Composer
+      coverage commands, which intentionally retain Pest's detailed report.
 
       This value is not a guess, and each raise is recorded against a run that
       measured it:
@@ -60,12 +65,8 @@
                    reproduced locally at 4 processes with a 1163923456 byte
                    allocation; 12G is the first value that completed the run.
 
-      12G still fits a 16GB hosted runner, because the workers (~300MB each) have
-      exited by the time the parent serializes. Raise it only against a measured
-      allocation from a run that either completed or named the shortfall, not
-      against headroom. If it needs to go past ~14G, the answer is no longer a
-      limit: shard the coverage job and move the min gate onto the merged
-      clover, so no single process ever holds the whole set.
+      Raise it only against a measured allocation from a local run that either
+      completed or named the shortfall, not against headroom.
     -->
     <ini name="memory_limit" value="12G"/>
     <server name="APP_ENV" value="testing"/>

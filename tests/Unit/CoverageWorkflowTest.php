@@ -150,3 +150,71 @@ it('runs the release coverage workload in parallel', function (): void {
         }
     }
 });
+
+it('shards release coverage and enforces the threshold after merging Clover reports', function (): void {
+    $root = dirname(__DIR__, 2);
+    $workflow = (string) file_get_contents($root . '/.github/workflows/coverage-release.yml');
+
+    expect($workflow)
+        ->toContain('shard: [1, 2, 3, 4]')
+        ->toContain('--shard=${{ matrix.shard }}/4')
+        ->toContain('--coverage-clover=coverage/clover-${{ matrix.shard }}.xml')
+        ->toContain('needs: generate-coverage')
+        ->toContain('php scripts/merge-clover-coverage.php --output coverage/clover.xml')
+        ->toContain('needs: merge-coverage')
+        ->not->toContain('vendor/bin/pest --coverage ')
+        ->not->toContain('--coverage-php');
+});
+
+it('merges Clover statement hits before enforcing the release threshold', function (): void {
+    $root = dirname(__DIR__, 2);
+    $temporaryDirectory = sys_get_temp_dir() . '/capell-clover-' . bin2hex(random_bytes(8));
+    mkdir($temporaryDirectory, 0777, true);
+
+    $report = static fn (int $firstCount, int $secondCount): string => <<<XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <coverage generated="1">
+          <project timestamp="1">
+            <file name="Example.php">
+              <line num="10" type="stmt" count="{$firstCount}"/>
+              <line num="20" type="stmt" count="{$secondCount}"/>
+              <metrics methods="0" coveredmethods="0" statements="2" coveredstatements="1" elements="2" coveredelements="1"/>
+            </file>
+            <metrics files="1" methods="0" coveredmethods="0" statements="2" coveredstatements="1" elements="2" coveredelements="1"/>
+          </project>
+        </coverage>
+        XML;
+
+    file_put_contents($temporaryDirectory . '/one.xml', $report(1, 0));
+    file_put_contents($temporaryDirectory . '/two.xml', $report(0, 1));
+
+    $command = sprintf(
+        '%s %s --output %s %s %s 2>&1',
+        escapeshellarg(PHP_BINARY),
+        escapeshellarg($root . '/scripts/merge-clover-coverage.php'),
+        escapeshellarg($temporaryDirectory . '/merged.xml'),
+        escapeshellarg($temporaryDirectory . '/one.xml'),
+        escapeshellarg($temporaryDirectory . '/two.xml'),
+    );
+    exec($command, $output, $exitCode);
+
+    $merged = new DOMDocument;
+    $merged->load($temporaryDirectory . '/merged.xml');
+    $xpath = new DOMXPath($merged);
+
+    $summary = implode("\n", $output);
+    $coveredStatements = $xpath->evaluate('string(//project/metrics/@coveredstatements)');
+    $firstLineCount = $xpath->evaluate('string(//line[@num="10"]/@count)');
+    $secondLineCount = $xpath->evaluate('string(//line[@num="20"]/@count)');
+
+    unlink($temporaryDirectory . '/one.xml');
+    unlink($temporaryDirectory . '/two.xml');
+    unlink($temporaryDirectory . '/merged.xml');
+    rmdir($temporaryDirectory);
+
+    expect($exitCode)->toBe(0)
+        ->and($summary)->toContain('2/2 statements covered (100.00%)')
+        ->and($coveredStatements)->toBe('2')
+        ->and($firstLineCount)->toBe('1')
+        ->and($secondLineCount)->toBe('1');
+});
