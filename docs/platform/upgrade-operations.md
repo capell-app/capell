@@ -110,5 +110,5 @@ Upgrade runs and events are operational audit records. Capell does not prune the
 ## Related Docs
 
 - [Upgrade runbook](../operations/upgrading.md)
-- [Authoring upgrade steps](../../packages/core/docs/authoring-upgrade-steps.md)
+- [Authoring upgrade steps](../../packages/core/authoring-upgrade-steps.md)
 - [Operations](../operations/index.md)

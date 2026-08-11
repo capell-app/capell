@@ -49,7 +49,7 @@ Capell builds URLs from the page tree.
 | Child page with slug `team` under `about`    | `/about/team`    |
 | Child page with slug `careers` under `about` | `/about/careers` |
 
-Moving a page to a different parent changes the URL path. Capell creates automatic redirect [Page URLs](../../packages/core/docs/page-management.md) when a published page's slug or parent path changes, so old URLs keep pointing at the current page. Use the Redirects or URL Manager package when you need manual redirects, imports, hit counts, or deeper redirect reporting.
+Moving a page to a different parent changes the URL path. Capell creates automatic redirect [Page URLs](../../packages/core/page-management.md) when a published page's slug or parent path changes, so old URLs keep pointing at the current page. Use the Redirects or URL Manager package when you need manual redirects, imports, hit counts, or deeper redirect reporting.
 
 For more background, read [How Capell works](how-capell-works.md#the-core-model).
 
@@ -118,7 +118,7 @@ Developers can register custom blueprints through Capell extension points. Read 
 
 Use **Save as Draft** while you are still editing. A draft is stored in the admin, but it is not the public version yet.
 
-Use **Create** or **Save changes** when you are ready to store the record normally. On a plain install, use **Save and Publish** or **Publish** when the page is ready to go live. If workflow packages are installed, publishing may move through [approvals](../../packages/admin/docs/permissions-and-approval.md), Publishing Studio, or scheduled publishing.
+Use **Create** or **Save changes** when you are ready to store the record normally. On a plain install, use **Save and Publish** or **Publish** when the page is ready to go live. If workflow packages are installed, publishing may move through [approvals](../../packages/admin/permissions-and-approval.md), Publishing Studio, or scheduled publishing.
 
 For the first page, save a draft, then preview it.
 

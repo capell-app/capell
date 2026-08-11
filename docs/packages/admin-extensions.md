@@ -100,7 +100,7 @@ CapellAdmin::registerUserMenuItem(
 );
 ```
 
-See [User Menu Registry](../../packages/admin/docs/user-menu-registry.md) for the full API, badge rules, and translated package examples.
+See [User Menu Registry](../../packages/admin/user-menu-registry.md) for the full API, badge rules, and translated package examples.
 
 ## Welcome Tour Steps
 
@@ -173,7 +173,7 @@ Use the abstract schema extenders when possible:
 - `AbstractSiteSchemaExtender`
 - `AbstractUserResourceBridge`
 
-They provide no-op defaults so a package only overrides the hooks it needs. See [Schema Hooks](../../packages/admin/docs/schemas/hooks.md) for method signatures, hook enums, and resolver debugging.
+They provide no-op defaults so a package only overrides the hooks it needs. See [Schema Hooks](../../packages/admin/schemas/hooks.md) for method signatures, hook enums, and resolver debugging.
 
 ## Configurators
 

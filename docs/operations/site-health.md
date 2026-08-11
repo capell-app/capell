@@ -7,11 +7,11 @@ Use Site Health before serving a Capell site from production domains and after a
 Open **System → Site Health** in the Capell admin before launch and after deployments that change public rendering, queues, cache, static output, or frontend assets.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/site-health-page-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/site-health-page.png" alt="Site Health page summarising cache, public-output, static-generation, optimizer, queue, and server checks">
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/images/screenshots/site-health-page-dark.png">
+  <img src="../../packages/admin/images/screenshots/site-health-page.png" alt="Site Health page summarising cache, public-output, static-generation, optimizer, queue, and server checks">
 </picture>
 
-[Light](../../packages/admin/docs/images/screenshots/site-health-page.png) · [Dark](../../packages/admin/docs/images/screenshots/site-health-page-dark.png)
+[Light](../../packages/admin/images/screenshots/site-health-page.png) · [Dark](../../packages/admin/images/screenshots/site-health-page-dark.png)
 
 _The aggregate page is the release-oriented view; focused reports below explain individual cache and URL findings._
 

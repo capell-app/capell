@@ -39,4 +39,4 @@ On a page type's configurator tab you can choose which roles may see and edit pa
 
 ## Notes
 - Approval workflows (submit → review → approve) are provided by the optional `capell-app/publishing-studio` package, not by core.
-- For the underlying RBAC model (Spatie teams, policies, page-type restrictions) see the developer guide: [permissions and approval](../../packages/admin/docs/permissions-and-approval.md).
+- For the underlying RBAC model (Spatie teams, policies, page-type restrictions) see the developer guide: [permissions and approval](../../packages/admin/permissions-and-approval.md).

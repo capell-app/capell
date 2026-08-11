@@ -15,7 +15,7 @@ Registration makes the widget available to a dashboard bucket. The widget render
 
 The full API — dashboard buckets, built-in widgets, overview stats, settings sync, and ordering — lives in the canonical package reference:
 
-**[Dashboard Widgets: Programmatic API](../../packages/admin/docs/dashboard-widget-customization.md)**
+**[Dashboard Widgets: Programmatic API](../../packages/admin/dashboard-widget-customization.md)**
 
 ## Related Tasks
 
@@ -27,5 +27,5 @@ The full API — dashboard buckets, built-in widgets, overview stats, settings s
 
 ## Next
 
-- [Dashboard Widgets: Programmatic API](../../packages/admin/docs/dashboard-widget-customization.md)
+- [Dashboard Widgets: Programmatic API](../../packages/admin/dashboard-widget-customization.md)
 - [Admin Dashboard Widgets](dashboard-widgets.md)

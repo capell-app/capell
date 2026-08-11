@@ -1,11 +1,11 @@
 # Media management
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-media-list-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/admin-media-list.png" alt="Media library with file type, size, owner, usage, and management actions">
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/images/screenshots/admin-media-list-dark.png">
+  <img src="../../packages/admin/images/screenshots/admin-media-list.png" alt="Media library with file type, size, owner, usage, and management actions">
 </picture>
 
-[Light](../../packages/admin/docs/images/screenshots/admin-media-list.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-media-list-dark.png)
+[Light](../../packages/admin/images/screenshots/admin-media-list.png) · [Dark](../../packages/admin/images/screenshots/admin-media-list-dark.png)
 
 Manage images and files for your sites from **Media** in the admin sidebar.
 
@@ -24,22 +24,22 @@ Manage images and files for your sites from **Media** in the admin sidebar.
 5. Save.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata.png" alt="Media metadata tab with localized alt text, caption, credit, and decorative controls">
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/images/screenshots/admin-media-edit-localized-metadata-dark.png">
+  <img src="../../packages/admin/images/screenshots/admin-media-edit-localized-metadata.png" alt="Media metadata tab with localized alt text, caption, credit, and decorative controls">
 </picture>
 
-[Light](../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata-dark.png)
+[Light](../../packages/admin/images/screenshots/admin-media-edit-localized-metadata.png) · [Dark](../../packages/admin/images/screenshots/admin-media-edit-localized-metadata-dark.png)
 
 ## Set a focal point or crop
 
 - When the active [media backend](../development/configuration.md#core-config) supports it, open the item and drag the focal point so automatic crops keep the important part of the image in frame. (The backend is set by `CAPELL_MEDIA_BACKEND`; the default backend may not expose cropping.)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-media-edit-focal-point-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/admin-media-edit-focal-point.png" alt="Media crop tab with the focal-point editor for supported backends">
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/images/screenshots/admin-media-edit-focal-point-dark.png">
+  <img src="../../packages/admin/images/screenshots/admin-media-edit-focal-point.png" alt="Media crop tab with the focal-point editor for supported backends">
 </picture>
 
-[Light](../../packages/admin/docs/images/screenshots/admin-media-edit-focal-point.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-media-edit-focal-point-dark.png)
+[Light](../../packages/admin/images/screenshots/admin-media-edit-focal-point.png) · [Dark](../../packages/admin/images/screenshots/admin-media-edit-focal-point-dark.png)
 
 ## AI Media Tools
 
@@ -53,7 +53,7 @@ The action is contributed by the optional Media AI package; Admin only supplies 
 2. Select the replacement file and confirm the action.
 3. Verify the success notification, then review the existing metadata and uses before leaving the record.
 
-[![Media list after a successful replacement upload](../../packages/admin/docs/images/screenshots/06-media-replace-upload.png)](../../packages/admin/docs/images/screenshots/06-media-replace-upload.png)
+[![Media list after a successful replacement upload](../../packages/admin/images/screenshots/06-media-replace-upload.png)](../../packages/admin/images/screenshots/06-media-replace-upload.png)
 
 _Replacement keeps the media record and its relationships while swapping the underlying file; the success notification confirms the upload completed._
 

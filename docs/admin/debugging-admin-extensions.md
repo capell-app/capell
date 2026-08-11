@@ -88,5 +88,5 @@ it('hides the package page from users without permission', function (): void {
 ## Next
 
 - [Admin extensions](../packages/admin-extensions.md)
-- [Schema hooks](../../packages/admin/docs/schemas/hooks.md)
+- [Schema hooks](../../packages/admin/schemas/hooks.md)
 - [Extension point API reference](../packages/extension-point-api-reference.md)

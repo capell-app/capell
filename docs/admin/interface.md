@@ -7,11 +7,11 @@ Capell Admin is the working surface for editors, administrators, and developers 
 The dashboard is the first screen after sign-in. It can show setup health, content activity, cache state, work queues, package state, and diagnostics depending on role and installed packages.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-dashboard-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/admin-dashboard.png" alt="Capell Admin dashboard with site context, publishing activity, cache status, and operational cards">
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/images/screenshots/admin-dashboard-dark.png">
+  <img src="../../packages/admin/images/screenshots/admin-dashboard.png" alt="Capell Admin dashboard with site context, publishing activity, cache status, and operational cards">
 </picture>
 
-[Light](../../packages/admin/docs/images/screenshots/admin-dashboard.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-dashboard-dark.png)
+[Light](../../packages/admin/images/screenshots/admin-dashboard.png) · [Dark](../../packages/admin/images/screenshots/admin-dashboard-dark.png)
 
 _The dashboard brings editorial work and operational signals together without moving package-specific controls into Core._
 
@@ -60,11 +60,11 @@ Site records expose the operational details that public resolution depends on: d
 Layouts connect page records to frontend rendering. Themes hold presentation records used by the frontend surface and by theme-aware packages.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-layouts-list-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/admin-layouts-list.png" alt="Layouts list showing enabled, disabled, used, and unused layout records">
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/images/screenshots/admin-layouts-list-dark.png">
+  <img src="../../packages/admin/images/screenshots/admin-layouts-list.png" alt="Layouts list showing enabled, disabled, used, and unused layout records">
 </picture>
 
-[Light](../../packages/admin/docs/images/screenshots/admin-layouts-list.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-layouts-list-dark.png)
+[Light](../../packages/admin/images/screenshots/admin-layouts-list.png) · [Dark](../../packages/admin/images/screenshots/admin-layouts-list-dark.png)
 
 _Record-state badges make it clear which layouts are active and which can be reviewed before assignment or removal._
 
@@ -97,7 +97,7 @@ Settings is the core Capell settings surface. Admin, Frontend, Marketplace, and 
 
 _First-party groups share the Settings surface; optional packages keep their controls on package-owned extension pages._
 
-Use the [settings registry](../../packages/admin/docs/settings-schema-registry.md) and a package-owned extension page instead of adding package fields to the core Settings screen.
+Use the [settings registry](../../packages/admin/settings-schema-registry.md) and a package-owned extension page instead of adding package fields to the core Settings screen.
 
 Example: site-wide branding belongs on the Site record, while package-specific controls belong to the package settings page registered through the settings registry. That keeps the core Settings surface readable as more packages are installed.
 
@@ -107,7 +107,7 @@ Extensions is the admin surface for installed package state, package settings/co
 
 [![Capell extensions page](../images/generated/admin/admin-extensions-page.png)](../images/generated/admin/admin-extensions-page.png)
 
-[Marketplace](../../packages/marketplace/docs/overview.md) browsing, account connection, licence activation, diagnostics, heartbeat checks, and install authorization are available only when `capell-app/marketplace` is installed and enabled.
+[Marketplace](../../packages/marketplace/overview.md) browsing, account connection, licence activation, diagnostics, heartbeat checks, and install authorization are available only when `capell-app/marketplace` is installed and enabled.
 
 ## Reports
 
