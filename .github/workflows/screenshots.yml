@@ -32,6 +32,7 @@ concurrency:
 jobs:
   capture-core-screenshots:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       CAPELL_CORE_REPO_PATH: ${{ github.workspace }}/repositories/capell
