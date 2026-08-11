@@ -94,29 +94,69 @@ it('records healthy and failing disk capacity with human and machine values', fu
 
 it('sanitizes check output and exception detail', function (): void {
     $registry = new HealthCheckRegistry($this->app);
-    $registry->register(healthTestCheck('unsafe', run: static fn (): never => throw new RuntimeException('token=abc user@example.com in /private/customer/file.txt')));
+    $registry->register(healthTestCheck('unsafe', run: static fn (): never => throw new RuntimeException('Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature api_key=sk-live-123 mysql://admin:hunter2@db.internal/capell customer-4471')));
 
     $result = new RunHealthCheckAction($registry, new HealthSummarySanitizer)->handle('unsafe');
 
     expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->summary)->toContain('token=[redacted]', '[email]', '[path]')
-        ->and($result->summary)->not->toContain('abc', 'user@example.com', '/private/customer');
+        ->and($result->summary)->toBe('Check raised RuntimeException.')
+        ->and($result->summary)->not->toContain('Bearer', 'sk-live', 'hunter2', 'customer-4471');
 });
 
-it('sanitizes string metrics in successful results', function (): void {
-    $registry = new HealthCheckRegistry($this->app);
-    $registry->register(healthTestCheck('metric', run: static fn (): HealthCheckResultData => new HealthCheckResultData(
+it('redacts sensitive patterns in contributor summaries', function (): void {
+    $summary = new HealthSummarySanitizer()->sanitize('Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature api_key=sk-live-123 mysql://admin:hunter2@db.internal/capell user@example.com /private/customer/file.txt');
+
+    expect($summary)->toContain('Bearer [redacted]', 'api_key=[redacted]', 'mysql:/[path]', '[email]')
+        ->and($summary)->not->toContain('eyJhbGci', 'sk-live', 'hunter2', 'admin', 'db.internal', 'user@example.com', '/private/customer');
+});
+
+it('rejects sensitive or structured machine metrics', function (): void {
+    expect(fn (): HealthCheckResultData => new HealthCheckResultData(
         'metric',
         'runtime',
         HealthStatus::Healthy,
         HealthSeverity::Info,
         'Healthy.',
-        metrics: ['detail' => 'secret=abc at /private/customer/file.txt'],
-    )));
+        metrics: ['detail' => 'secret=abc'],
+    ))->toThrow(InvalidArgumentException::class)
+        ->and(fn (): HealthCheckResultData => HealthCheckResultData::fromArray([
+            'id' => 'metric',
+            'category' => 'runtime',
+            'status' => 'healthy',
+            'severity' => 'info',
+            'summary' => 'Healthy.',
+            'metrics' => ['nested' => ['secret' => 'abc']],
+        ]))->toThrow(InvalidArgumentException::class);
 
-    $result = new RunHealthCheckAction($registry, new HealthSummarySanitizer)->handle('metric');
+    expect(fn (): HealthCheckResultData => new HealthCheckResultData(
+        'metric',
+        'runtime',
+        HealthStatus::Healthy,
+        HealthSeverity::Info,
+        'Healthy.',
+        metrics: ['customer@example.com' => 1],
+    ))->toThrow(InvalidArgumentException::class)
+        ->and(fn (): HealthCheckResultData => new HealthCheckResultData(
+            'metric',
+            'runtime',
+            HealthStatus::Healthy,
+            HealthSeverity::Info,
+            'Healthy.',
+            metrics: ['ratio' => INF],
+        ))->toThrow(InvalidArgumentException::class);
+});
 
-    expect($result->metrics['detail'])->toBe('secret=[redacted] at [path]');
+it('accepts finite scalar machine telemetry', function (): void {
+    $result = new HealthCheckResultData(
+        'metric',
+        'runtime',
+        HealthStatus::Healthy,
+        HealthSeverity::Info,
+        'Healthy.',
+        metrics: ['count' => 2, 'ratio' => 0.5, 'enabled' => true, 'optional' => null],
+    );
+
+    expect($result->metrics)->toBe(['count' => 2, 'ratio' => 0.5, 'enabled' => true, 'optional' => null]);
 });
 
 it('continues after a timed out check and groups results deterministically', function (): void {
@@ -144,6 +184,36 @@ it('continues after a timed out check and groups results deterministically', fun
         ->and($report->checks[1]->status)->toBe(HealthStatus::Warning)
         ->and(array_keys($report->grouped()))->toBe(['capacity', 'runtime'])
         ->and($report->status())->toBe(HealthStatus::TimedOut);
+});
+
+it('fails closed when the health subprocess exposes sensitive exception detail', function (): void {
+    $registry = new HealthCheckRegistry($this->app);
+    $registry->register(healthTestCheck('unsafe-process'));
+    $registry->register(healthTestCheck('z.safe-process'));
+
+    $payload = json_encode(new HealthCheckResultData('z.safe-process', 'runtime', HealthStatus::Healthy, HealthSeverity::Info, 'Healthy.')->toArray(), JSON_THROW_ON_ERROR);
+
+    $factory = new class($payload) implements ProcessFactoryInterface
+    {
+        private int $calls = 0;
+
+        public function __construct(private readonly string $payload) {}
+
+        public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
+        {
+            throw_if($this->calls++ === 0, RuntimeException::class, 'Bearer secret-token api_key=sk-live-123 customer-4471');
+
+            return new Process([PHP_BINARY, '-r', 'echo $argv[1];', $this->payload]);
+        }
+    };
+
+    $results = new BuildHealthReportAction($registry, $factory, new HealthSummarySanitizer)->handle()->checks;
+
+    expect($results)->toHaveCount(2)
+        ->and($results[0]->status)->toBe(HealthStatus::Error)
+        ->and($results[0]->summary)->toBe('Check execution failed (RuntimeException).')
+        ->and($results[0]->summary)->not->toContain('Bearer', 'secret-token', 'sk-live', 'customer-4471')
+        ->and($results[1]->status)->toBe(HealthStatus::Healthy);
 });
 
 it('uses non-zero scheduler-safe command semantics', function (): void {

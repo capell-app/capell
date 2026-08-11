@@ -12,7 +12,7 @@ use Spatie\LaravelData\Data;
 
 final class HealthCheckResultData extends Data
 {
-    /** @param array<string, bool|float|int|string|null> $metrics */
+    /** @param array<string, bool|float|int|null> $metrics */
     public function __construct(
         public string $id,
         public string $category,
@@ -25,6 +25,11 @@ final class HealthCheckResultData extends Data
     ) {
         throw_if($id === '' || $category === '' || $summary === '', InvalidArgumentException::class, 'Health results require an ID, category, and summary.');
         throw_if($durationMilliseconds < 0, InvalidArgumentException::class, 'Health result duration cannot be negative.');
+
+        foreach ($metrics as $name => $value) {
+            throw_unless(is_string($name) && preg_match('/^[A-Za-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*$/', $name) === 1 && (is_bool($value) || is_float($value) || is_int($value) || $value === null), InvalidArgumentException::class, 'Health metrics must contain only stable named numeric, boolean, or null values.');
+            throw_if(is_float($value) && ! is_finite($value), InvalidArgumentException::class, 'Health metrics require finite numeric values.');
+        }
     }
 
     /** @param array<string, mixed> $payload */
@@ -37,7 +42,7 @@ final class HealthCheckResultData extends Data
             severity: HealthSeverity::from((string) ($payload['severity'] ?? '')),
             summary: (string) ($payload['summary'] ?? ''),
             remediation: isset($payload['remediation']) ? (string) $payload['remediation'] : null,
-            metrics: is_array($payload['metrics'] ?? null) ? $payload['metrics'] : [],
+            metrics: self::metricsFromPayload($payload['metrics'] ?? []),
             durationMilliseconds: (int) ($payload['durationMilliseconds'] ?? 0),
         );
     }
@@ -47,7 +52,7 @@ final class HealthCheckResultData extends Data
         return new self($this->id, $this->category, $this->status, $this->severity, $this->summary, $this->remediation, $this->metrics, max(0, $milliseconds));
     }
 
-    /** @return array{id: string, category: string, status: string, severity: string, summary: string, remediation: string|null, metrics: array<string, bool|float|int|string|null>, durationMilliseconds: int} */
+    /** @return array{id: string, category: string, status: string, severity: string, summary: string, remediation: string|null, metrics: array<string, bool|float|int|null>, durationMilliseconds: int} */
     #[Override]
     public function toArray(): array
     {
@@ -61,5 +66,19 @@ final class HealthCheckResultData extends Data
             'metrics' => $this->metrics,
             'durationMilliseconds' => $this->durationMilliseconds,
         ];
+    }
+
+    /** @return array<string, bool|float|int|null> */
+    private static function metricsFromPayload(mixed $metrics): array
+    {
+        throw_unless(is_array($metrics), InvalidArgumentException::class, 'Health metrics must be a keyed scalar map.');
+        $validated = [];
+
+        foreach ($metrics as $name => $value) {
+            throw_unless(is_string($name) && (is_bool($value) || is_float($value) || is_int($value) || $value === null), InvalidArgumentException::class, 'Health metrics must contain only numeric, boolean, or null values.');
+            $validated[$name] = $value;
+        }
+
+        return $validated;
     }
 }

@@ -27,9 +27,9 @@ final readonly class BuildHealthReportAction
         $results = [];
         foreach ($this->registry->checks() as $check) {
             $started = hrtime(true);
-            $process = $this->processFactory->make([...new RuntimeBinaryResolver()->php(), 'artisan', 'capell:health-check', $check->id()], base_path(), ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)));
-            $process->setTimeout($check->timeoutSeconds());
             try {
+                $process = $this->processFactory->make([...new RuntimeBinaryResolver()->php(), 'artisan', 'capell:health-check', $check->id()], base_path(), ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)));
+                $process->setTimeout($check->timeoutSeconds());
                 $process->run();
                 $payload = json_decode(trim($process->getOutput()), true, 512, JSON_THROW_ON_ERROR);
                 throw_unless(is_array($payload), UnexpectedValueException::class, 'Health check returned an invalid report.');
@@ -42,7 +42,7 @@ final readonly class BuildHealthReportAction
                     $result->severity,
                     $this->sanitizer->sanitize($result->summary),
                     $result->remediation === null ? null : $this->sanitizer->sanitize($result->remediation),
-                    $this->sanitizer->sanitizeMetrics($result->metrics),
+                    $result->metrics,
                     $this->elapsed($started),
                 );
             } catch (Throwable $throwable) {
@@ -52,7 +52,7 @@ final readonly class BuildHealthReportAction
                     category: $check->category(),
                     status: $timedOut ? HealthStatus::TimedOut : HealthStatus::Error,
                     severity: HealthSeverity::Critical,
-                    summary: $timedOut ? sprintf('Check exceeded its %d second timeout.', $check->timeoutSeconds()) : 'Check execution failed: ' . $this->sanitizer->sanitize($throwable->getMessage()),
+                    summary: $timedOut ? sprintf('Check exceeded its %d second timeout.', $check->timeoutSeconds()) : 'Check execution failed (' . $throwable::class . ').',
                     remediation: 'Inspect the check implementation and application logs for protected diagnostic detail.',
                     durationMilliseconds: $this->elapsed($started),
                 );

@@ -34,7 +34,7 @@ final readonly class RunHealthCheckAction
                 category: $check->category(),
                 status: HealthStatus::Error,
                 severity: HealthSeverity::Critical,
-                summary: 'Check raised ' . $throwable::class . ': ' . $this->sanitizer->sanitize($throwable->getMessage()),
+                summary: 'Check raised ' . $throwable::class . '.',
                 remediation: 'Inspect the check implementation and application logs for protected diagnostic detail.',
                 durationMilliseconds: $this->elapsed($started),
             );
@@ -43,7 +43,7 @@ final readonly class RunHealthCheckAction
 
     private function sanitize(HealthCheckResultData $result): HealthCheckResultData
     {
-        return new HealthCheckResultData($result->id, $result->category, $result->status, $result->severity, $this->sanitizer->sanitize($result->summary), $result->remediation === null ? null : $this->sanitizer->sanitize($result->remediation), $this->sanitizer->sanitizeMetrics($result->metrics), $result->durationMilliseconds);
+        return new HealthCheckResultData($result->id, $result->category, $result->status, $result->severity, $this->sanitizer->sanitize($result->summary), $result->remediation === null ? null : $this->sanitizer->sanitize($result->remediation), $result->metrics, $result->durationMilliseconds);
     }
 
     private function elapsed(int $started): int
