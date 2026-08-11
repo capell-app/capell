@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Core\EventSourcing\Rollback\RollbackService;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
@@ -10,6 +11,20 @@ use Workbench\App\Support\PageHistoryFixture;
 
 uses(CreatesAdminUser::class)
     ->group('admin');
+
+beforeEach(function (): void {
+    require dirname(__DIR__, 5) . '/workbench/routes/screenshot-fixtures.php';
+});
+
+it('redirects the page history fixture to the seeded page edit workflow', function (): void {
+    test()->actingAsAdmin();
+    Page::factory()->createOne();
+
+    $response = $this->get('/screenshot-fixtures/page-history');
+    $page = Page::query()->where('name', 'Page history example')->firstOrFail();
+
+    $response->assertRedirect(PageResource::getUrl('edit', ['record' => $page]));
+});
 
 it('rebuilds deterministic page history with rollback and roll-forward targets', function (): void {
     test()->actingAsAdmin();
