@@ -394,7 +394,7 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-modal-window[style=''] .fi-modal-heading:has-text('Edit Default')"
+                    "selector": ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('Edit Default')"
                 }
             ],
             "docsPage": "docs/admin/theme-library.md",
@@ -452,7 +452,7 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-modal-window[style=''] .fi-modal-heading:has-text('Choose a page type')"
+                    "selector": ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('Choose a page type')"
                 }
             ],
             "docsPage": "docs/getting-started/create-your-first-page.md",
