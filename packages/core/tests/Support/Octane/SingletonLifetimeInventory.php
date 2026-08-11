@@ -40,6 +40,7 @@ use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
+use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Makers\MakerRegistry;
@@ -124,6 +125,7 @@ final class SingletonLifetimeInventory
             RenderableRegistry::class => self::boot('Renderable types are package boot registrations.'),
             LinkableContentRegistry::class => self::boot('Linkable content types are package boot registrations.'),
             ContentGraphRegistry::class => self::boot('Content graph nodes and edges are package boot registrations.'),
+            HealthCheckRegistry::class => self::boot('Operational health checks are package boot registrations; each execution is isolated in a child process.'),
             ThemeChromeRegistry::class => self::boot('Theme chrome definitions are package boot registrations.'),
             ThemeInstallDefaultsRegistry::class => self::boot('Theme install defaults are package boot registrations.'),
             InstallPatchRegistry::class => self::boot('Install patches are package boot registrations.'),

@@ -10,6 +10,7 @@ This page is the short command map for the host packages in this repository. Run
 | `capell:upgrade`                | Run Capell upgrade phases, migrations, registered steps, and cache cleanup |
 | `capell:rollback`               | Roll back a recorded upgrade step                                          |
 | `capell:doctor`                 | Run installation and environment checks                                    |
+| `capell:health`                 | Run bounded operational checks (`--json` for monitoring)                   |
 | `capell:publish-migrations`     | Publish Capell migrations or selected migration files                      |
 | `capell:delete-migrations`      | Delete published migration files for an extension                          |
 | `capell:publish-components`     | Publish frontend Blade component views                                     |

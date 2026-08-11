@@ -517,6 +517,21 @@ Three of those relate directly to hosting:
 
 The last one is a warning by design: single-node installs on the file driver are fully supported. See [web server configuration](../operations/web-server.md#multiple-nodes).
 
+### `capell:health`
+
+Runs read-only operational checks with deterministic grouped output and a non-zero exit code for warnings, failures, exceptions, or timeouts. Use `--json` for monitoring and scheduled execution. Each check runs in an isolated subprocess, so a timed-out check cannot prevent later checks from reporting.
+
+```bash
+php artisan capell:health
+php artisan capell:health --json
+```
+
+Core includes `core.disk-capacity`. Configure its storage path, minimum free bytes, and timeout with `CAPELL_HEALTH_DISK_PATH`, `CAPELL_HEALTH_MINIMUM_FREE_BYTES`, and `CAPELL_HEALTH_DISK_TIMEOUT_SECONDS`. The default minimum is 1 GiB.
+
+Packages add checks by implementing `Capell\Core\Contracts\Health\HealthCheck` and tagging the service with `HealthCheck::TAG`. IDs and categories must be stable lowercase identifiers. Summaries and remediation are sanitized before output; sensitive diagnostic detail belongs in protected application logs.
+
+Laravel owns dispatch policy. Applications may schedule `capell:health --json`; Core does not register a schedule or choose alert destinations.
+
 ### `capell:runtime-refresh`
 
 The single command to run after deploying new code. It refreshes Capell's deployment caches, warms critical pages, and verifies the result, exiting non-zero if any stage fails — so a bad deploy fails the pipeline instead of surfacing as a broken site.
