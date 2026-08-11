@@ -173,10 +173,6 @@ Site-level details can apply across every page for that site:
 
 Site records live in the **Settings** area of the admin sidebar. Open **Sites** when you need to update the company, logo, favicon, brand, domain, language, or related site details behind the pages.
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-site-branding-settings-dark.png"><img src="../images/generated/admin/first-page-site-branding-settings.png" alt="Settings area where site-wide brand and domain configuration is managed"></picture>
-
-[Light](../images/generated/admin/first-page-site-branding-settings.png) · [Dark](../images/generated/admin/first-page-site-branding-settings-dark.png)
-
 Change Site details when the same value should affect the whole website. Change Page details when the value only belongs to one page.
 
 For the full admin map, see the [Admin interface guide](../admin/interface.md).
