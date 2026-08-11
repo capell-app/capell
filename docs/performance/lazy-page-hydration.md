@@ -26,7 +26,7 @@ These pieces are involved in lazy-safe rendering decisions:
 4. `ResolveFrontendRuntimeAction` owns the main Blade, Livewire, and Inertia runtime decision for normal frontend rendering.
 5. `LazyLoadedSiteContext` is an explicit helper for code paths that want a minimal `Site` wrapper. It is not currently part of the default frontend kernel pipeline.
 
-The default frontend kernel steps are registered in `FrontendServiceProvider` through `config('frontend.kernel.steps')`. See [Frontend Page And Site Loading](../../packages/frontend/docs/page-site-loading.md) for the current step list.
+The default frontend kernel steps are registered in `FrontendServiceProvider` through `config('frontend.kernel.steps')`. See [Frontend Page And Site Loading](../../packages/frontend/page-site-loading.md) for the current step list.
 
 ## Rendering Strategies
 
@@ -84,7 +84,7 @@ Use query counts or strict lazy-loading tests for the code path you changed.
 
 ## Related
 
-- [Frontend Page And Site Loading](../../packages/frontend/docs/page-site-loading.md)
+- [Frontend Page And Site Loading](../../packages/frontend/page-site-loading.md)
 - [Fragment caching](fragment-caching.md)
 - [Cache invalidation](cache-invalidation.md)
 - [ETag and conditional responses](etag-and-conditional-responses.md)

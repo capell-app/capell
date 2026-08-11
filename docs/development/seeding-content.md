@@ -50,7 +50,7 @@ How to create Capell content — pages, URLs, translations, element types, eleme
 
 ## Seeding approved extensions
 
-The Capell [marketplace](../../packages/marketplace/docs/overview.md) app keeps the first-party extension catalogue in `database/seeders/MarketplaceExtensionSeeder.php`. That seeder should be updated whenever a package becomes Capell-approved so the marketplace, package registry, and docs agree on:
+The Capell [marketplace](../../packages/marketplace/overview.md) app keeps the first-party extension catalogue in `database/seeders/MarketplaceExtensionSeeder.php`. That seeder should be updated whenever a package becomes Capell-approved so the marketplace, package registry, and docs agree on:
 
 - display name;
 - Composer package name;
@@ -79,5 +79,5 @@ The seeder marks removed first-party extensions as hidden, so keep the list comp
 ## Related
 
 - [PublishingStudio](https://docs.capell.app/publishing-studio/)
-- [Multi-site, multi-language](../../packages/core/docs/multi-site-multi-lingual.md)
-- [Page management](../../packages/core/docs/page-management.md)
+- [Multi-site, multi-language](../../packages/core/multi-site-multi-lingual.md)
+- [Page management](../../packages/core/page-management.md)

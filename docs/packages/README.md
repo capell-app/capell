@@ -6,7 +6,7 @@ Use this section if you build or maintain a Capell package.
 
 | I need to...                               | Read                                                               |
 | ------------------------------------------ | ------------------------------------------------------------------ |
-| Get from a scaffold to a rendering package | [Extension and theme development](../../packages/core/docs/extension-development.md) |
+| Get from a scaffold to a rendering package | [Extension and theme development](../../packages/core/extension-development.md) |
 | Decide between host, package, and app code | [Host, package, or app code](../development/package-boundaries.md) |
 | Build a package from start to finish       | [Build an extension end to end](build-extension-end-to-end.md)     |
 | Find the shortest path for a package task  | [Package authoring jobs](package-authoring-jobs.md)                |
@@ -180,7 +180,7 @@ Useful admin surfaces:
 | Need                                       | Use                                                                    |
 | ------------------------------------------ | ---------------------------------------------------------------------- |
 | Filament page/resource/widget/configurator | `AdminSurfaceContributionData` through `AdminBridgeRegistrar`.         |
-| Page, site, layout, or user form fields    | Tagged [schema extenders](../../packages/admin/docs/schemas/hooks.md). |
+| Page, site, layout, or user form fields    | Tagged [schema extenders](../../packages/admin/schemas/hooks.md). |
 | Dashboard Filament widgets                 | `CapellAdmin::registerDashboardFilamentWidget(...)`.                   |
 | Header tools                               | `AdminToolItem::TAG`.                                                  |
 | User menu items                            | `CapellAdmin::registerUserMenuItem(...)`.                              |
@@ -192,7 +192,7 @@ Frontend package code must preserve public HTML safety. Anonymous output must no
 
 | Need                    | Use                                                                                                   |
 | ----------------------- | ----------------------------------------------------------------------------------------------------- |
-| Small HTML injection    | [`RenderHookRegistry::register(...)`](../../packages/frontend/docs/extending-render-hooks.md).        |
+| Small HTML injection    | [`RenderHookRegistry::register(...)`](../../packages/frontend/extending-render-hooks.md).        |
 | Public widget           | `LayoutWidgetRegistry::register(...)` with `LayoutWidgetTarget::FrontendBlade` or `FrontendLivewire`, when the Layout Builder package is installed. |
 | Package CSS/JS          | `TailwindAssetsRegistry::registerSource(...)` and `registerImport(...)`.                              |
 | Page cache invalidation | `CacheInvalidationRegistry::registerDependency(...)`.                                                 |

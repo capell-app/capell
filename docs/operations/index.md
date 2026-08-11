@@ -112,7 +112,7 @@ The default Marketplace API URL is:
 CAPELL_MARKETPLACE_URL=https://capell.app/api/v1
 ```
 
-Use the [Marketplace package overview](../../packages/marketplace/docs/overview.md) for account connection, heartbeat, cache, and install-authorization details. Use [Marketplace hosting](marketplace-hosting.md) for capability tiers and remediation, and [Troubleshooting](troubleshooting.md) for copy-paste checks.
+Use the [Marketplace package overview](../../packages/marketplace/overview.md) for account connection, heartbeat, cache, and install-authorization details. Use [Marketplace hosting](marketplace-hosting.md) for capability tiers and remediation, and [Troubleshooting](troubleshooting.md) for copy-paste checks.
 
 For deeper Marketplace incidents, use [Debugging Marketplace](debugging-marketplace.md).
 

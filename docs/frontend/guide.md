@@ -16,7 +16,7 @@ _The published page is the output of the request, cache, theme, and asset pipeli
 
 A frontend request moves through site resolution, page resolution, layout selection, theme selection, and context building before Capell returns a response. The frontend package owns that request pipeline and the middleware around it.
 
-If you need the step-by-step kernel view, use [Page and site loading](../../packages/frontend/docs/page-site-loading.md).
+If you need the step-by-step kernel view, use [Page and site loading](../../packages/frontend/page-site-loading.md).
 
 ## HTML Cache Behaviour
 
@@ -26,7 +26,7 @@ The mechanics of cache storage and invalidation live in [page cache architecture
 
 When an HTML-cache/static package is installed and enabled, Capell can write rendered page output to that package's configured static output path. Later requests can be served from cached HTML instead of re-rendering the whole page through PHP.
 
-Use [Server configuration](../../packages/frontend/docs/server-config.md) with the installed cache package's path before pointing Apache or Nginx at cached files. Without those rules Capell still works, but you lose the direct static-file benefit.
+Use [Server configuration](../../packages/frontend/server-config.md) with the installed cache package's path before pointing Apache or Nginx at cached files. Without those rules Capell still works, but you lose the direct static-file benefit.
 
 ### Public output rules
 
@@ -42,7 +42,7 @@ The cache serves one file to everyone, so cached HTML has to be safe for anonymo
 
 When `capell-app/frontend-authoring` is installed, the browser calls the beacon after the page has loaded, and only the admin-only beacon response adds edit controls. Lazy widget targets load through `/_capell/widgets/{reference}` and Layout Builder lazy fragments load through `/_capell/fragments/{reference}`.
 
-Render hooks that inject into public output follow the same rules. See [Extending render hooks](../../packages/frontend/docs/extending-render-hooks.md).
+Render hooks that inject into public output follow the same rules. See [Extending render hooks](../../packages/frontend/extending-render-hooks.md).
 
 ### Commands
 
@@ -56,7 +56,7 @@ Operations available when `capell-app/html-cache` is installed:
 
 Capell aggregates Tailwind imports, plugins, and source globs across installed packages. That keeps the frontend build aligned with package views and components instead of forcing each package to manage CSS discovery on its own.
 
-The detailed generator and registry rules live in [Tailwind assets](../../packages/frontend/docs/tailwind-assets.md). The vendor CSS edge cases for local package work live in [Tailwind vendor CSS](tailwind-vendor-css.md).
+The detailed generator and registry rules live in [Tailwind assets](../../packages/frontend/tailwind-assets.md). The vendor CSS edge cases for local package work live in [Tailwind vendor CSS](tailwind-vendor-css.md).
 
 ## Multi-Site Settings
 
@@ -74,9 +74,9 @@ Use the admin Site Health page when you need to verify that site, domain, and la
 ## Practical Reading Order
 
 1. [Frontend index](index.md)
-2. [Server configuration](../../packages/frontend/docs/server-config.md)
-3. [Page and site loading](../../packages/frontend/docs/page-site-loading.md)
-4. [Tailwind assets](../../packages/frontend/docs/tailwind-assets.md)
+2. [Server configuration](../../packages/frontend/server-config.md)
+3. [Page and site loading](../../packages/frontend/page-site-loading.md)
+4. [Tailwind assets](../../packages/frontend/tailwind-assets.md)
 5. [Capell Interactions](../getting-started/capell-interactions.md)
 6. [Model URL cache](../performance/model-url-cache.md)
 7. [Performance](../performance/README.md)

@@ -82,7 +82,7 @@ Widget HTML and interaction placeholders must not expose:
 - signed URLs;
 - raw target widget data.
 
-Use [Public HTML safety](public-html-safety.md), [Presentation delivery](../../packages/frontend/docs/presentation-delivery.md), and [Frontend extensions](../packages/frontend-extensions.md) when changing widget rendering.
+Use [Public HTML safety](public-html-safety.md), [Presentation delivery](../../packages/frontend/presentation-delivery.md), and [Frontend extensions](../packages/frontend-extensions.md) when changing widget rendering.
 
 ## Next
 

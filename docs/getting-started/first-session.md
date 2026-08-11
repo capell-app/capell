@@ -29,11 +29,11 @@ The **top bar** on the right side has a **Clear Cache** button, a global search 
 Use **Clear Cache** when a saved or published change does not appear on the frontend. If that does not fix it, check [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). If the page never generates, check [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate) and confirm a queue worker is running.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-dashboard-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/admin-dashboard.png" alt="Admin dashboard with site switcher, navigation, search, and operational widgets">
+  <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/images/screenshots/admin-dashboard-dark.png">
+  <img src="../../packages/admin/images/screenshots/admin-dashboard.png" alt="Admin dashboard with site switcher, navigation, search, and operational widgets">
 </picture>
 
-[Light](../../packages/admin/docs/images/screenshots/admin-dashboard.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-dashboard-dark.png)
+[Light](../../packages/admin/images/screenshots/admin-dashboard.png) · [Dark](../../packages/admin/images/screenshots/admin-dashboard-dark.png)
 
 If you installed with `--demo`, the widgets will already show sample content. If not, most widgets will show empty states — that's expected.
 

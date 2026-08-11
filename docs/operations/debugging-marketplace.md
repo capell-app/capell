@@ -2,7 +2,7 @@
 
 ![Capell package operations page](../images/generated/admin/package-operations.png)
 
-Use this when [Marketplace](../../packages/marketplace/docs/overview.md) account linking, catalogue browsing, install authorization, heartbeat, diagnostics, or update notices fail.
+Use this when [Marketplace](../../packages/marketplace/overview.md) account linking, catalogue browsing, install authorization, heartbeat, diagnostics, or update notices fail.
 
 ![Marketplace extension detail overview](../images/generated/package-surfaces/marketplace-extension-detail-overview.png)
 
@@ -257,7 +257,7 @@ it('does not phone home without a connected instance', function (): void {
 
 ## Next
 
-- [Marketplace package overview](../../packages/marketplace/docs/overview.md)
+- [Marketplace package overview](../../packages/marketplace/overview.md)
 - [Marketplace hosting](marketplace-hosting.md)
 - [Operations troubleshooting](troubleshooting.md)
 - [Extension troubleshooting](../packages/extension-troubleshooting.md)
