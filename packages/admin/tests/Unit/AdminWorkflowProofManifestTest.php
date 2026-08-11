@@ -14,7 +14,7 @@ it('requires populated page history and reversible recovery proof', function ():
 
         expect($entry)->not->toBeNull()
             ->and($entry['required'])->toBeTrue()
-            ->and($entry['url'])->toBe('/pages/{first-record}/edit')
+            ->and($entry['url'])->toBe('/screenshot-fixtures/page-history')
             ->and($root . '/../../' . $entry['output'])->toBeFile()
             ->and(filesize($root . '/../../' . $entry['output']))->toBeGreaterThan(10_000)
             ->and(strtolower((string) $entry['notes']))->not->toContain('optional', 'empty state', 'fixture');
