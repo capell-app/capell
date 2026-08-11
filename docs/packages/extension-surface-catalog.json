@@ -223,6 +223,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.contract.operational-health-check",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Health\\HealthCheck",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Bounded operational health check boundary.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.outbound-event",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionOutboundEvent",
@@ -310,6 +320,26 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed frontend route reservation data.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.health-check-result",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Health\\HealthCheckResultData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Safe typed operational health check result.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.dto.health-report",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Health\\HealthReportData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Deterministic operational health report.",
             "contractTestId": null
         },
         {
@@ -613,6 +643,26 @@
             "contractTestId": null
         },
         {
+            "id": "core.enum.health-severity",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Health\\HealthSeverity",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Operational health impact severities.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.enum.health-status",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Health\\HealthStatus",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Operational health outcomes.",
+            "contractTestId": null
+        },
+        {
             "id": "core.enum.metric-aggregation",
             "kind": "enum",
             "identifier": "Capell\\Core\\Enums\\Metrics\\MetricAggregation",
@@ -823,6 +873,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.registry.operational-health-check",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\Health\\HealthCheckRegistry",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Deterministic operational health check registry.",
+            "contractTestId": null
+        },
+        {
             "id": "core.registry.outbound-event",
             "kind": "registry",
             "identifier": "Capell\\Core\\Support\\OutboundEventRegistry",
@@ -900,6 +960,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Container tag for interaction target capability contributors.",
+            "contractTestId": null
+        },
+        {
+            "id": "core.tag.operational-health-check",
+            "kind": "tagged-service",
+            "identifier": "capell.health-checks",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for bounded operational health checks.",
             "contractTestId": null
         },
         {

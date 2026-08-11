@@ -13,6 +13,14 @@ return [
     'cache_lock_wait_seconds' => (int) env('CAPELL_CACHE_LOCK_WAIT_SECONDS', 10),
     'multi_node' => (bool) env('CAPELL_MULTI_NODE', false),
 
+    'health' => [
+        'disk' => [
+            'path' => env('CAPELL_HEALTH_DISK_PATH'),
+            'minimum_free_bytes' => (int) env('CAPELL_HEALTH_MINIMUM_FREE_BYTES', 1073741824),
+            'timeout_seconds' => (int) env('CAPELL_HEALTH_DISK_TIMEOUT_SECONDS', 10),
+        ],
+    ],
+
     /*
      * Release-root writes are only supported for a directly addressed, writable
      * checkout or build root. Use "immutable" for container/serverless releases

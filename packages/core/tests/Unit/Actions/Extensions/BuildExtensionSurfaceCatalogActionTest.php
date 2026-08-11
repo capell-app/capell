@@ -86,6 +86,13 @@ it('catalogues every supported extension surface kind from explicit metadata', f
             'core.action.build-publication-locale-status',
             'core.dto.publication-locale-status-context',
             'core.dto.publication-locale-status',
+            'core.contract.operational-health-check',
+            'core.dto.health-check-result',
+            'core.dto.health-report',
+            'core.enum.health-severity',
+            'core.enum.health-status',
+            'core.tag.operational-health-check',
+            'core.registry.operational-health-check',
         );
 
     foreach ($catalog as $entry) {

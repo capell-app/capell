@@ -20,6 +20,7 @@ use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
+use Capell\Core\Contracts\Health\HealthCheck;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\Metrics\CollectsDailyMetrics;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
@@ -33,6 +34,8 @@ use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
+use Capell\Core\Data\Health\HealthCheckResultData;
+use Capell\Core\Data\Health\HealthReportData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Metrics\MetricCollectionResultData;
 use Capell\Core\Data\Metrics\MetricDefinitionData;
@@ -64,6 +67,8 @@ use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
+use Capell\Core\Enums\Health\HealthSeverity;
+use Capell\Core\Enums\Health\HealthStatus;
 use Capell\Core\Enums\Metrics\MetricAggregation;
 use Capell\Core\Enums\Metrics\MetricBackfillPolicy;
 use Capell\Core\Enums\Metrics\MetricCollectionStatus;
@@ -83,6 +88,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
+use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
@@ -137,6 +143,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.blueprint-subject-descriptor', 'dto', BlueprintSubjectDescriptorData::class, ExtensionSurfaceStability::Experimental, 'Typed blueprint subject metadata.'),
             $this->entry('core.registry.blueprint-subject', 'registry', BlueprintSubjectRegistry::class, ExtensionSurfaceStability::Experimental, 'Runtime blueprint subject registry.'),
             $this->entry('core.dto.outbound-event-definition', 'dto', OutboundEventDefinitionData::class, ExtensionSurfaceStability::Experimental, 'Typed outbound event definition.'),
+            $this->entry('core.dto.health-check-result', 'dto', HealthCheckResultData::class, ExtensionSurfaceStability::Experimental, 'Safe typed operational health check result.'),
+            $this->entry('core.dto.health-report', 'dto', HealthReportData::class, ExtensionSurfaceStability::Experimental, 'Deterministic operational health report.'),
             $this->entry('core.registry.outbound-event', 'registry', OutboundEventRegistry::class, ExtensionSurfaceStability::Experimental, 'Boot-time outbound event definition registry.'),
             $this->entry('core.action.publish-outbound-event', 'action', PublishOutboundEventAction::class, ExtensionSurfaceStability::Experimental, 'Single typed outbound event publication path.'),
             $this->entry('core.event.outbound-event-published', 'event', OutboundEventPublished::class, ExtensionSurfaceStability::Experimental, 'Announced outbound event with typed payload.'),
@@ -146,6 +154,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.database-schema-dialect', 'contract', DatabaseSchemaDialect::class, ExtensionSurfaceStability::Experimental, 'Portable database schema capability boundary.'),
             $this->entry('core.contract.frontend-route-reservation-contributor', 'contract', FrontendRouteReservationContributor::class, ExtensionSurfaceStability::Experimental, 'Typed frontend route reservation contributions.'),
             $this->entry('core.contract.health-check', 'contract', ChecksExtensionHealth::class, ExtensionSurfaceStability::Experimental, 'Typed extension health checks.'),
+            $this->entry('core.contract.operational-health-check', 'contract', HealthCheck::class, ExtensionSurfaceStability::Experimental, 'Bounded operational health check boundary.'),
             $this->entry('core.contract.interaction-target-capability-contributor', 'contract', InteractionTargetCapabilityContributor::class, ExtensionSurfaceStability::Experimental, 'Typed interaction target capability contributions.'),
             $this->entry('core.contract.collects-daily-metrics', 'contract', CollectsDailyMetrics::class, ExtensionSurfaceStability::Experimental, 'Typed daily metric collection boundary.'),
             $this->entry('core.contract.metric-scope-authorizer', 'contract', MetricScopeAuthorizer::class, ExtensionSurfaceStability::Experimental, 'Metric scope read authorization boundary.'),
@@ -189,6 +198,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.publication-locale-status-context', 'dto', PublicationLocaleStatusContextData::class, ExtensionSurfaceStability::Experimental, 'Explicit publishable record, site, language, and clock context for publication status.'),
             $this->entry('core.dto.publication-locale-status', 'dto', PublicationLocaleStatusData::class, ExtensionSurfaceStability::Experimental, 'Canonical locale-scoped publication visibility status.'),
             $this->entry('core.enum.frontend-route-reservation-type', 'enum', FrontendRouteReservationType::class, ExtensionSurfaceStability::Experimental, 'Supported frontend route reservation types.'),
+            $this->entry('core.enum.health-severity', 'enum', HealthSeverity::class, ExtensionSurfaceStability::Experimental, 'Operational health impact severities.'),
+            $this->entry('core.enum.health-status', 'enum', HealthStatus::class, ExtensionSurfaceStability::Experimental, 'Operational health outcomes.'),
             $this->entry('core.enum.database-capability', 'enum', DatabaseCapability::class, ExtensionSurfaceStability::Experimental, 'Portable database schema capabilities.'),
             $this->entry('core.enum.database-date-operation', 'enum', DatabaseDateOperation::class, ExtensionSurfaceStability::Experimental, 'Portable database date operations.'),
             $this->entry('core.enum.database-family', 'enum', DatabaseFamily::class, ExtensionSurfaceStability::Experimental, 'Supported database families.'),
@@ -208,6 +219,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.enum.metric-visibility', 'enum', MetricVisibility::class, ExtensionSurfaceStability::Experimental, 'Metric visibility boundaries.'),
             $this->entry('core.event.package-installed', 'event', PackageInstalled::class, ExtensionSurfaceStability::Stable, 'Package lifecycle completion event.', 'core.package-installed-event'),
             $this->entry('core.tag.extension-health', 'tagged-service', 'capell.extension-health-checks', ExtensionSurfaceStability::Experimental, 'Container tag for extension health checks.'),
+            $this->entry('core.tag.operational-health-check', 'tagged-service', HealthCheck::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for bounded operational health checks.'),
             $this->entry('core.tag.frontend-route-reservation-contributor', 'tagged-service', FrontendRouteReservationContributor::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for frontend route reservation contributors.'),
             $this->entry('core.tag.interaction-target-capability-contributor', 'tagged-service', InteractionTargetCapabilityContributor::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for interaction target capability contributors.'),
             $this->entry('core.tag.project-build-artifact-handler', 'tagged-service', ProjectBuildArtifactHandler::TAG, ExtensionSurfaceStability::Stable, 'Container tag for project build artifact handlers.', 'core.project-build-artifact-handler-registration'),
@@ -215,6 +227,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.tag.publication-readiness-contributor', 'tagged-service', PublicationReadinessContributor::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for publication readiness contributors.'),
             $this->entry('core.registry.project-build-artifact-handler', 'registry', ProjectBuildArtifactHandlerRegistry::class, ExtensionSurfaceStability::Stable, 'Runtime registry for portable project build artifact handlers.', 'core.project-build-artifact-handler-registry'),
             $this->entry('core.registry.database-platform', 'registry', DatabasePlatformRegistry::class, ExtensionSurfaceStability::Experimental, 'Single runtime database platform resolution seam.'),
+            $this->entry('core.registry.operational-health-check', 'registry', HealthCheckRegistry::class, ExtensionSurfaceStability::Experimental, 'Deterministic operational health check registry.'),
             $this->entry('core.registry.publication-readiness', 'registry', PublicationReadinessRegistry::class, ExtensionSurfaceStability::Experimental, 'Ordered runtime publication readiness contributor registry.'),
             $this->entry('core.tag.database-platform', 'tagged-service', DatabasePlatform::TAG, ExtensionSurfaceStability::Experimental, 'Container tag for database platform adapters.'),
             $this->entry('core.config.roles-admin', 'config', 'capell.roles.admin', ExtensionSurfaceStability::Experimental, 'Configured administrator role name.'),
