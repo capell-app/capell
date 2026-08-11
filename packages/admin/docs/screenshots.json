@@ -210,7 +210,7 @@
             "targetType": "admin-surface",
             "target": "PageResource/EditPage/EventSourcedHistoryRelationManager",
             "scenario": "admin-index",
-            "url": "/pages/{first-record}/edit",
+            "url": "/screenshot-fixtures/page-history",
             "waitFor": "button[wire\\:click*='rollback']",
             "beforeWait": [
                 {
@@ -241,7 +241,7 @@
             "targetType": "admin-action-modal",
             "target": "EventSourcedHistoryRelationManager/rollback",
             "scenario": "admin-index",
-            "url": "/pages/{first-record}/edit",
+            "url": "/screenshot-fixtures/page-history",
             "waitFor": ".fi-modal-open",
             "beforeWait": [
                 {
