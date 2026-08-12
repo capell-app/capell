@@ -70,9 +70,9 @@ it('blocks a mutable mode root that traverses an atomic release symlink', functi
     $temporaryRoot = realpath(sys_get_temp_dir());
     throw_unless(is_string($temporaryRoot), RuntimeException::class, 'The system temporary directory must resolve to a canonical path.');
 
-    $parent = $temporaryRoot . '/capell-atomic-release-' . bin2hex(random_bytes(4));
-    $release = $parent . '/releases/20260723120000';
-    $current = $parent . '/current';
+    $parent = $temporaryRoot . DIRECTORY_SEPARATOR . 'capell-atomic-release-' . bin2hex(random_bytes(4));
+    $release = $parent . DIRECTORY_SEPARATOR . 'releases' . DIRECTORY_SEPARATOR . '20260723120000';
+    $current = $parent . DIRECTORY_SEPARATOR . 'current';
     mkdir($release, 0755, true);
     symlink($release, $current);
 
@@ -93,7 +93,7 @@ it('blocks a mutable mode root that traverses an atomic release symlink', functi
     } finally {
         DIRECTORY_SEPARATOR === '\\' ? rmdir($current) : unlink($current);
         rmdir($release);
-        rmdir($parent . '/releases');
+        rmdir($parent . DIRECTORY_SEPARATOR . 'releases');
         rmdir($parent);
     }
 });
