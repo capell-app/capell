@@ -21,7 +21,7 @@ $head = $headResult['output'];
 $requestedOutputDirectory = $options['output-dir'] ?? null;
 $outputDirectory = is_string($requestedOutputDirectory)
     ? $requestedOutputDirectory
-    : $repositoryRoot . '/.test-all-results/' . gmdate('YmdHis') . '-' . substr($head, 0, 12);
+    : $repositoryRoot . '/.test-all-results/' . gmdate('YmdHis') . '-' . substr((string) $head, 0, 12);
 $outputDirectory = str_starts_with($outputDirectory, DIRECTORY_SEPARATOR)
     ? $outputDirectory
     : $repositoryRoot . DIRECTORY_SEPARATOR . $outputDirectory;
@@ -285,7 +285,11 @@ function reapStaleTestAllContainers(string $repositoryRoot): void
 
         // A live owner may still be mid-run; only reap containers whose creating process has died,
         // since --rm and the finally-block cleanup can't fire if that process was killed outright.
-        if ($ownerPid === getmypid() || posix_kill($ownerPid, 0)) {
+        if ($ownerPid === getmypid()) {
+            continue;
+        }
+
+        if (posix_kill($ownerPid, 0)) {
             continue;
         }
 
