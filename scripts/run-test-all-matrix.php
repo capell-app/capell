@@ -21,7 +21,7 @@ $head = $headResult['output'];
 $requestedOutputDirectory = $options['output-dir'] ?? null;
 $outputDirectory = is_string($requestedOutputDirectory)
     ? $requestedOutputDirectory
-    : $repositoryRoot . '/.test-all-results/' . gmdate('YmdHis') . '-' . substr((string) $head, 0, 12);
+    : $repositoryRoot . '/.test-all-results/' . gmdate('YmdHis') . '-' . sprintf('%.12s', $head);
 $outputDirectory = str_starts_with($outputDirectory, DIRECTORY_SEPARATOR)
     ? $outputDirectory
     : $repositoryRoot . DIRECTORY_SEPARATOR . $outputDirectory;
