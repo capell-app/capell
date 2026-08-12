@@ -45,10 +45,13 @@ function registerParityPackage(): void
 it('retries an operation as the operation it was, not as an install', function (MarketplaceOperationType $operation, string $expectedJob): void {
     Queue::fake();
 
-    // An uninstall requires the package to be present; an install and an
-    // update go through `composer require` and require it absent. The fixture
-    // matches the operation's own precondition.
-    if ($operation === MarketplaceOperationType::Uninstall) {
+    // Update and uninstall both require the package to be present. Only an
+    // install requires it to be absent. The fixture matches the operation's
+    // own precondition before exercising the shared retry path.
+    if (in_array($operation, [
+        MarketplaceOperationType::Update,
+        MarketplaceOperationType::Uninstall,
+    ], true)) {
         registerParityPackage();
     }
 
