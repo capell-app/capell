@@ -1,0 +1,486 @@
+{
+  "schemaVersion": 2,
+  "outcome": "completed",
+  "captured": 8,
+  "skipped": 0,
+  "failed": 0,
+  "warnings": [],
+  "results": [
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "admin-media-edit-form",
+      "required": false,
+      "output": "/private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/admin-media-edit-form.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "admin-activity-log-details",
+      "required": false,
+      "output": "/private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/admin-activity-log-details.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "first-page-edit-settings-tab",
+      "required": true,
+      "output": "/private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/first-page-edit-settings-tab.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "first-page-edit-settings-tab-dark",
+      "required": true,
+      "output": "/private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/first-page-edit-settings-tab-dark.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "blueprints-definition",
+      "required": false,
+      "output": "/private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/types-definition.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "documentation",
+      "id": "blueprints-definition-dark",
+      "required": false,
+      "output": "/private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/types-definition-dark.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "installer",
+      "id": "install-capell-page",
+      "required": false,
+      "output": "/private/tmp/cap0100-target-proof.EvDRnX/core/packages/installer/docs/images/screenshots/install-capell-page.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "installer",
+      "id": "install-capell-page-dark",
+      "required": false,
+      "output": "/private/tmp/cap0100-target-proof.EvDRnX/core/packages/installer/docs/images/screenshots/install-capell-page-dark.png",
+      "reason": null,
+      "artifacts": null
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 2,
+    "generator": "shared-capell-screenshot-runner",
+    "policy": "runner-only-v2",
+    "generatedAt": "2026-08-12T23:14:07.893Z",
+    "dryRun": false,
+    "runner": {
+      "version": "1.0.0-rc.1",
+      "revision": "a39b9d70ca1f6e4a2ff59d4168082edf9d8347d1",
+      "clean": true,
+      "lockFile": {
+        "path": "package-lock.json",
+        "sha256": "b2767203eb39badc643ca37b691df434bb850114a33bb59b838a7093b9b52796"
+      }
+    },
+    "sources": [
+      {
+        "repository": "https://github.com/capell-app/capell.git",
+        "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851",
+        "clean": true,
+        "lockFiles": [
+          {
+            "path": "composer.lock",
+            "sha256": "8237e308df9f769246ad299e91f667c0f2b9b6f3b95ff901adda898b4af96881"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "d3b73d35daef0bc08bc6f25cb218d089a2942aca588b54bc3a7f16c8a7976f82"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      {
+        "package": "documentation",
+        "id": "admin-media-edit-form",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/admin-media-edit-form.png",
+          "sha256": "ca67d2f4c45685b1de271377660bdcf5808efaa8197a226a6e363f6f9749a5f2"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2e8249b7def18d49de17083cbfe4235bd6178e782bb61b70c04d589c8477903d"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:8145/",
+          "url": "http://127.0.0.1:8145/screenshot-fixtures/record-states/media-editor",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "admin-activity-log-details",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/admin-activity-log-details.png",
+          "sha256": "1f77805609afcb1c2eab167544cef0d9a373a8c0a293cc04de191ac2356d9a31"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2e8249b7def18d49de17083cbfe4235bd6178e782bb61b70c04d589c8477903d"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851"
+        },
+        "capture": {
+          "scenario": "admin-activity-details",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/activities",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "first-page-edit-settings-tab",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/first-page-edit-settings-tab.png",
+          "sha256": "13949fdbeb05d7aa623a4f6140bb9cf6654d75275dddda33a553175fcf96c623"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2e8249b7def18d49de17083cbfe4235bd6178e782bb61b70c04d589c8477903d"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:8145/",
+          "url": "http://127.0.0.1:8145/screenshot-fixtures/record-states/page-editor",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "first-page-edit-settings-tab-dark",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/first-page-edit-settings-tab-dark.png",
+          "sha256": "0b7fb0b7e8e3463a00ab0a9fbd08e0b14a384293c359d5d63892f0f2405a57ef"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2e8249b7def18d49de17083cbfe4235bd6178e782bb61b70c04d589c8477903d"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:8145/",
+          "url": "http://127.0.0.1:8145/screenshot-fixtures/record-states/page-editor",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "blueprints-definition",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/types-definition.png",
+          "sha256": "acae6cf47038a645ee75ddd69fd2334d8a1c5b12a1100360c30015c4006e04b8"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2e8249b7def18d49de17083cbfe4235bd6178e782bb61b70c04d589c8477903d"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/blueprints",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "documentation",
+        "id": "blueprints-definition-dark",
+        "acceptance": "accepted",
+        "output": {
+          "path": "docs/images/generated/admin/types-definition-dark.png",
+          "sha256": "7d1d23f7b0b7c31eba302390ec0bdb3afaca9b1ae917a09d92850d066fdf4e31"
+        },
+        "manifest": {
+          "path": "docs/screenshots.json",
+          "sha256": "2e8249b7def18d49de17083cbfe4235bd6178e782bb61b70c04d589c8477903d"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851"
+        },
+        "capture": {
+          "scenario": "admin-form",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/blueprints",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "installer",
+        "id": "install-capell-page",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/installer/docs/images/screenshots/install-capell-page.png",
+          "sha256": "ebaf865feb826755b40fc80afe2cf82c0fe5e2c023aa44c472b8e23754289e3c"
+        },
+        "manifest": {
+          "path": "packages/installer/docs/screenshots.json",
+          "sha256": "7e5f17da981bbf2cfae897fdd1e96c5ca2504528f581fd00c05c456a6373ab85"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/install-capell",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "installer",
+        "id": "install-capell-page-dark",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/installer/docs/images/screenshots/install-capell-page-dark.png",
+          "sha256": "b746d972dca2b7115d3ab16662b0b1f82596d63c5211c5a03d82e7c3efec7649"
+        },
+        "manifest": {
+          "path": "packages/installer/docs/screenshots.json",
+          "sha256": "7e5f17da981bbf2cfae897fdd1e96c5ca2504528f581fd00c05c456a6373ab85"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "3555ebd25bc79975b7012cbc33f400cdcd6e3851"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8145/admin",
+          "url": "http://127.0.0.1:8145/admin/install-capell",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      }
+    ]
+  },
+  "text": "Capell screenshot run complete.\nCaptured: 8\nSkipped: 0\nFailed: 0\n- captured documentation:admin-media-edit-form -> /private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/admin-media-edit-form.png\n- captured documentation:admin-activity-log-details -> /private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/admin-activity-log-details.png\n- captured documentation:first-page-edit-settings-tab -> /private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/first-page-edit-settings-tab.png\n- captured documentation:first-page-edit-settings-tab-dark -> /private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/first-page-edit-settings-tab-dark.png\n- captured documentation:blueprints-definition -> /private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/types-definition.png\n- captured documentation:blueprints-definition-dark -> /private/tmp/cap0100-target-proof.EvDRnX/core/docs/images/generated/admin/types-definition-dark.png\n- captured installer:install-capell-page -> /private/tmp/cap0100-target-proof.EvDRnX/core/packages/installer/docs/images/screenshots/install-capell-page.png\n- captured installer:install-capell-page-dark -> /private/tmp/cap0100-target-proof.EvDRnX/core/packages/installer/docs/images/screenshots/install-capell-page-dark.png"
+}
