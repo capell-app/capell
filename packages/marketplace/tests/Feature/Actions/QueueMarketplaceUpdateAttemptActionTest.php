@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\QueueMarketplaceBulkUpdateAction;
 use Capell\Marketplace\Actions\QueueMarketplaceUpdateAttemptAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
@@ -46,6 +47,9 @@ function updateAcquisition(): ExtensionAcquisitionData
 
 function queueUpdateAttempt(?string $idempotencyKey = null): MarketplaceInstallAttempt
 {
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.1.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
     return QueueMarketplaceUpdateAttemptAction::run(
         listing: updateListing(),
         acquisition: updateAcquisition(),

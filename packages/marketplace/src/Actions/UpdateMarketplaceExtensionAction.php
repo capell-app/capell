@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
-use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
@@ -30,6 +30,7 @@ final class UpdateMarketplaceExtensionAction
 
     public function __construct(
         private readonly MarketplaceClient $marketplace,
+        private readonly MarketplaceInstalledPackageVersionResolver $installedVersions,
     ) {}
 
     public function handle(
@@ -38,7 +39,7 @@ final class UpdateMarketplaceExtensionAction
         MarketplaceInstallSource $source = MarketplaceInstallSource::TableHelper,
         ?string $idempotencyKey = null,
     ): MarketplaceInstallAttempt {
-        $currentVersion = CapellCore::getInstalledPrettyVersion($composerName);
+        $currentVersion = $this->installedVersions->prettyVersion($composerName);
 
         if ($currentVersion === null || $currentVersion === '') {
             throw ValidationException::withMessages([

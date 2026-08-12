@@ -16,12 +16,14 @@ use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceHeartbeatCommand;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
+use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Contracts\MarketplaceRuntimeRefresher;
 use Capell\Marketplace\Contracts\MarketplaceSelectionRecordProvider;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Jobs\RecordMarketplaceWorkerHeartbeatJob;
 use Capell\Marketplace\Support\ArtisanMarketplaceRuntimeRefresher;
+use Capell\Marketplace\Support\ComposerInstalledPackageVersionResolver;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
@@ -87,6 +89,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
         if (config('capell-marketplace.enabled', true)) {
             $this->app->singletonIf(MarketplaceComposerRunner::class, ProcessMarketplaceComposerRunner::class);
             $this->app->singletonIf(MarketplaceComposerScriptRunner::class, ProcessMarketplaceComposerScriptRunner::class);
+            $this->app->singletonIf(MarketplaceInstalledPackageVersionResolver::class, ComposerInstalledPackageVersionResolver::class);
             $this->app->scoped(MarketplaceInstanceResolver::class);
             $this->app->scoped(BuildMarketplaceInstallOperationsSummaryAction::class);
             $this->app->scoped(MarketplaceCatalogueRecordProvider::class);

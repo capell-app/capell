@@ -21,6 +21,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Notifications\MarketplaceInstallOperationFailedNotification;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -74,6 +75,36 @@ it('allows installed packages when retrying cancel-after-composer recovery', fun
 
     expect($result['passed'])->toBeTrue()
         ->and(collect($result['checks'])->where('name', 'package_not_installed')->first()['passed'])->toBeTrue();
+});
+
+it('requires an installed package for an update attempt', function (): void {
+    CapellCore::forcePackageInstalled('capell-app/update-suite');
+
+    $attempt = marketplaceDebugAttempt([
+        'composer_name' => 'capell-app/update-suite',
+        'extension_slug' => 'update-suite',
+        'extension_name' => 'Update Suite',
+        'operation' => MarketplaceOperationType::Update,
+    ]);
+
+    $result = RunMarketplaceInstallPreflightChecksAction::run($attempt);
+
+    expect($result['passed'])->toBeTrue()
+        ->and(collect($result['checks'])->where('name', 'package_installed')->first()['passed'])->toBeTrue();
+});
+
+it('blocks an update attempt for a package that is not installed', function (): void {
+    $attempt = marketplaceDebugAttempt([
+        'composer_name' => 'capell-app/missing-update-suite',
+        'extension_slug' => 'missing-update-suite',
+        'extension_name' => 'Missing Update Suite',
+        'operation' => MarketplaceOperationType::Update,
+    ]);
+
+    $result = RunMarketplaceInstallPreflightChecksAction::run($attempt);
+
+    expect($result['passed'])->toBeFalse()
+        ->and(collect($result['checks'])->where('name', 'package_installed')->first()['passed'])->toBeFalse();
 });
 
 it('allows downloaded packages that have not run Capell extension lifecycle yet', function (): void {
