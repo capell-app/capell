@@ -1,0 +1,9 @@
+name: Capell CodeQL configuration
+
+# The repository's default CodeQL setup currently includes Python, but Core has
+# no Python source. Keeping the language list explicit prevents an empty Python
+# database from failing every run while retaining scans for the languages that
+# are actually present in the repository.
+languages:
+  - actions
+  - javascript-typescript
