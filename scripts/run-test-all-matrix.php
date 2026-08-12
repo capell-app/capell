@@ -8,6 +8,9 @@ require_once __DIR__ . '/test-all/TestAllMatrix.php';
 $parsedOptions = getopt('', ['output-dir:']);
 $options = is_array($parsedOptions) ? $parsedOptions : [];
 $repositoryRoot = dirname(__DIR__);
+
+reapStaleTestAllContainers($repositoryRoot);
+
 $headResult = ProcessRunner::capture(['git', 'rev-parse', 'HEAD'], $repositoryRoot);
 
 if ($headResult['exit_code'] !== 0 || preg_match('/^[0-9a-f]{40}$/', $headResult['output']) !== 1) {
@@ -259,6 +262,36 @@ if ($fatalError instanceof Throwable) {
 }
 
 exit($failures === [] ? 0 : 1);
+
+function reapStaleTestAllContainers(string $repositoryRoot): void
+{
+    $staleContainers = ProcessRunner::capture(
+        ['docker', 'ps', '-a', '--filter', 'name=^capell-test-all-', '--format', '{{.Names}}'],
+        $repositoryRoot,
+    );
+
+    if ($staleContainers['exit_code'] !== 0 || $staleContainers['output'] === '') {
+        return;
+    }
+
+    $containerNames = array_values(array_filter(preg_split('/\s+/', $staleContainers['output'])));
+
+    foreach ($containerNames as $containerName) {
+        if (preg_match('/^capell-test-all-(\d+)-[0-9a-f]{6}$/', $containerName, $matches) !== 1) {
+            continue;
+        }
+
+        $ownerPid = (int) $matches[1];
+
+        // A live owner may still be mid-run; only reap containers whose creating process has died,
+        // since --rm and the finally-block cleanup can't fire if that process was killed outright.
+        if ($ownerPid === getmypid() || posix_kill($ownerPid, 0)) {
+            continue;
+        }
+
+        ProcessRunner::capture(['docker', 'rm', '--force', $containerName], $repositoryRoot);
+    }
+}
 
 function removeTestAllTemporaryDirectory(string $directory): void
 {
