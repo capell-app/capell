@@ -53,10 +53,12 @@ $readme = file_get_contents($readmePath);
 if (! is_string($readme)) {
     $failures[] = 'README.md could not be read.';
 } else {
+    $normalizedReadme = (string) preg_replace('/\s+/', ' ', $readme);
     $readmeContracts = [
-        '**Every change can be undone.**',
+        '**The first editable page is easy. Capell solves what comes next.**',
         'Capell is an open-source CMS for Laravel, built on Filament.',
-        'It starts where custom builds end: page patterns, previews, revision history, rollback and safe upgrades are already built and ready to extend.',
+        'A Page model and Filament resource are quick; the long-term work is reusable page blueprints, preview through the real theme, URL history, revision comparison, validated recovery and repeatable upgrades.',
+        'Capell provides those concerns as MIT-licensed Laravel packages. Editors preview, publish and recover pages in Filament; the Laravel application renders them with Blade, Livewire, Inertia, Vue.js or its own stack.',
         'Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches.',
         'Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.',
         'Capell is not a hosted CMS and does not ship a public content-delivery API.',
@@ -71,7 +73,7 @@ if (! is_string($readme)) {
     ];
 
     foreach ($readmeContracts as $contract) {
-        if (! str_contains($readme, $contract)) {
+        if (! str_contains($normalizedReadme, $contract)) {
             $failures[] = 'README.md is missing package truth: ' . $contract;
         }
     }
