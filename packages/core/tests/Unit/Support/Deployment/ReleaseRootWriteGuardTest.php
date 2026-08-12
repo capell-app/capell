@@ -91,7 +91,7 @@ it('blocks a mutable mode root that traverses an atomic release symlink', functi
             'traverses the symlink ' . $current . '.',
         );
     } finally {
-        unlink($current);
+        DIRECTORY_SEPARATOR === '\\' ? rmdir($current) : unlink($current);
         rmdir($release);
         rmdir($parent . '/releases');
         rmdir($parent);
@@ -291,7 +291,7 @@ it('inspects every component of a release root rather than one giant component',
             ->and($guard->check('Installing a Marketplace extension with Composer', ['composer.json'], $root))
             ->toContain('traverses the symlink ' . $current . '.');
     } finally {
-        unlink($current);
+        DIRECTORY_SEPARATOR === '\\' ? rmdir($current) : unlink($current);
         rmdir($release);
         rmdir($parent . DIRECTORY_SEPARATOR . 'releases');
         rmdir($parent);

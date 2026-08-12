@@ -249,7 +249,10 @@ final class RuntimeBinaryResolver
             return $this->executableFinder->find($candidate);
         }
 
-        return is_file($candidate) && is_executable($candidate) ? $candidate : null;
+        return is_file($candidate)
+            && (DIRECTORY_SEPARATOR === '\\' || is_executable($candidate))
+                ? $candidate
+                : null;
     }
 
     private function resolvePhar(string $candidate): ?string
