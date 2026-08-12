@@ -29,7 +29,7 @@ The main concepts map to one idea each:
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Site      | A public web property. It can have one domain or several, one language or several, and its own pages, settings, and theme choices.                                                                    |
 | Page      | A structured record in a hierarchy. It owns translated URLs, type-specific fields, publishing state, media, and layout relationships.                                                                 |
-| Page URL  | A site-scoped, language-aware path and slug. Each page can have several, including automatic [redirects](../../packages/core/page-management.md) when slugs or parents change.                   |
+| Page URL  | A site-scoped, language-aware path and slug. Each page can have several, including automatic [redirects](../../packages/core/docs/page-management.md) when slugs or parents change.                   |
 | Layout    | Connects content to frontend rendering. This is the core [`Layout`](../reference/glossary.md#developer-terms) template model, not the ContentSections Layout Builder blocks editors drag onto a page. |
 | Blueprint | Reusable editing, rendering, and behaviour rules shared across pages, widgets, layouts, and package-owned content models.                                                                             |
 | Theme     | The active theme path and identity a site renders through.                                                                                                                                            |
@@ -87,7 +87,7 @@ These packages make up the normal product in this repository:
 | Admin       | `capell-app/admin`       | `Available` | Filament admin surface, resources, settings UI, dashboards, and admin extension points                                        |
 | Frontend    | `capell-app/frontend`    | `Available` | Public routing, rendering, cache-aware middleware, asset aggregation, and frontend extension points                           |
 | Installer   | `capell-app/installer`   | `Available` | Installer guidance and cleanup flow                                                                                           |
-| Marketplace | `capell-app/marketplace` | `Available` | [Extension marketplace](../../packages/marketplace/overview.md) browsing, acquisition, and install authorization support |
+| Marketplace | `capell-app/marketplace` | `Available` | [Extension marketplace](../../packages/marketplace/docs/overview.md) browsing, acquisition, and install authorization support |
 
 ## Host Features Vs Package Features
 
@@ -98,7 +98,7 @@ Capell uses host packages for shared contracts and optional packages for product
 | Page and URL model | `Core` owns sites, languages, pages, Page URLs, layouts, blueprints, themes, redirects, and shared settings.                              | Blog, ContentSections, URL Manager, and other packages add specialist content types or richer workflows.                                                              |
 | Admin workspace    | `Admin` owns the Filament panel, core resources, policies, settings shell, extension surfaces, and dashboard slots.                       | Packages register resources, pages, widgets, settings, reports, schema extenders, and workflow actions.                                                               |
 | Public rendering   | `Frontend` owns request resolution, render context, public Blade/Livewire output, hooks, assets, cache headers, and public-output safety. | Themes, [HTML Cache](../architecture/page-cache.md), Frontend Authoring, SEO Suite, Site Discovery, Inertia, and widget packages add runtime behaviour.               |
-| Publishing         | Host pages have publishing dates, visibility checks, policies, and cache invalidation hooks.                                              | Publishing Studio adds workspaces, [approvals](../../packages/admin/permissions-and-approval.md), scheduling, revisions, preview links, and workflow dashboards. |
+| Publishing         | Host pages have publishing dates, visibility checks, policies, and cache invalidation hooks.                                              | Publishing Studio adds workspaces, [approvals](../../packages/admin/docs/permissions-and-approval.md), scheduling, revisions, preview links, and workflow dashboards. |
 | Recovery           | `Admin` provides the Recovery Center shell and contracts.                                                                                 | Migration Assistant owns export, import, media ingest, rollback reports, and package archive workflows.                                                               |
 | SEO and discovery  | Host models provide site/language URL foundations and canonical relationships.                                                            | SEO Suite, Site Discovery, URL Manager, and Search add metadata, sitemaps, robots, redirects, audits, and search.                                                     |
 
@@ -123,7 +123,7 @@ Imagine a package that adds an `Article` content type. A non-technical descripti
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Core     | Article model, migrations, page subject contract, article blueprint, settings class, and any lifecycle subscribers.                                | Core owns structured records and package contracts.                        |
 | Admin    | Article resource, dashboard Filament widget, settings schema, and page form extenders.                                                             | Admin owns Filament surfaces and editor controls.                          |
-| Frontend | Article widget, [render hooks](../../packages/frontend/extending-render-hooks.md), reserved routes if needed, assets, and cache dependencies. | Frontend owns public rendering and safe output.                            |
+| Frontend | Article widget, [render hooks](../../packages/frontend/docs/extending-render-hooks.md), reserved routes if needed, assets, and cache dependencies. | Frontend owns public rendering and safe output.                            |
 | Package  | Actions and Data objects such as `PublishArticleAction` and `ArticleData`.                                                                         | The package owns product behaviour; host packages expose extension points. |
 
 ### Provider Wiring

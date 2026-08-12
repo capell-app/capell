@@ -178,7 +178,7 @@ Emit HSTS from one layer only. Capell can emit it itself — see
 The rest of the server configuration — compression, static-asset headers, and the
 optional static HTML cache — is covered in
 [Web server configuration](web-server.md) and
-[frontend server configuration](../../packages/frontend/server-config.md).
+[frontend server configuration](../../packages/frontend/docs/server-config.md).
 
 ### Behind Cloudflare
 
