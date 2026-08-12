@@ -1,10 +1,10 @@
 # Frontend Extensions
 
-Register package CSS, JavaScript, Vite entries, CDN resources, and npm dependencies through the canonical [Frontend Resources guide](../../packages/frontend/frontend-resources.md).
+Register package CSS, JavaScript, Vite entries, CDN resources, and npm dependencies through the canonical [Frontend Resources guide](../../packages/frontend/docs/frontend-resources.md).
 
 ![Capell navigation list](../images/generated/admin/navigation-list.png)
 
-Frontend packages should register behaviour through [render hooks](../../packages/frontend/extending-render-hooks.md), route/path registries, Blade components, Livewire components, Inertia components, vendor assets, cache dependencies, and explicit package registries.
+Frontend packages should register behaviour through [render hooks](../../packages/frontend/docs/extending-render-hooks.md), route/path registries, Blade components, Livewire components, Inertia components, vendor assets, cache dependencies, and explicit package registries.
 
 If the package needs in-page editing, do not put editor metadata in its views. Register editable regions with `capell-app/frontend-authoring` so the admin-only beacon can add controls after the page has loaded.
 

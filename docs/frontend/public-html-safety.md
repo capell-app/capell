@@ -144,5 +144,5 @@ it('keeps cached html identical to anonymous-safe output', function (): void {
 
 - [Frontend](index.md)
 - [Debugging public output](debugging-public-output.md)
-- [Frontend testing](../../packages/frontend/testing-frontend.md)
+- [Frontend testing](../../packages/frontend/docs/testing-frontend.md)
 - [Package testing](../packages/testing-packages.md)

@@ -33,4 +33,4 @@ Some Capell-approved packages ship CSS that lives inside the package itself (Tai
 
 - [Install guide](../getting-started/install.md)
 - [Troubleshooting](../operations/troubleshooting.md)
-- [Tailwind assets](../../packages/frontend/tailwind-assets.md) — per-site Tailwind build pipeline
+- [Tailwind assets](../../packages/frontend/docs/tailwind-assets.md) — per-site Tailwind build pipeline
