@@ -17,11 +17,11 @@ if ($headResult['exit_code'] !== 0 || preg_match('/^[0-9a-f]{40}$/', $headResult
     throw new RuntimeException('Unable to resolve the exact Core HEAD for the local Test All matrix.');
 }
 
-$head = $headResult['output'];
+$head = (string) $headResult['output'];
 $requestedOutputDirectory = $options['output-dir'] ?? null;
 $outputDirectory = is_string($requestedOutputDirectory)
     ? $requestedOutputDirectory
-    : $repositoryRoot . '/.test-all-results/' . gmdate('YmdHis') . '-' . substr((string) $head, 0, 12);
+    : $repositoryRoot . '/.test-all-results/' . gmdate('YmdHis') . '-' . substr($head, 0, 12);
 $outputDirectory = str_starts_with($outputDirectory, DIRECTORY_SEPARATOR)
     ? $outputDirectory
     : $repositoryRoot . DIRECTORY_SEPARATOR . $outputDirectory;
