@@ -114,14 +114,14 @@ For Laravel teams, the value is not just that a button can open a modal. The val
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | Editor or demo audience                                      | This page                                                                                                  |
 | Theme/package developer adding widgets                       | [Frontend widgets](../frontend/widgets.md)                                                                 |
-| Developer wiring resources, presentation, and lazy endpoints | [Presentation delivery](../../packages/frontend/presentation-delivery.md)                             |
-| Admin developer reusing Filament schema helpers              | [Presentation and interactions admin controls](../../packages/admin/presentation-and-interactions.md) |
+| Developer wiring resources, presentation, and lazy endpoints | [Presentation delivery](../../packages/frontend/docs/presentation-delivery.md)                             |
+| Admin developer reusing Filament schema helpers              | [Presentation and interactions admin controls](../../packages/admin/docs/presentation-and-interactions.md) |
 | Layout Builder package maintainer                            | [Layout Builder package docs](https://docs.capell.app/packages/layout-builder)                             |
 
 ## Next
 
 - [Frontend widgets](../frontend/widgets.md)
 - [Frontend guide](../frontend/guide.md)
-- [Presentation delivery](../../packages/frontend/presentation-delivery.md)
+- [Presentation delivery](../../packages/frontend/docs/presentation-delivery.md)
 - [Frontend extensions](../packages/frontend-extensions.md)
 - [Public HTML safety](../frontend/public-html-safety.md)

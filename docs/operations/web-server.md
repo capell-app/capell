@@ -6,7 +6,7 @@ more than one node.
 
 For the standard parts — DNS, TLS, the base server block, trusted proxies, and process
 supervision — see [Going live](going-live.md). The base server block itself lives in
-[frontend server configuration](../../packages/frontend/server-config.md); the rules
+[frontend server configuration](../../packages/frontend/docs/server-config.md); the rules
 below are added to it and only apply when `capell-app/html-cache` is installed.
 
 ## Three different things called "cache"

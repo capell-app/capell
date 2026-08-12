@@ -7,7 +7,7 @@ A finished package appears to site owners on the admin Extensions page, with its
 ![Capell admin Extensions page listing installed packages with health and lifecycle controls](../images/generated/admin/admin-extensions-page.png)
 
 For the complete third-party path from scaffold through a rendering proof and
-Marketplace submission, read [Extension and theme development](../../packages/core/extension-development.md).
+Marketplace submission, read [Extension and theme development](../../packages/core/docs/extension-development.md).
 
 ## Scaffold First
 

@@ -87,4 +87,4 @@ The FLUX connector must be authenticated before generating these assets. Once au
 
 - [Architecture diagrams](../reference/architecture-diagrams.md)
 - [Marketplace debugging](../operations/debugging-marketplace.md)
-- [Installer overview](../../packages/installer/overview.md)
+- [Installer overview](../../packages/installer/docs/overview.md)
