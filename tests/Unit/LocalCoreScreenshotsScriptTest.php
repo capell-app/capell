@@ -58,7 +58,7 @@ BASH);
         [],
         [
             'npm ci',
-            'npx capell-screenshots install-browser',
+            'npm run screenshots -- install-browser',
             'bash scripts/screenshots/prepare-workbench.sh',
             'npm run screenshots',
         ],
