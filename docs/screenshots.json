@@ -81,7 +81,7 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "body:has([data-marketplace-extension-screenshots]):has([data-marketplace-extension-docs])",
+            "waitFor": "body:has([data-capell-marketplace-extension-screenshots]):has([data-capell-marketplace-extension-docs])",
             "docsPage": "docs/packages/README.md",
             "output": "docs/images/generated/package-surfaces/marketplace-extension-detail-overview.png",
             "colorSchemes": ["light"],
@@ -100,7 +100,7 @@
             "target": "MarketplaceExtensionDetailPage",
             "scenario": "admin-index",
             "url": "/extensions/marketplace/seo-suite",
-            "waitFor": "body:has([data-marketplace-extension-screenshots]):has([data-marketplace-extension-docs])",
+            "waitFor": "body:has([data-capell-marketplace-extension-screenshots]):has([data-capell-marketplace-extension-docs])",
             "docsPage": "docs/operations/debugging-marketplace.md",
             "output": "docs/images/generated/package-surfaces/marketplace-extension-detail-docs-and-access.png",
             "colorSchemes": ["light"],
@@ -176,6 +176,9 @@
             "surface": "admin",
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
+            "scenario": "admin-form",
+            "url": "/screenshot-fixtures/record-states/media-editor",
+            "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Crop and focal point'))",
             "docsPage": "docs/admin/media-management.md",
             "output": "docs/images/generated/admin/admin-media-edit-form.png",
             "colorSchemes": ["light"],
@@ -312,7 +315,7 @@
             "docsPage": "docs/admin/media-management.md",
             "output": "docs/images/admin-media-library.png",
             "required": true,
-            "sameCaptureAs": "docs-media-ai-doctor-image",
+            "sameCaptureAs": "admin-media-list",
             "notes": "Shows the media library used in admin and media-management documentation."
         },
         {
@@ -358,6 +361,7 @@
             "docsPage": "docs/admin/index.md",
             "output": "docs/images/admin-dashboard.png",
             "required": true,
+            "sameCaptureAs": "admin-dashboard",
             "notes": "Shows the default admin dashboard used across admin, setup, and development documentation."
         },
         {
@@ -537,7 +541,7 @@
             "targetType": "admin-surface",
             "target": "PageResource/EditPage",
             "scenario": "admin-form",
-            "url": "/pages/{first-record}/edit",
+            "url": "/screenshot-fixtures/record-states/page-editor",
             "waitFor": "form",
             "docsPage": "docs/getting-started/create-your-first-page.md",
             "output": "docs/images/generated/admin/first-page-edit-settings-tab.png",
@@ -605,7 +609,7 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-modal-window[style=''] .fi-modal-heading:has-text('Create Blueprint')"
+                    "selector": ".fi-modal-window .fi-modal-heading:has-text('Create Blueprint')"
                 }
             ],
             "docsPage": "docs/getting-started/types.md",

@@ -31,6 +31,24 @@ test('selects the frontend fixture for a mobile dark published page', () => {
     )
 })
 
+test('selects the record-state fixture for documentation aliases', () => {
+    for (const id of [
+        'docs-media-edit-focal-point',
+        'docs-media-edit-localized-metadata',
+        'admin-media-edit-form',
+        'first-page-edit-settings-tab',
+    ]) {
+        assert.deepEqual(
+            commandsForEntries([
+                { id, url: '/screenshot-fixtures/record-states/example' },
+            ]),
+            [
+                'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+            ],
+        )
+    }
+})
+
 test('passes both app and server environment to fixture initialization', () => {
     assert.deepEqual(
         fixtureEnvironment(
