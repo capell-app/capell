@@ -58,7 +58,7 @@ if (! is_string($readme)) {
         '**The first editable page is easy. Capell solves what comes next.**',
         'Capell is an open-source CMS for Laravel, built on Filament.',
         'A Page model and Filament resource are quick; the long-term work is reusable page blueprints, preview through the real theme, URL history, revision comparison, validated recovery and repeatable upgrades.',
-        'Capell provides those concerns as MIT-licensed Laravel packages. Editors preview, publish and recover pages in Filament; the Laravel application renders them with Blade, Livewire, Inertia, Vue.js or its own stack.',
+        'Capell Foundation turns that recurring work into one maintained, MIT-licensed contract. Editors preview, publish and recover pages in Filament; the Laravel application renders them with Blade, Livewire, Inertia, Vue.js or its own stack.',
         'Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches.',
         'Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.',
         'Capell is not a hosted CMS and does not ship a public content-delivery API.',

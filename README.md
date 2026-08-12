@@ -15,9 +15,10 @@ Filament resource are quick; the long-term work is reusable page blueprints,
 preview through the real theme, URL history, revision comparison, validated
 recovery and repeatable upgrades.
 
-Capell provides those concerns as MIT-licensed Laravel packages. Editors
-preview, publish and recover pages in Filament; the Laravel application renders
-them with Blade, Livewire, Inertia, Vue.js or its own stack.
+Capell Foundation turns that recurring work into one maintained,
+MIT-licensed contract. Editors preview, publish and recover pages in Filament;
+the Laravel application renders them with Blade, Livewire, Inertia, Vue.js or
+its own stack.
 
 Install it into an existing Laravel application with two commands:
 
