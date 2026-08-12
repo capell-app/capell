@@ -23,6 +23,10 @@ function runnerCliPath() {
 }
 
 function coreRunnerArguments(args) {
+    if (args[0] === 'install-browser') {
+        return ['install-browser']
+    }
+
     const forwardedArguments = []
 
     for (let index = 0; index < args.length; index += 1) {
