@@ -61,6 +61,36 @@ final class CapellPackageRegistry extends AbstractKeyedRegistry
     }
 
     /**
+     * Replace manifest-backed runtime state after Composer changes the installed graph.
+     *
+     * Provider-only registrations are retained because they are not derived from
+     * Composer discovery. Manifest-backed packages that disappeared must be
+     * forgotten so a long-lived worker cannot keep operating on code that a
+     * successful rollback or uninstall removed.
+     *
+     * @internal
+     *
+     * @param  array<string, CapellManifestData>  $manifests
+     * @param  callable(string): ?string  $versionResolver
+     */
+    public function synchronizeDiscoveredManifests(array $manifests, callable $versionResolver): void
+    {
+        $this->fill($manifests);
+
+        foreach ($this->packages as $packageName => $package) {
+            if ($package->manifest instanceof CapellManifestData && ! array_key_exists($packageName, $manifests)) {
+                unset($this->packages[$packageName], $this->forcedPackageInstallStates[$packageName]);
+            }
+        }
+
+        foreach ($manifests as $manifest) {
+            $this->registerManifestPackage($manifest, $versionResolver($manifest->name));
+        }
+
+        $this->clearExtensionCache();
+    }
+
+    /**
      * Builds a map of PHP namespace prefix → package short name for all registered packages.
      * The short name is the portion of the composer package name after the final slash
      * (e.g. `capell-app/seo-suite` → `seo-suite`).

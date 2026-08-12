@@ -328,9 +328,9 @@ final class InstallStepExecutor
         $exitCode = Artisan::call('capell:admin-setup', [
             '--integration-only' => true,
             '--panel' => $state->inputData->adminPanel,
-            '--schemas' => $state->inputData->adminDiscoverSchemas === []
+            '--configurators' => $state->inputData->adminDiscoverSchemas === []
                 ? 'auto'
-                : $this->formatAdminDiscoverSchemas($state->inputData->adminDiscoverSchemas),
+                : $this->formatAdminDiscoverConfigurators($state->inputData->adminDiscoverSchemas),
             '--no-colors' => ! $state->inputData->adminAddColors,
             '--no-widgets' => ! $state->inputData->adminAddWidgets,
             '--no-navigation' => ! $state->inputData->adminAddNavigation,
@@ -511,12 +511,12 @@ final class InstallStepExecutor
     }
 
     /**
-     * @param  array<int, array{in: string, for: string}>  $schemas
+     * @param  array<int, array{in: string, for: string}>  $configurators
      */
-    private function formatAdminDiscoverSchemas(array $schemas): string
+    private function formatAdminDiscoverConfigurators(array $configurators): string
     {
-        return collect($schemas)
-            ->map(fn (array $schema): string => $schema['in'] . '=' . $schema['for'])
+        return collect($configurators)
+            ->map(fn (array $configurator): string => $configurator['in'] . '=' . $configurator['for'])
             ->implode(',');
     }
 

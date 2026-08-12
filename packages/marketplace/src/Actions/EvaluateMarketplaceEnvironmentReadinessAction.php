@@ -89,16 +89,41 @@ final class EvaluateMarketplaceEnvironmentReadinessAction
         ?bool $phpBinaryResolvable = null,
         ?bool $composerBinaryResolvable = null,
     ): MarketplaceEnvironmentReadinessData {
-        return Cache::remember(
-            $this->cacheKey($releaseRoot, $processExecutionAvailable, $phpBinaryResolvable, $composerBinaryResolvable),
+        $cacheKey = $this->cacheKey(
+            $releaseRoot,
+            $processExecutionAvailable,
+            $phpBinaryResolvable,
+            $composerBinaryResolvable,
+        );
+
+        $cached = Cache::remember(
+            $cacheKey,
             self::CACHE_SECONDS,
-            fn (): MarketplaceEnvironmentReadinessData => $this->evaluate(
+            fn (): array => $this->evaluate(
                 $releaseRoot,
                 $processExecutionAvailable,
                 $phpBinaryResolvable,
                 $composerBinaryResolvable,
-            ),
+            )->toArray(),
         );
+
+        if (is_array($cached)) {
+            return MarketplaceEnvironmentReadinessData::from($cached);
+        }
+
+        // Laravel 13 disables cache object unserialization by default. Repair
+        // entries written by older releases instead of returning an
+        // __PHP_Incomplete_Class to the typed boundary above.
+        $readiness = $this->evaluate(
+            $releaseRoot,
+            $processExecutionAvailable,
+            $phpBinaryResolvable,
+            $composerBinaryResolvable,
+        );
+
+        Cache::put($cacheKey, $readiness->toArray(), self::CACHE_SECONDS);
+
+        return $readiness;
     }
 
     private static function generation(): int

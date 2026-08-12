@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Console\Commands\PackageCacheCommand;
+use Capell\Core\Actions\BuildPackageCacheAction;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Manifest\CapellManifestData;
@@ -157,24 +157,24 @@ it('builds theme inheritance view chains and rejects invalid theme ancestry', fu
         $cycleChild->name => $cycleChild,
     ]);
 
-    $walkChain = new ReflectionMethod(PackageCacheCommand::class, 'walkChain');
-    $command = new PackageCacheCommand;
+    $walkChain = new ReflectionMethod(BuildPackageCacheAction::class, 'walkChain');
+    $action = resolve(BuildPackageCacheAction::class);
 
     try {
-        expect($walkChain->invoke($command, $child, $registry))->toBe([
+        expect($walkChain->invoke($action, $child, $registry))->toBe([
             $childPath . '/resources/views',
             $basePath . '/resources/views',
         ]);
 
-        expect($walkChain->invoke($command, $themeKeyChild, $registry))->toBe([
+        expect($walkChain->invoke($action, $themeKeyChild, $registry))->toBe([
             $childPath . '/resources/views',
             $basePath . '/resources/views',
         ]);
 
-        expect(fn (): array => $walkChain->invoke($command, $missingParent, $registry))
+        expect(fn (): array => $walkChain->invoke($action, $missingParent, $registry))
             ->toThrow(OutOfBoundsException::class, 'extends missing package [vendor/missing-theme]');
 
-        expect(fn (): array => $walkChain->invoke($command, $cycleChild, $registry))
+        expect(fn (): array => $walkChain->invoke($action, $cycleChild, $registry))
             ->toThrow(OutOfBoundsException::class, 'Theme inheritance cycle detected');
     } finally {
         File::deleteDirectory($rootPath);

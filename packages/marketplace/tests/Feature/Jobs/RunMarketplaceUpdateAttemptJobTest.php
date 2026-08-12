@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Upgrade\PublishPendingMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
+use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunSettingsMigrationsAction;
 use Capell\Core\Data\MigrationPublishResult;
 use Capell\Core\Data\MigrationRunResult;
@@ -75,13 +76,20 @@ function updateAttempt(array $overrides = []): MarketplaceInstallAttempt
 }
 
 /** @param list<string> $migrationsApplied */
-function fakeMigrationPipeline(array $migrationsApplied = [], int $databaseExitCode = 0): void
-{
+function fakeMigrationPipeline(
+    array $migrationsApplied = [],
+    int $databaseExitCode = 0,
+    bool $publishSucceeded = true,
+): void {
     PublishPendingMigrationsAction::mock()
         ->shouldReceive('handle')
-        ->andReturn(new MigrationPublishResult(true, true, ''));
+        ->andReturn(new MigrationPublishResult($publishSucceeded, $publishSucceeded, ''));
 
     RunDatabaseMigrationsAction::mock()
+        ->shouldReceive('handle')
+        ->andReturn(new MigrationRunResult(0, 'Core migrated'));
+
+    RunPublishedDatabaseMigrationsAction::mock()
         ->shouldReceive('handle')
         ->andReturnUsing(function () use ($migrationsApplied, $databaseExitCode): MigrationRunResult {
             foreach ($migrationsApplied as $migrationName) {
@@ -91,7 +99,7 @@ function fakeMigrationPipeline(array $migrationsApplied = [], int $databaseExitC
                 ]);
             }
 
-            return new MigrationRunResult($databaseExitCode, 'migrated');
+            return new MigrationRunResult($databaseExitCode, 'published migrations ran');
         });
 
     RunSettingsMigrationsAction::mock()
@@ -268,6 +276,28 @@ it('fails on the migration stage when the migrations themselves fail', function 
         ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Migration->value)
         ->and($attempt->failure_type)->toBe(MarketplaceInstallFailureType::MigrationFailed->value)
         ->and($attempt->failure_reason)->toContain('database migrations for this update exited 1');
+});
+
+it('fails on the migration stage when pending migrations cannot be published', function (): void {
+    Notification::fake();
+    $packagePath = registerUpdatablePackage();
+    fakeMigrationPipeline(publishSucceeded: false);
+    fakeComposerRestore();
+    succeedingComposerRunner();
+    $attempt = updateAttempt();
+
+    try {
+        new RunMarketplaceUpdateAttemptJob((int) $attempt->getKey())->handle(resolve(MarketplaceComposerRunner::class));
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+
+    $attempt->refresh();
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_stage)->toBe(MarketplaceInstallFailureStage::Migration->value)
+        ->and($attempt->failure_type)->toBe(MarketplaceInstallFailureType::MigrationFailed->value)
+        ->and($attempt->failure_reason)->toContain('could not be published into the host application');
 });
 
 it('reports a partially applied migration batch as a schema that stayed ahead', function (): void {

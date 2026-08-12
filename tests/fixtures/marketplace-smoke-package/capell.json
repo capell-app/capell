@@ -30,9 +30,9 @@
     },
     "contributes": [],
     "database": {
-        "migrations": false,
+        "migrations": true,
         "settings": false,
-        "requiredTables": []
+        "requiredTables": ["marketplace_smoke_qa_records"]
     },
     "commands": {
         "install": null,
@@ -48,7 +48,7 @@
         "adminQueryBudget": 0,
         "cacheTags": [],
         "cacheSafety": {
-            "cacheable": true,
+            "cacheable": false,
             "variesBy": [],
             "sensitiveOutput": false,
             "invalidationSources": [],

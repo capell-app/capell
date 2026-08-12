@@ -16,7 +16,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
  */
 $arguments = array_values(array_filter(
     array_slice($argv ?? [], 1),
-    static fn (mixed $argument): bool => is_string($argument),
+    is_string(...),
 ));
 
 if ($arguments === []) {

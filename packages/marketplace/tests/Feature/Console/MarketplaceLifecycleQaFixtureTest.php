@@ -2,6 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Upgrade\PublishPendingMigrationsAction;
+use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
+use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
+use Capell\Core\Actions\Upgrade\RunSettingsMigrationsAction;
+use Capell\Core\Data\MigrationPublishResult;
+use Capell\Core\Data\MigrationRunResult;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
@@ -31,6 +37,24 @@ use Illuminate\Support\Facades\Queue;
 it('runs a fixture package through the queued install update and uninstall lifecycle', function (): void {
     LifecycleRecorderAction::reset();
     Queue::fake();
+    // The migration Actions own separate behaviour coverage. Keep this lifecycle
+    // fixture from publishing into Testbench's process-shared migration path.
+    PublishPendingMigrationsAction::mock()
+        ->shouldReceive('handle')
+        ->once()
+        ->andReturn(new MigrationPublishResult(true, true, 'Fixture migrations published.'));
+    RunDatabaseMigrationsAction::mock()
+        ->shouldReceive('handle')
+        ->once()
+        ->andReturn(new MigrationRunResult(0, 'Core migrations ran.'));
+    RunPublishedDatabaseMigrationsAction::mock()
+        ->shouldReceive('handle')
+        ->once()
+        ->andReturn(new MigrationRunResult(0, 'Published migrations ran.'));
+    RunSettingsMigrationsAction::mock()
+        ->shouldReceive('handle')
+        ->once()
+        ->andReturn(new MigrationRunResult(0, 'Settings migrations ran.'));
     config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);
 
     app()->register(MarketplaceLifecycleQaFixtureServiceProvider::class);

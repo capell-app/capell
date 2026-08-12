@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\BuildPackageCacheAction;
 use Capell\Core\Contracts\PackageLifecycleAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
@@ -685,6 +686,12 @@ it('restores the post-install state that --no-scripts suppresses', function (): 
     };
 
     app()->instance(MarketplaceComposerScriptRunner::class, $scriptRunner);
+    BuildPackageCacheAction::shouldRun()
+        ->once()
+        ->withArgs(fn (array $manifests): bool => isset(
+            $manifests['capell-app/core'],
+            $manifests['capell-app/marketplace'],
+        ));
     app()->instance(MarketplaceComposerRunner::class, new readonly class($manifest) implements MarketplaceComposerRunner
     {
         public function __construct(private CapellManifestData $manifest) {}
@@ -969,6 +976,17 @@ it('does not rebuild vendor when composer failed without changing the manifests'
 it('rolls the composer state back when the extension lifecycle fails', function (): void {
     Notification::fake();
     $rollbacks = recordMarketplaceRollbacks();
+    $packageManifest = new class(resolve(Filesystem::class), base_path(), base_path('bootstrap/cache/packages.php')) extends PackageManifest
+    {
+        public bool $rebuilt = false;
+
+        public function build(): void
+        {
+            $this->rebuilt = true;
+        }
+    };
+    app()->instance(PackageManifest::class, $packageManifest);
+    BuildPackageCacheAction::shouldRun()->twice();
     $packagePath = registerFailingLifecyclePackage('capell-app/marketplace-lifecycle-rollback', 'Lifecycle Rollback');
     refuseMarketplaceComposerRun();
 
@@ -995,6 +1013,8 @@ it('rolls the composer state back when the extension lifecycle fails', function 
         ->and($attempt->context['rollback']['rolled_back'] ?? null)->toBeTrue()
         ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_rollback_completed'))->exists())
         ->toBeTrue()
+        ->and($packageManifest->rebuilt)->toBeTrue()
+        ->and(CapellCore::hasPackage('capell-app/marketplace-lifecycle-rollback'))->toBeFalse()
         // The snapshot and the rollback budget are the two arguments the
         // recovery actually depends on, and PHP would let the job pass neither
         // without a murmur, so they are asserted rather than assumed.

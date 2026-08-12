@@ -284,6 +284,7 @@ it('tracks marketplace selections through the Filament table card surface', func
         ->call('toggleMarketplaceSelection', 'capell-app/seo-suite')
         ->assertSet('selectedMarketplaceComposerNames', ['capell-app/seo-suite'])
         ->assertSee('toggleMarketplaceRecord', false)
+        ->assertSeeHtml('data-capell-marketplace-browse-actions')
         ->assertSee(__('capell-marketplace::marketplace.selection.reviewing_button'))
         ->assertSee(__('capell-marketplace::marketplace.selection.install_footer_action'));
 });

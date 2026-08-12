@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Jobs;
 
 use Capell\Core\Actions\Upgrade\PublishPendingMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
+use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
 use Capell\Core\Actions\Upgrade\RunSettingsMigrationsAction;
 use Capell\Core\Data\MigrationRunResult;
 use Capell\Core\Facades\CapellCore;
@@ -251,11 +252,18 @@ final class RunMarketplaceUpdateAttemptJob extends AbstractMarketplaceOperationJ
         ]);
 
         try {
-            PublishPendingMigrationsAction::run();
+            $published = PublishPendingMigrationsAction::run();
+
+            throw_if(! $published->schemaPublished || ! $published->settingsPublished, MarketplaceUpdateMigrationFailedException::class, 'The pending migrations for this update could not be published into the host application.');
 
             $this->assertMigrationRunSucceeded(
                 RunDatabaseMigrationsAction::run(),
-                'database',
+                'Core database',
+            );
+
+            $this->assertMigrationRunSucceeded(
+                RunPublishedDatabaseMigrationsAction::run(),
+                'published database',
             );
 
             $this->assertMigrationRunSucceeded(

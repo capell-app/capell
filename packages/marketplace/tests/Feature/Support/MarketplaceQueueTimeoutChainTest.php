@@ -22,6 +22,14 @@ it('takes the job timeout from the job itself rather than a copied literal', fun
         ->toBe(RunMarketplaceInstallAttemptJob::jobTimeoutSeconds());
 });
 
+it('preserves the install attempt identifier across queue serialization', function (): void {
+    $restoredJob = unserialize(serialize(new RunMarketplaceInstallAttemptJob(42)));
+
+    expect($restoredJob)
+        ->toBeInstanceOf(RunMarketplaceInstallAttemptJob::class)
+        ->and($restoredJob->uniqueId())->toBe('42');
+});
+
 it('fits every stage of an install inside one job timeout, not one per composer run', function (): void {
     // The job runs Composer, then replays the application's post-autoload-dump
     // scripts, then finalises the attempt — and the queue kills the worker at

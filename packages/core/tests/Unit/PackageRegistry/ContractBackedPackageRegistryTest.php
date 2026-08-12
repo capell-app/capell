@@ -172,6 +172,27 @@ it('returns contributions from the precomputed contract registry indexes', funct
     expect($reflection->getValue($registry))->toHaveKeys(['byType', 'byPackage', 'bySurface', 'byClass']);
 });
 
+it('synchronizes discovered manifests without dropping provider-only runtime packages', function (): void {
+    $registry = new CapellPackageRegistry;
+    $staleManifest = contractRegistryManifest('vendor/stale-extension', ['admin']);
+    $currentManifest = contractRegistryManifest('vendor/current-extension', ['frontend']);
+
+    $registry->fill([$staleManifest->name => $staleManifest]);
+    $registry->registerManifestPackage($staleManifest, '1.0.0');
+    $registry->registerPackage('vendor/provider-only', PackageTypeEnum::Plugin);
+
+    $registry->synchronizeDiscoveredManifests(
+        [$currentManifest->name => $currentManifest],
+        fn (string $packageName): ?string => $packageName === $currentManifest->name ? '2.0.0' : null,
+    );
+
+    expect($registry->all())->toHaveKey('vendor/current-extension')
+        ->not->toHaveKey('vendor/stale-extension')
+        ->and($registry->hasPackage('vendor/stale-extension'))->toBeFalse()
+        ->and($registry->getPackage('vendor/current-extension')->version)->toBe('2.0.0')
+        ->and($registry->hasPackage('vendor/provider-only'))->toBeTrue();
+});
+
 it('has typed contribution contracts for every manifest runtime contribution surface', function (): void {
     $contracts = [
         RegistersExtensionFilamentWidget::class,

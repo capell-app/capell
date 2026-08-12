@@ -7,6 +7,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\PackageManifest;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
@@ -81,6 +82,87 @@ it('removes a package', function (): void {
             base_path('bootstrap/cache/packages.php'),
             base_path('bootstrap/cache/services.php'),
         );
+});
+
+it('keeps the current Laravel provider manifests until Composer has removed the package', function (): void {
+    $filesystem = new class extends Filesystem
+    {
+        /** @var list<list<string>> */
+        public array $deletedPaths = [];
+
+        /** @var array<string, string> */
+        public array $replacedContents = [];
+
+        public function delete($paths): bool
+        {
+            $this->deletedPaths[] = array_values((array) $paths);
+
+            return true;
+        }
+
+        public function replace($path, $content, $mode = null): void
+        {
+            $this->replacedContents[(string) $path] = (string) $content;
+        }
+
+        public function getRequire($path, array $data = []): mixed
+        {
+            $contents = $this->replacedContents[(string) $path] ?? null;
+
+            if (is_string($contents)) {
+                return eval(substr($contents, 5));
+            }
+
+            return parent::getRequire($path, $data);
+        }
+    };
+
+    app()->instance(Filesystem::class, $filesystem);
+    app()->instance(PackageManifest::class, new class($filesystem, base_path(), base_path('bootstrap/cache/packages.php')) extends PackageManifest
+    {
+        public function build(): void
+        {
+            $this->files->replace($this->manifestPath, '<?php return ' . var_export([
+                'vendor/package' => ['providers' => ['Vendor\\PackageServiceProvider']],
+                'vendor/other' => ['providers' => ['Vendor\\OtherServiceProvider']],
+            ], return: true) . ';');
+        }
+    });
+    app()->detectEnvironment(fn (): string => 'production');
+
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setEnv')->andReturnSelf();
+    $process->shouldReceive('setTimeout')->with(600)->andReturnSelf();
+    $process->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem): int {
+        $deletedBeforeComposerCompleted = collect($filesystem->deletedPaths)->flatten()->all();
+        $preparedManifest = $filesystem->replacedContents[base_path('bootstrap/cache/packages.php')] ?? '';
+
+        expect($preparedManifest)
+            ->not->toContain('vendor/package')
+            ->toContain('vendor/other')
+            ->and($deletedBeforeComposerCompleted)->not->toContain(base_path('bootstrap/cache/packages.php'))
+            ->and($deletedBeforeComposerCompleted)->toContain(base_path('bootstrap/cache/services.php'));
+
+        return 0;
+    });
+    $process->shouldReceive('getErrorOutput')->andReturn('');
+    $process->shouldReceive('getOutput')->andReturn('Package vendor/package removed');
+    $process->shouldReceive('isSuccessful')->andReturnTrue();
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->once()->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    try {
+        RemovePackageAction::run('vendor/package');
+    } finally {
+        app()->detectEnvironment(fn (): string => 'testing');
+    }
+
+    expect(collect($filesystem->deletedPaths)->flatten()->all())->toContain(
+        base_path('bootstrap/cache/packages.php'),
+        base_path('bootstrap/cache/services.php'),
+    );
 });
 
 it('removes a package from the command line while server side tooling is disabled', function (): void {

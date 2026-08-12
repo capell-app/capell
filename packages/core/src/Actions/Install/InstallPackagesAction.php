@@ -270,9 +270,9 @@ final class InstallPackagesAction
             'theme' => $inputData->selectedThemeKey,
             'skip-panel-integration' => ! $inputData->integrateAdminPanel,
             'panel' => $inputData->adminPanel,
-            'schemas' => $inputData->adminDiscoverSchemas === []
+            'configurators' => $inputData->adminDiscoverSchemas === []
                 ? 'auto'
-                : $this->formatAdminDiscoverSchemas($inputData->adminDiscoverSchemas),
+                : $this->formatAdminDiscoverConfigurators($inputData->adminDiscoverSchemas),
             'no-colors' => ! $inputData->adminAddColors,
             'no-widgets' => ! $inputData->adminAddWidgets,
             'no-navigation' => ! $inputData->adminAddNavigation,
@@ -285,12 +285,12 @@ final class InstallPackagesAction
     }
 
     /**
-     * @param  array<int, array{in: string, for: string}>  $schemas
+     * @param  array<int, array{in: string, for: string}>  $configurators
      */
-    private function formatAdminDiscoverSchemas(array $schemas): string
+    private function formatAdminDiscoverConfigurators(array $configurators): string
     {
-        return collect($schemas)
-            ->map(fn (array $schema): string => $schema['in'] . '=' . $schema['for'])
+        return collect($configurators)
+            ->map(fn (array $configurator): string => $configurator['in'] . '=' . $configurator['for'])
             ->implode(',');
     }
 
@@ -329,7 +329,7 @@ final class InstallPackagesAction
             }
         }
 
-        foreach (['panel', 'schemas', 'theme'] as $optionName) {
+        foreach (['panel', 'configurators', 'theme'] as $optionName) {
             if (in_array($optionName, $allowedParams, true) && filled($params[$optionName] ?? null)) {
                 $result['--' . $optionName] = $params[$optionName];
             }

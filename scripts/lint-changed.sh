@@ -106,7 +106,7 @@ fi
 
 if [[ ${#JS_FILES[@]} -gt 0 ]]; then
   echo "Running ESLint on changed JS/TS files..."
-  npx eslint "${JS_FILES[@]}" --max-warnings=0 --no-warn-ignored
+  npx eslint "${JS_FILES[@]}" --max-warnings=0
 else
   echo "No changed JS/TS files for ESLint."
 fi

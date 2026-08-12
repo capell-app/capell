@@ -465,6 +465,41 @@ it('passes selected theme into package setup commands during full install', func
     expect(config('test.selected_theme'))->toBe('corporate');
 });
 
+it('passes admin configurator discovery into package setup lifecycles', function (): void {
+    Storage::fake();
+    app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem);
+
+    CapellCore::registerPackage(name: 'test');
+    CapellCore::getPackage('test')->setupAction = LifecycleRecorderAction::class;
+    CapellCore::getPackage('test')->setupParams = ['configurators'];
+
+    $inputData = new InstallInputData(
+        siteUrl: 'https://example.com',
+        packages: ['test'],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        seedDefaultData: true,
+        adminDiscoverSchemas: [
+            ['in' => 'resources/views', 'for' => 'App\\Admin\\Schemas'],
+            ['in' => 'resources/widgets', 'for' => 'App\\Admin\\Widgets'],
+        ],
+    );
+
+    InstallPackagesAction::run($inputData, null, new NullProgressReporter);
+
+    expect(LifecycleRecorderAction::$calls)->toBe([
+        [
+            'package' => 'test',
+            'arguments' => [
+                '--configurators' => 'resources/views=App\\Admin\\Schemas,resources/widgets=App\\Admin\\Widgets',
+            ],
+        ],
+    ]);
+});
+
 it('skips the setup command when seedDefaultData is false', function (): void {
     Storage::fake();
     app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem);

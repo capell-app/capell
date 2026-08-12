@@ -1,6 +1,5 @@
 # Artisan Commands Reference
 
-
 This reference covers commands shipped by the host packages in this repository: Core, Admin, and Frontend. Optional packages add their own commands; check their README or run `php artisan list capell` in the target app.
 
 ## Install And Upgrade
@@ -67,7 +66,7 @@ In non-interactive mode, always pass `--url`. If the app already has users, pass
 | `--install-welcome-route`              | Remove the Laravel welcome home route when present                              |
 | `--developer-tooling`                  | Install Laravel Boost and Capell Agent Bridge developer tooling                 |
 | `--no-boost-install`                   | Install developer tooling packages without running `boost:install`              |
-| `--handoff-json=`                      | Write the redacted install outcome and next action as a versioned JSON artifact  |
+| `--handoff-json=`                      | Write the redacted install outcome and next action as a versioned JSON artifact |
 | `--spec=`                              | Path to a site spec providing `site`, `theme.key`, and at least one page        |
 | `--production`                         | Run unattended, force no interaction, and refuse `--fresh`                      |
 
@@ -287,18 +286,20 @@ Runs local Marketplace lifecycle QA for catalogue extensions. Use `--dry-run` fi
 php artisan marketplace:qa:extensions-lifecycle --dry-run
 php artisan marketplace:qa:extensions-lifecycle --dry-run --json
 php artisan marketplace:qa:extensions-lifecycle --only=vendor/package
+php artisan marketplace:qa:extensions-lifecycle --only=vendor/package --update-from=1.0.0
 php artisan marketplace:qa:extensions-lifecycle --skip-delete --stop-on-failure
 ```
 
-| Option              | Use it for                                                          |
-| ------------------- | ------------------------------------------------------------------- |
-| `--json`            | Emit a compact JSON report for CI/local automation                  |
-| `--only=`           | Limit the run to one Composer package                               |
-| `--skip-delete`     | Uninstall packages without deleting extension-owned data            |
-| `--stop-on-failure` | Stop after the first failed install, uninstall, or delete operation |
-| `--dry-run`         | Resolve catalogue records and print the plan without changing state |
+| Option              | Use it for                                                           |
+| ------------------- | -------------------------------------------------------------------- |
+| `--json`            | Emit a compact JSON report for CI/local automation                   |
+| `--only=`           | Limit the run to one Composer package                                |
+| `--update-from=`    | Install this exact version, then queue its update; requires `--only` |
+| `--skip-delete`     | Uninstall packages without deleting extension-owned data             |
+| `--stop-on-failure` | Stop after the first failed install, uninstall, or delete operation  |
+| `--dry-run`         | Resolve catalogue records and print the plan without changing state  |
 
-The report includes extension name, Composer package, install result, uninstall result, delete result, and failure reason. Non-dry runs queue and execute the Marketplace install attempt locally, then uninstall the installed package and delete extension-owned data unless `--skip-delete` is set.
+The report includes extension name, Composer package, install result, optional update result, uninstall result, delete result, and failure reason. Non-dry runs queue and execute the Marketplace install attempt locally, then uninstall the installed package and delete extension-owned data unless `--skip-delete` is set. Passing `--update-from` installs that exact earlier version and runs the normal queued update before uninstalling it.
 
 ### `capell:extension-audit`
 
@@ -453,11 +454,11 @@ php artisan capell:admin-publish-resources --type=page --force
 php artisan capell:admin-publish-resources --resource=PageResource
 ```
 
-| Option        | Use it for                                                |
-| ------------- | ---------------------------------------------------------- |
-| `--type=`     | Only publish resources of the given type                  |
-| `--resource=` | Only publish one resource, by label or class name         |
-| `--force`     | Overwrite resource files that already exist               |
+| Option        | Use it for                                        |
+| ------------- | ------------------------------------------------- |
+| `--type=`     | Only publish resources of the given type          |
+| `--resource=` | Only publish one resource, by label or class name |
+| `--force`     | Overwrite resource files that already exist       |
 
 `capell:admin-publish-resources` is an advanced escape hatch. Most package work should use resources, extenders, configurators, bridges, and settings schemas instead of publishing host resources.
 
@@ -479,8 +480,8 @@ php artisan capell:admin-sync-permissions
 php artisan capell:admin-sync-permissions --mode=upgrade
 ```
 
-| Option   | Use it for                                                     |
-| -------- | -------------------------------------------------------------- |
+| Option    | Use it for                                                                           |
+| --------- | ------------------------------------------------------------------------------------ |
 | `--mode=` | `install` (default) for a first sync, `upgrade` when reconciling an existing install |
 
 ## Deployment And Maintenance
@@ -494,14 +495,14 @@ php artisan capell:doctor
 php artisan capell:doctor --json
 ```
 
-| Option                       | Use it for                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------ |
-| `--json`                     | Machine-readable report for monitoring or CI                                   |
-| `--install-summary`          | The installer-focused summary, including package-owned checks                  |
-| `--skip-package-doctors`     | Skip package-owned doctor commands when building the install summary           |
-| `--connection=`              | Verify against an existing database connection instead of the default          |
-| `--database=`                | Override that connection's database name or path for isolated verification     |
-| `--repair-page-url-domains`  | **Writes data.** Creates or restores missing site domains for page URLs before checking |
+| Option                      | Use it for                                                                              |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| `--json`                    | Machine-readable report for monitoring or CI                                            |
+| `--install-summary`         | The installer-focused summary, including package-owned checks                           |
+| `--skip-package-doctors`    | Skip package-owned doctor commands when building the install summary                    |
+| `--connection=`             | Verify against an existing database connection instead of the default                   |
+| `--database=`               | Override that connection's database name or path for isolated verification              |
+| `--repair-page-url-domains` | **Writes data.** Creates or restores missing site domains for page URLs before checking |
 
 Every option except `--repair-page-url-domains` is read-only. That one repairs records before reporting, so run the command without it first and read the result before letting it change anything.
 
@@ -509,11 +510,11 @@ Checks cover required tables, the morph map, storage writability, seed data, con
 
 Three of those relate directly to hosting:
 
-| Check | Fails when |
-| --- | --- |
-| `core.runtime.tooling` | `proc_open` is disabled, or `composer`/`npm` are missing — extension installs, package setup, backups, and asset rebuilds depend on them |
-| `core.backup.database-binaries` | Backups are enabled but `mysqldump`/`pg_dump` cannot be found for the active connection |
-| `core.cache.shared-store` | The cache store is `file`, `array`, or `null` — fine on one server, unsafe behind a load balancer |
+| Check                           | Fails when                                                                                                                               |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `core.runtime.tooling`          | `proc_open` is disabled, or `composer`/`npm` are missing — extension installs, package setup, backups, and asset rebuilds depend on them |
+| `core.backup.database-binaries` | Backups are enabled but `mysqldump`/`pg_dump` cannot be found for the active connection                                                  |
+| `core.cache.shared-store`       | The cache store is `file`, `array`, or `null` — fine on one server, unsafe behind a load balancer                                        |
 
 The last one is a warning by design: single-node installs on the file driver are fully supported. See [web server configuration](../operations/web-server.md#multiple-nodes).
 
@@ -542,14 +543,14 @@ php artisan capell:runtime-refresh
 
 It runs six stages in order, reporting each as passed, failed, or skipped:
 
-| Stage    | What it does                                        |
-| -------- | --------------------------------------------------- |
-| Packages | Rebuilds the Capell package cache (`capell:package-cache`) |
-| Views    | Clears compiled Blade views (`view:clear`)          |
-| Config   | Refreshes the Laravel configuration cache           |
-| Routes   | Refreshes the Laravel route cache                   |
+| Stage    | What it does                                                                        |
+| -------- | ----------------------------------------------------------------------------------- |
+| Packages | Rebuilds the Capell package cache (`capell:package-cache`)                          |
+| Views    | Clears compiled Blade views (`view:clear`)                                          |
+| Config   | Refreshes the Laravel configuration cache                                           |
+| Routes   | Refreshes the Laravel route cache                                                   |
 | Warm     | Requests critical runtime pages so the first visitor does not pay for a cold render |
-| Doctor   | Runs Capell Doctor and fails the command on a failing check |
+| Doctor   | Runs Capell Doctor and fails the command on a failing check                         |
 
 A stage that throws is caught and recorded as failed rather than aborting the run, so one command reports every problem at once. Prefer this over calling the individual cache commands yourself.
 
@@ -564,10 +565,10 @@ php artisan capell:purge-soft-deleted-media --pretend
 php artisan capell:purge-soft-deleted-media --days=30
 ```
 
-| Option      | Use it for                                                  |
-| ----------- | ----------------------------------------------------------- |
-| `--days=`   | Retention window in days; defaults to `30`                  |
-| `--pretend` | Report what would be purged without deleting anything       |
+| Option      | Use it for                                            |
+| ----------- | ----------------------------------------------------- |
+| `--days=`   | Retention window in days; defaults to `30`            |
+| `--pretend` | Report what would be purged without deleting anything |
 
 Capell already schedules this daily at 03:00 with `withoutOverlapping()` and `onOneServer()`, so you do not need to register it yourself — you only need Laravel's scheduler running. Use `--pretend` first if you want to see the effect before trusting the schedule.
 
@@ -580,9 +581,9 @@ php artisan capell:marketplace:doctor
 php artisan capell:marketplace:doctor --json --stale-after=15
 ```
 
-| Option           | Use it for                                                      |
-| ---------------- | ---------------------------------------------------------------- |
-| `--json`         | Machine-readable output for monitoring                          |
+| Option           | Use it for                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| `--json`         | Machine-readable output for monitoring                                                   |
 | `--stale-after=` | Minutes without a heartbeat before an active operation counts as stuck; defaults to `15` |
 
 ## Frontend Commands
@@ -613,9 +614,9 @@ php artisan capell:generate-html --site=1
 php artisan capell:generate-html --url=/ --url=/about
 ```
 
-| Option    | Use it for                              |
-| --------- | --------------------------------------- |
-| `--site=` | Limit generation to one site ID         |
+| Option    | Use it for                                           |
+| --------- | ---------------------------------------------------- |
+| `--site=` | Limit generation to one site ID                      |
 | `--url=`  | Limit generation to specific public URLs; repeatable |
 
 On multi-server hosting the artifacts land on whichever node ran the command. See [Web server configuration](../operations/web-server.md).

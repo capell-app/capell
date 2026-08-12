@@ -174,9 +174,10 @@ For repeatable local lifecycle checks, use the Marketplace QA command:
 ```bash
 php artisan marketplace:qa:extensions-lifecycle --dry-run --json
 php artisan marketplace:qa:extensions-lifecycle --only=vendor/package --stop-on-failure
+php artisan marketplace:qa:extensions-lifecycle --only=vendor/package --update-from=1.0.0
 ```
 
-Dry runs only resolve catalogue scope. Non-dry runs install each selected Marketplace extension, run the local package operation, uninstall it, and delete extension-owned data unless `--skip-delete` is set. The command returns a pass/fail table or JSON report with the extension name, Composer package, install, uninstall, delete, and failure reason columns.
+Dry runs only resolve catalogue scope. Non-dry runs install each selected Marketplace extension, run the local package operation, uninstall it, and delete extension-owned data unless `--skip-delete` is set. With `--only` and `--update-from`, the command installs that exact earlier version and runs the queued update before uninstalling. The command returns a pass/fail table or JSON report with the extension name, Composer package, install, update, uninstall, delete, and failure reason columns.
 
 The browser smoke path is opt-in and expects prepared local CMS/App accounts plus local checkout auto-approval:
 

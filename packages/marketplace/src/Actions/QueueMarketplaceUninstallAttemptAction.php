@@ -58,6 +58,7 @@ final class QueueMarketplaceUninstallAttemptAction
         array $context = [],
         ?Authenticatable $user = null,
         ?string $idempotencyKey = null,
+        bool $dispatch = true,
     ): MarketplaceInstallAttempt {
         $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
 
@@ -101,6 +102,7 @@ final class QueueMarketplaceUninstallAttemptAction
                 context: $context,
                 user: $user,
                 idempotencyKey: $idempotencyKey,
+                dispatch: $dispatch,
             );
         } finally {
             foreach (array_reverse($locks) as $lock) {
@@ -123,6 +125,7 @@ final class QueueMarketplaceUninstallAttemptAction
         array $context,
         ?Authenticatable $user,
         ?string $idempotencyKey,
+        bool $dispatch,
     ): MarketplaceInstallAttempt {
         $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
 
@@ -185,6 +188,10 @@ final class QueueMarketplaceUninstallAttemptAction
                     failureStage: MarketplaceInstallFailureStage::Preflight,
                 ),
             );
+        }
+
+        if (! $dispatch) {
+            return $attempt;
         }
 
         return DispatchMarketplaceUninstallAttemptAction::run(
