@@ -111,10 +111,10 @@ final class RunMarketplaceInstallPreflightChecksAction
      * for meeting its own precondition — there is nothing to tear down
      * otherwise — so it is asked the inverted question instead.
      *
-     * An update is deliberately left on the install reading. It goes through
-     * `composer require` exactly as an install does, and the installed-package
-     * rule there is about the *Composer* state a require would collide with,
-     * not about whether Capell has the extension registered.
+     * An update has the same package-state precondition as an uninstall. It
+     * changes an extension that is already installed; an install is the only
+     * operation that needs the package-not-installed rule and its recovery
+     * exception.
      *
      * @return array{name: string, passed: bool, message: string, remediation: string|null, docs_anchor: string|null}
      */
@@ -122,7 +122,10 @@ final class RunMarketplaceInstallPreflightChecksAction
     {
         $installed = $this->packageAlreadyInstalled($attempt->composer_name);
 
-        if ($attempt->operation === MarketplaceOperationType::Uninstall) {
+        if (in_array($attempt->operation, [
+            MarketplaceOperationType::Uninstall,
+            MarketplaceOperationType::Update,
+        ], true)) {
             return $this->check('package_installed', $installed);
         }
 
