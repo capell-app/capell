@@ -17,6 +17,23 @@ it('accepts a checkout that owns its vendor directory', function (): void {
     }
 });
 
+it('accepts an owned checkout when Windows paths use native separators', function (): void {
+    if (PHP_OS_FAMILY !== 'Windows') {
+        test()->markTestSkipped('Windows path semantics are covered by the hosted Windows workflow.');
+    }
+
+    $root = vendorIntegrityFixture();
+
+    try {
+        [$exitCode, $output] = runVendorIntegrityCheck(str_replace('/', '\\', $root));
+
+        expect($exitCode)->toBe(0)
+            ->and($output)->toContain('Vendor integrity is verified.');
+    } finally {
+        deleteVendorIntegrityFixture($root);
+    }
+});
+
 it('refuses when a mutated package directory is symlinked to another checkout', function (): void {
     $root = vendorIntegrityFixture();
     $primary = vendorIntegrityFixture();

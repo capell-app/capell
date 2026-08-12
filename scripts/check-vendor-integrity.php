@@ -62,7 +62,7 @@ foreach ($mutatedPaths as $relativePath) {
         continue;
     }
 
-    if ($resolvedPath === $absolutePath) {
+    if (normalisePath($resolvedPath) === normalisePath($absolutePath)) {
         continue;
     }
 
@@ -95,3 +95,10 @@ if ($failures !== []) {
 }
 
 fwrite(STDOUT, "Vendor integrity is verified.\n");
+
+function normalisePath(string $path): string
+{
+    $normalised = rtrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path), DIRECTORY_SEPARATOR);
+
+    return PHP_OS_FAMILY === 'Windows' ? strtolower($normalised) : $normalised;
+}
