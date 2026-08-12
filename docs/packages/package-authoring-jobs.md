@@ -52,7 +52,7 @@ If public output varies by user, role, preview token, workspace, or other privat
 
 ## Add marketplace proof
 
-Use this when the package will be listed, sold, bundled, or installed through [Marketplace](../../packages/marketplace/overview.md).
+Use this when the package will be listed, sold, bundled, or installed through [Marketplace](../../packages/marketplace/docs/overview.md).
 
 1. Fill `product`, `commercial`, and `marketplace` metadata in `capell.json`.
 2. Declare every shipped contribution; do not leave `contributes` empty for a package with runtime surfaces.

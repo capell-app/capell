@@ -50,7 +50,12 @@ final class ThemeMetaAssetContributor implements FrontendResourceContributor
         $handle = 'capell-app/theme-metadata:' . hash('xxh128', $source->path);
         $resource = Str::endsWith($source->path, '.js')
             ? FrontendResourceData::moduleScript($handle, 'capell-app/theme-metadata', $source)
-            : FrontendResourceData::style($handle, 'capell-app/theme-metadata', $source);
+            : FrontendResourceData::style(
+                $handle,
+                'capell-app/theme-metadata',
+                $source,
+                criticalCssEligible: true,
+            );
 
         return new FrontendResourceContributionData($resource);
     }

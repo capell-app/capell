@@ -102,4 +102,4 @@ it('renders public page from hydrated data', function (): void {
 
 - [Public HTML safety contract](public-html-safety.md)
 - [Frontend extensions](../packages/frontend-extensions.md)
-- [Frontend testing](../../packages/frontend/testing-frontend.md)
+- [Frontend testing](../../packages/frontend/docs/testing-frontend.md)

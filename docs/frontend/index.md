@@ -8,8 +8,8 @@ Use this section if you build or test the public site with Blade, Livewire, or I
 | ------------------------------------------ | -------------------------------------------------------------------------- |
 | Protect anonymous public output            | [Public HTML safety](public-html-safety.md)                                |
 | Understand the render pipeline             | [Frontend guide](guide.md)                                                 |
-| Resolve site, page, and language loading   | [Page and site loading](../../packages/frontend/page-site-loading.md) |
-| Configure server fallback and static cache | [Server config](../../packages/frontend/server-config.md)             |
+| Resolve site, page, and language loading   | [Page and site loading](../../packages/frontend/docs/page-site-loading.md) |
+| Configure server fallback and static cache | [Server config](../../packages/frontend/docs/server-config.md)             |
 | Work with themes                           | [Frontend themes](themes.md)                                               |
 | Render media safely                        | [Media rendering](media-rendering.md)                                      |
 
@@ -21,8 +21,8 @@ Use this section if you build or test the public site with Blade, Livewire, or I
 | Add and configure frontend widgets   | [Widgets](widgets.md)                                                  |
 | Build with Inertia                   | [Capell Inertia runtime](../getting-started/inertia-runtime.md)        |
 | Add interactive widgets or fragments | [Capell Interactions](../getting-started/capell-interactions.md)       |
-| Register render hooks                | [Render hooks](../../packages/frontend/extending-render-hooks.md) |
-| Register package Tailwind assets     | [Tailwind assets](../../packages/frontend/tailwind-assets.md)     |
+| Register render hooks                | [Render hooks](../../packages/frontend/docs/extending-render-hooks.md) |
+| Register package Tailwind assets     | [Tailwind assets](../../packages/frontend/docs/tailwind-assets.md)     |
 | Enable Blaze safely                  | [Blaze support](blaze-support.md)                                      |
 | Find optional frontend packages      | [Packages and extensions](../packages/catalog.md)                      |
 
@@ -30,7 +30,7 @@ Use this section if you build or test the public site with Blade, Livewire, or I
 
 | I need to...                          | Read                                                                 |
 | ------------------------------------- | -------------------------------------------------------------------- |
-| Test public output                    | [Frontend testing](../../packages/frontend/testing-frontend.md) |
+| Test public output                    | [Frontend testing](../../packages/frontend/docs/testing-frontend.md) |
 | Debug public output or cache bypasses | [Debugging public output](debugging-public-output.md)                |
 | Resolve symlinked Tailwind CSS issues | [Tailwind v4 with symlinked vendor CSS](tailwind-vendor-css.md)      |
 

@@ -108,6 +108,6 @@ The FLUX.2 connector is intended for visual companion diagrams, not exact API re
 | `admin-extender-resolution.png`    | [Admin debugging](../admin/debugging-admin-extensions.md)       |
 | `frontend-public-render-cache.png` | [Frontend debugging](../frontend/debugging-public-output.md)    |
 | `marketplace-trust-flow.png`       | [Marketplace debugging](../operations/debugging-marketplace.md) |
-| `installer-browser-flow.png`       | [Installer overview](../../packages/installer/overview.md) |
+| `installer-browser-flow.png`       | [Installer overview](../../packages/installer/docs/overview.md) |
 
 Keep generated text minimal. Use the Mermaid diagrams for exact symbols.
