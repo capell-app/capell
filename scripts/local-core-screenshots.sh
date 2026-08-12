@@ -79,7 +79,7 @@ if [[ "${DRY_RUN}" == true ]]; then
     exit
 fi
 
-npx capell-screenshots install-browser
+npm run screenshots -- install-browser
 
 if [[ "${REUSE_APP}" == false ]]; then
     bash scripts/screenshots/prepare-workbench.sh
