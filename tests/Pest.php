@@ -27,11 +27,11 @@ use PHPUnit\Framework\Assert;
 use Spatie\LaravelData\DataCollection;
 
 pest()->extends(PackagesTestCase::class)->group('core')->in(__DIR__);
-pest()->extend(CoreTestCase::class)->group('core')->in('../packages/core/tests', '../Packages/core/tests');
-pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/tests', '../Packages/admin/tests');
-pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests', '../Packages/frontend/tests');
-pest()->extend(InstallerTestCase::class)->group('installer')->in('../packages/installer/tests', '../Packages/installer/tests');
-pest()->extend(MarketplaceTestCase::class)->group('marketplace')->in('../packages/marketplace/tests', '../Packages/marketplace/tests');
+pest()->extend(CoreTestCase::class)->group('core')->in('../packages/core/tests');
+pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/tests');
+pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests');
+pest()->extend(InstallerTestCase::class)->group('installer')->in('../packages/installer/tests');
+pest()->extend(MarketplaceTestCase::class)->group('marketplace')->in('../packages/marketplace/tests');
 
 /**
  * The Composer invocation this host actually uses.
