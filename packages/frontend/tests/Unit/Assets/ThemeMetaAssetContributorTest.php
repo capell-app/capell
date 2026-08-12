@@ -10,7 +10,7 @@ use Capell\Frontend\Enums\FrontendResourceKind;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Assets\ThemeMetaAssetContributor;
 
-it('contributes local theme metadata as typed public resources', function (): void {
+it('contributes local theme metadata css as a critical-eligible public resource', function (): void {
     $theme = new Theme;
     $theme->meta = ['assets' => ['vendor/theme/theme.css']];
 
@@ -19,7 +19,8 @@ it('contributes local theme metadata as typed public resources', function (): vo
     expect($contributions)->toHaveCount(1)
         ->and($contributions[0]->resource->kind)->toBe(FrontendResourceKind::Style)
         ->and($contributions[0]->resource->source)->toBeInstanceOf(PublicResourceSourceData::class)
-        ->and($contributions[0]->resource->source->path)->toBe('vendor/theme/theme.css');
+        ->and($contributions[0]->resource->source->path)->toBe('vendor/theme/theme.css')
+        ->and($contributions[0]->resource->criticalCssEligible)->toBeTrue();
 });
 
 it('rejects remote inline protocol-relative and traversal metadata sources', function (): void {

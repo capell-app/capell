@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\AdminAccessCheckerInterface;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendRuntimeManifestContributor;
@@ -12,6 +13,45 @@ use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+
+it('keeps critical-eligible theme css blocking on public routes without an optimizer', function (): void {
+    config()->set('capell-frontend.html_cache', false);
+    config()->set('capell-frontend.write_html_cache', false);
+    config()->set('capell-frontend.stylesheet_recovery', [
+        'enabled' => true,
+        'fallback_url' => '/vendor/capell-frontend/capell-frontend.css',
+        'runtime_url' => '/vendor/capell-frontend/stylesheet-recovery.js',
+    ]);
+    Cache::flush();
+
+    $theme = Theme::factory()->createOne([
+        'meta' => ['assets' => ['vendor/theme/theme.css']],
+    ]);
+    $site = Site::factory()
+        ->theme($theme)
+        ->withTranslations(siteDomainData: [
+            'domain' => 'localhost',
+            'scheme' => 'http',
+            'path' => null,
+            'default' => true,
+        ])
+        ->create();
+
+    Page::factory()
+        ->site($site)
+        ->home()
+        ->withTranslations(data: ['title' => 'Theme fallback'], slug: '/')
+        ->create(['meta' => null]);
+
+    $response = $this->followingRedirects()->get('/', ['HTTP_HOST' => 'localhost']);
+
+    $response
+        ->assertOk()
+        ->assertSee('href="http://localhost/vendor/theme/theme.css"', false)
+        ->assertSee('data-capell-stylesheet-recovery', false)
+        ->assertDontSee('data-deferred-stylesheet', false)
+        ->assertDontSee('data-capell-authoring', false);
+});
 
 it('renders blade-only public pages without livewire or frontend runtime scripts', function (): void {
     config()->set('capell-frontend.html_cache', false);
