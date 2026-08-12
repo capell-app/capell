@@ -11,6 +11,8 @@ jobs:
     name: Windows path and Marketplace contracts
     runs-on: windows-2022
     timeout-minutes: 20
+    env:
+      CAPELL_VENDOR_INTEGRITY_ROOT: ${{ github.workspace }}
 
     steps:
       - name: Checkout exact source
