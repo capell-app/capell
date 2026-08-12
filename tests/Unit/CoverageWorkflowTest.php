@@ -109,13 +109,15 @@ it('pins an array cache store around the release coverage optimize step', functi
     foreach (['coverage', 'coverage-report'] as $name) {
         $optimizeCommands = array_filter(
             (array) ($composer['scripts'][$name] ?? []),
-            static fn (mixed $command): bool => is_string($command) && str_contains($command, 'testbench optimize'),
+            static fn (mixed $command): bool => is_string($command) && str_contains($command, 'run-testbench-command.php optimize'),
         );
 
         expect($optimizeCommands)->not->toBeEmpty();
 
         foreach ($optimizeCommands as $command) {
-            expect($command)->toStartWith('CACHE_STORE=array ');
+            expect($command)
+                ->toStartWith('@php scripts/run-testbench-command.php optimize')
+                ->not->toContain('CACHE_STORE=array');
         }
     }
 });
