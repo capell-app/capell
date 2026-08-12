@@ -46,3 +46,9 @@ test('always passes the config, since the runner ignores it otherwise', () => {
     // write allowlist is silently not enforced.
     assert.deepEqual(args.slice(0, 2), ['--config', 'screenshots.config.mjs'])
 })
+
+test('keeps runner subcommands in the command position', () => {
+    assert.deepEqual(coreRunnerArguments(['install-browser']), [
+        'install-browser',
+    ])
+})
