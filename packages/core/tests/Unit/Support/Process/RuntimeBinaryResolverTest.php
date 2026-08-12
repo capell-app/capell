@@ -194,7 +194,7 @@ it('reports no misconfiguration when the legacy installer keys resolve', functio
 it('falls back past a configured path that does not exist, and says so', function (): void {
     $pathDirectory = sys_get_temp_dir() . '/capell-runtime-binary-path-' . bin2hex(random_bytes(6));
     mkdir($pathDirectory, 0755, true);
-    $onPath = $pathDirectory . '/composer';
+    $onPath = $pathDirectory . DIRECTORY_SEPARATOR . 'composer';
     file_put_contents($onPath, "#!/bin/sh\nexit 0\n");
     chmod($onPath, 0755);
 
