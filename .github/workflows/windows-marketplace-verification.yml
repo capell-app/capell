@@ -1,0 +1,56 @@
+name: Windows Marketplace Verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-marketplace:
+    name: Windows path and Marketplace contracts
+    runs-on: windows-2022
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP 8.4 and Composer
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, fileinfo, intl, json, libxml, mbstring, phar, simplexml, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Check Composer inputs
+        shell: bash
+        run: |
+          php scripts/check-composer-local-paths.php
+          composer validate --no-check-publish
+
+      - name: Install locked dependencies
+        shell: bash
+        run: composer install --no-interaction --no-progress --ansi --prefer-dist --optimize-autoloader
+
+      - name: Run Windows path contracts
+        shell: bash
+        run: >-
+          vendor/bin/pest
+          packages/core/tests/Unit/Support/Filesystem/AbsolutePathTest.php
+          packages/core/tests/Unit/Support/Deployment/ReleaseRootWriteGuardTest.php
+          packages/core/tests/Unit/Support/Process/RuntimeBinaryResolverTest.php
+          --configuration=phpunit.xml --compact
+
+      - name: Run Marketplace lifecycle contracts
+        shell: bash
+        run: >-
+          vendor/bin/pest
+          packages/marketplace/tests/Feature/Actions/MarketplaceInstallAttemptLifecycleActionTest.php
+          packages/marketplace/tests/Feature/Actions/PublishMarketplaceComposerChangeActionTest.php
+          packages/marketplace/tests/Feature/Actions/QueueMarketplaceInstallAttemptActionTest.php
+          packages/marketplace/tests/Feature/Actions/QueueMarketplaceUpdateAttemptActionTest.php
+          packages/marketplace/tests/Feature/Actions/QueueMarketplaceUninstallAttemptActionTest.php
+          packages/marketplace/tests/Feature/Console/MarketplaceExtensionsLifecycleQaCommandTest.php
+          --configuration=phpunit.xml --compact
