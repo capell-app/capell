@@ -10,7 +10,11 @@ function hasRecordStateSeed(entries) {
         'admin-page-layout-select-record-states',
     ])
 
-    return entries.some((entry) => seededEntryIds.has(entry.id))
+    return entries.some(
+        (entry) =>
+            seededEntryIds.has(entry.id) ||
+            entry.url?.startsWith('/screenshot-fixtures/record-states/'),
+    )
 }
 
 function hasPageHistorySeed(entries) {

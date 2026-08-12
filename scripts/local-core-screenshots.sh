@@ -7,6 +7,7 @@ ENV_FILE="${REPOSITORY_ROOT}/.env.deploy.local"
 DRY_RUN=false
 REUSE_APP=false
 ONLY_ARGS=()
+ONLY_ARG_COUNT=0
 
 usage() {
     cat <<'USAGE'
@@ -26,10 +27,12 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --package|--only)
             ONLY_ARGS+=(--only "${2:-}")
+            ONLY_ARG_COUNT=$((ONLY_ARG_COUNT + 2))
             shift 2
             ;;
         --only-file)
             ONLY_ARGS+=(--only-file "${2:-}")
+            ONLY_ARG_COUNT=$((ONLY_ARG_COUNT + 2))
             shift 2
             ;;
         --env-file)
@@ -67,7 +70,12 @@ cd "${REPOSITORY_ROOT}"
 npm ci
 
 if [[ "${DRY_RUN}" == true ]]; then
-    npm run screenshots:check -- "${ONLY_ARGS[@]}"
+    if [[ "${ONLY_ARG_COUNT}" -eq 0 ]]; then
+        npm run screenshots:check
+    else
+        npm run screenshots:check -- "${ONLY_ARGS[@]}"
+    fi
+
     exit
 fi
 
@@ -81,9 +89,13 @@ else
     php vendor/bin/testbench filament:assets
 fi
 
-SCREENSHOT_ARGS=("${ONLY_ARGS[@]}")
 if [[ "${REUSE_APP}" == true ]]; then
-    SCREENSHOT_ARGS+=(--reuse-app)
+    ONLY_ARGS+=(--reuse-app)
+    ONLY_ARG_COUNT=$((ONLY_ARG_COUNT + 1))
 fi
 
-npm run screenshots -- "${SCREENSHOT_ARGS[@]}"
+if [[ "${ONLY_ARG_COUNT}" -eq 0 ]]; then
+    npm run screenshots
+else
+    npm run screenshots -- "${ONLY_ARGS[@]}"
+fi
