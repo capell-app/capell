@@ -68,6 +68,8 @@ it('keeps CI and the local fallback on the same matrix, dependency, and cell scr
         ->toContain("'git', 'worktree', 'remove', '--force'")
         ->toMatch("/'docker',\s*'run'/")
         ->toContain('/summary.json')
+        ->toContain('reapStaleTestAllContainers($repositoryRoot)')
+        ->toContain("'name=^capell-test-all-'")
         ->not->toContain('Illuminate\\Support\\Facades')
         ->and($composer['scripts']['test:all:matrix:local'] ?? null)
         ->toBe([
