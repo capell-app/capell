@@ -42,6 +42,7 @@ use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
+use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Filament\Facades\Filament;
@@ -74,6 +75,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         {--plan : Print the exact install plan and exit without mutation}
         {--fresh= : Refresh the database before installing; pass force to skip the confirmation}
         {--profile= : Install profile key from config/capell-install-profiles.php or capell-install-profiles.json}
+        {--recommendation= : Deterministic install bundle key (for example blog, marketing, or headless)}
+        {--recommendation-action= : Recommendation action: select, confirm, custom, or skip}
         {--package-mode= : Package selection mode: core, all, or custom}
         {--packages= : Comma-separated package names (defaults to all installable)}
         {--all-packages : Install all composer-installed Capell packages}
@@ -664,6 +667,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->installProfile = $installProfile;
         $this->applyInstallProfileDefaults();
 
+        $recommendationExitCode = $this->applyInstallRecommendationDefaults();
+        if ($recommendationExitCode !== null) {
+            return $recommendationExitCode;
+        }
+
         return null;
     }
 
@@ -877,6 +885,70 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         if ($this->installProfile->demo !== null && ! $this->optionWasProvidedOnCommandLine('demo')) {
             $this->input->setOption('demo', $this->installProfile->demo);
         }
+    }
+
+    private function applyInstallRecommendationDefaults(): ?int
+    {
+        $key = $this->option('recommendation');
+        $action = $this->option('recommendation-action');
+
+        if ((! is_string($key) || trim($key) === '') && (! is_string($action) || trim($action) === '')) {
+            return null;
+        }
+
+        $actionValue = is_string($action) && trim($action) !== ''
+            ? trim($action)
+            : 'confirm';
+        if (! in_array($actionValue, ['select', 'confirm', 'custom', 'skip'], true)) {
+            $this->error('The --recommendation-action option must be select, confirm, custom, or skip.');
+
+            return CommandAlias::FAILURE;
+        }
+
+        if ($actionValue === 'skip') {
+            if (! $this->optionWasProvidedOnCommandLine('packages') && ! $this->optionWasProvidedOnCommandLine('package-mode')) {
+                $this->input->setOption('packages', '');
+            }
+
+            return null;
+        }
+
+        if ($actionValue === 'custom') {
+            if (! $this->optionWasProvidedOnCommandLine('packages')) {
+                $this->error('Custom recommendations require --packages=<package-name,package-name>.');
+
+                return CommandAlias::FAILURE;
+            }
+
+            return null;
+        }
+
+        if (! is_string($key) || trim($key) === '') {
+            $this->error('Pass --recommendation=<key> for a selected or confirmed recommendation.');
+
+            return CommandAlias::FAILURE;
+        }
+
+        $recommendation = resolve(InstallRecommendationRepository::class)->find(trim($key));
+        if ($recommendation === null) {
+            $this->error(sprintf('Unknown install recommendation [%s].', $key));
+
+            return CommandAlias::FAILURE;
+        }
+
+        if (! $this->optionWasProvidedOnCommandLine('packages')) {
+            $this->input->setOption('packages', implode(',', $recommendation->packages));
+        }
+
+        if ($recommendation->theme !== null && ! $this->optionWasProvidedOnCommandLine('theme')) {
+            $this->input->setOption('theme', $recommendation->theme);
+        }
+
+        if ($recommendation->demo !== null && ! $this->optionWasProvidedOnCommandLine('demo')) {
+            $this->input->setOption('demo', $recommendation->demo);
+        }
+
+        return null;
     }
 
     private function optionWasProvidedOnCommandLine(string $option): bool

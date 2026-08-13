@@ -7,6 +7,7 @@ namespace Capell\Installer\Actions;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
+use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -109,6 +110,10 @@ final class BuildInstallerPageDataAction
             'showRoleUsersToggle' => $this->shouldShowRoleUsersToggle(),
             'developerToolingInstalled' => resolve(DeveloperToolingInstallationState::class)->isInstalled(),
             'defaultAdminUser' => $this->options->defaultAdminUser(),
+            'recommendations' => collect(resolve(InstallRecommendationRepository::class)->all())
+                ->map(fn ($recommendation): array => $recommendation->toArray())
+                ->all(),
+            'recommendationSelection' => $installId !== null ? $this->sessions->recommendation($installId) : null,
         ]);
     }
 
