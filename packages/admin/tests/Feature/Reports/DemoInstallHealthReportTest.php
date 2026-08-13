@@ -77,9 +77,13 @@ it('reports missing event sourcing tables as a critical finding with remediation
 it('reports invalid queue and cache configuration as critical operational findings', function (): void {
     demoInstallHealthSeedInstall();
 
-    BuildDoctorReportAction::shouldRun()
-        ->once()
-        ->andReturn(new DoctorReportData('passed', collect()));
+    app()->instance(BuildDoctorReportAction::class, new class
+    {
+        public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
+        {
+            return new DoctorReportData('passed', collect());
+        }
+    });
     CapellCore::shouldReceive('getPackages')
         ->once()
         ->with(false)
@@ -107,12 +111,20 @@ it('reports invalid queue and cache configuration as critical operational findin
 it('reports missing event sourcing and settings data after installation is recorded', function (): void {
     demoInstallHealthSeedInstall();
 
-    ResolveCapellInstallationStateAction::shouldRun()
-        ->once()
-        ->andReturn(CapellInstallationState::Installed);
-    BuildDoctorReportAction::shouldRun()
-        ->once()
-        ->andReturn(new DoctorReportData('passed', collect()));
+    app()->instance(ResolveCapellInstallationStateAction::class, new class
+    {
+        public function handle(): CapellInstallationState
+        {
+            return CapellInstallationState::Installed;
+        }
+    });
+    app()->instance(BuildDoctorReportAction::class, new class
+    {
+        public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
+        {
+            return new DoctorReportData('passed', collect());
+        }
+    });
 
     Schema::dropIfExists('stored_events');
     Schema::dropIfExists('settings');
