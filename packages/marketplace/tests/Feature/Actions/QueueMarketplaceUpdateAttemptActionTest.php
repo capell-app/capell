@@ -168,6 +168,12 @@ it('queues an update only after the marketplace confirms a newer version', funct
                 'price_cents' => 0,
                 'is_paid' => false,
                 'latest_version' => '2.4.0',
+                'install_eligibility' => [
+                    'state' => 'authorized',
+                    'can_install' => true,
+                    'can_update' => true,
+                    'can_run_existing' => true,
+                ],
             ]],
         ]),
     ]);
@@ -204,6 +210,12 @@ it('refuses to queue an update when the marketplace version is not newer', funct
                 'price_cents' => 0,
                 'is_paid' => false,
                 'latest_version' => '2.4.0',
+                'install_eligibility' => [
+                    'state' => 'authorized',
+                    'can_install' => true,
+                    'can_update' => true,
+                    'can_run_existing' => true,
+                ],
             ]],
         ]),
     ]);
