@@ -209,3 +209,24 @@ it('records per-step peak memory diagnostics separately from progress state', fu
         'prepare-environment' => ['peakMemoryBytes' => 68_157_440],
     ]);
 });
+
+it('persists recommendation selections so a browser install can resume', function (): void {
+    config(['cache.default' => 'array']);
+
+    $repository = new InstallerSessionRepository;
+    $installId = '55555555-5555-4555-a555-555555555555';
+    $selection = [
+        'action' => 'confirm',
+        'key' => 'blog',
+        'packages' => ['capell-app/admin', 'capell-app/frontend'],
+    ];
+
+    $repository->putRecommendation($installId, $selection);
+
+    expect($repository->recommendation($installId))->toBe($selection)
+        ->and($repository->hasInstallSessionState($installId))->toBeTrue();
+
+    $repository->clearInstallSession($installId);
+
+    expect($repository->recommendation($installId))->toBeNull();
+});
