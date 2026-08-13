@@ -13,7 +13,7 @@ it('verifies the live root package and documentation contract', function (): voi
     expect($process->getOutput())->toContain('Root documentation contract is verified.');
 });
 
-it('accepts a supported aligned aggregate fixture', function (): void {
+it('accepts an aligned aggregate with arbitrary README content', function (): void {
     $root = rootDocsFixture();
 
     try {
@@ -57,42 +57,36 @@ it('allows Claude to share the canonical repository instructions', function (): 
     }
 });
 
-it('reports package truth drift and unexpected root handoff files', function (): void {
+it('reports unexpected root handoff files', function (): void {
     $root = rootDocsFixture();
 
     try {
-        file_put_contents($root . '/README.md', '# Capell');
         file_put_contents($root . '/HANDOFF.md', 'scratch');
 
         [$exitCode, $output] = runRootDocsCheck($root);
 
         expect($exitCode)->toBe(2)
             ->and($output)->toContain('Root documentation contract failed:')
-            ->and($output)->toContain('README.md is missing package truth')
             ->and($output)->toContain('HANDOFF.md');
     } finally {
         deleteRootDocsFixture($root);
     }
 });
 
-it('rejects retired private and schema-driven positioning', function (string $retiredClaim): void {
+it('requires a root README file', function (): void {
     $root = rootDocsFixture();
 
     try {
-        file_put_contents($root . '/README.md', file_get_contents($root . '/README.md') . (PHP_EOL . $retiredClaim));
+        unlink($root . '/README.md');
 
         [$exitCode, $output] = runRootDocsCheck($root);
 
         expect($exitCode)->toBe(2)
-            ->and($output)->toContain('README.md contains retired package positioning');
+            ->and($output)->toContain('README.md could not be read.');
     } finally {
         deleteRootDocsFixture($root);
     }
-})->with([
-    'private foundation distribution' => 'Install the private foundation distribution.',
-    'private package' => 'This is a private package.',
-    'schema-driven category' => 'Capell is a schema-driven CMS.',
-]);
+});
 
 function rootDocsFixture(): string
 {
@@ -110,17 +104,7 @@ function rootDocsFixture(): string
             'capell-app/marketplace' => 'self.version',
         ],
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-    file_put_contents($root . '/README.md', implode("\n", [
-        '**The first editable page is easy. Capell solves what comes next.**',
-        'Capell is an open-source CMS for Laravel, built on Filament.',
-        'A Page model and Filament resource are quick; the long-term work is reusable page blueprints, preview through the real theme, URL history, revision comparison, validated recovery and repeatable upgrades.',
-        'Capell Foundation turns that recurring work into one maintained, MIT-licensed contract. Editors preview, publish and recover pages in Filament; the Laravel application renders them with Blade, Livewire, Inertia, Vue.js or its own stack.',
-        'Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches.',
-        'Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.',
-        'Capell is not a hosted CMS and does not ship a public content-delivery API.',
-        'The canonical installation entry point for an existing Laravel application is `capell-app/installer`.',
-        'The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line.',
-    ]));
+    file_put_contents($root . '/README.md', '# README copy can change without updating the guard.');
 
     return $root;
 }
