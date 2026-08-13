@@ -1903,6 +1903,9 @@ it('queues a one-click marketplace update and exposes its live operation state',
     grantMarketplaceBrowserManagementAccess();
     Queue::fake();
 
+    CapellCore::registerPackage('capell-app/seo-suite', version: '1.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
     app()->forgetInstance(UpdateMarketplaceExtensionAction::class);
     app()->forgetInstance(MarketplaceClient::class);
     app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
