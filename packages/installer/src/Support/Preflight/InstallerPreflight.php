@@ -381,8 +381,8 @@ final class InstallerPreflight
         return $this->check(
             'application-files-writable',
             'Application files',
-            'warning',
-            'Some installer-managed app files or directories may not be writable.',
+            'fail',
+            'Installer-managed app files or directories are not writable.',
             'Check permissions for: ' . implode(', ', $blockedPaths) . '.',
         );
     }
@@ -407,8 +407,8 @@ final class InstallerPreflight
         return $this->check(
             'composer-files-writable',
             'Composer files',
-            'warning',
-            'Selected packages may need to update Composer files.',
+            'fail',
+            'Selected packages require writable Composer files.',
             'Check permissions for: ' . implode(', ', $blockedPaths) . '.',
         );
     }
@@ -439,8 +439,8 @@ final class InstallerPreflight
         return $this->check(
             'public-output-writable',
             'Public output',
-            'warning',
-            'Capell needs writable public output for page cache and generated CSS assets.',
+            'fail',
+            'Capell cannot generate page cache or compiled CSS assets in the public output paths.',
             'Make these paths writable by the web user: ' . implode(', ', $blockedPaths) . '. See https://docs.capell.app/packages/frontend/server-config/',
         );
     }

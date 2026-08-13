@@ -326,7 +326,7 @@ it('warns when the configured php binary points at php fpm', function (): void {
     }
 });
 
-it('warns about installer-managed paths when the application base path cannot be written', function (): void {
+it('blocks installer-managed paths when the application base path cannot be written', function (): void {
     $originalBasePath = $this->app->basePath();
 
     $this->app->setBasePath('/sys/capell-preflight-unwritable');
@@ -341,11 +341,11 @@ it('warns about installer-managed paths when the application base path cannot be
             ])
             ->and(installerPreflightCheck($report, 'application-files-writable'))
             ->toMatchArray([
-                'status' => 'warning',
+                'status' => 'fail',
             ])
             ->and(installerPreflightCheck($report, 'public-output-writable'))
             ->toMatchArray([
-                'status' => 'warning',
+                'status' => 'fail',
             ]);
     } finally {
         $this->app->setBasePath($originalBasePath);
