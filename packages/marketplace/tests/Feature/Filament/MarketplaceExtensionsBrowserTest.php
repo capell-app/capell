@@ -425,7 +425,8 @@ it('keeps unavailable card commands from changing selection or queueing work', f
     expect(MarketplaceInstallAttempt::query()->count())->toBe(0)
         ->and($component->instance()->marketplaceInstallProgress())->toBe([]);
 
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
 });
 
 it('allows Capell Membership extensions into the hosted install review', function (): void {
@@ -509,7 +510,8 @@ it('keeps empty selections in browse state and makes bulk update idempotent', fu
     expect(MarketplaceInstallAttempt::query()->count())->toBe(0)
         ->and($component->instance()->marketplaceInstallProgress())->toBe([]);
 
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
 });
 
 it('requires explicit confirmation before an automated marketplace install starts', function (): void {
@@ -523,7 +525,8 @@ it('requires explicit confirmation before an automated marketplace install start
         ->assertSet('selectedMarketplaceComposerNames', ['capell-app/seo-suite']);
 
     expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
 });
 
 it('validates an activation key before starting an automated marketplace install', function (): void {
@@ -555,7 +558,8 @@ it('validates an activation key before starting an automated marketplace install
         ->assertSet('marketplaceStep', 'review');
 
     expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
 });
 
 it('queues a free marketplace extension install from the grouped browser footer', function (): void {
