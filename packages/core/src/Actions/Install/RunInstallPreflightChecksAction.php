@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\InstallReadinessCheckData;
+use Capell\Core\Data\Install\InstallReadinessReportData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Enums\Install\InstallReadinessOutcome;
+use Capell\Core\Enums\Install\InstallReadinessStage;
+use Capell\Core\Enums\Install\InstallReadinessStatus;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -30,15 +35,11 @@ final class RunInstallPreflightChecksAction
 
     public function handle(InstallInputData $inputData, ProgressReporter $reporter): void
     {
-        $failures = [
-            ...$this->runtimeFailures(),
-            ...$this->filesystemFailures(),
-            ...$this->databaseConfigurationFailures(),
-        ];
-
-        if (filter_var($inputData->siteUrl, FILTER_VALIDATE_URL) === false) {
-            $failures[] = sprintf('The site URL [%s] is not a valid absolute URL.', $inputData->siteUrl);
-        }
+        $report = $this->report($inputData);
+        $failures = array_map(
+            static fn (InstallReadinessCheckData $check): string => $check->message,
+            $report->blockingChecks(),
+        );
 
         if ($failures !== []) {
             foreach ($failures as $failure) {
@@ -52,6 +53,72 @@ final class RunInstallPreflightChecksAction
         $reporter->report('✓ Composer, cache, storage, and database paths are ready.');
         $reporter->report('✓ Database driver configuration is available.');
         $reporter->report('Preflight checks passed.');
+    }
+
+    public function report(InstallInputData $inputData): InstallReadinessReportData
+    {
+        $checks = [
+            $this->check(
+                key: 'runtime',
+                category: 'runtime',
+                failures: $this->runtimeFailures(),
+                message: 'PHP runtime and required extensions are available.',
+                remediation: 'Install or enable the missing PHP extensions, then run the preflight again.',
+            ),
+            $this->check(
+                key: 'filesystem',
+                category: 'filesystem',
+                failures: $this->filesystemFailures(),
+                message: 'Composer, cache, storage, and database paths are ready.',
+                remediation: 'Create the missing directories and grant the application user the required access.',
+            ),
+            $this->check(
+                key: 'database-configuration',
+                category: 'database',
+                failures: $this->databaseConfigurationFailures(),
+                message: 'Database driver configuration is available.',
+                remediation: 'Configure a supported database connection and install its PHP extension.',
+            ),
+        ];
+
+        $siteUrlFailure = filter_var($inputData->siteUrl, FILTER_VALIDATE_URL) === false
+            ? [sprintf('The site URL [%s] is not a valid absolute URL.', $inputData->siteUrl)]
+            : [];
+
+        $checks[] = $this->check(
+            key: 'site-url',
+            category: 'configuration',
+            failures: $siteUrlFailure,
+            message: 'The site URL is a valid absolute URL.',
+            remediation: 'Set the site URL to an absolute URL, including the scheme.',
+        );
+
+        return new InstallReadinessReportData(
+            stage: InstallReadinessStage::Boot,
+            checks: $checks,
+        );
+    }
+
+    /** @param list<string> $failures */
+    private function check(
+        string $key,
+        string $category,
+        array $failures,
+        string $message,
+        string $remediation,
+    ): InstallReadinessCheckData {
+        $failed = $failures !== [];
+
+        return new InstallReadinessCheckData(
+            key: $key,
+            stage: InstallReadinessStage::Boot,
+            category: $category,
+            status: $failed ? InstallReadinessStatus::Blocked : InstallReadinessStatus::Passed,
+            blocking: $failed,
+            outcome: $failed ? InstallReadinessOutcome::Blocked : InstallReadinessOutcome::AutomatedNow,
+            message: $failed ? implode(' ', $failures) : $message,
+            remediation: $failed ? $remediation : null,
+        );
     }
 
     /** @return list<string> */
