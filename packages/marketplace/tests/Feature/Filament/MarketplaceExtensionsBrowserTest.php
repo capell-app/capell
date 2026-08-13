@@ -31,6 +31,7 @@ use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -1909,28 +1910,15 @@ it('queues a one-click marketplace update and exposes its live operation state',
         }
     });
 
-    Http::fake([
-        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
-            'data' => [marketplaceBrowserExtensionPayload([
-                'slug' => 'seo-suite',
-                'name' => 'SEO Suite',
-                'composer_name' => 'capell-app/seo-suite',
-                'kind' => 'plugin',
-                'latest_version' => '1.1.0',
-            ])],
-        ]),
-        // Keep the component test deterministic when the client adds query
-        // parameters to the exact-lookup URL on a different test runtime.
-        '*' => Http::response([
-            'data' => [marketplaceBrowserExtensionPayload([
-                'slug' => 'seo-suite',
-                'name' => 'SEO Suite',
-                'composer_name' => 'capell-app/seo-suite',
-                'kind' => 'plugin',
-                'latest_version' => '1.1.0',
-            ])],
-        ]),
-    ]);
+    Http::fake(fn (): Response => Http::response([
+        'data' => [marketplaceBrowserExtensionPayload([
+            'slug' => 'seo-suite',
+            'name' => 'SEO Suite',
+            'composer_name' => 'capell-app/seo-suite',
+            'kind' => 'plugin',
+            'latest_version' => '1.1.0',
+        ])],
+    ]));
 
     $component = Livewire::test(MarketplaceExtensionsBrowser::class)
         ->call('updateMarketplaceRecordFromCard', ' capell-app/seo-suite ')
