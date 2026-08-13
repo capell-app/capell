@@ -142,7 +142,10 @@ it('separates expired and disabled pages from draft warnings in report metrics',
             'visible_from' => now()->subDay(),
             'visible_until' => null,
         ]);
-    publishingReadinessUrl($disabled, $site, $english, '/disabled', status: false);
+    $disabledUrl = publishingReadinessUrl($disabled, $site, $english, '/disabled', status: true);
+    $disabledUrl->update(['status' => false]);
+
+    expect($disabledUrl->fresh()->status)->toBeFalse();
 
     $snapshot = BuildPublishingReadinessReportAction::run();
     $metrics = collect($snapshot->metrics)->pluck('value', 'label');
