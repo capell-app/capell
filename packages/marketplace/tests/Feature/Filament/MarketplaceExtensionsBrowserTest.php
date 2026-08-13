@@ -1974,6 +1974,9 @@ it('queues eligible bulk updates without creating attempts for skipped packages'
     grantMarketplaceBrowserManagementAccess();
     Queue::fake();
 
+    CapellCore::registerPackage('capell-app/seo-suite', version: '1.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
     app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
     {
         public function prettyVersion(string $composerName): ?string
@@ -1990,6 +1993,12 @@ it('queues eligible bulk updates without creating attempts for skipped packages'
                 'composer_name' => 'capell-app/seo-suite',
                 'kind' => 'plugin',
                 'latest_version' => '1.1.0',
+                'install_eligibility' => [
+                    'state' => 'authorized',
+                    'can_install' => true,
+                    'can_update' => true,
+                    'can_run_existing' => true,
+                ],
             ])],
         ]),
     ]);
