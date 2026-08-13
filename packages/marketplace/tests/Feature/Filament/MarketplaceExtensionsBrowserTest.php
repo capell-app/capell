@@ -1953,14 +1953,16 @@ it('queues a one-click marketplace update and exposes its live operation state',
 
     expect($attempt->operation)->toBe(MarketplaceOperationType::Update)
         ->and($attempt->composer_name)->toBe('capell-app/seo-suite')
-        ->and($attempt->version_constraint)->toBe('^1.1.0')
-        ->and($component->instance()->marketplaceInstallProgress())->toMatchArray([[
-            'id' => (int) $attempt->getKey(),
-            'composer_name' => 'capell-app/seo-suite',
-            'status' => MarketplaceInstallIntentStatus::Queued->value,
-            'active' => true,
-            'succeeded' => false,
-        ]]);
+        ->and($attempt->version_constraint)->toBe('^1.1.0');
+
+    $progress = $component->instance()->marketplaceInstallProgress();
+
+    expect($progress)->toHaveCount(1)
+        ->and($progress[0]['id'])->toBe((int) $attempt->getKey())
+        ->and($progress[0]['composer_name'])->toBe('capell-app/seo-suite')
+        ->and($progress[0]['status'])->toBe(MarketplaceInstallIntentStatus::Queued->value)
+        ->and($progress[0]['active'])->toBeTrue()
+        ->and($progress[0]['succeeded'])->toBeFalse();
 
     Queue::assertPushed(
         RunMarketplaceUpdateAttemptJob::class,
