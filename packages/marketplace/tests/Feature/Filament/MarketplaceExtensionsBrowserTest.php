@@ -6,6 +6,7 @@ use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
+use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
@@ -30,6 +31,7 @@ use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
+use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
@@ -1902,6 +1904,8 @@ it('queues a one-click marketplace update and exposes its live operation state',
     grantMarketplaceBrowserManagementAccess();
     Queue::fake();
 
+    app()->forgetInstance(UpdateMarketplaceExtensionAction::class);
+    app()->forgetInstance(MarketplaceClient::class);
     app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
     {
         public function prettyVersion(string $composerName): ?string
