@@ -6,6 +6,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRenderContextData;
@@ -36,6 +37,41 @@ it('builds deterministic render data cache keys from page site language strategy
         ->and($key)->toContain('site-' . $site->id)
         ->and($key)->toContain('lang-' . $language->id)
         ->and($key)->toContain('strategy-blade');
+});
+
+it('isolates render data cache entries for theme previews', function (): void {
+    $page = Page::factory()
+        ->withTranslations()
+        ->createOne();
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $context = new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: Layout::query()->find($page->layout_id),
+        theme: $site->theme,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    );
+    $cache = resolve(PublicPageRenderDataCache::class);
+    $defaultKey = $cache->keyForContext($context);
+
+    app()->instance(ThemePreviewContext::class, new ThemePreviewContext(
+        themeKey: 'brutalist',
+        presetKey: 'brutalist',
+        previewing: true,
+    ));
+    $brutalistKey = $cache->keyForContext($context);
+
+    app()->instance(ThemePreviewContext::class, new ThemePreviewContext(
+        themeKey: 'brutalist',
+        presetKey: 'negative',
+        previewing: true,
+    ));
+    $negativeKey = $cache->keyForContext($context);
+
+    expect($defaultKey)->not->toBe($brutalistKey)
+        ->and($brutalistKey)->not->toBe($negativeKey);
 });
 
 it('remembers public page render data when the render data cache is enabled', function (): void {
