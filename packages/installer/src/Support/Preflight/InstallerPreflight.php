@@ -13,6 +13,7 @@ use Capell\Core\Enums\Install\InstallReadinessStatus;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Process\ProcessExecutionSupport;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -32,6 +33,7 @@ final class InstallerPreflight
     public function __construct(
         private readonly ProcessFactoryInterface $processFactory,
         private readonly RuntimeBinaryResolver $binaryResolver = new RuntimeBinaryResolver,
+        private readonly ReleaseRootWriteGuard $releaseRootWriteGuard = new ReleaseRootWriteGuard,
     ) {}
 
     /** @param array<int, array<string, mixed>> $checks */
@@ -79,6 +81,7 @@ final class InstallerPreflight
             $this->writablePath('storage', storage_path()),
             $this->writablePath('bootstrap-cache', base_path('bootstrap/cache')),
             $this->applicationWriteReadiness(),
+            $this->releaseRootReadiness($inputData),
             $this->publicOutputReadiness(),
             $this->databaseReadiness(),
             $this->cacheStoreReadiness(),
@@ -384,6 +387,47 @@ final class InstallerPreflight
             'fail',
             'Installer-managed app files or directories are not writable.',
             'Check permissions for: ' . implode(', ', $blockedPaths) . '.',
+        );
+    }
+
+    /** @return array<string, string> */
+    private function releaseRootReadiness(?InstallInputData $inputData): array
+    {
+        $paths = [
+            '.env',
+            'config',
+            'routes/web.php',
+            'app/Models/User.php',
+            'database/migrations',
+        ];
+
+        if ($inputData instanceof InstallInputData && $inputData->extraPackages !== []) {
+            $paths[] = 'composer.json';
+            $paths[] = 'composer.lock';
+        }
+
+        $refusal = $this->releaseRootWriteGuard->check(
+            operation: 'The web installer',
+            relativePaths: $paths,
+            releaseRoot: base_path(),
+            requiresServerSideTooling: false,
+        );
+
+        if ($refusal === null) {
+            return $this->check(
+                'release-root-writable',
+                'Release root',
+                'pass',
+                'The configured release root is mutable for the selected install paths.',
+            );
+        }
+
+        return $this->check(
+            'release-root-writable',
+            'Release root',
+            'fail',
+            'The selected install cannot write to this release root.',
+            $refusal,
         );
     }
 

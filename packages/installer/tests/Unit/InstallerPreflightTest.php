@@ -352,6 +352,24 @@ it('blocks installer-managed paths when the application base path cannot be writ
     }
 });
 
+it('blocks the web installer on immutable release roots before file mutations', function (): void {
+    config(['capell.release_root_mode' => 'atomic']);
+
+    try {
+        $report = resolve(InstallerPreflight::class)->run();
+
+        expect(installerPreflightCheck($report, 'release-root-writable'))
+            ->toMatchArray([
+                'status' => 'fail',
+                'label' => 'Release root',
+            ])
+            ->and(installerPreflightCheck($report, 'release-root-writable')['remediation'])
+            ->toContain('run this operation while building the next release');
+    } finally {
+        config(['capell.release_root_mode' => 'mutable']);
+    }
+});
+
 it('blocks database cache stores when the cache table has not been migrated', function (): void {
     config([
         'cache.default' => 'database',
