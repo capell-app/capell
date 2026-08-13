@@ -108,6 +108,38 @@ it('builds install impact reports from manifest and capability graph data', func
         ->and($report->packages[0]->healthChecks)->toBe(['forms-table'])
         ->and($report->packages[0]->screenshots)->toBe(['docs/assets/marketplace/form-builder.png'])
         ->and($report->packages[0]->warnings)->toContain('vendor/forms declares unknown capability [legacy-runtime].')
+        ->and($report->packages[0]->toArray())->toMatchArray([
+            'packageName' => 'vendor/forms',
+            'displayName' => 'Forms',
+            'productGroup' => 'Growth',
+            'tier' => 'premium',
+            'bundle' => 'forms',
+            'surfaces' => ['frontend', 'admin'],
+            'surfaceDetails' => [
+                [
+                    'value' => 'frontend',
+                    'label' => 'Frontend',
+                    'description' => 'Public rendering, widgets, render hooks, themes, routes, and frontend assets.',
+                    'surface' => 'frontend',
+                ],
+                [
+                    'value' => 'admin',
+                    'label' => 'Admin',
+                    'description' => 'Filament resources, pages, widgets, settings, permissions, and editor workspace tools.',
+                    'surface' => 'admin',
+                ],
+            ],
+            'requiredPackages' => ['capell-app/frontend'],
+            'supportingPackages' => ['capell-app/html-cache'],
+            'migrationImpact' => ['migrations', 'settings-migrations', 'required-table:form_submissions'],
+            'commandImpact' => ['install'],
+            'settings' => ['forms'],
+            'permissions' => ['forms.manage'],
+            'publicOutputImpact' => 'renders public frontend output',
+            'healthChecks' => ['forms-table'],
+            'compatibility' => '^1.0',
+            'screenshots' => ['docs/assets/marketplace/form-builder.png'],
+        ])
         ->and($report->warnings)->toContain('vendor/forms declares unknown capability [legacy-runtime].')
         ->and($report->packages[1]->publicOutputImpact)->toBe('no public output declared');
 });
