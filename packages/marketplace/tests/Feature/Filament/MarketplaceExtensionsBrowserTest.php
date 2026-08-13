@@ -1920,6 +1920,12 @@ it('queues a one-click marketplace update and exposes its live operation state',
             'composer_name' => 'capell-app/seo-suite',
             'kind' => 'plugin',
             'latest_version' => '1.1.0',
+            'install_eligibility' => [
+                'state' => 'authorized',
+                'can_install' => true,
+                'can_update' => true,
+                'can_run_existing' => true,
+            ],
         ])],
     ]));
 
