@@ -42,6 +42,8 @@ use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Core\Actions\ContentLocks\AcquireContentLockAction;
 use Capell\Core\Actions\ContentLocks\FindConflictingContentLockAction;
 use Capell\Core\Actions\ContentLocks\ForceContentLockAction;
+use Capell\Core\Actions\EditorScratchDrafts\DiscardEditorScratchDraftAction;
+use Capell\Core\Actions\EditorScratchDrafts\SaveEditorScratchDraftAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\GetResourceFromBlueprintAction;
 use Capell\Core\Contracts\Pageable;
@@ -99,6 +101,8 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         HasConfigurableFormActionPosition::getFormActions insteadof InteractsWithFormActions;
     }
     use PageValidation;
+
+    public static bool $formActionsAreSticky = true;
 
     /** @var array<int, string> */
     #[Locked]
@@ -312,6 +316,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
         if ($handler !== null) {
             $this->callDraftHandler($handler, 'saveAsDraft', $this);
+            $this->discardEditorScratchDraft();
 
             return;
         }
@@ -334,6 +339,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
         if ($handler !== null) {
             $this->callDraftHandler($handler, 'saveAsDraftWithLocation', $this, $data);
+            $this->discardEditorScratchDraft();
         }
     }
 
@@ -371,6 +377,57 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         }
     }
 
+    public function updatedData(mixed $value = null, ?string $key = null): void
+    {
+        $user = $this->currentUser();
+
+        if (! $user instanceof Authenticatable || ! is_array($this->data)) {
+            return;
+        }
+
+        if (! Gate::forUser($user)->allows('update', $this->record) || $this->hasConflictingContentLock()) {
+            return;
+        }
+
+        SaveEditorScratchDraftAction::run(
+            record: $this->record,
+            user: $user,
+            locale: app()->getLocale(),
+            context: 'page-editor',
+            payload: $this->data,
+        );
+
+        $this->dispatch('page-scratch-draft-updated', pageId: (int) $this->record->getKey());
+    }
+
+    #[On('page-scratch-draft-restored')]
+    public function restoreEditorScratchDraft(int $pageId, array $data): void
+    {
+        $user = $this->currentUser();
+
+        if ($pageId !== (int) $this->record->getKey()
+            || ! $user instanceof Authenticatable
+            || ! Gate::forUser($user)->allows('update', $this->record)
+        ) {
+            return;
+        }
+
+        $this->data = $data;
+
+        Notification::make('editor-scratch-draft-restored')
+            ->success()
+            ->title(__('capell-admin::scratch_drafts.restored'))
+            ->send();
+    }
+
+    #[On('page-publish-state-changed')]
+    public function discardPublishedEditorScratchDraft(int $pageId): void
+    {
+        if ($pageId === (int) $this->record->getKey()) {
+            $this->discardEditorScratchDraft();
+        }
+    }
+
     protected function afterSave(): void
     {
         /** @var Pageable<Model> $page */
@@ -382,6 +439,8 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             previousUrls: $this->urlChanges,
             recordRedirects: true,
         ));
+
+        $this->discardEditorScratchDraft();
 
         $this->dispatch('refresh-alerts');
 
@@ -844,6 +903,24 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         $user = Auth::user();
 
         return $user instanceof Authenticatable ? $user : null;
+    }
+
+    private function discardEditorScratchDraft(): void
+    {
+        $user = $this->currentUser();
+
+        if (! $user instanceof Authenticatable) {
+            return;
+        }
+
+        DiscardEditorScratchDraftAction::run(
+            record: $this->record,
+            user: $user,
+            locale: app()->getLocale(),
+            context: 'page-editor',
+        );
+
+        $this->dispatch('page-scratch-draft-updated', pageId: (int) $this->record->getKey());
     }
 
     private function contentLockUser(ContentLock $lock): ?Authenticatable
