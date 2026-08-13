@@ -1924,6 +1924,15 @@ it('queues a one-click marketplace update and exposes its live operation state',
         ])],
     ]));
 
+    $listing = resolve(MarketplaceClient::class)->extensionsByComposerNames(
+        ['capell-app/seo-suite'],
+        allowCache: false,
+    );
+
+    expect(resolve(MarketplaceInstalledPackageVersionResolver::class)->prettyVersion('capell-app/seo-suite'))
+        ->toBe('1.0.0')
+        ->and($listing['capell-app/seo-suite']->latestVersion)->toBe('1.1.0');
+
     $component = Livewire::test(MarketplaceExtensionsBrowser::class)
         ->call('updateMarketplaceRecordFromCard', ' capell-app/seo-suite ')
         ->assertSet('marketplaceStep', 'progress')
