@@ -17,6 +17,9 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
+/**
+ * @property-read ?EditorScratchDraft $draft
+ */
 final class PageScratchDraftPanel extends Component
 {
     private const string CONTEXT = 'page-editor';

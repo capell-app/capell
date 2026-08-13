@@ -400,6 +400,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         $this->dispatch('page-scratch-draft-updated', pageId: (int) $this->record->getKey());
     }
 
+    /** @param array<string, mixed> $data */
     #[On('page-scratch-draft-restored')]
     public function restoreEditorScratchDraft(int $pageId, array $data): void
     {
