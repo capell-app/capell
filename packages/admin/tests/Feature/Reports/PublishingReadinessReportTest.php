@@ -118,21 +118,30 @@ it('separates expired and disabled pages from draft warnings in report metrics',
         ->site($site)
         ->type($blueprint)
         ->withTranslations($english)
-        ->createOne(['visible_until' => now()->subDay()]);
+        ->createOne([
+            'visible_from' => now()->subDays(2),
+            'visible_until' => now()->subDay(),
+        ]);
     publishingReadinessUrl($expired, $site, $english, '/expired', status: true);
 
     $draft = Page::factory()
         ->site($site)
         ->type($blueprint)
         ->withTranslations($english)
-        ->createOne(['visible_from' => PublishSentinel::draftValue()]);
+        ->createOne([
+            'visible_from' => PublishSentinel::draftValue(),
+            'visible_until' => null,
+        ]);
     publishingReadinessUrl($draft, $site, $english, '/draft', status: true);
 
     $disabled = Page::factory()
         ->site($site)
         ->type($blueprint)
         ->withTranslations($english)
-        ->createOne();
+        ->createOne([
+            'visible_from' => now()->subDay(),
+            'visible_until' => null,
+        ]);
     publishingReadinessUrl($disabled, $site, $english, '/disabled', status: false);
 
     $snapshot = BuildPublishingReadinessReportAction::run();
