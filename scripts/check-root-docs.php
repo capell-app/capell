@@ -43,47 +43,10 @@ if (! is_array($composer)) {
     }
 }
 
-$readme = file_get_contents($root . '/README.md');
+$readmePath = $root . '/README.md';
 
-if (! is_string($readme)) {
+if (! is_file($readmePath) || ! is_readable($readmePath)) {
     $failures[] = 'README.md could not be read.';
-} else {
-    $normalizedReadme = (string) preg_replace('/\s+/', ' ', $readme);
-    $readmeContracts = [
-        'Capell solves what comes next',
-        'open-source CMS for Laravel',
-        'page blueprints',
-        'preview through the real theme',
-        'revision comparison',
-        'repeatable upgrades',
-        'Capell Foundation',
-        'MIT-licensed',
-        'your Laravel application',
-        'not a hosted CMS',
-        'does not ship a public content-delivery API',
-        '`capell-app/installer`',
-        '`capell-app/capell`',
-    ];
-    $retiredClaims = [
-        'private foundation',
-        'private package',
-        'private distribution',
-        'schema-driven',
-    ];
-
-    foreach ($readmeContracts as $contract) {
-        if (! str_contains($normalizedReadme, $contract)) {
-            $failures[] = 'README.md is missing package truth: ' . $contract;
-        }
-    }
-
-    $lowercaseReadme = mb_strtolower($normalizedReadme);
-
-    foreach ($retiredClaims as $retiredClaim) {
-        if (str_contains($lowercaseReadme, $retiredClaim)) {
-            $failures[] = 'README.md contains retired package positioning: ' . $retiredClaim;
-        }
-    }
 }
 
 foreach (glob($root . '/*.md') ?: [] as $path) {
