@@ -7,6 +7,7 @@ namespace Capell\Core\ThemeStudio\Actions;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\ThemeStudio\Assets\ThemeAssetKey;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
+use Capell\Core\ThemeStudio\Assets\ThemeTokenValidator;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemeOverrideData;
@@ -63,7 +64,11 @@ class ResolveThemeRuntimeAction
         $tokenCssPath = null;
 
         try {
-            $tokenCssPath = $tokenStore->put($themeKey, $presetKey, $tokenIssues === [] ? $resolvedBrand : new BrandProfileData);
+            $tokenCssPath = $tokenStore->put(
+                $themeKey,
+                $presetKey,
+                $tokenIssues === [] ? $resolvedBrand : $this->contrastSafeBrand($resolvedBrand),
+            );
         } catch (Throwable $throwable) {
             report($throwable);
         }
@@ -79,6 +84,53 @@ class ResolveThemeRuntimeAction
             tokenCssPath: $tokenCssPath,
             tokenIssues: $tokenIssues,
         );
+    }
+
+    private function contrastSafeBrand(BrandProfileData $brand): BrandProfileData
+    {
+        $validator = new ThemeTokenValidator;
+        $surfaceColor = $this->validSurfaceColor($brand->surfaceColor, $validator);
+
+        return $brand->merge([
+            'surfaceColor' => $surfaceColor,
+            'foregroundColor' => $this->contrastSafeColor($brand->foregroundColor, $surfaceColor, $brand, $validator),
+            'primaryColor' => $this->contrastSafeColor($brand->primaryColor, $surfaceColor, $brand, $validator),
+            'accentColor' => $this->contrastSafeColor($brand->accentColor, $surfaceColor, $brand, $validator),
+            'neutralColor' => $this->contrastSafeColor($brand->neutralColor, $surfaceColor, $brand, $validator),
+        ]);
+    }
+
+    private function validSurfaceColor(string $surfaceColor, ThemeTokenValidator $validator): string
+    {
+        foreach (['#000000', '#ffffff'] as $contrastColor) {
+            if ($validator->contrastIssues($contrastColor, $surfaceColor) === []) {
+                return $surfaceColor;
+            }
+        }
+
+        return (new BrandProfileData)->surfaceColor;
+    }
+
+    private function contrastSafeColor(
+        string $color,
+        string $surfaceColor,
+        BrandProfileData $brand,
+        ThemeTokenValidator $validator,
+    ): string {
+        foreach (array_unique([
+            $color,
+            $brand->foregroundColor,
+            '#111827',
+            '#f8fafc',
+            '#000000',
+            '#ffffff',
+        ]) as $candidate) {
+            if ($validator->contrastIssues($candidate, $surfaceColor) === []) {
+                return $candidate;
+            }
+        }
+
+        return '#000000';
     }
 
     /**
