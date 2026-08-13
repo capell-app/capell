@@ -9,6 +9,7 @@ use Capell\Frontend\Support\Tailwind\TailwindAssetsGenerator;
 use Capell\Frontend\Tests\Unit\Support\Tailwind\Fixtures\TailwindAssetsErrProvider;
 use Capell\Frontend\Tests\Unit\Support\Tailwind\Fixtures\TailwindAssetsOkProvider;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function (): void {
     resetFrontendTailwindVendorAssets();
@@ -103,4 +104,40 @@ it('rejects frontend tailwind output path traversal from the command', function 
         '--output-path' => '../capell_frontend_tailwind_' . uniqid() . '.css',
     ])->run())
         ->toThrow(InvalidArgumentException::class, 'Tailwind output CSS path must stay inside the project.');
+});
+
+it('keeps package-owned assets out of the generated registry until the package is installed', function (): void {
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindImport('@vendor/theme', 'vendor/not-installed'));
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindSource('resources/views/**/*.blade.php', 'vendor/not-installed'));
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindPlugin('@vendor/plugin', 'vendor/not-installed'));
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindImport('@vendor/installed', 'vendor/installed'));
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindSource('resources/views/installed/**/*.blade.php', 'vendor/installed'));
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindPlugin('@vendor/installed-plugin', 'vendor/installed'));
+    CapellCore::forcePackageInstalled('vendor/installed');
+
+    $registry = resolve(TailwindAssetsGenerator::class)->collect();
+    $sources = $registry->sources()->all();
+
+    expect($registry->imports()->all())->toContain('@vendor/installed')
+        ->and($registry->imports()->all())->not->toContain('@vendor/theme')
+        ->and($registry->plugins()->all())->toContain('@vendor/installed-plugin')
+        ->and($registry->plugins()->all())->not->toContain('@vendor/plugin')
+        ->and(array_filter($sources, static fn (string $source): bool => str_contains($source, 'vendor/installed/resources/views/installed/')))
+        ->not->toBeEmpty()
+        ->and(array_filter($sources, static fn (string $source): bool => str_contains($source, 'vendor/not-installed/')))
+        ->toBe([]);
+});
+
+it('filters unsafe theme colors before rendering and records the rejection', function (): void {
+    Log::spy();
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindThemeColor('safe', 'rgb(15 118 110 / 80%)'));
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindThemeColor('unsafe-name', '#0f766e; } @import url(https://evil.test)'));
+    CapellCore::registerVendorAsset(VendorAssetData::tailwindThemeColor('unsafe-value', 'var(--missing);'));
+
+    $colors = resolve(TailwindAssetsGenerator::class)->collect()->themeColors();
+
+    expect($colors->all())->toHaveKey('safe')
+        ->and($colors->all())->not->toHaveKeys(['unsafe-name', 'unsafe-value']);
+
+    Log::shouldHaveReceived('warning')->twice();
 });
