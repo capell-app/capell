@@ -218,8 +218,8 @@ class DefaultPageConfigurator implements ConfiguratorInterface
                         $this->getTranslationFormSchema($schema),
                     ])
                     ->sidebarSchema([
-                        $this->scratchDraftPanel($schema),
                         $this->publishPanel($schema),
+                        $this->scratchDraftPanel($schema),
                         Section::make(__('capell-admin::generic.settings'))
                             ->gridContainer()
                             ->columns(['@md' => 2])
@@ -251,8 +251,8 @@ class DefaultPageConfigurator implements ConfiguratorInterface
                         ]),
                 ])
                 ->sidebarSchema([
-                    $this->scratchDraftPanel($schema),
                     $this->publishPanel($schema),
+                    $this->scratchDraftPanel($schema),
                     Section::make(__('capell-admin::generic.page_context'))
                         ->gridContainer()
                         ->compact()
