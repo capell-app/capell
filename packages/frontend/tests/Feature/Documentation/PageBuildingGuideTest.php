@@ -35,7 +35,7 @@ it('links into the guide from the canonical documentation paths', function (): v
     $firstPageGuide = pageBuildingGuideContents('docs/getting-started/create-your-first-page.md');
     $frontendIndex = pageBuildingGuideContents('docs/frontend/index.md');
 
-    expect($readme)->toContain('[Build a page](docs/getting-started/building-pages.md)')
+    expect($readme)->toContain('[Create your first page](docs/getting-started/create-your-first-page.md)')
         ->and($documentationIndex)->toMatch('/\\|\\s*Build and edit a site\\s*\\|[^\\n]*\\[choose a page-building path\\]\\(getting-started\\/building-pages\\.md\\)/')
         ->and($firstPageGuide)->toContain('[Build a page](building-pages.md)')
         ->and($frontendIndex)->toContain('[Build a page](../getting-started/building-pages.md)');

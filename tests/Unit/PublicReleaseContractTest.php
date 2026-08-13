@@ -398,7 +398,7 @@ it('keeps Foundation AI claims separate from optional delivery packages', functi
     $aiReadyGuide = file_get_contents($root . '/docs/getting-started/ai-ready.md');
 
     expect($readme)
-        ->toContain('Optional marketplace package for publishing clean, RAG-ready JSON to answer engines')
+        ->toContain('Optional capabilities arrive as Laravel packages you add when the work needs them.')
         ->not->toContain('Publish your pages to answer engines as clean, RAG-ready JSON')
         ->and($aiReadyGuide)
         ->toContain('Capell Foundation gives optional AI packages structured, permissioned CMS context and a safe public-rendering boundary before a provider is added.')
