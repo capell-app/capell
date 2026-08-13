@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Reports\BuildPublishingReadinessReportAction;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Admin\Filament\Pages\Reports\PublishingReadinessReport;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -111,7 +112,7 @@ it('reports soft-deleted blueprints without trying to build an edit url', functi
         ->and($finding->url)->toBeNull();
 });
 
-it('separates expired and disabled pages from draft warnings in report metrics', function (): void {
+it('separates expired and non-public pages from draft warnings in report metrics', function (): void {
     [$site, $blueprint, $english] = publishingReadinessSiteContext(requiredLanguages: false);
 
     $expired = Page::factory()
@@ -136,19 +137,19 @@ it('separates expired and disabled pages from draft warnings in report metrics',
         ]);
     publishingReadinessUrl($draft, $site, $english, '/draft', status: true);
 
-    $disabled = Page::factory()
+    $nonPublic = Page::factory()
         ->site($site)
         ->type($blueprint)
         ->withTranslations($english)
         ->createOne([
-            'name' => 'Disabled page',
+            'name' => 'Non-public page',
             'visible_from' => now()->subDay(),
             'visible_until' => null,
         ]);
-    $disabledUrl = publishingReadinessUrl($disabled, $site, $english, '/disabled', status: true);
-    $disabledUrl->update(['status' => false]);
+    $nonPublicUrl = publishingReadinessUrl($nonPublic, $site, $english, '/non-public', status: true);
+    $nonPublicUrl->update(['type' => UrlTypeEnum::Redirect]);
 
-    expect($disabledUrl->fresh()->status)->toBeFalse();
+    expect($nonPublicUrl->fresh()->type)->toBe(UrlTypeEnum::Redirect);
 
     $snapshot = BuildPublishingReadinessReportAction::run();
     $metrics = collect($snapshot->metrics)->pluck('value', 'label');
@@ -161,7 +162,7 @@ it('separates expired and disabled pages from draft warnings in report metrics',
         ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_scheduled_pages')])->toBe(0)
         ->and($severityCounts->get(ReportFindingSeverity::Critical->value))->toBe(1)
         ->and($severityCounts->get(ReportFindingSeverity::Warning->value))->toBe(1)
-        ->and($findingRecords)->toContain('Expired page (Launch Site)', 'Draft page (Launch Site)', 'Disabled page (Launch Site)')
+        ->and($findingRecords)->toContain('Expired page (Launch Site)', 'Draft page (Launch Site)', 'Non-public page (Launch Site)')
         ->and(collect($snapshot->findings)->every(fn ($finding): bool => $finding->url !== null))->toBeTrue();
 });
 
