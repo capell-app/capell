@@ -130,7 +130,7 @@ it('installs a new cloud site from bootstrap data before registering its healthy
             'health' => [
                 'installed' => true,
                 'site_count' => 1,
-                'install_theme' => 'foundation',
+                'install_theme' => 'default',
                 'install_package_count' => 2,
             ],
         ]);
