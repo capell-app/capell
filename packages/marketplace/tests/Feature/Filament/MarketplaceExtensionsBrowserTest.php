@@ -33,7 +33,6 @@ use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -1914,7 +1913,7 @@ it('queues a one-click marketplace update and exposes its live operation state',
         }
     });
 
-    Http::fake(fn (): Response => Http::response([
+    Http::fake(fn () => Http::response([
         'data' => [marketplaceBrowserExtensionPayload([
             'slug' => 'seo-suite',
             'name' => 'SEO Suite',
