@@ -6,6 +6,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\QueueMarketplaceBulkUpdateAction;
 use Capell\Marketplace\Actions\QueueMarketplaceUpdateAttemptAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
+use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
@@ -60,6 +61,19 @@ function queueUpdateAttempt(?string $idempotencyKey = null): MarketplaceInstallA
         currentVersion: '2.1.0',
         idempotencyKey: $idempotencyKey,
     );
+}
+
+function bindMarketplaceUpdateVersion(string $version): void
+{
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class($version) implements MarketplaceInstalledPackageVersionResolver
+    {
+        public function __construct(private readonly string $version) {}
+
+        public function prettyVersion(string $composerName): ?string
+        {
+            return $composerName === 'capell-app/seo-suite' ? $this->version : null;
+        }
+    });
 }
 
 it('records the operation as an update and dispatches the update job', function (): void {
@@ -142,6 +156,7 @@ it('queues an update only after the marketplace confirms a newer version', funct
     Queue::fake();
     CapellCore::registerPackage('capell-app/seo-suite', version: '2.1.0');
     CapellCore::forcePackageInstalled('capell-app/seo-suite');
+    bindMarketplaceUpdateVersion('2.1.0');
 
     Http::fake([
         'https://marketplace.test/api/extensions/by-composer*' => Http::response([
@@ -177,6 +192,7 @@ it('refuses to queue an update when the marketplace version is not newer', funct
     Queue::fake();
     CapellCore::registerPackage('capell-app/seo-suite', version: '2.4.0');
     CapellCore::forcePackageInstalled('capell-app/seo-suite');
+    bindMarketplaceUpdateVersion('2.4.0');
 
     Http::fake([
         'https://marketplace.test/api/extensions/by-composer*' => Http::response([
@@ -205,6 +221,7 @@ it('refuses to queue an update when the marketplace no longer lists the package'
     Queue::fake();
     CapellCore::registerPackage('capell-app/seo-suite', version: '2.1.0');
     CapellCore::forcePackageInstalled('capell-app/seo-suite');
+    bindMarketplaceUpdateVersion('2.1.0');
 
     Http::fake([
         'https://marketplace.test/api/extensions/by-composer*' => Http::response(['data' => []]),
