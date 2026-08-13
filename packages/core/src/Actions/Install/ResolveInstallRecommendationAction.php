@@ -8,10 +8,12 @@ use Capell\Core\Data\Install\InstallRecommendationData;
 use Capell\Core\Enums\InstallRecommendationAction;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveInstallRecommendationAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly InstallRecommendationRepository $recommendations) {}
