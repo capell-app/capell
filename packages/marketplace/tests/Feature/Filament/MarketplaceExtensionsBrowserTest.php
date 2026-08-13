@@ -1692,8 +1692,8 @@ it('loads browser records and filter options through the livewire boundary', fun
 
     $component = Livewire::test(MarketplaceExtensionsBrowser::class)
         ->set('tableSearch', 'seo')
-        ->set('paginators.page', 2)
-        ->set('tableRecordsPerPage', 12);
+        ->set('tableRecordsPerPage', 12)
+        ->set('paginators.page', 2);
 
     $records = $component->instance()->marketplaceRecords();
     $filterOptions = $component->instance()->marketplaceFilterOptions();
