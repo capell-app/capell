@@ -77,6 +77,14 @@ it('reports missing event sourcing tables as a critical finding with remediation
 it('reports invalid queue and cache configuration as critical operational findings', function (): void {
     demoInstallHealthSeedInstall();
 
+    BuildDoctorReportAction::shouldRun()
+        ->once()
+        ->andReturn(new DoctorReportData('passed', collect()));
+    CapellCore::shouldReceive('getPackages')
+        ->once()
+        ->with(false)
+        ->andReturn(collect());
+
     config([
         'queue.default' => 'missing',
         'queue.connections.missing' => null,
