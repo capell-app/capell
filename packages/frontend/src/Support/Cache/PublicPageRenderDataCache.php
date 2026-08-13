@@ -8,6 +8,7 @@ use Capell\Core\Concerns\HasCache;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
@@ -103,6 +104,7 @@ final class PublicPageRenderDataCache
             $context->site?->updated_at?->getTimestamp(),
             $this->translationTimestamp($context->site),
             $this->payloadBuilderFingerprint(),
+            $this->themePreviewFingerprint(),
         ];
 
         return hash('xxh128', implode('|', array_map(
@@ -118,6 +120,21 @@ final class PublicPageRenderDataCache
         }
 
         return resolve(PublicContentWidgetPayloadBuilder::class)->fingerprint();
+    }
+
+    private function themePreviewFingerprint(): string
+    {
+        $preview = resolve(ThemePreviewContext::class);
+
+        if (! $preview->previewing) {
+            return 'no-theme-preview';
+        }
+
+        return sprintf(
+            'theme-preview:%s:%s',
+            $preview->themeKey ?? '',
+            $preview->presetKey ?? '',
+        );
     }
 
     private function translationTimestamp(?Model $model): ?int
