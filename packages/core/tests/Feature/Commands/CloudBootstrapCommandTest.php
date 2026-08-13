@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Console\Commands\CloudBootstrapCommand;
 use Capell\Core\Models\Site;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\Console\Command\Command;
 
@@ -51,6 +52,88 @@ it('passes a securely created temporary site spec to install and removes it afte
         ->and($specPath)->toBeString()
         ->and($specPermissions & 0777)->toBe(0600)
         ->and(is_file((string) $specPath))->toBeFalse();
+});
+
+it('installs a new cloud site from bootstrap data before registering its healthy instance', function (): void {
+    cloudBootstrapEnv('CAPELL_INSTALL_MODE', 'cloud');
+    cloudBootstrapEnv('CAPELL_CLOUD_REGISTRATION_URL', 'https://capell.app/api/v1/cloud-instances/1/register');
+    cloudBootstrapEnv('CAPELL_REGISTRATION_TOKEN', str_repeat('a', 64));
+    cloudBootstrapEnv('CAPELL_SITE_URL', 'https://acme.laravel.cloud');
+    cloudBootstrapEnv('CAPELL_INSTALL_PACKAGES', 'capell-app/admin,capell-app/frontend');
+    cloudBootstrapEnv('CAPELL_INSTALL_THEME', 'foundation');
+
+    $installOptions = null;
+    $installSpec = null;
+
+    Artisan::command(
+        'capell:install {--url=} {--package-mode=} {--theme=} {--name=} {--email=} {--password=} {--clear-cache} {--install-welcome-route} {--no-interaction} {--packages=} {--spec=}',
+        function () use (&$installOptions, &$installSpec): int {
+            $installOptions = $this->options();
+            $specPath = $installOptions['spec'] ?? null;
+            $installSpec = is_string($specPath) && is_file($specPath)
+                ? json_decode((string) file_get_contents($specPath), true, 512, JSON_THROW_ON_ERROR)
+                : null;
+
+            Site::factory()->create();
+
+            return Command::SUCCESS;
+        },
+    );
+
+    $registrationRequests = [];
+    Http::fake(function (Request $request) use (&$registrationRequests) {
+        $payload = json_decode((string) $request->body(), true, 512, JSON_THROW_ON_ERROR);
+        $registrationRequests[] = $payload;
+
+        if (count($registrationRequests) === 1) {
+            return Http::response([
+                'data' => [
+                    'admin_bootstrap' => [
+                        'name' => 'Cloud Admin',
+                        'email' => 'admin@acme.test',
+                        'password' => 'generated-password',
+                    ],
+                    'site_spec' => ['site' => ['name' => 'Acme']],
+                    'site_build_compatibility' => ['required' => false],
+                ],
+            ]);
+        }
+
+        return Http::response(['data' => ['cloud_instance_id' => 1]]);
+    });
+
+    artisanCommand('capell:cloud-bootstrap')->assertExitCode(Command::SUCCESS);
+
+    expect($installOptions)->toMatchArray([
+        'url' => 'https://acme.laravel.cloud',
+        'package-mode' => 'custom',
+        'theme' => 'foundation',
+        'name' => 'Cloud Admin',
+        'email' => 'admin@acme.test',
+        'password' => 'generated-password',
+        'clear-cache' => true,
+        'install-welcome-route' => true,
+        'no-interaction' => true,
+        'packages' => 'capell-app/admin,capell-app/frontend',
+    ])
+        ->and($installSpec)->toBe(['site' => ['name' => 'Acme']])
+        ->and(Site::query()->count())->toBe(1)
+        ->and($registrationRequests)->toHaveCount(2)
+        ->and($registrationRequests[0])->toMatchArray([
+            'registration_token' => str_repeat('a', 64),
+            'app_url' => 'https://acme.laravel.cloud',
+            'bootstrap_only' => true,
+        ])
+        ->and($registrationRequests[1])->toMatchArray([
+            'registration_token' => str_repeat('a', 64),
+            'app_url' => 'https://acme.laravel.cloud',
+            'health' => [
+                'installed' => true,
+                'site_count' => 1,
+                'install_theme' => 'foundation',
+                'install_package_count' => 2,
+            ],
+        ]);
 });
 
 it('fails clearly when cloud registration configuration is missing', function (): void {

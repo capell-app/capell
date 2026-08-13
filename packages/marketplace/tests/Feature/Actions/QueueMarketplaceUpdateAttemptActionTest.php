@@ -14,6 +14,8 @@ use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 
@@ -134,6 +136,87 @@ it('refuses a one-click update for an extension that is not installed', function
         composerName: 'capell-app/definitely-not-installed',
         actor: MarketplaceInstallActorData::system('update-test'),
     ))->toThrow(ValidationException::class);
+});
+
+it('queues an update only after the marketplace confirms a newer version', function (): void {
+    Queue::fake();
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.1.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+            'data' => [[
+                'slug' => 'seo-suite',
+                'name' => 'SEO Suite',
+                'composer_name' => 'capell-app/seo-suite',
+                'kind' => 'plugin',
+                'price_cents' => 0,
+                'is_paid' => false,
+                'latest_version' => '2.4.0',
+            ]],
+        ]),
+    ]);
+
+    $attempt = UpdateMarketplaceExtensionAction::run(
+        composerName: 'capell-app/seo-suite',
+        actor: MarketplaceInstallActorData::system('update-test'),
+    );
+
+    expect($attempt->operation)->toBe(MarketplaceOperationType::Update)
+        ->and($attempt->version_constraint)->toBe('^2.4.0')
+        ->and($attempt->context['update_from_version'] ?? null)->toBe('2.1.0')
+        ->and(MarketplaceInstallAttempt::query()->count())->toBe(1);
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
+        && str_contains($request->url(), '/extensions/by-composer')
+        && str_contains($request->url(), 'composer_names=capell-app%2Fseo-suite'));
+    Queue::assertPushed(RunMarketplaceUpdateAttemptJob::class, 1);
+});
+
+it('refuses to queue an update when the marketplace version is not newer', function (): void {
+    Queue::fake();
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.4.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+            'data' => [[
+                'slug' => 'seo-suite',
+                'name' => 'SEO Suite',
+                'composer_name' => 'capell-app/seo-suite',
+                'kind' => 'plugin',
+                'price_cents' => 0,
+                'is_paid' => false,
+                'latest_version' => '2.4.0',
+            ]],
+        ]),
+    ]);
+
+    expect(fn (): mixed => UpdateMarketplaceExtensionAction::run(
+        composerName: 'capell-app/seo-suite',
+        actor: MarketplaceInstallActorData::system('update-test'),
+    ))->toThrow(ValidationException::class);
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
+    Queue::assertNothingPushed();
+});
+
+it('refuses to queue an update when the marketplace no longer lists the package', function (): void {
+    Queue::fake();
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.1.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response(['data' => []]),
+    ]);
+
+    expect(fn (): mixed => UpdateMarketplaceExtensionAction::run(
+        composerName: 'capell-app/seo-suite',
+        actor: MarketplaceInstallActorData::system('update-test'),
+    ))->toThrow(ValidationException::class);
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
+    Queue::assertNothingPushed();
 });
 
 it('summarises a partially queued bulk update for the operator', function (): void {
