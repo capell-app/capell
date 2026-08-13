@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Data\Install\InstallReadinessReportData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Enums\Install\InstallReadinessStage;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
@@ -72,6 +74,16 @@ it('reports the current environment with remediation fields', function (): void 
     if (InstalledVersions::isInstalled('livewire/livewire')) {
         expect($report['environment'])->toHaveKey('livewire');
     }
+});
+
+it('maps the legacy installer checks into the shared typed readiness report', function (): void {
+    $report = resolve(InstallerPreflight::class)->readinessReport();
+
+    expect($report)
+        ->toBeInstanceOf(InstallReadinessReportData::class)
+        ->and($report->stage)->toBe(InstallReadinessStage::Boot)
+        ->and($report->checks)->not->toBeEmpty()
+        ->and($report->toArray())->toHaveKeys(['schema_version', 'stage', 'ready', 'checks']);
 });
 
 it('does not inspect or report the php memory limit', function (): void {

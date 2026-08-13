@@ -74,6 +74,7 @@ final class StartInstallerRunAction
         $firstStepKey = $plan[0]['key'] ?? null;
         $installStatus = is_string($firstStepKey) ? 'pending' : 'complete';
         $reporter = $this->reporter($installId);
+        $preflight = resolve(InstallerPreflight::class)->run($inputData);
 
         $this->ensureAdminUserModelIsReady($inputData, $reporter);
         $this->sessions->cancelActiveInstallBeforeStarting($installId);
@@ -83,7 +84,7 @@ final class StartInstallerRunAction
             plan: $plan,
             installStatus: $installStatus,
             firstStepKey: is_string($firstStepKey) ? $firstStepKey : null,
-            preflight: resolve(InstallerPreflight::class)->run($inputData),
+            preflight: $preflight,
         );
 
         return new InstallerRunStartData(
@@ -94,6 +95,7 @@ final class StartInstallerRunAction
             nextStep: is_string($firstStepKey) ? $firstStepKey : null,
             logPath: $reporter->logPath(),
             completed: $installStatus === 'complete',
+            preflight: $preflight,
         );
     }
 

@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\Preflight;
 
+use Capell\Core\Data\Install\InstallReadinessCheckData;
+use Capell\Core\Data\Install\InstallReadinessReportData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Enums\Install\InstallReadinessOutcome;
+use Capell\Core\Enums\Install\InstallReadinessStage;
+use Capell\Core\Enums\Install\InstallReadinessStatus;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
@@ -113,6 +118,42 @@ final class InstallerPreflight
             ],
             'checks' => $checks,
         ];
+    }
+
+    public function readinessReport(?InstallInputData $inputData = null): InstallReadinessReportData
+    {
+        $legacyReport = $this->run($inputData);
+
+        return new InstallReadinessReportData(
+            stage: InstallReadinessStage::Boot,
+            checks: array_map(
+                static function (array $check): InstallReadinessCheckData {
+                    $status = match ($check['status'] ?? null) {
+                        'fail' => InstallReadinessStatus::Blocked,
+                        'warning' => InstallReadinessStatus::Warning,
+                        default => InstallReadinessStatus::Passed,
+                    };
+                    $blocking = $status === InstallReadinessStatus::Blocked
+                        && ($check['severity'] ?? 'blocking') === 'blocking';
+
+                    return new InstallReadinessCheckData(
+                        key: (string) ($check['key'] ?? 'unknown'),
+                        stage: InstallReadinessStage::Boot,
+                        category: (string) ($check['key'] ?? 'unknown'),
+                        status: $status,
+                        blocking: $blocking,
+                        outcome: $blocking
+                            ? InstallReadinessOutcome::Blocked
+                            : ($status === InstallReadinessStatus::Warning || $status === InstallReadinessStatus::Blocked
+                                ? InstallReadinessOutcome::Manual
+                                : InstallReadinessOutcome::AutomatedNow),
+                        message: (string) ($check['message'] ?? ''),
+                        remediation: ($check['remediation'] ?? '') !== '' ? (string) $check['remediation'] : null,
+                    );
+                },
+                $legacyReport['checks'],
+            ),
+        );
     }
 
     /** @return array<string, mixed> */
