@@ -154,8 +154,13 @@ it('separates expired and non-public pages from draft warnings in report metrics
         status: true,
         type: UrlTypeEnum::Redirect,
     );
+    $nonPublic->pageUrls()->update(['type' => UrlTypeEnum::Redirect->value]);
+    $nonPublicUrls = $nonPublic->pageUrls()->get();
 
     expect($nonPublicUrl->getRawOriginal('type'))->toBe(UrlTypeEnum::Redirect->value);
+    expect($nonPublicUrls->isNotEmpty())->toBeTrue()
+        ->and($nonPublicUrls->every(fn (PageUrl $pageUrl): bool => $pageUrl->status
+            && $pageUrl->getRawOriginal('type') === UrlTypeEnum::Redirect->value))->toBeTrue();
 
     $snapshot = BuildPublishingReadinessReportAction::run();
     $metrics = collect($snapshot->metrics)->pluck('value', 'label');
