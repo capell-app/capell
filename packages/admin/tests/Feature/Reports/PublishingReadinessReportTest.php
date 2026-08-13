@@ -119,6 +119,7 @@ it('separates expired and disabled pages from draft warnings in report metrics',
         ->type($blueprint)
         ->withTranslations($english)
         ->createOne([
+            'name' => 'Expired page',
             'visible_from' => now()->subDays(2),
             'visible_until' => now()->subDay(),
         ]);
@@ -129,6 +130,7 @@ it('separates expired and disabled pages from draft warnings in report metrics',
         ->type($blueprint)
         ->withTranslations($english)
         ->createOne([
+            'name' => 'Draft page',
             'visible_from' => PublishSentinel::draftValue(),
             'visible_until' => null,
         ]);
@@ -139,6 +141,7 @@ it('separates expired and disabled pages from draft warnings in report metrics',
         ->type($blueprint)
         ->withTranslations($english)
         ->createOne([
+            'name' => 'Disabled page',
             'visible_from' => now()->subDay(),
             'visible_until' => null,
         ]);
@@ -151,12 +154,14 @@ it('separates expired and disabled pages from draft warnings in report metrics',
     $metrics = collect($snapshot->metrics)->pluck('value', 'label');
     $severityCounts = collect($snapshot->findings)
         ->countBy(fn ($finding): string => $finding->severity->value);
+    $findingRecords = collect($snapshot->findings)->pluck('recordLabel')->all();
 
     expect($metrics[__('capell-admin::reports.publishing_readiness_metric_pages_checked')])->toBe(3)
         ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_blocked_pages')])->toBe(2)
         ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_scheduled_pages')])->toBe(0)
         ->and($severityCounts->get(ReportFindingSeverity::Critical->value))->toBe(2)
         ->and($severityCounts->get(ReportFindingSeverity::Warning->value))->toBe(1)
+        ->and($findingRecords)->toContain('Expired page (Launch Site)', 'Draft page (Launch Site)', 'Disabled page (Launch Site)')
         ->and(collect($snapshot->findings)->every(fn ($finding): bool => $finding->url !== null))->toBeTrue();
 });
 
