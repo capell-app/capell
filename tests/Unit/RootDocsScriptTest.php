@@ -112,14 +112,10 @@ function rootDocsFixture(): string
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
     file_put_contents($root . '/README.md', implode("\n", [
         '**The first editable page is easy. Capell solves what comes next.**',
-        'Capell is an open-source CMS for Laravel, built on Filament.',
-        'A Page model and Filament resource are quick; the long-term work is reusable page blueprints, preview through the real theme, URL history, revision comparison, validated recovery and repeatable upgrades.',
-        'Capell Foundation turns that recurring work into one maintained, MIT-licensed contract. Editors preview, publish and recover pages in Filament; the Laravel application renders them with Blade, Livewire, Inertia, Vue.js or its own stack.',
-        'Underneath is a slim, strictly typed and well-tested core. Filament editing and public rendering stay completely separate, while new capabilities plug in through normal Laravel packages instead of core patches.',
-        'Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.',
+        'Capell is an open-source CMS for Laravel. Build reusable page blueprints, preview through the real theme, use revision comparison and run repeatable upgrades.',
+        'Capell Foundation is MIT-licensed. Your pages render inside your Laravel application.',
         'Capell is not a hosted CMS and does not ship a public content-delivery API.',
-        'The canonical installation entry point for an existing Laravel application is `capell-app/installer`.',
-        'The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line.',
+        'Install with `capell-app/installer`; the aligned aggregate is `capell-app/capell`.',
     ]));
 
     return $root;
