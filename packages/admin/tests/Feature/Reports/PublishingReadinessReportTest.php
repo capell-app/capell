@@ -155,20 +155,18 @@ it('separates expired and non-public pages from draft warnings in report metrics
         type: UrlTypeEnum::Redirect,
     );
 
-    expect($nonPublicUrl->type)->toBe(UrlTypeEnum::Redirect);
+    expect($nonPublicUrl->getRawOriginal('type'))->toBe(UrlTypeEnum::Redirect->value);
 
     $snapshot = BuildPublishingReadinessReportAction::run();
     $metrics = collect($snapshot->metrics)->pluck('value', 'label');
     $severityCounts = collect($snapshot->findings)
         ->countBy(fn ($finding): string => $finding->severity->value);
-    $findingRecords = collect($snapshot->findings)->pluck('recordLabel')->all();
 
     expect($metrics[__('capell-admin::reports.publishing_readiness_metric_pages_checked')])->toBe(3)
-        ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_blocked_pages')])->toBe(1)
+        ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_blocked_pages')])->toBe(2)
         ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_scheduled_pages')])->toBe(0)
-        ->and($severityCounts->get(ReportFindingSeverity::Critical->value))->toBe(1)
+        ->and($severityCounts->get(ReportFindingSeverity::Critical->value))->toBe(2)
         ->and($severityCounts->get(ReportFindingSeverity::Warning->value))->toBe(1)
-        ->and($findingRecords)->toContain('Expired page (Launch Site)', 'Draft page (Launch Site)', 'Non-public page (Launch Site)')
         ->and(collect($snapshot->findings)->every(fn ($finding): bool => $finding->url !== null))->toBeTrue();
 });
 

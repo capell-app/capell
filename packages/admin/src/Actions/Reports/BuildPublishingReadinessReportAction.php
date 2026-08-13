@@ -378,7 +378,7 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
     {
         return $page->pageUrls->contains(fn (PageUrl $pageUrl): bool => (int) $pageUrl->language_id === (int) $language->id
                 && $pageUrl->status
-                && $pageUrl->type !== UrlTypeEnum::Redirect);
+                && $pageUrl->getRawOriginal('type') !== UrlTypeEnum::Redirect->value);
     }
 
     private function recordLabel(Page $page): string
