@@ -21,6 +21,7 @@ use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Frontend\Actions\ApplyFrontendRouteReservationsAction;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
+use Capell\Frontend\Actions\Fragments\ResolvePublicFragmentContentVersionAction;
 use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
 use Capell\Frontend\Actions\WarmCriticalFrontendPagesAction;
 use Capell\Frontend\Console\Commands\AfterInstallCommand;
@@ -222,6 +223,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(FontMimeTypeResolverInterface::class, FontMimeTypeResolver::class);
         $this->app->scoped(HtmlMinifier::class, VokuHtmlMinifier::class);
         $this->app->singleton(PublicFragmentReferenceCodec::class, EncryptedPublicFragmentReferenceCodec::class);
+        $this->app->scoped(ResolvePublicFragmentContentVersionAction::class);
         $this->app->scoped(
             PublicFragmentUrlResolverRegistry::class,
             fn (Application $application): PublicFragmentUrlResolverRegistry => new PublicFragmentUrlResolverRegistry(
