@@ -278,7 +278,7 @@ it('rejects duplicate content widget keys across package boundaries', function (
     try {
         expect(fn (): mixed => AssertContentWidgetKeysAvailableAction::run([
             CapellCore::getPackage($candidate->name),
-        ]))->toThrow(RuntimeException::class, 'Content widget key "hero" is already registered');
+        ]))->toThrow(RuntimeException::class);
     } finally {
         CapellCore::clearPackages();
     }

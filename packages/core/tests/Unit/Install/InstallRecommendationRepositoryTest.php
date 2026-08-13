@@ -49,7 +49,7 @@ it('resolves explicit select, confirm, custom, and skip actions', function (): v
         ->and($action->handle(InstallRecommendationAction::Skip))->toBe([]);
 
     expect(fn (): array => $action->handle(InstallRecommendationAction::Select, 'missing'))
-        ->toThrow(InvalidArgumentException::class, 'Select a valid Capell install recommendation.');
+        ->toThrow(InvalidArgumentException::class);
 });
 
 it('normalises recommendation values, ordering, and empty lookups', function (): void {

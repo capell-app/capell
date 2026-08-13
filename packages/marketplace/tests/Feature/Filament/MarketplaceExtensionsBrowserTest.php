@@ -1404,6 +1404,32 @@ it('applies the marketplace author filter from the card action', function (): vo
         && ($request->data()['author'] ?? null) === 'capell-labs');
 });
 
+it('applies marketplace presets and clears progress state through component transitions', function (): void {
+    grantMarketplaceBrowserViewOnlyAccess();
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->set('tableFilters', [
+            'free_only' => ['isActive' => false],
+            'kind' => ['value' => null],
+            'sort' => ['value' => null],
+            'installed_status' => ['value' => true],
+        ])
+        ->call('applyMarketplacePreset', 'free')
+        ->assertSet('tableFilters.free_only.isActive', true)
+        ->assertSet('tableFilters.installed_status.value', false)
+        ->call('applyMarketplacePreset', 'free')
+        ->assertSet('tableFilters.free_only.isActive', false)
+        ->call('applyMarketplacePreset', 'themes')
+        ->assertSet('tableFilters.kind.value', 'theme')
+        ->call('applyMarketplacePreset', 'recommended')
+        ->assertSet('tableFilters.sort.value', 'recommended')
+        ->set('activeMarketplaceInstallAttemptIds', [41, 42])
+        ->set('marketplaceStep', 'progress')
+        ->call('backToMarketplaceBrowseFromProgress')
+        ->assertSet('activeMarketplaceInstallAttemptIds', [])
+        ->assertSet('marketplaceStep', 'browse');
+});
+
 it('builds marketplace table records from filtered marketplace listings', function (): void {
     grantMarketplaceBrowserViewOnlyAccess();
 
