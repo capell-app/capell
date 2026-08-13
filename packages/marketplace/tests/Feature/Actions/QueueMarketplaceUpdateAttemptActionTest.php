@@ -159,7 +159,7 @@ it('queues an update only after the marketplace confirms a newer version', funct
     bindMarketplaceUpdateVersion('2.1.0');
 
     Http::fake([
-        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+        '*extensions/by-composer*' => Http::response([
             'data' => [[
                 'slug' => 'seo-suite',
                 'name' => 'SEO Suite',
@@ -195,7 +195,7 @@ it('refuses to queue an update when the marketplace version is not newer', funct
     bindMarketplaceUpdateVersion('2.4.0');
 
     Http::fake([
-        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+        '*extensions/by-composer*' => Http::response([
             'data' => [[
                 'slug' => 'seo-suite',
                 'name' => 'SEO Suite',
@@ -224,7 +224,7 @@ it('refuses to queue an update when the marketplace no longer lists the package'
     bindMarketplaceUpdateVersion('2.1.0');
 
     Http::fake([
-        'https://marketplace.test/api/extensions/by-composer*' => Http::response(['data' => []]),
+        '*extensions/by-composer*' => Http::response(['data' => []]),
     ]);
 
     expect(fn (): mixed => UpdateMarketplaceExtensionAction::run(
