@@ -1692,7 +1692,7 @@ it('loads browser records and filter options through the livewire boundary', fun
 
     $component = Livewire::test(MarketplaceExtensionsBrowser::class)
         ->set('tableSearch', 'seo')
-        ->set('tableRecordsPerPage', 12)
+        ->set('tableRecordsPerPage', 18)
         ->set('paginators.page', 2);
 
     $records = $component->instance()->marketplaceRecords();
@@ -1707,7 +1707,7 @@ it('loads browser records and filter options through the livewire boundary', fun
     Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), 'https://marketplace.test/api/extensions?')
         && ($request->data()['search'] ?? null) === 'seo'
         && ($request->data()['page'] ?? null) === '2'
-        && ($request->data()['per_page'] ?? null) === '12');
+        && ($request->data()['per_page'] ?? null) === '18');
 });
 
 it('marks marketplace browse as unavailable when the catalogue request fails', function (): void {
