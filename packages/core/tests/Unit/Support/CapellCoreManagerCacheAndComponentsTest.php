@@ -218,16 +218,42 @@ it('returns resolved values when the configured cache backend is unavailable', f
         });
         $diagnostics = $manager->runtimeDiagnostics();
 
+        $manager->setToCache('backend-write-failure', 'not persisted');
+        $manager->flushLocalCache();
+
         expect($first)->toBe('resolved')
             ->and($second)->toBe('resolved')
             ->and($callbackRuns)->toBe(1)
             ->and($manager->getFromCache('missing-backend-key'))->toBeNull()
+            ->and($manager->cacheExists('backend-write-failure'))->toBeFalse()
             ->and($diagnostics->backendReachable)->toBeFalse()
             ->and($diagnostics->backendFailureCount)->toBeGreaterThan(0);
     } finally {
         config(['cache.default' => 'array']);
         Cache::purge('failing');
     }
+});
+
+it('preserves persisted null values and ignores non-pattern invalidations', function (): void {
+    config([
+        'cache.default' => 'array',
+        'capell.disable_cache' => false,
+    ]);
+
+    $manager = resolve(CapellCacheManager::class);
+    $manager->invalidateCachePattern('not-a-pattern');
+    $manager->setToCache('nullable-persisted-value', null, ttl: 0);
+    $manager->flushLocalCache();
+
+    $callbackRuns = 0;
+
+    expect($manager->rememberCache('nullable-persisted-value', function () use (&$callbackRuns): string {
+        $callbackRuns++;
+
+        return 'unexpectedly-recomputed';
+    }))->toBeNull()
+        ->and($manager->cacheExists('nullable-persisted-value'))->toBeFalse()
+        ->and($callbackRuns)->toBe(0);
 });
 
 it('caches values, null sentinels, disabled saves, and cache increments through the core manager', function (): void {
