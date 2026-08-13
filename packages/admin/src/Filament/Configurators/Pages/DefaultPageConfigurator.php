@@ -24,6 +24,7 @@ use Capell\Admin\Filament\Components\Forms\PublishSchema;
 use Capell\Admin\Filament\Components\Forms\RepeaterTabs;
 use Capell\Admin\Filament\Concerns\HasConfigurator;
 use Capell\Admin\Filament\Concerns\HasDefaultRelationManagers;
+use Capell\Admin\Filament\Livewire\PageScratchDraftPanel;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
 use Capell\Admin\Support\Configurators\ConfiguratorResolver;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
@@ -217,6 +218,7 @@ class DefaultPageConfigurator implements ConfiguratorInterface
                         $this->getTranslationFormSchema($schema),
                     ])
                     ->sidebarSchema([
+                        $this->scratchDraftPanel($schema),
                         $this->publishPanel($schema),
                         Section::make(__('capell-admin::generic.settings'))
                             ->gridContainer()
@@ -249,6 +251,7 @@ class DefaultPageConfigurator implements ConfiguratorInterface
                         ]),
                 ])
                 ->sidebarSchema([
+                    $this->scratchDraftPanel($schema),
                     $this->publishPanel($schema),
                     Section::make(__('capell-admin::generic.page_context'))
                         ->gridContainer()
@@ -284,6 +287,15 @@ class DefaultPageConfigurator implements ConfiguratorInterface
         return Livewire::make(PublishStatusPanel::class, [
             'recordClass' => Page::class,
             'recordId' => (int) ($record instanceof Model ? $record->getKey() : 0),
+        ]);
+    }
+
+    protected function scratchDraftPanel(Schema $schema): Livewire
+    {
+        $record = $schema->getRecord();
+
+        return Livewire::make(PageScratchDraftPanel::class, [
+            'pageId' => (int) ($record instanceof Model ? $record->getKey() : 0),
         ]);
     }
 

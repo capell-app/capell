@@ -52,6 +52,7 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Events\ServingAdmin;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Imports\RedirectImporter;
+use Capell\Admin\Filament\Livewire\PageScratchDraftPanel;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
 use Capell\Admin\Filament\Pages\Reports\AccessibilityReadinessReport;
 use Capell\Admin\Filament\Pages\Reports\DemoInstallHealthReport;
@@ -609,6 +610,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             'capell-admin::header.navigation-tree' => NavigationTree::class,
             'capell-admin::info-banner' => InfoBanner::class,
             // Plain alias because the namespace resolves to Capell\Admin\Livewire.
+            'capell-admin-page-scratch-draft-panel' => PageScratchDraftPanel::class,
             'capell-admin-publish-status-panel' => PublishStatusPanel::class,
         ], [
             'namespace' => 'capell-admin',
