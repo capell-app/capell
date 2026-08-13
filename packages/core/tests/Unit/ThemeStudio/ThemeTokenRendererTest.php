@@ -123,6 +123,61 @@ it('returns fallback token css and exposes token issues for invalid runtime prof
     }
 });
 
+it('preserves theme identity tokens while repairing an unsafe contrast pair', function (): void {
+    $directory = storage_path('framework/testing/theme-tokens-' . Str::uuid()->toString());
+
+    app()->instance(ThemeTokenStore::class, new ThemeTokenStore($directory));
+    resolve(ThemeRegistry::class)->register(
+        new ThemeDefinitionData(
+            key: 'contrast-repair-theme',
+            name: 'Contrast Repair Theme',
+            description: 'Theme runtime contrast repair test.',
+            package: 'capell-app/contrast-repair-theme',
+            previewImage: '/preview.jpg',
+            tags: [],
+            bestFit: [],
+            presets: [
+                new ThemePresetData(
+                    key: 'default',
+                    name: 'Default',
+                    description: 'Default preset.',
+                    previewImage: '/preset.jpg',
+                    values: [
+                        'primaryColor' => '#0a0a0a',
+                        'accentColor' => '#ff2b00',
+                        'neutralColor' => '#4b4b4b',
+                        'surfaceColor' => '#f4f3ef',
+                        'foregroundColor' => '#0a0a0a',
+                        'radius' => 'none',
+                    ],
+                ),
+            ],
+        ),
+    );
+
+    $runtime = ResolveThemeRuntimeAction::run(
+        activeTheme: 'contrast-repair-theme',
+        activePreset: 'default',
+        brand: new BrandProfileData,
+    );
+
+    try {
+        $css = File::get((string) $runtime->tokenCssPath);
+
+        expect($runtime->tokenIssues)
+            ->toHaveCount(1)
+            ->and($runtime->tokenIssues[0])->toContain('accent/surface')
+            ->and($css)->toContain('--theme-primary: #0a0a0a;')
+            ->and($css)->toContain('--theme-accent: #0a0a0a;')
+            ->and($css)->toContain('--theme-neutral: #4b4b4b;')
+            ->and($css)->toContain('--theme-surface: #f4f3ef;')
+            ->and($css)->toContain('--theme-radius: none;')
+            ->and($css)->not->toContain('--theme-primary: #1a2d6d;');
+    } finally {
+        File::deleteDirectory($directory);
+    }
+});
+
 it('continues resolving runtime data when theme token css cannot be written', function (): void {
     app()->instance(ThemeTokenStore::class, new class extends ThemeTokenStore
     {
