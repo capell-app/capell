@@ -7,6 +7,15 @@ return [
         'operator_action_failed' => 'The action could not be completed. Review Package Operations for redacted diagnostics and a safe next step.',
         'view_details' => 'View details',
     ],
+    'qa' => [
+        'lifecycle' => [
+            'extension_not_found' => 'Marketplace did not return the requested extension [:package].',
+            'synchronous_operation_incomplete' => 'The Marketplace lifecycle QA operation could not complete synchronously. Another Composer operation may be active.',
+            'update_requires_exact_version' => 'The --update-from option must be one exact semantic version such as 1.0.0.',
+            'update_requires_only' => 'The --update-from option requires --only=vendor/package.',
+            'update_requires_unprotected_extension' => 'The --update-from lifecycle proof is limited to free extensions without protected Composer credentials or signed activation data.',
+        ],
+    ],
     'event_levels' => [
         'info' => 'Information',
         'warning' => 'Warning',

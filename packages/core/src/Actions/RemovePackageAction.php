@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
@@ -12,6 +13,7 @@ use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\PackageManifest;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -43,7 +45,13 @@ class RemovePackageAction
         throw_if($timeoutSeconds !== null && $timeoutSeconds < 1, RuntimeException::class, 'No job time remains for the Composer package removal.');
 
         $this->assertReleaseRootWritable($requiresServerSideTooling);
-        $this->clearPackageManifestCacheFiles();
+        // Keep Laravel's current provider manifest valid while Composer still
+        // has the package on disk. Clearing it here lets a concurrent request
+        // rebuild the old provider list immediately before Composer removes the
+        // provider class, leaving a stale packages.php and a fatal boot until
+        // this operation reaches its post-Composer refresh.
+        $this->clearPackageManifestCacheFiles(preserveLaravelPackageManifests: true);
+        $this->prepareLaravelPackageManifestForRemoval($name);
 
         $snapshot = ComposerStateSnapshot::capture($this->files);
         $composerPath = $snapshot->composerPath;
@@ -109,6 +117,20 @@ class RemovePackageAction
                     . 'Composer output was withheld because it may contain credentials. Installed dependencies may not match composer.lock. '
                     . 'Run "composer install --no-interaction --no-scripts" from the application root in a trusted terminal.', $throwable->getCode(), previous: $throwable);
                 }
+            }
+
+            try {
+                $this->restoreLaravelPackageManifest();
+            } catch (Throwable $manifestThrowable) {
+                throw new RuntimeException(
+                    sprintf(
+                        'Composer package removal failed and the previous package graph was restored, but Laravel package discovery could not be rebuilt. Removal error: %s Package discovery error: %s',
+                        $throwable->getMessage(),
+                        $manifestThrowable->getMessage(),
+                    ),
+                    $manifestThrowable->getCode(),
+                    previous: $manifestThrowable,
+                );
             }
 
             throw $throwable;
@@ -294,7 +316,7 @@ class RemovePackageAction
      * operator's own file — and the same deploy step that rebuilds the config
      * cache is where a host that cares about them cleans up.
      */
-    private function clearPackageManifestCacheFiles(): void
+    private function clearPackageManifestCacheFiles(bool $preserveLaravelPackageManifests = false): void
     {
         $paths = [
             base_path('bootstrap/cache/capell-package-manifests.php'),
@@ -303,7 +325,7 @@ class RemovePackageAction
             base_path('bootstrap/cache/services.php'),
         ];
 
-        if ($this->shouldPreserveLaravelPackageManifestCacheFiles()) {
+        if ($preserveLaravelPackageManifests || $this->shouldPreserveLaravelPackageManifestCacheFiles()) {
             $paths = array_values(array_filter(
                 $paths,
                 fn (string $path): bool => ! in_array(basename($path), ['packages.php', 'services.php'], true),
@@ -311,6 +333,108 @@ class RemovePackageAction
         }
 
         $this->files->delete($paths);
+    }
+
+    /**
+     * Stop new requests from loading the provider Composer is about to remove.
+     *
+     * The package is still on disk at this point, so replacing packages.php
+     * before deleting services.php is safe in both directions: a request that
+     * wins the first race sees the old, still-loadable provider; one that wins
+     * the second rebuilds the service manifest from the provider list with the
+     * package already absent. Composer can then remove the files without a
+     * request ever seeing a cache that points at a missing class.
+     */
+    private function prepareLaravelPackageManifestForRemoval(string $name): void
+    {
+        if ($this->shouldPreserveLaravelPackageManifestCacheFiles()) {
+            return;
+        }
+
+        $manifestPath = base_path('bootstrap/cache/packages.php');
+
+        if (! $this->files->isDirectory(dirname($manifestPath))) {
+            return;
+        }
+
+        $packageManifest = $this->laravelPackageManifest($manifestPath);
+        $packageManifest->build();
+
+        $packages = $this->files->getRequire($manifestPath);
+
+        throw_unless(is_array($packages), RuntimeException::class, 'Laravel package discovery did not produce a valid package manifest.');
+
+        unset($packages[$name]);
+
+        $this->files->replace(
+            $manifestPath,
+            '<?php return ' . var_export($packages, return: true) . ';' . PHP_EOL,
+        );
+        $this->invalidateOpcache($manifestPath);
+
+        $servicesPath = base_path('bootstrap/cache/services.php');
+        $this->files->delete($servicesPath);
+        $this->invalidateOpcache($servicesPath);
+        $packageManifest->manifest = $packages;
+    }
+
+    /** Restore the provider cache when Composer did not complete the removal. */
+    private function restoreLaravelPackageManifest(): void
+    {
+        if ($this->shouldPreserveLaravelPackageManifestCacheFiles()) {
+            return;
+        }
+
+        ComposerAutoloaderReloader::reload();
+
+        $manifestPath = base_path('bootstrap/cache/packages.php');
+
+        if (! $this->files->isDirectory(dirname($manifestPath))) {
+            return;
+        }
+
+        $packageManifest = $this->laravelPackageManifest($manifestPath);
+        $packageManifest->build();
+        $this->invalidateOpcache($manifestPath);
+
+        $packages = $this->files->getRequire($manifestPath);
+        throw_unless(is_array($packages), RuntimeException::class, 'Laravel package discovery did not restore a valid package manifest.');
+        $packageManifest->manifest = $packages;
+
+        $servicesPath = base_path('bootstrap/cache/services.php');
+        $this->files->delete($servicesPath);
+        $this->invalidateOpcache($servicesPath);
+    }
+
+    /**
+     * Long-lived PHP workers may otherwise keep requiring the provider list
+     * that existed before the atomic replacement. A restricted opcache API is
+     * a refresh limitation, not a package-removal failure.
+     */
+    private function invalidateOpcache(string $path): void
+    {
+        clearstatcache(true, $path);
+
+        if (function_exists('opcache_invalidate')) {
+            @opcache_invalidate($path, true);
+        }
+    }
+
+    /**
+     * Tests and maintenance commands may temporarily point Laravel at a
+     * different application root. Reuse the container manifest only while it
+     * represents that root; otherwise build an isolated manifest for the
+     * current Composer consumer.
+     */
+    private function laravelPackageManifest(string $manifestPath): PackageManifest
+    {
+        $registered = resolve(PackageManifest::class);
+
+        if ($registered->basePath === base_path() && $registered->manifestPath === $manifestPath) {
+            return $registered;
+        }
+
+        return new PackageManifest($this->files, base_path(), $manifestPath);
     }
 
     /**

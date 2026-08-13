@@ -7,7 +7,7 @@ it('does not declare case-only duplicate package test paths', function (): void 
 
     preg_match_all("/'(\.\.\/[^']+\/tests)'/", $configuration, $matches);
 
-    $paths = $matches[1] ?? [];
+    $paths = $matches[1];
     $normalisedPaths = array_map(
         static fn (string $path): string => strtolower(str_replace('\\', '/', $path)),
         $paths,

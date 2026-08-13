@@ -8,9 +8,11 @@ use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Illuminate\Support\ServiceProvider;
+use Override;
 
 final class MarketplaceLifecycleQaFixtureServiceProvider extends ServiceProvider
 {
+    #[Override]
     public function register(): void
     {
         $this->app->singleton(MarketplaceLifecycleQaFixture::class);

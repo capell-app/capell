@@ -11,6 +11,9 @@ use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
 use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
+use Illuminate\Support\Facades\Cache;
 
 beforeEach(function (): void {
     EvaluateMarketplaceEnvironmentReadinessAction::forget();
@@ -205,6 +208,37 @@ it('caches the evaluation for a short window and can be forgotten', function ():
 
     expect(EvaluateMarketplaceEnvironmentReadinessAction::run(releaseRoot: $releaseRoot)->capability)
         ->toBe(MarketplaceInstallCapability::ManualOnly);
+});
+
+it('caches scalar data and repairs legacy object entries when classes cannot be unserialized', function (): void {
+    $originalCache = Cache::getFacadeRoot();
+    $store = new ArrayStore(serializesValues: true, serializableClasses: false);
+    Cache::swap(new Repository($store));
+
+    try {
+        $releaseRoot = marketplaceReadinessReleaseRoot();
+        $first = EvaluateMarketplaceEnvironmentReadinessAction::run(releaseRoot: $releaseRoot);
+        $cacheKey = collect(array_keys($store->all(unserialize: false)))
+            ->first(static fn (string $key): bool => str_starts_with(
+                $key,
+                EvaluateMarketplaceEnvironmentReadinessAction::CACHE_KEY . ':',
+            ));
+
+        expect($cacheKey)->toBeString()
+            ->and(Cache::get($cacheKey))->toBeArray();
+
+        Cache::put($cacheKey, $first, EvaluateMarketplaceEnvironmentReadinessAction::CACHE_SECONDS);
+
+        expect(Cache::get($cacheKey))->toBeInstanceOf(__PHP_Incomplete_Class::class);
+
+        $recovered = EvaluateMarketplaceEnvironmentReadinessAction::run(releaseRoot: $releaseRoot);
+
+        expect($recovered->capability)->toBe(MarketplaceInstallCapability::Automated)
+            ->and($recovered->check('process_execution')?->status)->toBe(MarketplaceReadinessStatus::Pass)
+            ->and(Cache::get($cacheKey))->toBeArray();
+    } finally {
+        Cache::swap($originalCache);
+    }
 });
 
 function configureHealthyMarketplaceHost(): void

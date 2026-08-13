@@ -162,9 +162,8 @@ async function openMarketplace(page) {
     )
 }
 
-async function selectMarketplaceExtension(page) {
+async function marketplaceExtensionSelection(page) {
     const dialog = marketplaceDialog(page)
-
     const search = dialog
         .getByPlaceholder('Search extensions, capabilities, publishers...')
         .or(dialog.getByLabel(/search/i))
@@ -188,7 +187,8 @@ async function selectMarketplaceExtension(page) {
     }
 
     await expect(extensionCard).toBeVisible({ timeout: 15000 })
-    await extensionCard
+
+    const selectionAction = extensionCard
         .getByRole('button', {
             name: /select|download|install|continue|review/i,
         })
@@ -198,7 +198,32 @@ async function selectMarketplaceExtension(page) {
             }),
         )
         .first()
-        .click()
+
+    return { dialog, search, selectionAction }
+}
+
+async function waitForMarketplaceExtensionSelection({
+    search,
+    selectionAction,
+}) {
+    await expect(async () => {
+        if (!(await selectionAction.isEnabled().catch(() => false))) {
+            await search.fill('')
+            await search.fill(extensionName)
+        }
+
+        await expect(selectionAction).toBeEnabled({ timeout: 2000 })
+    }).toPass({ timeout: 30000, intervals: [1000] })
+}
+
+async function selectMarketplaceExtension(page) {
+    const selection = await marketplaceExtensionSelection(page)
+
+    await waitForMarketplaceExtensionSelection(selection)
+
+    const { dialog, selectionAction } = selection
+
+    await selectionAction.click()
 
     const review = dialog
         .getByRole('button', { name: /download selected|install/i })
@@ -225,6 +250,13 @@ async function selectMarketplaceExtension(page) {
             licenceForm.locator('[data-capell-marketplace-licence-key]'),
         ).toBeVisible()
     }
+
+    const installAfterDownload = dialog.getByRole('checkbox', {
+        name: /install this extension after download/i,
+    })
+
+    await expect(installAfterDownload).toBeVisible({ timeout: 15000 })
+    await installAfterDownload.check()
 
     const finalInstall = dialog
         .getByRole('button', {
@@ -331,28 +363,43 @@ async function continueCapellaFlow(page) {
 }
 
 async function uninstallAndDeleteExtension(page, { required = false } = {}) {
-    await page.goto(`${cmsUrl}/admin/extensions?page=2`, {
-        waitUntil: 'domcontentloaded',
-    })
-
     const installedExtension = page
         .locator('article, tr, [role="row"], [data-extension-card]')
         .filter({ hasText: installedExtensionName })
         .first()
 
-    if (
-        !(await installedExtension
-            .isVisible({ timeout: 15000 })
+    const loadExtensionsPage = async () => {
+        await page.goto(`${cmsUrl}/admin/extensions`, {
+            waitUntil: 'domcontentloaded',
+        })
+
+        const search = page
+            .getByRole('searchbox', { name: 'Search', exact: true })
+            .first()
+
+        await expect(search).toBeVisible({ timeout: 15000 })
+        await search.fill(installedExtensionName)
+    }
+
+    const loadInstalledExtension = async () => {
+        await loadExtensionsPage()
+        await expect(installedExtension).toBeVisible({ timeout: 2000 })
+    }
+
+    if (required) {
+        await expect(loadInstalledExtension).toPass({
+            timeout: 30000,
+            intervals: [1000],
+        })
+    } else if (
+        !(await loadInstalledExtension()
+            .then(() => true)
             .catch(() => false))
     ) {
-        if (required) {
-            throw new Error(
-                `${installedExtensionName} was not visible on the Extensions page for uninstall/delete.`,
-            )
-        }
-
         return
     }
+
+    await expect(installedExtension).toBeVisible({ timeout: 15000 })
 
     const manage = installedExtension
         .getByRole('button', { name: /manage|actions|open/i })
@@ -368,6 +415,8 @@ async function uninstallAndDeleteExtension(page, { required = false } = {}) {
     }
 
     const uninstall = page.getByRole('button', { name: /uninstall/i }).first()
+    let uninstallStarted = false
+
     if (!(await uninstall.isVisible().catch(() => false))) {
         if (required) {
             throw new Error(
@@ -377,9 +426,22 @@ async function uninstallAndDeleteExtension(page, { required = false } = {}) {
     } else {
         await uninstall.click()
 
+        const deletePackage = page.getByRole('checkbox', {
+            name: /also remove the composer package/i,
+        })
+        const deleteData = page.getByRole('checkbox', {
+            name: /also delete the data for this extension/i,
+        })
+
+        await expect(deletePackage).toBeVisible({ timeout: 15000 })
+        await expect(deleteData).toBeVisible({ timeout: 15000 })
+        await deletePackage.check()
+        await deleteData.check()
+
         const confirm = page
             .getByRole('button', { name: /uninstall|confirm/i })
             .last()
+
         if (!(await confirm.isVisible().catch(() => false))) {
             if (required) {
                 throw new Error(
@@ -388,42 +450,31 @@ async function uninstallAndDeleteExtension(page, { required = false } = {}) {
             }
         } else {
             await confirm.click()
+            uninstallStarted = true
         }
     }
 
-    const deleteData = page
-        .getByRole('button', { name: /delete data|delete extension data/i })
-        .first()
-    if (!(await deleteData.isVisible().catch(() => false))) {
+    if (uninstallStarted) {
+        await expect(async () => {
+            await loadExtensionsPage()
+            await expect(installedExtension).not.toBeVisible({ timeout: 2000 })
+        }).toPass({ timeout: 30000, intervals: [1000] })
+
         if (required) {
-            throw new Error(
-                `${installedExtensionName} did not expose a delete data action.`,
+            await openMarketplace(page)
+            await waitForMarketplaceExtensionSelection(
+                await marketplaceExtensionSelection(page),
             )
         }
-    } else {
-        await deleteData.click()
-
-        const confirmDelete = page
-            .getByRole('button', { name: /delete|confirm/i })
-            .last()
-        if (!(await confirmDelete.isVisible().catch(() => false))) {
-            if (required) {
-                throw new Error(
-                    `${installedExtensionName} did not expose a delete confirmation.`,
-                )
-            }
-        } else {
-            await confirmDelete.click()
-        }
-    }
-
-    if (required) {
-        await expect(installedExtension).not.toBeVisible({ timeout: 30000 })
     }
 }
 
 test.describe('marketplace hosted install flow smoke', () => {
     test.setTimeout(120000)
+
+    test.afterEach(async ({ page }) => {
+        await page.unrouteAll({ behavior: 'ignoreErrors' })
+    })
 
     test('hosted install can approve return uninstall and delete locally', async ({
         page,
@@ -458,7 +509,7 @@ test.describe('marketplace hosted install flow smoke', () => {
 
         await expect(page).toHaveURL(/\/admin\/extensions|\/admin\/marketplace/)
         await expect(
-            page.getByRole('heading', { name: 'Extensions' }),
+            page.getByRole('heading', { name: 'Extensions', exact: true }),
         ).toBeVisible({
             timeout: 30000,
         })

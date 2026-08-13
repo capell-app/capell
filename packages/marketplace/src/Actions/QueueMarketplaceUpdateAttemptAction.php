@@ -50,6 +50,7 @@ final class QueueMarketplaceUpdateAttemptAction
         array $context = [],
         ?Authenticatable $user = null,
         ?string $idempotencyKey = null,
+        bool $dispatch = true,
     ): MarketplaceInstallAttempt {
         $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
 
@@ -76,6 +77,7 @@ final class QueueMarketplaceUpdateAttemptAction
                 context: $context,
                 user: $user,
                 idempotencyKey: $idempotencyKey,
+                dispatch: $dispatch,
             );
         } finally {
             $lock->release();
@@ -94,6 +96,7 @@ final class QueueMarketplaceUpdateAttemptAction
         array $context,
         ?Authenticatable $user,
         ?string $idempotencyKey,
+        bool $dispatch,
     ): MarketplaceInstallAttempt {
         $existingAttempt = $this->findIdempotentAttempt($idempotencyKey);
 
@@ -167,6 +170,10 @@ final class QueueMarketplaceUpdateAttemptAction
                     PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $claimedAttempt),
                 ),
             );
+        }
+
+        if (! $dispatch) {
+            return $attempt;
         }
 
         return DispatchMarketplaceUpdateAttemptAction::run(

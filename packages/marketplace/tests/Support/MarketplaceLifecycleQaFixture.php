@@ -34,6 +34,8 @@ final class MarketplaceLifecycleQaFixture implements MarketplaceAuthenticatedCom
 
     private bool $composerFails = false;
 
+    private ?string $failingVersionConstraint = null;
+
     /** @var list<array{composer_name: string, version_constraint: string, timeout_seconds: int}> */
     private array $composerCalls = [];
 
@@ -44,15 +46,14 @@ final class MarketplaceLifecycleQaFixture implements MarketplaceAuthenticatedCom
         CapellManifestData $initialManifest,
         CapellManifestData $updatedManifest,
     ): void {
-        if ($initialManifest->name !== self::PACKAGE_NAME || $updatedManifest->name !== self::PACKAGE_NAME) {
-            throw new RuntimeException('The lifecycle QA fixture manifests must use the fixture package name.');
-        }
+        throw_if($initialManifest->name !== self::PACKAGE_NAME || $updatedManifest->name !== self::PACKAGE_NAME, RuntimeException::class, 'The lifecycle QA fixture manifests must use the fixture package name.');
 
         $this->initialManifest = $initialManifest;
         $this->updatedManifest = $updatedManifest;
         $this->installedVersion = null;
         $this->publisherAvailable = true;
         $this->composerFails = false;
+        $this->failingVersionConstraint = null;
         $this->composerCalls = [];
         $this->publicationRequests = [];
     }
@@ -65,6 +66,11 @@ final class MarketplaceLifecycleQaFixture implements MarketplaceAuthenticatedCom
     public function setComposerFails(bool $fails): void
     {
         $this->composerFails = $fails;
+    }
+
+    public function failWhenVersionConstraint(string $versionConstraint): void
+    {
+        $this->failingVersionConstraint = $versionConstraint;
     }
 
     public function prettyVersion(string $composerName): ?string
@@ -80,7 +86,7 @@ final class MarketplaceLifecycleQaFixture implements MarketplaceAuthenticatedCom
             'timeout_seconds' => $timeoutSeconds,
         ];
 
-        if ($this->composerFails) {
+        if ($this->composerFails || $this->failingVersionConstraint === $versionConstraint) {
             return new MarketplaceComposerResultData(
                 exitCode: 1,
                 output: 'Lifecycle QA Composer fixture failed.',
@@ -104,9 +110,7 @@ final class MarketplaceLifecycleQaFixture implements MarketplaceAuthenticatedCom
         int $timeoutSeconds,
         array $composerAuth,
     ): MarketplaceComposerResultData {
-        if ($composerAuth !== ['bearer' => 'fixture-token']) {
-            throw new RuntimeException('The lifecycle QA fixture received unexpected Composer authorization.');
-        }
+        throw_if($composerAuth !== ['bearer' => 'fixture-token'], RuntimeException::class, 'The lifecycle QA fixture received unexpected Composer authorization.');
 
         return $this->require($composerName, $versionConstraint, $timeoutSeconds);
     }
@@ -157,9 +161,7 @@ final class MarketplaceLifecycleQaFixture implements MarketplaceAuthenticatedCom
 
         $manifest = $version === self::UPDATED_VERSION ? $this->updatedManifest : $this->initialManifest;
 
-        if (! $manifest instanceof CapellManifestData) {
-            throw new RuntimeException('The lifecycle QA fixture has not been configured with manifests.');
-        }
+        throw_unless($manifest instanceof CapellManifestData, RuntimeException::class, 'The lifecycle QA fixture has not been configured with manifests.');
 
         CapellCore::registerManifestPackage($manifest, $version);
         CapellCore::forcePackageInstalled($composerName);

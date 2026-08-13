@@ -884,14 +884,14 @@ it('runs the database seeder with force when the seed database step executes', f
         ->toContain(['type' => 'info', 'line' => '✓ Database seeded']);
 });
 
-it('integrates the admin panel with resolved schema and feature flags', function (): void {
+it('integrates the admin panel with resolved configurators and feature flags', function (): void {
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('call')
         ->once()
         ->with('capell:admin-setup', [
             '--integration-only' => true,
             '--panel' => 'admin',
-            '--schemas' => 'resources/views=App\\Admin\\Schemas,resources/widgets=App\\Admin\\Widgets',
+            '--configurators' => 'resources/views=App\\Admin\\Schemas,resources/widgets=App\\Admin\\Widgets',
             '--no-colors' => false,
             '--no-widgets' => true,
             '--no-navigation' => false,

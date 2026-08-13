@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Jobs;
 
+use Capell\Core\Actions\BuildPackageCacheAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
+use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -134,7 +136,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
     protected ?int $startedAtNanoseconds = null;
 
     public function __construct(
-        private readonly int $installAttemptId,
+        protected readonly int $installAttemptId,
     ) {
         $this->timeout = static::jobTimeoutSeconds();
     }
@@ -338,6 +340,34 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
                     queryCount: $queryCount,
                 );
             }
+        }
+    }
+
+    /**
+     * Execute the queued operation inline while preserving queue failure semantics.
+     *
+     * The lifecycle QA command deliberately creates the same queued attempt and
+     * runs the same job implementation, but there is no queue payload available
+     * for release() to retry when the Composer lock is busy. Any early exception
+     * similarly has no worker wrapper that would invoke failed(). Inline callers
+     * therefore need one terminal result before they return.
+     */
+    public function handleSynchronously(MarketplaceComposerRunner $composer): void
+    {
+        try {
+            $this->handle($composer);
+        } catch (Throwable $throwable) {
+            $this->failed($throwable);
+
+            throw $throwable;
+        }
+
+        $attempt = MarketplaceInstallAttempt::query()->find($this->installAttemptId);
+
+        if ($attempt instanceof MarketplaceInstallAttempt && $attempt->status->isActiveInstallOperation()) {
+            $this->failed(new RuntimeException(
+                (string) __('capell-marketplace::marketplace.qa.lifecycle.synchronous_operation_incomplete'),
+            ));
         }
     }
 
@@ -571,6 +601,7 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
 
         $registry = resolve(CapellPackageRegistry::class);
         $manifests = new ManifestLoader(new ManifestValidator)->discover();
+        BuildPackageCacheAction::run($manifests);
         $registry->fill($manifests);
 
         foreach ($manifests as $manifest) {
@@ -894,7 +925,11 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         ]);
 
         try {
-            RestoreComposerStateAction::run($snapshot, $this->rollbackBudgetSeconds());
+            $restored = RestoreComposerStateAction::run($snapshot, $this->rollbackBudgetSeconds());
+
+            if ($restored) {
+                $this->rediscoverRestoredLaravelPackages();
+            }
         } catch (Throwable $rollbackThrowable) {
             report($rollbackThrowable);
 
@@ -975,10 +1010,50 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
             return;
         }
 
+        try {
+            $this->rediscoverRestoredLaravelPackages();
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Error, 'timeline_rollback_failed', MarketplaceInstallFailureStage::Composer, [
+                'reason' => $originalReason,
+                'rollback_error' => $throwable->getMessage(),
+                'rolled_back' => false,
+            ]);
+            $this->recordRollbackOutcome($attempt, false, $originalReason, $throwable->getMessage());
+
+            return;
+        }
+
         $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_rollback_completed', MarketplaceInstallFailureStage::Composer, [
             'rolled_back' => true,
         ]);
         $this->recordRollbackOutcome($attempt, true, $originalReason, null);
+    }
+
+    /**
+     * Composer restoration runs with --no-scripts, so Laravel's generated
+     * package manifest still describes the failed state until it is rebuilt.
+     * Treat a rebuild failure as a rollback failure: the next Artisan or HTTP
+     * boot may otherwise load a provider that Composer just removed.
+     */
+    private function rediscoverRestoredLaravelPackages(): void
+    {
+        ComposerAutoloaderReloader::reload();
+        resolve(PackageManifest::class)->build();
+
+        $manifests = new ManifestLoader(new ManifestValidator)->discover();
+        BuildPackageCacheAction::run($manifests);
+        $this->synchronizePackageRegistry($manifests);
+    }
+
+    /** @param array<string, CapellManifestData> $manifests */
+    private function synchronizePackageRegistry(array $manifests): void
+    {
+        resolve(CapellPackageRegistry::class)->synchronizeDiscoveredManifests(
+            $manifests,
+            fn (string $packageName): ?string => CapellCore::getInstalledPrettyVersion($packageName),
+        );
     }
 
     /**

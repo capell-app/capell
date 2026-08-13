@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
+use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceExtensionLifecycleQaResultData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
@@ -14,8 +15,10 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Jobs\RunMarketplaceUninstallAttemptJob;
+use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use DomainException;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -41,11 +44,12 @@ final class RunMarketplaceExtensionsLifecycleQaAction
         bool $stopOnFailure = false,
         bool $dryRun = false,
         bool $betaAcknowledged = false,
+        ?string $updateFrom = null,
     ): array {
         $results = [];
 
         foreach ($this->installableListings($only) as $listing) {
-            $result = $this->runListing($listing, $skipDelete, $dryRun, $betaAcknowledged);
+            $result = $this->runListing($listing, $skipDelete, $dryRun, $betaAcknowledged, $updateFrom);
             $results[] = $result;
 
             if ($stopOnFailure && $result->failed()) {
@@ -79,7 +83,19 @@ final class RunMarketplaceExtensionsLifecycleQaAction
         bool $skipDelete,
         bool $dryRun,
         bool $betaAcknowledged,
+        ?string $updateFrom,
     ): MarketplaceExtensionLifecycleQaResultData {
+        if ($updateFrom !== null && ($listing->isPaid || $listing->activationRequired)) {
+            return $this->failedResult(
+                $listing,
+                'failed',
+                'skipped',
+                'skipped',
+                'skipped',
+                (string) __('capell-marketplace::marketplace.qa.lifecycle.update_requires_unprotected_extension'),
+            );
+        }
+
         if ($dryRun) {
             return new MarketplaceExtensionLifecycleQaResultData(
                 name: $listing->name,
@@ -87,6 +103,7 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                 installResult: 'dry-run',
                 uninstallResult: 'dry-run',
                 deleteResult: $skipDelete ? 'skipped' : 'dry-run',
+                updateResult: $updateFrom === null ? 'skipped' : 'dry-run',
             );
         }
 
@@ -96,7 +113,7 @@ final class RunMarketplaceExtensionsLifecycleQaAction
         ]);
 
         try {
-            $acquisition = CreateExtensionAcquisitionAction::run($listing);
+            $acquisition = $this->installAcquisition($listing, $updateFrom);
             $eligibility = ResolveMarketplaceInstallEligibilityAction::run(
                 listing: $listing,
                 instance: $this->instances->latest(),
@@ -120,23 +137,105 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                 context: [
                     'source' => 'marketplace_lifecycle_qa',
                 ],
+                dispatch: false,
             );
 
             if ($attempt->status === MarketplaceInstallIntentStatus::Queued) {
-                new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handle($this->composer);
+                new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())->handleSynchronously($this->composer);
             }
 
             $attempt->refresh();
 
             if ($attempt->status !== MarketplaceInstallIntentStatus::Succeeded) {
-                return $this->failedResult($listing, 'failed', 'skipped', $skipDelete ? 'skipped' : 'skipped', $attempt->failure_reason);
+                return $this->failedResult($listing, 'failed', 'skipped', 'skipped', 'skipped', $attempt->failure_reason);
             }
 
-            return $this->uninstallListing($listing, $skipDelete);
+            if ($updateFrom !== null) {
+                return $this->updateListing($listing, $skipDelete);
+            }
+
+            return $this->uninstallListing($listing, $skipDelete, 'skipped');
         } catch (Throwable $throwable) {
             report($throwable);
 
-            return $this->failedResult($listing, 'failed', 'skipped', $skipDelete ? 'skipped' : 'skipped', $throwable->getMessage());
+            return $this->failedResult($listing, 'failed', 'skipped', 'skipped', 'skipped', $throwable->getMessage());
+        }
+    }
+
+    private function installAcquisition(
+        ExtensionListingData $listing,
+        ?string $updateFrom,
+    ): ExtensionAcquisitionData {
+        $acquisition = CreateExtensionAcquisitionAction::run($listing);
+
+        if ($updateFrom === null) {
+            return $acquisition;
+        }
+
+        if ($acquisition->composerAuth !== null || $acquisition->signedActivation !== []) {
+            throw new DomainException((string) __('capell-marketplace::marketplace.qa.lifecycle.update_requires_unprotected_extension'));
+        }
+
+        return new ExtensionAcquisitionData(
+            composerName: $acquisition->composerName,
+            versionConstraint: $updateFrom,
+            composerCommand: sprintf('composer require %s:%s', $acquisition->composerName, $updateFrom),
+            repositoryUrl: $acquisition->repositoryUrl,
+            purchaseUrl: $acquisition->purchaseUrl,
+            requiresDeployment: $acquisition->requiresDeployment,
+            composerAuth: $acquisition->composerAuth,
+            signedActivation: $acquisition->signedActivation,
+            metadata: $acquisition->metadata,
+            authorizationEligibilityPolicy: $acquisition->authorizationEligibilityPolicy,
+        );
+    }
+
+    private function updateListing(
+        ExtensionListingData $listing,
+        bool $skipDelete,
+    ): MarketplaceExtensionLifecycleQaResultData {
+        Log::info('Marketplace lifecycle QA updating extension.', [
+            'composer_name' => $listing->composerName,
+            'extension_slug' => $listing->slug,
+        ]);
+
+        try {
+            $attempt = UpdateMarketplaceExtensionAction::run(
+                composerName: $listing->composerName,
+                actor: MarketplaceInstallActorData::system('marketplace-lifecycle-qa'),
+                source: MarketplaceInstallSource::Cli,
+                dispatch: false,
+            );
+
+            if ($attempt->status === MarketplaceInstallIntentStatus::Queued) {
+                new RunMarketplaceUpdateAttemptJob((int) $attempt->getKey())->handleSynchronously($this->composer);
+            }
+
+            $attempt->refresh();
+
+            if ($attempt->status !== MarketplaceInstallIntentStatus::Succeeded) {
+                return $this->failedResult(
+                    $listing,
+                    'passed',
+                    'failed',
+                    'skipped',
+                    'skipped',
+                    $attempt->failure_reason,
+                );
+            }
+
+            return $this->uninstallListing($listing, $skipDelete, 'passed');
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return $this->failedResult(
+                $listing,
+                'passed',
+                'failed',
+                'skipped',
+                'skipped',
+                $throwable->getMessage(),
+            );
         }
     }
 
@@ -151,8 +250,11 @@ final class RunMarketplaceExtensionsLifecycleQaAction
      * action here would have left the queued uninstall as the one path in this
      * system with no end-to-end exercise.
      */
-    private function uninstallListing(ExtensionListingData $listing, bool $skipDelete): MarketplaceExtensionLifecycleQaResultData
-    {
+    private function uninstallListing(
+        ExtensionListingData $listing,
+        bool $skipDelete,
+        string $updateResult,
+    ): MarketplaceExtensionLifecycleQaResultData {
         Log::info('Marketplace lifecycle QA uninstalling extension.', [
             'composer_name' => $listing->composerName,
             'delete_data' => ! $skipDelete,
@@ -160,7 +262,7 @@ final class RunMarketplaceExtensionsLifecycleQaAction
 
         try {
             if (! CapellCore::hasPackage($listing->composerName)) {
-                return $this->failedResult($listing, 'passed', 'failed', 'skipped', 'Installed package was not discovered by Capell.');
+                return $this->failedResult($listing, 'passed', $updateResult, 'failed', 'skipped', 'Installed package was not discovered by Capell.');
             }
 
             $attempt = QueueMarketplaceUninstallAttemptAction::run(
@@ -180,16 +282,17 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                 actor: MarketplaceInstallActorData::system('marketplace-lifecycle-qa'),
                 source: MarketplaceInstallSource::Cli,
                 context: ['source' => 'marketplace_lifecycle_qa'],
+                dispatch: false,
             );
 
             if ($attempt->status === MarketplaceInstallIntentStatus::Queued) {
-                new RunMarketplaceUninstallAttemptJob((int) $attempt->getKey())->handle($this->composer);
+                new RunMarketplaceUninstallAttemptJob((int) $attempt->getKey())->handleSynchronously($this->composer);
             }
 
             $attempt->refresh();
 
             if ($attempt->status !== MarketplaceInstallIntentStatus::Succeeded) {
-                return $this->failedResult($listing, 'passed', 'failed', $skipDelete ? 'skipped' : 'failed', $attempt->failure_reason);
+                return $this->failedResult($listing, 'passed', $updateResult, 'failed', $skipDelete ? 'skipped' : 'failed', $attempt->failure_reason);
             }
 
             return new MarketplaceExtensionLifecycleQaResultData(
@@ -198,17 +301,19 @@ final class RunMarketplaceExtensionsLifecycleQaAction
                 installResult: 'passed',
                 uninstallResult: 'passed',
                 deleteResult: $skipDelete ? 'skipped' : 'passed',
+                updateResult: $updateResult,
             );
         } catch (Throwable $throwable) {
             report($throwable);
 
-            return $this->failedResult($listing, 'passed', 'failed', $skipDelete ? 'skipped' : 'failed', $throwable->getMessage());
+            return $this->failedResult($listing, 'passed', $updateResult, 'failed', $skipDelete ? 'skipped' : 'failed', $throwable->getMessage());
         }
     }
 
     private function failedResult(
         ExtensionListingData $listing,
         string $installResult,
+        string $updateResult,
         string $uninstallResult,
         string $deleteResult,
         ?string $failureReason,
@@ -220,6 +325,7 @@ final class RunMarketplaceExtensionsLifecycleQaAction
             uninstallResult: $uninstallResult,
             deleteResult: $deleteResult,
             failureReason: $failureReason,
+            updateResult: $updateResult,
         );
     }
 }
