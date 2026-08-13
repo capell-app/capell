@@ -7,7 +7,9 @@ use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\Activity\ActivityResourceLinkData;
+use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
+use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
@@ -33,6 +35,7 @@ beforeEach(function (): void {
     CapellAdmin::clearAdminSurfaceContributions();
     CapellAdmin::clearActivityResourceLinks();
     CapellAdmin::clearUserMenuItems();
+    CapellAdmin::clearWorkspaces();
     resolve(SettingsSchemaRegistry::class)->removeGroup('admin-bridge-registrar-test');
 });
 
@@ -136,6 +139,20 @@ it('registers user menu item definitions through the admin manager', function ()
         ->and($definitions['capell-test.bridge']->badgeColor)->toBe('warning')
         ->and($definitions['capell-test.bridge']->sort)->toBe(20)
         ->and($definitions['capell-test.bridge']->group)->toBe('capell-test');
+});
+
+it('registers workspace definitions through the admin bridge registrar', function (): void {
+    $registrar = resolve(AdminBridgeRegistrar::class);
+
+    $registrar->workspace(new AdminWorkspaceItemData(
+        key: 'bridge.workspace',
+        label: 'Bridge workspace',
+        url: '/admin/bridge-workspace',
+        workspaces: [AdminWorkspaceEnum::Editor],
+        roles: ['editor'],
+    ));
+
+    expect(CapellAdmin::getWorkspaceDefinitions())->toHaveKey('bridge.workspace');
 });
 
 it('registers welcome tour steps through the admin manager', function (): void {
