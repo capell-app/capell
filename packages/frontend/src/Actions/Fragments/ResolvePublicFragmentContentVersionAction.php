@@ -22,6 +22,18 @@ final class ResolvePublicFragmentContentVersionAction
     use AsObject;
 
     /**
+     * @var array<string, array{
+     *     page: array<string, mixed>,
+     *     site: array<string, mixed>,
+     *     language: array<string, mixed>,
+     *     layout: array<string, mixed>,
+     *     translation: array<string, mixed>|null,
+     *     pageUrl: array<string, mixed>|null
+     * }>
+     */
+    private array $contextSnapshots = [];
+
+    /**
      * @param  array<string, int|string>  $ownerContext
      */
     public function handle(
@@ -30,7 +42,39 @@ final class ResolvePublicFragmentContentVersionAction
         Language $language,
         Layout $layout,
         array $ownerContext,
+        bool $fresh = false,
     ): string {
+        $snapshotKey = $this->snapshotKey($page, $site, $language, $layout);
+        $contextSnapshot = $fresh
+            ? $this->resolveContextSnapshot($page, $site, $language, $layout)
+            : ($this->contextSnapshots[$snapshotKey]
+                ??= $this->resolveContextSnapshot($page, $site, $language, $layout));
+
+        $payload = $this->canonicalize([
+            ...$contextSnapshot,
+            'ownerContext' => $ownerContext,
+        ]);
+
+        return hash('sha256', JsonCodec::encode($payload));
+    }
+
+    /**
+     * @param  Model&Pageable  $page
+     * @return array{
+     *     page: array<string, mixed>,
+     *     site: array<string, mixed>,
+     *     language: array<string, mixed>,
+     *     layout: array<string, mixed>,
+     *     translation: array<string, mixed>|null,
+     *     pageUrl: array<string, mixed>|null
+     * }
+     */
+    private function resolveContextSnapshot(
+        Model $page,
+        Site $site,
+        Language $language,
+        Layout $layout,
+    ): array {
         $freshPage = $page->newQuery()->withTrashed()->whereKey($page->getKey())->firstOrFail();
         $freshSite = Site::query()->withTrashed()->whereKey($site->getKey())->firstOrFail();
         $freshLanguage = Language::query()->withTrashed()->whereKey($language->getKey())->firstOrFail();
@@ -50,17 +94,40 @@ final class ResolvePublicFragmentContentVersionAction
             ->where('language_id', $freshLanguage->getKey())
             ->first();
 
-        $payload = $this->canonicalize([
+        return [
             'page' => $freshPage->getAttributes(),
             'site' => $freshSite->getAttributes(),
             'language' => $freshLanguage->getAttributes(),
             'layout' => $freshLayout->getAttributes(),
             'translation' => $translation?->getAttributes(),
             'pageUrl' => $pageUrl?->getAttributes(),
-            'ownerContext' => $ownerContext,
-        ]);
+        ];
+    }
 
-        return hash('sha256', JsonCodec::encode($payload));
+    /**
+     * @param  Model&Pageable  $page
+     */
+    private function snapshotKey(Model $page, Site $site, Language $language, Layout $layout): string
+    {
+        return hash('sha256', JsonCodec::encode($this->canonicalize([
+            'page' => [
+                'type' => $page->getMorphClass(),
+                'connection' => $page->getConnectionName(),
+                'id' => $page->getKey(),
+            ],
+            'site' => [
+                'connection' => $site->getConnectionName(),
+                'id' => $site->getKey(),
+            ],
+            'language' => [
+                'connection' => $language->getConnectionName(),
+                'id' => $language->getKey(),
+            ],
+            'layout' => [
+                'connection' => $layout->getConnectionName(),
+                'id' => $layout->getKey(),
+            ],
+        ])));
     }
 
     /**

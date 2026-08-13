@@ -13,6 +13,8 @@ use Capell\Frontend\Actions\Fragments\ResolvePublicFragmentContextAction;
 use Capell\Frontend\Data\Fragments\PublicFragmentReferenceData;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @return array{language: Language, site: Site, layout: Layout, page: Page, pageUrl: PageUrl}
@@ -74,6 +76,96 @@ function publicFragmentContextReference(array $fixture, array $overrides = []): 
         ownerContext: $overrides['ownerContext'] ?? $ownerContext,
     );
 }
+
+it('reuses one authoritative context snapshot for multiple fragment versions in a request', function (): void {
+    $fixture = publicFragmentContextFixture();
+    $phase = 'first';
+    $queryCounts = ['first' => 0, 'second' => 0, 'fresh' => 0];
+
+    DB::listen(function (QueryExecuted $_query) use (&$phase, &$queryCounts): void {
+        $queryCounts[$phase]++;
+    });
+
+    $firstVersion = ResolvePublicFragmentContentVersionAction::run(
+        $fixture['page'],
+        $fixture['site'],
+        $fixture['language'],
+        $fixture['layout'],
+        ['layoutId' => $fixture['layout']->getKey(), 'assetId' => 1],
+    );
+
+    $phase = 'second';
+    $secondVersion = ResolvePublicFragmentContentVersionAction::run(
+        $fixture['page'],
+        $fixture['site'],
+        $fixture['language'],
+        $fixture['layout'],
+        ['layoutId' => $fixture['layout']->getKey(), 'assetId' => 2],
+    );
+
+    $phase = 'fresh';
+    $freshSecondVersion = ResolvePublicFragmentContentVersionAction::run(
+        $fixture['page'],
+        $fixture['site'],
+        $fixture['language'],
+        $fixture['layout'],
+        ['layoutId' => $fixture['layout']->getKey(), 'assetId' => 2],
+        fresh: true,
+    );
+
+    expect($queryCounts['first'])->toBeGreaterThan(0)
+        ->and($queryCounts['second'])->toBe(0)
+        ->and($queryCounts['fresh'])->toBe($queryCounts['first'])
+        ->and($secondVersion)->not->toBe($firstVersion)
+        ->and($freshSecondVersion)->toBe($secondVersion);
+});
+
+it('keeps a request snapshot stable and changes the next request version when public context changes', function (Closure $mutate): void {
+    $fixture = publicFragmentContextFixture();
+    $ownerContext = ['layoutId' => $fixture['layout']->getKey(), 'assetId' => 1];
+    $version = ResolvePublicFragmentContentVersionAction::run(
+        $fixture['page'],
+        $fixture['site'],
+        $fixture['language'],
+        $fixture['layout'],
+        $ownerContext,
+    );
+
+    $mutate($fixture);
+
+    $sameRequestVersion = ResolvePublicFragmentContentVersionAction::run(
+        $fixture['page'],
+        $fixture['site'],
+        $fixture['language'],
+        $fixture['layout'],
+        $ownerContext,
+    );
+
+    app()->forgetScopedInstances();
+
+    $nextRequestVersion = ResolvePublicFragmentContentVersionAction::run(
+        $fixture['page'],
+        $fixture['site'],
+        $fixture['language'],
+        $fixture['layout'],
+        $ownerContext,
+    );
+
+    expect($sameRequestVersion)->toBe($version)
+        ->and($nextRequestVersion)->not->toBe($version);
+})->with([
+    'page' => function (array $fixture): void {
+        $fixture['page']->forceFill(['updated_at' => now()->addMinute()])->save();
+    },
+    'page translation' => function (array $fixture): void {
+        $fixture['page']->translations()
+            ->where('language_id', $fixture['language']->getKey())
+            ->update(['title' => 'Changed public fragment page']);
+    },
+    'page url' => function (array $fixture): void {
+        $fixture['pageUrl']->update(['url' => '/changed-fragment-page']);
+    },
+]);
 
 it('resolves an authoritative published public fragment context', function (): void {
     CarbonImmutable::setTestNow('2026-07-14 12:00:00');
@@ -202,6 +294,8 @@ it('revokes a stale content version after public content changes', function (): 
 
     expect(fn (): mixed => ResolvePublicFragmentContextAction::run($reference))
         ->toThrow(ModelNotFoundException::class);
+
+    app()->forgetScopedInstances();
 
     $freshReference = publicFragmentContextReference($fixture);
 

@@ -105,6 +105,7 @@ final class ResolvePublicFragmentContextAction
             $language,
             $layout,
             $reference->ownerContext,
+            fresh: true,
         );
 
         if (! hash_equals($currentContentVersion, $reference->contentVersion)) {
