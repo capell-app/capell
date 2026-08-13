@@ -127,12 +127,12 @@ it('installs a new cloud site from bootstrap data before registering its healthy
         ->and($registrationRequests[1])->toMatchArray([
             'registration_token' => str_repeat('a', 64),
             'app_url' => 'https://acme.laravel.cloud',
-            'health' => [
-                'installed' => true,
-                'site_count' => 1,
-                'install_theme' => 'default',
-                'install_package_count' => 2,
-            ],
+        ])
+        ->and($registrationRequests[1]['health'])->toMatchArray([
+            'installed' => true,
+            'site_count' => 1,
+            'install_theme' => 'default',
+            'install_package_count' => 2,
         ]);
 });
 
