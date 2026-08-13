@@ -9,16 +9,19 @@ use Capell\Frontend\Data\Assets\FrontendResourceActivationData;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationPlanData;
 use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
 use Capell\Frontend\Data\Assets\FrontendResourceData;
+use Capell\Frontend\Data\Assets\FrontendResourceHintData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\Assets\ViteResourceSourceData;
 use Capell\Frontend\Enums\CrossOrigin;
+use Capell\Frontend\Enums\FrontendResourceHintAs;
 use Capell\Frontend\Enums\FrontendResourceHintKind;
 use Capell\Frontend\Enums\FrontendResourcePlacement;
 use Capell\Frontend\Enums\ReferrerPolicy;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Illuminate\Foundation\Vite;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 it('resolves and dependency-orders eager resources across placements', function (): void {
     url()->useAssetOrigin('https://assets.example.test');
@@ -101,6 +104,77 @@ it('deduplicates compatible canonical URLs as aliases', function (): void {
 
     expect($plan->headResources)->toHaveCount(1)
         ->and($plan->aliases)->toBe([$second->handle => $first->handle]);
+});
+
+it('rejects incompatible declarations that resolve to the same canonical resource', function (): void {
+    $first = FrontendResourceData::classicScript(
+        'capell-app/gallery:first',
+        'capell-app/gallery',
+        new PublicResourceSourceData('shared.js'),
+        defer: true,
+    );
+    $second = FrontendResourceData::classicScript(
+        'capell-app/gallery:second',
+        'capell-app/gallery',
+        new PublicResourceSourceData('shared.js'),
+        defer: false,
+    );
+
+    expect(fn (): mixed => ResolveFrontendResourcePlanAction::run([
+        new FrontendResourceContributionData($first),
+        new FrontendResourceContributionData($second),
+    ]))->toThrow(FrontendResourcePlanException::class);
+});
+
+it('deduplicates declared hints and assigns CSP origins by destination', function (): void {
+    $resource = FrontendResourceData::style(
+        'capell-app/gallery:styles',
+        'capell-app/gallery',
+        new ExternalResourceSourceData('https://cdn.example.test/gallery.css', 'sha384-YWJjZA=='),
+    );
+    $preconnect = new FrontendResourceHintData(FrontendResourceHintKind::Preconnect, 'https://fonts.example.test');
+    $font = new FrontendResourceHintData(
+        FrontendResourceHintKind::Preload,
+        'https://fonts.example.test/gallery.woff2',
+        FrontendResourceHintAs::Font,
+    );
+    $style = new FrontendResourceHintData(
+        FrontendResourceHintKind::Preload,
+        'https://styles.example.test/gallery.css',
+        FrontendResourceHintAs::Style,
+    );
+
+    $plan = ResolveFrontendResourcePlanAction::run(
+        [new FrontendResourceContributionData($resource)],
+        [$preconnect, $preconnect, $font, $style],
+    );
+
+    expect($plan->hints)->toHaveCount(3)
+        ->and($plan->cspOrigins['style-src'])->toContain('https://cdn.example.test', 'https://styles.example.test')
+        ->and($plan->cspOrigins['connect-src'])->toBe(['https://fonts.example.test'])
+        ->and($plan->cspOrigins['font-src'])->toBe(['https://fonts.example.test']);
+});
+
+it('fails closed with a diagnostic when production receives an invalid resource graph', function (): void {
+    app()->detectEnvironment(static fn (): string => 'production');
+    Log::spy();
+
+    $plan = ResolveFrontendResourcePlanAction::run([new stdClass]);
+
+    expect($plan->headResources)->toBe([])
+        ->and($plan->bodyEndResources)->toBe([])
+        ->and($plan->lazyActivationGraphs)->toBe([])
+        ->and($plan->diagnostics)->toHaveCount(1)
+        ->and($plan->diagnostics[0]['code'])->toBe('frontend-resource-plan-invalid')
+        ->and($plan->diagnostics[0]['severity'])->toBe('error')
+        ->and($plan->cspOrigins)->toBe([
+            'script-src' => [],
+            'style-src' => [],
+            'connect-src' => [],
+            'font-src' => [],
+        ]);
+
+    Log::shouldHaveReceived('error')->once();
 });
 
 it('preserves every independent lazy activation trigger for a shared resource', function (): void {
