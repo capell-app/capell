@@ -27,6 +27,7 @@ final class InstallerSessionRepository
         'preflight',
         'success',
         'diagnostics',
+        'recommendation',
     ];
 
     public function cacheStoreIsUsable(): bool
@@ -217,6 +218,20 @@ final class InstallerSessionRepository
         $input = $this->get($this->key($installId, 'input'));
 
         return is_array($input) ? $input : null;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function recommendation(string $installId): ?array
+    {
+        $recommendation = $this->get($this->key($installId, 'recommendation'));
+
+        return is_array($recommendation) ? $recommendation : null;
+    }
+
+    /** @param array<string, mixed> $selection */
+    public function putRecommendation(string $installId, array $selection): void
+    {
+        $this->put($this->key($installId, 'recommendation'), $selection);
     }
 
     /**

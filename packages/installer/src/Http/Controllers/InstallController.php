@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Http\Controllers;
 
+use Capell\Core\Actions\Install\ResolveInstallRecommendationAction;
+use Capell\Core\Enums\InstallRecommendationAction;
 use Capell\Core\Exceptions\QueueConnectionNotReadyException;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Installer\Actions\AdvanceInstallerRunAction;
@@ -62,6 +65,7 @@ final class InstallController
             $viewData['installId'] = null;
             $viewData['installStatus'] = 'idle';
             $viewData['cancelUrl'] = null;
+            $viewData['recommendationSelection'] = null;
         }
 
         return response()
@@ -73,8 +77,45 @@ final class InstallController
     {
         $validated = $request->validated();
 
+        $recommendationAction = InstallRecommendationAction::tryFrom((string) ($validated['recommendation_action'] ?? ''));
+        $recommendationKey = is_string($validated['recommendation_key'] ?? null)
+            ? $validated['recommendation_key']
+            : null;
+
+        if ($recommendationAction instanceof InstallRecommendationAction) {
+            try {
+                $recommendationPackages = ResolveInstallRecommendationAction::run(
+                    $recommendationAction,
+                    $recommendationKey,
+                    array_values(array_filter([
+                        ...(array) ($validated['recommendation_packages'] ?? []),
+                        ...(array) ($validated['packages'] ?? []),
+                        ...(array) ($validated['extra_packages'] ?? []),
+                    ], is_string(...))),
+                );
+                $installedPackages = CapellCore::getPackages()->keys()->all();
+                $validated['packages'] = array_values(array_filter(
+                    $recommendationPackages,
+                    fn (string $package): bool => in_array($package, $installedPackages, true),
+                ));
+                $validated['extra_packages'] = array_values(array_filter(
+                    $recommendationPackages,
+                    fn (string $package): bool => ! in_array($package, $installedPackages, true),
+                ));
+            } catch (Throwable $throwable) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'message' => $throwable->getMessage(),
+                        'errors' => ['recommendation_key' => [$throwable->getMessage()]],
+                    ], 422);
+                }
+
+                return back()->withErrors(['recommendation_key' => $throwable->getMessage()])->withInput();
+            }
+        }
+
         $inputData = resolve(InstallInputFactory::class)->fromWebInput(
-            $request->normalisedInput(),
+            $this->normalisedInputWithRecommendation($request, $validated),
             allowWelcomeRoute: true,
             defaultPackageNames: $this->options->configuredDefaultPackageNames(),
         );
@@ -97,6 +138,17 @@ final class InstallController
         }
 
         $this->grantInstallAccess($request, $installId);
+
+        if ($recommendationAction instanceof InstallRecommendationAction) {
+            $this->sessions->putRecommendation($installId, [
+                'action' => $recommendationAction->value,
+                'key' => $recommendationKey,
+                'packages' => array_values(array_unique([
+                    ...(array) ($validated['packages'] ?? []),
+                    ...(array) ($validated['extra_packages'] ?? []),
+                ])),
+            ]);
+        }
 
         if ($runAsJob) {
             try {
@@ -242,6 +294,20 @@ final class InstallController
     private function reportDownloadFilename(string $installId): string
     {
         return sprintf('capell-install-%s.json', $installId);
+    }
+
+    /** @param array<string, mixed> $validated */
+    private function normalisedInputWithRecommendation(StoreInstallRequest $request, array $validated): array
+    {
+        if (! array_key_exists('recommendation_action', $validated)) {
+            return $request->normalisedInput();
+        }
+
+        $normalised = $request->normalisedInput();
+        $normalised['packages'] = $validated['packages'] ?? [];
+        $normalised['extra_packages'] = $validated['extra_packages'] ?? [];
+
+        return $normalised;
     }
 
     /**

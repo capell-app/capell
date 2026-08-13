@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Http\Requests;
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Installer\Support\InstallerOptions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -40,6 +41,10 @@ final class StoreInstallRequest extends FormRequest
                 'regex:/^[a-z]{2,3}$/',
             ],
             'package_selection_mode' => ['nullable', 'string', Rule::in(['core', 'all', 'custom'])],
+            'recommendation_action' => ['nullable', 'string', Rule::in(['select', 'confirm', 'custom', 'skip'])],
+            'recommendation_key' => ['nullable', 'string', Rule::in(collect(resolve(InstallRecommendationRepository::class)->all())->map(fn ($recommendation): string => $recommendation->key)->all())],
+            'recommendation_packages' => ['array'],
+            'recommendation_packages.*' => ['string', 'in:' . implode(',', array_values(array_unique([...$packageKeys, ...$downloadablePackageKeys])))],
             'packages' => ['array'],
             'packages.*' => ['string', 'in:' . implode(',', $packageKeys)],
             'theme' => [

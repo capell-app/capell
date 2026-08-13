@@ -294,6 +294,35 @@ return [
         'welcome_routes_web_path' => env('CAPELL_INSTALL_WELCOME_ROUTES_WEB_PATH', base_path('routes/web.php')),
         'welcome_env_path' => env('CAPELL_INSTALL_WELCOME_ENV_PATH', base_path('.env')),
 
+        // Hosts may override these deterministic bundles in their own config
+        // or capell-install-recommendations.php/json. Keep package identities
+        // source-backed: the repository drops names not in the package registry.
+        'recommendations' => [
+            'blog' => [
+                'label' => 'Blog',
+                'description' => 'A public site with the admin workspace and frontend rendering.',
+                'packages' => ['capell-app/admin', 'capell-app/frontend'],
+                'theme' => 'default',
+                'demo' => true,
+                'order' => 10,
+            ],
+            'marketing' => [
+                'label' => 'Marketing site',
+                'description' => 'A content-managed marketing site with the admin workspace and frontend rendering.',
+                'packages' => ['capell-app/admin', 'capell-app/frontend'],
+                'theme' => 'default',
+                'demo' => true,
+                'order' => 20,
+            ],
+            'headless' => [
+                'label' => 'Headless API',
+                'description' => 'Core content and delivery APIs without the bundled public frontend.',
+                'packages' => [],
+                'demo' => false,
+                'order' => 30,
+            ],
+        ],
+
         'admin_user' => [
             'name' => env('CAPELL_SETUP_ADMIN_NAME', ''),
             'email' => env('CAPELL_SETUP_ADMIN_EMAIL', ''),
