@@ -10,6 +10,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
 
@@ -108,6 +109,43 @@ it('reports soft-deleted blueprints without trying to build an edit url', functi
         ->and($finding->recordLabel)->toBe('Orphaned launch page (Launch Site)')
         ->and($finding->actionLabel)->toBe(__('capell-admin::reports.action_edit_page'))
         ->and($finding->url)->toBeNull();
+});
+
+it('separates expired and disabled pages from draft warnings in report metrics', function (): void {
+    [$site, $blueprint, $english] = publishingReadinessSiteContext(requiredLanguages: false);
+
+    $expired = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($english)
+        ->createOne(['visible_until' => now()->subDay()]);
+    publishingReadinessUrl($expired, $site, $english, '/expired', status: true);
+
+    $draft = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($english)
+        ->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    publishingReadinessUrl($draft, $site, $english, '/draft', status: true);
+
+    $disabled = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($english)
+        ->createOne();
+    publishingReadinessUrl($disabled, $site, $english, '/disabled', status: false);
+
+    $snapshot = BuildPublishingReadinessReportAction::run();
+    $metrics = collect($snapshot->metrics)->pluck('value', 'label');
+    $severityCounts = collect($snapshot->findings)
+        ->countBy(fn ($finding): string => $finding->severity->value);
+
+    expect($metrics[__('capell-admin::reports.publishing_readiness_metric_pages_checked')])->toBe(3)
+        ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_blocked_pages')])->toBe(2)
+        ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_scheduled_pages')])->toBe(0)
+        ->and($severityCounts->get(ReportFindingSeverity::Critical->value))->toBe(2)
+        ->and($severityCounts->get(ReportFindingSeverity::Warning->value))->toBe(1)
+        ->and(collect($snapshot->findings)->every(fn ($finding): bool => $finding->url !== null))->toBeTrue();
 });
 
 it('renders publishing readiness findings on the report page', function (): void {
