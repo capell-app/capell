@@ -1919,6 +1919,17 @@ it('queues a one-click marketplace update and exposes its live operation state',
                 'latest_version' => '1.1.0',
             ])],
         ]),
+        // Keep the component test deterministic when the client adds query
+        // parameters to the exact-lookup URL on a different test runtime.
+        '*' => Http::response([
+            'data' => [marketplaceBrowserExtensionPayload([
+                'slug' => 'seo-suite',
+                'name' => 'SEO Suite',
+                'composer_name' => 'capell-app/seo-suite',
+                'kind' => 'plugin',
+                'latest_version' => '1.1.0',
+            ])],
+        ]),
     ]);
 
     $component = Livewire::test(MarketplaceExtensionsBrowser::class)
@@ -1928,6 +1939,8 @@ it('queues a one-click marketplace update and exposes its live operation state',
         ->assertNoRedirect();
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
+
+    Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), '/extensions/by-composer'));
 
     expect($attempt->operation)->toBe(MarketplaceOperationType::Update)
         ->and($attempt->composer_name)->toBe('capell-app/seo-suite')
