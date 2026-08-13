@@ -66,7 +66,7 @@ it('installs a new cloud site from bootstrap data before registering its healthy
     $installSpec = null;
 
     Artisan::command(
-        'capell:install {--url=} {--package-mode=} {--theme=} {--name=} {--email=} {--password=} {--clear-cache} {--install-welcome-route} {--no-interaction} {--packages=} {--spec=}',
+        'capell:install {--url=} {--package-mode=} {--theme=} {--name=} {--email=} {--password=} {--clear-cache} {--install-welcome-route} {--packages=} {--spec=}',
         function () use (&$installOptions, &$installSpec): int {
             $installOptions = $this->options();
             $specPath = $installOptions['spec'] ?? null;
