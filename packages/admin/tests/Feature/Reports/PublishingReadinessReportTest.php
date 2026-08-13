@@ -146,10 +146,16 @@ it('separates expired and non-public pages from draft warnings in report metrics
             'visible_from' => now()->subDay(),
             'visible_until' => null,
         ]);
-    $nonPublicUrl = publishingReadinessUrl($nonPublic, $site, $english, '/non-public', status: true);
-    $nonPublicUrl->update(['type' => UrlTypeEnum::Redirect]);
+    $nonPublicUrl = publishingReadinessUrl(
+        $nonPublic,
+        $site,
+        $english,
+        '/non-public',
+        status: true,
+        type: UrlTypeEnum::Redirect,
+    );
 
-    expect($nonPublicUrl->fresh()->type)->toBe(UrlTypeEnum::Redirect);
+    expect($nonPublicUrl->type)->toBe(UrlTypeEnum::Redirect);
 
     $snapshot = BuildPublishingReadinessReportAction::run();
     $metrics = collect($snapshot->metrics)->pluck('value', 'label');
@@ -214,8 +220,14 @@ function publishingReadinessSiteContext(bool $requiredLanguages = true): array
     return [$site, $blueprint, $english, $welsh];
 }
 
-function publishingReadinessUrl(Page $page, Site $site, Language $language, string $url, bool $status = true): PageUrl
-{
+function publishingReadinessUrl(
+    Page $page,
+    Site $site,
+    Language $language,
+    string $url,
+    bool $status = true,
+    ?UrlTypeEnum $type = null,
+): PageUrl {
     return PageUrl::factory()
         ->page($page)
         ->site($site)
@@ -223,6 +235,7 @@ function publishingReadinessUrl(Page $page, Site $site, Language $language, stri
             'language_id' => $language->id,
             'status' => $status,
             'url' => $url,
+            'type' => $type,
         ])
         ->createOne();
 }
