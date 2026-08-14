@@ -88,6 +88,10 @@ try {
         '--rm',
         '--name',
         $containerName,
+        // Keep the disposable database from consuming the whole Docker VM while
+        // the parallel matrix workers exercise isolated databases.
+        '--memory=2g',
+        '--memory-swap=2g',
         '--health-cmd=mysqladmin ping -h 127.0.0.1 -proot || exit 1',
         '--health-interval=2s',
         '--health-timeout=2s',
