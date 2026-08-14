@@ -2,6 +2,11 @@
     "schemaVersion": 1,
     "status": "active",
     "surfaces": {
+        "admin.registrar.workspace": {
+            "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
+            "signature": "288187e7a717d725a402210bcc4a7d2337b4082e21e5715c21ad885a29e82e26",
+            "contractTestId": "admin.bridge-registrar-workspace"
+        },
         "core.action.install-project-build-manifest": {
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\InstallProjectBuildManifestAction",
             "signature": "ae061abf248e94f4bb008b6d9c8e89f6cbf078301c062a913f9c8d7e8ecf1ba5",
@@ -195,7 +200,20 @@
         "2026_06_26_000002_create_snapshots_table.php",
         "2026_06_26_000003_create_page_workflow_states_table.php",
         "2026_06_26_000004_create_page_revisions_table.php",
-        "2026_06_26_000005_drop_legacy_page_content_snapshots_table.php"
+        "2026_06_26_000005_drop_legacy_page_content_snapshots_table.php",
+        "2026_07_22_000001_create_metric_collection_runs_table.php",
+        "2026_07_22_000002_create_metric_daily_rollups_table.php",
+        "2026_07_22_000003_create_metric_events_table.php",
+        "2026_07_23_000001_create_capell_upgrade_locks_table.php",
+        "2026_07_23_000002_enforce_global_permission_team_uniqueness.php",
+        "2026_08_02_000001_add_asset_lookup_index_to_asset_attachments.php",
+        "2026_08_05_000001_add_auto_update_policy_to_capell_extensions.php",
+        "2026_08_06_000001_add_uuid_to_sites_table.php",
+        "2026_08_06_000002_create_activity_buckets_table.php",
+        "2026_08_09_000001_add_port_to_site_domains_table.php",
+        "2026_08_09_000002_enforce_active_site_domain_origin_uniqueness.php",
+        "2026_08_13_000001_create_editor_scratch_drafts_table.php",
+        "2026_08_13_000002_add_admin_workspace_preferences_to_users_table.php"
     ],
     "configKeys": []
 }

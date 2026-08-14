@@ -373,6 +373,10 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             ->success()
             ->send();
 
+        if ($this->record() instanceof Page) {
+            $this->dispatch('page-publish-state-changed', pageId: $this->recordId);
+        }
+
         $this->dispatch('refresh-alerts');
         $this->dispatch('$refresh');
     }

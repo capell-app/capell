@@ -63,6 +63,9 @@ trait HasMigrations
             '2026_08_06_000002_create_activity_buckets_table',
             '2026_08_09_000001_add_port_to_site_domains_table',
             '2026_08_09_000002_enforce_active_site_domain_origin_uniqueness',
+            '2026_08_13_000001_create_editor_scratch_drafts_table',
+            '2026_08_13_000002_add_admin_workspace_preferences_to_users_table',
+            '2026_08_14_000001_add_provider_recovery_to_capell_extensions',
         ];
     }
 

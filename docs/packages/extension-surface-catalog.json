@@ -13,6 +13,16 @@
             "contractTestId": null
         },
         {
+            "id": "admin.registrar.workspace",
+            "kind": "registrar",
+            "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
+            "ownerPackage": "capell-app/admin",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Registers permission-filtered role workspace tools from an Admin bridge.",
+            "contractTestId": "admin.bridge-registrar-workspace"
+        },
+        {
             "id": "admin.render-hook.navigation-after",
             "kind": "render-hook",
             "identifier": "panels::sidebar.nav.end",

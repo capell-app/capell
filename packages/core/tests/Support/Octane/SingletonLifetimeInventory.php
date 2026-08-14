@@ -25,6 +25,7 @@ use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Capell\Core\Actions\DemoPackageAction;
 use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
 use Capell\Core\Actions\RequirePackageAction;
@@ -170,6 +171,7 @@ final class SingletonLifetimeInventory
             WidgetDiscovery::class => self::boot('Widget sources and authoritative widget definitions are discovered from package boot registrations.'),
             AdminEventRouter::class => self::boot('The router reads the boot-lifetime admin event registry and does not retain operation payloads.'),
             AdminBridgeRegistrar::class => self::boot('The registrar delegates only to boot-lifetime bridge and settings registries.'),
+            AdminWorkspaceRegistry::class => self::boot('Workspace definitions are package boot registrations; actor-specific resolution is computed from the boot definitions.'),
             AdminPermissionSynchronizer::class => self::stateless('The synchronizer retains collaborators but no operation-derived values.'),
 
             // Frontend boot registration state and one reset participant.

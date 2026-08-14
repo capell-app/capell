@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Data\ExtensionRuntimeGateData;
+use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Models\CapellExtension;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -18,6 +19,10 @@ final class ResolveExtensionRuntimeGateAction
     public function handle(CapellExtension $extension): ExtensionRuntimeGateData
     {
         $status = $extension->marketplace_runtime_status;
+
+        if ($extension->provider_recovery_state !== ExtensionProviderRecoveryStateEnum::Healthy) {
+            return ExtensionRuntimeGateData::blocked('provider_quarantined');
+        }
 
         if ($extension->is_paid_marketplace_extension && ! $extension->marketplace_runtime_allowed) {
             return ExtensionRuntimeGateData::blocked('marketplace_runtime_disallowed');

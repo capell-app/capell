@@ -52,6 +52,7 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Events\ServingAdmin;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Imports\RedirectImporter;
+use Capell\Admin\Filament\Livewire\PageScratchDraftPanel;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
 use Capell\Admin\Filament\Pages\Reports\AccessibilityReadinessReport;
 use Capell\Admin\Filament\Pages\Reports\DemoInstallHealthReport;
@@ -90,6 +91,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFil
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Livewire\Header\AdminTools;
+use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
 use Capell\Admin\Livewire\Header\NavigationTree;
 use Capell\Admin\Livewire\InfoBanner;
 use Capell\Admin\Macros\Database\BuilderMacros;
@@ -157,6 +159,7 @@ use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Media\AdminSpatieMediaFieldFactory;
+use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
@@ -171,6 +174,9 @@ use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Admin\Support\Workspace\AdminWorkspaceNavigator;
+use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
+use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
@@ -297,6 +303,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(DashboardFilamentWidgetRegistry::class);
         $this->app->singleton(MarketingStudioActionRegistry::class);
         $this->app->singleton(UserMenuItemRegistry::class);
+        $this->app->singleton(AdminWorkspaceRegistry::class);
+        $this->app->singleton(AdminWorkspacePreferenceStore::class);
+        $this->app->scoped(AdminWorkspaceNavigator::class);
         $this->app->scoped(UserMenuItemResolver::class);
         $this->app->singleton(OverviewStatRegistry::class);
         $this->app->singleton(AdminBridgeRegistry::class);
@@ -339,6 +348,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
         $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
+        $this->app->scoped(MediaDuplicateIndex::class);
         $this->callAfterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
             $registry->register($this->app->make(AdminBladeComponentMaker::class));
             $registry->register($this->app->make(AdminConfiguratorMaker::class));
@@ -606,9 +616,11 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         return $this->registerLivewireComponentDefinitions([
             'capell-admin::header.admin-tools' => AdminTools::class,
+            'capell-admin::header.admin-workspace-switcher' => AdminWorkspaceSwitcher::class,
             'capell-admin::header.navigation-tree' => NavigationTree::class,
             'capell-admin::info-banner' => InfoBanner::class,
             // Plain alias because the namespace resolves to Capell\Admin\Livewire.
+            'capell-admin-page-scratch-draft-panel' => PageScratchDraftPanel::class,
             'capell-admin-publish-status-panel' => PublishStatusPanel::class,
         ], [
             'namespace' => 'capell-admin',

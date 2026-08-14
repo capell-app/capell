@@ -123,9 +123,9 @@ trait HasPackages
         resolve(CapellPackageRegistry::class)->forcePackageInstalled($name, $installed);
     }
 
-    public function markPackageInstalled(string $name): void
+    public function markPackageInstalled(string $name, ?string $actor = null): void
     {
-        resolve(CapellPackageRegistry::class)->markPackageInstalled($name);
+        resolve(CapellPackageRegistry::class)->markPackageInstalled($name, $actor);
     }
 
     public function markPackageInstalling(string $name): void
@@ -136,6 +136,11 @@ trait HasPackages
     public function markPackageFailed(string $name, string $message): void
     {
         resolve(CapellPackageRegistry::class)->markPackageFailed($name, $message);
+    }
+
+    public function markPackageProviderQuarantined(string $name, string $provider, string $reason): void
+    {
+        resolve(CapellPackageRegistry::class)->markPackageProviderQuarantined($name, $provider, $reason);
     }
 
     public function markPackageDisabled(string $name): void

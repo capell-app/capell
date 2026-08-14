@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Models;
 
 use Capell\Core\Enums\ExtensionAutoUpdatePolicyEnum;
+use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Carbon\CarbonImmutable;
@@ -33,6 +34,11 @@ use Override;
  * @property ?CarbonImmutable $marketplace_activation_checked_at
  * @property ?string $marketplace_runtime_reason
  * @property ExtensionAutoUpdatePolicyEnum $auto_update_policy
+ * @property ?ExtensionProviderRecoveryStateEnum $provider_recovery_state
+ * @property ?string $provider_recovery_provider
+ * @property ?string $provider_recovery_reason
+ * @property ?CarbonImmutable $provider_recovery_at
+ * @property ?list<array<string, mixed>> $provider_recovery_events
  */
 class CapellExtension extends Model
 {
@@ -40,6 +46,11 @@ class CapellExtension extends Model
     use HasFactory;
 
     protected $table = 'capell_extensions';
+
+    /** @var array<string, string> */
+    protected $attributes = [
+        'provider_recovery_state' => ExtensionProviderRecoveryStateEnum::Healthy->value,
+    ];
 
     /** @var list<string> */
     protected $fillable = [
@@ -61,6 +72,11 @@ class CapellExtension extends Model
         'marketplace_activation_checked_at',
         'marketplace_runtime_reason',
         'auto_update_policy',
+        'provider_recovery_state',
+        'provider_recovery_provider',
+        'provider_recovery_reason',
+        'provider_recovery_at',
+        'provider_recovery_events',
     ];
 
     #[Override]
@@ -84,6 +100,7 @@ class CapellExtension extends Model
         return [
             'status' => ExtensionStatusEnum::class,
             'auto_update_policy' => ExtensionAutoUpdatePolicyEnum::class,
+            'provider_recovery_state' => ExtensionProviderRecoveryStateEnum::class,
             'enabled_at' => 'immutable_datetime',
             'disabled_at' => 'immutable_datetime',
             'failed_at' => 'immutable_datetime',
@@ -93,6 +110,8 @@ class CapellExtension extends Model
             'marketplace_runtime_allowed' => 'bool',
             'marketplace_signed_activation' => 'array',
             'marketplace_activation_checked_at' => 'immutable_datetime',
+            'provider_recovery_at' => 'immutable_datetime',
+            'provider_recovery_events' => 'array',
         ];
     }
 }

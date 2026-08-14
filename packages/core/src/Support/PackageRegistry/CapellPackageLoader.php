@@ -8,6 +8,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Contracts\Foundation\Application;
+use Throwable;
 
 final class CapellPackageLoader
 {
@@ -18,8 +19,26 @@ final class CapellPackageLoader
 
     public function loadProviders(): void
     {
-        foreach ($this->collectProviders() as $provider) {
-            $this->app->register($provider);
+        foreach ($this->registry->all() as $manifest) {
+            foreach ($this->resolveProviders($manifest) as $provider) {
+                try {
+                    if (! class_exists($provider)) {
+                        continue;
+                    }
+
+                    $this->app->register($provider);
+                } catch (Throwable $throwable) {
+                    throw_if(TrustedCorePackages::contains($manifest->name), $throwable);
+
+                    CapellCore::markPackageProviderQuarantined(
+                        name: $manifest->name,
+                        provider: $provider,
+                        reason: $this->providerFailureReason($provider, $throwable),
+                    );
+
+                    break;
+                }
+            }
         }
     }
 
@@ -71,5 +90,14 @@ final class CapellPackageLoader
         }
 
         return CapellCore::isPackageEnabled($manifest->name);
+    }
+
+    private function providerFailureReason(string $provider, Throwable $throwable): string
+    {
+        return sprintf(
+            'Provider [%s] failed during registration with [%s].',
+            $provider,
+            $throwable::class,
+        );
     }
 }

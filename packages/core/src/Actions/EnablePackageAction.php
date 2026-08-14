@@ -10,21 +10,21 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static void run(PackageData $package)
+ * @method static void run(PackageData $package, ?string $actor = null)
  */
 class EnablePackageAction
 {
     use AsFake;
     use AsObject;
 
-    public function handle(PackageData $package): void
+    public function handle(PackageData $package, ?string $actor = null): void
     {
         if ($package->getKind() === 'bundle') {
             foreach ($package->getRequirements() as $memberName) {
-                CapellCore::markPackageInstalled($memberName);
+                CapellCore::markPackageInstalled($memberName, $actor);
             }
         }
 
-        CapellCore::markPackageInstalled($package->name);
+        CapellCore::markPackageInstalled($package->name, $actor);
     }
 }

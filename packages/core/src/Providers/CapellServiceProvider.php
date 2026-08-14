@@ -39,6 +39,7 @@ use Capell\Core\Console\Commands\PackageClearCacheCommand;
 use Capell\Core\Console\Commands\PackageLintCommand;
 use Capell\Core\Console\Commands\PruneActivityBucketsCommand;
 use Capell\Core\Console\Commands\PruneBackupsCommand;
+use Capell\Core\Console\Commands\PruneEditorScratchDraftsCommand;
 use Capell\Core\Console\Commands\PruneMetricDailyRollupsCommand;
 use Capell\Core\Console\Commands\PublishComponentsCommand;
 use Capell\Core\Console\Commands\PublishMigrationsCommand;
@@ -292,6 +293,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             RollupMetricEventsCommand::class,
             RollupActivityMetricsCommand::class,
             PruneActivityBucketsCommand::class,
+            PruneEditorScratchDraftsCommand::class,
             PruneMetricDailyRollupsCommand::class,
             RestoreBackupCommand::class,
             RuntimeRefreshCommand::class,
@@ -317,6 +319,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             ->registerProtectedTables()
             ->registerActivitySettings()
             ->registerMetricSchedule()
+            ->registerEditorScratchDraftSchedule()
             ->registerBackupPruneSchedule()
             ->registerLinkableContentProviders()
             ->registerConfigSettings()
@@ -670,6 +673,19 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ->withoutOverlapping()
                 ->onOneServer();
 
+        });
+
+        return $this;
+    }
+
+    private function registerEditorScratchDraftSchedule(): self
+    {
+        $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->command('capell:editor-scratch-drafts:prune')
+                ->dailyAt('01:00')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
         });
 
         return $this;

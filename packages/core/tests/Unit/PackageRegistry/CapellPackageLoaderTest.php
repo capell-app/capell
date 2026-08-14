@@ -78,6 +78,49 @@ it('skips providers for non-existent classes gracefully', function (): void {
     expect(fn () => packageLoader($registry)->loadProviders())->not->toThrow(Throwable::class);
 });
 
+it('quarantines an optional package when provider registration fails', function (): void {
+    $registry = packageLoaderRegistry('vendor/failing-extension', [
+        'runtime' => [AuthServiceProvider::class],
+    ]);
+
+    /** @var Application&MockInterface $application */
+    $application = Mockery::mock(Application::class);
+    $application->shouldReceive('register')
+        ->once()
+        ->with(AuthServiceProvider::class)
+        ->andThrow(new RuntimeException('provider registration failed'));
+
+    CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/failing-extension')->andReturnTrue();
+    CapellCore::shouldReceive('markPackageProviderQuarantined')
+        ->once()
+        ->with('vendor/failing-extension', AuthServiceProvider::class, Mockery::type('string'));
+
+    expect(function () use ($application, $registry): void {
+        new CapellPackageLoader($application, $registry)->loadProviders();
+    })
+        ->not->toThrow(Throwable::class);
+});
+
+it('does not quarantine trusted core packages when provider registration fails', function (): void {
+    $registry = packageLoaderRegistry('capell-app/core', [
+        'runtime' => [AuthServiceProvider::class],
+    ]);
+
+    /** @var Application&MockInterface $application */
+    $application = Mockery::mock(Application::class);
+    $application->shouldReceive('register')
+        ->once()
+        ->with(AuthServiceProvider::class)
+        ->andThrow(new RuntimeException('core provider registration failed'));
+
+    CapellCore::shouldReceive('markPackageProviderQuarantined')->never();
+
+    expect(function () use ($application, $registry): void {
+        new CapellPackageLoader($application, $registry)->loadProviders();
+    })
+        ->toThrow(RuntimeException::class, 'core provider registration failed');
+});
+
 /** @param array<string, list<class-string>> $providers */
 function packageLoaderRegistry(string $name, array $providers): CapellPackageRegistry
 {

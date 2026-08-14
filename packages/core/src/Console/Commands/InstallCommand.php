@@ -667,12 +667,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->installProfile = $installProfile;
         $this->applyInstallProfileDefaults();
 
-        $recommendationExitCode = $this->applyInstallRecommendationDefaults();
-        if ($recommendationExitCode !== null) {
-            return $recommendationExitCode;
-        }
-
-        return null;
+        return $this->applyInstallRecommendationDefaults();
     }
 
     private function resolveSiteUrl(): string

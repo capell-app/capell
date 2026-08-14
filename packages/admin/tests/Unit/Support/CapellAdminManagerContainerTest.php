@@ -19,6 +19,7 @@ use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
+use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Illuminate\Container\Container;
 use Illuminate\Support\HtmlString;
 
@@ -34,6 +35,7 @@ it('shares one manager and its injected registries across the container and faca
         ->and(managerRegistry($manager, 'dashboardWidgetRegistry'))->toBe(resolve(DashboardFilamentWidgetRegistry::class))
         ->and(managerRegistry($manager, 'marketingStudioActionRegistry'))->toBe(resolve(MarketingStudioActionRegistry::class))
         ->and(managerRegistry($manager, 'userMenuItemRegistry'))->toBe(resolve(UserMenuItemRegistry::class))
+        ->and(managerRegistry($manager, 'workspaceRegistry'))->toBe(resolve(AdminWorkspaceRegistry::class))
         ->and(managerRegistry($manager, 'overviewStatRegistry'))->toBe(resolve(OverviewStatRegistry::class))
         ->and(managerRegistry($manager, 'adminSurfaceCache'))->toBe(resolve(AdminSurfaceContributionCache::class));
 });
@@ -49,6 +51,7 @@ it('owns concrete collection bindings while preserving substitutable contract ov
         DashboardFilamentWidgetRegistry::class,
         MarketingStudioActionRegistry::class,
         UserMenuItemRegistry::class,
+        AdminWorkspaceRegistry::class,
         OverviewStatRegistry::class,
         AdminBridgeRegistry::class,
         AdminBridgeRegistrar::class,

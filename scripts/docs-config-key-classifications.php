@@ -51,6 +51,26 @@ $internalDefaultColors = [
     'capell.default_colors.white',
 ];
 
+$installRecommendationLeaves = [
+    'capell.install.recommendations.blog.demo',
+    'capell.install.recommendations.blog.description',
+    'capell.install.recommendations.blog.label',
+    'capell.install.recommendations.blog.order',
+    'capell.install.recommendations.blog.packages',
+    'capell.install.recommendations.blog.theme',
+    'capell.install.recommendations.headless.demo',
+    'capell.install.recommendations.headless.description',
+    'capell.install.recommendations.headless.label',
+    'capell.install.recommendations.headless.order',
+    'capell.install.recommendations.headless.packages',
+    'capell.install.recommendations.marketing.demo',
+    'capell.install.recommendations.marketing.description',
+    'capell.install.recommendations.marketing.label',
+    'capell.install.recommendations.marketing.order',
+    'capell.install.recommendations.marketing.packages',
+    'capell.install.recommendations.marketing.theme',
+];
+
 return [
     ...array_fill_keys(
         $internalAdminPresentation,
@@ -84,6 +104,10 @@ return [
     ...array_fill_keys(
         $internalDefaultColors,
         'Internal seed palette consumed through DefaultColorEnum; themes expose their own color contract.',
+    ),
+    ...array_fill_keys(
+        $installRecommendationLeaves,
+        'Public installer recommendation bundle metadata; classified for the ranked installation configuration documentation backlog.',
     ),
     'capell.diagnostics.allowed_roots' => 'Public diagnostics setting covered by the existing diagnostics.allowed_roots shorthand.',
     'capell.plugins' => 'Internal runtime catalogue cache populated by package discovery.',

@@ -7,12 +7,18 @@ namespace Capell\Admin\Filament\Plugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Data\AdminWorkspaceItemData;
+use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Enums\SidebarCollapseEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\AvatarProviders\InlineSvgAvatarProvider;
 use Capell\Admin\Filament\Pages\AbstractPackageSettingsPage;
+use Capell\Admin\Filament\Pages\MarketingStudioPage;
+use Capell\Admin\Filament\Pages\SiteHealthPage;
+use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Capell\Admin\Filament\Resources\Users\UserResource;
 use Capell\Admin\Http\Middleware\EnforceLockdownAdminAccess;
@@ -42,6 +48,7 @@ use Filament\Tables\Columns\Column;
 use Filament\Tables\Table;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\Widget;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Blade;
@@ -133,6 +140,7 @@ class CapellAdminPlugin implements Plugin
             ->registerConfigurators()
             ->registerPlugins($panel)
             ->synchronizeAdminSurface($panel)
+            ->registerBuiltInWorkspaces()
             ->registerNavigationItems($panel)
             ->registerSettings($panel);
 
@@ -210,6 +218,51 @@ class CapellAdminPlugin implements Plugin
             ->registerWidgets($panel);
     }
 
+    protected function registerBuiltInWorkspaces(): self
+    {
+        // Editor remains tied to the configured editor role. Marketer and
+        // Operator are workspace lenses, not provisioned authentication roles,
+        // so their built-ins are permission-only and remain host-configurable
+        // through the registered permission contract.
+        CapellAdmin::registerWorkspace(new AdminWorkspaceItemData(
+            key: 'capell.pages',
+            label: static fn (Authenticatable $actor): string => PageResource::getNavigationLabel(),
+            url: static fn (Authenticatable $actor): string => PageResource::getUrl('index', isAbsolute: false),
+            workspaces: [AdminWorkspaceEnum::Editor],
+            roles: [$this->workspaceRole('editor')],
+            permission: ResourceEnum::Page->permission('view_any'),
+            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.no_pages_description'),
+            icon: Heroicon::OutlinedDocumentText,
+            sort: 10,
+        ));
+
+        CapellAdmin::registerWorkspace(new AdminWorkspaceItemData(
+            key: 'capell.marketing-studio',
+            label: static fn (Authenticatable $actor): string => MarketingStudioPage::getNavigationLabel(),
+            url: static fn (Authenticatable $actor): string => MarketingStudioPage::getUrl(isAbsolute: false),
+            workspaces: [AdminWorkspaceEnum::Marketer],
+            roles: [],
+            permission: 'View:' . class_basename(MarketingStudioPage::class),
+            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::marketing-studio.subheading'),
+            icon: Heroicon::OutlinedMegaphone,
+            sort: 20,
+        ));
+
+        CapellAdmin::registerWorkspace(new AdminWorkspaceItemData(
+            key: 'capell.site-health',
+            label: static fn (Authenticatable $actor): string => SiteHealthPage::getNavigationLabel(),
+            url: static fn (Authenticatable $actor): string => SiteHealthPage::getUrl(isAbsolute: false),
+            workspaces: [AdminWorkspaceEnum::Operator],
+            roles: [],
+            permission: 'View:' . class_basename(SiteHealthPage::class),
+            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.site_health_info'),
+            icon: Heroicon::OutlinedHeart,
+            sort: 30,
+        ));
+
+        return $this;
+    }
+
     protected function registerPlugins(Panel $panel): self
     {
         $panel->resources([
@@ -270,6 +323,13 @@ class CapellAdminPlugin implements Plugin
         ], package: 'capell-admin');
 
         return $this;
+    }
+
+    private function workspaceRole(string $role): string
+    {
+        $configured = config('capell.roles.' . $role, $role);
+
+        return is_string($configured) && $configured !== '' ? $configured : $role;
     }
 
     /** @return array<string, Action|Closure> */
