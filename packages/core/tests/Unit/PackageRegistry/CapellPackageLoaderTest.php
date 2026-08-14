@@ -96,7 +96,7 @@ it('quarantines an optional package when provider registration fails', function 
         ->with('vendor/failing-extension', AuthServiceProvider::class, Mockery::type('string'));
 
     expect(function () use ($application, $registry): void {
-        (new CapellPackageLoader($application, $registry))->loadProviders();
+        new CapellPackageLoader($application, $registry)->loadProviders();
     })
         ->not->toThrow(Throwable::class);
 });
@@ -116,7 +116,7 @@ it('does not quarantine trusted core packages when provider registration fails',
     CapellCore::shouldReceive('markPackageProviderQuarantined')->never();
 
     expect(function () use ($application, $registry): void {
-        (new CapellPackageLoader($application, $registry))->loadProviders();
+        new CapellPackageLoader($application, $registry)->loadProviders();
     })
         ->toThrow(RuntimeException::class, 'core provider registration failed');
 });

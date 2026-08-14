@@ -28,9 +28,7 @@ final class CapellPackageLoader
 
                     $this->app->register($provider);
                 } catch (Throwable $throwable) {
-                    if (TrustedCorePackages::contains($manifest->name)) {
-                        throw $throwable;
-                    }
+                    throw_if(TrustedCorePackages::contains($manifest->name), $throwable);
 
                     CapellCore::markPackageProviderQuarantined(
                         name: $manifest->name,

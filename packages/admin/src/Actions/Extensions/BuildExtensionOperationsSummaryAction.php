@@ -156,6 +156,7 @@ final class BuildExtensionOperationsSummaryAction
         if ($providerRecoveryAlert instanceof ExtensionHealthAlertData) {
             $healthState = 'critical';
         }
+
         $installed = $extension instanceof CapellExtension || ($package?->isInstalled() === true);
         $available = $package instanceof PackageData && CapellCore::isPackageAvailable($package->name);
         $composerDriftAlert = $this->composerDriftAlert($manifest->name, $extension);

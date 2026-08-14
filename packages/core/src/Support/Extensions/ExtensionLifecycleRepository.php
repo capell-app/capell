@@ -293,7 +293,7 @@ final class ExtensionLifecycleRepository
 
         return array_values(array_filter(
             $extension->provider_recovery_events,
-            static fn (mixed $event): bool => is_array($event),
+            is_array(...),
         ));
     }
 
