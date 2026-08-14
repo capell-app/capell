@@ -261,7 +261,7 @@ it('reports quarantined provider recovery state as a critical diagnostic', funct
     ]);
 
     $package = BuildExtensionOperationsSummaryAction::run()->package($packageName);
-    $alert = collect($package?->healthAlerts ?? [])->firstWhere('category', 'provider');
+    $alert = collect($package?->healthAlerts)->firstWhere('category', 'provider');
     $diagnostics = BuildExtensionDiagnosticsAction::run();
     $auditEvents = ListExtensionAuditEventsAction::run(limit: 10);
 
