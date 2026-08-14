@@ -21,7 +21,7 @@ return new class extends Migration
             $table->json('payload');
             $table->char('content_hash', 64);
             $table->timestamp('saved_at');
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
             $table->unique(
