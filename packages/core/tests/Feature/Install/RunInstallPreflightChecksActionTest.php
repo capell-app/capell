@@ -111,6 +111,7 @@ it('reports existing but non-writable installation root paths', function (): voi
         foreach ($paths as $path) {
             chmod($path, 0755);
         }
+
         File::deleteDirectory($temporaryBasePath);
     }
 
@@ -148,7 +149,7 @@ it('reports missing, unsupported, and extension-incomplete database configuratio
         $platform = Mockery::mock(DatabasePlatform::class);
         $platform->shouldReceive('drivers')->once()->andReturn(['mysql']);
         $platform->shouldReceive('phpExtension')->once()->andReturn('capell_missing_extension');
-        $originalRegistry = app(DatabasePlatformRegistry::class);
+        $originalRegistry = resolve(DatabasePlatformRegistry::class);
         app()->instance(DatabasePlatformRegistry::class, new DatabasePlatformRegistry([$platform]));
         CapellDatabase::clearResolvedInstance(DatabasePlatformRegistry::class);
 
