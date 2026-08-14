@@ -83,7 +83,12 @@ it('can search sites', function (): void {
 });
 
 it('can sort sites', function (): void {
-    $sites = Site::factory()->count(5)->create();
+    $sites = Site::factory()
+        ->sequence(fn (Sequence $sequence): array => [
+            'name' => sprintf('Site %02d', $sequence->index),
+        ])
+        ->count(5)
+        ->create();
 
     Livewire::test(ListSites::class)
         ->assertSuccessful()
