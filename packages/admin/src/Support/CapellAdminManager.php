@@ -13,6 +13,7 @@ use Capell\Admin\Concerns\HasWelcomeTours;
 use Capell\Admin\Concerns\HasWidgets;
 use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Data\Bridges\AdminBridgeContextData;
 use Capell\Admin\Data\Dashboard\CapellOverviewStatData;
 use Capell\Admin\Data\Dashboard\CapellOverviewStatDefinitionData;
@@ -38,6 +39,7 @@ use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
+use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Capell\Core\Facades\CapellCore;
 use Closure;
 use Exception;
@@ -84,6 +86,7 @@ class CapellAdminManager
         private readonly DashboardFilamentWidgetRegistry $dashboardWidgetRegistry,
         private readonly MarketingStudioActionRegistry $marketingStudioActionRegistry,
         private readonly UserMenuItemRegistry $userMenuItemRegistry,
+        private readonly AdminWorkspaceRegistry $workspaceRegistry,
         private readonly OverviewStatRegistry $overviewStatRegistry,
         private readonly AdminSurfaceContributionCache $adminSurfaceCache,
     ) {}
@@ -219,6 +222,24 @@ class CapellAdminManager
         $this->prepareAdminRuntime();
 
         $this->userMenuItemRegistry->clear();
+    }
+
+    public function registerWorkspace(AdminWorkspaceItemData $item): void
+    {
+        $this->workspaceRegistry->register($item);
+    }
+
+    /** @return array<string, AdminWorkspaceItemData> */
+    public function getWorkspaceDefinitions(): array
+    {
+        $this->prepareAdminRuntime();
+
+        return $this->workspaceRegistry->definitions();
+    }
+
+    public function clearWorkspaces(): void
+    {
+        $this->workspaceRegistry->clear();
     }
 
     public function registerOverviewStat(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Facades;
 
+use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Data\Dashboard\CapellOverviewStatData;
 use Capell\Admin\Data\MarketingStudioActionData;
 use Capell\Admin\Data\UserMenu\UserMenuItemData;
@@ -30,6 +31,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<string, UserMenuItemData> getUserMenuItemDefinitions()
  * @method static array<string, Action> getUserMenuItems(?Authenticatable $user = null)
  * @method static void clearUserMenuItems()
+ * @method static void registerWorkspace(AdminWorkspaceItemData $item)
+ * @method static array<string, AdminWorkspaceItemData> getWorkspaceDefinitions()
+ * @method static void clearWorkspaces()
  * @method static void clearReports()
  * @method static list<CapellOverviewStatData> getOverviewStats(bool $onlyEnabled = true)
  * @method static list<array{key: string, label: string, group: string, description?: string|null}> getOverviewStatSettings()

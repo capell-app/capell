@@ -91,6 +91,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFil
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Livewire\Header\AdminTools;
+use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
 use Capell\Admin\Livewire\Header\NavigationTree;
 use Capell\Admin\Livewire\InfoBanner;
 use Capell\Admin\Macros\Database\BuilderMacros;
@@ -172,6 +173,9 @@ use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemResolver;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Admin\Support\Workspace\AdminWorkspaceNavigator;
+use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
+use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
@@ -298,6 +302,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(DashboardFilamentWidgetRegistry::class);
         $this->app->singleton(MarketingStudioActionRegistry::class);
         $this->app->singleton(UserMenuItemRegistry::class);
+        $this->app->singleton(AdminWorkspaceRegistry::class);
+        $this->app->singleton(AdminWorkspacePreferenceStore::class);
+        $this->app->scoped(AdminWorkspaceNavigator::class);
         $this->app->scoped(UserMenuItemResolver::class);
         $this->app->singleton(OverviewStatRegistry::class);
         $this->app->singleton(AdminBridgeRegistry::class);
@@ -607,6 +614,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         return $this->registerLivewireComponentDefinitions([
             'capell-admin::header.admin-tools' => AdminTools::class,
+            'capell-admin::header.admin-workspace-switcher' => AdminWorkspaceSwitcher::class,
             'capell-admin::header.navigation-tree' => NavigationTree::class,
             'capell-admin::info-banner' => InfoBanner::class,
             // Plain alias because the namespace resolves to Capell\Admin\Livewire.

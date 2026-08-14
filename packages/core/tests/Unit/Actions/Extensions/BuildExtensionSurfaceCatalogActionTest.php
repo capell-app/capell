@@ -93,6 +93,7 @@ it('catalogues every supported extension surface kind from explicit metadata', f
             'core.enum.health-status',
             'core.tag.operational-health-check',
             'core.registry.operational-health-check',
+            'admin.registrar.workspace',
         );
 
     foreach ($catalog as $entry) {

@@ -21,6 +21,7 @@ it('registers every core migration file for publishing', function (): void {
 
 it('registers the preferred admin language user migration with core migrations', function (): void {
     expect(CapellCore::getMigrations())->toContain('2026_05_10_190832_22_add_preferred_admin_language_to_users_table');
+    expect(CapellCore::getMigrations())->toContain('2026_08_13_000002_add_admin_workspace_preferences_to_users_table');
 });
 
 it('registers marketplace trust migrations with core migrations', function (): void {

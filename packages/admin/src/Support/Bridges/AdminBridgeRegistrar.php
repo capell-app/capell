@@ -21,6 +21,7 @@ use Capell\Admin\Contracts\Extensions\ExtensionRuntimeCheckProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionUpdateMetadataProvider;
 use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
 use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\DashboardEnum;
@@ -219,6 +220,11 @@ final class AdminBridgeRegistrar
             sort: $sort,
             group: $group,
         );
+    }
+
+    public function workspace(AdminWorkspaceItemData $item): void
+    {
+        CapellAdmin::registerWorkspace($item);
     }
 
     public function welcomeTourStep(
