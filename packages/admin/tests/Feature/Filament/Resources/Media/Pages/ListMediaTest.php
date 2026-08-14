@@ -9,11 +9,13 @@ use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\AssetAttachment;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media as CapellMedia;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -328,6 +330,50 @@ it('filters media by tracked attachment use and links positive usage counts', fu
         ->and($usageColumn->getTooltip($usageColumn->getState()))
         ->toBe(__('capell-admin::table.asset_usage_no_tracked_uses_tooltip'))
         ->toBe('No tracked uses');
+});
+
+it('unifies media health state filters and guarded bulk actions in the media workbench', function (): void {
+    $owner = Page::factory()->createOne();
+    $language = Language::factory()->english()->createOne();
+    $missingAlt = CapellMedia::factory()->model($owner)->createOne([
+        'name' => 'Needs alt text',
+    ]);
+    $healthy = CapellMedia::factory()->model($owner)->createOne([
+        'name' => 'Healthy image',
+    ]);
+
+    Translation::query()->create([
+        'language_id' => $language->getKey(),
+        'translatable_type' => $missingAlt->getMorphClass(),
+        'translatable_id' => $missingAlt->getKey(),
+        'title' => 'Needs alt text',
+        'meta' => ['alt' => '', 'credit' => 'Capell Studio'],
+    ]);
+    Translation::query()->create([
+        'language_id' => $language->getKey(),
+        'translatable_type' => $healthy->getMorphClass(),
+        'translatable_id' => $healthy->getKey(),
+        'title' => 'Healthy image',
+        'meta' => ['alt' => 'A healthy image', 'credit' => 'Capell Studio'],
+    ]);
+    AssetAttachment::query()->create([
+        'related_type' => $owner->getMorphClass(),
+        'related_id' => $owner->getKey(),
+        'asset_type' => $healthy->getMorphClass(),
+        'asset_id' => $healthy->getKey(),
+        'order' => 1,
+    ]);
+
+    Livewire::test(ListMedia::class)
+        ->assertSuccessful()
+        ->assertTableColumnExists('health_state')
+        ->assertTableFilterExists('health')
+        ->assertTableBulkActionExists('mark-media-decorative')
+        ->assertTableBulkActionExists('delete-unused-media')
+        ->assertTableColumnStateSet('health_state', 'missing_alt', $missingAlt)
+        ->filterTable('health', 'missing_alt')
+        ->assertCanSeeTableRecords([$missingAlt])
+        ->assertCanNotSeeTableRecords([$healthy]);
 });
 
 it('limits tracked media usage to accessible related records', function (): void {

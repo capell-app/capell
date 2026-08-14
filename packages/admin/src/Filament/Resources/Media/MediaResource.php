@@ -46,7 +46,7 @@ class MediaResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return MediaScope::applyForCurrentActor(parent::getEloquentQuery())
-            ->with(['model']);
+            ->with(['model', 'translations.language']);
     }
 
     /**

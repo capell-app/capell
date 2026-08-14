@@ -157,6 +157,7 @@ use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Media\AdminSpatieMediaFieldFactory;
+use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
@@ -339,6 +340,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
         $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
+        $this->app->scoped(MediaDuplicateIndex::class);
         $this->callAfterResolving(MakerRegistryInterface::class, function (MakerRegistryInterface $registry): void {
             $registry->register($this->app->make(AdminBladeComponentMaker::class));
             $registry->register($this->app->make(AdminConfiguratorMaker::class));
