@@ -77,8 +77,11 @@ it('reports missing installation root paths as blocking filesystem checks', func
 
     $filesystemCheck = collect($report->checks)->firstWhere('key', 'filesystem');
 
+    expect($filesystemCheck)->not->toBeNull();
+
+    $filesystemCheck = expectPresent($filesystemCheck);
+
     expect($filesystemCheck)
-        ->not->toBeNull()
         ->and($filesystemCheck->status)->toBe(InstallReadinessStatus::Blocked)
         ->and($filesystemCheck->message)->toContain('composer.json is missing or unreadable.')
         ->and($filesystemCheck->message)->toContain('does not exist.');
@@ -112,6 +115,7 @@ it('reports existing but non-writable installation root paths', function (): voi
     }
 
     $filesystemCheck = collect($report->checks)->firstWhere('key', 'filesystem');
+    $filesystemCheck = expectPresent($filesystemCheck);
 
     expect($filesystemCheck->message)->toContain('is not writable.');
 });
@@ -127,7 +131,7 @@ it('reports missing, unsupported, and extension-incomplete database configuratio
         ]);
 
         $report = RunInstallPreflightChecksAction::make()->report(runInstallPreflightInput());
-        $databaseCheck = collect($report->checks)->firstWhere('key', 'database-configuration');
+        $databaseCheck = expectPresent(collect($report->checks)->firstWhere('key', 'database-configuration'));
 
         expect($databaseCheck->message)->toBe('A default database connection and driver must be configured.');
 
@@ -137,7 +141,7 @@ it('reports missing, unsupported, and extension-incomplete database configuratio
         ]);
 
         $report = RunInstallPreflightChecksAction::make()->report(runInstallPreflightInput());
-        $databaseCheck = collect($report->checks)->firstWhere('key', 'database-configuration');
+        $databaseCheck = expectPresent(collect($report->checks)->firstWhere('key', 'database-configuration'));
 
         expect($databaseCheck->message)->toBe('Database driver [sqlsrv] is not supported.');
 
@@ -155,7 +159,7 @@ it('reports missing, unsupported, and extension-incomplete database configuratio
 
         try {
             $report = RunInstallPreflightChecksAction::make()->report(runInstallPreflightInput());
-            $databaseCheck = collect($report->checks)->firstWhere('key', 'database-configuration');
+            $databaseCheck = expectPresent(collect($report->checks)->firstWhere('key', 'database-configuration'));
         } finally {
             app()->instance(DatabasePlatformRegistry::class, $originalRegistry);
             CapellDatabase::clearResolvedInstance(DatabasePlatformRegistry::class);
