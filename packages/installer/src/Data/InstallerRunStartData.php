@@ -11,6 +11,7 @@ final class InstallerRunStartData extends Data
 {
     /**
      * @param  array<int, array{key: string, label: string}>  $plan
+     * @param  array<string, mixed>|null  $preflight
      */
     public function __construct(
         public readonly string $installId,
@@ -20,5 +21,6 @@ final class InstallerRunStartData extends Data
         public readonly ?string $nextStep,
         public readonly string $logPath,
         public readonly bool $completed,
+        public readonly ?array $preflight = null,
     ) {}
 }

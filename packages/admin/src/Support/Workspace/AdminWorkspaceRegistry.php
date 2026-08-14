@@ -52,9 +52,15 @@ final class AdminWorkspaceRegistry
         $items = [];
 
         foreach ($this->items as $item) {
-            if (! $item->belongsTo($workspace)
-                || ! $this->matchesRole($item, $actor)
-                || ! $this->matchesPermission($item, $actor)) {
+            if (! $item->belongsTo($workspace)) {
+                continue;
+            }
+
+            if (! $this->matchesRole($item, $actor)) {
+                continue;
+            }
+
+            if (! $this->matchesPermission($item, $actor)) {
                 continue;
             }
 

@@ -88,6 +88,10 @@ try {
         '--rm',
         '--name',
         $containerName,
+        // Keep the disposable database from consuming the whole Docker VM while
+        // the parallel matrix workers exercise isolated databases.
+        '--memory=2g',
+        '--memory-swap=2g',
         '--health-cmd=mysqladmin ping -h 127.0.0.1 -proot || exit 1',
         '--health-interval=2s',
         '--health-timeout=2s',
@@ -99,6 +103,11 @@ try {
         '--publish',
         '127.0.0.1::3306',
         'mysql:8.0',
+        '--innodb-buffer-pool-size=512M',
+        '--performance-schema=OFF',
+        '--max-connections=40',
+        '--table-open-cache=256',
+        '--temptable-max-ram=64M',
     ], $repositoryRoot);
 
     if ($dockerRun['exit_code'] !== 0) {
@@ -187,6 +196,8 @@ try {
                 ? 'test_cms_sentinel'
                 : 'test_cms_multi',
         ];
+        $maxProcesses = $cell['max_processes']
+            ?? (getenv('CAPELL_TEST_ALL_MAX_PROCESSES') ?: '2');
         $exitCode = ProcessRunner::run(
             [
                 PHP_BINARY,
@@ -195,7 +206,12 @@ try {
                 '--output-dir=' . $cellOutputDirectory,
             ],
             $workspace['path'],
-            $cellEnvironment,
+            [
+                ...$cellEnvironment,
+                // The disposable MySQL service is intentionally resource-bounded;
+                // keep its parallel test workers bounded as well on local hosts.
+                'PEST_MAX_PROCESSES' => $maxProcesses,
+            ],
         );
         $results[] = [
             'id' => $cell['id'],

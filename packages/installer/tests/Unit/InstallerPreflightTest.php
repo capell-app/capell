@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Data\Install\InstallReadinessReportData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Enums\Install\InstallReadinessStage;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
@@ -72,6 +74,16 @@ it('reports the current environment with remediation fields', function (): void 
     if (InstalledVersions::isInstalled('livewire/livewire')) {
         expect($report['environment'])->toHaveKey('livewire');
     }
+});
+
+it('maps the legacy installer checks into the shared typed readiness report', function (): void {
+    $report = resolve(InstallerPreflight::class)->readinessReport();
+
+    expect($report)
+        ->toBeInstanceOf(InstallReadinessReportData::class)
+        ->and($report->stage)->toBe(InstallReadinessStage::Boot)
+        ->and($report->checks)->not->toBeEmpty()
+        ->and($report->toArray())->toHaveKeys(['schema_version', 'stage', 'ready', 'checks']);
 });
 
 it('does not inspect or report the php memory limit', function (): void {
@@ -314,7 +326,7 @@ it('warns when the configured php binary points at php fpm', function (): void {
     }
 });
 
-it('warns about installer-managed paths when the application base path cannot be written', function (): void {
+it('blocks installer-managed paths when the application base path cannot be written', function (): void {
     $originalBasePath = $this->app->basePath();
 
     $this->app->setBasePath('/sys/capell-preflight-unwritable');
@@ -329,14 +341,32 @@ it('warns about installer-managed paths when the application base path cannot be
             ])
             ->and(installerPreflightCheck($report, 'application-files-writable'))
             ->toMatchArray([
-                'status' => 'warning',
+                'status' => 'fail',
             ])
             ->and(installerPreflightCheck($report, 'public-output-writable'))
             ->toMatchArray([
-                'status' => 'warning',
+                'status' => 'fail',
             ]);
     } finally {
         $this->app->setBasePath($originalBasePath);
+    }
+});
+
+it('blocks the web installer on immutable release roots before file mutations', function (): void {
+    config(['capell.release_root_mode' => 'atomic']);
+
+    try {
+        $report = resolve(InstallerPreflight::class)->run();
+
+        expect(installerPreflightCheck($report, 'release-root-writable'))
+            ->toMatchArray([
+                'status' => 'fail',
+                'label' => 'Release root',
+            ])
+            ->and(installerPreflightCheck($report, 'release-root-writable')['remediation'])
+            ->toContain('run this operation while building the next release');
+    } finally {
+        config(['capell.release_root_mode' => 'mutable']);
     }
 });
 

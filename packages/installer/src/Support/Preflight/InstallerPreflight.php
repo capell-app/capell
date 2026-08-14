@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\Preflight;
 
+use Capell\Core\Data\Install\InstallReadinessCheckData;
+use Capell\Core\Data\Install\InstallReadinessReportData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Enums\Install\InstallReadinessOutcome;
+use Capell\Core\Enums\Install\InstallReadinessStage;
+use Capell\Core\Enums\Install\InstallReadinessStatus;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Process\ProcessExecutionSupport;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -27,6 +33,7 @@ final class InstallerPreflight
     public function __construct(
         private readonly ProcessFactoryInterface $processFactory,
         private readonly RuntimeBinaryResolver $binaryResolver = new RuntimeBinaryResolver,
+        private readonly ReleaseRootWriteGuard $releaseRootWriteGuard = new ReleaseRootWriteGuard,
     ) {}
 
     /** @param array<int, array<string, mixed>> $checks */
@@ -74,6 +81,7 @@ final class InstallerPreflight
             $this->writablePath('storage', storage_path()),
             $this->writablePath('bootstrap-cache', base_path('bootstrap/cache')),
             $this->applicationWriteReadiness(),
+            $this->releaseRootReadiness($inputData),
             $this->publicOutputReadiness(),
             $this->databaseReadiness(),
             $this->cacheStoreReadiness(),
@@ -113,6 +121,42 @@ final class InstallerPreflight
             ],
             'checks' => $checks,
         ];
+    }
+
+    public function readinessReport(?InstallInputData $inputData = null): InstallReadinessReportData
+    {
+        $legacyReport = $this->run($inputData);
+
+        return new InstallReadinessReportData(
+            stage: InstallReadinessStage::Boot,
+            checks: array_map(
+                static function (array $check): InstallReadinessCheckData {
+                    $status = match ($check['status'] ?? null) {
+                        'fail' => InstallReadinessStatus::Blocked,
+                        'warning' => InstallReadinessStatus::Warning,
+                        default => InstallReadinessStatus::Passed,
+                    };
+                    $blocking = $status === InstallReadinessStatus::Blocked
+                        && ($check['severity'] ?? 'blocking') === 'blocking';
+
+                    return new InstallReadinessCheckData(
+                        key: (string) ($check['key'] ?? 'unknown'),
+                        stage: InstallReadinessStage::Boot,
+                        category: (string) ($check['key'] ?? 'unknown'),
+                        status: $status,
+                        blocking: $blocking,
+                        outcome: $blocking
+                            ? InstallReadinessOutcome::Blocked
+                            : ($status === InstallReadinessStatus::Warning || $status === InstallReadinessStatus::Blocked
+                                ? InstallReadinessOutcome::Manual
+                                : InstallReadinessOutcome::AutomatedNow),
+                        message: (string) ($check['message'] ?? ''),
+                        remediation: ($check['remediation'] ?? '') !== '' ? (string) $check['remediation'] : null,
+                    );
+                },
+                $legacyReport['checks'],
+            ),
+        );
     }
 
     /** @return array<string, mixed> */
@@ -340,9 +384,50 @@ final class InstallerPreflight
         return $this->check(
             'application-files-writable',
             'Application files',
-            'warning',
-            'Some installer-managed app files or directories may not be writable.',
+            'fail',
+            'Installer-managed app files or directories are not writable.',
             'Check permissions for: ' . implode(', ', $blockedPaths) . '.',
+        );
+    }
+
+    /** @return array<string, string> */
+    private function releaseRootReadiness(?InstallInputData $inputData): array
+    {
+        $paths = [
+            '.env',
+            'config',
+            'routes/web.php',
+            'app/Models/User.php',
+            'database/migrations',
+        ];
+
+        if ($inputData instanceof InstallInputData && $inputData->extraPackages !== []) {
+            $paths[] = 'composer.json';
+            $paths[] = 'composer.lock';
+        }
+
+        $refusal = $this->releaseRootWriteGuard->check(
+            operation: 'The web installer',
+            relativePaths: $paths,
+            releaseRoot: base_path(),
+            requiresServerSideTooling: false,
+        );
+
+        if ($refusal === null) {
+            return $this->check(
+                'release-root-writable',
+                'Release root',
+                'pass',
+                'The configured release root is mutable for the selected install paths.',
+            );
+        }
+
+        return $this->check(
+            'release-root-writable',
+            'Release root',
+            'fail',
+            'The selected install cannot write to this release root.',
+            $refusal,
         );
     }
 
@@ -366,8 +451,8 @@ final class InstallerPreflight
         return $this->check(
             'composer-files-writable',
             'Composer files',
-            'warning',
-            'Selected packages may need to update Composer files.',
+            'fail',
+            'Selected packages require writable Composer files.',
             'Check permissions for: ' . implode(', ', $blockedPaths) . '.',
         );
     }
@@ -398,8 +483,8 @@ final class InstallerPreflight
         return $this->check(
             'public-output-writable',
             'Public output',
-            'warning',
-            'Capell needs writable public output for page cache and generated CSS assets.',
+            'fail',
+            'Capell cannot generate page cache or compiled CSS assets in the public output paths.',
             'Make these paths writable by the web user: ' . implode(', ', $blockedPaths) . '. See https://docs.capell.app/packages/frontend/server-config/',
         );
     }

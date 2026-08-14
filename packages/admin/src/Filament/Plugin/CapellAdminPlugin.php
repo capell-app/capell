@@ -227,36 +227,36 @@ class CapellAdminPlugin implements Plugin
         CapellAdmin::registerWorkspace(new AdminWorkspaceItemData(
             key: 'capell.pages',
             label: static fn (Authenticatable $actor): string => PageResource::getNavigationLabel(),
-            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.no_pages_description'),
-            icon: Heroicon::OutlinedDocumentText,
             url: static fn (Authenticatable $actor): string => PageResource::getUrl('index', isAbsolute: false),
             workspaces: [AdminWorkspaceEnum::Editor],
             roles: [$this->workspaceRole('editor')],
             permission: ResourceEnum::Page->permission('view_any'),
+            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.no_pages_description'),
+            icon: Heroicon::OutlinedDocumentText,
             sort: 10,
         ));
 
         CapellAdmin::registerWorkspace(new AdminWorkspaceItemData(
             key: 'capell.marketing-studio',
             label: static fn (Authenticatable $actor): string => MarketingStudioPage::getNavigationLabel(),
-            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::marketing-studio.subheading'),
-            icon: Heroicon::OutlinedMegaphone,
             url: static fn (Authenticatable $actor): string => MarketingStudioPage::getUrl(isAbsolute: false),
             workspaces: [AdminWorkspaceEnum::Marketer],
             roles: [],
             permission: 'View:' . class_basename(MarketingStudioPage::class),
+            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::marketing-studio.subheading'),
+            icon: Heroicon::OutlinedMegaphone,
             sort: 20,
         ));
 
         CapellAdmin::registerWorkspace(new AdminWorkspaceItemData(
             key: 'capell.site-health',
             label: static fn (Authenticatable $actor): string => SiteHealthPage::getNavigationLabel(),
-            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.site_health_info'),
-            icon: Heroicon::OutlinedHeart,
             url: static fn (Authenticatable $actor): string => SiteHealthPage::getUrl(isAbsolute: false),
             workspaces: [AdminWorkspaceEnum::Operator],
             roles: [],
             permission: 'View:' . class_basename(SiteHealthPage::class),
+            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.site_health_info'),
+            icon: Heroicon::OutlinedHeart,
             sort: 30,
         ));
 

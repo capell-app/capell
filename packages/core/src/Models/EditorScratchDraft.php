@@ -7,6 +7,8 @@ namespace Capell\Core\Models;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Override;
 
@@ -34,6 +36,9 @@ use Override;
  */
 final class EditorScratchDraft extends Model
 {
+    /** @use HasFactory<Factory<self>> */
+    use HasFactory;
+
     /** @var list<string> */
     protected $fillable = [
         'user_id',
@@ -52,7 +57,7 @@ final class EditorScratchDraft extends Model
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeForEditor(
+    protected function scopeForEditor(
         Builder $query,
         Authenticatable $user,
         Model $record,

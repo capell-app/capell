@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Media\Tables;
 
 use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
+use Capell\Admin\Actions\Media\BuildMediaHealthIndexAction;
+use Capell\Admin\Actions\Media\BuildMediaHealthStateAction;
 use Capell\Admin\Actions\ReplaceMediaFileAction;
+use Capell\Admin\Enums\MediaHealthIssueEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
@@ -13,6 +16,7 @@ use Capell\Admin\Filament\Components\Tables\Columns\NameColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\Blueprints\BlueprintResource;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
+use Capell\Admin\Filament\Resources\Media\Actions\RepairMediaHealthBulkAction;
 use Capell\Admin\Filament\Resources\PageUrls\PageUrlResource;
 use Capell\Admin\Filament\Resources\Redirects\RedirectResource;
 use Capell\Admin\Filament\Resources\Themes\Tables\ThemesTable;
@@ -103,6 +107,11 @@ class MediaTable implements TableConfigurator
                     ])
                     ->query(self::applyTrackedUseFilterQuery(...))
                     ->indicateUsing(self::indicateTrackedUseFilter(...)),
+                SelectFilter::make('health')
+                    ->label(__('capell-admin::table.health_state'))
+                    ->options(MediaHealthIssueEnum::options())
+                    ->query(self::applyHealthFilterQuery(...))
+                    ->indicateUsing(self::indicateHealthFilter(...)),
                 TrashedFilter::make()
                     ->native(false),
             ])
@@ -157,6 +166,10 @@ class MediaTable implements TableConfigurator
                             ->success()
                             ->send();
                     }),
+            ])
+            ->toolbarActions([
+                RepairMediaHealthBulkAction::markDecorative(),
+                RepairMediaHealthBulkAction::deleteUnused(),
             ])
             ->defaultSort('id', 'desc');
     }
@@ -264,6 +277,14 @@ class MediaTable implements TableConfigurator
                     : trans_choice('capell-admin::table.asset_usage_count_tooltip', $state, ['count' => $state]))
                 ->url(fn (Media $record, int $state): ?string => $state > 0 ? self::getUsageUrl($record) : null)
                 ->toggleable(),
+            TextColumn::make('health_state')
+                ->label(__('capell-admin::table.health_state'))
+                ->badge()
+                ->getStateUsing(fn (Media $record): string => BuildMediaHealthStateAction::run($record)->primaryIssue())
+                ->formatStateUsing(fn (string $state): string => (string) __('capell-admin::media.health_issues.' . $state))
+                ->color(fn (string $state): string => $state === MediaHealthIssueEnum::Healthy->value ? 'success' : 'warning')
+                ->tooltip(fn (Media $record): string => self::healthTooltip($record))
+                ->toggleable(),
             DateColumn::make('created_at'),
         ];
     }
@@ -309,6 +330,52 @@ class MediaTable implements TableConfigurator
             'unused' => self::noTrackedUsageLabel(),
             default => null,
         };
+    }
+
+    /**
+     * @param  Builder<Media>  $query
+     * @param  array<string, mixed>  $data
+     * @return Builder<Media>
+     */
+    protected static function applyHealthFilterQuery(Builder $query, array $data): Builder
+    {
+        $value = is_string($data['value'] ?? null) ? $data['value'] : null;
+
+        if ($value === null || $value === '') {
+            return $query;
+        }
+
+        /** @var array<int, string> $healthIndex */
+        $healthIndex = BuildMediaHealthIndexAction::run();
+
+        $matchingIds = collect($healthIndex)
+            ->filter(static fn (string $issue): bool => $issue === $value)
+            ->keys()
+            ->all();
+
+        return $query->whereKey($matchingIds === [] ? [0] : $matchingIds);
+    }
+
+    /** @param array<string, mixed> $data */
+    protected static function indicateHealthFilter(array $data): ?string
+    {
+        $value = is_string($data['value'] ?? null) ? $data['value'] : null;
+
+        return $value === null || $value === ''
+            ? null
+            : (string) __('capell-admin::media.health_issues.' . $value);
+    }
+
+    protected static function healthTooltip(Media $media): string
+    {
+        /** @var list<string> $issues */
+        $issues = BuildMediaHealthStateAction::run($media)->issues();
+
+        $labels = collect($issues)
+            ->map(fn (string $issue): string => (string) __('capell-admin::media.health_issues.' . $issue))
+            ->implode(', ');
+
+        return (string) __('capell-admin::media.health_tooltip', ['issues' => $labels]);
     }
 
     /**

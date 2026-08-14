@@ -273,6 +273,11 @@ function createCapellExtensionsTableForPluginCacheTest(): void
         $table->json('marketplace_signed_activation')->nullable();
         $table->timestamp('marketplace_activation_checked_at')->nullable();
         $table->text('marketplace_runtime_reason')->nullable();
+        $table->string('provider_recovery_state')->default('healthy')->index();
+        $table->string('provider_recovery_provider')->nullable();
+        $table->text('provider_recovery_reason')->nullable();
+        $table->timestamp('provider_recovery_at')->nullable();
+        $table->json('provider_recovery_events')->nullable();
         $table->timestamps();
     });
 }
