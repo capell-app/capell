@@ -42,9 +42,7 @@ final class ResolveInstallRecommendationAction
     private function recommendationPackages(?string $key): array
     {
         $recommendation = $this->recommendations->find($key);
-        if (! $recommendation instanceof InstallRecommendationData) {
-            throw new InvalidArgumentException('Select a valid Capell install recommendation.');
-        }
+        throw_unless($recommendation instanceof InstallRecommendationData, InvalidArgumentException::class, 'Select a valid Capell install recommendation.');
 
         return $recommendation->packages;
     }
@@ -57,7 +55,11 @@ final class ResolveInstallRecommendationAction
     {
         $normalised = [];
         foreach ($packages as $package) {
-            if (! is_string($package) || trim($package) === '') {
+            if (! is_string($package)) {
+                continue;
+            }
+
+            if (trim($package) === '') {
                 continue;
             }
 

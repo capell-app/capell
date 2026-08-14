@@ -111,8 +111,8 @@ it('repairs only safe selected records and rechecks unused media before trashing
 
     expect($deleteResult->repaired)->toBe(1)
         ->and($deleteResult->skipped)->toContain(['id' => $used->getKey(), 'reason' => 'in_use'])
-        ->and($unused->fresh()->trashed())->toBeTrue()
-        ->and($used->fresh()->trashed())->toBeFalse();
+        ->and($unused->refresh()->trashed())->toBeTrue()
+        ->and($used->refresh()->trashed())->toBeFalse();
 });
 
 it('rechecks per-record permissions for bulk health repairs', function (): void {
@@ -129,7 +129,7 @@ it('rechecks per-record permissions for bulk health repairs', function (): void 
 
     expect($result->repaired)->toBe(0)
         ->and($result->skipped)->toContain(['id' => $media->getKey(), 'reason' => 'unauthorized'])
-        ->and($media->fresh()->trashed())->toBeFalse();
+        ->and($media->refresh()->trashed())->toBeFalse();
 });
 
 /** @param array<string, mixed> $meta */

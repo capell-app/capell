@@ -151,7 +151,11 @@ it('can search layouts', function (): void {
 
 it('can sort layouts', function (): void {
     $layouts = Layout::factory()->count(5)->create();
-    $sortedLayoutNames = $layouts->sortBy('name')->pluck('name')->all();
+    $sortedLayoutNames = $layouts
+        ->sortBy('name')
+        ->pluck('name')
+        ->map(fn (string $name): string => e($name))
+        ->all();
 
     Livewire::test(ListLayouts::class)
         ->assertSuccessful()

@@ -43,7 +43,11 @@ final class InstallRecommendationRepository
 
             $label = $this->stringValue($recommendation['label'] ?? null);
             $description = $this->stringValue($recommendation['description'] ?? null);
-            if ($label === '' || $description === '') {
+            if ($label === '') {
+                continue;
+            }
+
+            if ($description === '') {
                 continue;
             }
 

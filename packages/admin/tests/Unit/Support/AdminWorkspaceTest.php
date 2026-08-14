@@ -15,6 +15,8 @@ use Capell\Admin\Support\Workspace\AdminWorkspaceNavigator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -25,6 +27,9 @@ beforeEach(function (): void {
 
 final class AdminWorkspaceTestUser extends AuthenticatableUser
 {
+    /** @use HasFactory<Factory<self>> */
+    use HasFactory;
+
     /**
      * @param  list<string>  $roles
      * @param  list<string>  $permissions
@@ -226,7 +231,7 @@ it('intersects stale preferences with the currently visible workspace items', fu
     $registry = new AdminWorkspaceRegistry;
     $registry->register(workspaceItem('allowed'));
 
-    $state = (new AdminWorkspaceNavigator($registry, new AdminWorkspacePreferenceStore))
+    $state = new AdminWorkspaceNavigator($registry, new AdminWorkspacePreferenceStore)
         ->state($user, AdminWorkspaceEnum::All);
 
     expect($state->pinnedKeys)->toBe(['allowed'])
@@ -237,6 +242,7 @@ it('does not allow direct pin or recent mutations for an item outside the visibl
     $user = test()->createUser();
     $registry = new AdminWorkspaceRegistry;
     $registry->register(workspaceItem('allowed'));
+
     $navigator = new AdminWorkspaceNavigator($registry, new AdminWorkspacePreferenceStore);
 
     $navigator->togglePin($user, 'denied', AdminWorkspaceEnum::All);
@@ -348,6 +354,9 @@ it('resolves deferred values before filtering and fails closed for null or fault
 
     $throwingRoleActor = new class extends AuthenticatableUser
     {
+        /** @use HasFactory<Factory<static>> */
+        use HasFactory;
+
         public function hasRole(string $role): bool
         {
             throw new RuntimeException('role failed');

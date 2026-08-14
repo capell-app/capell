@@ -45,6 +45,7 @@ final class RepairMediaHealthAction
 
             if (! $record instanceof Media) {
                 $skipped[] = ['id' => (int) $selectedId, 'reason' => 'inaccessible'];
+
                 continue;
             }
 
@@ -52,6 +53,7 @@ final class RepairMediaHealthAction
 
             if (! Gate::forUser($actor)->allows($permission, $record)) {
                 $skipped[] = ['id' => (int) $selectedId, 'reason' => 'unauthorized'];
+
                 continue;
             }
 
@@ -62,6 +64,7 @@ final class RepairMediaHealthAction
 
             if ($result === null) {
                 $repaired++;
+
                 continue;
             }
 

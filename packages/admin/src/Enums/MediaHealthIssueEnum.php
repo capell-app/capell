@@ -16,16 +16,16 @@ enum MediaHealthIssueEnum: string
 
     case Unused = 'unused';
 
-    public function label(): string
-    {
-        return (string) __('capell-admin::media.health_issues.' . $this->value);
-    }
-
     /** @return array<string, string> */
     public static function options(): array
     {
         return collect(self::cases())
             ->mapWithKeys(fn (self $issue): array => [$issue->value => $issue->label()])
             ->all();
+    }
+
+    public function label(): string
+    {
+        return (string) __('capell-admin::media.health_issues.' . $this->value);
     }
 }
