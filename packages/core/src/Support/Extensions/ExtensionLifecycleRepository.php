@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Extensions;
 use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
 use Capell\Core\Data\ExtensionRuntimeGateData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Database\RuntimeSchemaState;
@@ -62,13 +63,28 @@ final class ExtensionLifecycleRepository
         return $this->runtimeGateCache[$name]?->allowed;
     }
 
-    public function recordInstalled(string $name, ?PackageData $package): void
+    public function recordInstalled(string $name, ?PackageData $package, ?string $actor = null): void
     {
         if (! $this->writableTableExists()) {
             return;
         }
 
         $existing = CapellExtension::query()->where('composer_name', $name)->first();
+        $existingEnabledAt = $existing instanceof CapellExtension ? $existing->enabled_at : null;
+        $existingInstalledAt = $existing instanceof CapellExtension ? $existing->installed_at : null;
+        $wasRecovery = $existing instanceof CapellExtension
+            && ($existing->provider_recovery_state === ExtensionProviderRecoveryStateEnum::Quarantined
+                || in_array($existing->status, [ExtensionStatusEnum::Disabled, ExtensionStatusEnum::Failed], true));
+        $recoveryEvents = $this->recoveryEvents($existing);
+
+        if ($wasRecovery) {
+            $recoveryEvents[] = [
+                'event' => 'reenabled',
+                'actor' => $actor,
+                'provider' => $existing?->provider_recovery_provider,
+                'occurred_at' => now()->toIso8601String(),
+            ];
+        }
 
         CapellExtension::query()->updateOrCreate(
             ['composer_name' => $name],
@@ -78,11 +94,61 @@ final class ExtensionLifecycleRepository
                 'version' => $package?->version,
                 'source' => $package?->path !== null ? 'local' : 'composer',
                 'status' => ExtensionStatusEnum::Enabled,
-                'enabled_at' => $existing->enabled_at ?? now(),
+                'enabled_at' => $existingEnabledAt ?? now(),
                 'disabled_at' => null,
                 'failed_at' => null,
-                'installed_at' => $existing->installed_at ?? now(),
+                'installed_at' => $existingInstalledAt ?? now(),
                 'metadata' => $this->packageMetadata($package),
+                'provider_recovery_state' => ExtensionProviderRecoveryStateEnum::Healthy,
+                'provider_recovery_provider' => null,
+                'provider_recovery_reason' => null,
+                'provider_recovery_at' => null,
+                'provider_recovery_events' => $this->limitRecoveryEvents($recoveryEvents),
+            ],
+        );
+    }
+
+    public function recordProviderQuarantined(
+        string $name,
+        string $provider,
+        string $reason,
+        ?PackageData $package,
+    ): void {
+        if (! $this->writableTableExists()) {
+            return;
+        }
+
+        $existing = CapellExtension::query()->where('composer_name', $name)->first();
+        $occurredAt = now();
+        $recoveryEvents = $this->recoveryEvents($existing);
+        $recoveryEvents[] = [
+            'event' => 'quarantined',
+            'actor' => 'system',
+            'provider' => $provider,
+            'reason' => $reason,
+            'occurred_at' => $occurredAt->toIso8601String(),
+        ];
+
+        CapellExtension::query()->updateOrCreate(
+            ['composer_name' => $name],
+            [
+                'name' => $package?->getShortName(),
+                'description' => $package?->getDescription(),
+                'version' => $package?->version,
+                'source' => $package?->path !== null ? 'local' : 'composer',
+                'status' => ExtensionStatusEnum::Failed,
+                'enabled_at' => null,
+                'failed_at' => $occurredAt,
+                'installed_at' => $existing?->installed_at,
+                'metadata' => array_merge(
+                    is_array($existing?->metadata) ? $existing->metadata : [],
+                    $this->packageMetadata($package),
+                ),
+                'provider_recovery_state' => ExtensionProviderRecoveryStateEnum::Quarantined,
+                'provider_recovery_provider' => $provider,
+                'provider_recovery_reason' => $reason,
+                'provider_recovery_at' => $occurredAt,
+                'provider_recovery_events' => $this->limitRecoveryEvents($recoveryEvents),
             ],
         );
     }
@@ -216,5 +282,27 @@ final class ExtensionLifecycleRepository
             'tier' => $package?->getTier(),
             'kind' => $package?->getKind(),
         ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function recoveryEvents(?CapellExtension $extension): array
+    {
+        if (! $extension instanceof CapellExtension || ! is_array($extension->provider_recovery_events)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $extension->provider_recovery_events,
+            static fn (mixed $event): bool => is_array($event),
+        ));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $events
+     * @return list<array<string, mixed>>
+     */
+    private function limitRecoveryEvents(array $events): array
+    {
+        return array_slice($events, -20);
     }
 }

@@ -9,6 +9,7 @@ use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Actions\EnablePackageAction;
 use Capell\Core\Data\PackageData;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Component;
@@ -22,11 +23,16 @@ final class EnableExtensionAction
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
             ->button()
+            ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
             ->visible(fn (array $record): bool => ExtensionsPage::canManageExtensions()
                 && ($record['installed'] ?? false) === true
                 && ($record['core'] ?? false) === false
                 && ($record['enabled'] ?? false) === false)
             ->action(function (array $record, Component $livewire): void {
+                if (! ExtensionsPage::canManageExtensions()) {
+                    return;
+                }
+
                 ExtensionRecord::rememberTablePosition($record, $livewire);
 
                 $package = ExtensionRecord::resolvePackage($record);
@@ -35,7 +41,12 @@ final class EnableExtensionAction
                     return;
                 }
 
-                EnablePackageAction::run($package);
+                $actor = Filament::auth()->user()?->getAuthIdentifier();
+
+                EnablePackageAction::run(
+                    package: $package,
+                    actor: is_scalar($actor) ? (string) $actor : null,
+                );
 
                 Notification::make('extension-enabled')
                     ->title(__('capell-admin::message.extension_enabled'))

@@ -16,6 +16,7 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
      * @param  list<ExtensionHealthAlertData>  $healthAlerts
      * @param  list<string>  $missingRequiredTables
      * @param  list<array{label: string, url: string, permission: ?string, type: string}>  $managementEntries
+     * @param  list<array<string, mixed>>  $providerRecoveryEvents
      */
     public function __construct(
         public readonly string $packageName,
@@ -47,6 +48,7 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
         public readonly bool $needsAttention,
         public readonly int $riskScore,
         public readonly string $productGroup = 'Other',
+        public readonly array $providerRecoveryEvents = [],
     ) {}
 
     /** @return array<string, mixed> */
@@ -84,6 +86,7 @@ final class ExtensionOperationPackageData extends Data implements ArrayAccess
             'needsAttention' => $this->needsAttention,
             'riskScore' => $this->riskScore,
             'productGroup' => $this->productGroup,
+            'providerRecoveryEvents' => $this->providerRecoveryEvents,
         ];
     }
 
