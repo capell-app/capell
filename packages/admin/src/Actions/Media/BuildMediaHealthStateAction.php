@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Media;
 
 use Capell\Admin\Data\Media\MediaHealthStateData;
-use Capell\Admin\Support\MediaScope;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
+use Capell\Admin\Support\MediaScope;
 use Capell\Core\Models\Media;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
