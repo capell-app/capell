@@ -14,6 +14,7 @@ use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
 use Capell\Admin\Support\Workspace\AdminWorkspaceNavigator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -367,4 +368,19 @@ it('resolves deferred values before filtering and fails closed for null or fault
         ->toBe(['deferred'])
         ->and($registry->visible(null))->toBe([])
         ->and(array_column($registry->visible($throwingRoleActor), 'key'))->toBe(['deferred']);
+});
+
+it('renders workspace Heroicon enums through their Blade aliases', function (): void {
+    test()->actingAsAdmin();
+
+    resolve(AdminWorkspaceRegistry::class)->register(new AdminWorkspaceItemData(
+        key: 'document-tool',
+        label: 'Document tool',
+        url: '/admin/document-tool',
+        workspaces: [AdminWorkspaceEnum::All],
+        icon: Heroicon::OutlinedDocumentText,
+    ));
+
+    Livewire::test(AdminWorkspaceSwitcher::class)
+        ->assertSee('M19.5 14.25v-2.625', false);
 });

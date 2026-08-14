@@ -1,3 +1,7 @@
+@php
+    use Capell\Admin\Actions\ResolveFilamentIconAliasAction;
+@endphp
+
 <div class="flex items-center gap-2">
     <x-filament::dropdown
         placement="bottom-end"
@@ -69,7 +73,7 @@
                             wire:navigate
                         >
                             @if ($item->icon !== null)
-                                @svg(is_string($item->icon) ? $item->icon : $item->icon->value, 'h-4 w-4 flex-shrink-0 text-gray-400')
+                                @svg(ResolveFilamentIconAliasAction::run($item->icon), 'h-4 w-4 flex-shrink-0 text-gray-400')
                             @else
                                 <span class="h-4 w-4 flex-shrink-0"></span>
                             @endif
@@ -114,7 +118,7 @@
                             wire:navigate
                         >
                             @if ($item->icon !== null)
-                                @svg(is_string($item->icon) ? $item->icon : $item->icon->value, 'h-4 w-4 flex-shrink-0 text-gray-400')
+                                @svg(ResolveFilamentIconAliasAction::run($item->icon), 'h-4 w-4 flex-shrink-0 text-gray-400')
                             @else
                                 <span class="h-4 w-4 flex-shrink-0"></span>
                             @endif
@@ -158,7 +162,7 @@
                         wire:navigate
                     >
                         @if ($item->icon !== null)
-                            @svg(is_string($item->icon) ? $item->icon : $item->icon->value, 'h-4 w-4 flex-shrink-0 text-gray-400')
+                            @svg(ResolveFilamentIconAliasAction::run($item->icon), 'h-4 w-4 flex-shrink-0 text-gray-400')
                         @else
                             <span class="h-4 w-4 flex-shrink-0"></span>
                         @endif

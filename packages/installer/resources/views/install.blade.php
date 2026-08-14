@@ -668,7 +668,9 @@
                                 <p>{{ __('capell-installer::installer.packages_configure_body') }}</p>
 
                                 @if (! empty($recommendations ?? []))
-                                    <fieldset class="field recommendation-panel">
+                                    <fieldset
+                                        class="field recommendation-panel"
+                                    >
                                         <legend class="field-label">
                                             {{ __('capell-installer::installer.recommendation_heading') }}
                                         </legend>
@@ -677,23 +679,43 @@
                                         </p>
                                         <div class="grid-2 field-group">
                                             <div class="field">
-                                                <label class="field-label" for="recommendation_action">
+                                                <label
+                                                    class="field-label"
+                                                    for="recommendation_action"
+                                                >
                                                     {{ __('capell-installer::installer.recommendation_action') }}
                                                 </label>
-                                                <select id="recommendation_action" name="recommendation_action">
+                                                <select
+                                                    id="recommendation_action"
+                                                    name="recommendation_action"
+                                                >
                                                     @foreach (['select' => __('capell-installer::installer.recommendation_select'), 'confirm' => __('capell-installer::installer.recommendation_confirm'), 'custom' => __('capell-installer::installer.recommendation_custom'), 'skip' => __('capell-installer::installer.recommendation_skip')] as $action => $label)
-                                                        <option value="{{ $action }}" @selected(old('recommendation_action', 'custom') === $action)>{{ $label }}</option>
+                                                        <option
+                                                            value="{{ $action }}"
+                                                            @selected(old('recommendation_action', 'custom') === $action)
+                                                        >
+                                                            {{ $label }}
+                                                        </option>
                                                     @endforeach
                                                 </select>
                                             </div>
                                             <div class="field">
-                                                <label class="field-label" for="recommendation_key">
+                                                <label
+                                                    class="field-label"
+                                                    for="recommendation_key"
+                                                >
                                                     {{ __('capell-installer::installer.recommendation_bundle') }}
                                                 </label>
-                                                <select id="recommendation_key" name="recommendation_key">
+                                                <select
+                                                    id="recommendation_key"
+                                                    name="recommendation_key"
+                                                >
                                                     <option value=""></option>
                                                     @foreach ($recommendations as $recommendation)
-                                                        <option value="{{ $recommendation['key'] }}" @selected(old('recommendation_key') === $recommendation['key'])>
+                                                        <option
+                                                            value="{{ $recommendation['key'] }}"
+                                                            @selected(old('recommendation_key') === $recommendation['key'])
+                                                        >
                                                             {{ $recommendation['label'] }} — {{ $recommendation['description'] }}
                                                         </option>
                                                     @endforeach
