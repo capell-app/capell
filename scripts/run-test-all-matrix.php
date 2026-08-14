@@ -196,6 +196,8 @@ try {
                 ? 'test_cms_sentinel'
                 : 'test_cms_multi',
         ];
+        $maxProcesses = $cell['max_processes']
+            ?? (getenv('CAPELL_TEST_ALL_MAX_PROCESSES') ?: '2');
         $exitCode = ProcessRunner::run(
             [
                 PHP_BINARY,
@@ -208,7 +210,7 @@ try {
                 ...$cellEnvironment,
                 // The disposable MySQL service is intentionally resource-bounded;
                 // keep its parallel test workers bounded as well on local hosts.
-                'PEST_MAX_PROCESSES' => getenv('CAPELL_TEST_ALL_MAX_PROCESSES') ?: '2',
+                'PEST_MAX_PROCESSES' => $maxProcesses,
             ],
         );
         $results[] = [
