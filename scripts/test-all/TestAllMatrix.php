@@ -52,10 +52,10 @@ final class TestAllMatrix
                 ['package' => 'Admin', 'group' => 'admin'],
                 ['package' => 'Frontend', 'group' => 'frontend'],
                 ['package' => 'Installer', 'group' => 'installer'],
-                ['package' => 'Marketplace', 'group' => 'marketplace'],
+                ['package' => 'Marketplace', 'group' => 'marketplace', 'max_processes' => '1'],
             ] as $package) {
                 $slug = strtolower($package['package']);
-                $cells[] = [
+                $cell = [
                     ...$framework,
                     'id' => $framework['framework_slug'] . '-feature-' . $slug,
                     'test_suite' => 'Feature',
@@ -68,6 +68,12 @@ final class TestAllMatrix
                     'log' => 'pest-output-feature-' . $package['package'] . '.txt',
                     'artifact_slug' => $framework['framework_slug'] . '-feature-' . $slug,
                 ];
+
+                if (isset($package['max_processes'])) {
+                    $cell['max_processes'] = $package['max_processes'];
+                }
+
+                $cells[] = $cell;
             }
 
             $cells[] = [
