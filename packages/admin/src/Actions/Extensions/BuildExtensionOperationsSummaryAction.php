@@ -17,6 +17,7 @@ use Capell\Core\Data\Manifest\ExtensionScreenshotData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionHealthAlertCategory;
 use Capell\Core\Enums\ExtensionHealthAlertSeverity;
+use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -144,7 +145,17 @@ final class BuildExtensionOperationsSummaryAction
         $runtimeStatus = $this->runtimeStatus($extension, $runtimeGate?->reason);
         $managementEntries = $this->managementEntries($contributions);
         $healthAlerts = $this->healthAlertRecords($alerts, $managementEntries);
+        $providerRecoveryAlert = $this->providerRecoveryAlert($extension);
+
+        if ($providerRecoveryAlert instanceof ExtensionHealthAlertData) {
+            $healthAlerts[] = $providerRecoveryAlert;
+        }
+
         $healthState = $this->healthState($alerts, $missingRequiredTables, $runtimeAllowed);
+
+        if ($providerRecoveryAlert instanceof ExtensionHealthAlertData) {
+            $healthState = 'critical';
+        }
         $installed = $extension instanceof CapellExtension || ($package?->isInstalled() === true);
         $available = $package instanceof PackageData && CapellCore::isPackageAvailable($package->name);
         $composerDriftAlert = $this->composerDriftAlert($manifest->name, $extension);
@@ -199,6 +210,9 @@ final class BuildExtensionOperationsSummaryAction
             needsAttention: $needsAttention,
             riskScore: $riskScore,
             productGroup: $this->normaliseProductGroup($manifest->productGroup),
+            providerRecoveryEvents: $extension instanceof CapellExtension
+                ? ($extension->provider_recovery_events ?? [])
+                : [],
         );
     }
 
@@ -245,6 +259,7 @@ final class BuildExtensionOperationsSummaryAction
                 canUninstall: false,
             ),
             productGroup: $this->normaliseProductGroup($this->metadataString($extension, 'product_group')),
+            providerRecoveryEvents: $extension->provider_recovery_events ?? [],
         );
     }
 
@@ -542,6 +557,31 @@ final class BuildExtensionOperationsSummaryAction
         }
 
         return $extension->status->value;
+    }
+
+    private function providerRecoveryAlert(?CapellExtension $extension): ?ExtensionHealthAlertData
+    {
+        if (! $extension instanceof CapellExtension
+            || $extension->provider_recovery_state !== ExtensionProviderRecoveryStateEnum::Quarantined) {
+            return null;
+        }
+
+        $provider = $extension->provider_recovery_provider ?? 'an extension provider';
+
+        return new ExtensionHealthAlertData(
+            id: 'provider-quarantined-' . hash('sha256', $extension->composer_name . $provider),
+            packageName: $extension->composer_name,
+            severity: ExtensionHealthAlertSeverity::Critical->value,
+            category: 'provider',
+            title: __('capell-admin::dashboard.extension_provider_quarantined_title'),
+            message: __('capell-admin::dashboard.extension_provider_quarantined_message', [
+                'provider' => $provider,
+                'reason' => $extension->provider_recovery_reason ?? __('capell-admin::dashboard.extension_provider_quarantined_unknown_reason'),
+            ]),
+            requiredAction: __('capell-admin::dashboard.extension_provider_quarantined_action'),
+            runtimeDisabled: true,
+            protectedActionsBlocked: true,
+        );
     }
 
     private function marketplaceAccountConnected(): bool

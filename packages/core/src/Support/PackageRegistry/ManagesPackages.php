@@ -424,7 +424,7 @@ trait ManagesPackages
         $this->packages[$name]->setInstalled($installed);
     }
 
-    public function markPackageInstalled(string $name): void
+    public function markPackageInstalled(string $name, ?string $actor = null): void
     {
         if ($this->isCorePackageName($name)) {
             $this->setUninstalledExtensionNames(
@@ -439,7 +439,7 @@ trait ManagesPackages
             return;
         }
 
-        $this->extensionLifecycle()->recordInstalled($name, $this->packageOrNull($name));
+        $this->extensionLifecycle()->recordInstalled($name, $this->packageOrNull($name), $actor);
         $this->clearExtensionCache();
 
         $this->setUninstalledExtensionNames(
@@ -474,6 +474,24 @@ trait ManagesPackages
         }
 
         $this->extensionLifecycle()->recordLifecycle($name, ExtensionStatusEnum::Failed, $this->packageOrNull($name), ['install_error' => $message]);
+        $this->clearExtensionCache();
+        $this->forcePackageInstalled($name, false);
+    }
+
+    public function markPackageProviderQuarantined(string $name, string $provider, string $reason): void
+    {
+        if ($this->isCorePackageName($name)) {
+            $this->clearExtensionCache();
+
+            return;
+        }
+
+        $this->extensionLifecycle()->recordProviderQuarantined(
+            name: $name,
+            provider: $provider,
+            reason: $reason,
+            package: $this->packageOrNull($name),
+        );
         $this->clearExtensionCache();
         $this->forcePackageInstalled($name, false);
     }

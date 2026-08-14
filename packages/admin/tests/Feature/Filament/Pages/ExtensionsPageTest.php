@@ -25,6 +25,7 @@ use Capell\Admin\Tests\Fixtures\Extensions\FakeExtensionCatalogueMetadataProvide
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Enums\ExtensionHealthAlertCategory;
 use Capell\Core\Enums\ExtensionHealthAlertSeverity;
+use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -978,6 +979,60 @@ it('can re-enable a disabled extension from the extensions page', function (): v
 
     expect($enabledExtension?->status)->toBe(ExtensionStatusEnum::Enabled)
         ->and(CapellCore::isPackageEnabled('vendor/local-extension'))->toBeTrue();
+});
+
+it('can re-enable a quarantined extension from the extensions page', function (): void {
+    grantExtensionsPageManagementAccess();
+    $packageName = 'vendor/quarantined-local-extension';
+
+    CapellCore::registerPackage(
+        name: $packageName,
+        path: extensionPackagePath(),
+        version: '1.2.3',
+    );
+    CapellCore::markPackageInstalled($packageName);
+    CapellCore::markPackageProviderQuarantined(
+        name: $packageName,
+        provider: 'Vendor\\Local\\ServiceProvider',
+        reason: 'Provider registration failed.',
+    );
+    CapellAdmin::registerExtensionPage($packageName, UpgradePage::class);
+
+    Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertSuccessful()
+        ->assertTableActionVisible('enableExtension', record: $packageName)
+        ->callTableAction('enableExtension', record: $packageName)
+        ->assertDispatched('refresh-sidebar');
+
+    $extension = CapellExtension::query()->where('composer_name', $packageName)->firstOrFail();
+    $events = $extension->provider_recovery_events ?? [];
+
+    expect($extension->provider_recovery_state)->toBe(ExtensionProviderRecoveryStateEnum::Healthy)
+        ->and($events[1]['event'])->toBe('reenabled');
+});
+
+it('does not expose quarantined extension recovery to users without management permission', function (): void {
+    Permission::create(['name' => 'View:ExtensionsPage', 'guard_name' => 'web']);
+    test()->actingAsUser();
+    test()->authenticatedUser()->givePermissionTo('View:ExtensionsPage');
+    $packageName = 'vendor/quarantined-viewer-extension';
+
+    CapellCore::registerPackage(
+        name: $packageName,
+        path: extensionPackagePath(),
+        version: '1.2.3',
+    );
+    CapellCore::markPackageInstalled($packageName);
+    CapellCore::markPackageProviderQuarantined(
+        name: $packageName,
+        provider: 'Vendor\\Local\\ServiceProvider',
+        reason: 'Provider registration failed.',
+    );
+    CapellAdmin::registerExtensionPage($packageName, UpgradePage::class);
+
+    Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->assertSuccessful()
+        ->assertTableActionHidden('enableExtension', record: $packageName);
 });
 
 it('can install an uninstalled local extension from the extensions page', function (): void {

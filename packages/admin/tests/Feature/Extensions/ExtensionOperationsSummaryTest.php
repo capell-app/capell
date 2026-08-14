@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Extensions\BuildExtensionDependencyGraphAction;
+use Capell\Admin\Actions\Extensions\BuildExtensionDiagnosticsAction;
 use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
 use Capell\Admin\Actions\Extensions\BuildExtensionRuntimeCompatibilityAction;
 use Capell\Admin\Actions\Extensions\BuildExtensionUpdateReadinessAction;
@@ -21,6 +22,7 @@ use Capell\Admin\Tests\Feature\Extensions\Fixtures\ExtensionOperationsSummaryIna
 use Capell\Core\Actions\RequirePackageAction;
 use Capell\Core\Enums\ExtensionHealthAlertCategory;
 use Capell\Core\Enums\ExtensionHealthAlertSeverity;
+use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -230,6 +232,46 @@ it('alerts when an installed extension record no longer has a composer package m
         ->and($summary->installedCount)->toBe(1)
         ->and($summary->availableCount)->toBe(0)
         ->and($alert?->message)->toContain('current registry has no manifest');
+});
+
+it('reports quarantined provider recovery state as a critical diagnostic', function (): void {
+    $packageName = 'vendor/quarantined-provider';
+
+    registerOperationsSummaryManifest($packageName, [
+        'displayName' => 'Quarantined Provider',
+        'version' => '1.0.0',
+    ]);
+
+    CapellExtension::query()->create([
+        'composer_name' => $packageName,
+        'name' => 'Quarantined Provider',
+        'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Failed,
+        'provider_recovery_state' => ExtensionProviderRecoveryStateEnum::Quarantined,
+        'provider_recovery_provider' => 'Vendor\\Quarantined\\ServiceProvider',
+        'provider_recovery_reason' => 'Provider registration failed.',
+        'provider_recovery_at' => now(),
+        'provider_recovery_events' => [[
+            'event' => 'quarantined',
+            'actor' => 'system',
+            'provider' => 'Vendor\\Quarantined\\ServiceProvider',
+            'reason' => 'Provider registration failed.',
+            'occurred_at' => now()->toIso8601String(),
+        ]],
+    ]);
+
+    $package = BuildExtensionOperationsSummaryAction::run()->package($packageName);
+    $alert = collect($package?->healthAlerts ?? [])->firstWhere('category', 'provider');
+    $diagnostics = BuildExtensionDiagnosticsAction::run();
+    $auditEvents = ListExtensionAuditEventsAction::run(limit: 10);
+
+    expect($package?->runtimeAllowed)->toBeFalse()
+        ->and($package?->runtimeStatus)->toBe('provider_quarantined')
+        ->and($package?->healthState)->toBe('critical')
+        ->and($alert?->severity)->toBe(ExtensionHealthAlertSeverity::Critical->value)
+        ->and($alert?->protectedActionsBlocked)->toBeTrue()
+        ->and(collect($diagnostics)->pluck('id'))->toContain($alert?->id)
+        ->and(collect($auditEvents)->pluck('event'))->toContain('provider_quarantined');
 });
 
 it('alerts when a registered installed extension is missing from composer availability', function (): void {
