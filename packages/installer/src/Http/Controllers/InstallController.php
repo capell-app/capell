@@ -335,6 +335,7 @@ final class InstallController
             'status' => $run->status,
             'plan' => $run->plan,
             'nextStep' => $run->nextStep,
+            'preflight' => $run->preflight,
             'progressUrl' => route('capell-installer.progress', ['installId' => $run->installId]),
             'progressDataUrl' => route('capell-installer.progress.data', ['installId' => $run->installId]),
             'reportUrl' => route('capell-installer.progress.download', ['installId' => $run->installId]),

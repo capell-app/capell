@@ -1749,6 +1749,7 @@ it('returns the install plan when posted as ajax', function (): void {
         'progressDataUrl',
         'reportUrl',
         'logPath',
+        'preflight',
     ]);
     $response->assertJsonPath('plan.0.key', InstallPlan::STEP_PREFLIGHT_CHECKS);
 
