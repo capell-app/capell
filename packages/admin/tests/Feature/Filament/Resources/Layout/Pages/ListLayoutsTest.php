@@ -150,16 +150,15 @@ it('can search layouts', function (): void {
 });
 
 it('can sort layouts', function (): void {
-    $layouts = Layout::factory()->count(5)->create();
-    $sortedLayoutNames = $layouts
-        ->sortBy('name')
-        ->pluck('name')
-        ->map(fn (string $name): string => e($name))
-        ->all();
+    foreach (['Zulu layout', "O'Brien layout", 'Alpha layout', 'Middle layout'] as $name) {
+        Layout::factory()->createOne(['name' => $name]);
+    }
+
+    $sortedLayoutNames = ['Alpha layout', 'Middle layout', "O'Brien layout", 'Zulu layout'];
 
     Livewire::test(ListLayouts::class)
         ->assertSuccessful()
-        ->assertCountTableRecords(5)
+        ->assertCountTableRecords(4)
         ->sortTable('name')
         ->assertSeeInOrder($sortedLayoutNames);
 });
