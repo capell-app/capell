@@ -103,6 +103,11 @@ try {
         '--publish',
         '127.0.0.1::3306',
         'mysql:8.0',
+        '--innodb-buffer-pool-size=512M',
+        '--performance-schema=OFF',
+        '--max-connections=40',
+        '--table-open-cache=256',
+        '--temptable-max-ram=64M',
     ], $repositoryRoot);
 
     if ($dockerRun['exit_code'] !== 0) {
