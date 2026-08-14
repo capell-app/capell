@@ -199,7 +199,12 @@ try {
                 '--output-dir=' . $cellOutputDirectory,
             ],
             $workspace['path'],
-            $cellEnvironment,
+            [
+                ...$cellEnvironment,
+                // The disposable MySQL service is intentionally resource-bounded;
+                // keep its parallel test workers bounded as well on local hosts.
+                'PEST_MAX_PROCESSES' => getenv('CAPELL_TEST_ALL_MAX_PROCESSES') ?: '2',
+            ],
         );
         $results[] = [
             'id' => $cell['id'],
