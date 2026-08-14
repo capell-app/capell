@@ -15,6 +15,7 @@ use Capell\Admin\Support\Workspace\AdminWorkspaceNavigator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ beforeEach(function (): void {
 
 final class AdminWorkspaceTestUser extends AuthenticatableUser
 {
+    /** @use HasFactory<Factory<self>> */
     use HasFactory;
 
     /**
@@ -352,6 +354,7 @@ it('resolves deferred values before filtering and fails closed for null or fault
 
     $throwingRoleActor = new class extends AuthenticatableUser
     {
+        /** @use HasFactory<Factory<static>> */
         use HasFactory;
 
         public function hasRole(string $role): bool
