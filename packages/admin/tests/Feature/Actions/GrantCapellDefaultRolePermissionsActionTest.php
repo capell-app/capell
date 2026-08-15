@@ -6,6 +6,7 @@ use Capell\Admin\Actions\EnsureCapellPermissionsAction;
 use Capell\Admin\Actions\GrantCapellDefaultRolePermissionsAction;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Enums\PermissionSyncMode;
+use Capell\Admin\Enums\ResourceEnum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -36,6 +37,24 @@ it('adds upgrade defaults without removing existing role permissions', function 
     expect($adminRole->hasPermissionTo('custom.client.permission', 'web'))->toBeTrue()
         ->and($adminRole->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeTrue()
         ->and($adminRole->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeFalse();
+});
+
+it('backfills editor page URL permissions during an upgrade', function (): void {
+    foreach (['view_any', 'view', 'create'] as $affix) {
+        Permission::create([
+            'name' => ResourceEnum::PageUrl->permission($affix),
+            'guard_name' => 'web',
+        ]);
+    }
+
+    GrantCapellDefaultRolePermissionsAction::run(PermissionSyncMode::Upgrade);
+
+    $editorRole = Role::findByName('editor');
+
+    expect($editorRole->hasPermissionTo('ViewAny:PageUrl', 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo('View:PageUrl', 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo('Create:PageUrl', 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(CapellPermission::RollbackPage->name(), 'web'))->toBeTrue();
 });
 
 it('creates missing built-in roles when granting defaults', function (): void {

@@ -18,15 +18,22 @@ final class ForceContentLockAction
 
     public function handle(Model $model, Authenticatable $user, int $ttlMinutes = ContentLock::DEFAULT_TTL_MINUTES): ContentLock
     {
-        ContentLock::query()
-            ->forModel($model)
-            ->delete();
+        $now = Date::now();
 
-        return ContentLock::query()->create([
-            'user_id' => $user->getAuthIdentifier(),
-            'model_type' => $model->getMorphClass(),
-            'model_id' => $model->getKey(),
-            'expires_at' => Date::now()->addMinutes($ttlMinutes),
-        ])->load('user');
+        ContentLock::query()->upsert([
+            [
+                'user_id' => $user->getAuthIdentifier(),
+                'model_type' => $model->getMorphClass(),
+                'model_id' => $model->getKey(),
+                'expires_at' => $now->copy()->addMinutes($ttlMinutes),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ], ['model_type', 'model_id'], ['user_id', 'expires_at', 'updated_at']);
+
+        return ContentLock::query()
+            ->forModel($model)
+            ->firstOrFail()
+            ->load('user');
     }
 }

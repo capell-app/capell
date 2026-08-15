@@ -75,7 +75,7 @@ enum CapellPermission
             self::ExportSite,
             self::RevertActivityLog,
             self::DeleteActivityLog => ['super_admin'],
-            self::RollbackPage => ['admin', 'super_admin'],
+            self::RollbackPage => ['editor', 'admin', 'super_admin'],
         };
     }
 
@@ -89,7 +89,7 @@ enum CapellPermission
             self::ManageSitePermissions,
             self::ManagePageRestrictions => ['admin', 'super_admin'],
             self::ManageAdvancedPresentationSettings => ['super_admin'],
-            self::RollbackPage => ['admin', 'super_admin'],
+            self::RollbackPage => ['editor', 'admin', 'super_admin'],
             default => ['super_admin'],
         };
     }

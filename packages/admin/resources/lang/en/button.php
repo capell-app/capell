@@ -169,6 +169,7 @@ return [
     'sitemap' => 'Sitemap',
     'tablet' => 'Tablet',
     'take_over_content_lock' => 'Take over editing',
+    'request_content_lock_takeover' => 'Request takeover',
     'toggle_layout_element_assets' => 'Toggle assets for :element',
     'undo' => 'Undo',
     'unpublish' => 'Unpublish',
