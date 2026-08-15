@@ -497,7 +497,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     /** @return MorphOne<PageUrl, $this> */
     public function pageUrl(): MorphOne
     {
-        return $this->morphOne(PageUrl::class, 'pageable')->withDefault(['site_id' => $this->site_id]);
+        return $this->morphOne(PageUrl::class, 'pageable');
     }
 
     /** @return MorphMany<PageUrl, $this> */

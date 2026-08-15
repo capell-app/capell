@@ -485,8 +485,10 @@ class PageLoader
                 $page->setRelation('site', $site);
             }
 
-            if (! $page->pageUrl->relationLoaded('siteDomain')) {
-                $page->pageUrl->setRelation('siteDomain', $site->siteDomain);
+            $pageUrl = $page->pageUrl;
+
+            if ($pageUrl !== null && ! $pageUrl->relationLoaded('siteDomain')) {
+                $pageUrl->setRelation('siteDomain', $site->siteDomain);
             }
         }
 
