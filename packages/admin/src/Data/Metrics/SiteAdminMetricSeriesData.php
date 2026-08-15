@@ -10,11 +10,13 @@ final class SiteAdminMetricSeriesData extends Data
 {
     /**
      * @param  list<SiteAdminMetricTrendPointData>  $points
+     * @param  list<float>  $trend
      */
     public function __construct(
         public readonly string $label,
         public readonly string $description,
         public readonly string $latestValue,
         public readonly array $points,
+        public readonly array $trend,
     ) {}
 }
