@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
 use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Data\Install\InstallReadinessCheckData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Enums\Install\InstallReadinessStatus;
 use Capell\Core\Facades\CapellDatabase;
@@ -22,6 +23,15 @@ function runInstallPreflightInput(string $siteUrl = 'https://example.test'): Ins
         generateSitemap: false,
         generateStaticSite: false,
     );
+}
+
+function installReadinessCheck(mixed $value): InstallReadinessCheckData
+{
+    if (! $value instanceof InstallReadinessCheckData) {
+        throw new RuntimeException('Expected an install readiness check.');
+    }
+
+    return $value;
 }
 
 it('runs environment checks before the install mutates the application', function (): void {
@@ -75,11 +85,7 @@ it('reports missing installation root paths as blocking filesystem checks', func
         File::deleteDirectory($temporaryBasePath);
     }
 
-    $filesystemCheck = collect($report->checks)->firstWhere('key', 'filesystem');
-
-    expect($filesystemCheck)->not->toBeNull();
-
-    $filesystemCheck = expectPresent($filesystemCheck);
+    $filesystemCheck = installReadinessCheck(collect($report->checks)->firstWhere('key', 'filesystem'));
 
     expect($filesystemCheck)
         ->and($filesystemCheck->status)->toBe(InstallReadinessStatus::Blocked)
@@ -115,8 +121,7 @@ it('reports existing but non-writable installation root paths', function (): voi
         File::deleteDirectory($temporaryBasePath);
     }
 
-    $filesystemCheck = collect($report->checks)->firstWhere('key', 'filesystem');
-    $filesystemCheck = expectPresent($filesystemCheck);
+    $filesystemCheck = installReadinessCheck(collect($report->checks)->firstWhere('key', 'filesystem'));
 
     expect($filesystemCheck->message)->toContain('is not writable.');
 });
@@ -132,7 +137,7 @@ it('reports missing, unsupported, and extension-incomplete database configuratio
         ]);
 
         $report = RunInstallPreflightChecksAction::make()->report(runInstallPreflightInput());
-        $databaseCheck = expectPresent(collect($report->checks)->firstWhere('key', 'database-configuration'));
+        $databaseCheck = installReadinessCheck(collect($report->checks)->firstWhere('key', 'database-configuration'));
 
         expect($databaseCheck->message)->toBe('A default database connection and driver must be configured.');
 
@@ -142,7 +147,7 @@ it('reports missing, unsupported, and extension-incomplete database configuratio
         ]);
 
         $report = RunInstallPreflightChecksAction::make()->report(runInstallPreflightInput());
-        $databaseCheck = expectPresent(collect($report->checks)->firstWhere('key', 'database-configuration'));
+        $databaseCheck = installReadinessCheck(collect($report->checks)->firstWhere('key', 'database-configuration'));
 
         expect($databaseCheck->message)->toBe('Database driver [sqlsrv] is not supported.');
 
@@ -160,7 +165,7 @@ it('reports missing, unsupported, and extension-incomplete database configuratio
 
         try {
             $report = RunInstallPreflightChecksAction::make()->report(runInstallPreflightInput());
-            $databaseCheck = expectPresent(collect($report->checks)->firstWhere('key', 'database-configuration'));
+            $databaseCheck = installReadinessCheck(collect($report->checks)->firstWhere('key', 'database-configuration'));
         } finally {
             app()->instance(DatabasePlatformRegistry::class, $originalRegistry);
             CapellDatabase::clearResolvedInstance(DatabasePlatformRegistry::class);
