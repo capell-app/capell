@@ -384,3 +384,10 @@ it('renders workspace Heroicon enums through their Blade aliases', function (): 
     Livewire::test(AdminWorkspaceSwitcher::class)
         ->assertSee('M19.5 14.25v-2.625', false);
 });
+
+it('renders workspace action arguments without leaking Blade directives into HTML', function (): void {
+    test()->actingAsAdmin();
+
+    Livewire::test(AdminWorkspaceSwitcher::class)
+        ->assertDontSee('@js(', false);
+});
