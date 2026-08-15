@@ -415,6 +415,7 @@ return [
     'shadow_subtle' => 'Subtle',
     'show_divider' => 'Show divider',
     'slug' => 'Slug',
+    'slug_lock_helper' => 'The page slug can be locked by a blueprint; if locked, change it in the page blueprint settings.',
     'social_description' => 'Social description',
     'social_links' => 'Social links',
     'social_title' => 'Social title',

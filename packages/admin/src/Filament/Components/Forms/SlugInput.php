@@ -23,7 +23,7 @@ class SlugInput extends TextInput
 
     protected string|Closure|null $baseUrl = null;
 
-    protected ?string $helperText = null;
+    protected string|Closure|null $helperText = null;
 
     protected bool $showUrl = true;
 
@@ -186,12 +186,21 @@ class SlugInput extends TextInput
         return $this;
     }
 
-    public function getHelperText(): ?string
+    public function slugInputHelperText(string|Closure|null $helperText): static
     {
-        return $this->helperText;
+        $this->helperText = $helperText;
+
+        return $this;
     }
 
-    public function getShowUrl(): ?bool
+    public function getHelperText(): ?string
+    {
+        $helperText = $this->evaluate($this->helperText);
+
+        return is_string($helperText) ? $helperText : null;
+    }
+
+    public function getShowUrl(): bool
     {
         return $this->showUrl;
     }

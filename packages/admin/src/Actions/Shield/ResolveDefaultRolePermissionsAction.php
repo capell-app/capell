@@ -33,6 +33,7 @@ class ResolveDefaultRolePermissionsAction
                 self::permission('view_any', 'PageUrl'),
                 self::permission('view', 'PageUrl'),
                 self::permission('create', 'PageUrl'),
+                self::permission('update', 'PageUrl'),
                 CapellPermission::RollbackPage->name(),
                 self::permission('view_any', 'Navigation'),
                 self::permission('view', 'Navigation'),

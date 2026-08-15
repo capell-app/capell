@@ -431,6 +431,36 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         }
     }
 
+    #[Override]
+    protected function getSavedNotification(): ?Notification
+    {
+        $notification = parent::getSavedNotification();
+
+        if (! $notification instanceof Notification) {
+            return null;
+        }
+
+        $pageUrl = $this->record->pageUrls->first();
+        $pageUrlString = $pageUrl instanceof PageUrl ? PageUrlPresenter::fullUrl($pageUrl) : null;
+
+        if (is_string($pageUrlString) && $pageUrlString !== '') {
+            $notification->actions(
+                array_merge(
+                    $notification->getActions(),
+                    [
+                        Action::make('view-page')
+                            ->label(__('capell-admin::button.view_page'))
+                            ->url($pageUrlString)
+                            ->openUrlInNewTab()
+                            ->button(),
+                    ],
+                ),
+            );
+        }
+
+        return $notification;
+    }
+
     protected function afterSave(): void
     {
         /** @var Pageable<Model> $page */
