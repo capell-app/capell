@@ -27,9 +27,7 @@ function runInstallPreflightInput(string $siteUrl = 'https://example.test'): Ins
 
 function installReadinessCheck(mixed $value): InstallReadinessCheckData
 {
-    if (! $value instanceof InstallReadinessCheckData) {
-        throw new RuntimeException('Expected an install readiness check.');
-    }
+    throw_unless($value instanceof InstallReadinessCheckData, RuntimeException::class, 'Expected an install readiness check.');
 
     return $value;
 }
