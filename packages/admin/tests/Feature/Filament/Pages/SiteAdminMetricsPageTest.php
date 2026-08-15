@@ -32,16 +32,6 @@ it('registers the host metrics page with stable translated labels', function ():
         ->and(resolve(SiteAdminMetricsPage::class)->getSubheading())->toBe(__('capell-admin::metrics.description'));
 });
 
-it('declares every metric trend height utility in the scanned Blade source', function (): void {
-    $view = file_get_contents(__DIR__ . '/../../../../resources/views/filament/pages/site-admin-metrics.blade.php');
-
-    expect($view)->toBeString();
-
-    foreach (['h-1', 'h-2/12', 'h-4/12', 'h-5/12', 'h-6/12', 'h-8/12', 'h-10/12', 'h-full'] as $heightClass) {
-        expect($view)->toContain(sprintf("'%s' =>", $heightClass));
-    }
-});
-
 it('denies the metrics page without its admin permission', function (): void {
     test()->actingAsUser();
 
@@ -98,6 +88,22 @@ it('reads and formats only active global site admin series', function (): void {
         state: MetricPointState::Present,
         value: MetricValueData::integer(12),
     );
+    $previousRun = resolve(StoreMetricCollectionRunAction::class)->execute(
+        day: '2026-07-22',
+        ownerPackage: $definition->identity->ownerPackage,
+        collectorKey: $definition->identity->collectorKey,
+        definitionHash: $definition->semanticHash(),
+        status: MetricCollectionRunStatus::Started,
+        startedAt: CarbonImmutable::parse('2026-07-23 00:04:00', 'UTC'),
+    );
+    resolve(StoreMetricDailyRollupAction::class)->execute(
+        run: $previousRun,
+        definition: $definition,
+        day: '2026-07-22',
+        scope: MetricScopeData::global('UTC'),
+        state: MetricPointState::Present,
+        value: MetricValueData::integer(10),
+    );
     $percentageDefinition = $registry->definitions()
         ->firstOrFail(fn (MetricDefinitionData $candidate): bool => $candidate->identity->metricKey === 'visible-percentage');
 
@@ -120,10 +126,11 @@ it('reads and formats only active global site admin series', function (): void {
 
     $series = ReadSiteAdminMetricSeriesAction::run(test()->authenticatedUser());
 
-    expect($series)->toHaveCount(3)
-        ->and(collect($series)->pluck('label')->all())->toBe(['Visible count', 'Visible empty', 'Visible percentage'])
+    expect($series)->toHaveCount(4)
+        ->and(collect($series)->pluck('label')->all())->toBe(['Visible count', 'Visible empty', 'Visible percentage', 'Visible trend'])
         ->and($series[0]->latestValue)->toBe('12')
-        ->and($series[0]->points)->toHaveCount(1)
+        ->and($series[0]->points)->toHaveCount(2)
+        ->and($series[0]->trend)->toBe([10.0, 12.0])
         ->and($series[1]->latestValue)->toBe(__('capell-admin::metrics.no_value'))
         ->and($series[2]->latestValue)->toBe('12.5%')
         ->and(collect($series)->pluck('label')->all())
@@ -135,7 +142,13 @@ it('renders a stable metrics evidence wrapper for an authorized admin', function
     test()->actingAsAdmin();
     test()->authenticatedUser()->givePermissionTo('View:SiteAdminMetricsPage');
 
+    resolve(MetricCollectorRegistry::class)->register(SiteAdminMetricsTestCollector::class);
+
     Livewire::test(SiteAdminMetricsPage::class)
         ->assertSuccessful()
-        ->assertSeeHtml('data-testid="capell-site-admin-metrics"');
+        ->assertSeeHtml('data-testid="capell-site-admin-metrics"')
+        ->assertSee('Visible count')
+        ->assertSee('Visible empty')
+        ->assertSee('Visible percentage')
+        ->assertSee('Visible trend');
 });

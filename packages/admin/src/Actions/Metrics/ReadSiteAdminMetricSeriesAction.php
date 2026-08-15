@@ -127,6 +127,10 @@ final class ReadSiteAdminMetricSeriesAction
                 ),
                 $series->points,
             )),
+            trend: array_values(array_map(
+                static fn (MetricPointData $point): float => $point->numericValue() ?? 0.0,
+                $series->points,
+            )),
         );
     }
 
