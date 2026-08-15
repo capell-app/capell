@@ -99,11 +99,12 @@ it('forces an active content lock to the requested editor', function (): void {
 
     Date::setTestNow('2026-05-31 10:00:00');
 
-    AcquireContentLockAction::run($page, $owner, ttlMinutes: 15);
+    $ownerLock = AcquireContentLockAction::run($page, $owner, ttlMinutes: 15);
 
     $lock = ForceContentLockAction::run($page, $nextEditor, ttlMinutes: 10);
 
-    expect($lock->user_id)->toBe($nextEditor->getKey())
+    expect($lock->getKey())->toBe($ownerLock->getKey())
+        ->and($lock->user_id)->toBe($nextEditor->getKey())
         ->and($lock->expires_at->toDateTimeString())->toBe('2026-05-31 10:10:00')
         ->and(ContentLock::query()->count())->toBe(1)
         ->and(FindConflictingContentLockAction::run($page, $nextEditor))->toBeNull();

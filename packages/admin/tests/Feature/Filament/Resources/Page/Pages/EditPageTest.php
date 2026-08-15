@@ -33,11 +33,13 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -99,6 +101,16 @@ it('can render page', function (): void {
         'record' => Page::factory()->createOne(),
     ]))
         ->assertSuccessful();
+});
+
+it('enables Filament unsaved changes alerts for admin editing', function (): void {
+    $page = Page::factory()->createOne();
+
+    get(PageResource::getUrl('edit', [
+        'record' => $page,
+    ]))->assertSuccessful();
+
+    expect(Filament::getPanel('admin')->hasUnsavedChangesAlerts())->toBeTrue();
 });
 
 it('standard page relations survive blueprint relations without duplicates', function (): void {
@@ -304,7 +316,10 @@ it('acquires a content lock when an editor opens a page', function (): void {
         'record' => $page,
     ]))
         ->assertSuccessful()
-        ->assertSee('data-capell-content-lock-heartbeat', false);
+        ->assertSee('data-capell-content-lock-heartbeat', false)
+        ->assertSee(__('capell-admin::scratch_drafts.local_available'))
+        ->assertSee(__('capell-admin::message.content_lock_read_only'))
+        ->assertSee(__('capell-admin::button.request_content_lock_takeover'));
 
     Livewire::test(EditPage::class, [
         'record' => $page->getRouteKey(),
@@ -419,6 +434,8 @@ it('warns and blocks saves while another editor has an active page lock', functi
     ])
         ->assertSuccessful()
         ->assertNotified(__('capell-admin::message.content_lock_active', ['name' => 'Ben']))
+        ->assertSee(__('capell-admin::message.content_lock_read_only'))
+        ->assertSee(__('capell-admin::button.request_content_lock_takeover'))
         ->fillForm([
             'name' => 'Blocked Name',
         ])
@@ -454,6 +471,7 @@ it('lets an editor explicitly take over an active page lock', function (): void 
         ->assertActionVisible('take-over-content-lock')
         ->callAction('take-over-content-lock')
         ->assertHasNoActionErrors()
+        ->assertDispatched('content-lock-taken-over', pageId: $page->getKey())
         ->assertNotified(__('capell-admin::message.content_lock_taken_over'));
 
     $lock = ContentLock::query()->sole();
@@ -462,6 +480,38 @@ it('lets an editor explicitly take over an active page lock', function (): void 
         ->and($lock->model_type)->toBe($page->getMorphClass())
         ->and($lock->model_id)->toBe($page->getKey())
         ->and($lock->expires_at->toDateTimeString())->toBe('2026-05-31 10:15:00');
+
+    Date::setTestNow();
+});
+
+it('rechecks page update authorization when taking over an active page lock', function (): void {
+    $page = Page::factory()->createOne();
+    $owner = test()->createUser(['name' => 'Ben']);
+
+    Permission::findOrCreate('Update:Page');
+    $otherEditor = test()->createUser(['name' => 'Read-only Editor']);
+
+    Date::setTestNow('2026-05-31 10:00:00');
+
+    ContentLock::query()->create([
+        'user_id' => $owner->getKey(),
+        'model_type' => $page->getMorphClass(),
+        'model_id' => $page->getKey(),
+        'expires_at' => Date::now()->addMinutes(15),
+    ]);
+
+    $component = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])->assertSuccessful()->assertActionVisible('take-over-content-lock');
+
+    test()->actingAs($otherEditor);
+
+    expect(Gate::forUser($otherEditor)->denies('update', $page))->toBeTrue();
+
+    expect(fn (): mixed => $component->callAction('take-over-content-lock'))
+        ->toThrow(ErrorException::class);
+
+    expect(ContentLock::query()->sole()->user_id)->toBe($owner->getKey());
 
     Date::setTestNow();
 });

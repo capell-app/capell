@@ -56,6 +56,6 @@ it('defines install and upgrade grants separately', function (): void {
         ->and(CapellPermission::RevertActivityLog->upgradeRoles())->toBe(['super_admin'])
         ->and(CapellPermission::DeleteActivityLog->installRoles())->toBe(['super_admin'])
         ->and(CapellPermission::DeleteActivityLog->upgradeRoles())->toBe(['super_admin'])
-        ->and(CapellPermission::RollbackPage->installRoles())->toBe(['admin', 'super_admin'])
-        ->and(CapellPermission::RollbackPage->upgradeRoles())->toBe(['admin', 'super_admin']);
+        ->and(CapellPermission::RollbackPage->installRoles())->toBe(['editor', 'admin', 'super_admin'])
+        ->and(CapellPermission::RollbackPage->upgradeRoles())->toBe(['editor', 'admin', 'super_admin']);
 });

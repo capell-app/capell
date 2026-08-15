@@ -35,6 +35,10 @@ it('seeds install role defaults', function (): void {
     SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
 
     expect(Role::findByName('editor')->hasPermissionTo('Update:Page', 'web'))->toBeTrue()
+        ->and(Role::findByName('editor')->hasPermissionTo('ViewAny:PageUrl', 'web'))->toBeTrue()
+        ->and(Role::findByName('editor')->hasPermissionTo('View:PageUrl', 'web'))->toBeTrue()
+        ->and(Role::findByName('editor')->hasPermissionTo('Create:PageUrl', 'web'))->toBeTrue()
+        ->and(Role::findByName('editor')->hasPermissionTo(CapellPermission::RollbackPage->name(), 'web'))->toBeTrue()
         ->and(Role::findByName('admin')->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeTrue()
         ->and(Role::findByName('admin')->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeFalse()
         ->and(Role::findByName('super_admin')->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeTrue()
