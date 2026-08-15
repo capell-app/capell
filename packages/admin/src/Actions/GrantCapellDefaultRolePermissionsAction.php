@@ -22,6 +22,8 @@ class GrantCapellDefaultRolePermissionsAction
     {
         $guard = config('auth.defaults.guard', 'web');
 
+        AssignPermissionsToRole::run(resources: [ResourceEnum::PageUrl]);
+
         foreach ($this->rolePermissionMap($mode, $guard) as $roleName => $permissionNames) {
             $role = Role::findOrCreate($roleName);
 
@@ -56,13 +58,14 @@ class GrantCapellDefaultRolePermissionsAction
             }
         }
 
-        if ($mode === PermissionSyncMode::Upgrade) {
-            $pageUrlPermissions = [
-                ResourceEnum::PageUrl->permission('view_any'),
-                ResourceEnum::PageUrl->permission('view'),
-                ResourceEnum::PageUrl->permission('create'),
-            ];
+        $pageUrlPermissions = [
+            ResourceEnum::PageUrl->permission('view_any'),
+            ResourceEnum::PageUrl->permission('view'),
+            ResourceEnum::PageUrl->permission('create'),
+            ResourceEnum::PageUrl->permission('update'),
+        ];
 
+        if ($mode === PermissionSyncMode::Upgrade) {
             $existingPageUrlPermissions = Permission::query()
                 ->where('guard_name', $guardName)
                 ->whereIn('name', $pageUrlPermissions)
@@ -72,6 +75,11 @@ class GrantCapellDefaultRolePermissionsAction
             $rolePermissionMap['editor'] = [
                 ...$rolePermissionMap['editor'],
                 ...$existingPageUrlPermissions,
+            ];
+        } else {
+            $rolePermissionMap['editor'] = [
+                ...$rolePermissionMap['editor'],
+                ...$pageUrlPermissions,
             ];
         }
 

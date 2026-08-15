@@ -17,6 +17,7 @@ use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\PageTypeEnum;
@@ -35,6 +36,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Builder\Block;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
@@ -1565,4 +1567,43 @@ it('warns editors when the page type content structure changes', function (): vo
 
     expect($component->instance()->record->refresh()->content_structure)
         ->toBe(ContentStructure::Blocks);
+});
+
+it('adds a view-page notification action for the current page URL', function (): void {
+    $site = Site::factory()->withTranslations()->createOne();
+    $page = Page::factory()
+        ->site($site)
+        ->withTranslations()
+        ->createOne();
+
+    // The page factory already creates a URL. Adding a second one makes the
+    // assertion ambiguous — a page keeps superseded URLs for redirects — so
+    // rename the page's own URL instead of competing with it.
+    $pageUrl = $page->pageUrls()->firstOrFail();
+    $pageUrl->update(['url' => '/notification-test']);
+
+    $page->refresh();
+
+    $component = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])
+        ->assertSuccessful()
+        ->instance();
+
+    throw_unless($component instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
+
+    $method = new ReflectionMethod(EditPage::class, 'getSavedNotification');
+    $notification = $method->invoke($component);
+
+    throw_unless($notification instanceof Notification, RuntimeException::class, 'Expected a saved notification from EditPage.');
+
+    $viewAction = collect($notification->getActions())
+        ->first(fn (mixed $action): bool => $action instanceof Action && $action->getName() === 'view-page');
+
+    expect($viewAction)->toBeInstanceOf(Action::class);
+
+    throw_unless($viewAction instanceof Action, RuntimeException::class, 'Expected a view-page notification action from EditPage.');
+
+    expect($viewAction->getUrl())->toBe(PageUrlPresenter::fullUrl($pageUrl))
+        ->and($viewAction->shouldOpenUrlInNewTab())->toBeTrue();
 });

@@ -226,6 +226,12 @@
             @endif
         </div>
 
+        @if ($helperText = $getHelperText())
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {{ $helperText }}
+            </p>
+        @endif
+
         @error($statePath)
             <p class="text-danger-600 dark:text-danger-400 mt-1 text-sm">{{ $message }}</p>
         @enderror

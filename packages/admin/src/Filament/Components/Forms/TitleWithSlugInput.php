@@ -155,6 +155,7 @@ class TitleWithSlugInput
             ->slugInputBaseUrl($urlHost)
             ->slugInputShowUrl($urlHostVisible)
             ->slugInputSlugLabelPostfix($slugLabelPostfix)
+            ->slugInputHelperText((string) __('capell-admin::form.slug_lock_helper'))
 
             // Default TextInput methods
             ->readOnly($slugIsReadonly)

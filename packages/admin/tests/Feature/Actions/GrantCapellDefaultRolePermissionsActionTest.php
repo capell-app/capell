@@ -18,11 +18,20 @@ beforeEach(function (): void {
 it('grants install defaults to built-in roles', function (): void {
     GrantCapellDefaultRolePermissionsAction::run(PermissionSyncMode::Install);
 
-    expect(Role::findByName('admin')->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeTrue()
-        ->and(Role::findByName('admin')->hasPermissionTo(CapellPermission::ManagePageRestrictions->name(), 'web'))->toBeTrue()
-        ->and(Role::findByName('admin')->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeFalse()
-        ->and(Role::findByName('super_admin')->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeTrue()
-        ->and(Role::findByName('editor')->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeFalse();
+    $editorRole = Role::findByName('editor');
+    $adminRole = Role::findByName('admin');
+    $superRole = Role::findByName('super_admin');
+
+    expect($adminRole->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeTrue()
+        ->and($adminRole->hasPermissionTo(CapellPermission::ManagePageRestrictions->name(), 'web'))->toBeTrue()
+        ->and($adminRole->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeFalse()
+        ->and($superRole->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(CapellPermission::RollbackPage->name(), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('view_any'), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('view'), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('create'), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('update'), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeFalse();
 });
 
 it('adds upgrade defaults without removing existing role permissions', function (): void {
@@ -33,14 +42,20 @@ it('adds upgrade defaults without removing existing role permissions', function 
     GrantCapellDefaultRolePermissionsAction::run(PermissionSyncMode::Upgrade);
 
     $adminRole->refresh();
+    $editorRole = Role::findByName('editor');
 
     expect($adminRole->hasPermissionTo('custom.client.permission', 'web'))->toBeTrue()
         ->and($adminRole->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeTrue()
-        ->and($adminRole->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeFalse();
+        ->and($adminRole->hasPermissionTo(CapellPermission::ExportSite->name(), 'web'))->toBeFalse()
+        ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('view_any'), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('view'), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('create'), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('update'), 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo(CapellPermission::RollbackPage->name(), 'web'))->toBeTrue();
 });
 
 it('backfills editor page URL permissions during an upgrade', function (): void {
-    foreach (['view_any', 'view', 'create'] as $affix) {
+    foreach (['view_any', 'view', 'create', 'update'] as $affix) {
         Permission::create([
             'name' => ResourceEnum::PageUrl->permission($affix),
             'guard_name' => 'web',
@@ -54,6 +69,7 @@ it('backfills editor page URL permissions during an upgrade', function (): void 
     expect($editorRole->hasPermissionTo('ViewAny:PageUrl', 'web'))->toBeTrue()
         ->and($editorRole->hasPermissionTo('View:PageUrl', 'web'))->toBeTrue()
         ->and($editorRole->hasPermissionTo('Create:PageUrl', 'web'))->toBeTrue()
+        ->and($editorRole->hasPermissionTo('Update:PageUrl', 'web'))->toBeTrue()
         ->and($editorRole->hasPermissionTo(CapellPermission::RollbackPage->name(), 'web'))->toBeTrue();
 });
 
