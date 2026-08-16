@@ -7,6 +7,8 @@ declare(strict_types=1);
  *
  * Entries are expected to shrink: declare the dependency in the owning
  * packages/<package>/composer.json, or stop using the vendor there.
+ * This baseline is PHP-version-sensitive; regenerate and review it inside the
+ * repository's pinned PHP 8.4 container, never from a newer host PHP.
  *
  * To review current debt, run:
  *   php scripts/check-package-dependencies.php --print-baseline
@@ -45,7 +47,6 @@ return [
         'unused' => [
             'capell-app/core',
             'guzzlehttp/guzzle',
-            'laravel/prompts',
             'saade/filament-adjacency-list',
         ],
         'unknownClasses' => [

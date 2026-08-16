@@ -30,6 +30,7 @@
         "guzzlehttp/guzzle": "^7.5",
         "intervention/image": "^3.0",
         "laravel/framework": "^13.0",
+        "laravel/prompts": "^0.2|^0.3",
         "livewire/livewire": "^3.0|^4.0",
         "lorisleiva/laravel-actions": "^2.6",
         "michaloravec/laravel-paginateroute": "^1.0",

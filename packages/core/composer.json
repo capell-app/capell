@@ -30,6 +30,7 @@
         "filament/support": "^5.7.6",
         "illuminate/database": "^13.0",
         "illuminate/support": "^13.0",
+        "laravel/prompts": "^0.2|^0.3",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
         "spatie/laravel-activitylog": "^4.0",
