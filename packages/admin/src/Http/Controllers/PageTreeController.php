@@ -123,11 +123,13 @@ class PageTreeController
 
     private function resolvePageUrl(Page $page): ?string
     {
-        if (! $page->pageUrl->exists) {
+        $pageUrl = $page->pageUrl;
+
+        if ($pageUrl === null || ! $pageUrl->exists) {
             return null;
         }
 
-        return PageUrlPresenter::fullUrl($page->pageUrl);
+        return PageUrlPresenter::fullUrl($pageUrl);
     }
 
     private function resolveEditUrl(Page $page): ?string
