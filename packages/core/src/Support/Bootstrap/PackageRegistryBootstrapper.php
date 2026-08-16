@@ -10,7 +10,9 @@ use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Request;
 use RuntimeException;
 use Throwable;
 
@@ -38,7 +40,85 @@ final readonly class PackageRegistryBootstrapper
             );
         }
 
-        new CapellPackageLoader($this->app, $registry)->loadProviders();
+        $packageLoader = new CapellPackageLoader($this->app, $registry);
+        $packageLoader->loadProviders();
+        $this->loadSelectedInstallProviders($packageLoader);
+    }
+
+    private function loadSelectedInstallProviders(CapellPackageLoader $packageLoader): void
+    {
+        if ((Request::server('CAPELL_INSTALL_CONTEXT') ?? getenv('CAPELL_INSTALL_CONTEXT')) !== 'install') {
+            return;
+        }
+
+        $selected = Request::server('CAPELL_INSTALL_PACKAGES') ?? getenv('CAPELL_INSTALL_PACKAGES');
+        if (! is_string($selected)) {
+            return;
+        }
+
+        $selectedPackages = array_values(array_filter(
+            array_unique(array_map(trim(...), explode(',', $selected))),
+            static fn (string $packageName): bool => $packageName !== '',
+        ));
+        if ($selectedPackages === []) {
+            return;
+        }
+
+        $packagesPath = $this->app->bootstrapPath('cache/packages.php');
+        if (! is_file($packagesPath)) {
+            return;
+        }
+
+        $composerPackages = require $packagesPath;
+        if (! is_array($composerPackages)) {
+            return;
+        }
+
+        /** @var array<string, true> $replayedProviders */
+        $replayedProviders = [];
+
+        foreach ($selectedPackages as $packageName) {
+            foreach ($packageLoader->loadProvidersForPackage(
+                $packageName,
+                $this->composerProviders($composerPackages[$packageName] ?? null),
+            ) as $provider) {
+                $registeredProvider = $this->app->getProvider($provider);
+                if ($registeredProvider instanceof AbstractPackageServiceProvider) {
+                    $this->replayPackageRegistration($registeredProvider, $replayedProviders);
+                }
+            }
+        }
+    }
+
+    /** @return list<string> */
+    private function composerProviders(mixed $package): array
+    {
+        if (! is_array($package) || ! is_array($package['providers'] ?? null)) {
+            return [];
+        }
+
+        $providers = [];
+
+        foreach ($package['providers'] as $provider) {
+            if (is_string($provider) && $provider !== '') {
+                $providers[] = $provider;
+            }
+        }
+
+        return array_values(array_unique($providers));
+    }
+
+    /** @param array<string, true> $replayedProviders */
+    private function replayPackageRegistration(AbstractPackageServiceProvider $provider, array &$replayedProviders): void
+    {
+        $providerClass = $provider::class;
+
+        if (isset($replayedProviders[$providerClass])) {
+            return;
+        }
+
+        $replayedProviders[$providerClass] = true;
+        $provider->registeringPackage();
     }
 
     /** @return array<string, CapellManifestData> */
