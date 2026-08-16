@@ -177,7 +177,7 @@ class SiteLoader
                         'code' => $language->code,
                         'flag' => $language->flag,
                         'name' => $language->name,
-                        'url' => $page->pageUrl->full_url,
+                        'url' => $page->pageUrl?->full_url,
                     ],
                 ];
             }
@@ -200,7 +200,7 @@ class SiteLoader
                     if ($url === null) {
                         $home = PageLoader::getSiteHomePage($site, $language);
                         if ($home instanceof Pageable) {
-                            $url = $home->pageUrl->full_url;
+                            $url = $home->pageUrl?->full_url;
                         }
                     }
 
