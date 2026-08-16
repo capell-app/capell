@@ -22,7 +22,7 @@ final class ArtisanProcessEnvironment
         $testbenchPackagePathFunction = 'Orchestra\\Testbench\\package_path';
 
         $workingPath = function_exists($testbenchPackagePathFunction)
-            ? (string) $testbenchPackagePathFunction()
+            ? $testbenchPackagePathFunction()
             : dirname(__DIR__, 5);
 
         return array_merge($environment ?? [], [

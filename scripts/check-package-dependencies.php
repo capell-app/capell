@@ -302,6 +302,7 @@ function recordFindings(string $command): array
         $sectionFindings = array_values(array_unique($sectionFindings));
         sort($sectionFindings);
     }
+
     unset($sectionFindings);
 
     return $findings;

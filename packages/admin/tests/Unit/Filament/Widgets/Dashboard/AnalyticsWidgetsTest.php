@@ -12,9 +12,8 @@ it('returns empty analytics state for unauthenticated dashboard widgets', functi
     $recent = (new AnalyticsRecentActivityFilamentWidget)->data();
 
     $overviewMethod = new ReflectionMethod(AnalyticsOverviewFilamentWidget::class, 'getStats');
-    $overviewMethod->setAccessible(true);
+
     $trendMethod = new ReflectionMethod(AnalyticsTrendFilamentWidget::class, 'getData');
-    $trendMethod->setAccessible(true);
 
     expect($insights->totalViews)->toBe(0)
         ->and($recent->activePages)->toBe(0)

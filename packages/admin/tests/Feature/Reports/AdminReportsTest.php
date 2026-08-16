@@ -476,6 +476,7 @@ it('reports structured readiness failures for invalid package metadata and depen
 
     $registry = new CapellPackageRegistry;
     $registry->fill([$manifest->name => $manifest]);
+
     app()->instance(CapellPackageRegistry::class, $registry);
     resolve(RuntimeSchemaState::class)->flush();
 

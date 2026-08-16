@@ -65,9 +65,9 @@ function queueUpdateAttempt(?string $idempotencyKey = null): MarketplaceInstallA
 
 function bindMarketplaceUpdateVersion(string $version): void
 {
-    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class($version) implements MarketplaceInstalledPackageVersionResolver
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new readonly class($version) implements MarketplaceInstalledPackageVersionResolver
     {
-        public function __construct(private readonly string $version) {}
+        public function __construct(private string $version) {}
 
         public function prettyVersion(string $composerName): ?string
         {

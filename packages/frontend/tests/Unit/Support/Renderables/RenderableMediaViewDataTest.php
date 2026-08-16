@@ -7,6 +7,7 @@ use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Models\Media;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
 use Capell\Frontend\Support\Renderables\RenderableMediaViewData;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 it('filters loaded media by collection and resolves the first external video', function (): void {
@@ -20,6 +21,7 @@ it('filters loaded media by collection and resolves the first external video', f
         thumbnailUrl: 'https://img.youtube.com/hero-video.jpg',
     ));
     $video->collection_name = 'hero';
+
     $image = new Media(['collection_name' => 'hero']);
     $otherCollection = new Media(['collection_name' => 'gallery']);
 
@@ -138,5 +140,8 @@ it('merges wildcard and type-specific dynamic data in registration order', funct
 
 function renderableTestModel(): Model
 {
-    return new class extends Model {};
+    return new class extends Model
+    {
+        use HasFactory;
+    };
 }
