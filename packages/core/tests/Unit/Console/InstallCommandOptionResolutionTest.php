@@ -32,6 +32,69 @@ it('parses fresh install options and rejects unsupported values', function (): v
         ->toThrow(InvalidArgumentException::class, 'only accepts "force"');
 });
 
+it('applies install recommendation defaults and validates recommendation options', function (): void {
+    config([
+        'capell.install.recommendations' => [
+            'blog' => [
+                'label' => 'Blog',
+                'description' => 'A blog bundle.',
+                'packages' => ['capell-app/core'],
+                'theme' => 'default',
+                'demo' => true,
+            ],
+        ],
+    ]);
+
+    $noRecommendation = installCommandForOptions([]);
+    expect(callInstallCommandMethod($noRecommendation, 'applyInstallRecommendationDefaults'))->toBeNull();
+
+    $skip = installCommandForOptions(['--recommendation-action' => 'skip']);
+    expect(callInstallCommandMethod($skip, 'applyInstallRecommendationDefaults'))->toBeNull()
+        ->and($skip->option('packages'))->toBe('');
+
+    $skipWithExplicitPackages = installCommandForOptions([
+        '--recommendation-action' => 'skip',
+        '--packages' => 'capell-app/core',
+    ]);
+    expect(callInstallCommandMethod($skipWithExplicitPackages, 'applyInstallRecommendationDefaults'))->toBeNull()
+        ->and($skipWithExplicitPackages->option('packages'))->toBe('capell-app/core');
+
+    $customWithoutPackages = installCommandForOptions(['--recommendation-action' => 'custom']);
+    expect(callInstallCommandMethod($customWithoutPackages, 'applyInstallRecommendationDefaults'))
+        ->toBe(SymfonyCommand::FAILURE);
+
+    $custom = installCommandForOptions([
+        '--recommendation-action' => 'custom',
+        '--packages' => 'capell-app/core',
+    ]);
+    expect(callInstallCommandMethod($custom, 'applyInstallRecommendationDefaults'))->toBeNull();
+
+    $selected = installCommandForOptions(['--recommendation' => 'blog']);
+    expect(callInstallCommandMethod($selected, 'applyInstallRecommendationDefaults'))->toBeNull()
+        ->and($selected->option('packages'))->toBe('capell-app/core')
+        ->and($selected->option('theme'))->toBe('default')
+        ->and($selected->option('demo'))->toBeTrue();
+
+    $explicit = installCommandForOptions([
+        '--recommendation' => 'blog',
+        '--recommendation-action' => 'select',
+        '--packages' => 'custom/package',
+        '--theme' => 'custom-theme',
+        '--demo' => false,
+    ]);
+    expect(callInstallCommandMethod($explicit, 'applyInstallRecommendationDefaults'))->toBeNull()
+        ->and($explicit->option('packages'))->toBe('custom/package')
+        ->and($explicit->option('theme'))->toBe('custom-theme')
+        ->and($explicit->option('demo'))->toBeFalse();
+
+    expect(callInstallCommandMethod(installCommandForOptions(['--recommendation-action' => 'invalid']), 'applyInstallRecommendationDefaults'))
+        ->toBe(SymfonyCommand::FAILURE)
+        ->and(callInstallCommandMethod(installCommandForOptions(['--recommendation-action' => 'select']), 'applyInstallRecommendationDefaults'))
+        ->toBe(SymfonyCommand::FAILURE)
+        ->and(callInstallCommandMethod(installCommandForOptions(['--recommendation' => 'missing']), 'applyInstallRecommendationDefaults'))
+        ->toBe(SymfonyCommand::FAILURE);
+});
+
 it('resolves demo languages and sites from explicit options or safe defaults', function (): void {
     config([
         'app.locale' => 'cy',
