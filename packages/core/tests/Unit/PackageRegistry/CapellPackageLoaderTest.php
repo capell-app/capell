@@ -29,8 +29,8 @@ it('always includes metadata and install providers for discovered packages', fun
 });
 
 it('loads runtime providers during the pre-bootstrap install context', function (): void {
-    $_SERVER['CAPELL_INSTALL_CONTEXT'] = 'install';
-    $_SERVER['CAPELL_INSTALL_PACKAGES'] = 'capell-app/content-sections';
+    request()->server->set('CAPELL_INSTALL_CONTEXT', 'install');
+    request()->server->set('CAPELL_INSTALL_PACKAGES', 'capell-app/content-sections');
 
     try {
         $registry = packageLoaderRegistry('capell-app/content-sections', [
@@ -41,13 +41,14 @@ it('loads runtime providers during the pre-bootstrap install context', function 
 
         expect(packageLoader($registry)->collectProviders())->toContain(AuthServiceProvider::class);
     } finally {
-        unset($_SERVER['CAPELL_INSTALL_CONTEXT'], $_SERVER['CAPELL_INSTALL_PACKAGES']);
+        request()->server->remove('CAPELL_INSTALL_CONTEXT');
+        request()->server->remove('CAPELL_INSTALL_PACKAGES');
     }
 });
 
 it('does not load an unrelated runtime provider during the selected install context', function (): void {
-    $_SERVER['CAPELL_INSTALL_CONTEXT'] = 'install';
-    $_SERVER['CAPELL_INSTALL_PACKAGES'] = 'capell-app/content-sections';
+    request()->server->set('CAPELL_INSTALL_CONTEXT', 'install');
+    request()->server->set('CAPELL_INSTALL_PACKAGES', 'capell-app/content-sections');
 
     try {
         $registry = packageLoaderRegistry('capell-app/deferred', [
@@ -58,13 +59,14 @@ it('does not load an unrelated runtime provider during the selected install cont
 
         expect(packageLoader($registry)->collectProviders())->not->toContain(AuthServiceProvider::class);
     } finally {
-        unset($_SERVER['CAPELL_INSTALL_CONTEXT'], $_SERVER['CAPELL_INSTALL_PACKAGES']);
+        request()->server->remove('CAPELL_INSTALL_CONTEXT');
+        request()->server->remove('CAPELL_INSTALL_PACKAGES');
     }
 });
 
 it('quarantines a selected install provider failure without throwing', function (): void {
-    $_SERVER['CAPELL_INSTALL_CONTEXT'] = 'install';
-    $_SERVER['CAPELL_INSTALL_PACKAGES'] = 'vendor/failing-extension';
+    request()->server->set('CAPELL_INSTALL_CONTEXT', 'install');
+    request()->server->set('CAPELL_INSTALL_PACKAGES', 'vendor/failing-extension');
 
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
@@ -83,7 +85,8 @@ it('quarantines a selected install provider failure without throwing', function 
             new CapellPackageRegistry,
         )->loadProvidersForPackage('vendor/failing-extension', [AuthServiceProvider::class]))->toBe([]);
     } finally {
-        unset($_SERVER['CAPELL_INSTALL_CONTEXT'], $_SERVER['CAPELL_INSTALL_PACKAGES']);
+        request()->server->remove('CAPELL_INSTALL_CONTEXT');
+        request()->server->remove('CAPELL_INSTALL_PACKAGES');
     }
 });
 

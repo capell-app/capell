@@ -113,8 +113,8 @@ it('loads selected Composer providers, ignores unrelated metadata, and replays p
         ], return: true) . ';',
     );
 
-    $_SERVER['CAPELL_INSTALL_CONTEXT'] = 'install';
-    $_SERVER['CAPELL_INSTALL_PACKAGES'] = 'vendor/selected-install-package';
+    request()->server->set('CAPELL_INSTALL_CONTEXT', 'install');
+    request()->server->set('CAPELL_INSTALL_PACKAGES', 'vendor/selected-install-package');
 
     try {
         resolve(PackageRegistryBootstrapper::class)->bootstrap();
@@ -124,7 +124,8 @@ it('loads selected Composer providers, ignores unrelated metadata, and replays p
             ->and(app()->getProvider(ComposerBootstrapUnrelatedTestServiceProvider::class))->toBeNull();
     } finally {
         @unlink($packagesCachePath);
-        unset($_SERVER['CAPELL_INSTALL_CONTEXT'], $_SERVER['CAPELL_INSTALL_PACKAGES']);
+        request()->server->remove('CAPELL_INSTALL_CONTEXT');
+        request()->server->remove('CAPELL_INSTALL_PACKAGES');
     }
 });
 
