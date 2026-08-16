@@ -34,6 +34,7 @@ final class SiteAdminMetricsTestCollector implements CollectsDailyMetrics
             $this->definition('visible-count', 'Visible count', MetricVisibility::SiteAdmin, MetricScopeType::Global),
             $this->definition('visible-empty', 'Visible empty', MetricVisibility::SiteAdmin, MetricScopeType::Global),
             $this->definition('visible-percentage', 'Visible percentage', MetricVisibility::SiteAdmin, MetricScopeType::Global),
+            $this->definition('visible-trend', 'Visible trend', MetricVisibility::SiteAdmin, MetricScopeType::Global),
             $this->definition('operations-only', 'Operations only', MetricVisibility::PlatformOps, MetricScopeType::Global),
             $this->definition('site-scoped', 'Site scoped', MetricVisibility::SiteAdmin, MetricScopeType::Site),
             $this->definition(

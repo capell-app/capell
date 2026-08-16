@@ -6,11 +6,8 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
-use Capell\Admin\Actions\Metrics\ReadSiteAdminMetricSeriesAction;
-use Capell\Admin\Data\Metrics\SiteAdminMetricSeriesData;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Override;
 
 final class SiteAdminMetricsPage extends Page
@@ -49,17 +46,5 @@ final class SiteAdminMetricsPage extends Page
     public function getSubheading(): string
     {
         return (string) __('capell-admin::metrics.description');
-    }
-
-    /**
-     * @return list<SiteAdminMetricSeriesData>
-     */
-    public function series(): array
-    {
-        $actor = auth()->user();
-
-        abort_unless($actor instanceof Authenticatable, 403);
-
-        return ReadSiteAdminMetricSeriesAction::run($actor);
     }
 }

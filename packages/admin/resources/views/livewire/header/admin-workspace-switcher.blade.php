@@ -1,5 +1,6 @@
 @php
     use Capell\Admin\Actions\ResolveFilamentIconAliasAction;
+    use Illuminate\Support\Js;
 @endphp
 
 <div class="flex items-center gap-2">
@@ -20,9 +21,9 @@
                     <x-filament::button
                         color="{{ $workspace === $candidate->value ? 'primary' : 'gray' }}"
                         size="xs"
-                        wire:click="setWorkspace(@js($candidate->value))"
+                        wire:click="setWorkspace({{ Js::from($candidate->value) }})"
                         wire:loading.attr="disabled"
-                        wire:target="setWorkspace(@js($candidate->value))"
+                        wire:target="setWorkspace({{ Js::from($candidate->value) }})"
                         wire:loading.attr="aria-busy"
                         aria-pressed="{{ $workspace === $candidate->value ? 'true' : 'false' }}"
                     >
@@ -69,7 +70,7 @@
                         <a
                             class="flex min-w-0 flex-1 items-center gap-2"
                             href="{{ $item->url }}"
-                            wire:click="recordVisit(@js($item->key))"
+                            wire:click="recordVisit({{ Js::from($item->key) }})"
                             wire:navigate
                         >
                             @if ($item->icon !== null)
@@ -81,21 +82,21 @@
                         </a>
                         <button
                             type="button"
-                            wire:click="togglePin(@js($item->key))"
+                            wire:click="togglePin({{ Js::from($item->key) }})"
                             wire:loading.attr="disabled"
-                            wire:target="togglePin(@js($item->key))"
+                            wire:target="togglePin({{ Js::from($item->key) }})"
                             wire:loading.attr="aria-busy"
                             aria-pressed="true"
                             aria-label="{{ __('capell-admin::workspace.switcher_tools.unpin') }}"
                         >
                             <span
                                 wire:loading.remove
-                                wire:target="togglePin(@js($item->key))"
+                                wire:target="togglePin({{ Js::from($item->key) }})"
                                 >★</span
                             >
                             <span
                                 wire:loading
-                                wire:target="togglePin(@js($item->key))"
+                                wire:target="togglePin({{ Js::from($item->key) }})"
                                 aria-hidden="true"
                                 >…</span
                             >
@@ -114,7 +115,7 @@
                         <a
                             class="flex min-w-0 flex-1 items-center gap-2"
                             href="{{ $item->url }}"
-                            wire:click="recordVisit(@js($item->key))"
+                            wire:click="recordVisit({{ Js::from($item->key) }})"
                             wire:navigate
                         >
                             @if ($item->icon !== null)
@@ -126,21 +127,21 @@
                         </a>
                         <button
                             type="button"
-                            wire:click="togglePin(@js($item->key))"
+                            wire:click="togglePin({{ Js::from($item->key) }})"
                             wire:loading.attr="disabled"
-                            wire:target="togglePin(@js($item->key))"
+                            wire:target="togglePin({{ Js::from($item->key) }})"
                             wire:loading.attr="aria-busy"
                             aria-pressed="{{ $this->isPinned($item->key) ? 'true' : 'false' }}"
                             aria-label="{{ $this->isPinned($item->key) ? __('capell-admin::workspace.switcher_tools.unpin') : __('capell-admin::workspace.switcher_tools.pin') }}"
                         >
                             <span
                                 wire:loading.remove
-                                wire:target="togglePin(@js($item->key))"
+                                wire:target="togglePin({{ Js::from($item->key) }})"
                                 >{{ $this->isPinned($item->key) ? '★' : '☆' }}</span
                             >
                             <span
                                 wire:loading
-                                wire:target="togglePin(@js($item->key))"
+                                wire:target="togglePin({{ Js::from($item->key) }})"
                                 aria-hidden="true"
                                 >…</span
                             >
@@ -158,7 +159,7 @@
                     <a
                         class="flex min-w-0 flex-1 items-center gap-2"
                         href="{{ $item->url }}"
-                        wire:click="recordVisit(@js($item->key))"
+                        wire:click="recordVisit({{ Js::from($item->key) }})"
                         wire:navigate
                     >
                         @if ($item->icon !== null)
@@ -170,21 +171,21 @@
                     </a>
                     <button
                         type="button"
-                        wire:click="togglePin(@js($item->key))"
+                        wire:click="togglePin({{ Js::from($item->key) }})"
                         wire:loading.attr="disabled"
-                        wire:target="togglePin(@js($item->key))"
+                        wire:target="togglePin({{ Js::from($item->key) }})"
                         wire:loading.attr="aria-busy"
                         aria-pressed="{{ $this->isPinned($item->key) ? 'true' : 'false' }}"
                         aria-label="{{ __('capell-admin::workspace.switcher_tools.pin') }}"
                     >
                         <span
                             wire:loading.remove
-                            wire:target="togglePin(@js($item->key))"
+                            wire:target="togglePin({{ Js::from($item->key) }})"
                             >☆</span
                         >
                         <span
                             wire:loading
-                            wire:target="togglePin(@js($item->key))"
+                            wire:target="togglePin({{ Js::from($item->key) }})"
                             aria-hidden="true"
                             >…</span
                         >
