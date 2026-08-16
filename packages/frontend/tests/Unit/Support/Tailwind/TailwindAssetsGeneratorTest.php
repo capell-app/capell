@@ -139,5 +139,5 @@ it('filters unsafe theme colors before rendering and records the rejection', fun
     expect($colors->all())->toHaveKey('safe')
         ->and($colors->all())->not->toHaveKeys(['unsafe-name', 'unsafe-value']);
 
-    Log::shouldHaveReceived('warning')->twice();
+    Log::getFacadeRoot()->shouldHaveReceived('warning')->twice();
 });

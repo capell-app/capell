@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 
 it('filters loaded media by collection and resolves the first external video', function (): void {
     $asset = renderableTestModel();
-    $video = Media::make(['collection_name' => 'hero']);
+    $video = new Media(['collection_name' => 'hero']);
     $video->setExternalVideo(new ExternalVideoData(
         provider: 'youtube',
         videoId: 'hero-video',
@@ -20,8 +20,8 @@ it('filters loaded media by collection and resolves the first external video', f
         thumbnailUrl: 'https://img.youtube.com/hero-video.jpg',
     ));
     $video->collection_name = 'hero';
-    $image = Media::make(['collection_name' => 'hero']);
-    $otherCollection = Media::make(['collection_name' => 'gallery']);
+    $image = new Media(['collection_name' => 'hero']);
+    $otherCollection = new Media(['collection_name' => 'gallery']);
 
     $asset->setRelation('media', collect([$video, $image, $otherCollection, renderableTestModel()]));
     $viewData = new RenderableMediaViewData;

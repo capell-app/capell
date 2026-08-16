@@ -174,7 +174,7 @@ it('fails closed with a diagnostic when production receives an invalid resource 
             'font-src' => [],
         ]);
 
-    Log::shouldHaveReceived('error')->once();
+    Log::getFacadeRoot()->shouldHaveReceived('error')->once();
 });
 
 it('preserves every independent lazy activation trigger for a shared resource', function (): void {

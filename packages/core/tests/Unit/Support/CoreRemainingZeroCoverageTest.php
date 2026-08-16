@@ -276,9 +276,11 @@ it('rejects duplicate content widget keys across package boundaries', function (
     CapellCore::forcePackageInstalled($installed->name);
 
     try {
-        expect(fn (): mixed => AssertContentWidgetKeysAvailableAction::run([
-            CapellCore::getPackage($candidate->name),
-        ]))->toThrow(RuntimeException::class);
+        expect(function (): void {
+            AssertContentWidgetKeysAvailableAction::run([
+                CapellCore::getPackage('vendor/candidate-hero'),
+            ]);
+        })->toThrow(RuntimeException::class);
     } finally {
         CapellCore::clearPackages();
     }
