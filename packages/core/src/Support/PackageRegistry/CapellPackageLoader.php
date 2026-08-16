@@ -20,26 +20,38 @@ final class CapellPackageLoader
     public function loadProviders(): void
     {
         foreach ($this->registry->all() as $manifest) {
-            foreach ($this->resolveProviders($manifest) as $provider) {
-                try {
-                    if (! class_exists($provider)) {
-                        continue;
-                    }
+            $this->loadProvidersForPackage($manifest->name, $this->resolveProviders($manifest));
+        }
+    }
 
-                    $this->app->register($provider);
-                } catch (Throwable $throwable) {
-                    throw_if(TrustedCorePackages::contains($manifest->name), $throwable);
+    /**
+     * Register providers attributed to one package and return the providers
+     * that registered successfully. Composer metadata needs the same failure
+     * handling as manifest providers during the install bootstrap window.
+     *
+     * @param  list<string>  $providers
+     * @return list<string>
+     */
+    public function loadProvidersForPackage(string $packageName, array $providers): array
+    {
+        $loadedProviders = [];
 
-                    CapellCore::markPackageProviderQuarantined(
-                        name: $manifest->name,
-                        provider: $provider,
-                        reason: $this->providerFailureReason($provider, $throwable),
-                    );
+        foreach (array_values(array_unique($providers)) as $provider) {
+            if (! class_exists($provider)) {
+                continue;
+            }
 
-                    break;
-                }
+            try {
+                $this->app->register($provider);
+                $loadedProviders[] = $provider;
+            } catch (Throwable $throwable) {
+                $this->handleProviderFailure($packageName, $provider, $throwable);
+
+                break;
             }
         }
+
+        return $loadedProviders;
     }
 
     /** @return list<string> */
@@ -89,7 +101,32 @@ final class CapellPackageLoader
             return true;
         }
 
+        if (($_SERVER['CAPELL_INSTALL_CONTEXT'] ?? getenv('CAPELL_INSTALL_CONTEXT')) === 'install') {
+            $selected = $_SERVER['CAPELL_INSTALL_PACKAGES'] ?? getenv('CAPELL_INSTALL_PACKAGES');
+            if (! is_string($selected)) {
+                return false;
+            }
+
+            $selectedPackages = array_filter(
+                array_map('trim', explode(',', $selected)),
+                static fn (string $packageName): bool => $packageName !== '',
+            );
+
+            return in_array($manifest->name, $selectedPackages, true);
+        }
+
         return CapellCore::isPackageEnabled($manifest->name);
+    }
+
+    private function handleProviderFailure(string $packageName, string $provider, Throwable $throwable): void
+    {
+        throw_if(TrustedCorePackages::contains($packageName), $throwable);
+
+        CapellCore::markPackageProviderQuarantined(
+            name: $packageName,
+            provider: $provider,
+            reason: $this->providerFailureReason($provider, $throwable),
+        );
     }
 
     private function providerFailureReason(string $provider, Throwable $throwable): string
