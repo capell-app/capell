@@ -12,6 +12,7 @@ use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Request;
 use RuntimeException;
 use Throwable;
 
@@ -46,17 +47,17 @@ final readonly class PackageRegistryBootstrapper
 
     private function loadSelectedInstallProviders(CapellPackageLoader $packageLoader): void
     {
-        if (($_SERVER['CAPELL_INSTALL_CONTEXT'] ?? getenv('CAPELL_INSTALL_CONTEXT')) !== 'install') {
+        if ((Request::server('CAPELL_INSTALL_CONTEXT') ?? getenv('CAPELL_INSTALL_CONTEXT')) !== 'install') {
             return;
         }
 
-        $selected = $_SERVER['CAPELL_INSTALL_PACKAGES'] ?? getenv('CAPELL_INSTALL_PACKAGES');
+        $selected = Request::server('CAPELL_INSTALL_PACKAGES') ?? getenv('CAPELL_INSTALL_PACKAGES');
         if (! is_string($selected)) {
             return;
         }
 
         $selectedPackages = array_values(array_filter(
-            array_unique(array_map('trim', explode(',', $selected))),
+            array_unique(array_map(trim(...), explode(',', $selected))),
             static fn (string $packageName): bool => $packageName !== '',
         ));
         if ($selectedPackages === []) {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Tests\Integration\Commands\Fixtures;
 
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
-use Illuminate\Contracts\Foundation\Application;
+use Override;
 use Spatie\LaravelPackageTools\Package;
 
 final class ComposerBootstrapReplayTestServiceProvider extends AbstractPackageServiceProvider
@@ -16,11 +16,7 @@ final class ComposerBootstrapReplayTestServiceProvider extends AbstractPackageSe
 
     private int $registeringPackageCalls = 0;
 
-    public function __construct(Application $application)
-    {
-        parent::__construct($application);
-    }
-
+    #[Override]
     public function registeringPackage(): void
     {
         $this->registeringPackageCalls++;
