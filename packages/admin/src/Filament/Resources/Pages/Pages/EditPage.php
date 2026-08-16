@@ -241,8 +241,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     #[Override]
     public function getSubheading(): string|Htmlable|null
     {
-        $pageUrl = $this->record->pageUrls->first();
-        $fullUrl = $pageUrl instanceof PageUrl ? PageUrlPresenter::fullUrl($pageUrl) : null;
+        $fullUrl = PageUrlPresenter::fullUrl($this->record->pageUrl);
         $summary = view('capell-admin::components.record-state-summary', [
             'states' => $this->recordStates(),
             // Children/hierarchy counts are Page-specific (nested-set behaviour
@@ -440,8 +439,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             return null;
         }
 
-        $pageUrl = $this->record->pageUrls->first();
-        $pageUrlString = $pageUrl instanceof PageUrl ? PageUrlPresenter::fullUrl($pageUrl) : null;
+        $pageUrlString = PageUrlPresenter::fullUrl($this->record->pageUrl);
 
         if (is_string($pageUrlString) && $pageUrlString !== '') {
             $notification->actions(
@@ -850,8 +848,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
     private function pageDisplayUrl(): string
     {
-        $pageUrl = $this->record->pageUrls->first();
-        $displayUrl = $pageUrl instanceof PageUrl ? PageUrlPresenter::displayUrl($pageUrl) : '';
+        $displayUrl = PageUrlPresenter::displayUrl($this->record->pageUrl);
 
         return $displayUrl !== ''
             ? Str::limit($displayUrl, 72)

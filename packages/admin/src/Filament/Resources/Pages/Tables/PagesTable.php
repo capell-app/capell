@@ -754,7 +754,7 @@ class PagesTable implements TableConfigurator
         }
 
         if ($pageUrl === null) {
-            $pageUrl = $record->pageUrls->first();
+            $pageUrl = $record->pageUrl;
         }
 
         if ($pageUrl === null) {

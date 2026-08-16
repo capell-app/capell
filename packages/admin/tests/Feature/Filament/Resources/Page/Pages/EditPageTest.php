@@ -18,6 +18,7 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\PageUrlPresenter;
+use Capell\Core\Actions\Redirects\CreateAutomaticRedirectAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\PageTypeEnum;
@@ -96,6 +97,39 @@ function groupedHeaderAction(EditPage $component, string $actionName): Action
     throw_unless($action instanceof Action, RuntimeException::class, sprintf('Expected [%s] header action.', $actionName));
 
     return $action;
+}
+
+/**
+ * @return array{canonical: PageUrl, redirect: PageUrl}
+ */
+function createPageUrlHistory(Page $page, string $canonicalUrl = '/current-page', string $redirectUrl = '/old-page'): array
+{
+    $canonical = $page->pageUrls()
+        ->whereNull('type')
+        ->where('language_id', $page->site->language_id)
+        ->firstOrFail();
+
+    $canonical->update(['url' => $canonicalUrl]);
+
+    expect(CreateAutomaticRedirectAction::run($page, $page->site->language, $redirectUrl, $canonicalUrl))->toBeTrue();
+
+    $redirect = PageUrl::query()
+        ->where('pageable_type', $page->getMorphClass())
+        ->where('pageable_id', $page->getKey())
+        ->where('url', $redirectUrl)
+        ->firstOrFail();
+
+    return [
+        'canonical' => $canonical->refresh(),
+        'redirect' => $redirect,
+    ];
+}
+
+function arrangePageUrlHistory(EditPage $component, PageUrl $canonical, PageUrl $redirect): void
+{
+    $component->record
+        ->setRelation('pageUrls', collect([$redirect, $canonical]))
+        ->setRelation('pageUrl', $canonical);
 }
 
 it('can render page', function (): void {
@@ -245,6 +279,67 @@ it('shows page state and the page url as a link in the edit page subheading', fu
         ->not->toContain(__('capell-admin::table.layout'))
         ->not->toContain('/sites/' . $site->getKey())
         ->not->toContain('/layouts/' . $layout->getKey());
+});
+
+it('uses the canonical page url in the edit page subheading when redirects exist', function (): void {
+    $site = Site::factory()
+        ->withTranslations(siteDomainData: [
+            'scheme' => 'https',
+            'domain' => 'example.test',
+            'path' => null,
+        ])
+        ->createOne();
+    $page = Page::factory()
+        ->site($site)
+        ->withTranslations()
+        ->createOne();
+    $urls = createPageUrlHistory($page);
+
+    $component = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])
+        ->assertSuccessful()
+        ->instance();
+
+    throw_unless($component instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
+
+    arrangePageUrlHistory($component, $urls['canonical'], $urls['redirect']);
+
+    $subheading = $component->getSubheading();
+
+    expect($subheading)->toBeInstanceOf(Htmlable::class);
+    assert($subheading instanceof Htmlable);
+
+    expect($subheading->toHtml())
+        ->toContain('https://example.test/current-page')
+        ->toContain('<a href="https://example.test/current-page"')
+        ->not->toContain('https://example.test/old-page');
+});
+
+it('renders the edit page without a canonical page url', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    PageUrl::query()
+        ->where('pageable_type', $page->getMorphClass())
+        ->where('pageable_id', $page->getKey())
+        ->delete();
+
+    expect($page->fresh()?->pageUrl)->toBeNull();
+
+    $component = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])
+        ->assertSuccessful();
+
+    $component->assertSee(__('capell-admin::table.page_health_missing_url'));
+
+    $method = new ReflectionMethod(EditPage::class, 'getSavedNotification');
+    $notification = $method->invoke($component->instance());
+
+    throw_unless($notification instanceof Notification, RuntimeException::class, 'Expected a saved notification from EditPage.');
+
+    expect(collect($notification->getActions())
+        ->first(fn (mixed $action): bool => $action instanceof Action && $action->getName() === 'view-page'))
+        ->toBeNull();
 });
 
 it('shows the draft preview action only for pending pages', function (): void {
@@ -1576,13 +1671,7 @@ it('adds a view-page notification action for the current page URL', function ():
         ->withTranslations()
         ->createOne();
 
-    // The page factory already creates a URL. Adding a second one makes the
-    // assertion ambiguous — a page keeps superseded URLs for redirects — so
-    // rename the page's own URL instead of competing with it.
-    $pageUrl = $page->pageUrls()->firstOrFail();
-    $pageUrl->update(['url' => '/notification-test']);
-
-    $page->refresh();
+    $urls = createPageUrlHistory($page, '/notification-test', '/superseded-notification-test');
 
     $component = Livewire::test(EditPage::class, [
         'record' => $page->getRouteKey(),
@@ -1591,6 +1680,8 @@ it('adds a view-page notification action for the current page URL', function ():
         ->instance();
 
     throw_unless($component instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
+
+    arrangePageUrlHistory($component, $urls['canonical'], $urls['redirect']);
 
     $method = new ReflectionMethod(EditPage::class, 'getSavedNotification');
     $notification = $method->invoke($component);
@@ -1604,6 +1695,7 @@ it('adds a view-page notification action for the current page URL', function ():
 
     throw_unless($viewAction instanceof Action, RuntimeException::class, 'Expected a view-page notification action from EditPage.');
 
-    expect($viewAction->getUrl())->toBe(PageUrlPresenter::fullUrl($pageUrl))
+    expect($viewAction->getUrl())->toBe(PageUrlPresenter::fullUrl($urls['canonical']))
+        ->not->toBe(PageUrlPresenter::fullUrl($urls['redirect']))
         ->and($viewAction->shouldOpenUrlInNewTab())->toBeTrue();
 });
