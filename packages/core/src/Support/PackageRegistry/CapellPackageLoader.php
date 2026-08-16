@@ -8,7 +8,6 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Support\Facades\Request;
 use Throwable;
 
 final class CapellPackageLoader
@@ -102,8 +101,8 @@ final class CapellPackageLoader
             return true;
         }
 
-        if ((Request::server('CAPELL_INSTALL_CONTEXT') ?? getenv('CAPELL_INSTALL_CONTEXT')) === 'install') {
-            $selected = Request::server('CAPELL_INSTALL_PACKAGES') ?? getenv('CAPELL_INSTALL_PACKAGES');
+        if (($_SERVER['CAPELL_INSTALL_CONTEXT'] ?? getenv('CAPELL_INSTALL_CONTEXT')) === 'install') {
+            $selected = $_SERVER['CAPELL_INSTALL_PACKAGES'] ?? getenv('CAPELL_INSTALL_PACKAGES');
             if (! is_string($selected)) {
                 return false;
             }
