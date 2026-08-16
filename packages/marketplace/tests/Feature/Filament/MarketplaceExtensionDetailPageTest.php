@@ -216,6 +216,66 @@ it('uses the marketplace page permission for detail page access', function (): v
     expect(MarketplaceExtensionDetailPage::canAccess())->toBeTrue();
 });
 
+it('derives detail decisions from licence and installation state', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+        'capell-marketplace.marketplace.web_url' => 'https://marketplace.test',
+    ]);
+
+    CapellCore::registerPackage('capell-app/activation-suite', version: '2.0.0');
+    CapellCore::forcePackageInstalled('capell-app/activation-suite');
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/activation-suite' => Http::response([
+            'data' => [
+                'slug' => 'activation-suite',
+                'name' => 'Activation Suite',
+                'composer_name' => 'capell-app/activation-suite',
+                'kind' => 'plugin',
+                'latest_version' => '2.1.0',
+                'documentation' => [
+                    ['slug' => 'public-guide', 'private' => false],
+                    ['slug' => 'operator-guide', 'private' => true],
+                ],
+                'performance' => ['frontendRenderBudgetMs' => 12],
+                'contribution_summary' => ['admin-page' => 1, 'frontend-component' => 2],
+                'install_eligibility' => ['state' => 'activation_required'],
+                'licence' => [
+                    'licence_status' => 'purchased',
+                    'can_view_private_docs' => false,
+                    'can_download' => false,
+                    'can_install' => false,
+                    'can_update' => false,
+                    'can_rate' => true,
+                    'can_comment' => false,
+                    'runtime_allowed' => true,
+                ],
+            ],
+        ]),
+    ]);
+
+    $page = Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'activation-suite'])
+        ->instance();
+
+    expect($page->publicDocumentation())->toHaveCount(1)
+        ->and($page->publicDocumentation()[0]['slug'])->toBe('public-guide')
+        ->and($page->canViewPrivateDocs())->toBeFalse()
+        ->and($page->canDownload())->toBeFalse()
+        ->and($page->canInstall())->toBeFalse()
+        ->and($page->requiresLicenceKey())->toBeTrue()
+        ->and($page->installedVersion())->toBe('2.0.0')
+        ->and($page->contributionCount())->toBe(3)
+        ->and($page->frontendRenderBudgetLabel())->not->toBeNull()
+        ->and($page->manualInstallCommands())->toHaveKeys(['composer', 'install'])
+        ->and($page->shouldVerifySite())->toBeTrue()
+        ->and($page->canSubmitFeedback())->toBeTrue()
+        ->and($page->ratingIsRequired())->toBeTrue();
+});
+
 function marketplaceDetailResponse(bool $canComment = true, bool $canRate = true): mixed
 {
     return Http::response([

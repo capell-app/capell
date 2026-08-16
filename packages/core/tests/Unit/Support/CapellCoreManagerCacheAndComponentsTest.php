@@ -337,6 +337,40 @@ it('folds the configured app host into the normalized cache key so hosts sharing
     expect($normalizeCacheKey->invoke($manager, 'shared-key'))->toBe($keyForHostA);
 });
 
+it('refreshes matching cache entries after pattern invalidation without disturbing unrelated entries', function (): void {
+    config([
+        'cache.default' => 'array',
+        'capell.disable_cache' => false,
+    ]);
+
+    $manager = resolve(CapellCacheManager::class);
+    $callbackRuns = [];
+
+    $resolve = fn (string $key, string $value): string => resolve(CapellCacheManager::class)->rememberCache($key, fn (): string => $value);
+
+    expect($resolve('page-home', 'page-v1'))->toBe('page-v1')
+        ->and($resolve('settings-global', 'settings-v1'))->toBe('settings-v1');
+
+    $manager->invalidateCachePattern('page-*');
+    $manager->flushLocalCache();
+
+    $pageValue = $manager->rememberCache('page-home', function () use (&$callbackRuns): string {
+        $callbackRuns['page'] = ($callbackRuns['page'] ?? 0) + 1;
+
+        return 'page-v2';
+    });
+    $settingsValue = $manager->rememberCache('settings-global', function () use (&$callbackRuns): string {
+        $callbackRuns['settings'] = ($callbackRuns['settings'] ?? 0) + 1;
+
+        return 'settings-v2';
+    });
+
+    expect($pageValue)->toBe('page-v2')
+        ->and($settingsValue)->toBe('settings-v1')
+        ->and($callbackRuns)->toBe(['page' => 1])
+        ->and(Cache::store()->get('capell.cache.pattern-generation.' . hash('sha256', 'page-*')))->toBe(1);
+});
+
 it('respects ttl callbacks and namespace bumps on cache stores without tag support', function (): void {
     $cachePath = storage_path('framework/testing/cache-store-' . uniqid());
     File::ensureDirectoryExists($cachePath);
