@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Reports\BuildDemoInstallHealthReportAction;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
+use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
+use Capell\Core\Actions\Diagnostics\ResolveCapellInstallationStateAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
+use Capell\Core\Data\Diagnostics\DoctorReportData;
+use Capell\Core\Enums\Diagnostics\CapellInstallationState;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
@@ -68,6 +72,72 @@ it('reports missing event sourcing tables as a critical finding with remediation
         ->and($finding->severity)->toBe(ReportFindingSeverity::Critical)
         ->and($finding->description)->toContain('page_revisions')
         ->and($finding->remediation)->toContain('php artisan migrate');
+});
+
+it('reports invalid queue and cache configuration as critical operational findings', function (): void {
+    demoInstallHealthSeedInstall();
+
+    app()->instance(BuildDoctorReportAction::class, new class
+    {
+        public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
+        {
+            return new DoctorReportData('passed', collect());
+        }
+    });
+    CapellCore::shouldReceive('getPackages')
+        ->once()
+        ->with(false)
+        ->andReturn(collect());
+
+    config([
+        'queue.default' => 'missing',
+        'queue.connections.missing' => null,
+        'cache.default' => 'missing',
+        'cache.stores.missing' => null,
+    ]);
+
+    $findings = collect(BuildDemoInstallHealthReportAction::run()->findings)->keyBy('id');
+
+    expect($findings['core.queue.connection-configured']->severity)
+        ->toBe(ReportFindingSeverity::Critical)
+        ->and($findings['core.queue.connection-configured']->evidence)
+        ->toMatchArray(['connection' => 'missing', 'driver' => null])
+        ->and($findings['core.cache.store-configured']->severity)
+        ->toBe(ReportFindingSeverity::Critical)
+        ->and($findings['core.cache.store-configured']->evidence)
+        ->toMatchArray(['store' => 'missing', 'driver' => null]);
+});
+
+it('reports missing event sourcing and settings data after installation is recorded', function (): void {
+    demoInstallHealthSeedInstall();
+
+    app()->instance(ResolveCapellInstallationStateAction::class, new class
+    {
+        public function handle(): CapellInstallationState
+        {
+            return CapellInstallationState::Installed;
+        }
+    });
+    app()->instance(BuildDoctorReportAction::class, new class
+    {
+        public function handle(bool $installSummary = false, bool $includePackageDoctors = true): DoctorReportData
+        {
+            return new DoctorReportData('passed', collect());
+        }
+    });
+
+    Schema::dropIfExists('stored_events');
+    Schema::dropIfExists('settings');
+    resolve(RuntimeSchemaState::class)->flush();
+
+    $findings = collect(BuildDemoInstallHealthReportAction::run()->findings)->keyBy('id');
+
+    expect($findings['core.schema.event-sourcing']->severity)
+        ->toBe(ReportFindingSeverity::Critical)
+        ->and($findings['core.schema.event-sourcing']->evidence)
+        ->toMatchArray(['missing_tables' => ['stored_events']])
+        ->and($findings['admin.settings.rows']->severity)
+        ->toBe(ReportFindingSeverity::Warning);
 });
 
 it('returns the empty snapshot for a truly uninstalled app', function (): void {

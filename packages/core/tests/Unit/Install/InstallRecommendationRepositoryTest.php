@@ -144,5 +144,96 @@ it('resolves explicit select, confirm, custom, and skip actions', function (): v
         ->and($action->handle(InstallRecommendationAction::Confirm, 'blog'))->toBe(['capell-app/core'])
         ->and($action->handle(InstallRecommendationAction::Custom, customPackages: ['b', 'a', 'b']))->toBe(['b', 'a'])
         ->and($action->handle(InstallRecommendationAction::Custom, customPackages: [' valid ', 123, ' ', 'valid']))->toBe(['valid'])
+        ->and($action->handle(InstallRecommendationAction::Custom, customPackages: [' b ', ' ', 42, 'a', 'b']))->toBe(['b', 'a'])
         ->and($action->handle(InstallRecommendationAction::Skip))->toBe([]);
+
+    expect(fn (): array => $action->handle(InstallRecommendationAction::Select, 'missing'))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('normalises recommendation values, ordering, and empty lookups', function (): void {
+    config([
+        'capell.install.recommendations' => [
+            'zulu' => [
+                'label' => ' Zulu ',
+                'description' => ' Description ',
+                'packages' => 'capell-app/core, capell-app/core, , missing/package',
+                'theme' => '  ',
+                'demo' => 'yes',
+                'order' => '10',
+            ],
+            'alpha' => [
+                'label' => 'Alpha',
+                'description' => 'Alpha description',
+                'packages' => ['capell-app/core'],
+                'order' => -1,
+            ],
+            'invalid-label' => [
+                'label' => ' ',
+                'description' => 'Ignored',
+            ],
+            7 => ['label' => 'Ignored', 'description' => 'Ignored'],
+            'not-an-array' => 'ignored',
+        ],
+    ]);
+
+    $repository = resolve(InstallRecommendationRepository::class);
+
+    expect($repository->find(null))->toBeNull()
+        ->and($repository->find(' '))->toBeNull()
+        ->and($repository->all())->toHaveCount(2)
+        ->and($repository->all()[0]->key)->toBe('alpha')
+        ->and($repository->all()[1]->key)->toBe('zulu')
+        ->and($repository->find('zulu'))->toMatchObject([
+            'label' => 'Zulu',
+            'description' => 'Description',
+            'packages' => ['capell-app/core'],
+            'theme' => null,
+            'demo' => null,
+            'order' => 0,
+        ]);
+});
+
+it('falls back to host recommendation files and ignores malformed JSON', function (): void {
+    config(['capell.install.recommendations' => null]);
+
+    File::shouldReceive('exists')
+        ->once()
+        ->with(base_path('config/capell-install-recommendations.php'))
+        ->andReturnFalse();
+    File::shouldReceive('exists')
+        ->once()
+        ->with(base_path('capell-install-recommendations.json'))
+        ->andReturnTrue();
+    File::shouldReceive('get')
+        ->once()
+        ->with(base_path('capell-install-recommendations.json'))
+        ->andReturn('{invalid-json');
+
+    expect(resolve(InstallRecommendationRepository::class)->all())->toBe([]);
+});
+
+it('loads valid JSON recommendations when config is not provided', function (): void {
+    config(['capell.install.recommendations' => null]);
+
+    File::shouldReceive('exists')
+        ->once()
+        ->with(base_path('config/capell-install-recommendations.php'))
+        ->andReturnFalse();
+    File::shouldReceive('exists')
+        ->once()
+        ->with(base_path('capell-install-recommendations.json'))
+        ->andReturnTrue();
+    File::shouldReceive('get')
+        ->once()
+        ->with(base_path('capell-install-recommendations.json'))
+        ->andReturn(json_encode([
+            'headless' => [
+                'label' => 'Headless',
+                'description' => 'A headless site.',
+                'packages' => [],
+            ],
+        ], JSON_THROW_ON_ERROR));
+
+    expect(resolve(InstallRecommendationRepository::class)->find('headless')?->label)->toBe('Headless');
 });

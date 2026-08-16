@@ -1,6 +1,6 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "The additive Core-owned metrics and extension provider recovery migrations preserve existing stable extension surfaces while adding lifecycle state and audit storage.",
-    "drift": ["migrations"]
+    "reason": "Both Core and Frontend directly use Laravel Prompts when installed independently, so declaring laravel/prompts at ^0.2|^0.3 in each package fixes a real shadow-dependency packaging defect rather than adding an arbitrary requirement. The migrations drift is pre-existing on origin/main, including the 2026_08_14_000001_add_provider_recovery_to_capell_extensions.php migration, and is not caused by this PR.",
+    "drift": ["packageConstraints", "migrations"]
 }

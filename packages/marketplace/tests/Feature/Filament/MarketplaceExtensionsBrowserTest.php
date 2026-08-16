@@ -6,7 +6,9 @@ use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
+use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
+use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
@@ -16,6 +18,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
@@ -23,10 +26,12 @@ use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
+use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
+use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -390,6 +395,40 @@ it('shows blocked marketplace extensions in the default not installed marketplac
         && ! array_key_exists('installed_status', $request->data()));
 });
 
+it('keeps unavailable card commands from changing selection or queueing work', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [marketplaceBrowserExtensionPayload([
+                'slug' => 'seo-suite',
+                'name' => 'SEO Suite',
+                'composer_name' => 'capell-app/seo-suite',
+                'install_eligibility' => [
+                    'state' => 'blocked',
+                    'block_reason' => 'license_required',
+                ],
+            ])],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('installMarketplaceRecordFromCard', '')
+        ->call('updateMarketplaceRecordFromCard', '')
+        ->call('loadMarketplaceResults')
+        ->call('installMarketplaceRecordFromCard', 'capell-app/missing-extension')
+        ->assertSet('selectedMarketplaceComposerNames', [])
+        ->assertSet('marketplaceStep', 'browse');
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0)
+        ->and($component->instance()->marketplaceInstallProgress())->toBe([]);
+
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
+});
+
 it('allows Capell Membership extensions into the hosted install review', function (): void {
     grantMarketplaceBrowserManagementAccess();
 
@@ -450,6 +489,77 @@ it('renders the offline licence fallback in an activation-required review', func
         ->assertSee('data-capell-marketplace-licence-form', false)
         ->assertSee(__('capell-marketplace::marketplace.install.license_key_label'))
         ->assertSee(__('capell-marketplace::marketplace.install.license_key_help'));
+});
+
+it('keeps empty selections in browse state and makes bulk update idempotent', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
+
+    Http::fake([
+        '*' => Http::response(['data' => []]),
+    ]);
+
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('updateSelectedMarketplaceRecords')
+        ->set('selectedMarketplaceComposerNames', ['capell-app/unknown-extension'])
+        ->call('showMarketplaceInstallReview')
+        ->assertSet('marketplaceStep', 'browse')
+        ->call('clearMarketplaceSelection')
+        ->assertSet('selectedMarketplaceComposerNames', []);
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0)
+        ->and($component->instance()->marketplaceInstallProgress())->toBe([]);
+
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
+});
+
+it('requires explicit confirmation before an automated marketplace install starts', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Automated);
+
+    reviewMarketplaceBrowserWithOneSelection()
+        ->call('installReviewedMarketplaceExtensions')
+        ->assertSet('marketplaceStep', 'review')
+        ->assertSet('selectedMarketplaceComposerNames', ['capell-app/seo-suite']);
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
+});
+
+it('validates an activation key before starting an automated marketplace install', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Automated);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [marketplaceBrowserExtensionPayload([
+                'slug' => 'activation-suite',
+                'name' => 'Activation Suite',
+                'composer_name' => 'capell-app/activation-suite',
+                'is_paid' => true,
+                'install_state' => 'activation_required',
+                'install_eligibility' => ['state' => 'activation_required'],
+            ])],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/activation-suite')
+        ->call('showMarketplaceInstallReview')
+        ->set('installReviewedMarketplaceExtensionsConfirmed', true)
+        ->call('installReviewedMarketplaceExtensions')
+        ->assertHasErrors(['marketplaceLicenseKey'])
+        ->assertSet('marketplaceStep', 'review');
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
 });
 
 it('queues a free marketplace extension install from the grouped browser footer', function (): void {
@@ -1404,6 +1514,49 @@ it('applies the marketplace author filter from the card action', function (): vo
         && ($request->data()['author'] ?? null) === 'capell-labs');
 });
 
+it('applies marketplace presets and clears progress state through component transitions', function (): void {
+    grantMarketplaceBrowserViewOnlyAccess();
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->set('tableFilters', [
+            'free_only' => ['isActive' => false],
+            'kind' => ['value' => null],
+            'sort' => ['value' => null],
+            'installed_status' => ['value' => true],
+        ])
+        ->call('applyMarketplacePreset', 'free')
+        ->assertSet('tableFilters.free_only.isActive', true)
+        ->assertSet('tableFilters.installed_status.value', false)
+        ->call('applyMarketplacePreset', 'free')
+        ->assertSet('tableFilters.free_only.isActive', false)
+        ->call('applyMarketplacePreset', 'themes')
+        ->assertSet('tableFilters.kind.value', 'theme')
+        ->call('applyMarketplacePreset', 'recommended')
+        ->assertSet('tableFilters.sort.value', 'recommended')
+        ->set('activeMarketplaceInstallAttemptIds', [41, 42])
+        ->set('marketplaceStep', 'progress')
+        ->call('backToMarketplaceBrowseFromProgress')
+        ->assertSet('activeMarketplaceInstallAttemptIds', [])
+        ->assertSet('marketplaceStep', 'browse');
+});
+
+it('clears marketplace selection state and ignores blank selection commands', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->set('selectedMarketplaceComposerNames', ['capell-app/seo-suite'])
+        ->set('installReviewedMarketplaceExtensionsConfirmed', true)
+        ->set('betaMarketplaceExtensionsAcknowledged', true)
+        ->set('marketplaceStep', 'review')
+        ->call('toggleMarketplaceSelection', '   ')
+        ->assertSet('selectedMarketplaceComposerNames', ['capell-app/seo-suite'])
+        ->call('clearMarketplaceSelection')
+        ->assertSet('selectedMarketplaceComposerNames', [])
+        ->assertSet('installReviewedMarketplaceExtensionsConfirmed', false)
+        ->assertSet('betaMarketplaceExtensionsAcknowledged', false)
+        ->assertSet('marketplaceStep', 'browse');
+});
+
 it('builds marketplace table records from filtered marketplace listings', function (): void {
     grantMarketplaceBrowserViewOnlyAccess();
 
@@ -1521,6 +1674,40 @@ it('builds marketplace table records from filtered marketplace listings', functi
         && $request->data()['laravel_version'] === '12.0.0'
         && $request->data()['filament_version'] === '4.0.0'
         && $request->data()['livewire_version'] === '3.0.0');
+});
+
+it('loads browser records and filter options through the livewire boundary', function (): void {
+    grantMarketplaceBrowserViewOnlyAccess();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions*' => Http::response([
+            'data' => [marketplaceBrowserExtensionPayload([
+                'slug' => 'seo-suite',
+                'name' => 'SEO Suite',
+                'composer_name' => 'capell-app/seo-suite',
+            ])],
+            'links' => ['next' => null],
+        ]),
+    ]);
+
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->set('tableSearch', 'seo')
+        ->set('tableRecordsPerPage', 18)
+        ->set('paginators.page', 2);
+
+    $records = $component->instance()->marketplaceRecords();
+    $filterOptions = $component->instance()->marketplaceFilterOptions();
+
+    expect($records)->toHaveCount(1)
+        ->and($records[0]['composer_name'])->toBe('capell-app/seo-suite')
+        ->and($filterOptions)->toHaveKeys(['kind', 'category', 'sort'])
+        ->and($filterOptions['kind'])->not->toBeEmpty()
+        ->and($filterOptions['sort'])->not->toBeEmpty();
+
+    Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), 'https://marketplace.test/api/extensions?')
+        && ($request->data()['search'] ?? null) === 'seo'
+        && ($request->data()['page'] ?? null) === '2'
+        && ($request->data()['per_page'] ?? null) === '18');
 });
 
 it('marks marketplace browse as unavailable when the catalogue request fails', function (): void {
@@ -1866,6 +2053,189 @@ it('reports each stage of a running install through the progress pill', function
     expect($component->instance()->hasActiveMarketplaceInstalls())->toBeFalse()
         ->and($component->instance()->marketplaceInstallProgress()[0]['stage_label'])
         ->toBe((string) __('capell-marketplace::marketplace.progress.stage_completed'));
+});
+
+it('labels stopped and forward-compatible marketplace progress states safely', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+
+    $failedAttempt = MarketplaceInstallAttempt::query()->create([
+        'composer_name' => 'capell-app/failed-suite',
+        'extension_slug' => 'failed-suite',
+        'extension_name' => 'Failed Suite',
+        'kind' => 'tool',
+        'status' => MarketplaceInstallIntentStatus::Failed,
+        'current_stage' => MarketplaceInstallFailureStage::Composer->value,
+        'queued_at' => now(),
+    ]);
+    $futureAttempt = MarketplaceInstallAttempt::query()->create([
+        'composer_name' => 'capell-app/future-suite',
+        'extension_slug' => 'future-suite',
+        'extension_name' => 'Future Suite',
+        'kind' => 'tool',
+        'status' => MarketplaceInstallIntentStatus::Queued,
+        'current_stage' => 'future-stage',
+        'queued_at' => now(),
+    ]);
+
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->set('activeMarketplaceInstallAttemptIds', [
+            (int) $failedAttempt->getKey(),
+            (int) $futureAttempt->getKey(),
+        ]);
+
+    $progress = $component->instance()->marketplaceInstallProgress();
+
+    expect($progress)->toHaveCount(2)
+        ->and($progress[0]['stage_label'])->toBe((string) __('capell-marketplace::marketplace.progress.stage_stopped'))
+        ->and($progress[0]['active'])->toBeFalse()
+        ->and($progress[1]['stage_label'])->toBe((string) __('capell-marketplace::marketplace.progress.stage_queue'))
+        ->and($progress[1]['active'])->toBeTrue();
+});
+
+it('queues a one-click marketplace update and exposes its live operation state', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
+
+    CapellCore::registerPackage('capell-app/seo-suite', version: '1.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    app()->forgetInstance(UpdateMarketplaceExtensionAction::class);
+    app()->forgetInstance(MarketplaceClient::class);
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
+    {
+        public function prettyVersion(string $composerName): ?string
+        {
+            return $composerName === 'capell-app/seo-suite' ? '1.0.0' : null;
+        }
+    });
+
+    Http::fake(fn () => Http::response([
+        'data' => [marketplaceBrowserExtensionPayload([
+            'slug' => 'seo-suite',
+            'name' => 'SEO Suite',
+            'composer_name' => 'capell-app/seo-suite',
+            'kind' => 'plugin',
+            'latest_version' => '1.1.0',
+            'install_eligibility' => [
+                'state' => 'authorized',
+                'can_install' => true,
+                'can_update' => true,
+                'can_run_existing' => true,
+            ],
+        ])],
+    ]));
+
+    $listing = resolve(MarketplaceClient::class)->extensionsByComposerNames(
+        ['capell-app/seo-suite'],
+        allowCache: false,
+    );
+
+    expect(resolve(MarketplaceInstalledPackageVersionResolver::class)->prettyVersion('capell-app/seo-suite'))
+        ->toBe('1.0.0')
+        ->and($listing['capell-app/seo-suite']->latestVersion)->toBe('1.1.0');
+
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('updateMarketplaceRecordFromCard', ' capell-app/seo-suite ')
+        ->assertSet('marketplaceStep', 'progress')
+        ->assertSet('activeMarketplaceInstallAttemptIds', fn (array $ids): bool => count($ids) === 1)
+        ->assertNoRedirect();
+
+    $attempt = MarketplaceInstallAttempt::query()->sole();
+
+    Http::assertSent(fn ($request): bool => str_contains((string) $request->url(), '/extensions/by-composer'));
+
+    expect($attempt->operation)->toBe(MarketplaceOperationType::Update)
+        ->and($attempt->composer_name)->toBe('capell-app/seo-suite')
+        ->and($attempt->version_constraint)->toBe('^1.1.0');
+
+    $progress = $component->instance()->marketplaceInstallProgress();
+
+    expect($progress)->toHaveCount(1)
+        ->and($progress[0]['id'])->toBe((int) $attempt->getKey())
+        ->and($progress[0]['composer_name'])->toBe('capell-app/seo-suite')
+        ->and($progress[0]['status'])->toBe(MarketplaceInstallIntentStatus::Queued->value)
+        ->and($progress[0]['active'])->toBeTrue()
+        ->and($progress[0]['succeeded'])->toBeFalse();
+
+    Queue::assertPushed(
+        RunMarketplaceUpdateAttemptJob::class,
+        fn (RunMarketplaceUpdateAttemptJob $job): bool => $job->uniqueId() === (string) $attempt->getKey(),
+    );
+});
+
+it('queues eligible bulk updates without creating attempts for skipped packages', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
+
+    CapellCore::registerPackage('capell-app/seo-suite', version: '1.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
+    {
+        public function prettyVersion(string $composerName): ?string
+        {
+            return $composerName === 'capell-app/seo-suite' ? '1.0.0' : null;
+        }
+    });
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+            'data' => [marketplaceBrowserExtensionPayload([
+                'slug' => 'seo-suite',
+                'name' => 'SEO Suite',
+                'composer_name' => 'capell-app/seo-suite',
+                'kind' => 'plugin',
+                'latest_version' => '1.1.0',
+                'install_eligibility' => [
+                    'state' => 'authorized',
+                    'can_install' => true,
+                    'can_update' => true,
+                    'can_run_existing' => true,
+                ],
+            ])],
+        ]),
+    ]);
+
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->set('selectedMarketplaceComposerNames', [
+            'capell-app/seo-suite',
+            'capell-app/not-installed',
+        ])
+        ->call('updateSelectedMarketplaceRecords')
+        ->assertSet('selectedMarketplaceComposerNames', [])
+        ->assertSet('marketplaceStep', 'progress')
+        ->assertSet('activeMarketplaceInstallAttemptIds', fn (array $ids): bool => count($ids) === 1)
+        ->assertNoRedirect();
+
+    $attempt = MarketplaceInstallAttempt::query()->sole();
+
+    expect($attempt->composer_name)->toBe('capell-app/seo-suite')
+        ->and($attempt->operation)->toBe(MarketplaceOperationType::Update)
+        ->and($component->instance()->marketplaceInstallProgress())->toHaveCount(1);
+
+    Queue::assertPushed(RunMarketplaceUpdateAttemptJob::class, 1);
+});
+
+it('does not create an update operation when the selected package is not installed', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    Queue::fake();
+
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
+    {
+        public function prettyVersion(string $composerName): ?string
+        {
+            return null;
+        }
+    });
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('updateMarketplaceRecordFromCard', 'capell-app/not-installed')
+        ->assertSet('marketplaceStep', 'browse')
+        ->assertSet('activeMarketplaceInstallAttemptIds', [])
+        ->assertNoRedirect();
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
+    Queue::assertNothingPushed();
 });
 
 it('offers to apply a theme after install, off by default, and never for a plugin', function (): void {

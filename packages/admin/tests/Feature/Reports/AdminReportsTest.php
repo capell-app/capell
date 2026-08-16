@@ -21,6 +21,7 @@ use Capell\Admin\Tests\Fixtures\Autoload\CustomReportPageForRegistry;
 use Capell\Admin\Tests\Fixtures\Autoload\MissingReportPageForTest;
 use Capell\Admin\Tests\Fixtures\Autoload\PlainReportPageForTest;
 use Capell\Core\Models\PublicRenderContractEvent;
+use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -448,4 +449,45 @@ it('treats content widget contributions as frontend packages without surface met
         ->all();
 
     expect($descriptions)->toContain(__('capell-admin::reports.package_readiness_frontend_assets_missing'));
+});
+
+it('reports structured readiness failures for invalid package metadata and dependencies', function (): void {
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/readiness-invalid',
+        surfaces: ['frontend'],
+        overrides: [
+            'displayName' => '',
+            'kind' => '',
+            'version' => '',
+            'database' => [
+                'migrations' => true,
+                'requiredTables' => ['capell_missing_readiness_table'],
+            ],
+            'settings' => ['Missing\\SettingsClass'],
+            'commercial' => [
+                'supportPolicy' => null,
+            ],
+            'marketplace' => [
+                'summary' => null,
+                'hidden' => false,
+            ],
+        ],
+    ));
+
+    $registry = new CapellPackageRegistry;
+    $registry->fill([$manifest->name => $manifest]);
+
+    app()->instance(CapellPackageRegistry::class, $registry);
+    resolve(RuntimeSchemaState::class)->flush();
+
+    $snapshot = BuildPackageReadinessReportAction::run();
+    $finding = collect($snapshot->findings)
+        ->where('recordLabel', $manifest->name);
+    $metricValues = collect($snapshot->metrics)->pluck('value')->values();
+
+    expect($finding)->not->toBeEmpty()
+        ->and($snapshot->metrics)->toHaveCount(4)
+        ->and($metricValues[0])->toBe(1)
+        ->and($metricValues[1])->toBe(0)
+        ->and($metricValues[2] + $metricValues[3])->toBeGreaterThan(0);
 });

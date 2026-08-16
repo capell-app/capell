@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\AssertContentWidgetKeysAvailableAction;
 use Capell\Core\Actions\Install\RequireExtraPackagesAction;
 use Capell\Core\Concerns\HasDefaultPages;
 use Capell\Core\Concerns\HasVendorAssets;
@@ -12,6 +13,8 @@ use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Enums\VendorAssetEnum;
 use Capell\Core\Exceptions\UrlSiteDomainNotFoundException;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Manifest\CapellManifestData;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
@@ -208,4 +211,77 @@ it('requires extra packages through composer and reports process output', functi
         ->and($reportedOutput)->toContain('capell-app/example')
         ->and($reporter->reports)->toContain('✓ Required: capell-app/example')
         ->and($reporter->errors)->toBeEmpty();
+});
+
+it('checks content widget keys across installed and candidate packages', function (): void {
+    CapellCore::clearPackages();
+
+    $installed = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/installed-widgets',
+        overrides: [
+            'contributes' => [
+                ['type' => 'content-widget', 'class' => 'Vendor\\Installed\\HeroWidget', 'key' => 'hero'],
+                ['type' => 'route', 'class' => 'Vendor\\Installed\\Routes'],
+                ['type' => 'content-widget', 'class' => 'Vendor\\Installed\\MissingKey'],
+                ['type' => 'content-widget', 'class' => 'Vendor\\Installed\\EmptyKey', 'key' => ''],
+            ],
+        ],
+    ));
+    $candidate = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/candidate-widgets',
+        overrides: [
+            'contributes' => [
+                ['type' => 'content-widget', 'class' => 'Vendor\\Candidate\\CardWidget', 'key' => 'card'],
+            ],
+        ],
+    ));
+
+    CapellCore::registerManifestPackage($installed);
+    CapellCore::registerManifestPackage($candidate);
+    CapellCore::forcePackageInstalled($installed->name);
+
+    try {
+        AssertContentWidgetKeysAvailableAction::run([
+            CapellCore::getPackage($candidate->name),
+        ]);
+
+        expect(true)->toBeTrue();
+    } finally {
+        CapellCore::clearPackages();
+    }
+});
+
+it('rejects duplicate content widget keys across package boundaries', function (): void {
+    CapellCore::clearPackages();
+
+    $installed = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/installed-hero',
+        overrides: [
+            'contributes' => [
+                ['type' => 'content-widget', 'class' => 'Vendor\\Installed\\HeroWidget', 'key' => 'hero'],
+            ],
+        ],
+    ));
+    $candidate = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/candidate-hero',
+        overrides: [
+            'contributes' => [
+                ['type' => 'content-widget', 'class' => 'Vendor\\Candidate\\HeroWidget', 'key' => 'hero'],
+            ],
+        ],
+    ));
+
+    CapellCore::registerManifestPackage($installed);
+    CapellCore::registerManifestPackage($candidate);
+    CapellCore::forcePackageInstalled($installed->name);
+
+    try {
+        expect(function (): void {
+            AssertContentWidgetKeysAvailableAction::run([
+                CapellCore::getPackage('vendor/candidate-hero'),
+            ]);
+        })->toThrow(RuntimeException::class);
+    } finally {
+        CapellCore::clearPackages();
+    }
 });

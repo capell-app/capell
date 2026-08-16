@@ -27,6 +27,7 @@
     ],
     "scripts": {
         "check:composer-paths": "@php scripts/check-composer-local-paths.php",
+        "check:package-dependencies": "@php scripts/check-package-dependencies.php",
         "check:support-contract": "@php scripts/check-support-contract.php",
         "check:queue-contract": "@php scripts/check-queue-contract.php",
         "check:lang-keys": "@php scripts/check-language-key-drift.php",
@@ -258,6 +259,7 @@
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-mockery": "^2.0",
         "rector/rector": "^2.0",
+        "shipmonk/composer-dependency-analyser": "^1.8",
         "sinnbeck/laravel-dom-assertions": "^3.0",
         "spatie/laravel-ray": "^1.36"
     },

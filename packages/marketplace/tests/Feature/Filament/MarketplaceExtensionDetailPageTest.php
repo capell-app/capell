@@ -3,15 +3,19 @@
 declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
+use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -188,6 +192,53 @@ it('requires comment feedback when rating is unavailable', function (): void {
         ->assertHasErrors(['feedbackComment']);
 });
 
+it('submits permitted feedback and records the marketplace response status', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config([
+        'app.url' => 'https://client.test',
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+    ]);
+
+    MarketplaceInstance::query()->create([
+        'instance_id' => 'instance-feedback',
+        'signing_secret_encrypted' => 'test-secret',
+        'last_heartbeat_at' => now(),
+    ]);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/seo-suite' => marketplaceDetailResponse(),
+        'https://marketplace.test/api/extensions/seo-suite/licence-decision' => Http::response([
+            'data' => [
+                'licence_status' => 'active',
+                'can_comment' => true,
+                'can_rate' => true,
+            ],
+        ]),
+        'https://marketplace.test/api/extensions/seo-suite/feedback' => Http::response([
+            'data' => [
+                'status' => 'published',
+                'message' => 'Feedback accepted.',
+            ],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->set('feedbackRating', 5)
+        ->set('feedbackComment', 'The upgrade path was clear.')
+        ->set('feedbackTip', 'Keep the release notes this useful.')
+        ->call('submitFeedback')
+        ->assertHasNoErrors()
+        ->assertSet('feedbackStatus', 'published');
+
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/seo-suite/feedback'
+        && ($request->data()['rating'] ?? null) === 5
+        && ($request->data()['comment'] ?? null) === 'The upgrade path was clear.'
+        && ($request->data()['tip'] ?? null) === 'Keep the release notes this useful.');
+});
+
 it('shows marketplace detail outages without treating them as not found', function (): void {
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
@@ -214,6 +265,66 @@ it('uses the marketplace page permission for detail page access', function (): v
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
 
     expect(MarketplaceExtensionDetailPage::canAccess())->toBeTrue();
+});
+
+it('derives detail decisions from licence and installation state', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+        'capell-marketplace.marketplace.web_url' => 'https://marketplace.test',
+    ]);
+
+    CapellCore::registerPackage('capell-app/activation-suite', version: '2.0.0');
+    CapellCore::forcePackageInstalled('capell-app/activation-suite');
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/activation-suite' => Http::response([
+            'data' => [
+                'slug' => 'activation-suite',
+                'name' => 'Activation Suite',
+                'composer_name' => 'capell-app/activation-suite',
+                'kind' => 'plugin',
+                'latest_version' => '2.1.0',
+                'documentation' => [
+                    ['slug' => 'public-guide', 'private' => false],
+                    ['slug' => 'operator-guide', 'private' => true],
+                ],
+                'performance' => ['frontendRenderBudgetMs' => 12],
+                'contribution_summary' => ['admin-page' => 1, 'frontend-component' => 2],
+                'install_eligibility' => ['state' => 'activation_required'],
+                'licence' => [
+                    'licence_status' => 'purchased',
+                    'can_view_private_docs' => false,
+                    'can_download' => false,
+                    'can_install' => false,
+                    'can_update' => false,
+                    'can_rate' => true,
+                    'can_comment' => false,
+                    'runtime_allowed' => true,
+                ],
+            ],
+        ]),
+    ]);
+
+    $page = Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'activation-suite'])
+        ->instance();
+
+    expect($page->publicDocumentation())->toHaveCount(1)
+        ->and($page->publicDocumentation()[0]['slug'])->toBe('public-guide')
+        ->and($page->canViewPrivateDocs())->toBeFalse()
+        ->and($page->canDownload())->toBeFalse()
+        ->and($page->canInstall())->toBeFalse()
+        ->and($page->requiresLicenceKey())->toBeTrue()
+        ->and($page->installedVersion())->toBe('2.0.0')
+        ->and($page->contributionCount())->toBe(3)
+        ->and($page->frontendRenderBudgetLabel())->not->toBeNull()
+        ->and($page->manualInstallCommands())->toHaveKeys(['composer', 'install'])
+        ->and($page->shouldVerifySite())->toBeTrue()
+        ->and($page->canSubmitFeedback())->toBeTrue()
+        ->and($page->ratingIsRequired())->toBeTrue();
 });
 
 function marketplaceDetailResponse(bool $canComment = true, bool $canRate = true): mixed
@@ -368,6 +479,62 @@ it('offers no update while the extension already has an operation in flight', fu
     expect(Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
         ->instance()
         ->canUpdate())->toBeFalse();
+});
+
+it('queues a permitted update from the detail page and exposes the operation side effect', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+    ]);
+
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
+    {
+        public function prettyVersion(string $composerName): ?string
+        {
+            return $composerName === 'capell-app/seo-suite' ? '2.0.0' : null;
+        }
+    });
+    Queue::fake();
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/seo-suite' => marketplaceDetailResponse(),
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+            'data' => [[
+                'slug' => 'seo-suite',
+                'name' => 'Advanced SEO Suite',
+                'composer_name' => 'capell-app/seo-suite',
+                'kind' => 'plugin',
+                'latest_version' => '2.1.0',
+                'install_eligibility' => [
+                    'state' => 'authorized',
+                    'can_install' => true,
+                    'can_update' => true,
+                    'can_run_existing' => true,
+                ],
+            ]],
+        ]),
+    ]);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->call('updateExtension')
+        ->assertNoRedirect();
+
+    $attempt = MarketplaceInstallAttempt::query()->sole();
+
+    expect($attempt->composer_name)->toBe('capell-app/seo-suite')
+        ->and($attempt->operation)->toBe(MarketplaceOperationType::Update)
+        ->and($attempt->version_constraint)->toBe('^2.1.0')
+        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued);
+
+    Queue::assertPushed(
+        RunMarketplaceUpdateAttemptJob::class,
+        fn (RunMarketplaceUpdateAttemptJob $job): bool => $job->uniqueId() === (string) $attempt->getKey(),
+    );
 });
 
 it('refuses an update call from a user who may not reach the marketplace', function (): void {

@@ -5,11 +5,13 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Reports\BuildPublishingReadinessReportAction;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Admin\Filament\Pages\Reports\PublishingReadinessReport;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
 
@@ -110,6 +112,72 @@ it('reports soft-deleted blueprints without trying to build an edit url', functi
         ->and($finding->url)->toBeNull();
 });
 
+it('separates expired and non-public pages from draft warnings in report metrics', function (): void {
+    [$site, $blueprint, $english] = publishingReadinessSiteContext(requiredLanguages: false);
+
+    $expired = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($english)
+        ->createOne([
+            'name' => 'Expired page',
+            'visible_from' => now()->subDays(2),
+            'visible_until' => now()->subDay(),
+        ]);
+    publishingReadinessUrl($expired, $site, $english, '/expired', status: true);
+
+    $draft = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($english)
+        ->createOne([
+            'name' => 'Draft page',
+            'visible_from' => PublishSentinel::draftValue(),
+            'visible_until' => null,
+        ]);
+    publishingReadinessUrl($draft, $site, $english, '/draft', status: true);
+
+    $nonPublic = Page::factory()
+        ->site($site)
+        ->type($blueprint)
+        ->withTranslations($english)
+        ->createOne([
+            'name' => 'Non-public page',
+            'visible_from' => now()->subDay(),
+            'visible_until' => null,
+        ]);
+    $nonPublicUrl = publishingReadinessUrl(
+        $nonPublic,
+        $site,
+        $english,
+        '/non-public',
+        status: true,
+        type: UrlTypeEnum::Redirect,
+    );
+    $nonPublic->pageUrls()->update(['type' => UrlTypeEnum::Redirect->value]);
+    $nonPublicUrls = $nonPublic->pageUrls()->get();
+
+    expect($nonPublicUrl->type)->toBe(UrlTypeEnum::Redirect);
+    expect($nonPublicUrl->getRawOriginal('type'))->toBe(UrlTypeEnum::Redirect->value);
+    expect($nonPublicUrls->isNotEmpty())->toBeTrue()
+        ->and($nonPublicUrls->every(fn (PageUrl $pageUrl): bool => $pageUrl->status
+            && $pageUrl->getRawOriginal('type') === UrlTypeEnum::Redirect->value))->toBeTrue();
+
+    $snapshot = BuildPublishingReadinessReportAction::run();
+    $metrics = collect($snapshot->metrics)->pluck('value', 'label');
+    $severityCounts = collect($snapshot->findings)
+        ->countBy(fn ($finding): string => $finding->severity->value);
+    $findingRecords = collect($snapshot->findings)->pluck('recordLabel')->all();
+
+    expect($metrics[__('capell-admin::reports.publishing_readiness_metric_pages_checked')])->toBe(3)
+        ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_blocked_pages')])->toBe(2)
+        ->and($metrics[__('capell-admin::reports.publishing_readiness_metric_scheduled_pages')])->toBe(0)
+        ->and($severityCounts->get(ReportFindingSeverity::Critical->value))->toBe(2)
+        ->and($severityCounts->get(ReportFindingSeverity::Warning->value))->toBe(1)
+        ->and($findingRecords)->toContain('Expired page (Launch Site)', 'Draft page (Launch Site)', 'Non-public page (Launch Site)')
+        ->and(collect($snapshot->findings)->every(fn ($finding): bool => $finding->url !== null))->toBeTrue();
+});
+
 it('renders publishing readiness findings on the report page', function (): void {
     test()->actingAsAdmin();
 
@@ -158,8 +226,14 @@ function publishingReadinessSiteContext(bool $requiredLanguages = true): array
     return [$site, $blueprint, $english, $welsh];
 }
 
-function publishingReadinessUrl(Page $page, Site $site, Language $language, string $url, bool $status = true): PageUrl
-{
+function publishingReadinessUrl(
+    Page $page,
+    Site $site,
+    Language $language,
+    string $url,
+    bool $status = true,
+    ?UrlTypeEnum $type = null,
+): PageUrl {
     return PageUrl::factory()
         ->page($page)
         ->site($site)
@@ -167,6 +241,7 @@ function publishingReadinessUrl(Page $page, Site $site, Language $language, stri
             'language_id' => $language->id,
             'status' => $status,
             'url' => $url,
+            'type' => $type,
         ])
         ->createOne();
 }
