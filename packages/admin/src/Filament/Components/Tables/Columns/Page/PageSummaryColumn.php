@@ -203,23 +203,13 @@ class PageSummaryColumn extends TextColumn
 
     private function pageUrl(Page $page): ?PageUrl
     {
-        if (! $page->relationLoaded('pageUrls')) {
-            $page->loadMissing('pageUrls.siteDomain');
-        }
-
-        $pageUrl = $page->pageUrls->first();
-
-        if ($pageUrl instanceof PageUrl) {
-            return $pageUrl;
-        }
-
         if (! $page->relationLoaded('pageUrl')) {
             $page->loadMissing('pageUrl.siteDomain');
         }
 
-        $pageUrl = $page->pageUrl;
+        $pageUrl = $page->getRelationValue('pageUrl');
 
-        return $pageUrl instanceof PageUrl && $pageUrl->exists ? $pageUrl : null;
+        return $pageUrl instanceof PageUrl ? $pageUrl : null;
     }
 
     private function pageLayout(Page $page): ?Layout
