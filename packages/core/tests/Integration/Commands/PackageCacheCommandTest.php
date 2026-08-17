@@ -7,6 +7,8 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Tests\Integration\Commands\Fixtures\ComposerBootstrapReplayTestServiceProvider;
+use Capell\Core\Tests\Integration\Commands\Fixtures\ComposerBootstrapUnrelatedTestServiceProvider;
 use Capell\Frontend\Support\View\ThemeChainResolver;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -84,6 +86,47 @@ it('PackageRegistryBootstrapper preserves packages registered before core boots'
 
     expect(resolve(CapellPackageRegistry::class))->toBe($registry)
         ->and($registry->getPackage('vendor/early-package')->name)->toBe('vendor/early-package');
+});
+
+it('loads selected Composer providers, ignores unrelated metadata, and replays package registration', function (): void {
+    $packagesCachePath = base_path('bootstrap/cache/packages.php');
+    $provider = new ComposerBootstrapReplayTestServiceProvider(app());
+
+    app()->register($provider);
+
+    file_put_contents(
+        $packagesCachePath,
+        '<?php return ' . var_export([
+            'vendor/selected-install-package' => [
+                'providers' => [
+                    ComposerBootstrapReplayTestServiceProvider::class,
+                    123,
+                    'Vendor\\Missing\\ServiceProvider',
+                ],
+            ],
+            'vendor/unrelated-package' => [
+                'providers' => [ComposerBootstrapUnrelatedTestServiceProvider::class],
+            ],
+            'vendor/malformed-package' => [
+                'providers' => 'not-a-provider-list',
+            ],
+        ], return: true) . ';',
+    );
+
+    request()->server->set('CAPELL_INSTALL_CONTEXT', 'install');
+    request()->server->set('CAPELL_INSTALL_PACKAGES', 'vendor/selected-install-package');
+
+    try {
+        resolve(PackageRegistryBootstrapper::class)->bootstrap();
+
+        expect($provider->registeringPackageCalls())->toBe(2)
+            ->and(app()->getProvider(ComposerBootstrapReplayTestServiceProvider::class))->toBe($provider)
+            ->and(app()->getProvider(ComposerBootstrapUnrelatedTestServiceProvider::class))->toBeNull();
+    } finally {
+        @unlink($packagesCachePath);
+        request()->server->remove('CAPELL_INSTALL_CONTEXT');
+        request()->server->remove('CAPELL_INSTALL_PACKAGES');
+    }
 });
 
 it('ThemeChainResolver uses capell-theme-chain.php when present', function (): void {
