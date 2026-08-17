@@ -58,7 +58,7 @@ final readonly class CloudInstallContext
 
     private static function processValue(string $key): ?string
     {
-        $value = $_SERVER[$key] ?? getenv($key);
+        $value = getenv($key);
 
         if (! is_string($value)) {
             return null;

@@ -113,11 +113,11 @@ it('uses persisted lifecycle state for non-selected packages after a cloud insta
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/cloud-enabled-package')->andReturnTrue();
 
-    expect((new CapellPackageLoader(
+    expect(new CapellPackageLoader(
         $application,
         $registry,
         CloudInstallContext::forCloudPackages(['vendor/other-package']),
-    ))->collectProviders())->toBe([FilesystemServiceProvider::class]);
+    )->collectProviders())->toBe([FilesystemServiceProvider::class]);
 });
 
 it('deduplicates capabilities declared for more than one request surface', function (): void {
