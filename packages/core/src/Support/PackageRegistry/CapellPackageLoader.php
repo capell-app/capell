@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\PackageRegistry;
 
+use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Bootstrap\CloudInstallContext;
+use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Contracts\Foundation\Application;
@@ -12,10 +15,15 @@ use Throwable;
 
 final class CapellPackageLoader
 {
+    private readonly CloudInstallContext $cloudInstallContext;
+
     public function __construct(
         private readonly Application $app,
         private readonly CapellPackageRegistry $registry,
-    ) {}
+        ?CloudInstallContext $cloudInstallContext = null,
+    ) {
+        $this->cloudInstallContext = $cloudInstallContext ?? CloudInstallContext::fromProcess();
+    }
 
     public function loadProviders(): void
     {
@@ -89,7 +97,28 @@ final class CapellPackageLoader
             return true;
         }
 
+        if ($this->cloudInstallContext->isCloudInstall() && $this->lifecycleLedgerIsUnavailable()) {
+            return $this->cloudInstallContext->selects($manifest->name);
+        }
+
         return CapellCore::isPackageEnabled($manifest->name);
+    }
+
+    /**
+     * Cloud provisioning needs selected providers only while the extension
+     * ledger does not yet exist. The environment remains set after install, so
+     * every later boot must return to the persisted package lifecycle state.
+     */
+    private function lifecycleLedgerIsUnavailable(): bool
+    {
+        if (! $this->app->bound('db')) {
+            return true;
+        }
+
+        /** @var RuntimeSchemaState $schemaState */
+        $schemaState = $this->app->make(RuntimeSchemaState::class);
+
+        return $schemaState->tableResult('capell_extensions') === SchemaProbeResult::Absent;
     }
 
     private function providerFailureReason(string $provider, Throwable $throwable): string
