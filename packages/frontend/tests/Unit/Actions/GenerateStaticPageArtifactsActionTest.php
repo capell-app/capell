@@ -280,6 +280,47 @@ it('trusts html already inspected by the frontend renderer before writing static
         ->and(File::get($store->root() . '/https.example.test/already-inspected-static-test/index.html'))->toBe('<html><body>Already inspected</body></html>');
 });
 
+it('does not write baked CSRF markers even when the frontend renderer marked the response inspected', function (string $html): void {
+    config()->set('cache.default', 'array');
+
+    [, $site, $renderData] = staticPageArtifactsRenderData('/baked-csrf-static-test');
+
+    app()->instance(Kernel::class, new readonly class($renderData, $html) implements Kernel
+    {
+        public function __construct(
+            private PublicPageRenderData $renderData,
+            private string $html,
+        ) {}
+
+        public function bootstrap(): void {}
+
+        public function handle($request): Response
+        {
+            resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
+            resolve(FrontendContextReader::class)->setFrontendData('publicHtmlSafetyInspected', true);
+            resolve(FrontendContextReader::class)->setFrontendData('publicHtmlSafetyInspectedHash', hash('xxh128', $this->html));
+
+            return new Response($this->html);
+        }
+
+        public function terminate($request, $response): void {}
+
+        public function getApplication(): Application
+        {
+            return app();
+        }
+    });
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/baked-csrf-static-test']);
+    $store = resolve(StaticPageArtifactStore::class);
+
+    expect($manifest['artifacts'])->toBe([])
+        ->and(File::exists($store->root() . '/https.example.test/baked-csrf-static-test/index.html'))->toBeFalse();
+})->with([
+    'csrf input' => '<html><body><form><input name="_token" value="abc123"></form></body></html>',
+    'Livewire script configuration' => '<html><body><script>window.livewireScriptConfig = {"csrf":"abc123","uri":"/livewire/update"};</script></body></html>',
+]);
+
 it('re-inspects static html when inspected content changes after rendering', function (): void {
     config()->set('cache.default', 'array');
 

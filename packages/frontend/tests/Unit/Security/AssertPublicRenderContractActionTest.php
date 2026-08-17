@@ -110,6 +110,22 @@ it('rejects unsafe public html for authenticated non admin visitors', function (
         ->toThrow(RuntimeException::class, 'Public HTML contains a signed admin URL.');
 });
 
+it('does not reject a baked csrf token, since that is a cache-eligibility signal, not a render-contract violation', function (): void {
+    // CAP-0216/CAP-0233: a baked CSRF token must never enter the *shared*
+    // HTML cache through the paired html-cache package, but a
+    // live, single-visitor render — full page or fragment — legitimately
+    // contains a real token for that visitor. This contract must not reject
+    // it, or the fragment sub-request that fixes CAP-0216 would 500 for
+    // every visitor instead of the page merely staying uncached.
+    $response = new Response(
+        '<form method="post"><input type="hidden" name="_token" value="abc123"></form>',
+        Response::HTTP_OK,
+        ['Content-Type' => 'text/html'],
+    );
+
+    expect(fn () => AssertPublicRenderContractAction::run($response))->not->toThrow(RuntimeException::class);
+});
+
 it('allows public composer package names and repository urls', function (): void {
     $response = new Response(
         '<a href="https://github.com/capell-app/capell">GitHub</a><pre><code>composer require capell-app/installer</code></pre>',

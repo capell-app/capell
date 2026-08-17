@@ -18,6 +18,7 @@ use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Illuminate\Contracts\Http\Kernel;
@@ -173,6 +174,10 @@ class GenerateStaticPageArtifactsAction
         }
 
         $content = $response->getContent();
+
+        if (is_string($content) && resolve(PublicHtmlSafetyInspector::class)->containsBakedCsrfToken($content)) {
+            return false;
+        }
 
         if (is_string($content)
             && resolve(FrontendContextReader::class)->getFrontendData('publicHtmlSafetyInspected') === true
