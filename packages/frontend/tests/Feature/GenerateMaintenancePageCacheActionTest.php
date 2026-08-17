@@ -10,6 +10,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Actions\GenerateMaintenancePageCacheAction;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
+use Capell\Frontend\Exceptions\PublicRenderContractViolationException;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
@@ -88,4 +89,58 @@ it('generates static maintenance html and updates the manifest for each site dom
         ->and($renderer->calls[0]['language_id'])->toBe($language->id)
         ->and($renderer->calls[0]['site_domain_id'])->toBe($siteDomain->id)
         ->and($renderer->calls[0]['site_domain_path'])->toBe('/docs');
+});
+
+it('rejects and does not store maintenance html that fails the public render contract', function (): void {
+    $store = new class implements StaticMaintenancePageStore
+    {
+        /** @var array<string, string> */
+        public array $files = [];
+
+        public function exists(string $file): bool
+        {
+            return array_key_exists($file, $this->files);
+        }
+
+        public function path(string $file): ?string
+        {
+            return $this->exists($file) ? storage_path('framework/testing/' . str_replace('/', '-', $file)) : null;
+        }
+
+        public function put(string $file, string $contents): void
+        {
+            $this->files[$file] = $contents;
+        }
+    };
+
+    $renderer = new class implements ThemePreviewRendererInterface
+    {
+        public function render(
+            Theme $theme,
+            Site $site,
+            Page $page,
+            ?Language $language = null,
+            ?SiteDomain $siteDomain = null,
+        ): Response {
+            return new Response('<h1>Maintenance</h1><!-- vendor/capell-app/admin leaked here -->');
+        }
+    };
+
+    app()->instance(StaticMaintenancePageStore::class, $store);
+    app()->instance(ThemePreviewRendererInterface::class, $renderer);
+
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state([
+            'scheme' => 'https',
+            'domain' => 'example.test',
+            'path' => '/docs',
+            'language_id' => $language->id,
+        ])
+        ->create();
+
+    expect(fn () => GenerateMaintenancePageCacheAction::run($siteDomain->site))
+        ->toThrow(PublicRenderContractViolationException::class);
+
+    expect($store->files)->toBeEmpty();
 });

@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Date;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @method static array<int, array<string, mixed>> run(Site $site)
@@ -100,7 +101,10 @@ final class GenerateMaintenancePageCacheAction
         $renderSite->setRelation('siteDomain', $renderSiteDomain);
 
         $content = $this->renderer->render($renderSite->theme, $renderSite, $renderPage, $language, $renderSiteDomain)->getContent();
+        $html = is_string($content) ? $content : '';
 
-        return is_string($content) ? $content : '';
+        AssertPublicRenderContractAction::run(new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html']));
+
+        return $html;
     }
 }
