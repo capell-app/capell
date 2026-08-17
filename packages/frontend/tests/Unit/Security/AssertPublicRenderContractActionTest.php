@@ -112,7 +112,7 @@ it('rejects unsafe public html for authenticated non admin visitors', function (
 
 it('does not reject a baked csrf token, since that is a cache-eligibility signal, not a render-contract violation', function (): void {
     // CAP-0216/CAP-0233: a baked CSRF token must never enter the *shared*
-    // HTML cache (see HtmlCacheEligibilityReportTest in html-cache), but a
+    // HTML cache through the paired html-cache package, but a
     // live, single-visitor render — full page or fragment — legitimately
     // contains a real token for that visitor. This contract must not reject
     // it, or the fragment sub-request that fixes CAP-0216 would 500 for

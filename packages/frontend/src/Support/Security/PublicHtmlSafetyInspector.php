@@ -118,8 +118,9 @@ final class PublicHtmlSafetyInspector
 
     /**
      * A CSRF token (Laravel's `@csrf` directive: `<input type="hidden"
-     * name="_token" value="...">`) is bound to whoever's session rendered the
-     * response. Baking a real one into HTML that reaches the *shared* HTML
+     * name="_token" value="...">`; `<meta name="csrf-token" content="...">`;
+     * or Livewire's `data-csrf="..."`) is bound to whoever's session rendered
+     * the response. Baking a real one into HTML that reaches the *shared* HTML
      * cache serves every later visitor a foreign token, breaking their own
      * submission (CAP-0216/CAP-0233). This is a cache-eligibility signal, not
      * an authoring-surface leak, so it is deliberately not part of
@@ -129,11 +130,12 @@ final class PublicHtmlSafetyInspector
      * render contract (thrown uncaught on every render) would 500 those
      * pages outright instead of merely excluding them from the shared cache.
      *
-     * Requires a non-empty `value`. The established, already-shipped fix for
-     * this exact bug elsewhere in the product renders an EMPTY placeholder
-     * token (`value=""`) and hydrates the real value client-side from a
-     * dedicated, never-cached endpoint — that pattern must never be flagged,
-     * or the entire public site would lose HTML-cache eligibility.
+     * Requires a non-empty (after trimming) token attribute. The established,
+     * already-shipped fix for this exact bug elsewhere in the product renders
+     * an EMPTY placeholder token (`value=""` or `content=""`) and hydrates the
+     * real value client-side from a dedicated, never-cached endpoint — that
+     * pattern must never be flagged, or the entire public site would lose
+     * HTML-cache eligibility.
      */
     public function containsBakedCsrfToken(string $html): bool
     {
@@ -142,7 +144,9 @@ final class PublicHtmlSafetyInspector
 
     public function detectBakedCsrfToken(string $html): ?PublicHtmlSafetyDetectionData
     {
-        if ($html === '' || stripos($html, '_token') === false) {
+        if ($html === '' || (stripos($html, '_token') === false
+            && stripos($html, 'csrf-token') === false
+            && stripos($html, 'data-csrf') === false)) {
             return null;
         }
 
@@ -152,31 +156,68 @@ final class PublicHtmlSafetyInspector
         // which is not how documentation examples are written (they use
         // HTML-entity-escaped markup, which this pattern cannot match at
         // all — verified, not assumed).
-        if (preg_match_all('#<input\\b[^>]*>#i', $html, $tagMatches) < 1) {
+        if (preg_match_all('#<[a-z][a-z0-9:-]*\\b[^>]*>#i', $html, $tagMatches) < 1) {
             return null;
         }
 
         foreach ($tagMatches[0] as $tag) {
-            if (preg_match('#\\sname=["\']_token["\']#i', $tag) !== 1) {
-                continue;
+            if ($this->isTagNamed($tag, 'input')
+                && $this->attributeValueMatches($tag, 'name', '_token')
+                && $this->hasNonEmptyAttributeValue($tag, 'value')) {
+                return $this->bakedCsrfTokenDetection('name="_token"');
             }
 
-            if (preg_match('#\\svalue=["\']([^"\']+)["\']#i', $tag) !== 1) {
-                continue;
+            if ($this->isTagNamed($tag, 'meta')
+                && $this->attributeValueMatches($tag, 'name', 'csrf-token')
+                && $this->hasNonEmptyAttributeValue($tag, 'content')) {
+                return $this->bakedCsrfTokenDetection('name="csrf-token"');
             }
 
-            return new PublicHtmlSafetyDetectionData(
-                category: 'baked_csrf_token',
-                // `matched` is logged (RecordPublicRenderContractEventAction)
-                // and persisted to the database. A hardcoded literal here is
-                // deliberate: the real match is the live CSRF token itself,
-                // and that must never be written to logs or storage.
-                matched: 'name="_token"',
-                reason: 'Public HTML bakes a session-specific CSRF token into content that may reach the shared cache.',
-            );
+            if ($this->hasNonEmptyAttributeValue($tag, 'data-csrf')) {
+                return $this->bakedCsrfTokenDetection('data-csrf');
+            }
         }
 
         return null;
+    }
+
+    private function isTagNamed(string $tag, string $name): bool
+    {
+        return preg_match('#^<' . preg_quote($name, '#') . '\\b#i', $tag) === 1;
+    }
+
+    private function attributeValueMatches(string $tag, string $attribute, string $expectedValue): bool
+    {
+        $value = $this->attributeValue($tag, $attribute);
+
+        return $value !== null && strcasecmp($value, $expectedValue) === 0;
+    }
+
+    private function hasNonEmptyAttributeValue(string $tag, string $attribute): bool
+    {
+        $value = $this->attributeValue($tag, $attribute);
+
+        return $value !== null && trim($value) !== '';
+    }
+
+    private function attributeValue(string $tag, string $attribute): ?string
+    {
+        $pattern = '#\\s' . preg_quote($attribute, '#') . '\\s*=\\s*(["\'])(.*?)\\1#is';
+
+        return preg_match($pattern, $tag, $matches) === 1 ? $matches[2] : null;
+    }
+
+    private function bakedCsrfTokenDetection(string $matched): PublicHtmlSafetyDetectionData
+    {
+        return new PublicHtmlSafetyDetectionData(
+            category: 'baked_csrf_token',
+            // `matched` is logged (RecordPublicRenderContractEventAction)
+            // and persisted to the database. A hardcoded literal here is
+            // deliberate: the real match is the live CSRF token itself,
+            // and that must never be written to logs or storage.
+            matched: $matched,
+            reason: 'Public HTML bakes a session-specific CSRF token into content that may reach the shared cache.',
+        );
     }
 
     /**

@@ -280,6 +280,43 @@ it('trusts html already inspected by the frontend renderer before writing static
         ->and(File::get($store->root() . '/https.example.test/already-inspected-static-test/index.html'))->toBe('<html><body>Already inspected</body></html>');
 });
 
+it('does not write a baked csrf token even when the frontend renderer marked the response inspected', function (): void {
+    config()->set('cache.default', 'array');
+
+    [, $site, $renderData] = staticPageArtifactsRenderData('/baked-csrf-static-test');
+
+    app()->instance(Kernel::class, new readonly class($renderData) implements Kernel
+    {
+        public function __construct(private PublicPageRenderData $renderData) {}
+
+        public function bootstrap(): void {}
+
+        public function handle($request): Response
+        {
+            $html = '<html><body><form><input type="hidden" name="_token" value="abc123"></form></body></html>';
+
+            resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
+            resolve(FrontendContextReader::class)->setFrontendData('publicHtmlSafetyInspected', true);
+            resolve(FrontendContextReader::class)->setFrontendData('publicHtmlSafetyInspectedHash', hash('xxh128', $html));
+
+            return new Response($html);
+        }
+
+        public function terminate($request, $response): void {}
+
+        public function getApplication(): Application
+        {
+            return app();
+        }
+    });
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/baked-csrf-static-test']);
+    $store = resolve(StaticPageArtifactStore::class);
+
+    expect($manifest['artifacts'])->toBe([])
+        ->and(File::exists($store->root() . '/https.example.test/baked-csrf-static-test/index.html'))->toBeFalse();
+});
+
 it('re-inspects static html when inspected content changes after rendering', function (): void {
     config()->set('cache.default', 'array');
 

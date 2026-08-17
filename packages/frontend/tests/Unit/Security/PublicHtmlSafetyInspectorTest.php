@@ -329,7 +329,7 @@ describe('undocumented data-capell-* runtime attributes', function (): void {
     });
 });
 
-describe('baked session-bound CSRF tokens', function (): void {
+describe('baked session-bound CSRF markers', function (): void {
     // A CSRF token is bound to whoever's session happened to render the
     // response. If it reaches a page that can enter the shared HTML cache,
     // every later visitor is served that one visitor's token and every
@@ -350,6 +350,22 @@ describe('baked session-bound CSRF tokens', function (): void {
         $inspector = new PublicHtmlSafetyInspector;
 
         $html = "<form method='post'><input type='hidden' name='_token' value='abc123'></form>";
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
+    });
+
+    it('flags a populated csrf meta tag regardless of attribute order', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<meta content="abc123" name="csrf-token">';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
+    });
+
+    it('flags a populated Livewire csrf data attribute', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<script data-csrf="abc123"></script>';
 
         expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
     });
@@ -397,10 +413,26 @@ describe('baked session-bound CSRF tokens', function (): void {
     // routes/web.php's security.csrf-token route). This pattern renders on
     // nearly every public marketing page today and must never be flagged —
     // doing so would make the entire marketing site HTML-cache-ineligible.
-    it('does not flag an empty-value csrf placeholder (the established client-hydrated pattern)', function (): void {
+    it('does not flag empty csrf placeholders (the established client-hydrated pattern)', function (): void {
         $inspector = new PublicHtmlSafetyInspector;
 
-        $html = '<input type="hidden" name="_token" value="" data-csrf-token-field />';
+        $html = '<input type="hidden" name="_token" value="" data-csrf-token-field /><meta name="csrf-token" content=""><script data-csrf=""></script>';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
+    });
+
+    it('does not flag the empty marketplace csrf input next to another populated form field', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<input type="hidden" name="_token" value=""><input type="hidden" name="return_path" value="/checkout">';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
+    });
+
+    it('does not flag whitespace-only csrf placeholders', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<input type="hidden" name="_token" value=" "><meta name="csrf-token" content=" "><script data-csrf=" "></script>';
 
         expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
     });
