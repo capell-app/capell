@@ -74,7 +74,15 @@ it('creates_backup', function (): void {
         // Cleanup backup
         unlink($backupPath . '/.env');
         rmdir($backupPath);
-        rmdir(dirname($backupPath));
+
+        $backupRoot = dirname($backupPath);
+        $remainingEntries = is_dir($backupRoot)
+            ? array_diff(scandir($backupRoot) ?: [], ['.', '..'])
+            : [];
+
+        if ($remainingEntries === [] && is_dir($backupRoot)) {
+            rmdir($backupRoot);
+        }
     } finally {
         if (file_exists($testEnvPath)) {
             unlink($testEnvPath);
