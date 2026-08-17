@@ -39,6 +39,11 @@ final class PublicHtmlSafetyInspector
      * authoring/leak attribute names all live outside these families, so they
      * are still caught. KEEP IN SYNC with the public runtime attributes
      * documented in PublicBladeSafetyTest.
+     *
+     * This is the admin/authoring-leak check. For "does this response bake
+     * in session-specific content that must not reach the shared cache" —
+     * a different hazard, checked separately — see
+     * {@see containsBakedCsrfToken()}/{@see detectBakedCsrfToken()}.
      */
     public function containsAuthoringSurface(string $html): bool
     {
@@ -106,6 +111,69 @@ final class PublicHtmlSafetyInspector
             }
 
             return $this->authoringMarkerDetection($marker);
+        }
+
+        return null;
+    }
+
+    /**
+     * A CSRF token (Laravel's `@csrf` directive: `<input type="hidden"
+     * name="_token" value="...">`) is bound to whoever's session rendered the
+     * response. Baking a real one into HTML that reaches the *shared* HTML
+     * cache serves every later visitor a foreign token, breaking their own
+     * submission (CAP-0216/CAP-0233). This is a cache-eligibility signal, not
+     * an authoring-surface leak, so it is deliberately not part of
+     * {@see detectAuthoringSurface()}: several public views legitimately
+     * render a real, non-empty token today (not only fragment sub-requests —
+     * ordinary full-page renders do too), and wiring this into the universal
+     * render contract (thrown uncaught on every render) would 500 those
+     * pages outright instead of merely excluding them from the shared cache.
+     *
+     * Requires a non-empty `value`. The established, already-shipped fix for
+     * this exact bug elsewhere in the product renders an EMPTY placeholder
+     * token (`value=""`) and hydrates the real value client-side from a
+     * dedicated, never-cached endpoint — that pattern must never be flagged,
+     * or the entire public site would lose HTML-cache eligibility.
+     */
+    public function containsBakedCsrfToken(string $html): bool
+    {
+        return $this->detectBakedCsrfToken($html) instanceof PublicHtmlSafetyDetectionData;
+    }
+
+    public function detectBakedCsrfToken(string $html): ?PublicHtmlSafetyDetectionData
+    {
+        if ($html === '' || stripos($html, '_token') === false) {
+            return null;
+        }
+
+        // No stripPreCodeBlocks() pass here, unlike the authoring-marker
+        // detectors below: a code sample can only reach this pattern by
+        // rendering a literal, unescaped <input> tag inside <pre>/<code>,
+        // which is not how documentation examples are written (they use
+        // HTML-entity-escaped markup, which this pattern cannot match at
+        // all — verified, not assumed).
+        if (preg_match_all('#<input\\b[^>]*>#i', $html, $tagMatches) < 1) {
+            return null;
+        }
+
+        foreach ($tagMatches[0] as $tag) {
+            if (preg_match('#\\sname=["\']_token["\']#i', $tag) !== 1) {
+                continue;
+            }
+
+            if (preg_match('#\\svalue=["\']([^"\']+)["\']#i', $tag) !== 1) {
+                continue;
+            }
+
+            return new PublicHtmlSafetyDetectionData(
+                category: 'baked_csrf_token',
+                // `matched` is logged (RecordPublicRenderContractEventAction)
+                // and persisted to the database. A hardcoded literal here is
+                // deliberate: the real match is the live CSRF token itself,
+                // and that must never be written to logs or storage.
+                matched: 'name="_token"',
+                reason: 'Public HTML bakes a session-specific CSRF token into content that may reach the shared cache.',
+            );
         }
 
         return null;

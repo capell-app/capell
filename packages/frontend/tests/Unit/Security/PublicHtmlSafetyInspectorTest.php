@@ -328,3 +328,136 @@ describe('undocumented data-capell-* runtime attributes', function (): void {
         expect($inspector->containsAuthoringSurface($html))->toBeFalse();
     });
 });
+
+describe('baked session-bound CSRF tokens', function (): void {
+    // A CSRF token is bound to whoever's session happened to render the
+    // response. If it reaches a page that can enter the shared HTML cache,
+    // every later visitor is served that one visitor's token and every
+    // subsequent submission fails Laravel's CSRF check (CAP-0216/CAP-0233).
+    // This is a cache-eligibility signal, not an authoring-surface leak: a
+    // single-visitor fragment response legitimately contains a real token,
+    // so it is checked via a dedicated method, never via
+    // containsAuthoringSurface()/detectAuthoringSurface().
+    it('flags a double-quoted baked csrf token', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<form method="post"><input type="hidden" name="_token" value="abc123"></form>';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
+    });
+
+    it('flags a single-quoted baked csrf token', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = "<form method='post'><input type='hidden' name='_token' value='abc123'></form>";
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
+    });
+
+    it('reports baked csrf tokens as a session-bound marker', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $detection = $inspector->detectBakedCsrfToken('<input type="hidden" name="_token" value="abc123">');
+        assert($detection instanceof PublicHtmlSafetyDetectionData);
+
+        expect($detection)
+            ->not->toBeNull()
+            ->and($detection->category)->toBe('baked_csrf_token')
+            ->and($detection->matched)->toBe('name="_token"')
+            ->and($detection->reason)->toBe('Public HTML bakes a session-specific CSRF token into content that may reach the shared cache.');
+    });
+
+    it('does not flag "_token" mentioned only in prose', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<p>Forms use a hidden _token field for CSRF protection.</p>';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
+    });
+
+    it('allows an ordinary input with no csrf token', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        expect($inspector->containsBakedCsrfToken('<input type="text" name="email" value="">'))->toBeFalse();
+    });
+
+    it('is not treated as an authoring-surface leak, since a fragment response legitimately contains a real token', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<form method="post"><input type="hidden" name="_token" value="abc123"></form>';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeTrue()
+            ->and($inspector->containsAuthoringSurface($html))->toBeFalse();
+    });
+
+    // capell-app's own established, already-shipped fix for this exact bug
+    // class: an EMPTY placeholder token, hydrated client-side from a
+    // separate, never-cached endpoint (see newsletter-form.blade.php,
+    // shell.blade.php's <meta name="csrf-token" content="">, and
+    // routes/web.php's security.csrf-token route). This pattern renders on
+    // nearly every public marketing page today and must never be flagged —
+    // doing so would make the entire marketing site HTML-cache-ineligible.
+    it('does not flag an empty-value csrf placeholder (the established client-hydrated pattern)', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<input type="hidden" name="_token" value="" data-csrf-token-field />';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
+    });
+
+    it('does not flag a multiline, Blade-formatted empty-value csrf placeholder', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = <<<'HTML'
+            <input
+                type="hidden"
+                name="_token"
+                value=""
+                data-csrf-token-field
+            />
+            HTML;
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
+    });
+
+    it('does not flag a csrf input with no value attribute at all', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        expect($inspector->containsBakedCsrfToken('<input type="hidden" name="_token">'))->toBeFalse();
+    });
+
+    it('flags a real token regardless of attribute order', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        expect($inspector->containsBakedCsrfToken('<input value="abc123" type="hidden" name="_token">'))->toBeTrue()
+            ->and($inspector->containsBakedCsrfToken('<input name="_token" value="abc123" type="hidden">'))->toBeTrue();
+    });
+
+    it('flags a multiline, Blade-formatted real token', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = <<<'HTML'
+            <input
+                type="hidden"
+                name="_token"
+                value="abc123"
+            />
+            HTML;
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
+    });
+
+    it('does not flag an entity-escaped csrf example inside a code sample', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<pre><code>&lt;input type="hidden" name="_token" value="abc123"&gt;</code></pre>';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
+    });
+
+    it('does not flag a near-miss attribute name', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        expect($inspector->containsBakedCsrfToken('<input type="hidden" name="_tokenized" value="abc123">'))->toBeFalse();
+    });
+});
