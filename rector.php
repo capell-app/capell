@@ -147,16 +147,18 @@ return RectorConfig::configure()
         EnvVariableToEnvHelperRector::class => [
             __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
         ],
-        // Everything under scripts/ is a framework-free executable: these run straight
-        // from the PHP binary without the Composer autoloader or a booted container, so
-        // Laravel facades and global helpers do not exist at runtime. scripts/release.php
-        // even ships its own throw_if() polyfill, which ThrowIfRector rewrites into an
-        // unbounded self-call.
+        // Everything under scripts/ is a framework-free executable. The cold-install
+        // fixture validates CLI arguments before loading its temporary application's
+        // Composer autoloader. Neither context has Laravel helpers or facades available.
+        // scripts/release.php even ships its own throw_if() polyfill, which ThrowIfRector
+        // rewrites into an unbounded self-call.
         ServerVariableToRequestFacadeRector::class => [
             __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
+            __DIR__ . '/packages/core/tests/fixtures/cold-cloud-install-provider.php',
             __DIR__ . '/scripts',
         ],
         ThrowIfRector::class => [
+            __DIR__ . '/packages/core/tests/fixtures/cold-cloud-install-provider.php',
             __DIR__ . '/scripts',
         ],
         ThrowIfAndThrowUnlessExceptionsToUseClassStringRector::class => [

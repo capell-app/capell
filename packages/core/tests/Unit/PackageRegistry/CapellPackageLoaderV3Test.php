@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Bootstrap\CloudInstallContext;
+use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -66,6 +68,58 @@ it('registers every trusted core capability without runtime gate checks', functi
         );
 });
 
+it('registers all manifest-v3 capabilities selected by the cloud install process before package state exists', function (): void {
+    $registry = packageLoaderV3Registry('vendor/cloud-selected-package', [
+        'metadata' => [AuthServiceProvider::class],
+        'install' => [CacheServiceProvider::class],
+        'runtime' => [FilesystemServiceProvider::class],
+        'admin' => [HashServiceProvider::class],
+    ]);
+
+    CapellCore::shouldReceive('isPackageEnabled')->never();
+
+    expect(packageV3Loader($registry, CloudInstallContext::forCloudPackages(['vendor/cloud-selected-package']))->collectProviders())
+        ->toContain(
+            AuthServiceProvider::class,
+            CacheServiceProvider::class,
+            FilesystemServiceProvider::class,
+            HashServiceProvider::class,
+        );
+});
+
+it('does not ask the package lifecycle ledger about non-selected cloud install manifests', function (): void {
+    $registry = packageLoaderV3Registry('vendor/cloud-unselected-package', [
+        'metadata' => [AuthServiceProvider::class],
+        'runtime' => [FilesystemServiceProvider::class],
+    ]);
+
+    CapellCore::shouldReceive('isPackageEnabled')->never();
+
+    expect(packageV3Loader($registry, CloudInstallContext::forCloudPackages(['vendor/other-package']))->collectProviders())
+        ->toBe([AuthServiceProvider::class]);
+});
+
+it('uses persisted lifecycle state for non-selected packages after a cloud install created its ledger', function (): void {
+    $registry = packageLoaderV3Registry('vendor/cloud-enabled-package', [
+        'runtime' => [FilesystemServiceProvider::class],
+    ]);
+    $schemaState = resolve(RuntimeSchemaState::class);
+    $schemaState->forgetTable('capell_extensions');
+
+    /** @var Application&MockInterface $application */
+    $application = Mockery::mock(Application::class);
+    $application->shouldReceive('bound')->once()->with('db')->andReturnTrue();
+    $application->shouldReceive('make')->once()->with(RuntimeSchemaState::class)->andReturn($schemaState);
+
+    CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/cloud-enabled-package')->andReturnTrue();
+
+    expect(new CapellPackageLoader(
+        $application,
+        $registry,
+        CloudInstallContext::forCloudPackages(['vendor/other-package']),
+    )->collectProviders())->toBe([FilesystemServiceProvider::class]);
+});
+
 it('deduplicates capabilities declared for more than one request surface', function (): void {
     $registry = packageLoaderV3Registry('vendor/shared-package', [
         'runtime' => [AuthServiceProvider::class],
@@ -94,10 +148,14 @@ function packageLoaderV3Registry(string $name, array $providers): CapellPackageR
     return $registry;
 }
 
-function packageV3Loader(CapellPackageRegistry $registry): CapellPackageLoader
+function packageV3Loader(CapellPackageRegistry $registry, ?CloudInstallContext $cloudInstallContext = null): CapellPackageLoader
 {
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
 
-    return new CapellPackageLoader($application, $registry);
+    if ($cloudInstallContext instanceof CloudInstallContext) {
+        $application->shouldReceive('bound')->with('db')->zeroOrMoreTimes()->andReturnFalse();
+    }
+
+    return new CapellPackageLoader($application, $registry, $cloudInstallContext);
 }
