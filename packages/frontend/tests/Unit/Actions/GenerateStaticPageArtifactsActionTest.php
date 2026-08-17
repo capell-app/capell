@@ -280,7 +280,7 @@ it('trusts html already inspected by the frontend renderer before writing static
         ->and(File::get($store->root() . '/https.example.test/already-inspected-static-test/index.html'))->toBe('<html><body>Already inspected</body></html>');
 });
 
-it('does not write a baked csrf token even when the frontend renderer marked the response inspected', function (): void {
+it('does not write a baked Livewire csrf marker even when the frontend renderer marked the response inspected', function (): void {
     config()->set('cache.default', 'array');
 
     [, $site, $renderData] = staticPageArtifactsRenderData('/baked-csrf-static-test');
@@ -293,7 +293,7 @@ it('does not write a baked csrf token even when the frontend renderer marked the
 
         public function handle($request): Response
         {
-            $html = '<html><body><form><input type="hidden" name="_token" value="abc123"></form></body></html>';
+            $html = '<html><body><script>window.livewireScriptConfig = {"csrf":"abc123","uri":"/livewire/update"};</script></body></html>';
 
             resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
             resolve(FrontendContextReader::class)->setFrontendData('publicHtmlSafetyInspected', true);

@@ -119,7 +119,8 @@ final class PublicHtmlSafetyInspector
     /**
      * A CSRF token (Laravel's `@csrf` directive: `<input type="hidden"
      * name="_token" value="...">`; `<meta name="csrf-token" content="...">`;
-     * or Livewire's `data-csrf="..."`) is bound to whoever's session rendered
+     * Livewire's `data-csrf="..."`, or Livewire's `livewireScriptConfig.csrf`
+     * payload) is bound to whoever's session rendered
      * the response. Baking a real one into HTML that reaches the *shared* HTML
      * cache serves every later visitor a foreign token, breaking their own
      * submission (CAP-0216/CAP-0233). This is a cache-eligibility signal, not
@@ -146,8 +147,13 @@ final class PublicHtmlSafetyInspector
     {
         if ($html === '' || (stripos($html, '_token') === false
             && stripos($html, 'csrf-token') === false
-            && stripos($html, 'data-csrf') === false)) {
+            && stripos($html, 'data-csrf') === false
+            && stripos($html, 'livewireScriptConfig') === false)) {
             return null;
+        }
+
+        if ($this->containsLivewireScriptConfigCsrfToken($html)) {
+            return $this->bakedCsrfTokenDetection('livewireScriptConfig.csrf');
         }
 
         // No stripPreCodeBlocks() pass here, unlike the authoring-marker
@@ -202,9 +208,27 @@ final class PublicHtmlSafetyInspector
 
     private function attributeValue(string $tag, string $attribute): ?string
     {
-        $pattern = '#\\s' . preg_quote($attribute, '#') . '\\s*=\\s*(["\'])(.*?)\\1#is';
+        $pattern = '#\\s' . preg_quote($attribute, '#') . '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s"\'=<>`]+))#is';
 
-        return preg_match($pattern, $tag, $matches) === 1 ? $matches[2] : null;
+        if (preg_match($pattern, $tag, $matches) !== 1) {
+            return null;
+        }
+
+        foreach ([1, 2, 3] as $index) {
+            if (array_key_exists($index, $matches) && $matches[$index] !== '') {
+                return $matches[$index];
+            }
+        }
+
+        return '';
+    }
+
+    private function containsLivewireScriptConfigCsrfToken(string $html): bool
+    {
+        return preg_match(
+            '#<script\\b[^>]*>\\s*window\\.livewireScriptConfig\\s*=\\s*\\{(?:(?!</script>).)*?"csrf"\\s*:\\s*"([^"\\s][^"]*)"#is',
+            $html,
+        ) === 1;
     }
 
     private function bakedCsrfTokenDetection(string $matched): PublicHtmlSafetyDetectionData

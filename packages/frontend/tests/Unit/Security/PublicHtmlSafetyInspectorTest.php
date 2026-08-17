@@ -370,6 +370,24 @@ describe('baked session-bound CSRF markers', function (): void {
         expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
     });
 
+    it('flags a populated Livewire script configuration csrf value', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<script data-navigate-once="true">window.livewireScriptConfig = {"csrf":"abc123","uri":"/livewire/update"};</script>';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
+    });
+
+    it('flags unquoted csrf attribute values', function (string $html): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeTrue();
+    })->with([
+        'input token' => '<input name=_token value=abc123>',
+        'meta token' => '<meta name=csrf-token content=abc123>',
+        'Livewire script token' => '<script data-csrf=abc123></script>',
+    ]);
+
     it('reports baked csrf tokens as a session-bound marker', function (): void {
         $inspector = new PublicHtmlSafetyInspector;
 
@@ -433,6 +451,14 @@ describe('baked session-bound CSRF markers', function (): void {
         $inspector = new PublicHtmlSafetyInspector;
 
         $html = '<input type="hidden" name="_token" value=" "><meta name="csrf-token" content=" "><script data-csrf=" "></script>';
+
+        expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
+    });
+
+    it('does not flag Livewire script configuration with an empty csrf value', function (): void {
+        $inspector = new PublicHtmlSafetyInspector;
+
+        $html = '<script>window.livewireScriptConfig = {"csrf":"","uri":"/livewire/update"};</script>';
 
         expect($inspector->containsBakedCsrfToken($html))->toBeFalse();
     });
