@@ -1022,6 +1022,67 @@ it('publishes migrations for trusted core packages during install', function ():
     }
 });
 
+it('publishes selected package migrations in dependency order when their display order conflicts', function (): void {
+    $fakeFilesystem = new FakeMigrationFilesystem;
+    app()->instance(MigrationFilesystemInterface::class, $fakeFilesystem);
+
+    $aiOrchestratorPath = base_path('tests/fixtures/ai-orchestrator-package-with-migrations');
+    $seoSuitePath = base_path('tests/fixtures/seo-suite-package-with-migrations');
+    $publishManifestPath = storage_path('app/capell/migration-publish-manifest.json');
+
+    File::ensureDirectoryExists($aiOrchestratorPath . '/database/migrations');
+    File::ensureDirectoryExists($seoSuitePath . '/database/migrations');
+    File::put($aiOrchestratorPath . '/database/migrations/2026_08_17_000000_create_ai_orchestrator_records_table.php', '<?php declare(strict_types=1);');
+    File::put($seoSuitePath . '/database/migrations/2026_08_17_000001_create_seo_suite_records_table.php', '<?php declare(strict_types=1);');
+
+    CapellCore::registerPackage('vendor/ai-orchestrator', path: $aiOrchestratorPath);
+    CapellCore::registerPackage('vendor/seo-suite', path: $seoSuitePath);
+
+    CapellCore::getPackage('vendor/ai-orchestrator')->sort = 20;
+    CapellCore::getPackage('vendor/seo-suite')->requirements = ['vendor/ai-orchestrator'];
+    CapellCore::getPackage('vendor/seo-suite')->sort = 10;
+
+    File::delete($publishManifestPath);
+
+    try {
+        $lines = [];
+        $state = new InstallRunState(
+            new InstallInputData(
+                siteUrl: 'https://example.com',
+                packages: ['vendor/seo-suite'],
+                languages: ['en'],
+                demoContent: false,
+                cachesToClear: [],
+                generateSitemap: false,
+                generateStaticSite: false,
+            ),
+            installStepExecutorReporter($lines),
+        );
+
+        resolve(InstallStepExecutor::class)->execute(
+            InstallPlan::STEP_PUBLISH_PACKAGE_MIGRATIONS,
+            $state,
+        );
+
+        $copiedMigrationNames = collect($fakeFilesystem->calls)
+            ->filter(fn (array $call): bool => $call[0] === 'copy')
+            ->map(fn (array $call): string => basename((string) $call[1]))
+            ->filter(fn (string $migrationName): bool => str_contains($migrationName, 'ai_orchestrator')
+                || str_contains($migrationName, 'seo_suite'))
+            ->values()
+            ->all();
+
+        expect($copiedMigrationNames)->toBe([
+            '2026_08_17_000000_create_ai_orchestrator_records_table.php',
+            '2026_08_17_000001_create_seo_suite_records_table.php',
+        ]);
+    } finally {
+        File::delete($publishManifestPath);
+        File::deleteDirectory($aiOrchestratorPath);
+        File::deleteDirectory($seoSuitePath);
+    }
+});
+
 it('refreshes selected package metadata before package install without a developer tooling step', function (): void {
     $packageName = 'capell-app/agent-bridge';
     $installedPath = base_path('vendor/capell-app/agent-bridge');
