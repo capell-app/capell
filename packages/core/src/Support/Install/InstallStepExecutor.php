@@ -239,15 +239,16 @@ final class InstallStepExecutor
      */
     private function packageMigrationTargets(InstallRunState $state): Collection
     {
-        return CapellCore::getPackages(withoutCore: false)
+        $packages = CapellCore::getPackages(withoutCore: false)
             ->filter(fn (PackageData $package): bool => $package->isCore()
                 && ! in_array($package->name, ['capell-app/capell', 'capell-app/core'], true))
             ->merge($state->selectedPackages())
             ->reject(fn (PackageData $package): bool => in_array($package->name, ['capell-app/capell', 'capell-app/core'], true))
             ->reject(fn (PackageData $package): bool => $package->getInstallCommand() !== null && $package->getInstallCommand() !== '')
             ->unique(fn (PackageData $package): string => $package->name)
-            ->sortBy(fn (PackageData $package): int => $package->getSort())
             ->keyBy(fn (PackageData $package): string => $package->name);
+
+        return resolve(PackageWorkflowPlanner::class)->order($packages);
     }
 
     private function resolveInstallUser(InstallRunState $state): void
