@@ -1091,3 +1091,50 @@ it('refreshes selected package metadata before package install without a develop
         ->and($installedPackage->path)->toBe($installedPath)
         ->and($installedPackage->declaresSchemaMigrations())->toBeTrue();
 });
+
+it('does not refresh package metadata again when the run state already reports it refreshed', function (): void {
+    $packageName = 'capell-app/agent-bridge';
+    $installedPath = base_path('vendor/capell-app/agent-bridge');
+
+    CapellCore::registerPackage($packageName, path: base_path('.composer-install-pending/agent-bridge'));
+
+    $lines = [];
+    $user = User::factory()->createOne();
+    $state = new InstallRunState(
+        new InstallInputData(
+            siteUrl: 'https://example.com',
+            packages: [$packageName],
+            languages: ['en'],
+            demoContent: false,
+            cachesToClear: [],
+            generateSitemap: false,
+            generateStaticSite: false,
+            seedDefaultData: false,
+        ),
+        installStepExecutorReporter($lines),
+        (int) $user->getKey(),
+        packageMetadataRefreshed: true,
+    );
+
+    $manifestDiscovery = Mockery::mock(InstalledPackageManifestDiscovery::class);
+    $manifestDiscovery->shouldNotReceive('discover');
+
+    app()->instance(InstalledPackageManifestDiscovery::class, $manifestDiscovery);
+
+    $installPackage = Mockery::mock(InstallPackageAction::class);
+    $installPackage->shouldReceive('handle')->once();
+    app()->instance(InstallPackageAction::class, $installPackage);
+
+    resolve(InstallStepExecutor::class)->execute(
+        InstallPlan::packageInstallStepKey($packageName),
+        $state,
+    );
+
+    $packageAfterExecute = $state->selectedPackages()->get($packageName);
+    if (! $packageAfterExecute instanceof PackageData) {
+        throw new UnexpectedValueException(sprintf('Package metadata was unexpectedly missing for %s.', $packageName));
+    }
+
+    expect($state->packageMetadataIsRefreshed())->toBeTrue()
+        ->and($packageAfterExecute->path)->not->toBe($installedPath);
+});

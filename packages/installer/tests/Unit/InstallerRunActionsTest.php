@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\RunInstallStepResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Support\Install\InstallPlan;
@@ -270,7 +271,7 @@ it('advances a successful installer step', function (): void {
     RunInstallStepAction::mock()
         ->shouldReceive('handle')
         ->once()
-        ->andReturnNull();
+        ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
 
     $result = AdvanceInstallerRunAction::run(
         $installId,
@@ -280,6 +281,69 @@ it('advances a successful installer step', function (): void {
     expect($result->code)->toBe(InstallerRunStepResultCode::Running)
         ->and($result->nextStep)->toBe(InstallPlan::STEP_CLEAR_CACHES)
         ->and($sessions->completedSteps($installId))->toBe([InstallPlan::STEP_PREPARE_ENVIRONMENT]);
+});
+
+it('persists the package metadata refresh flag across installer steps instead of rediscovering it every request', function (): void {
+    config(['cache.default' => 'array']);
+
+    $installId = '48484848-4848-4848-a848-484848484848';
+    $plan = [
+        ['key' => 'install-package:foo', 'label' => 'Install foo'],
+        ['key' => 'install-package:bar', 'label' => 'Install bar'],
+    ];
+    $sessions = resolve(InstallerSessionRepository::class);
+    $sessions->startStepInstallSession(
+        installId: $installId,
+        inputData: installerRunInput(),
+        plan: $plan,
+        installStatus: 'running',
+        firstStepKey: 'install-package:foo',
+        preflight: installerPreflightReport(),
+    );
+
+    $receivedFlags = [];
+
+    RunInstallStepAction::mock()
+        ->shouldReceive('handle')
+        ->twice()
+        ->andReturnUsing(function (
+            string $stepKey,
+            InstallInputData $inputData,
+            ProgressReporter $reporter,
+            ?int $resolvedUserId,
+            bool $packageMetadataRefreshed,
+        ) use (&$receivedFlags): RunInstallStepResultData {
+            $receivedFlags[] = $packageMetadataRefreshed;
+
+            return new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: true);
+        });
+
+    AdvanceInstallerRunAction::run($installId, 'install-package:foo');
+
+    expect($sessions->packageMetadataRefreshed($installId))->toBeTrue();
+
+    AdvanceInstallerRunAction::run($installId, 'install-package:bar');
+
+    expect($receivedFlags)->toBe([false, true]);
+});
+
+it('resets the package metadata refresh flag when a new installer run starts', function (): void {
+    config(['cache.default' => 'array']);
+
+    $installId = '49494949-4949-4949-a949-494949494949';
+    $sessions = resolve(InstallerSessionRepository::class);
+    $sessions->putPackageMetadataRefreshed($installId, true);
+
+    $sessions->startStepInstallSession(
+        installId: $installId,
+        inputData: installerRunInput(),
+        plan: [['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare environment']],
+        installStatus: 'pending',
+        firstStepKey: InstallPlan::STEP_PREPARE_ENVIRONMENT,
+        preflight: [],
+    );
+
+    expect($sessions->packageMetadataRefreshed($installId))->toBeFalse();
 });
 
 it('returns a typed execution failure without clearing a foreign lock', function (): void {
@@ -363,7 +427,7 @@ it('completes the final step and preserves a foreign lock', function (): void {
     RunInstallStepAction::mock()
         ->shouldReceive('handle')
         ->once()
-        ->andReturnNull();
+        ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
 
     $result = AdvanceInstallerRunAction::run(
         $installId,

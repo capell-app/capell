@@ -79,9 +79,15 @@ final class AdvanceInstallerRunAction
             $this->ensureAdminUserModelIsReady($stepKey, $inputData, $reporter);
 
             $resolvedUserId = $this->sessions->resolvedUserId($installId);
-            $newUserId = RunInstallStepAction::run($stepKey, $inputData, $reporter, $resolvedUserId);
-            if (is_int($newUserId) && $newUserId !== $resolvedUserId) {
-                $this->sessions->putResolvedUserId($installId, $newUserId);
+            $packageMetadataRefreshed = $this->sessions->packageMetadataRefreshed($installId);
+            $stepResult = RunInstallStepAction::run($stepKey, $inputData, $reporter, $resolvedUserId, $packageMetadataRefreshed);
+
+            if (is_int($stepResult->resolvedUserId) && $stepResult->resolvedUserId !== $resolvedUserId) {
+                $this->sessions->putResolvedUserId($installId, $stepResult->resolvedUserId);
+            }
+
+            if ($stepResult->packageMetadataRefreshed && ! $packageMetadataRefreshed) {
+                $this->sessions->putPackageMetadataRefreshed($installId, true);
             }
         } catch (Throwable $throwable) {
             $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());

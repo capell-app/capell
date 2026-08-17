@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\RunInstallStepResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Enums\PackageScopeEnum;
@@ -2117,7 +2118,10 @@ it('runs a single install step via the run-step endpoint', function (): void {
     Cache::put(sprintf('capell.install.%s.current_step', $installId), InstallPlan::STEP_PREPARE_ENVIRONMENT);
     Cache::put(sprintf('capell.install.%s.completed_steps', $installId), [InstallPlan::STEP_PREFLIGHT_CHECKS]);
 
-    $spy = RunInstallStepAction::spy();
+    RunInstallStepAction::mock()
+        ->shouldReceive('handle')
+        ->once()
+        ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
 
     withSession(installerAccessSessionData($installId))->post(
         route('capell-installer.run-step'),
@@ -2134,8 +2138,6 @@ it('runs a single install step via the run-step endpoint', function (): void {
             'status' => 'running',
         ])
         ->assertJsonStructure(['nextStep', 'lines', 'logPath']);
-
-    $spy->shouldHaveReceived('handle')->once();
 
     expect(resolve(InstallerSessionRepository::class)->stepDiagnostics($installId))
         ->toHaveKey(InstallPlan::STEP_PREPARE_ENVIRONMENT . '.peakMemoryBytes');
@@ -2415,7 +2417,10 @@ PHP);
         Cache::put(sprintf('capell.install.%s.current_step', $installId), InstallPlan::STEP_RESOLVE_USER);
         Cache::put(sprintf('capell.install.%s.completed_steps', $installId), [InstallPlan::STEP_PREFLIGHT_CHECKS]);
 
-        $spy = RunInstallStepAction::spy();
+        RunInstallStepAction::mock()
+            ->shouldReceive('handle')
+            ->once()
+            ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
 
         $response = withSession(installerAccessSessionData($installId))->post(
             route('capell-installer.run-step'),
@@ -2427,8 +2432,6 @@ PHP);
         );
 
         $response->assertOk()->assertJson(['status' => 'running']);
-
-        $spy->shouldHaveReceived('handle')->once();
 
         expect(file_get_contents($userModelPath))
             ->toContain('use Spatie\Permission\Traits\HasRoles;')
@@ -2505,7 +2508,7 @@ it('persists a resolved user id returned by an install step', function (): void 
     RunInstallStepAction::mock()
         ->shouldReceive('handle')
         ->once()
-        ->andReturn(123);
+        ->andReturn(new RunInstallStepResultData(resolvedUserId: 123, packageMetadataRefreshed: false));
 
     withSession(installerAccessSessionData($installId))->post(
         route('capell-installer.run-step'),
@@ -2587,7 +2590,9 @@ it('returns complete status after the last step', function (): void {
     Cache::put(sprintf('capell.install.%s.current_step', $installId), $lastStep);
     Cache::put(sprintf('capell.install.%s.completed_steps', $installId), array_column(array_slice($plan, 0, -1), 'key'));
 
-    RunInstallStepAction::spy();
+    RunInstallStepAction::spy()
+        ->shouldReceive('handle')
+        ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
 
     withSession(installerAccessSessionData($installId))->post(
         route('capell-installer.run-step'),
@@ -2793,7 +2798,9 @@ it('includes a csrfToken in every run-step response', function (): void {
     Cache::put(sprintf('capell.install.%s.current_step', $installId), InstallPlan::STEP_PREPARE_ENVIRONMENT);
     Cache::put(sprintf('capell.install.%s.completed_steps', $installId), [InstallPlan::STEP_PREFLIGHT_CHECKS]);
 
-    RunInstallStepAction::spy();
+    RunInstallStepAction::spy()
+        ->shouldReceive('handle')
+        ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
 
     $response = withSession(installerAccessSessionData($installId))->post(
         route('capell-installer.run-step'),
@@ -2801,7 +2808,9 @@ it('includes a csrfToken in every run-step response', function (): void {
         ['Accept' => 'application/json'],
     );
 
-    $response->assertOk()->assertJsonStructure(['csrfToken']);
+    $response->assertOk()
+        ->assertJsonStructure(['csrfToken'])
+        ->assertJson(['status' => 'running']);
 
     expect($response->json('csrfToken'))->toBeString()->not->toBeEmpty();
 });

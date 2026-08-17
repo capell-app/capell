@@ -22,6 +22,7 @@ final class InstallerSessionRepository
         'status',
         'output',
         'user_id',
+        'package_metadata_refreshed',
         'current_step',
         'completed_steps',
         'preflight',
@@ -256,6 +257,16 @@ final class InstallerSessionRepository
         $this->put($this->key($installId, 'user_id'), $userId);
     }
 
+    public function packageMetadataRefreshed(string $installId): bool
+    {
+        return (bool) $this->get($this->key($installId, 'package_metadata_refreshed'), false);
+    }
+
+    public function putPackageMetadataRefreshed(string $installId, bool $refreshed): void
+    {
+        $this->put($this->key($installId, 'package_metadata_refreshed'), $refreshed);
+    }
+
     /**
      * @param  array<int, array<string, mixed>>  $plan
      * @param  array<string, mixed>  $preflight
@@ -284,6 +295,7 @@ final class InstallerSessionRepository
         $this->putPreflightReport($installId, $preflight);
         $this->forget($this->key($installId, 'output'));
         $this->forget($this->key($installId, 'user_id'));
+        $this->forget($this->key($installId, 'package_metadata_refreshed'));
     }
 
     /**
