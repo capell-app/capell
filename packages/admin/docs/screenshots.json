@@ -103,7 +103,10 @@
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-list.png",
             "required": true,
-            "notes": "Uses deterministic local seed data at the real Media resource URL to show an asset with zero tracked usage."
+            "notes": "Uses deterministic local seed data at the real Media resource URL to show an asset with zero tracked usage.",
+            "covers": [
+                "packages/admin/src/Filament/Resources/Media/Actions/RepairMediaHealthBulkAction.php"
+            ]
         },
         {
             "id": "admin-media-edit-focal-point",

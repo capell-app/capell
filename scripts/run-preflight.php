@@ -6,11 +6,16 @@ declare(strict_types=1);
  * Run independent preflight gates without losing later diagnostics when one
  * gate fails. Stage commands remain Composer scripts so there is one source of
  * truth for local and CI behaviour.
+ *
+ * Pass --fail-fast for focused local iteration when later stages would only
+ * repeat work after the first actionable failure. The default remains the
+ * complete diagnostic pass used by the broad preflight gate.
  */
 $all = in_array('--all', $argv, true);
+$failFast = in_array('--fail-fast', $argv, true);
 $requested = array_values(array_filter(
     array_slice($argv, 1),
-    static fn (string $argument): bool => $argument !== '--all',
+    static fn (string $argument): bool => ! in_array($argument, ['--all', '--fail-fast'], true),
 ));
 
 /** @var array<string, string> $quickStages */
@@ -125,6 +130,12 @@ foreach ($stages as $name => $script) {
         'exitCode' => $exitCode,
         'seconds' => (hrtime(true) - $stageStartedAt) / 1_000_000_000,
     ];
+
+    if ($failFast && $exitCode !== 0) {
+        fwrite(STDERR, sprintf("\nPreflight stopped after failed stage: %s\n", $name));
+
+        break;
+    }
 }
 
 $failed = array_filter(
