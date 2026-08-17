@@ -19,12 +19,11 @@ final class InstallRunState
     /** @var Collection<string, PackageData>|null */
     private ?Collection $selectedPackages = null;
 
-    private bool $packageMetadataRefreshed = false;
-
     public function __construct(
         public readonly InstallInputData $inputData,
         public readonly ProgressReporter $reporter,
         private ?int $resolvedUserId = null,
+        private bool $packageMetadataRefreshed = false,
     ) {}
 
     /**
