@@ -2,6 +2,8 @@ includes:
     - ignore-errors.neon
 
 parameters:
+    parallel:
+        processTimeout: 1800.0
     level: 8
     reportUnmatchedIgnoredErrors: true
     treatPhpDocTypesAsCertain: false

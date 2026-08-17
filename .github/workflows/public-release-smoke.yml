@@ -16,8 +16,27 @@ permissions:
 jobs:
   product-contracts:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: repositories/capell
+    env:
+      CAPELL_SCREENSHOT_RUNNER_PATH: ${{ github.workspace }}/repositories/capell-screenshot-runner
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repositories/capell
+      - name: Checkout screenshot tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: capell-app/capell-screenshot-tools
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: repositories/capell-screenshot-tools
+      - name: Checkout shared screenshot runner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: capell-app/capell-screenshot-runner
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: repositories/capell-screenshot-runner
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'

@@ -281,7 +281,7 @@ class MediaTable implements TableConfigurator
                 ->label(__('capell-admin::table.health_state'))
                 ->badge()
                 ->getStateUsing(fn (Media $record): string => BuildMediaHealthStateAction::run($record)->primaryIssue())
-                ->formatStateUsing(fn (string $state): string => (string) __('capell-admin::media.health_issues.' . $state))
+                ->formatStateUsing(fn (string $state): string => MediaHealthIssueEnum::tryFrom($state)?->label() ?? $state)
                 ->color(fn (string $state): string => $state === MediaHealthIssueEnum::Healthy->value ? 'success' : 'warning')
                 ->tooltip(fn (Media $record): string => self::healthTooltip($record))
                 ->toggleable(),
@@ -363,7 +363,7 @@ class MediaTable implements TableConfigurator
 
         return $value === null || $value === ''
             ? null
-            : (string) __('capell-admin::media.health_issues.' . $value);
+            : MediaHealthIssueEnum::tryFrom($value)?->label();
     }
 
     protected static function healthTooltip(Media $media): string
@@ -372,7 +372,7 @@ class MediaTable implements TableConfigurator
         $issues = BuildMediaHealthStateAction::run($media)->issues();
 
         $labels = collect($issues)
-            ->map(fn (string $issue): string => (string) __('capell-admin::media.health_issues.' . $issue))
+            ->map(fn (string $issue): string => MediaHealthIssueEnum::tryFrom($issue)?->label() ?? $issue)
             ->implode(', ');
 
         return (string) __('capell-admin::media.health_tooltip', ['issues' => $labels]);

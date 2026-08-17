@@ -26,6 +26,12 @@ enum MediaHealthIssueEnum: string
 
     public function label(): string
     {
-        return (string) __('capell-admin::media.health_issues.' . $this->value);
+        return match ($this) {
+            self::Healthy => (string) __('capell-admin::media.health_issues.healthy'),
+            self::MissingAlt => (string) __('capell-admin::media.health_issues.missing_alt'),
+            self::MissingRights => (string) __('capell-admin::media.health_issues.missing_rights'),
+            self::Duplicate => (string) __('capell-admin::media.health_issues.duplicate'),
+            self::Unused => (string) __('capell-admin::media.health_issues.unused'),
+        };
     }
 }

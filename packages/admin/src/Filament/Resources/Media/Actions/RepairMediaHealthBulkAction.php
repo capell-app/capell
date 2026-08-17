@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
+use InvalidArgumentException;
 
 final class RepairMediaHealthBulkAction
 {
@@ -80,7 +81,7 @@ final class RepairMediaHealthBulkAction
                         fn (array $row): string => sprintf(
                             '• #%d — %s',
                             $row['id'],
-                            __('capell-admin::bulk_actions.media_repair_reason_' . $row['reason']),
+                            self::repairReasonLabel($row['reason']),
                         ),
                         $result->skipped,
                     )));
@@ -90,5 +91,20 @@ final class RepairMediaHealthBulkAction
                 $notification->send();
             })
             ->deselectRecordsAfterCompletion();
+    }
+
+    private static function repairReasonLabel(string $reason): string
+    {
+        return match ($reason) {
+            'inaccessible' => (string) __('capell-admin::bulk_actions.media_repair_reason_inaccessible'),
+            'unauthorized' => (string) __('capell-admin::bulk_actions.media_repair_reason_unauthorized'),
+            'not_missing_alt' => (string) __('capell-admin::bulk_actions.media_repair_reason_not_missing_alt'),
+            'not_an_image' => (string) __('capell-admin::bulk_actions.media_repair_reason_not_an_image'),
+            'missing_language' => (string) __('capell-admin::bulk_actions.media_repair_reason_missing_language'),
+            'missing_translation' => (string) __('capell-admin::bulk_actions.media_repair_reason_missing_translation'),
+            'in_use' => (string) __('capell-admin::bulk_actions.media_repair_reason_in_use'),
+            'delete_failed' => (string) __('capell-admin::bulk_actions.media_repair_reason_delete_failed'),
+            default => throw new InvalidArgumentException('Unknown media health repair reason.'),
+        };
     }
 }

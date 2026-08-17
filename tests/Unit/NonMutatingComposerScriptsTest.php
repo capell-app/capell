@@ -80,6 +80,45 @@ BASH);
     rmdir($temporary);
 });
 
+it('can stop after the first failed preflight gate for focused iteration', function (): void {
+    $root = dirname(__DIR__, 2);
+    $temporary = sys_get_temp_dir() . '/capell-preflight-runner-' . bin2hex(random_bytes(6));
+    mkdir($temporary, recursive: true);
+
+    $composer = $temporary . '/composer';
+    $log = $temporary . '/calls.log';
+
+    file_put_contents($composer, <<<'BASH'
+#!/usr/bin/env bash
+echo "$1" >> "$CAPELL_PREFLIGHT_TEST_LOG"
+if [ "$1" = "analyze" ]; then
+    exit 17
+fi
+BASH);
+    chmod($composer, 0755);
+
+    $command = sprintf(
+        'COMPOSER_BINARY=%s CAPELL_PREFLIGHT_TEST_LOG=%s %s %s --fail-fast phpstan tests 2>&1',
+        escapeshellarg($composer),
+        escapeshellarg($log),
+        escapeshellarg(PHP_BINARY),
+        escapeshellarg($root . '/scripts/run-preflight.php'),
+    );
+
+    exec($command, $output, $exitCode);
+
+    expect($exitCode)->toBe(1)
+        ->and(file($log, FILE_IGNORE_NEW_LINES))->toBe(['analyze'])
+        ->and(implode("\n", $output))
+        ->toContain('FAIL phpstan')
+        ->toContain('Preflight stopped after failed stage: phpstan')
+        ->not->toContain('PASS tests');
+
+    unlink($log);
+    unlink($composer);
+    rmdir($temporary);
+});
+
 /**
  * @param  array<string, string|list<string>>  $scripts
  * @param  array<string, bool>  $visiting

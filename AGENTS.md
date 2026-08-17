@@ -115,6 +115,22 @@ Run the narrowest relevant command first. Rendering/cache changes need focused
 Frontend safety tests; migration, config, constraint, or public-extension changes
 also need both extension-contract checks.
 
+## Verification Operating Pattern
+
+Use affected/diff checks while iterating, then run one full PHPStan lane at a time
+across App, Core, and companion packages. Keep `maximumNumberOfProcesses: 4`;
+parallelism is part of the configured contract and must not be reduced to hide a
+timeout, race, or memory failure. Keep result caches warm but branch-isolated,
+and clear or prime only the exact cache whose path provenance is known.
+
+The shared PHPStan configuration must define an explicit child-process timeout.
+A timeout is an incomplete harness result, not a green or a type error; rerun
+with the configured bound and preserve the first diagnostic. Server-backed Pest
+shards must use distinct generated databases (including sequential fallback),
+while static checks remain database-free. Run `preflight:all` only after focused
+gates pass and competing lanes are idle; classify setup, tooling, isolation,
+source, and hosted failures separately rather than skipping or baselining them.
+
 ## Local Hazards
 
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
