@@ -12,17 +12,32 @@ use Livewire\Livewire;
 uses(CreatesAdminUser::class)
     ->group('widget');
 
-it('renders the core overview from current installation counts', function (): void {
+it('renders last-seven-day audience stats and hides the inventory counts by default', function (): void {
     Page::factory()->createOne();
     $this->actingAs($this->createUser());
 
     Livewire::test(PageStatusFilamentWidget::class)
         ->assertOk()
         ->assertSee('Capell overview')
+        ->assertSee('Visitors')
+        ->assertSee('Views per visitor')
+        ->assertSee('Last 7 days')
+        ->assertDontSee('Total pages')
+        ->assertDontSee('Page types');
+});
+
+it('restores an inventory count when an operator switches it back on', function (): void {
+    Page::factory()->createOne();
+
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = ['capell_overview_pages' => true];
+    $settings->save();
+
+    $this->actingAs($this->createUser());
+
+    Livewire::test(PageStatusFilamentWidget::class)
+        ->assertOk()
         ->assertSee('Total pages')
-        ->assertSee('Sites')
-        ->assertSee('Languages')
-        ->assertSee('Page types')
         ->assertSee('1');
 });
 

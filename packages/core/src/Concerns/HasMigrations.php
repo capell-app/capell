@@ -66,6 +66,7 @@ trait HasMigrations
             '2026_08_13_000001_create_editor_scratch_drafts_table',
             '2026_08_13_000002_add_admin_workspace_preferences_to_users_table',
             '2026_08_14_000001_add_provider_recovery_to_capell_extensions',
+            '2026_08_18_000001_create_activity_visitors_table',
         ];
     }
 

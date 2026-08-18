@@ -56,7 +56,7 @@ class OverviewStatRegistry extends AbstractKeyedRegistry
     private function isEnabled(CapellOverviewStatDefinitionData $stat): bool
     {
         try {
-            return resolve(AdminSettings::class)->isWidgetEnabled($stat->settingsKey());
+            return resolve(AdminSettings::class)->isWidgetEnabled($stat->settingsKey(), $stat->defaultEnabled);
         } catch (Throwable) {
             return $stat->defaultEnabled;
         }

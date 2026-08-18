@@ -25,6 +25,16 @@ final class AdminActivitySettingsReader implements ActivitySettingsReader
         return max(1, min(7, $this->settings()->analytics_activity_retention_days));
     }
 
+    /**
+     * Config-backed rather than settings-backed: visitor retention exists to keep
+     * the dashboard's previous-period comparison answerable, not as an editorial
+     * preference, and it has no Admin settings field.
+     */
+    public function visitorRetentionDays(): int
+    {
+        return max(14, min(400, (int) config('capell.analytics.visitor_retention_days', 30)));
+    }
+
     private function settings(): AdminSettings
     {
         try {

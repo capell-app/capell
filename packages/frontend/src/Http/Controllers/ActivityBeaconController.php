@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Http\Controllers;
 
 use Capell\Core\Actions\Activity\RecordActivityBucketAction;
+use Capell\Core\Actions\Activity\RecordActivityVisitorAction;
 use Capell\Core\Actions\LoadSiteDomainFromUrlAction;
 use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
@@ -26,6 +27,7 @@ final class ActivityBeaconController
     public function __construct(
         private readonly ActivitySettingsReader $settings,
         private readonly RecordActivityBucketAction $record,
+        private readonly RecordActivityVisitorAction $recordVisitor,
         private readonly CrawlerDetector $crawlers,
     ) {}
 
@@ -85,6 +87,9 @@ final class ActivityBeaconController
             }
 
             $this->record->execute($site, $language, $subject, (string) $pageUrl->getKey());
+            // Runs only after every gate above, so visitors inherit the same
+            // collection setting, crawler filter, privacy signals and rate limit.
+            $this->recordVisitor->execute($site, $language, $request->ip(), $request->userAgent());
 
             return response()->json([], 204);
         } catch (Throwable $throwable) {

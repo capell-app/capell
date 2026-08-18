@@ -38,6 +38,7 @@ use Capell\Core\Console\Commands\PackageCacheCommand;
 use Capell\Core\Console\Commands\PackageClearCacheCommand;
 use Capell\Core\Console\Commands\PackageLintCommand;
 use Capell\Core\Console\Commands\PruneActivityBucketsCommand;
+use Capell\Core\Console\Commands\PruneActivityVisitorsCommand;
 use Capell\Core\Console\Commands\PruneBackupsCommand;
 use Capell\Core\Console\Commands\PruneEditorScratchDraftsCommand;
 use Capell\Core\Console\Commands\PruneMetricDailyRollupsCommand;
@@ -79,6 +80,7 @@ use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Macros\BlueprintMacros;
 use Capell\Core\Models\ActivityBucket;
+use Capell\Core\Models\ActivityVisitor;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -293,6 +295,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             RollupMetricEventsCommand::class,
             RollupActivityMetricsCommand::class,
             PruneActivityBucketsCommand::class,
+            PruneActivityVisitorsCommand::class,
             PruneEditorScratchDraftsCommand::class,
             PruneMetricDailyRollupsCommand::class,
             RestoreBackupCommand::class,
@@ -596,6 +599,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     {
         CapellCore::registerModels([
             ActivityBucket::class,
+            ActivityVisitor::class,
             AssetAttachment::class,
             Language::class,
             Layout::class,
@@ -625,6 +629,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     {
         CapellCore::registerProtectedTable(
             static fn (): string => (new ActivityBucket)->getTable(),
+        );
+        CapellCore::registerProtectedTable(
+            static fn (): string => (new ActivityVisitor)->getTable(),
         );
         CapellCore::registerProtectedTable(
             static fn (): string => (new MetricCollectionRun)->getTable(),
@@ -663,6 +670,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
             $schedule->command('capell:activity:prune')
                 ->dailyAt('00:40')
+                ->timezone('UTC')
+                ->withoutOverlapping()
+                ->onOneServer();
+
+            $schedule->command('capell:activity:prune-visitors')
+                ->dailyAt('00:45')
                 ->timezone('UTC')
                 ->withoutOverlapping()
                 ->onOneServer();
