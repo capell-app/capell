@@ -41,6 +41,19 @@ it('returns form components from make()', function (): void {
     expect($components)->toBeArray()->not->toBeEmpty();
 });
 
+it('enables default audience overview stats when dashboard settings are opened', function (): void {
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = ['list_pages' => true];
+    $settings->save();
+
+    DashboardSettingsSchema::make(Mockery::mock(Schema::class));
+
+    expect(AdminSettings::instance()->refresh()->enabled_widgets)
+        ->toHaveKey('capell_overview_visitors', true)
+        ->toHaveKey('capell_overview_views_per_visitor', true)
+        ->toHaveKey('capell_overview_pages', false);
+});
+
 it('discovers contributor-declared widget toggles via allContributedKeys()', function (): void {
     app()->tag([FixtureDashboardContributor::class], DashboardSettingsContributor::TAG);
 

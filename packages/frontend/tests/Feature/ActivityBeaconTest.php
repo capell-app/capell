@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Activity\RecordActivityBucketAction;
+use Capell\Core\Actions\Activity\RecordActivityVisitorAction;
 use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Models\ActivityBucket;
+use Capell\Core\Models\ActivityVisitor;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -38,9 +40,19 @@ function makeActivityBeaconControllerForTest(bool $enabled = true): ActivityBeac
         {
             return 1;
         }
+
+        public function visitorRetentionDays(): int
+        {
+            return 30;
+        }
     };
 
-    return new ActivityBeaconController($settings, resolve(RecordActivityBucketAction::class), new CrawlerDetector);
+    return new ActivityBeaconController(
+        $settings,
+        resolve(RecordActivityBucketAction::class),
+        resolve(RecordActivityVisitorAction::class),
+        new CrawlerDetector,
+    );
 }
 
 it('keeps the activity beacon sessionless and rejects non-page subjects silently', function (): void {
@@ -109,4 +121,31 @@ it('honors a page blueprint that disables visit logging', function (): void {
 
     expect(makeActivityBeaconControllerForTest()($request)->getStatusCode())->toBe(204)
         ->and(ActivityBucket::query()->count())->toBe(0);
+});
+
+it('records one visitor row alongside the page view and none when a gate refuses', function (): void {
+    $language = Language::factory()->createOne(['code' => 'en']);
+    $site = Site::factory()->createOne(['language_id' => $language->getKey()]);
+    SiteDomain::factory()->default()->site($site)->language($language)->create();
+    $page = Page::factory()->site($site)->createOne();
+    PageUrl::factory()->page($page)->language($language)->site($site)->state(['url' => '/about'])->create();
+
+    $payload = ['type' => 'page_view', 'path' => '/about'];
+    $server = ['REMOTE_ADDR' => '203.0.113.20', 'HTTP_USER_AGENT' => 'Mozilla/5.0'];
+    $request = Request::create('http://localhost/_capell/activity', Symfony\Component\HttpFoundation\Request::METHOD_POST, $payload, server: $server);
+
+    makeActivityBeaconControllerForTest()($request);
+
+    $visitor = ActivityVisitor::query()->sole();
+
+    expect(ActivityVisitor::query()->count())->toBe(1)
+        ->and($visitor->site_id)->toBe($site->getKey())
+        ->and($visitor->language)->toBe('en')
+        ->and($visitor->visitor_hash)->not->toContain('203.0.113.20');
+
+    // Collection disabled and a privacy signal both stop short of the visitor write.
+    makeActivityBeaconControllerForTest(false)(Request::create('http://localhost/_capell/activity', Symfony\Component\HttpFoundation\Request::METHOD_POST, $payload, server: $server + ['REMOTE_ADDR' => '203.0.113.21']));
+    makeActivityBeaconControllerForTest()(Request::create('http://localhost/_capell/activity', Symfony\Component\HttpFoundation\Request::METHOD_POST, $payload, server: $server + ['REMOTE_ADDR' => '203.0.113.22', 'HTTP_DNT' => '1']));
+
+    expect(ActivityVisitor::query()->count())->toBe(1);
 });

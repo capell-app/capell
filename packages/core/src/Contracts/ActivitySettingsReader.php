@@ -11,4 +11,6 @@ interface ActivitySettingsReader
     public function searchCollectionEnabled(): bool;
 
     public function retentionDays(): int;
+
+    public function visitorRetentionDays(): int;
 }

@@ -76,8 +76,10 @@ it('registers the built-in overview stat contract', function (): void {
         ->toBe(array_keys($expected));
 
     foreach ($expected as $key => $arguments) {
+        // Registered but demoted: the keys survive for extensions that assert on
+        // them, while the dashboard shows the audience stats by default.
         expect($stats)->toHaveKey($key)
-            ->and($enabledStats)->toHaveKey($key);
+            ->and($enabledStats)->not->toHaveKey($key);
         $stat = $stats->get($key);
 
         if ($stat === null) {
@@ -94,13 +96,20 @@ it('registers the built-in overview stat contract', function (): void {
             ->and($stat->sort)->toBe($arguments['sort']);
     }
 
-    expect(CapellAdmin::getDefaultEnabledOverviewStatKeys())->toContain('page_status')
-        ->and(CapellAdmin::getOverviewStatKeys())->toContain('page_status')
+    // Each stat now carries its own settings key, so an operator can switch a
+    // single count back on instead of the whole overview group.
+    expect(CapellAdmin::getDefaultEnabledOverviewStatKeys())
+        ->toContain('capell_overview_visitors')
+        ->toContain('capell_overview_views_per_visitor')
+        ->not->toContain('capell_overview_pages')
+        ->and(CapellAdmin::getOverviewStatKeys())
+        ->toContain('capell_overview_pages')
+        ->toContain('capell_overview_page_types')
         ->and(CapellAdmin::getOverviewStatSettings())->toContain([
-            'key' => 'page_status',
-            'label' => __('capell-admin::dashboard.widget_capell_overview'),
+            'key' => 'capell_overview_pages',
+            'label' => __('capell-admin::dashboard.stat_total_pages'),
             'group' => __('capell-admin::dashboard.overview_group_core'),
-            'description' => __('capell-admin::dashboard.widget_page_status_description'),
+            'description' => __('capell-admin::dashboard.overview_stat_pages_description'),
         ]);
 });
 

@@ -28,8 +28,11 @@ it('registers the activity collector and rolls up every language of enabled site
 
     artisanCommand('capell:activity:rollup', ['--day' => '2026-08-12'])->assertSuccessful();
 
-    expect(MetricDailyRollup::query()->whereDate('day', '2026-08-12')->count())->toBe(2)
-        ->and(MetricDailyRollup::query()->where('site_uuid', $site->uuid)->where('language', $language->code)->count())->toBe(2);
+    // Page views, searches and unique visitors: the visitor collector is a
+    // sibling registered by the same command.
+    expect(MetricDailyRollup::query()->whereDate('day', '2026-08-12')->count())->toBe(3)
+        ->and(MetricDailyRollup::query()->where('site_uuid', $site->uuid)->where('language', $language->code)->count())->toBe(3)
+        ->and(MetricDailyRollup::query()->where('metric_key', 'unique_visitors')->exists())->toBeTrue();
 });
 
 it('uses the previous UTC day when no rollup day is supplied', function (): void {

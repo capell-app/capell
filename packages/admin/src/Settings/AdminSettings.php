@@ -123,9 +123,9 @@ class AdminSettings extends Settings implements SettingsContract, SettingsSchema
         return $this;
     }
 
-    public function isWidgetEnabled(string $settingsKey): bool
+    public function isWidgetEnabled(string $settingsKey, bool $default = true): bool
     {
-        return $this->enabled_widgets[$settingsKey] ?? true;
+        return $this->enabled_widgets[$settingsKey] ?? $default;
     }
 
     public function sortOrderFor(string $settingsKey): int
