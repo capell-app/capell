@@ -12,10 +12,6 @@ use Capell\Release\ReleaseEngine;
 use Capell\Release\ReleaseException;
 use Capell\Release\ResumeDecision;
 
-beforeEach(function (): void {
-    putenv('RELEASE_PREFLIGHT_SCRIPT=' . dirname(__DIR__, 2) . '/scripts/release-preflight.php');
-});
-
 it('captures large output from both process streams without blocking', function (): void {
     $runner = new ProcessCommandRunner;
     $result = $runner->run([
@@ -213,20 +209,18 @@ it('publishes a verified split and records atomic resumable state', function ():
         ->toContain('commit-tree')->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0')
         ->toContain('rev-parse FETCH_HEAD')->not->toContain('capell-release-capell-')->not->toContain('refs/remotes/');
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
-    $eligibilityIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-eligibility.php'));
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
-    $preflightIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'release-preflight.php'));
     $sourceTagIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'refs/tags/core/v1.0.0:refs/tags/core/v1.0.0'));
     $tagIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/tags/v1.0.0'));
-    expect($eligibilityIndex)->toBeLessThan($mainIndex)
-        ->and($mainIndex)->toBeLessThan($preflightIndex)
-        ->and($preflightIndex)->toBeLessThan($sourceTagIndex)
-        ->and($sourceTagIndex)->toBeLessThan($tagIndex);
+    expect($mainIndex)->toBeLessThan($sourceTagIndex)
+        ->and($sourceTagIndex)->toBeLessThan($tagIndex)
+        ->and(array_filter($commands, static fn (string $command): bool => str_contains($command, 'release-eligibility.php') || str_contains($command, 'release-preflight.php')))->toBeEmpty()
+        ->and($state)->not->toHaveKey('preflight');
     @unlink($path);
     @unlink($path . '.state.json');
 });
 
-it('fast publication skips eligibility and preflight while preserving publication state', function (): void {
+it('publishes without retired eligibility or preflight gates', function (): void {
     $sha = str_repeat('a', 40);
     $tree = str_repeat('b', 40);
     $split = str_repeat('c', 40);
@@ -269,7 +263,6 @@ it('fast publication skips eligibility and preflight while preserving publicatio
         }
     };
 
-    putenv('CAPELL_RELEASE_FAST=1');
     putenv('GH_TOKEN=test-token');
     $path = tempnam(sys_get_temp_dir(), 'release-plan-');
     try {
@@ -284,7 +277,6 @@ it('fast publication skips eligibility and preflight while preserving publicatio
             ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha)
             ->and($state)->not->toHaveKey('preflight');
     } finally {
-        putenv('CAPELL_RELEASE_FAST');
         @unlink($path);
         @unlink($path . '.state.json');
     }
@@ -452,6 +444,15 @@ function releaseEngineRootForPlan(array $plan): string
         'maturity' => $entry['maturity'],
     ], $plan['ledger']);
     file_put_contents($root . '/config/release-packages.json', json_encode($definitions, JSON_THROW_ON_ERROR));
+
+    foreach ($plan['packages'] as $package) {
+        $manifestPath = $root . '/' . $package['path'] . '/composer.json';
+        mkdir(dirname($manifestPath), 0777, true);
+        file_put_contents($manifestPath, json_encode([
+            'name' => $package['name'],
+            'require' => array_fill_keys($package['direct_capell_dependencies'], '^1.0'),
+        ], JSON_THROW_ON_ERROR));
+    }
 
     return $root;
 }
@@ -740,6 +741,7 @@ it('reuses the recorded split commit when resuming after main was pushed', funct
     $sha = str_repeat('a', 40);
     $tree = str_repeat('b', 40);
     $split = str_repeat('c', 40);
+    $tagSha = str_repeat('d', 40);
     $plan = releaseEnginePlan($sha, $tree);
     $path = tempnam(sys_get_temp_dir(), 'plan-');
     $hash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
@@ -754,14 +756,17 @@ it('reuses the recorded split commit when resuming after main was pushed', funct
             ],
         ],
     ], JSON_THROW_ON_ERROR));
-    $runner = new class($sha, $tree, $split) implements CommandRunner
+    $runner = new class($sha, $tree, $split, $tagSha) implements CommandRunner
     {
         public array $commands = [];
+
+        private int $tagCalls = 0;
 
         public function __construct(
             private readonly string $sha,
             private readonly string $tree,
             private readonly string $split,
+            private readonly string $tagSha,
         ) {}
 
         public function run(array $command, ?string $workingDirectory = null): array
@@ -769,13 +774,18 @@ it('reuses the recorded split commit when resuming after main was pushed', funct
             $this->commands[] = $command;
             $text = implode(' ', $command);
 
-            if (($command[0] ?? null) === PHP_BINARY && str_contains($text, 'release-preflight.php')) {
+            if (str_contains($text, 'git/ref/tags')) {
+                return ++$this->tagCalls === 1
+                    ? ['output' => '', 'exitCode' => 1]
+                    : ['output' => $this->tagSha, 'exitCode' => 0];
+            }
+
+            if (str_contains($text, 'rev-parse -q --verify refs/tags/')
+                || str_contains($text, 'ls-remote --tags')) {
                 return ['output' => '', 'exitCode' => 1];
             }
 
-            if (str_contains($text, 'git/ref/tags')
-                || str_contains($text, 'rev-parse -q --verify refs/tags/')
-                || str_contains($text, 'ls-remote --tags')) {
+            if (str_contains($text, 'gh release view')) {
                 return ['output' => '', 'exitCode' => 1];
             }
 
@@ -791,14 +801,17 @@ it('reuses the recorded split commit when resuming after main was pushed', funct
     };
 
     putenv('GH_TOKEN=test');
-
-    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path))
-        ->toThrow(ReleaseException::class, 'Command failed: ' . PHP_BINARY);
+    new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
 
     $commands = array_map(static fn (array $command): string => implode(' ', $command), $runner->commands);
+    $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
 
     expect(array_filter($commands, static fn (string $command): bool => str_contains($command, 'commit-tree')))->toBeEmpty()
-        ->and(array_filter($commands, static fn (string $command): bool => str_contains($command, ':refs/heads/main')))->toBeEmpty();
+        ->and(array_filter($commands, static fn (string $command): bool => str_contains($command, ':refs/heads/main')))->toBeEmpty()
+        ->and(array_filter($runner->commands, static fn (array $command): bool => ($command[0] ?? null) === PHP_BINARY))->toBeEmpty()
+        ->and($state['packages']['capell-app/core']['state'])->toBe('published')
+        ->and($state['packages']['capell-app/core']['split_sha'])->toBe($split)
+        ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha);
 
     @unlink($path);
     @unlink($path . '.state.json');
@@ -864,16 +877,20 @@ it('reuses an unrecorded remote main commit when it already has the planned tree
     $sha = str_repeat('a', 40);
     $tree = str_repeat('b', 40);
     $main = str_repeat('c', 40);
+    $tagSha = str_repeat('d', 40);
     $plan = releaseEnginePlan($sha, $tree);
     $path = tempnam(sys_get_temp_dir(), 'plan-');
-    $runner = new class($sha, $tree, $main) implements CommandRunner
+    $runner = new class($sha, $tree, $main, $tagSha) implements CommandRunner
     {
         public array $commands = [];
+
+        private int $tagCalls = 0;
 
         public function __construct(
             private readonly string $sha,
             private readonly string $tree,
             private readonly string $main,
+            private readonly string $tagSha,
         ) {}
 
         public function run(array $command, ?string $workingDirectory = null): array
@@ -881,13 +898,18 @@ it('reuses an unrecorded remote main commit when it already has the planned tree
             $this->commands[] = $command;
             $text = implode(' ', $command);
 
-            if (($command[0] ?? null) === PHP_BINARY && str_contains($text, 'release-preflight.php')) {
+            if (str_contains($text, 'git/ref/tags')) {
+                return ++$this->tagCalls === 1
+                    ? ['output' => '', 'exitCode' => 1]
+                    : ['output' => $this->tagSha, 'exitCode' => 0];
+            }
+
+            if (str_contains($text, 'rev-parse -q --verify refs/tags/')
+                || str_contains($text, 'ls-remote --tags')) {
                 return ['output' => '', 'exitCode' => 1];
             }
 
-            if (str_contains($text, 'git/ref/tags')
-                || str_contains($text, 'rev-parse -q --verify refs/tags/')
-                || str_contains($text, 'ls-remote --tags')) {
+            if (str_contains($text, 'gh release view')) {
                 return ['output' => '', 'exitCode' => 1];
             }
 
@@ -904,30 +926,30 @@ it('reuses an unrecorded remote main commit when it already has the planned tree
     };
 
     putenv('GH_TOKEN=test');
-
-    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path))
-        ->toThrow(ReleaseException::class, 'Command failed: ' . PHP_BINARY);
+    new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
 
     $commands = array_map(static fn (array $command): string => implode(' ', $command), $runner->commands);
 
     expect(array_filter($commands, static fn (string $command): bool => str_contains($command, 'commit-tree')))->toBeEmpty()
-        ->and(array_filter($commands, static fn (string $command): bool => str_contains($command, ':refs/heads/main')))->toBeEmpty();
+        ->and(array_filter($commands, static fn (string $command): bool => str_contains($command, ':refs/heads/main')))->toBeEmpty()
+        ->and(array_filter($runner->commands, static fn (array $command): bool => ($command[0] ?? null) === PHP_BINARY))->toBeEmpty();
 
     $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
 
     expect($state['packages']['capell-app/core']['split_sha'])->toBe($main)
-        ->and($state['packages']['capell-app/core']['state'])->toBe('main_pushed');
+        ->and($state['packages']['capell-app/core']['state'])->toBe('published')
+        ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha);
 
     @unlink($path);
     @unlink($path . '.state.json');
 });
 
-it('records all main pushes but creates no tags when multi-package preflight fails', function (): void {
+it('records all main pushes before a source tag push fails', function (): void {
     $sha = str_repeat('a', 40);
     $trees = ['capell-app/core' => str_repeat('b', 40), 'capell-app/admin' => str_repeat('c', 40)];
     $plan = twoPackageReleasePlan($sha, $trees);
     $path = tempnam(sys_get_temp_dir(), 'plan-');
-    $secret = 'preflight-secret-token';
+    $secret = 'source-tag-secret-token';
     $runner = new class($sha, $trees, $secret) implements CommandRunner
     {
         public array $commands = [];
@@ -942,8 +964,8 @@ it('records all main pushes but creates no tags when multi-package preflight fai
         {
             $this->commands[] = $command;
             $text = implode(' ', $command);
-            if (($command[0] ?? '') === PHP_BINARY && str_contains($text, 'release-preflight.php')) {
-                return ['output' => '', 'error' => $this->secret, 'exitCode' => 1];
+            if (str_contains($text, 'refs/tags/core/v1.0.0:refs/tags/core/v1.0.0')) {
+                return ['output' => '', 'error' => 'Bearer ' . $this->secret, 'exitCode' => 1];
             }
 
             if (str_contains($text, 'subtree split')) {
@@ -968,17 +990,18 @@ it('records all main pushes but creates no tags when multi-package preflight fai
     }
 
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
-    expect(array_filter($commands, fn (string $command): bool => str_contains($command, ':refs/tags/')))->toBeEmpty()
+    expect(array_filter($commands, fn (string $command): bool => str_contains($command, ':refs/tags/v1.0.0')))->toBeEmpty()
         ->and(array_filter($commands, fn (string $command): bool => str_contains($command, 'release create')))->toBeEmpty();
     $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
     expect(array_keys($state['packages']))->toBe(['capell-app/core', 'capell-app/admin'])
-        ->and(array_column($state['packages'], 'state'))->toBe(['main_pushed', 'main_pushed'])->and($state)->not->toHaveKey('preflight');
+        ->and(array_column($state['packages'], 'state'))->toBe(['main_pushed', 'main_pushed']);
+    @unlink($path);
+    @unlink($path . '.state.json');
 });
 
-it('rejects a missing preflight executable before remote mutation', function (): void {
+it('rejects a missing Composer manifest before remote mutation', function (): void {
     $sha = str_repeat('a', 40);
     $tree = str_repeat('b', 40);
-    putenv('RELEASE_PREFLIGHT_SCRIPT=/definitely/missing/preflight.php');
     $runner = new class($sha, $tree) implements CommandRunner
     {
         public array $commands = [];
@@ -996,8 +1019,13 @@ it('rejects a missing preflight executable before remote mutation', function ():
         }
     };
     $plan = releaseEnginePlan($sha, $tree);
-    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-')))->toThrow(ReleaseException::class, 'preflight script');
+    $root = releaseEngineRootForPlan($plan);
+    unlink($root . '/packages/core/composer.json');
+    $path = tempnam(sys_get_temp_dir(), 'plan-');
+    expect(fn () => new ReleaseEngine($root, $runner)->publish($plan, $path))->toThrow(ReleaseException::class, 'Composer manifest is missing');
     expect(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true) || ($command[0] ?? '') === 'gh'))->toBeEmpty();
+    @unlink($path);
+    @unlink($path . '.state.json');
 });
 
 it('checks a later mismatched tag before any main push or state write', function (): void {
@@ -1046,7 +1074,7 @@ it('checks a later mismatched tag before any main push or state write', function
     expect(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true)))->toBeEmpty()->and(file_exists($path . '.state.json'))->toBeFalse();
 });
 
-it('rejects a matching tag without plan-bound passed preflight state', function (): void {
+it('resumes a matching tag without retired preflight state', function (): void {
     $sha = str_repeat('a', 40);
     $tree = str_repeat('b', 40);
     $split = str_repeat('c', 40);
@@ -1067,6 +1095,15 @@ it('rejects a matching tag without plan-bound passed preflight state', function 
         }
     };
     $plan = releaseEnginePlan($sha, $tree);
-    expect(fn () => new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-')))->toThrow(ReleaseException::class, 'passed preflight state');
-    expect(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true)))->toBeEmpty();
+    $path = tempnam(sys_get_temp_dir(), 'plan-');
+    new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
+    $commands = array_map(static fn (array $command): string => implode(' ', $command), $runner->commands);
+    $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
+
+    expect(array_filter($commands, static fn (string $command): bool => str_contains($command, ':refs/tags/v1.0.0')))->toBeEmpty()
+        ->and(array_filter($runner->commands, static fn (array $command): bool => ($command[0] ?? null) === PHP_BINARY))->toBeEmpty()
+        ->and($state['packages']['capell-app/core']['state'])->toBe('published')
+        ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($split);
+    @unlink($path);
+    @unlink($path . '.state.json');
 });
