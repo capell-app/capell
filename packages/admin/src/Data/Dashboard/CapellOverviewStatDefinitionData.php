@@ -18,7 +18,7 @@ final class CapellOverviewStatDefinitionData extends Data
         public readonly null|string|Closure $url = null,
         public readonly ?string $color = null,
         public readonly int $sort = 100,
-        public readonly bool $defaultEnabled = true,
+        public readonly bool $defaultEnabled = false,
         public readonly ?string $settingsKey = null,
         public readonly null|string|Closure $settingsLabel = null,
         public readonly null|string|Closure $settingsDescription = null,

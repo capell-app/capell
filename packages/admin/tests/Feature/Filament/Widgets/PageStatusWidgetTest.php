@@ -41,6 +41,20 @@ it('restores an inventory count when an operator switches it back on', function 
         ->assertSee('1');
 });
 
+it('keeps unconfigured extension overview stats disabled by default', function (): void {
+    CapellAdmin::registerOverviewStat(
+        key: 'fixture_overview.optional',
+        label: 'Optional fixture',
+        value: 4,
+        group: 'Fixture',
+    );
+
+    expect(CapellAdmin::getDefaultEnabledOverviewStatKeys())
+        ->not->toContain('fixture_overview.optional')
+        ->and(collect(CapellAdmin::getOverviewStats())->pluck('key'))
+        ->not->toContain('fixture_overview.optional');
+});
+
 it('renders enabled extension overview stats', function (): void {
     CapellAdmin::registerOverviewStat(
         key: 'fixture_overview.articles',

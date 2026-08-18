@@ -48,6 +48,19 @@ it('writes exactly one row when the deduplication cache is cold', function (): v
     expect(ActivityVisitor::query()->count())->toBe(1);
 });
 
+it('records the same visitor independently for each language on one day', function (): void {
+    $site = Site::factory()->createOne();
+    $action = resolve(RecordActivityVisitorAction::class);
+    $day = CarbonImmutable::parse('2026-08-18 09:00:00', 'UTC');
+
+    expect($action->execute($site, 'en', '203.0.113.7', 'Mozilla/5.0', $day))->toBeTrue()
+        ->and($action->execute($site, 'fr', '203.0.113.7', 'Mozilla/5.0', $day->addMinute()))->toBeTrue();
+
+    expect(ActivityVisitor::query()->count())->toBe(2)
+        ->and(ActivityVisitor::query()->orderBy('language')->pluck('language')->all())->toBe(['en', 'fr'])
+        ->and(ActivityVisitor::query()->distinct()->count('visitor_hash'))->toBe(1);
+});
+
 it('rotates the visitor hash across UTC days and separates sites', function (): void {
     $site = Site::factory()->createOne();
     $other = Site::factory()->createOne();

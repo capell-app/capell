@@ -772,7 +772,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                         ? __('capell-admin::dashboard.overview_stat_no_data')
                         : number_format($snapshot->viewsPerVisitor(), 1),
                 ),
-                'description' => fn (): string => __('capell-admin::dashboard.overview_stat_views_per_visitor_description'),
+                'description' => fn (): string => $this->audienceStatValue(
+                    static fn (DashboardAnalyticsSnapshotData $snapshot): string => __('capell-admin::dashboard.overview_stat_views_per_visitor_description'),
+                ),
             ],
         ];
 
@@ -810,9 +812,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $snapshot = resolve(AdminDashboardDataRequestCache::class)->analyticsSnapshot($actor, 'this_week');
 
-        return $snapshot->collecting
+        if (! $snapshot->collecting) {
+            return __('capell-admin::dashboard.overview_stat_collection_disabled');
+        }
+
+        return $snapshot->hasVisitorSeries()
             ? $resolve($snapshot)
-            : __('capell-admin::dashboard.overview_stat_collection_disabled');
+            : __('capell-admin::dashboard.overview_stat_no_data');
     }
 
     private function changeDescription(?float $change): string

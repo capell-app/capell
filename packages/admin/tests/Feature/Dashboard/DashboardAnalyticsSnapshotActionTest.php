@@ -60,7 +60,7 @@ it('allows a global administrator to see the all-sites dashboard snapshot', func
     expect(resolve(BuildDashboardAnalyticsSnapshotAction::class)->handle($actor, 'today')->totalViews)->toBe(4);
 });
 
-it('uses the selected period and exposes opted-in search insights', function (): void {
+it('keeps current-day live views, searches, and trend data in the selected period', function (): void {
     $site = Site::factory()->createOne();
     $now = CarbonImmutable::now('UTC');
     ActivityBucket::query()->create([

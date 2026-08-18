@@ -23,8 +23,9 @@ final class DashboardAnalyticsSnapshotData extends Data
         public readonly int $activePages,
         public readonly int $visitors = 0,
         public readonly int $previousVisitors = 0,
-        public readonly int $previousViews = 0,
-        public readonly bool $hasPreviousPeriod = false,
+        public readonly int $audienceViews = 0,
+        public readonly int $previousAudienceViews = 0,
+        public readonly bool $hasPreviousAudiencePeriod = false,
         public readonly array $trend = [],
         public readonly array $topPages = [],
         public readonly array $trendingPages = [],
@@ -44,8 +45,13 @@ final class DashboardAnalyticsSnapshotData extends Data
     public function viewsPerVisitor(): ?float
     {
         return $this->visitors > 0
-            ? round($this->totalViews / $this->visitors, 1)
+            ? round($this->audienceViews / $this->visitors, 1)
             : null;
+    }
+
+    public function hasVisitorSeries(): bool
+    {
+        return $this->visitors > 0 || $this->previousVisitors > 0;
     }
 
     /**
@@ -54,17 +60,17 @@ final class DashboardAnalyticsSnapshotData extends Data
      */
     public function visitorsChangePercent(): ?float
     {
-        return $this->changePercent($this->visitors, $this->previousVisitors);
+        return $this->changePercent($this->visitors, $this->previousVisitors, $this->hasPreviousAudiencePeriod);
     }
 
-    public function viewsChangePercent(): ?float
+    public function audienceViewsChangePercent(): ?float
     {
-        return $this->changePercent($this->totalViews, $this->previousViews);
+        return $this->changePercent($this->audienceViews, $this->previousAudienceViews, $this->hasPreviousAudiencePeriod);
     }
 
-    private function changePercent(int $current, int $previous): ?float
+    private function changePercent(int $current, int $previous, bool $hasPreviousPeriod): ?float
     {
-        return $this->hasPreviousPeriod && $previous > 0
+        return $hasPreviousPeriod && $previous > 0
             ? round((($current - $previous) / $previous) * 100, 1)
             : null;
     }

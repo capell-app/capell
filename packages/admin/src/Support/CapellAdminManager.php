@@ -251,7 +251,7 @@ class CapellAdminManager
         null|string|Closure $url = null,
         ?string $color = null,
         int $sort = 100,
-        bool $defaultEnabled = true,
+        bool $defaultEnabled = false,
         ?string $settingsKey = null,
         null|string|Closure $settingsLabel = null,
         null|string|Closure $settingsDescription = null,

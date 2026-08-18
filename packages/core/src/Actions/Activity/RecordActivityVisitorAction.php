@@ -31,7 +31,7 @@ final class RecordActivityVisitorAction
         $now = $now->utc();
         $day = $now->toDateString();
         $hash = $this->hash((int) $site->getKey(), $ip, $userAgent, $day);
-        $flag = 'capell.activity.visitor:' . $hash;
+        $flag = 'capell.activity.visitor:' . $language . ':' . $hash;
 
         if (Cache::has($flag)) {
             return false;
