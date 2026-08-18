@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Workbench\App\Providers;
 
+use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use Workbench\App\Support\MarketplaceFixture;
+use Workbench\App\Support\SiteAdminMetricsScreenshotFixture;
 
 final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
 {
@@ -84,6 +86,9 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
                 200,
             ),
         ]);
+
+        resolve(MetricCollectorRegistry::class)
+            ->register(SiteAdminMetricsScreenshotFixture::class);
     }
 
     /**

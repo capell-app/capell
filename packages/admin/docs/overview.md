@@ -30,6 +30,12 @@ Select any screenshot to open the full-resolution image.
 | **Media library**                                                                                                                                                                                                                                                                                                                                   | **Site Health**                                                                                                                                                                                                                                                                                                                                   |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="images/screenshots/admin-media-list-dark.png"><img src="images/screenshots/admin-media-list.png" alt="Media library with file details, owners, and usage links"></picture><br>[Light](images/screenshots/admin-media-list.png) · [Dark](images/screenshots/admin-media-list-dark.png) | <picture><source media="(prefers-color-scheme: dark)" srcset="images/screenshots/site-health-page-dark.png"><img src="images/screenshots/site-health-page.png" alt="Site Health page with public delivery and cache checks"></picture><br>[Light](images/screenshots/site-health-page.png) · [Dark](images/screenshots/site-health-page-dark.png) |
 
+### Site metrics
+
+[![Site metrics page showing four compact stat cards with daily sparklines](images/screenshots/site-admin-metrics-page.png)](images/screenshots/site-admin-metrics-page.png)
+
+The Site metrics page keeps registered global metrics compact and comparable. Each card shows the current value, its definition, and a daily trend over the retained window.
+
 ### Publishing workflow
 
 | Page status                                                                                                                                                 | Bulk publishing                                                                                                                                |
