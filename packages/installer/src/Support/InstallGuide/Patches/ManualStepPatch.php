@@ -6,6 +6,7 @@ namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
+use Closure;
 use RuntimeException;
 
 /**
@@ -17,11 +18,16 @@ use RuntimeException;
  */
 final class ManualStepPatch implements Patch
 {
+    /**
+     * @param  Closure(): string  $label
+     * @param  Closure(): string  $description
+     * @param  Closure(): string  $reason
+     */
     private function __construct(
         private readonly string $id,
-        private readonly string $labelKey,
-        private readonly string $descriptionKey,
-        private readonly string $reasonKey,
+        private readonly Closure $label,
+        private readonly Closure $description,
+        private readonly Closure $reason,
         private readonly ?string $docUrl,
         private readonly string $unapplicableMessage,
     ) {}
@@ -30,9 +36,9 @@ final class ManualStepPatch implements Patch
     {
         return new self(
             id: 'doc_only_web_server',
-            labelKey: 'capell-installer::install-guide.doc_only_web_server_label',
-            descriptionKey: 'capell-installer::install-guide.doc_only_web_server_description',
-            reasonKey: 'capell-installer::install-guide.doc_only_web_server_reason',
+            label: static fn (): string => __('capell-installer::install-guide.doc_only_web_server_label'),
+            description: static fn (): string => __('capell-installer::install-guide.doc_only_web_server_description'),
+            reason: static fn (): string => __('capell-installer::install-guide.doc_only_web_server_reason'),
             docUrl: 'https://docs.capell.app/packages/frontend/server-config/',
             unapplicableMessage: 'DocOnlyWebServerPatch cannot be applied. This step requires manual web server configuration (Apache/Nginx).',
         );
@@ -42,9 +48,9 @@ final class ManualStepPatch implements Patch
     {
         return new self(
             id: 'doc_only_queue_worker',
-            labelKey: 'capell-installer::install-guide.doc_only_queue_worker_label',
-            descriptionKey: 'capell-installer::install-guide.doc_only_queue_worker_description',
-            reasonKey: 'capell-installer::install-guide.doc_only_queue_worker_reason',
+            label: static fn (): string => __('capell-installer::install-guide.doc_only_queue_worker_label'),
+            description: static fn (): string => __('capell-installer::install-guide.doc_only_queue_worker_description'),
+            reason: static fn (): string => __('capell-installer::install-guide.doc_only_queue_worker_reason'),
             docUrl: 'https://docs.capell.app/operations/troubleshooting/#queue-worker',
             unapplicableMessage: 'DocOnlyQueueWorkerPatch cannot be applied. This step requires manual installer using Supervisor or a process manager.',
         );
@@ -54,9 +60,9 @@ final class ManualStepPatch implements Patch
     {
         return new self(
             id: 'doc_only_media_library',
-            labelKey: 'capell-installer::install-guide.doc_only_media_library_label',
-            descriptionKey: 'capell-installer::install-guide.doc_only_media_library_description',
-            reasonKey: 'capell-installer::install-guide.doc_only_media_library_reason',
+            label: static fn (): string => __('capell-installer::install-guide.doc_only_media_library_label'),
+            description: static fn (): string => __('capell-installer::install-guide.doc_only_media_library_description'),
+            reason: static fn (): string => __('capell-installer::install-guide.doc_only_media_library_reason'),
             docUrl: 'https://docs.capell.app/packages/#media-backends',
             unapplicableMessage: 'DocOnlyMediaLibraryPatch cannot be applied. Install capell-app/media-library package and run the migration command.',
         );
@@ -74,12 +80,12 @@ final class ManualStepPatch implements Patch
 
     public function label(): string
     {
-        return __($this->labelKey);
+        return ($this->label)();
     }
 
     public function description(): string
     {
-        return __($this->descriptionKey);
+        return ($this->description)();
     }
 
     public function docUrl(): ?string
@@ -99,7 +105,7 @@ final class ManualStepPatch implements Patch
 
     public function reason(): string
     {
-        return __($this->reasonKey);
+        return ($this->reason)();
     }
 
     public function apply(): void
