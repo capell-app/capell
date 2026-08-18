@@ -36,6 +36,25 @@
             "sameCaptureAs": "site-health-page"
         },
         {
+            "id": "site-admin-metrics-page",
+            "title": "Site metrics page.",
+            "package": "admin",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "SiteAdminMetricsPage",
+            "scenario": "admin-index",
+            "url": "/site-admin-metrics",
+            "waitFor": "[data-testid='capell-site-admin-metrics'] .fi-wi-stats-overview",
+            "docsPage": "packages/admin/docs/overview.md",
+            "output": "packages/admin/docs/images/screenshots/site-admin-metrics-page.png",
+            "required": true,
+            "notes": "Uses deterministic site-stats fixture data to show four compact native Filament stat cards with daily sparklines.",
+            "covers": [
+                "packages/admin/src/Filament/Pages/SiteAdminMetricsPage.php",
+                "packages/admin/src/Filament/Widgets/SiteAdminMetricsOverviewFilamentWidget.php"
+            ]
+        },
+        {
             "id": "admin-pages-list",
             "title": "Pages list.",
             "package": "admin",

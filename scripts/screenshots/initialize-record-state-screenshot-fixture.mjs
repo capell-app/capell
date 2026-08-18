@@ -31,6 +31,10 @@ function hasFrontendPublishedPageSeed(entries) {
     )
 }
 
+function hasSiteAdminMetricsSeed(entries) {
+    return entries.some((entry) => entry.id === 'site-admin-metrics-page')
+}
+
 function frontendSeedCommand(frontendOrigin) {
     const origin = new URL(frontendOrigin)
     const localHostnames = new Set(['127.0.0.1', '::1', '[::1]', 'localhost'])
@@ -59,6 +63,12 @@ export function commandsForEntries(entries, frontendOrigin = null) {
 
     if (hasFrontendPublishedPageSeed(entries)) {
         commands.push(frontendSeedCommand(frontendOrigin))
+    }
+
+    if (hasSiteAdminMetricsSeed(entries)) {
+        commands.push(
+            'Workbench\\App\\Support\\SiteAdminMetricsScreenshotFixture::initialize();',
+        )
     }
 
     return commands

@@ -37,13 +37,13 @@ Custom Filament resources are a good fit for a few stable records. Capell earns
 its place when Pages, URLs, previews, history, upgrades and extensions need one
 maintained contract.
 
-| Recurring CMS work | Custom Laravel and Filament build | With Capell Foundation |
-| --- | --- | --- |
-| Page families | Design fields, forms, URLs, redirects and templates again for every new family. | Define one blueprint and URL contract, then let the application render every page of that type. |
-| Preview | Build and maintain a second rendering path that can drift from the public site. | Preview unsaved content through the application's real theme and templates. |
-| Recovery | Decide how revisions, comparison, conflicts and restore should work after an editor needs them. | Compare any saved Page version, validate the target, then roll backward or forward without erasing history. |
-| Upgrades | Maintain project-specific migration notes, health checks and recovery steps. | Run repeatable install and upgrade commands with durable logs, diagnostics and declared rollback rules. |
-| Extension | Accumulate application glue or patch the CMS whenever the project grows. | Add Composer packages through typed extension points instead of changing core. |
+| Recurring CMS work | Custom Laravel and Filament build                                                               | With Capell Foundation                                                                                      |
+| ------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Page families      | Design fields, forms, URLs, redirects and templates again for every new family.                 | Define one blueprint and URL contract, then let the application render every page of that type.             |
+| Preview            | Build and maintain a second rendering path that can drift from the public site.                 | Preview unsaved content through the application's real theme and templates.                                 |
+| Recovery           | Decide how revisions, comparison, conflicts and restore should work after an editor needs them. | Compare any saved Page version, validate the target, then roll backward or forward without erasing history. |
+| Upgrades           | Maintain project-specific migration notes, health checks and recovery steps.                    | Run repeatable install and upgrade commands with durable logs, diagnostics and declared rollback rules.     |
+| Extension          | Accumulate application glue or patch the CMS whenever the project grows.                        | Add Composer packages through typed extension points instead of changing core.                              |
 
 ## See it running a real site
 
@@ -56,6 +56,12 @@ These captures show Capell administering [capell.app](https://capell.app) — th
 | ![Capell page editor with real page content, publishing state, and AI assistant](docs/images/capell-app-page-editor.png) | ![The capell.app public homepage rendered by the Capell frontend](docs/images/capell-app-public-homepage.jpg) |
 
 The [guided demo](https://capell.app/demo) explains its reset and read-only boundaries before sending you to the shared environment. Continue with [Create your first page](docs/getting-started/create-your-first-page.md) for the full field-by-field journey.
+
+### Compact site metrics
+
+[![Site metrics page showing four compact stat cards with daily sparklines](packages/admin/docs/images/screenshots/site-admin-metrics-page.png)](packages/admin/docs/images/screenshots/site-admin-metrics-page.png)
+
+This capture shows the Admin package's registered site metrics surface running in the Capell workbench. The compact cards and daily sparklines shipped in [Core PR #370](https://github.com/capell-app/capell/pull/370). The [Capell homepage](https://capell.app/) is the real site represented by the product captures above.
 
 ## Grow through packages, not core patches
 
