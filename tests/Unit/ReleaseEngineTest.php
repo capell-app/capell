@@ -226,6 +226,70 @@ it('publishes a verified split and records atomic resumable state', function ():
     @unlink($path . '.state.json');
 });
 
+it('fast publication skips eligibility and preflight while preserving publication state', function (): void {
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $split = str_repeat('c', 40);
+    $tagSha = str_repeat('d', 40);
+    $runner = new class($sha, $tree, $split, $tagSha) implements CommandRunner
+    {
+        public array $commands = [];
+
+        private int $tagRefChecks = 0;
+
+        public function __construct(private readonly string $sha, private readonly string $tree, private readonly string $split, private readonly string $tagSha) {}
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+            $text = implode(' ', $command);
+
+            if (str_contains($text, 'git/ref/heads/main') || str_contains($text, 'ls-remote --tags') || str_contains($text, 'rev-parse -q --verify refs/tags/')) {
+                return ['output' => '', 'exitCode' => 1];
+            }
+
+            if (str_contains($text, 'git/ref/tags')) {
+                return ++$this->tagRefChecks === 1
+                    ? ['output' => '', 'exitCode' => 1]
+                    : ['output' => $this->tagSha, 'exitCode' => 0];
+            }
+
+            if (str_contains($text, 'gh release view')) {
+                return ['output' => '', 'exitCode' => 1];
+            }
+
+            return ['output' => match (true) {
+                str_contains($text, 'status --porcelain') => '',
+                str_contains($text, 'rev-parse HEAD') => $this->sha,
+                str_contains($text, ':packages/core') => $this->tree,
+                str_contains($text, 'subtree split') => $this->split,
+                str_contains($text, '^{tree}') => $this->tree,
+                default => '',
+            }, 'exitCode' => 0];
+        }
+    };
+
+    putenv('CAPELL_RELEASE_FAST=1');
+    putenv('GH_TOKEN=test-token');
+    $path = tempnam(sys_get_temp_dir(), 'release-plan-');
+    try {
+        $plan = releaseEnginePlan($sha, $tree);
+        new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish($plan, $path);
+
+        $commands = array_map(static fn (array $command): string => implode(' ', $command), $runner->commands);
+        $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
+        expect(array_filter($commands, static fn (string $command): bool => str_contains($command, 'release-eligibility.php') || str_contains($command, 'release-preflight.php')))->toBeEmpty()
+            ->and($state['packages']['capell-app/core']['state'])->toBe('published')
+            ->and($state['packages']['capell-app/core']['split_sha'])->toBe($split)
+            ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($tagSha)
+            ->and($state)->not->toHaveKey('preflight');
+    } finally {
+        putenv('CAPELL_RELEASE_FAST');
+        @unlink($path);
+        @unlink($path . '.state.json');
+    }
+});
+
 it('aborts a mismatched remote tag before pushing', function (): void {
     $sha = str_repeat('a', 40);
     $tree = str_repeat('b', 40);

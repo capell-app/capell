@@ -95,6 +95,9 @@ try {
     }
     $engine = new ReleaseEngine($root);
     if (in_array($command, ['publish', 'resume'], true)) {
+        if (getenv('CAPELL_RELEASE_FAST') !== '1') {
+            throw new ReleaseException('The legacy release coordinator is retired; invoke publication through scripts/release-local.sh.');
+        }
         $engine->publish($plan, $path);
         echo "Publication state recorded.\n";
         exit(0);

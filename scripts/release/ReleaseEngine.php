@@ -565,6 +565,7 @@ final class ReleaseEngine
     public function publish(array $plan, string $planPath): void
     {
         (new PlanValidator)->validate($plan);
+        $fastRelease = getenv('CAPELL_RELEASE_FAST') === '1';
         $planHash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : ['plan_sha256' => $planHash, 'source_commit' => $plan['source']['commit'], 'packages' => []];
@@ -573,18 +574,22 @@ final class ReleaseEngine
         }
 
         $this->assertExactSource($plan);
-        $eligibilityEvidence = $this->required([
-            PHP_BINARY,
-            $this->root . '/scripts/release-eligibility.php',
-            $plan['source']['commit'],
-        ], $this->root);
-        if ($eligibilityEvidence !== '') {
-            $state['release_eligibility'] = json_decode($eligibilityEvidence, true, 512, JSON_THROW_ON_ERROR);
-            $this->writeState($planPath, $state);
+        if ($fastRelease) {
+            $this->validateFastComposerMetadata($plan);
+        } else {
+            $eligibilityEvidence = $this->required([
+                PHP_BINARY,
+                $this->root . '/scripts/release-eligibility.php',
+                $plan['source']['commit'],
+            ], $this->root);
+            if ($eligibilityEvidence !== '') {
+                $state['release_eligibility'] = json_decode($eligibilityEvidence, true, 512, JSON_THROW_ON_ERROR);
+                $this->writeState($planPath, $state);
+            }
         }
 
         $preflightScript = null;
-        if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
+        if (! $fastRelease && ($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $preflightScript = getenv('RELEASE_PREFLIGHT_SCRIPT');
             if (! is_string($preflightScript) || $preflightScript === '' || ! is_file($preflightScript)) {
                 throw new ReleaseException('RELEASE_PREFLIGHT_SCRIPT must name a repository-owned preflight script.');
@@ -641,14 +646,14 @@ final class ReleaseEngine
                 throw new ReleaseException(sprintf('Existing source tag %s does not match the planned source commit.', $sourceTag));
             }
 
-            if ($sourceTagSha !== null) {
+            if (! $fastRelease && $sourceTagSha !== null) {
                 $record = $state['packages'][$name] ?? null;
                 if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash || ($record['source_tag_sha'] ?? null) !== $sourceTagSha) {
                     throw new ReleaseException(sprintf("Existing source tag %s is not backed by this plan's passed preflight state.", $sourceTag));
                 }
             }
 
-            if ($decision === 'resume') {
+            if (! $fastRelease && $decision === 'resume') {
                 $record = $state['packages'][$name] ?? null;
                 if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash
                     || ($record['split_sha'] ?? null) !== $splitSha || ($record['tag'] ?? null) !== $tag) {
@@ -677,7 +682,7 @@ final class ReleaseEngine
             $this->writeState($planPath, $state);
         }
 
-        if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
+        if (! $fastRelease && ($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $this->required([PHP_BINARY, $preflightScript, $planPath, $statePath], $this->root);
             $state['preflight'] = ['state' => 'passed', 'plan_sha256' => $planHash];
             $this->writeState($planPath, $state);
@@ -793,6 +798,38 @@ final class ReleaseEngine
     // LOCKSTEP-END release-definitions
 
     // LOCKSTEP-BEGIN engine-helpers
+    /** @param array<string,mixed> $plan */
+    private function validateFastComposerMetadata(array $plan): void
+    {
+        foreach ($plan['packages'] as $package) {
+            $manifestPath = $this->root . '/' . $package['path'] . '/composer.json';
+            if (! is_file($manifestPath)) {
+                throw new ReleaseException(sprintf('Composer manifest is missing for %s.', $package['name']));
+            }
+
+            $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($manifest)) {
+                throw new ReleaseException(sprintf('Composer manifest is invalid for %s.', $package['name']));
+            }
+
+            (new PlanValidator)->validateManifest($manifest);
+            if (($manifest['name'] ?? null) !== $package['name']) {
+                throw new ReleaseException(sprintf('Composer manifest name drift for %s.', $package['name']));
+            }
+
+            $dependencies = array_values(array_filter(
+                array_keys(is_array($manifest['require'] ?? null) ? $manifest['require'] : []),
+                static fn (string $name): bool => str_starts_with($name, 'capell-app/'),
+            ));
+            $expectedDependencies = $package['direct_capell_dependencies'];
+            sort($dependencies);
+            sort($expectedDependencies);
+            if ($dependencies !== $expectedDependencies) {
+                throw new ReleaseException(sprintf('Composer dependency metadata drift for %s.', $package['name']));
+            }
+        }
+    }
+
     private function assertExactSource(array $plan): void
     {
         $this->assertCleanSource();
