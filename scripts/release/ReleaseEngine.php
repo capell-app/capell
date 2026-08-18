@@ -571,6 +571,7 @@ final class ReleaseEngine
         if (($state['plan_sha256'] ?? null) !== $planHash || ($state['source_commit'] ?? null) !== $plan['source']['commit']) {
             throw new ReleaseException('Existing release state belongs to a different plan or source commit.');
         }
+
         $this->assertExactSource($plan);
         $this->validateFastComposerMetadata($plan);
 
@@ -589,9 +590,11 @@ final class ReleaseEngine
                 if (! is_string($recordedSplit) || preg_match('/^[a-f0-9]{40}$/', $recordedSplit) !== 1 || ($record['tag'] ?? null) !== $tag) {
                     throw new ReleaseException(sprintf('Recorded main push state for %s is incomplete.', $name));
                 }
+
                 if (! is_string($main) || ! hash_equals($recordedSplit, $main)) {
                     throw new ReleaseException(sprintf('Remote main drift after recorded push for %s.', $name));
                 }
+
                 $this->required(['git', 'fetch', '--no-tags', sprintf('https://github.com/%s.git', $repository), 'refs/heads/main'], $this->root);
                 $splitSha = $recordedSplit;
             } elseif (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
