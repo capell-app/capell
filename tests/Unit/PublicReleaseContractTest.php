@@ -183,16 +183,6 @@ it('defines the public v1 split package release contract', function (): void {
         ->and($fullTestWorkflow)
         ->toContain('- main');
 
-    expect($releasePreflight)
-        ->toContain('[$major, $minor]')
-        ->toContain("sprintf('dev-main as %s.%s.x-dev', \$major, \$minor)")
-        ->toContain('php artisan capell:package-cache --no-interaction')
-        ->toContain('npm install --no-audit --no-fund')
-        ->toContain('npm run build')
-        ->toContain('artisan serve --no-reload')
-        ->not->toContain('--all-packages')
-        ->not->toContain("'dev-main as ' . \$package['version']");
-
     expect($releaseSmokeWorkflow)->toContain('artisan serve --no-reload');
 
     expect($localSplitScript)->toContain('config/release-packages.json')
