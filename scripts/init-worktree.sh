@@ -106,10 +106,53 @@ echo "Linked $linked packages, copied $copied tool packages ($(du -sh vendor | c
 # Verify. A wrong answer here means the suite would test the primary checkout,
 # so this is a hard failure, not a warning.
 # ---------------------------------------------------------------------------
-resolved=$(php -r '
+PROBE_CLASS='Capell\Core\Enums\Concerns\HasEnumOptions'
+
+if ! command -v php >/dev/null 2>&1; then
+    echo >&2
+    echo "FAILED: no 'php' on PATH, so the vendor/ layout cannot be verified." >&2
+    echo "Removing the unverified vendor/ rather than leaving a possibly poisoned one." >&2
+    rm -rf vendor
+    exit 1
+fi
+
+# Do NOT let this run under set -e without capturing why it failed. A PHP fatal
+# exits 255, which would otherwise kill this script with a bare, unexplained
+# 255 and no clue that PHP was even involved.
+probe_stderr=$(mktemp)
+set +e
+resolved=$(CAPELL_PROBE_CLASS="$PROBE_CLASS" php -r '
     require "vendor/autoload.php";
-    echo (new ReflectionClass("Capell\Core\Enums\Concerns\HasEnumOptions"))->getFileName();
-')
+    echo (new ReflectionClass(getenv("CAPELL_PROBE_CLASS")))->getFileName();
+' 2>"$probe_stderr")
+probe_status=$?
+set -e
+
+if [ "$probe_status" -ne 0 ]; then
+    echo >&2
+    echo "FAILED: the vendor/ verification probe could not run (php exit $probe_status)." >&2
+    echo "Probe class: $PROBE_CLASS" >&2
+    if [ -s "$probe_stderr" ]; then
+        echo "PHP reported:" >&2
+        sed 's/^/  /' "$probe_stderr" >&2
+    fi
+    echo >&2
+    echo "Common causes: vendor/autoload.php is broken, the probe class was renamed" >&2
+    echo "or removed, or this php cannot load the autoloader." >&2
+    echo "Removing the unverified vendor/ - run 'composer install' here instead." >&2
+    rm -f "$probe_stderr"
+    rm -rf vendor
+    exit 1
+fi
+rm -f "$probe_stderr"
+
+if [ -z "$resolved" ]; then
+    echo >&2
+    echo "FAILED: the probe returned no path for $PROBE_CLASS." >&2
+    echo "Removing the unverified vendor/ - run 'composer install' here instead." >&2
+    rm -rf vendor
+    exit 1
+fi
 
 case "$resolved" in
 "$WORKTREE_ROOT"/*)
