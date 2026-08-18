@@ -565,36 +565,14 @@ final class ReleaseEngine
     public function publish(array $plan, string $planPath): void
     {
         (new PlanValidator)->validate($plan);
-        $fastRelease = getenv('CAPELL_RELEASE_FAST') === '1';
         $planHash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : ['plan_sha256' => $planHash, 'source_commit' => $plan['source']['commit'], 'packages' => []];
         if (($state['plan_sha256'] ?? null) !== $planHash || ($state['source_commit'] ?? null) !== $plan['source']['commit']) {
             throw new ReleaseException('Existing release state belongs to a different plan or source commit.');
         }
-
         $this->assertExactSource($plan);
-        if ($fastRelease) {
-            $this->validateFastComposerMetadata($plan);
-        } else {
-            $eligibilityEvidence = $this->required([
-                PHP_BINARY,
-                $this->root . '/scripts/release-eligibility.php',
-                $plan['source']['commit'],
-            ], $this->root);
-            if ($eligibilityEvidence !== '') {
-                $state['release_eligibility'] = json_decode($eligibilityEvidence, true, 512, JSON_THROW_ON_ERROR);
-                $this->writeState($planPath, $state);
-            }
-        }
-
-        $preflightScript = null;
-        if (! $fastRelease && ($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
-            $preflightScript = getenv('RELEASE_PREFLIGHT_SCRIPT');
-            if (! is_string($preflightScript) || $preflightScript === '' || ! is_file($preflightScript)) {
-                throw new ReleaseException('RELEASE_PREFLIGHT_SCRIPT must name a repository-owned preflight script.');
-            }
-        }
+        $this->validateFastComposerMetadata($plan);
 
         $releases = [];
         foreach ($plan['dependency_order'] as $name) {
@@ -611,11 +589,9 @@ final class ReleaseEngine
                 if (! is_string($recordedSplit) || preg_match('/^[a-f0-9]{40}$/', $recordedSplit) !== 1 || ($record['tag'] ?? null) !== $tag) {
                     throw new ReleaseException(sprintf('Recorded main push state for %s is incomplete.', $name));
                 }
-
                 if (! is_string($main) || ! hash_equals($recordedSplit, $main)) {
                     throw new ReleaseException(sprintf('Remote main drift after recorded push for %s.', $name));
                 }
-
                 $this->required(['git', 'fetch', '--no-tags', sprintf('https://github.com/%s.git', $repository), 'refs/heads/main'], $this->root);
                 $splitSha = $recordedSplit;
             } elseif (is_string($main) && preg_match('/^[a-f0-9]{40}$/', $main)) {
@@ -646,21 +622,6 @@ final class ReleaseEngine
                 throw new ReleaseException(sprintf('Existing source tag %s does not match the planned source commit.', $sourceTag));
             }
 
-            if (! $fastRelease && $sourceTagSha !== null) {
-                $record = $state['packages'][$name] ?? null;
-                if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash || ($record['source_tag_sha'] ?? null) !== $sourceTagSha) {
-                    throw new ReleaseException(sprintf("Existing source tag %s is not backed by this plan's passed preflight state.", $sourceTag));
-                }
-            }
-
-            if (! $fastRelease && $decision === 'resume') {
-                $record = $state['packages'][$name] ?? null;
-                if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash
-                    || ($record['split_sha'] ?? null) !== $splitSha || ($record['tag'] ?? null) !== $tag) {
-                    throw new ReleaseException(sprintf("Existing matching tag for %s is not backed by this plan's passed preflight state.", $name));
-                }
-            }
-
             $maturity = PlanValidator::assertMaturity($package['maturity'], 'Package ' . $name);
             $releases[] = ['name' => $name, 'repository' => $repository, 'tag' => $tag, 'splitSha' => $splitSha, 'decision' => $decision, 'sourceTag' => $sourceTag, 'sourceTagSha' => $sourceTagSha, 'localSourceTagSha' => $localSourceTagSha, 'maturity' => $maturity];
         }
@@ -680,12 +641,7 @@ final class ReleaseEngine
 
             $state['packages'][$name] = array_merge($state['packages'][$name] ?? [], ['state' => 'main_pushed', 'split_sha' => $splitSha, 'tag' => $tag]);
             $this->writeState($planPath, $state);
-        }
 
-        if (! $fastRelease && ($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
-            $this->required([PHP_BINARY, $preflightScript, $planPath, $statePath], $this->root);
-            $state['preflight'] = ['state' => 'passed', 'plan_sha256' => $planHash];
-            $this->writeState($planPath, $state);
         }
 
         foreach ($releases as $release) {

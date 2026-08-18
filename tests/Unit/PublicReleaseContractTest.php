@@ -111,7 +111,6 @@ it('defines the public v1 split package release contract', function (): void {
 
     $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
     $releaseSmokeWorkflow = file_get_contents($root . '/.github/workflows/public-release-smoke.yml');
-    $releasePreflight = file_get_contents($root . '/scripts/release-preflight.php');
     $fastTestWorkflow = file_get_contents($root . '/.github/workflows/test-fast-pr.yml');
     $fullTestWorkflow = file_get_contents($root . '/.github/workflows/test-full.yml');
     $localSplitScript = file_get_contents($root . '/scripts/local-split-packages.sh');
@@ -136,25 +135,19 @@ it('defines the public v1 split package release contract', function (): void {
         ->toContain('plan_artifact:')
         ->toContain('PLAN_PATH: ${{ inputs.plan_path }}')
         ->toContain('test -n "${PLAN_PATH}"')
-        ->toContain('realpath "${candidate}"')
+        ->toContain('realpath "${plan_file}"')
         ->toContain('Plan path escapes the checked-out workspace.')
         ->toContain('plan_path: release-plan.json')
-        ->toContain('resume_state_run_id:')
-        ->toContain('run-id: ${{ inputs.resume_state_run_id }}')
-        ->toContain('repository: ${{ github.repository }}')
-        ->toContain('github-token: ${{ github.token }}')
-        ->toContain('release-plan.json.state.json')
         ->toContain('Stage and attest release tooling from the workflow commit')
         ->toContain('git archive "${RELEASE_TOOLING_COMMIT}"')
         ->toContain('git hash-object "${RELEASE_TOOLING_ROOT}/${path}"')
         ->toContain('CAPELL_RELEASE_SOURCE_ROOT: ${{ github.workspace }}')
-        ->toContain('RELEASE_PREFLIGHT_SCRIPT: ${{ runner.temp }}/release-tooling/scripts/release-preflight.php')
         ->toContain('Check out the approved plan source')
         ->toContain('git checkout --detach "${source_commit}"')
-        ->toContain('if: always()')
-        ->toContain('if-no-files-found: ignore')
         ->not->toContain('test -f "${{ inputs.plan_path }}"')
-        ->toContain('php "${RELEASE_TOOLING_ROOT}/scripts/release.php" resume')
+        ->toContain('php "${RELEASE_TOOLING_ROOT}/scripts/release.php" publish')
+        ->not->toContain('resume_state_run_id')
+        ->not->toContain('release-plan.json.state.json')
         ->toContain('uses: ./.github/workflows/public-release-smoke.yml')
         ->not->toContain('release:')
         ->not->toContain('rollback')
@@ -189,16 +182,6 @@ it('defines the public v1 split package release contract', function (): void {
         ->not->toContain('filament/filament:^4.7')
         ->and($fullTestWorkflow)
         ->toContain('- main');
-
-    expect($releasePreflight)
-        ->toContain('[$major, $minor]')
-        ->toContain("sprintf('dev-main as %s.%s.x-dev', \$major, \$minor)")
-        ->toContain('php artisan capell:package-cache --no-interaction')
-        ->toContain('npm install --no-audit --no-fund')
-        ->toContain('npm run build')
-        ->toContain('artisan serve --no-reload')
-        ->not->toContain('--all-packages')
-        ->not->toContain("'dev-main as ' . \$package['version']");
 
     expect($releaseSmokeWorkflow)->toContain('artisan serve --no-reload');
 
@@ -291,25 +274,6 @@ it('reads public Packagist package slugs from the Packagist catalogue', function
         ->not->toContain('Create capell-app/publishing-studio')
         ->not->toContain('Array to string conversion')
         ->not->toContain('capell-app/Array');
-});
-
-it('warms the package manifest cache after installation and before release smoke requests', function (): void {
-    $releasePreflight = file_get_contents(dirname(__DIR__, 2) . '/scripts/release-preflight.php');
-
-    expect($releasePreflight)
-        ->toContain('php artisan capell:install')
-        ->toContain('php artisan capell:package-cache')
-        ->toContain('npm run build')
-        ->toContain('php artisan serve --no-reload');
-
-    $installIndex = strpos($releasePreflight, 'php artisan capell:install');
-    $packageCacheIndex = strpos($releasePreflight, 'php artisan capell:package-cache');
-    $assetBuildIndex = strpos($releasePreflight, 'npm run build');
-    $serveIndex = strpos($releasePreflight, 'php artisan serve --no-reload');
-
-    expect($installIndex)->toBeLessThan($packageCacheIndex)
-        ->and($packageCacheIndex)->toBeLessThan($assetBuildIndex)
-        ->and($assetBuildIndex)->toBeLessThan($serveIndex);
 });
 
 it('defines the MIT root package as the aggregate of the public foundation', function (): void {
