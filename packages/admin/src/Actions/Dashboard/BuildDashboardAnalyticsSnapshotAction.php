@@ -9,6 +9,7 @@ use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
 use Capell\Core\Models\ActivityBucket;
+use Capell\Core\Models\ActivityVisitor;
 use Capell\Core\Models\MetricDailyRollup;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -59,6 +60,18 @@ final class BuildDashboardAnalyticsSnapshotAction
             'count' => (int) data_get($row, 'total_count'),
         ])->all());
         $trendingPages = $this->trendingPages($rawPageViews, $actor, $start, $days, $siteId, $language);
+
+        // Live dashboard values use the selected rolling window through now.
+        // Audience cards intentionally use separate, equal complete UTC days
+        // so their visitor and views-per-visitor comparisons are meaningful.
+        $audienceEnd = $todayStart;
+        $audienceStart = $audienceEnd->subDays($days);
+        $previousAudienceStart = $audienceStart->subDays($days);
+        $visitors = $this->visitors($actor, $audienceStart, $audienceEnd, $siteId, $language);
+        $previousVisitors = $this->visitors($actor, $previousAudienceStart, $audienceStart, $siteId, $language);
+        $audienceViews = $this->audiencePageViews($actor, $audienceStart, $audienceEnd, $siteId, $language);
+        $previousAudienceViews = $this->audiencePageViews($actor, $previousAudienceStart, $audienceStart, $siteId, $language);
+        $hasPreviousAudiencePeriod = $previousVisitors > 0 || $previousAudienceViews > 0;
 
         $rawSearches = null;
         $searches = 0;
@@ -112,6 +125,11 @@ final class BuildDashboardAnalyticsSnapshotAction
             recentViews: $recentViews,
             searches: $searches,
             activePages: $activePages,
+            visitors: $visitors,
+            previousVisitors: $previousVisitors,
+            audienceViews: $audienceViews,
+            previousAudienceViews: $previousAudienceViews,
+            hasPreviousAudiencePeriod: $hasPreviousAudiencePeriod,
             trend: $trend,
             topPages: $topPages,
             trendingPages: $trendingPages,
@@ -259,20 +277,72 @@ final class BuildDashboardAnalyticsSnapshotAction
             ->all());
     }
 
-    private function rollupSum(Authenticatable $actor, string $metric, CarbonImmutable $start, CarbonImmutable $todayStart, ?int $siteId, ?string $language): int
+    /**
+     * Counted distinct from the retained visitor-day rows rather than summed
+     * from the daily rollups, so a scope that reports on several days at once
+     * cannot double-count within a day. Across days the hash rotates by design,
+     * so a returning visitor counts once per day — see the snapshot DTO.
+     */
+    private function visitors(Authenticatable $actor, CarbonImmutable $start, CarbonImmutable $end, ?int $siteId, ?string $language): int
     {
-        return (int) $this->rollupQuery($actor, $metric, $start, $todayStart, $siteId, $language)->sum('value');
+        return (int) $this->authorizedVisitorQuery($actor, $siteId)
+            ->where('first_seen_at', '>=', $start)
+            ->where('first_seen_at', '<', $end)
+            ->when($language !== null, fn (Builder $query): Builder => $query->where('language', $language))
+            ->distinct()
+            ->count('visitor_hash');
+    }
+
+    private function audiencePageViews(Authenticatable $actor, CarbonImmutable $start, CarbonImmutable $end, ?int $siteId, ?string $language): int
+    {
+        $rollupViews = $this->rollupSum($actor, ActivityBucketsDailyMetricsCollector::PAGE_VIEWS_METRIC, $start, $end, $siteId, $language);
+
+        if ($rollupViews > 0) {
+            return $rollupViews;
+        }
+
+        return (int) $this->authorizedActivityQuery($actor, $siteId)
+            ->where('bucket_started_at', '>=', $start)
+            ->where('bucket_started_at', '<', $end)
+            ->where('subject_type', ActivityBucketSubjectEnum::PageView->value)
+            ->when($language !== null, fn (Builder $query): Builder => $query->where('language', $language))
+            ->sum('count');
+    }
+
+    /** @return Builder<ActivityVisitor> */
+    private function authorizedVisitorQuery(Authenticatable $actor, ?int $siteId): Builder
+    {
+        $query = ActivityVisitor::query();
+
+        if ($siteId !== null) {
+            $site = Site::query()->find($siteId);
+
+            return ! $site instanceof Site || ! SiteScope::actorCanUseSite($actor, $site)
+                ? $query->whereRaw('1 = 0')
+                : $query->where('site_id', $siteId);
+        }
+
+        return SiteScope::isGlobalActor($actor)
+            ? $query
+            : ($actor->getAssignedSiteIds()->isNotEmpty()
+                ? $query->whereIn('site_id', $actor->getAssignedSiteIds())
+                : $query->whereRaw('1 = 0'));
+    }
+
+    private function rollupSum(Authenticatable $actor, string $metric, CarbonImmutable $start, CarbonImmutable $end, ?int $siteId, ?string $language): int
+    {
+        return (int) $this->rollupQuery($actor, $metric, $start, $end, $siteId, $language)->sum('value');
     }
 
     /** @return Builder<MetricDailyRollup> */
-    private function rollupQuery(Authenticatable $actor, string $metric, CarbonImmutable $start, CarbonImmutable $todayStart, ?int $siteId, ?string $language): Builder
+    private function rollupQuery(Authenticatable $actor, string $metric, CarbonImmutable $start, CarbonImmutable $end, ?int $siteId, ?string $language): Builder
     {
         $query = MetricDailyRollup::query()
             ->where('owner_package', ActivityBucketsDailyMetricsCollector::OWNER_PACKAGE)
             ->where('collector_key', ActivityBucketsDailyMetricsCollector::COLLECTOR_KEY)
             ->where('metric_key', $metric)
             ->whereDate('day', '>=', $start->toDateString())
-            ->whereDate('day', '<', $todayStart->toDateString())
+            ->whereDate('day', '<', $end->toDateString())
             ->when($language !== null, fn (Builder $query): Builder => $query->where('language', $language));
 
         if ($siteId !== null) {

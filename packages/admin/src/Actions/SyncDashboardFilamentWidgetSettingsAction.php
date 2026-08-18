@@ -118,6 +118,7 @@ final class SyncDashboardFilamentWidgetSettingsAction
     private function defaultEnabledWidgetKeys(): array
     {
         return array_values(collect(array_keys(AdminSettings::defaultWidgetOrder()))
+            ->merge(CapellAdmin::getDefaultEnabledOverviewStatKeys())
             ->filter(fn (string $settingsKey): bool => $settingsKey !== '')
             ->unique()
             ->values()

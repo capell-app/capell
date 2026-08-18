@@ -10,6 +10,7 @@ use Capell\Core\Data\Metrics\MetricScopeData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Metrics\ActivityBucketsDailyMetricsCollector;
+use Capell\Core\Support\Metrics\ActivityVisitorsDailyMetricsCollector;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
@@ -34,6 +35,7 @@ final class RollupActivityMetricsCommand extends Command
             }
 
             $collectors->register(ActivityBucketsDailyMetricsCollector::class);
+            $collectors->register(ActivityVisitorsDailyMetricsCollector::class);
             $day = $this->option('day');
             $day = is_string($day) && $day !== ''
                 ? $day
@@ -43,7 +45,10 @@ final class RollupActivityMetricsCommand extends Command
             $written = $rollup->execute(
                 day: $day,
                 scopes: $scopes,
-                collectorKeys: [ActivityBucketsDailyMetricsCollector::OWNER_PACKAGE . ':' . ActivityBucketsDailyMetricsCollector::COLLECTOR_KEY],
+                collectorKeys: [
+                    ActivityBucketsDailyMetricsCollector::OWNER_PACKAGE . ':' . ActivityBucketsDailyMetricsCollector::COLLECTOR_KEY,
+                    ActivityVisitorsDailyMetricsCollector::OWNER_PACKAGE . ':' . ActivityVisitorsDailyMetricsCollector::COLLECTOR_KEY,
+                ],
             );
             $this->info(sprintf('Rolled up %d activity metric point(s).', $written));
 

@@ -40,6 +40,7 @@ use Capell\Admin\Contracts\RegistryInspectorInterface;
 use Capell\Admin\Contracts\Support\FlagIconRenderer as FlagIconRendererContract;
 use Capell\Admin\Data\AdminAssetData;
 use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
 use Capell\Admin\Data\ImportEntryData;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\AdminAssetEnum;
@@ -200,6 +201,7 @@ use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
+use Closure;
 use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
@@ -216,6 +218,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
@@ -716,6 +719,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerOverviewStats(): self
     {
+        $this->registerAudienceOverviewStats();
+
+        // Inventory counts never move once a site is set up, so they are no
+        // longer shown by default. They keep their registry keys — extensions
+        // assert on them — and each gained its own settings key so an operator
+        // can switch individual counts back on without re-enabling all four.
         $stats = [
             'pages' => ['label' => 'stat_total_pages', 'sort' => 10, 'value' => fn (): int => Page::query()->count()],
             'sites' => ['label' => 'stat_sites', 'sort' => 20, 'value' => fn (): int => Site::query()->count()],
@@ -731,14 +740,96 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 group: fn (): string => __('capell-admin::dashboard.overview_group_core'),
                 description: fn (): string => __(sprintf('capell-admin::dashboard.overview_stat_%s_description', $key)),
                 sort: $stat['sort'],
-                defaultEnabled: true,
-                settingsKey: 'page_status',
-                settingsLabel: fn (): string => __('capell-admin::dashboard.widget_capell_overview'),
-                settingsDescription: fn (): string => __('capell-admin::dashboard.widget_page_status_description'),
+                defaultEnabled: false,
+                settingsKey: 'capell_overview_' . $key,
+                settingsLabel: fn (): string => __(sprintf('capell-admin::dashboard.%s', $stat['label'])),
+                settingsDescription: fn (): string => __(sprintf('capell-admin::dashboard.overview_stat_%s_description', $key)),
             );
         }
 
         return $this;
+    }
+
+    private function registerAudienceOverviewStats(): self
+    {
+        $stats = [
+            'visitors' => [
+                'label' => 'stat_visitors',
+                'sort' => 1,
+                'value' => fn (): string => $this->audienceStatValue(
+                    static fn (DashboardAnalyticsSnapshotData $snapshot): string => number_format($snapshot->visitors),
+                ),
+                'description' => fn (): string => $this->audienceStatValue(
+                    fn (DashboardAnalyticsSnapshotData $snapshot): string => $this->changeDescription($snapshot->visitorsChangePercent()),
+                ),
+                'settingsDescription' => 'overview_stat_visitors_description',
+            ],
+            'views_per_visitor' => [
+                'label' => 'stat_views_per_visitor',
+                'sort' => 2,
+                'value' => fn (): string => $this->audienceStatValue(
+                    static fn (DashboardAnalyticsSnapshotData $snapshot): string => $snapshot->viewsPerVisitor() === null
+                        ? __('capell-admin::dashboard.overview_stat_no_data')
+                        : number_format($snapshot->viewsPerVisitor(), 1),
+                ),
+                'description' => fn (): string => $this->audienceStatValue(
+                    static fn (DashboardAnalyticsSnapshotData $snapshot): string => __('capell-admin::dashboard.overview_stat_views_per_visitor_description'),
+                ),
+            ],
+        ];
+
+        foreach ($stats as $key => $stat) {
+            CapellAdmin::registerOverviewStat(
+                key: 'capell_overview.' . $key,
+                label: fn (): string => __(sprintf('capell-admin::dashboard.%s', $stat['label'])),
+                value: $stat['value'],
+                group: fn (): string => __('capell-admin::dashboard.overview_group_audience'),
+                description: $stat['description'],
+                sort: $stat['sort'],
+                defaultEnabled: true,
+                settingsKey: 'capell_overview_' . $key,
+                settingsLabel: fn (): string => __(sprintf('capell-admin::dashboard.%s', $stat['label'])),
+                settingsDescription: fn (): string => __(sprintf(
+                    'capell-admin::dashboard.%s',
+                    $stat['settingsDescription'] ?? 'overview_group_audience_description',
+                )),
+            );
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param  Closure(DashboardAnalyticsSnapshotData): string  $resolve
+     */
+    private function audienceStatValue(Closure $resolve): string
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof Authenticatable) {
+            return __('capell-admin::dashboard.overview_stat_no_data');
+        }
+
+        $snapshot = resolve(AdminDashboardDataRequestCache::class)->analyticsSnapshot($actor, 'this_week');
+
+        if (! $snapshot->collecting) {
+            return __('capell-admin::dashboard.overview_stat_collection_disabled');
+        }
+
+        return $snapshot->hasVisitorSeries()
+            ? $resolve($snapshot)
+            : __('capell-admin::dashboard.overview_stat_no_data');
+    }
+
+    private function changeDescription(?float $change): string
+    {
+        if ($change === null) {
+            return __('capell-admin::dashboard.overview_stat_no_comparison');
+        }
+
+        return __('capell-admin::dashboard.overview_stat_change', [
+            'change' => ($change > 0 ? '+' : '') . number_format($change, 1),
+        ]);
     }
 
     private function registerPolicies(): self

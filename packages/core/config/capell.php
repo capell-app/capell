@@ -145,6 +145,7 @@ return [
         'collection_enabled' => env('CAPELL_ANALYTICS_COLLECTION_ENABLED', true),
         'search_collection_enabled' => env('CAPELL_ANALYTICS_SEARCH_COLLECTION_ENABLED', false),
         'activity_retention_days' => (int) env('CAPELL_ANALYTICS_ACTIVITY_RETENTION_DAYS', 1),
+        'visitor_retention_days' => (int) env('CAPELL_ANALYTICS_VISITOR_RETENTION_DAYS', 30),
         'daily_rollup_retention_days' => (int) env('CAPELL_ANALYTICS_DAILY_ROLLUP_RETENTION_DAYS', 365),
         'rate_limit_per_minute' => (int) env('CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE', 30),
     ],
