@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\ManualStepPatch;
+use Illuminate\Support\Facades\Lang;
 
 it('configures the web server manual step', function (): void {
     $patch = ManualStepPatch::webServerConfig();
@@ -61,4 +62,25 @@ it('configures the media library manual step', function (): void {
 
 it('gives each factory method a distinct instance with no shared mutable state', function (): void {
     expect(ManualStepPatch::webServerConfig())->not->toBe(ManualStepPatch::webServerConfig());
+});
+
+it('resolves manual step copy in the locale active at display time', function (): void {
+    $patch = ManualStepPatch::webServerConfig();
+    $originalLocale = app()->getLocale();
+
+    Lang::addLines([
+        'install-guide.doc_only_web_server_label' => 'Configuration du serveur web',
+        'install-guide.doc_only_web_server_description' => 'Configurez votre serveur web pour servir le HTML statique en cache.',
+        'install-guide.doc_only_web_server_reason' => 'Cette étape nécessite une configuration manuelle du serveur web.',
+    ], 'manual-step-copy-review', 'capell-installer');
+
+    try {
+        app()->setLocale('manual-step-copy-review');
+
+        expect($patch->label())->toBe('Configuration du serveur web')
+            ->and($patch->description())->toBe('Configurez votre serveur web pour servir le HTML statique en cache.')
+            ->and($patch->reason())->toBe('Cette étape nécessite une configuration manuelle du serveur web.');
+    } finally {
+        app()->setLocale($originalLocale);
+    }
 });
