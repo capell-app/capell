@@ -37,6 +37,32 @@ it('reads writes and backs up env files', function (): void {
     }
 });
 
+it('uses a distinct directory for backups created in the same second', function (): void {
+    Date::setTestNow('2026-06-12 10:11:12');
+    $path = tempnam(sys_get_temp_dir(), 'capell_env_concurrent_backup_');
+    file_put_contents($path, "APP_NAME=Capell\n");
+    $backupPaths = [];
+
+    try {
+        $editor = new EnvFileEditor($path);
+        $backupPaths[] = $editor->backup();
+        $backupPaths[] = $editor->backup();
+
+        expect($backupPaths[0])->not->toBe($backupPaths[1])
+            ->and(file_exists($backupPaths[0] . '/.env'))->toBeTrue()
+            ->and(file_exists($backupPaths[1] . '/.env'))->toBeTrue();
+    } finally {
+        Date::setTestNow();
+        foreach ($backupPaths as $backupPath) {
+            File::deleteDirectory($backupPath);
+        }
+
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
+});
+
 it('rejects missing env files', function (): void {
     expect(fn (): mixed => new EnvFileEditor(sys_get_temp_dir() . '/missing-capell-env-' . uniqid()))
         ->toThrow(RuntimeException::class, 'File does not exist at path');
