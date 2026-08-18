@@ -7,7 +7,6 @@ namespace Capell\Installer\Support\InstallGuide\Patches;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
-use Capell\Installer\Support\InstallGuide\Patches\Concerns\PatchesAdminPanelProvider;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\FuncCall;
@@ -21,13 +20,9 @@ use Throwable;
 
 class AdminPanelPluginPatch implements Patch
 {
-    use PatchesAdminPanelProvider;
-
-    private const string ADMIN_PANEL_PROVIDER_PATH = 'app/Providers/Filament/AdminPanelProvider.php';
-
-    private const string CLASS_NAME = 'AdminPanelProvider';
-
-    private const string PANEL_METHOD_NAME = 'panel';
+    public function __construct(
+        private readonly AdminPanelProviderPatcher $patcher = new AdminPanelProviderPatcher,
+    ) {}
 
     public function id(): string
     {
@@ -61,13 +56,7 @@ class AdminPanelPluginPatch implements Patch
 
     public function probe(): PatchStatus
     {
-        return $this->probePanelProvider(function (Node $stmt): PatchStatus {
-            if ($this->hasMethodCall($stmt, 'plugin') && $this->hasMethodCall($stmt, 'default')) {
-                return PatchStatus::AlreadyApplied;
-            }
-
-            return PatchStatus::Applicable;
-        });
+        return $this->patcher->probe($this->decide(...));
     }
 
     public function reason(): ?string
@@ -78,7 +67,8 @@ class AdminPanelPluginPatch implements Patch
     public function apply(): void
     {
         try {
-            $this->applyPanelProviderPatch(
+            $this->patcher->apply(
+                $this->decide(...),
                 function (Node $stmt): void {
                     $this->injectDefaultCall($stmt);
                     $this->injectPluginCall($stmt);
@@ -94,12 +84,21 @@ class AdminPanelPluginPatch implements Patch
         }
     }
 
+    private function decide(Node $stmt): PatchStatus
+    {
+        if ($this->patcher->hasMethodCall($stmt, 'plugin') && $this->patcher->hasMethodCall($stmt, 'default')) {
+            return PatchStatus::AlreadyApplied;
+        }
+
+        return PatchStatus::Applicable;
+    }
+
     /**
      * Inject ->plugin(CapellAdminPlugin::make()->discoverSchemas(...)) at the end of the chain.
      */
     private function injectPluginCall(Node $stmt): void
     {
-        if ($this->hasMethodCall($stmt, 'plugin')) {
+        if ($this->patcher->hasMethodCall($stmt, 'plugin')) {
             return;
         }
 
@@ -136,7 +135,7 @@ class AdminPanelPluginPatch implements Patch
             ],
         );
 
-        $this->appendMethodCall(
+        $this->patcher->appendMethodCall(
             $stmt,
             'plugin',
             [
@@ -147,10 +146,10 @@ class AdminPanelPluginPatch implements Patch
 
     private function injectDefaultCall(Node $stmt): void
     {
-        if ($this->hasMethodCall($stmt, 'default')) {
+        if ($this->patcher->hasMethodCall($stmt, 'default')) {
             return;
         }
 
-        $this->appendMethodCall($stmt, 'default');
+        $this->patcher->appendMethodCall($stmt, 'default');
     }
 }

@@ -6,7 +6,6 @@ namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
-use Capell\Installer\Support\InstallGuide\Patches\Concerns\PatchesAdminPanelProvider;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
@@ -16,15 +15,11 @@ use Throwable;
 
 class AdminPanelThemePatch implements Patch
 {
-    use PatchesAdminPanelProvider;
-
-    private const string ADMIN_PANEL_PROVIDER_PATH = 'app/Providers/Filament/AdminPanelProvider.php';
-
-    private const string CLASS_NAME = 'AdminPanelProvider';
-
-    private const string PANEL_METHOD_NAME = 'panel';
-
     private const string THEME_PATH = 'resources/css/filament/admin/theme.css';
+
+    public function __construct(
+        private readonly AdminPanelProviderPatcher $patcher = new AdminPanelProviderPatcher,
+    ) {}
 
     public function id(): string
     {
@@ -58,13 +53,7 @@ class AdminPanelThemePatch implements Patch
 
     public function probe(): PatchStatus
     {
-        return $this->probePanelProvider(function (Node $stmt): PatchStatus {
-            if ($this->hasThemeMethod($stmt)) {
-                return PatchStatus::AlreadyApplied;
-            }
-
-            return PatchStatus::Applicable;
-        });
+        return $this->patcher->probe($this->decide(...));
     }
 
     public function reason(): ?string
@@ -75,7 +64,7 @@ class AdminPanelThemePatch implements Patch
     public function apply(): void
     {
         try {
-            $this->applyPanelProviderPatch(function (Node $stmt): void {
+            $this->patcher->apply($this->decide(...), function (Node $stmt): void {
                 $this->injectViteThemeCall($stmt);
             });
         } catch (Throwable $throwable) {
@@ -87,13 +76,22 @@ class AdminPanelThemePatch implements Patch
         }
     }
 
+    private function decide(Node $stmt): PatchStatus
+    {
+        if ($this->hasThemeMethod($stmt)) {
+            return PatchStatus::AlreadyApplied;
+        }
+
+        return PatchStatus::Applicable;
+    }
+
     private function hasThemeMethod(Node $stmt): bool
     {
-        if ($this->hasMethodCall($stmt, 'viteTheme')) {
+        if ($this->patcher->hasMethodCall($stmt, 'viteTheme')) {
             return true;
         }
 
-        return $this->hasMethodCall($stmt, 'theme');
+        return $this->patcher->hasMethodCall($stmt, 'theme');
     }
 
     private function injectViteThemeCall(Node $stmt): void

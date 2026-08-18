@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Installer\Support\InstallGuide\Patches\Concerns;
+namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
@@ -14,18 +14,30 @@ use PhpParser\Node\Stmt\ClassMethod;
 use RuntimeException;
 use Throwable;
 
-trait PatchesAdminPanelProvider
+/**
+ * Shared AST chain-walking collaborator for the AdminPanelProvider patches.
+ * Rewrites the customer's own `panel()` method chain during install, so its
+ * probe/apply logic is deliberately its own tested surface rather than a
+ * trait exercised only indirectly through six concrete Patch classes.
+ */
+final class AdminPanelProviderPatcher
 {
-    private function probePanelProvider(callable $evaluate): PatchStatus
-    {
-        $adminPanelProviderPath = base_path(self::ADMIN_PANEL_PROVIDER_PATH);
+    public function __construct(
+        private readonly string $providerPath = 'app/Providers/Filament/AdminPanelProvider.php',
+        private readonly string $className = 'AdminPanelProvider',
+        private readonly string $panelMethodName = 'panel',
+    ) {}
 
-        if (! file_exists($adminPanelProviderPath)) {
+    public function probe(callable $decide): PatchStatus
+    {
+        $absolutePath = base_path($this->providerPath);
+
+        if (! file_exists($absolutePath)) {
             return PatchStatus::Unsupported;
         }
 
         try {
-            $panelMethodNode = $this->panelMethodNode(new PhpFileEditor($adminPanelProviderPath));
+            $panelMethodNode = $this->panelMethodNode(new PhpFileEditor($absolutePath));
 
             if (! $panelMethodNode instanceof ClassMethod) {
                 return PatchStatus::Unsupported;
@@ -40,7 +52,7 @@ trait PatchesAdminPanelProvider
                 return PatchStatus::Customised;
             }
 
-            $status = $evaluate($stmt);
+            $status = $decide($stmt);
 
             return $status instanceof PatchStatus ? $status : PatchStatus::Unsupported;
         } catch (RuntimeException|Throwable) {
@@ -52,22 +64,22 @@ trait PatchesAdminPanelProvider
      * @param  array<int, class-string>  $useStatements
      * @param  array<int, class-string>  $removeUseStatements
      */
-    private function applyPanelProviderPatch(callable $mutate, array $useStatements = [], array $removeUseStatements = []): void
+    public function apply(callable $decide, callable $mutate, array $useStatements = [], array $removeUseStatements = []): void
     {
-        $adminPanelProviderPath = base_path(self::ADMIN_PANEL_PROVIDER_PATH);
+        $absolutePath = base_path($this->providerPath);
 
         throw_unless(
-            file_exists($adminPanelProviderPath),
+            file_exists($absolutePath),
             RuntimeException::class,
-            'AdminPanelProvider not found at: ' . $adminPanelProviderPath,
+            'AdminPanelProvider not found at: ' . $absolutePath,
         );
 
-        $status = $this->probe();
+        $status = $this->probe($decide);
         if ($status !== PatchStatus::Applicable) {
             throw new RuntimeException('Cannot apply patch when status is: ' . $status->value);
         }
 
-        $editor = new PhpFileEditor($adminPanelProviderPath);
+        $editor = new PhpFileEditor($absolutePath);
         $editor->backup();
 
         if ($useStatements !== []) {
@@ -88,39 +100,12 @@ trait PatchesAdminPanelProvider
         $editor->save();
     }
 
-    private function panelMethodNode(PhpFileEditor $editor): ?ClassMethod
-    {
-        $classNode = $editor->findClass(self::CLASS_NAME);
-
-        if (! $classNode instanceof Class_) {
-            return null;
-        }
-
-        $panelMethodNode = $editor->findMethodInClass(self::CLASS_NAME, self::PANEL_METHOD_NAME);
-
-        return $panelMethodNode instanceof ClassMethod ? $panelMethodNode : null;
-    }
-
-    private function isStockMethodChain(Node $stmt): bool
-    {
-        if (! property_exists($stmt, 'expr') || ! $stmt->expr instanceof MethodCall) {
-            return false;
-        }
-
-        $methodCall = $stmt->expr;
-        while ($methodCall instanceof MethodCall) {
-            $methodCall = $methodCall->var;
-        }
-
-        return $methodCall instanceof Node;
-    }
-
-    private function hasMethodCall(Node $stmt, string $methodName): bool
+    public function hasMethodCall(Node $stmt, string $methodName): bool
     {
         return $this->findMethodCall($stmt, $methodName) instanceof MethodCall;
     }
 
-    private function findMethodCall(Node $stmt, string $methodName): ?MethodCall
+    public function findMethodCall(Node $stmt, string $methodName): ?MethodCall
     {
         if (! property_exists($stmt, 'expr') || ! $stmt->expr instanceof MethodCall) {
             return null;
@@ -138,19 +123,10 @@ trait PatchesAdminPanelProvider
         return null;
     }
 
-    private function methodName(MethodCall $methodCall): ?string
-    {
-        if ($methodCall->name instanceof Node && property_exists($methodCall->name, 'name')) {
-            return $methodCall->name->name;
-        }
-
-        return is_string($methodCall->name) ? $methodCall->name : null;
-    }
-
     /**
      * @param  array<int, Arg>  $args
      */
-    private function appendMethodCall(Node $stmt, string $methodName, array $args = []): void
+    public function appendMethodCall(Node $stmt, string $methodName, array $args = []): void
     {
         if (! property_exists($stmt, 'expr') || ! $stmt->expr instanceof MethodCall) {
             return;
@@ -159,7 +135,7 @@ trait PatchesAdminPanelProvider
         $stmt->expr = new MethodCall($stmt->expr, $methodName, $args);
     }
 
-    private function insertMethodCallAfter(Node $stmt, string $afterMethodName, callable $createMethodCall): void
+    public function insertMethodCallAfter(Node $stmt, string $afterMethodName, callable $createMethodCall): void
     {
         if (! property_exists($stmt, 'expr') || ! $stmt->expr instanceof MethodCall) {
             return;
@@ -192,6 +168,42 @@ trait PatchesAdminPanelProvider
         }
 
         $stmt->expr = $currentVar;
+    }
+
+    private function panelMethodNode(PhpFileEditor $editor): ?ClassMethod
+    {
+        $classNode = $editor->findClass($this->className);
+
+        if (! $classNode instanceof Class_) {
+            return null;
+        }
+
+        $panelMethodNode = $editor->findMethodInClass($this->className, $this->panelMethodName);
+
+        return $panelMethodNode instanceof ClassMethod ? $panelMethodNode : null;
+    }
+
+    private function isStockMethodChain(Node $stmt): bool
+    {
+        if (! property_exists($stmt, 'expr') || ! $stmt->expr instanceof MethodCall) {
+            return false;
+        }
+
+        $methodCall = $stmt->expr;
+        while ($methodCall instanceof MethodCall) {
+            $methodCall = $methodCall->var;
+        }
+
+        return $methodCall instanceof Node;
+    }
+
+    private function methodName(MethodCall $methodCall): ?string
+    {
+        if ($methodCall->name instanceof Node && property_exists($methodCall->name, 'name')) {
+            return $methodCall->name->name;
+        }
+
+        return is_string($methodCall->name) ? $methodCall->name : null;
     }
 
     /**
