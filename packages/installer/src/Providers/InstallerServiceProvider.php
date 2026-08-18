@@ -24,13 +24,11 @@ use Capell\Installer\Support\InstallGuide\Patches\AdminPanelNavigationPatch;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelPluginPatch;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelThemePatch;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelWidgetsPatch;
-use Capell\Installer\Support\InstallGuide\Patches\DocOnlyMediaLibraryPatch;
-use Capell\Installer\Support\InstallGuide\Patches\DocOnlyQueueWorkerPatch;
-use Capell\Installer\Support\InstallGuide\Patches\DocOnlyWebServerPatch;
 use Capell\Installer\Support\InstallGuide\Patches\EnvQueueConnectionPatch;
 use Capell\Installer\Support\InstallGuide\Patches\EnvSettingsCachePatch;
 use Capell\Installer\Support\InstallGuide\Patches\FilesystemsPageCacheDiskPatch;
 use Capell\Installer\Support\InstallGuide\Patches\LoggingCapellChannelPatch;
+use Capell\Installer\Support\InstallGuide\Patches\ManualStepPatch;
 use Capell\Installer\Support\InstallGuide\Patches\RemoveWelcomeRoutePatch;
 use Capell\Installer\Support\InstallGuide\Patches\ThemeSourcesPatch;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
@@ -157,9 +155,9 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         $registry->register(new EnvSettingsCachePatch);
         $registry->register(new FilesystemsPageCacheDiskPatch);
         $registry->register(new LoggingCapellChannelPatch);
-        $registry->register(new DocOnlyQueueWorkerPatch);
-        $registry->register(new DocOnlyWebServerPatch);
-        $registry->register(new DocOnlyMediaLibraryPatch);
+        $registry->register(ManualStepPatch::queueWorker());
+        $registry->register(ManualStepPatch::webServerConfig());
+        $registry->register(ManualStepPatch::mediaLibrary());
     }
 
     /**
