@@ -31,9 +31,8 @@ parameters:
         - ../packages/frontend/tests
         - ../packages/installer/tests
         - ../packages/marketplace/tests
-    # The root suite exercises these script-only classes, which live outside any
-    # analysed path; the full config scans them for the same reason.
+    # The root suite exercises this script-only class, which lives outside any
+    # analysed path; the full config scans it for the same reason.
     scanFiles:
-        - ../scripts/release/ReleaseEligibility.php
         - ../scripts/test-all/TestAllMatrix.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/tests
