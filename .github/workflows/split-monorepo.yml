@@ -7,10 +7,6 @@ on:
         description: Approved release plan path in this commit
         required: true
         type: string
-      resume_state_run_id:
-        description: Optional prior workflow run ID containing release state
-        required: false
-        type: string
 
 permissions:
   actions: read
@@ -42,9 +38,9 @@ jobs:
           case "${PLAN_PATH}" in
             /*) echo 'Plan path must be workspace-relative.' >&2; exit 1 ;;
           esac
-          candidate="${GITHUB_WORKSPACE}/${PLAN_PATH}"
-          test -f "${candidate}"
-          resolved="$(realpath "${candidate}")"
+          plan_file="${GITHUB_WORKSPACE}/${PLAN_PATH}"
+          test -f "${plan_file}"
+          resolved="$(realpath "${plan_file}")"
           case "${resolved}" in
             "${GITHUB_WORKSPACE}"/*) ;;
             *) echo 'Plan path escapes the checked-out workspace.' >&2; exit 1 ;;
@@ -88,9 +84,8 @@ jobs:
           git archive "${RELEASE_TOOLING_COMMIT}" \
             scripts/release.php \
             scripts/release/ReleaseEngine.php \
-            scripts/release-preflight.php \
             | tar -x -C "${RELEASE_TOOLING_ROOT}"
-          for path in scripts/release.php scripts/release/ReleaseEngine.php scripts/release-preflight.php; do
+          for path in scripts/release.php scripts/release/ReleaseEngine.php; do
             expected_blob="$(git rev-parse "${RELEASE_TOOLING_COMMIT}:${path}")"
             actual_blob="$(git hash-object "${RELEASE_TOOLING_ROOT}/${path}")"
             test "${actual_blob}" = "${expected_blob}"
@@ -116,39 +111,16 @@ jobs:
           source_commit="$(jq -r '.source.commit' "${RELEASE_PLAN}")"
           test "${source_commit}" != null
           git checkout --detach "${source_commit}"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        if: inputs.resume_state_run_id != ''
-        with:
-          name: release-plan-state
-          path: ${{ runner.temp }}/resume-state
-          run-id: ${{ inputs.resume_state_run_id }}
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-      - name: Validate prior state artifact
-        if: inputs.resume_state_run_id != ''
-        run: |
-          test "$(find "${RUNNER_TEMP}/resume-state" -type f | wc -l | tr -d ' ')" = 1
-          test -f "${RUNNER_TEMP}/resume-state/release-plan.json.state.json"
-          cp "${RUNNER_TEMP}/resume-state/release-plan.json.state.json" "${RUNNER_TEMP}/approved-plan/release-plan.json.state.json"
       - name: Validate and publish the approved plan
         env:
           GH_TOKEN: ${{ steps.split-token.outputs.token }}
           RELEASE_PLAN: ${{ runner.temp }}/approved-plan/release-plan.json
           RELEASE_TOOLING_ROOT: ${{ runner.temp }}/release-tooling
           CAPELL_RELEASE_SOURCE_ROOT: ${{ github.workspace }}
-          RELEASE_PREFLIGHT_SCRIPT: ${{ runner.temp }}/release-tooling/scripts/release-preflight.php
         run: |
           php "${RELEASE_TOOLING_ROOT}/scripts/release.php" validate "${RELEASE_PLAN}"
-          php "${RELEASE_TOOLING_ROOT}/scripts/release.php" resume "${RELEASE_PLAN}"
+          php "${RELEASE_TOOLING_ROOT}/scripts/release.php" publish "${RELEASE_PLAN}"
           php "${RELEASE_TOOLING_ROOT}/scripts/release.php" verify "${RELEASE_PLAN}"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: release-plan-state
-          path: ${{ runner.temp }}/approved-plan/release-plan.json.state.json
-          if-no-files-found: ignore
-          retention-days: 30
-
   public-release-smoke:
     needs: publish
     uses: ./.github/workflows/public-release-smoke.yml

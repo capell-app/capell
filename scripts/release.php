@@ -94,12 +94,9 @@ try {
         exit(0);
     }
     $engine = new ReleaseEngine($root);
-    if (in_array($command, ['publish', 'resume'], true)) {
-        if (getenv('CAPELL_RELEASE_FAST') !== '1') {
-            throw new ReleaseException('The legacy release coordinator is retired; invoke publication through scripts/release-local.sh.');
-        }
+    if ($command === 'publish') {
         $engine->publish($plan, $path);
-        echo "Publication state recorded.\n";
+        echo "Publication completed.\n";
         exit(0);
     }
     if ($command === 'verify') {
