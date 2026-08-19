@@ -25,12 +25,31 @@
 # rather than a symlink, because npm ci deletes the directory before installing
 # and would take the primary checkout's copy with it.
 #
-# Usage:  bash scripts/init-worktree.sh [--force]
+# It is HOST-ONLY. The symlinks it creates are host-absolute, so the result
+# cannot resolve inside this repo's Docker container, which mounts the worktree
+# at /home/capell/current and does not mount the primary checkout. If you run
+# tooling through ./capell, run a real `./capell composer install` instead; this
+# script refuses to build a container-unusable vendor/ unless you pass
+# --host-only.
+#
+# Usage:  bash scripts/init-worktree.sh [--force] [--host-only]
 
 set -euo pipefail
 
 FORCE=0
-[ "${1:-}" = "--force" ] && FORCE=1
+HOST_ONLY=0
+
+for arg in "$@"; do
+    case "$arg" in
+        --force) FORCE=1 ;;
+        --host-only) HOST_ONLY=1 ;;
+        *)
+            echo "Unknown option: $arg" >&2
+            echo "Usage: bash scripts/init-worktree.sh [--force] [--host-only]" >&2
+            exit 2
+            ;;
+    esac
+done
 
 WORKTREE_ROOT=$(git rev-parse --show-toplevel)
 GIT_COMMON_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
@@ -48,6 +67,44 @@ if [ ! -d "$PRIMARY_ROOT/vendor/composer" ]; then
 fi
 
 cd "$WORKTREE_ROOT"
+
+# ---------------------------------------------------------------------------
+# Docker. The hybrid vendor/ is built from HOST-ABSOLUTE symlinks pointing at
+# the primary checkout (/Users/... on macOS). The container bind-mounts this
+# worktree at a different path entirely (/home/capell/current), and nothing
+# mounts the primary checkout, so every one of those symlinks dangles inside
+# the container. PHP does not report a missing symlink target as a missing
+# package: it reports a fatal on the first require of a dangling path, e.g.
+#
+#   require(.../symfony/deprecation-contracts/function.php): Failed to open stream
+#
+# which reads like a corrupt install rather than a wrong-tree layout, and it
+# happens before a single test runs. Refuse up front, while vendor/ does not
+# exist yet, rather than build something that only works on the host.
+# ---------------------------------------------------------------------------
+if [ "$HOST_ONLY" -ne 1 ] && [ -f docker-compose.yml ] && grep -q '\./\?:/home/capell/current' docker-compose.yml; then
+    cat >&2 <<'EOF'
+REFUSING: this repository runs its PHP tooling inside Docker.
+
+scripts/init-worktree.sh builds vendor/ from host-absolute symlinks into the
+primary checkout. The container mounts this worktree at /home/capell/current
+and does not mount the primary checkout at all, so those symlinks dangle and
+PHP fails with a "Failed to open stream" fatal on the first require — before
+any test runs.
+
+Do this instead, in this worktree:
+
+    ./capell up
+    ./capell composer install
+
+That is a real, self-contained vendor/ that works in the container. With a warm
+Composer cache it takes well under two minutes.
+
+If you genuinely intend to run PHP on the HOST and never in the container,
+re-run with --host-only. The resulting vendor/ will NOT work under ./capell.
+EOF
+    exit 1
+fi
 
 if [ -e vendor ]; then
     if [ "$FORCE" -eq 1 ]; then
@@ -201,7 +258,11 @@ fi
 
 cat <<'EOF'
 
-Done. Remember that this repo's tooling needs an explicit memory limit:
+Done. This vendor/ is HOST-ONLY: its package symlinks are host-absolute and do
+not resolve inside the ./capell container. Run `./capell composer install` in
+this worktree if you need to run tooling in Docker.
+
+Remember that this repo's tooling needs an explicit memory limit:
 
   composer test:unit
   php -d memory_limit=1G vendor/bin/pest --compact --configuration=phpunit.xml <path>

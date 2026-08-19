@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Contracts\StaticErrorPageStore;
-use Capell\Frontend\Support\Error\ErrorPageManifestStore;
+use Capell\Frontend\Enums\StaticErrorPageResolutionReason;
+use Capell\Frontend\Support\Error\StaticErrorPageMatcher;
+use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -18,42 +20,37 @@ final class ResolveStaticErrorPageAction
     use AsObject;
 
     public function __construct(
-        private readonly ErrorPageManifestStore $manifestStore,
+        private readonly StaticErrorPageMatcher $matcher,
     ) {}
 
     public function handle(string $scheme, string $host, string $pathInfo, string $status): ?string
     {
         if (! app()->bound(StaticErrorPageStore::class)) {
-            return null;
+            return $this->fail(StaticErrorPageResolutionReason::StoreUnbound, $scheme, $host, $pathInfo, $status, 0);
         }
 
-        $requestPath = $this->normalizePath($pathInfo);
-        $normalizedHost = strtolower($host);
-        $normalizedScheme = strtolower($scheme);
+        $entries = $this->matcher->entries();
+
+        if ($entries === []) {
+            return $this->fail(StaticErrorPageResolutionReason::ManifestEmpty, $scheme, $host, $pathInfo, $status, 0);
+        }
 
         $bestEntry = null;
         $bestMatchLength = -1;
+        $closestRejection = null;
 
-        foreach ($this->flattenEntries() as $entry) {
-            if (strtolower((string) ($entry['scheme'] ?? '')) !== $normalizedScheme) {
+        foreach ($entries as $entry) {
+            $rejection = $this->matcher->reject($entry, $scheme, $host, $pathInfo, $status);
+
+            if ($rejection instanceof StaticErrorPageResolutionReason) {
+                if ($closestRejection === null || $rejection->specificity() > $closestRejection->specificity()) {
+                    $closestRejection = $rejection;
+                }
+
                 continue;
             }
 
-            if (strtolower((string) ($entry['domain'] ?? '')) !== $normalizedHost) {
-                continue;
-            }
-
-            if ((string) ($entry['status'] ?? '') !== $status) {
-                continue;
-            }
-
-            $entryPath = $this->normalizePath($entry['path'] ?? '/');
-
-            if ($entryPath !== '/' && $requestPath !== $entryPath && ! str_starts_with($requestPath, rtrim($entryPath, '/') . '/')) {
-                continue;
-            }
-
-            $matchLength = strlen($entryPath);
+            $matchLength = $this->matcher->matchLength($this->matcher->entryPath($entry));
 
             if ($matchLength > $bestMatchLength) {
                 $bestEntry = $entry;
@@ -62,47 +59,59 @@ final class ResolveStaticErrorPageAction
         }
 
         if ($bestEntry === null) {
-            return null;
+            return $this->fail(
+                $closestRejection ?? StaticErrorPageResolutionReason::ManifestEmpty,
+                $scheme,
+                $host,
+                $pathInfo,
+                $status,
+                count($entries),
+            );
         }
 
-        $path = resolve(StaticErrorPageStore::class)->path((string) ($bestEntry['file'] ?? ''));
+        $path = resolve(StaticErrorPageStore::class)->path($this->matcher->entryFile($bestEntry));
 
-        if ($path === null || ! is_file($path)) {
-            return null;
+        if ($path === null) {
+            return $this->fail(StaticErrorPageResolutionReason::FileUnresolved, $scheme, $host, $pathInfo, $status, count($entries));
+        }
+
+        if (! is_file($path)) {
+            return $this->fail(StaticErrorPageResolutionReason::FileMissing, $scheme, $host, $pathInfo, $status, count($entries));
         }
 
         $contents = file_get_contents($path);
 
-        return $contents === false ? null : $contents;
-    }
-
-    /** @return array<int, array<string, mixed>> */
-    private function flattenEntries(): array
-    {
-        $manifest = $this->manifestStore->read();
-        $entries = [];
-
-        foreach (($manifest['sites'] ?? []) as $site) {
-            if (! is_array($site)) {
-                continue;
-            }
-
-            foreach (($site['entries'] ?? []) as $entry) {
-                if (is_array($entry)) {
-                    $entries[] = $entry;
-                }
-            }
+        if ($contents === false) {
+            return $this->fail(StaticErrorPageResolutionReason::FileUnreadable, $scheme, $host, $pathInfo, $status, count($entries));
         }
 
-        return $entries;
+        return $contents;
     }
 
-    private function normalizePath(mixed $path): string
-    {
-        if (! is_string($path) || $path === '') {
-            return '/';
-        }
+    /**
+     * Record why the resolution failed, then preserve the `?string` contract.
+     *
+     * Debug level and limited to the four inputs plus a coded reason: no file
+     * contents, no signed URLs, no authoring state. The happy path never
+     * reaches here, so a successful resolution logs nothing at all.
+     */
+    private function fail(
+        StaticErrorPageResolutionReason $reason,
+        string $scheme,
+        string $host,
+        string $pathInfo,
+        string $status,
+        int $entriesConsidered,
+    ): null {
+        Log::debug('Static error page did not resolve.', [
+            'scheme' => $scheme,
+            'host' => $host,
+            'path' => $pathInfo,
+            'status' => $status,
+            'reason' => $reason->value,
+            'entries_considered' => $entriesConsidered,
+        ]);
 
-        return '/' . trim($path, '/');
+        return null;
     }
 }

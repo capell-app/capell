@@ -10,13 +10,63 @@ every checkout.
 git worktree add ../capell-4-my-feature -b feature/my-feature
 ```
 
+## First: are you running PHP on the host, or in Docker?
+
+This decides how you provision `vendor/`, and getting it wrong costs you a session.
+
+- **Tooling through `./capell` (Docker)** — the normal case in this repo. Do a real
+  install in the worktree. See [Docker worktrees](#docker-worktrees) below.
+- **PHP on the host** — use the fast hybrid `vendor/` from
+  `scripts/init-worktree.sh`. See [Give the worktree a vendor/ in seconds](#give-the-worktree-a-vendor-in-seconds).
+
+## Docker worktrees
+
+`scripts/init-worktree.sh` builds `vendor/` out of **host-absolute** symlinks into the
+primary checkout (`/Users/...` on macOS). The container never sees those paths:
+`docker-compose.yml` bind-mounts the worktree at `/home/capell/current`, and it does not
+mount the primary checkout at all. Every symlinked package therefore dangles inside the
+container.
+
+PHP does not report that as a missing package. It reports a fatal on the first `require`
+of a dangling path, before a single test runs:
+
+```
+require(/Users/.../vendor/symfony/deprecation-contracts/function.php): Failed to open stream
+```
+
+which reads like a corrupt install rather than a wrong-tree layout. That misdiagnosis cost
+one agent session 6 of its 21 commands.
+
+Do this instead, in the worktree:
+
+```bash
+./capell up
+./capell composer install
+```
+
+`./capell` derives a per-worktree Compose project from the directory name, so this stack
+is isolated from the primary checkout's. The install is a real, self-contained `vendor/`
+that resolves inside the container, and with a warm Composer cache it is not slow — a
+measured cold-worktree run on 2026-08-19 took **41 seconds**, plus a few seconds for
+`./capell up`.
+
+`scripts/init-worktree.sh` now detects this repo's Docker harness and refuses to run,
+naming that remedy, rather than leaving a `vendor/` that only works on the host. Pass
+`--host-only` to override it if you really do run PHP on the host and never through
+`./capell`.
+
+Remember to `./capell down` when the worktree is idle. Parallel worktree stacks compound.
+
 ## Give the worktree a vendor/ in seconds
+
+**Host-only.** See [Docker worktrees](#docker-worktrees) first if you run tooling through
+`./capell`.
 
 A fresh worktree has no `vendor/`, and a full `composer install` costs several minutes
 and about 1.5 GB. Run this instead:
 
 ```bash
-bash scripts/init-worktree.sh
+bash scripts/init-worktree.sh --host-only
 ```
 
 It completes in under ten seconds, uses about 75 MB, verifies itself, and refuses to
@@ -103,8 +153,18 @@ it.
 
 ## Running tests in a worktree
 
-Identical to the primary checkout, but note that this repo's tooling needs an explicit
-memory limit — PHP's 128 MB default causes a fatal that looks like a broken setup:
+In a Docker worktree, run them through the wrapper, which supplies the testing
+environment the package database guard requires:
+
+```bash
+./capell pest packages/frontend/tests/Feature/SomeTest.php --configuration=phpunit.xml --compact
+```
+
+`./capell exec vendor/bin/pest ...` skips that environment and fails with
+`Refusing to run Capell package Pest tests against database [capell_4]`.
+
+On the host it is identical to the primary checkout, but note that this repo's tooling
+needs an explicit memory limit — PHP's 128 MB default causes a fatal that looks like a broken setup:
 
 ```bash
 composer test:unit

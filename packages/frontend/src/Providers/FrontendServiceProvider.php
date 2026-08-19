@@ -25,6 +25,7 @@ use Capell\Frontend\Actions\Fragments\ResolvePublicFragmentContentVersionAction;
 use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
 use Capell\Frontend\Actions\WarmCriticalFrontendPagesAction;
 use Capell\Frontend\Console\Commands\AfterInstallCommand;
+use Capell\Frontend\Console\Commands\DiagnoseErrorPagesCommand;
 use Capell\Frontend\Console\Commands\GenerateErrorPagesCommand;
 use Capell\Frontend\Console\Commands\GenerateHtmlCommand;
 use Capell\Frontend\Console\Commands\GenerateTailwindAssetsCommand;
@@ -359,6 +360,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                 GenerateTailwindAssetsCommand::class,
                 GenerateHtmlCommand::class,
                 GenerateErrorPagesCommand::class,
+                DiagnoseErrorPagesCommand::class,
                 InvalidateDueScheduledPublicationCachesCommand::class,
             ])
             ->hasConfigFile()

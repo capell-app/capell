@@ -6,6 +6,7 @@ use Capell\Frontend\Actions\ResolveStaticErrorPageAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 /**
  * In-memory fake store backed by a temp dir on disk.
@@ -195,4 +196,91 @@ it('returns null when the manifest entry file is missing on disk', function (): 
     ]);
 
     expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/', '404'))->toBeNull();
+});
+
+it('records the rejecting predicate at debug level when the host does not match', function (): void {
+    $this->store = makeStaticErrorPageStore();
+    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+
+    app()->instance(StaticErrorPageStore::class, $this->store);
+
+    resolve(ErrorPageManifestStore::class)->write([
+        'sites' => [
+            '1' => ['entries' => [[
+                'scheme' => 'https',
+                'domain' => 'example.test',
+                'path' => '/',
+                'status' => '404',
+                'file' => 'error/https.example.test/404/index.html',
+            ]]],
+        ],
+    ]);
+
+    Log::shouldReceive('debug')
+        ->once()
+        ->withArgs(fn (string $message, array $context): bool => $message === 'Static error page did not resolve.'
+                && $context['reason'] === 'domain_mismatch'
+                && $context['scheme'] === 'https'
+                && $context['host'] === 'other.test'
+                && $context['path'] === '/'
+                && $context['status'] === '404'
+                && $context['entries_considered'] === 1);
+
+    expect(ResolveStaticErrorPageAction::run('https', 'other.test', '/', '404'))->toBeNull();
+});
+
+it('records store_unbound when no static error page store is bound', function (): void {
+    app()->forgetInstance(StaticErrorPageStore::class);
+
+    Log::shouldReceive('debug')
+        ->once()
+        ->withArgs(fn (string $message, array $context): bool => $context['reason'] === 'store_unbound');
+
+    expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/', '404'))->toBeNull();
+});
+
+it('records file_missing when the matched entry has no file on disk', function (): void {
+    $this->store = makeStaticErrorPageStore();
+    app()->instance(StaticErrorPageStore::class, $this->store);
+
+    resolve(ErrorPageManifestStore::class)->write([
+        'sites' => [
+            '1' => ['entries' => [[
+                'scheme' => 'https',
+                'domain' => 'example.test',
+                'path' => '/',
+                'status' => '404',
+                'file' => 'error/https.example.test/404/index.html',
+            ]]],
+        ],
+    ]);
+
+    Log::shouldReceive('debug')
+        ->once()
+        ->withArgs(fn (string $message, array $context): bool => $context['reason'] === 'file_missing');
+
+    expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/', '404'))->toBeNull();
+});
+
+it('logs nothing on the happy path', function (): void {
+    $this->store = makeStaticErrorPageStore();
+    $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+
+    app()->instance(StaticErrorPageStore::class, $this->store);
+
+    resolve(ErrorPageManifestStore::class)->write([
+        'sites' => [
+            '1' => ['entries' => [[
+                'scheme' => 'https',
+                'domain' => 'example.test',
+                'path' => '/',
+                'status' => '404',
+                'file' => 'error/https.example.test/404/index.html',
+            ]]],
+        ],
+    ]);
+
+    Log::shouldReceive('debug')->never();
+
+    expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/', '404'))->toBe('<h1>Not found</h1>');
 });
