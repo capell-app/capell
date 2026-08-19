@@ -110,15 +110,29 @@ class RegenerateSiteErrorPagesAction
             return $this->fingerprint->current($site);
         } catch (Throwable $throwable) {
             // A fingerprint that cannot be computed must never suppress or
-            // break regeneration; fall back to always rendering, but say so:
-            // silent degradation here is exactly the per-hit re-render this
-            // gate exists to prevent.
-            Log::debug('capell: error page fingerprint unavailable', [
-                'site_id' => (int) $site->getKey(),
-                'exception' => $throwable->getMessage(),
-            ]);
+            // break regeneration, so this falls back to always rendering — but
+            // it says so at warning level, because that fallback silently
+            // restores the per-hit re-render the gate exists to prevent. The
+            // warning is rate-limited per site so the flood it reports cannot
+            // become a log flood; with a non-persistent cache it degrades to
+            // once per process, never to silence.
+            if ($this->shouldWarnAboutFingerprint((int) $site->getKey())) {
+                Log::warning('capell: error page regeneration fingerprint unavailable, falling back to unconditional rendering', [
+                    'site_id' => (int) $site->getKey(),
+                    'exception' => $throwable->getMessage(),
+                ]);
+            }
 
             return null;
+        }
+    }
+
+    private function shouldWarnAboutFingerprint(int $siteId): bool
+    {
+        try {
+            return Cache::add('capell.error-pages.fingerprint-warned:' . $siteId, true, 300);
+        } catch (Throwable) {
+            return true;
         }
     }
 
