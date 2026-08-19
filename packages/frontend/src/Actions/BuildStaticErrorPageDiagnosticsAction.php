@@ -62,7 +62,7 @@ final class BuildStaticErrorPageDiagnosticsAction
             );
 
             if ($rejection instanceof StaticErrorPageResolutionReason) {
-                if ($closestRejection === null || $rejection->specificity() > $closestRejection->specificity()) {
+                if (! $closestRejection instanceof StaticErrorPageResolutionReason || $rejection->specificity() > $closestRejection->specificity()) {
                     $closestRejection = $rejection;
                 }
 

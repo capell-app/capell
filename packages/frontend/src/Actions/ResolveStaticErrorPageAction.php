@@ -43,7 +43,7 @@ final class ResolveStaticErrorPageAction
             $rejection = $this->matcher->reject($entry, $scheme, $host, $pathInfo, $status);
 
             if ($rejection instanceof StaticErrorPageResolutionReason) {
-                if ($closestRejection === null || $rejection->specificity() > $closestRejection->specificity()) {
+                if (! $closestRejection instanceof StaticErrorPageResolutionReason || $rejection->specificity() > $closestRejection->specificity()) {
                     $closestRejection = $rejection;
                 }
 

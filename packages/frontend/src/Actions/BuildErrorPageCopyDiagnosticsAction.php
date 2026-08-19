@@ -7,6 +7,7 @@ namespace Capell\Frontend\Actions;
 use Capell\Frontend\Data\ErrorPageCopyDiagnosticsData;
 use Capell\Frontend\Data\ErrorPageCopySourceData;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -281,6 +282,6 @@ final class BuildErrorPageCopyDiagnosticsAction
 
         $timestamp = File::lastModified($path);
 
-        return date(DATE_ATOM, $timestamp);
+        return Date::createFromTimestamp($timestamp)->format(DATE_ATOM);
     }
 }

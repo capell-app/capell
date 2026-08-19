@@ -10,6 +10,7 @@ use Capell\Frontend\Data\ErrorPageCopyDiagnosticsData;
 use Capell\Frontend\Data\ErrorPageCopySourceData;
 use Capell\Frontend\Data\StaticErrorPageCandidateData;
 use Capell\Frontend\Data\StaticErrorPageDiagnosticsData;
+use Capell\Frontend\Enums\StaticErrorPageResolutionReason;
 use Illuminate\Console\Command;
 use Illuminate\Http\Request;
 
@@ -49,7 +50,7 @@ final class DiagnoseErrorPagesCommand extends Command
         $copy = BuildErrorPageCopyDiagnosticsAction::run($request->getHost(), $status);
 
         if ($this->option('json') === true) {
-            $this->line((string) json_encode([
+            $this->line(json_encode([
                 'static' => $static->toArray(),
                 'copy' => $copy->toArray(),
             ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
@@ -118,7 +119,7 @@ final class DiagnoseErrorPagesCommand extends Command
 
     private function candidateOutcome(StaticErrorPageCandidateData $candidate): string
     {
-        if ($candidate->rejectedBy !== null) {
+        if ($candidate->rejectedBy instanceof StaticErrorPageResolutionReason) {
             return $candidate->rejectedBy->value;
         }
 

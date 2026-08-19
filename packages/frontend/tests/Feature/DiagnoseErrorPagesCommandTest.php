@@ -79,6 +79,7 @@ afterEach(function (): void {
 it('names the domain predicate that rejected the entry, with expected and actual', function (): void {
     $this->store = new DiagnoseErrorPagesTestStore;
     $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+
     app()->instance(StaticErrorPageStore::class, $this->store);
 
     diagnoseWriteManifest([diagnoseEntry()]);
@@ -103,6 +104,7 @@ it('names the domain predicate that rejected the entry, with expected and actual
 it('reports the resolved file path and that it exists for a matching entry', function (): void {
     $this->store = new DiagnoseErrorPagesTestStore;
     $this->store->put('error/https.example.test/404/index.html', '<h1>Not found</h1>');
+
     app()->instance(StaticErrorPageStore::class, $this->store);
 
     diagnoseWriteManifest([diagnoseEntry()]);
