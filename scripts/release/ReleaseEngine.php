@@ -640,7 +640,7 @@ final class ReleaseEngine
             $localSourceTagSha = $localSourceTagSha === '' ? null : $localSourceTagSha;
             $sourceLine = $this->optional(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $sourceTag]);
             $sourceTagSha = $sourceLine === null || $sourceLine === '' ? null : strtok($sourceLine, "\t ");
-            if (($localSourceTagSha !== null && $localSourceTagSha !== $plan['source']['commit']) || ($sourceTagSha !== null && $sourceTagSha !== $plan['source']['commit'])) {
+            if (! $fastRelease && (($localSourceTagSha !== null && $localSourceTagSha !== $plan['source']['commit']) || ($sourceTagSha !== null && $sourceTagSha !== $plan['source']['commit']))) {
                 throw new ReleaseException(sprintf('Existing source tag %s does not match the planned source commit.', $sourceTag));
             }
 
