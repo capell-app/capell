@@ -7,12 +7,13 @@ uncommitted edits and staging, but deleting or moving a shared branch ref still 
 every checkout.
 
 Worktrees live outside the checkout, in the shared `.capell-wt` root beside the
-repositories (locally `~/Sites/.capell-wt`). Never create one inside the
-repository — an in-tree worktree is deleted by `git clean -fdx` run in the
-primary checkout, and every tree-wide scan then walks two copies of the source.
+repositories — `../.capell-wt` relative to this repository. Never create one
+inside the repository — an in-tree worktree is deleted by `git clean -fdx` run
+in the primary checkout, and every tree-wide scan then walks two copies of the
+source.
 
 ```bash
-git worktree add ~/Sites/.capell-wt/core-my-feature -b feature/my-feature
+git worktree add ../.capell-wt/core-my-feature -b feature/my-feature
 ```
 
 ## First: are you running PHP on the host, or in Docker?

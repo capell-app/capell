@@ -12,8 +12,8 @@
 
 ## File Map
 
-Core Admin files are changed in `/Users/ben/Sites/packages/capell/capell-4`.
-Layout Builder files are changed in `/Users/ben/Sites/packages/capell/capell-packages-4`.
+Core Admin files are changed in this repository.
+Layout Builder files are changed in the sibling `../capell-packages-4` checkout.
 
 - Create `packages/admin/src/Data/RecordStateData.php`: immutable state chip data with stable key, translated labels, description, icon, colour, and priority.
 - Create `packages/admin/src/Data/RecordRelationshipCountData.php`: bounded relationship-count data with label, count, link, and authority wording.
@@ -320,17 +320,17 @@ Layout Builder files are changed in `/Users/ben/Sites/packages/capell/capell-pac
 
 **Files:**
 
-- Modify: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/composer.json`
-- Modify: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/Pages/EditWidget.php`
-- Modify: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetsTable.php`
-- Modify: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetSelectionTable.php`
-- Modify: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetAssetsTable.php`
-- Modify: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/RelationManagers/LayoutsRelationManager.php`
-- Modify: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/RelationManagers/WidgetAssetsRelationManager.php`
-- Create: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/src/Actions/BuildWidgetRelationshipCountsAction.php`
-- Create: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/src/Data/WidgetRelationshipCountsData.php`
-- Test: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php`
-- Create: `/Users/ben/Sites/packages/capell/capell-packages-4/packages/layout-builder/tests/Feature/Filament/WidgetRecordStateContractTest.php`
+- Modify: `../capell-packages-4/packages/layout-builder/composer.json`
+- Modify: `../capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/Pages/EditWidget.php`
+- Modify: `../capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetsTable.php`
+- Modify: `../capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetSelectionTable.php`
+- Modify: `../capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/Tables/WidgetAssetsTable.php`
+- Modify: `../capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/RelationManagers/LayoutsRelationManager.php`
+- Modify: `../capell-packages-4/packages/layout-builder/src/Filament/Resources/Widgets/RelationManagers/WidgetAssetsRelationManager.php`
+- Create: `../capell-packages-4/packages/layout-builder/src/Actions/BuildWidgetRelationshipCountsAction.php`
+- Create: `../capell-packages-4/packages/layout-builder/src/Data/WidgetRelationshipCountsData.php`
+- Test: `../capell-packages-4/packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php`
+- Create: `../capell-packages-4/packages/layout-builder/tests/Feature/Filament/WidgetRecordStateContractTest.php`
 
 - [ ] **Step 1: Write failing package adoption tests**
 
@@ -363,21 +363,21 @@ Layout Builder files are changed in `/Users/ben/Sites/packages/capell/capell-pac
 
   ```bash
   ./vendor/bin/pest packages/layout-builder/tests/Feature/Filament/Resources/Widget/Pages/EditWidgetTest.php packages/layout-builder/tests/Feature/Filament/WidgetRecordStateContractTest.php --configuration=phpunit.xml
-  composer --working-dir=/Users/ben/Sites/packages/capell/capell-packages-4 lint
+  composer --working-dir=../capell-packages-4 lint
   ```
 
   Expected: focused tests, formatting, and the dependency contract pass.
 
   ```bash
-  git -C /Users/ben/Sites/packages/capell/capell-packages-4 add packages/layout-builder/composer.json packages/layout-builder/src packages/layout-builder/tests
-  git -C /Users/ben/Sites/packages/capell/capell-packages-4 commit -m "feat(layout-builder): surface widget usage states"
+  git -C ../capell-packages-4 add packages/layout-builder/composer.json packages/layout-builder/src packages/layout-builder/tests
+  git -C ../capell-packages-4 commit -m "feat(layout-builder): surface widget usage states"
   ```
 
 ### Task 8: Verify the integrated slice and update project evidence
 
 **Files:**
 
-- Modify: `/Users/ben/Sites/internal-ledger/projects/capell/TODO.md` only through the ledger workflow
+- Modify: the internal ledger's `projects/capell/TODO.md` only through the ledger workflow
 - Verify: all files changed in Tasks 1–7
 
 - [ ] **Step 1: Run focused Admin verification**
@@ -403,7 +403,7 @@ Layout Builder files are changed in `/Users/ben/Sites/packages/capell/capell-pac
   ```bash
   composer lint
   composer analyze
-  composer -d /Users/ben/Sites/packages/capell/capell-packages-4 lint
+  composer -d ../capell-packages-4 lint
   ```
 
   Expected: changed-code formatting and PHPStan checks pass. Full repository
