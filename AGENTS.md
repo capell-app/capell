@@ -135,6 +135,11 @@ source, and hosted failures separately rather than skipping or baselining them.
 
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
   PHP as release evidence.
+- Create worktrees OUTSIDE the checkout, in the shared sibling root
+  `../.capell-wt` (locally `~/Sites/.capell-wt`), never in an in-tree path such
+  as `.worktrees/`. A nested worktree sits inside the blast radius of
+  `git clean -fdx` and of every tree-wide scan run in the primary checkout, and
+  it doubles the source tree that tooling walks.
 - In a worktree, run `bash scripts/init-worktree.sh`. Never symlink `vendor/` or
   `vendor/composer/`: Composer then resolves Capell classes from the primary
   checkout and green tests exercise the wrong source. Verify a changed class with
