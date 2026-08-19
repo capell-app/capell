@@ -47,10 +47,10 @@ it('rejects self versions and legacy Capell constraints', function (array $manif
     [['require' => ['capell-app/core' => '0.0.*']]],
 ])->throws(ReleaseException::class);
 
-it('accepts a stable v1 internal minimum', function (): void {
-    (new PlanValidator)->validateManifest(['require' => ['capell-app/core' => '^1.0']]);
+it('accepts a stable v1 internal minimum', function (string $constraint): void {
+    (new PlanValidator)->validateManifest(['require' => ['capell-app/core' => $constraint]]);
     expect(true)->toBeTrue();
-});
+})->with(['^1.0', '^1.0.34']);
 
 it('requires the plan ledger to exactly match the declared release package inventory', function (array $definitions): void {
     $plan = releaseEnginePlan(str_repeat('a', 40), str_repeat('b', 40));
