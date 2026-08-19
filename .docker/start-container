@@ -19,12 +19,21 @@ function trust_git_directory {
     gosu "$user" git config --global --add safe.directory "$directory" 2>/dev/null || true
 }
 
+# Only container-visible repository paths are trusted. Host-absolute paths were
+# trusted here historically and are redundant: every dubious-ownership failure
+# git raises names /home/capell/current, never a host path, so the entry below
+# is the one doing the work.
+#
+# These three entries are REQUIRED — do not conclude from one passing run that
+# git needs no trust list. VirtioFS presents /home/capell/current as 0:0 or
+# 1000:1000 non-deterministically across container starts; measured over six
+# starts with the trust list disabled, git failed five times with
+# "detected dubious ownership" and succeeded once, tracking that ownership
+# exactly. With these three entries and no host paths, six of six starts pass.
 for user in root capell; do
     trust_git_directory "$user" /home/capell/current
     trust_git_directory "$user" /home/capell/packages/capell/capell-4
     trust_git_directory "$user" /home/capell/packages/capell/capell-packages-4
-    trust_git_directory "$user" /Users/ben/Sites/packages/capell/capell-4
-    trust_git_directory "$user" /Users/ben/Sites/packages/capell/capell-packages-4
 done
 
 mkdir -p /home/capell/.config/composer /home/capell/.npm /home/capell/current/var

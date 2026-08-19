@@ -21,7 +21,7 @@ task-owned changes.
 
 ## File Map
 
-Core/Admin changes live in `/Users/ben/Sites/packages/capell/capell-4`.
+Core/Admin changes live in this repository.
 
 - Create `packages/admin/src/Data/RecordDeletionImpactData.php`: immutable copy-ready summary of known direct dependencies, authority, and optional view-uses URL.
 - Create `packages/admin/src/Actions/Pages/BuildPageDeletionImpactAction.php` and `packages/admin/src/Actions/Layouts/BuildLayoutDeletionImpactAction.php`: build only the bounded facts that the existing delete action can safely disclose.
@@ -32,7 +32,7 @@ Core/Admin changes live in `/Users/ben/Sites/packages/capell/capell-4`.
 - Modify `packages/admin/resources/lang/en/table.php` and `packages/admin/resources/lang/en/generic.php`: translated filter, impact, and work-queue copy.
 - Add/update focused Admin tests in `packages/admin/tests/Feature/Actions/Pages`, `packages/admin/tests/Feature/Actions/Layouts`, `packages/admin/tests/Feature/Filament/Resources/Page`, `packages/admin/tests/Feature/Filament/Resources/Layout`, `packages/admin/tests/Feature/Filament/Resources/Media`, and `packages/admin/tests/Feature/Filament/Components`.
 
-Layout Builder changes live in `/Users/ben/Sites/packages/capell/capell-packages-4`.
+Layout Builder changes live in the sibling `../capell-packages-4` checkout.
 
 - Create `packages/layout-builder/src/Data/Dashboard/LayoutHealthWorkQueueItemData.php` and `packages/layout-builder/src/Actions/BuildLayoutHealthWorkQueueAction.php`: package-owned scoped work-queue facts and URLs.
 - Create `packages/layout-builder/src/Actions/BuildWidgetDeletionImpactAction.php`: widget placement/asset impact facts without decoding layout content per row.
@@ -477,7 +477,7 @@ tracked uses`, not `Unused`.
 
 - Modify: `docs/admin/record-state-ux-follow-up-design.md`
 - Modify: `docs/admin/record-state-ux-follow-up-plan.md`
-- Modify: `/Users/ben/Sites/internal-ledger/projects/capell/TODO.md` in a safe ledger branch/worktree only
+- Modify: the internal ledger's `projects/capell/TODO.md` in a safe ledger branch/worktree only
 
 - [x] **Step 1: Run focused cross-repository regression suites**
 

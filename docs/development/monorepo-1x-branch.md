@@ -5,10 +5,10 @@ Use this guide when setting up a fresh Capell development workspace where the ho
 
 ## Expected Layout
 
-Keep both repositories as siblings:
+Keep both repositories as siblings under your workspace root (`<workspace>` below is wherever you keep checkouts):
 
 ```sh
-~/Sites/packages/capell/
+<workspace>/packages/capell/
 ├── capell-4/
 └── capell-packages-4/
 ```
@@ -20,8 +20,8 @@ Keep both repositories as siblings:
 Clone the host repository, then create a local `1.x` branch from the remote branch:
 
 ```sh
-mkdir -p ~/Sites/packages/capell
-cd ~/Sites/packages/capell
+mkdir -p <workspace>/packages/capell
+cd <workspace>/packages/capell
 
 git clone git@github.com:capell-app/capell.git capell-4
 cd capell-4
@@ -38,7 +38,7 @@ git switch main && git pull --ff-only && git switch -c 1.x && git push -u origin
 Clone the add-on packages repository beside it and switch to its `1.x` branch:
 
 ```sh
-cd ~/Sites/packages/capell
+cd <workspace>/packages/capell
 
 git clone git@github.com:capell-app/capell-packages.git capell-packages-4
 cd capell-packages-4
@@ -77,11 +77,11 @@ composer dump-autoload
 Before working on a change that spans host and add-on packages:
 
 ```sh
-cd ~/Sites/packages/capell/capell-4
+cd <workspace>/packages/capell/capell-4
 git switch 1.x
 git pull --ff-only
 
-cd ~/Sites/packages/capell/capell-packages-4
+cd <workspace>/packages/capell/capell-packages-4
 git switch 1.x
 git pull --ff-only
 ```
