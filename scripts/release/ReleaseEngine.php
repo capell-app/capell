@@ -399,14 +399,14 @@ final class PlanValidator
             return true;
         }
 
-        preg_match_all('/(?<![0-9.])(\d+)(?:\.\d+)?/', $constraint, $matches);
+        preg_match_all('/(?<![0-9.])(\d+)(?:\.\d+){0,2}/', $constraint, $matches);
         foreach ($matches[1] as $major) {
             if ((int) $major < 1 || ((int) $major < 5 && (int) $major !== 1 && ! str_contains($constraint, '<' . $major))) {
                 return true;
             }
         }
 
-        return (bool) preg_match('/(?:\^|~|>=?|=)?\s*[234](?:\D|$)/', $constraint);
+        return false;
     }
 
     // LOCKSTEP-END manifest-and-version-rules
