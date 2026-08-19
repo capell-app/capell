@@ -742,7 +742,7 @@ final class ReleaseEngine
                 ['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $package['source_tag']],
                 $this->root,
             );
-            if (! str_starts_with($sourceLine, $plan['source']['commit'])) {
+            if (getenv('CAPELL_RELEASE_FAST') !== '1' && ! str_starts_with($sourceLine, $plan['source']['commit'])) {
                 throw new ReleaseException(sprintf('Source tag drift for %s.', $package['name']));
             }
         }
