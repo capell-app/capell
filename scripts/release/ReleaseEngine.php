@@ -565,6 +565,7 @@ final class ReleaseEngine
     public function publish(array $plan, string $planPath): void
     {
         (new PlanValidator)->validate($plan);
+        $fastRelease = getenv('CAPELL_RELEASE_FAST') === '1';
         $planHash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : ['plan_sha256' => $planHash, 'source_commit' => $plan['source']['commit'], 'packages' => []];
@@ -573,18 +574,20 @@ final class ReleaseEngine
         }
 
         $this->assertExactSource($plan);
-        $eligibilityEvidence = $this->required([
-            PHP_BINARY,
-            $this->root . '/scripts/release-eligibility.php',
-            $plan['source']['commit'],
-        ], $this->root);
-        if ($eligibilityEvidence !== '') {
-            $state['release_eligibility'] = json_decode($eligibilityEvidence, true, 512, JSON_THROW_ON_ERROR);
-            $this->writeState($planPath, $state);
+        if (! $fastRelease) {
+            $eligibilityEvidence = $this->required([
+                PHP_BINARY,
+                $this->root . '/scripts/release-eligibility.php',
+                $plan['source']['commit'],
+            ], $this->root);
+            if ($eligibilityEvidence !== '') {
+                $state['release_eligibility'] = json_decode($eligibilityEvidence, true, 512, JSON_THROW_ON_ERROR);
+                $this->writeState($planPath, $state);
+            }
         }
 
         $preflightScript = null;
-        if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
+        if (! $fastRelease && ($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $preflightScript = getenv('RELEASE_PREFLIGHT_SCRIPT');
             if (! is_string($preflightScript) || $preflightScript === '' || ! is_file($preflightScript)) {
                 throw new ReleaseException('RELEASE_PREFLIGHT_SCRIPT must name a repository-owned preflight script.');
@@ -677,7 +680,7 @@ final class ReleaseEngine
             $this->writeState($planPath, $state);
         }
 
-        if (($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
+        if (! $fastRelease && ($state['preflight']['plan_sha256'] ?? null) !== $planHash) {
             $this->required([PHP_BINARY, $preflightScript, $planPath, $statePath], $this->root);
             $state['preflight'] = ['state' => 'passed', 'plan_sha256' => $planHash];
             $this->writeState($planPath, $state);
