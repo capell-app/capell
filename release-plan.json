@@ -2,8 +2,8 @@
   "schema_version": 1,
   "source": {
     "repository": "https://github.com/capell-app/capell.git",
-    "commit": "0c71b9bae5bc0e54024de432cc3814649e6f0e63",
-    "ref": "refs/commits/0c71b9bae5bc0e54024de432cc3814649e6f0e63"
+    "commit": "8e450bd35bb7090983970fdb770f20455088b2e7",
+    "ref": "refs/commits/8e450bd35bb7090983970fdb770f20455088b2e7"
   },
   "inventory": [
     {
