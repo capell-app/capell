@@ -644,14 +644,14 @@ final class ReleaseEngine
                 throw new ReleaseException(sprintf('Existing source tag %s does not match the planned source commit.', $sourceTag));
             }
 
-            if ($sourceTagSha !== null) {
+            if (! $fastRelease && $sourceTagSha !== null) {
                 $record = $state['packages'][$name] ?? null;
                 if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash || ($record['source_tag_sha'] ?? null) !== $sourceTagSha) {
                     throw new ReleaseException(sprintf("Existing source tag %s is not backed by this plan's passed preflight state.", $sourceTag));
                 }
             }
 
-            if ($decision === 'resume') {
+            if (! $fastRelease && $decision === 'resume') {
                 $record = $state['packages'][$name] ?? null;
                 if (($state['preflight']['state'] ?? null) !== 'passed' || ($state['preflight']['plan_sha256'] ?? null) !== $planHash
                     || ($record['split_sha'] ?? null) !== $splitSha || ($record['tag'] ?? null) !== $tag) {
