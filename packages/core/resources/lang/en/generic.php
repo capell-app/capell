@@ -27,7 +27,11 @@ return [
     'monthly' => 'Monthly',
     'never' => 'Never',
     'page' => 'Page',
-    'page_not_found' => 'Page Not Found',
+    // Single not-found headline. `error_404_headline` is the same string by
+    // contract: this one names the seeded error page and blueprint, that one
+    // is the rendered per-status headline, and they must never disagree in
+    // casing (see ErrorPageTranslationTest).
+    'page_not_found' => 'Page not found',
     'page_not_found_content' => '<p>The URL you have reached does not exist. Check the address for typos or a close match.</p><p>Return to the previous page, or <a href="/">go to the homepage</a>.</p>',
     'error_401_headline' => 'Sign in required',
     'error_401_description' => 'You need to be signed in to view this page. Please log in and try again.',

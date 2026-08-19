@@ -50,6 +50,6 @@ it('rejects the configured admin path before resolving public themes', function 
 
     $this->get('/admin/pages/125/edit')
         ->assertNotFound()
-        ->assertDontSee('Page Not Found')
+        ->assertDontSee('Page not found')
         ->assertDontSee('Privacy-friendly analytics');
 });

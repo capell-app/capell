@@ -46,17 +46,17 @@ it('creates home and error pages with translations for the supplied languages', 
             'title' => ':site',
         ]);
 
-    expect($errorPage->name)->toBe('Page Not Found')
+    expect($errorPage->name)->toBe('Page not found')
         ->and($errorPage->layout->key)->toBe(LayoutEnum::System->value)
         ->and($errorPage->blueprint->key)->toBe(PageTypeEnum::NotFound->value)
-        ->and($errorPage->blueprint->name)->toBe('Page Not Found')
+        ->and($errorPage->blueprint->name)->toBe('Page not found')
         ->and($errorPage->meta)->toBe(['robots' => ['noindex' => true]])
         ->and($errorPage->translations()->get()->pluck('content')->unique()->values()->all())->toBe([
             '<p>The URL you have reached does not exist. Check the address for typos or a close match.</p><p>Return to the previous page, or <a href="/">go to the homepage</a>.</p>',
         ])
         ->and($errorPage->translations()->pluck('title', 'language_id')->all())->toBe([
-            $english->id => 'Page Not Found',
-            $french->id => 'Page Not Found',
+            $english->id => 'Page not found',
+            $french->id => 'Page not found',
         ]);
 
     $englishErrorTranslation = $errorPage->translations()->firstWhere('language_id', $english->id);

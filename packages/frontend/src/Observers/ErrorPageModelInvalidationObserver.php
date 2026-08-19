@@ -139,16 +139,22 @@ final class ErrorPageModelInvalidationObserver
         return null;
     }
 
+    /**
+     * Change-driven regeneration is never forced: the action renders only when
+     * the site's error-page inputs differ from the ones the current artefacts
+     * were built from, so a flood of unrelated writes (public 404s recording
+     * not-found visits) cannot each pay for a full re-render.
+     */
     private function dispatch(int $siteId): void
     {
         if (app()->runningUnitTests() || app()->runningInConsole()) {
-            RegenerateSiteErrorPagesAction::dispatchSync($siteId);
+            RegenerateSiteErrorPagesAction::dispatchSync($siteId, false);
 
             return;
         }
 
         if (resolve(ErrorPageRegenerationQueue::class)->markQueued($siteId)) {
-            RegenerateSiteErrorPagesAction::dispatchAfterResponse($siteId);
+            RegenerateSiteErrorPagesAction::dispatchAfterResponse($siteId, false);
         }
     }
 

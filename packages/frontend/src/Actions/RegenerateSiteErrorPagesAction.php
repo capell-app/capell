@@ -6,6 +6,10 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
+use Capell\Frontend\Support\Error\ErrorPageRegenerationFingerprint;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsJob;
@@ -20,7 +24,16 @@ use Throwable;
  * model changes. Never throws — failures are logged and swallowed so a model
  * save is never blocked by error-page regeneration.
  *
- * @method static void run(int $siteId)
+ * Change-driven callers (the model observer) pass `force: false`, which renders
+ * only when the site's error-page inputs actually differ from the ones the
+ * current artefacts were built from. Public traffic that writes rows unrelated
+ * to the rendered output — a 404 flood recording not-found visits, for instance
+ * — then costs a few indexed lookups per hit instead of a full re-render of
+ * every status page for every domain. Explicit callers (console commands,
+ * package installs, deploys) keep the default `force: true`, because code,
+ * theme, or translation-file changes are invisible to the fingerprint.
+ *
+ * @method static void run(int $siteId, bool $force = true)
  */
 class RegenerateSiteErrorPagesAction
 {
@@ -28,7 +41,9 @@ class RegenerateSiteErrorPagesAction
     use AsJob;
     use AsObject;
 
-    public function handle(int $siteId): void
+    public function __construct(private readonly ErrorPageRegenerationFingerprint $fingerprint) {}
+
+    public function handle(int $siteId, bool $force = true): void
     {
         if (! app()->bound(StaticErrorPageStore::class)) {
             return;
@@ -43,13 +58,76 @@ class RegenerateSiteErrorPagesAction
             return;
         }
 
+        $lock = $this->lock($siteId);
+
         try {
+            // Several web workers can observe the same change at once. The
+            // loser waits briefly rather than skipping, so a genuine change is
+            // never dropped: it re-reads the fingerprint the winner stored and
+            // regenerates only if its own change is still unaccounted for.
+            if ($lock !== null && ! $lock->block(5)) {
+                return;
+            }
+        } catch (LockTimeoutException) {
+            return;
+        } catch (Throwable) {
+            $lock = null;
+        }
+
+        try {
+            $currentFingerprint = $this->currentFingerprint($site);
+
+            if (! $force
+                && $currentFingerprint !== null
+                && $currentFingerprint === $this->fingerprint->stored($siteId)
+                && $this->fingerprint->hasArtefacts($siteId)
+            ) {
+                return;
+            }
+
             GenerateErrorPageCacheAction::run($site);
+
+            if ($currentFingerprint !== null) {
+                // Stored before the render started, so a change that lands
+                // mid-render still leaves the site regenerating next time.
+                $this->fingerprint->remember($siteId, $currentFingerprint);
+            }
         } catch (Throwable $throwable) {
+            $this->fingerprint->forget($siteId);
+
             Log::warning('capell: error page regeneration failed', [
                 'site_id' => $siteId,
                 'exception' => $throwable->getMessage(),
             ]);
+        } finally {
+            $lock?->release();
+        }
+    }
+
+    private function currentFingerprint(Site $site): ?string
+    {
+        try {
+            return $this->fingerprint->current($site);
+        } catch (Throwable $throwable) {
+            // A fingerprint that cannot be computed must never suppress or
+            // break regeneration; fall back to always rendering, but say so:
+            // silent degradation here is exactly the per-hit re-render this
+            // gate exists to prevent.
+            Log::debug('capell: error page fingerprint unavailable', [
+                'site_id' => (int) $site->getKey(),
+                'exception' => $throwable->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function lock(int $siteId): ?Lock
+    {
+        try {
+            return Cache::lock('capell.error-pages.regenerate:' . $siteId, 120);
+        } catch (Throwable) {
+            return null;
         }
     }
 }
