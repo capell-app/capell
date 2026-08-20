@@ -400,13 +400,8 @@ final class PlanValidator
         }
 
         preg_match_all('/(?<![0-9.])(\d+)(?:\.\d+){0,2}/', $constraint, $matches);
-        foreach ($matches[1] as $major) {
-            if ((int) $major < 1 || ((int) $major < 5 && (int) $major !== 1 && ! str_contains($constraint, '<' . $major))) {
-                return true;
-            }
-        }
 
-        return false;
+        return array_any($matches[1], fn (string $major): bool => (int) $major < 1 || ((int) $major < 5 && (int) $major !== 1 && ! str_contains($constraint, '<' . $major)));
     }
 
     // LOCKSTEP-END manifest-and-version-rules
