@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Media\BuildMediaUsageItemsAction;
+use Capell\Admin\Actions\Media\CreateExternalVideoMediaAction;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
 use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
@@ -16,6 +17,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -172,6 +174,22 @@ it('creates YouTube video media from the list page action', function (): void {
     expect($media->name)->toBe('Product tour')
         ->and($media->externalVideo()?->provider)->toBe('youtube')
         ->and($media->externalVideo()?->videoId)->toBe('FgalLC99jzY');
+});
+
+it('uses the external video thumbnail in the media table instead of a storage URL', function (): void {
+    $site = Site::factory()->createOne(['name' => 'Capell']);
+    $video = expectPresent(YouTubeVideoUrl::parse('https://youtu.be/FgalLC99jzY'));
+
+    $media = CreateExternalVideoMediaAction::run($site, 'Product tour', $video);
+
+    expect($media->original_url)->toBe($video->thumbnailUrl)
+        ->and($media->original_url)->not->toContain('/storage/')
+        ->and($media->original_url)->not->toEndWith('.youtube');
+
+    Livewire::test(ListMedia::class)
+        ->assertSuccessful()
+        ->assertSee($video->thumbnailUrl)
+        ->assertDontSee('/storage/' . $media->getKey() . '/' . $media->file_name);
 });
 
 it('bulk uploads files to a site uploads collection', function (): void {
