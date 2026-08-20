@@ -50,3 +50,25 @@ it('requires populated page history and reversible recovery proof', function ():
         ->not->toMatch('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i')
         ->not->toContain('http://localhost', 'https://localhost', '__(', '{{', 'translation missing');
 });
+
+it('requires the theme customize capture to open the installed Foundation theme editor', function (): void {
+    $root = dirname(__DIR__, 4);
+    $manifest = json_decode(File::get($root . '/docs/screenshots.json'), true, flags: JSON_THROW_ON_ERROR);
+    $entry = collect($manifest['entries'])->keyBy('id')->get('theme-customize-preview-apply');
+
+    expect($entry)->not->toBeNull()
+        ->and($entry['required'])->toBeTrue()
+        ->and($entry['url'])->toBe('/themes')
+        ->and($entry['beforeWait'])->toBe([
+            [
+                'type' => 'click',
+                'selector' => "button[aria-label='Customize']",
+            ],
+        ])
+        ->and($entry['interactions'])->toBe([
+            [
+                'type' => 'waitFor',
+                'selector' => ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('Edit Foundation')",
+            ],
+        ]);
+});
