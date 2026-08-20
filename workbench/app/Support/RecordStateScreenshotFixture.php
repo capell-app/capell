@@ -182,7 +182,7 @@ final class RecordStateScreenshotFixture
     {
         $media = Media::query()->firstOrNew(['uuid' => self::MediaUuid]);
 
-        $sourcePath = dirname(__DIR__, 3) . '/artwork/foundation-series/references/capell-logo-reference.png';
+        $sourcePath = dirname(__DIR__, 3) . '/packages/core/resources/screenshot-fixtures/record-state-image.svg';
         throw_if(! is_file($sourcePath), ModelNotFoundException::class, 'The screenshot seed image is missing.');
 
         $contents = file_get_contents($sourcePath);
@@ -191,8 +191,8 @@ final class RecordStateScreenshotFixture
         $media->fill([
             'collection_name' => MediaCollectionEnum::Image->value,
             'name' => 'Unused editorial image',
-            'file_name' => 'capell-logo-reference.png',
-            'mime_type' => 'image/png',
+            'file_name' => 'record-state-image.svg',
+            'mime_type' => 'image/svg+xml',
             'disk' => 'public',
             'conversions_disk' => 'public',
             'size' => strlen($contents),
