@@ -8,6 +8,7 @@ use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
 use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
+use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Language;
@@ -190,6 +191,25 @@ it('uses the external video thumbnail in the media table instead of a storage UR
         ->assertSuccessful()
         ->assertSee($video->thumbnailUrl)
         ->assertDontSee('/storage/' . $media->getKey() . '/' . $media->file_name);
+});
+
+it('does not render a synthetic storage preview for a local external video', function (): void {
+    $site = Site::factory()->createOne(['name' => 'Capell']);
+    $video = new ExternalVideoData(
+        provider: 'local',
+        videoId: 'capell-launch-film',
+        url: '/_capell/marketing/page-videos/capell-launch-film/capell-launch-film.mp4',
+        embedUrl: '/_capell/marketing/page-videos/capell-launch-film/capell-launch-film.mp4',
+        thumbnailUrl: '/_capell/marketing/page-videos/capell-launch-film/capell-launch-film-poster.jpg',
+    );
+
+    $media = CreateExternalVideoMediaAction::run($site, 'Capell launch film', $video);
+
+    Livewire::test(ListMedia::class)
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords([$media])
+        ->assertDontSee('/storage/' . $media->getKey() . '/' . $media->file_name)
+        ->assertDontSee($video->thumbnailUrl);
 });
 
 it('bulk uploads files to a site uploads collection', function (): void {

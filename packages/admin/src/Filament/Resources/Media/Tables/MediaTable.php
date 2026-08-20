@@ -31,6 +31,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -220,6 +221,7 @@ class MediaTable implements TableConfigurator
             IdentifierColumn::make('id'),
             ImageColumn::make('original_url')
                 ->label(__('capell-admin::table.image'))
+                ->getStateUsing(static fn (Media $record): ?string => self::previewUrl($record))
                 ->circular()
                 ->extraImgAttributes(['loading' => 'lazy'])
                 ->imageSize(36)
@@ -458,6 +460,17 @@ class MediaTable implements TableConfigurator
         }
 
         return AdminSurfaceLookup::resource(ResourceEnum::Media)::getUrl('edit', ['record' => $media]);
+    }
+
+    private static function previewUrl(Media $media): ?string
+    {
+        $video = $media->externalVideo();
+
+        if ($video !== null) {
+            return YouTubeVideoUrl::parse($video->url)?->thumbnailUrl;
+        }
+
+        return $media->original_url;
     }
 
     private static function editThemeOwnerAction(): Action
