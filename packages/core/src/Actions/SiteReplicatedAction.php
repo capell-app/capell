@@ -163,7 +163,13 @@ class SiteReplicatedAction
                 continue;
             }
 
-            $replacementPages = $this->replicatePage($page, $replica, $languages, $replacementPages);
+            $replacementPages = $this->replicatePage(
+                $page,
+                $replica,
+                $languages,
+                $replacementPages,
+                fallbackLanguageId: $source->language_id,
+            );
         }
 
         return $replacementPages;
@@ -182,6 +188,7 @@ class SiteReplicatedAction
         Site $site,
         Collection $languages,
         array $replacementPages,
+        int $fallbackLanguageId,
         ?Page $parentPage = null,
     ): array {
         $replica = $page->duplicateExcept(['deleted_at', 'deleted_by']);
@@ -198,20 +205,21 @@ class SiteReplicatedAction
 
         $replacementPages[$page->id] = $replica;
 
-        $languages->each(function (Language $language) use ($page, $replica): void {
+        $languages->each(function (Language $language) use ($page, $replica, $fallbackLanguageId): void {
             $this->replicateTranslation($page, $replica, $language);
-            $this->replicatePageUrl($page, $replica, $language);
+            $this->replicatePageUrl($page, $replica, $language, $fallbackLanguageId);
         });
 
         $replica->save();
 
         if ($page->children->isNotEmpty()) {
-            $page->children->each(function (Page $child) use ($site, $languages, &$replacementPages, $replica): void {
+            $page->children->each(function (Page $child) use ($site, $languages, &$replacementPages, $replica, $fallbackLanguageId): void {
                 $childReplicaMap = $this->replicatePage(
                     $child,
                     $site,
                     $languages,
                     $replacementPages,
+                    fallbackLanguageId: $fallbackLanguageId,
                     parentPage: $replica,
                 );
 
@@ -227,10 +235,10 @@ class SiteReplicatedAction
      *
      * @param  Pageable<TDeclaringModel>  $page
      */
-    private function replicatePageUrl(Pageable $page, Page $replica, Language $language): void
+    private function replicatePageUrl(Pageable $page, Page $replica, Language $language, int $fallbackLanguageId): void
     {
-        $pageUrl = $page->pageUrls->firstWhere('language_id', $language->id)
-            ?? $page->pageUrls->first()
+        $pageUrl = $this->canonicalPageUrl($page, $language->id)
+            ?? $this->canonicalPageUrl($page, $fallbackLanguageId)
             ?? $page->pageUrls()->make();
 
         $urlReplica = PageUrl::query()
@@ -260,6 +268,20 @@ class SiteReplicatedAction
             'status',
         ]));
         $urlReplica->save();
+    }
+
+    /**
+     * @template TDeclaringModel of Model
+     *
+     * @param  Pageable<TDeclaringModel>  $page
+     */
+    private function canonicalPageUrl(Pageable $page, int $languageId): ?PageUrl
+    {
+        return $page->pageUrls
+            ->where('language_id', $languageId)
+            ->whereNull('type')
+            ->sortBy('id')
+            ->first();
     }
 
     /**

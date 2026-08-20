@@ -127,6 +127,26 @@ it('resolves canonical page urls in the requested language', function (): void {
         ->toContain('/fr/canonique');
 });
 
+it('ignores alias redirect and disabled url history when resolving a related canonical page', function (): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->language($language)->withTranslations($language)->create();
+    $canonicalPage = Page::factory()->site($site)->create();
+
+    PageUrl::factory()->page($canonicalPage)->site($site)->language($language)->type(UrlTypeEnum::Alias)->state(['url' => '/alias'])->create();
+    PageUrl::factory()->page($canonicalPage)->site($site)->language($language)->type(UrlTypeEnum::Redirect)->state(['url' => '/redirect'])->create();
+    PageUrl::factory()->page($canonicalPage)->site($site)->language($language)->state(['status' => false, 'url' => '/disabled'])->create();
+    PageUrl::factory()->page($canonicalPage)->site($site)->language($language)->state(['url' => '/canonical'])->create();
+
+    $page = Page::factory()
+        ->site($site)
+        ->canonicalPage($canonicalPage)
+        ->withTranslations($language, slug: '/duplicate')
+        ->create();
+
+    expect(ResolvePageCanonicalUrlAction::run($page->fresh(['canonicalPage.pageUrls.siteDomain', 'pageUrl', 'pageUrls']), $language))
+        ->toContain('/canonical');
+});
+
 it('resolves alias page urls to the requested language canonical page url', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->language($language)->withTranslations($language)->create();

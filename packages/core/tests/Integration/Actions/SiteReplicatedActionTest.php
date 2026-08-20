@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\SiteReplicatedAction;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Events\SiteReplicated;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -145,6 +146,59 @@ it('replicates nested page trees with selected language translations and urls', 
         fn (SiteReplicated $event): bool => $event->replacementPages[$parent->id]->is($replicatedParent)
             && $event->replacementPages[$child->id]->is($replicatedChild),
     );
+});
+
+it('replicates selected and fallback canonical urls instead of superseded redirects', function (): void {
+    $english = Language::factory()->english()->create();
+    $french = Language::factory()->create(['code' => 'fr', 'name' => 'French']);
+    $german = Language::factory()->create(['code' => 'de', 'name' => 'German']);
+    $site = Site::factory()->language($english)->withTranslations([$english, $french, $german])->createOne();
+    $page = Page::factory()->site($site)->createOne(['name' => 'Canonical page']);
+
+    PageUrl::factory()
+        ->page($page)
+        ->site($site)
+        ->language($french)
+        ->state([
+            'type' => UrlTypeEnum::Redirect,
+            'url' => '/superseded',
+        ])
+        ->create();
+    PageUrl::factory()
+        ->page($page)
+        ->site($site)
+        ->language($french)
+        ->state(['url' => '/fr/canonical'])
+        ->create();
+    PageUrl::factory()
+        ->page($page)
+        ->site($site)
+        ->language($german)
+        ->state([
+            'type' => UrlTypeEnum::Redirect,
+            'url' => '/superseded-de',
+        ])
+        ->create();
+    PageUrl::factory()
+        ->page($page)
+        ->site($site)
+        ->language($english)
+        ->state(['url' => '/canonical'])
+        ->create();
+
+    $clone = SiteReplicatedAction::run($site, [
+        'copy_pages' => true,
+        'languages' => [$french->id, $german->id],
+    ]);
+
+    $replica = $clone->pages()->sole();
+    $frenchUrl = $replica->pageUrls()->where('language_id', $french->id)->sole();
+    $germanUrl = $replica->pageUrls()->where('language_id', $german->id)->sole();
+
+    expect($frenchUrl->url)->toBe('/fr/canonical')
+        ->and($frenchUrl->type)->toBeNull()
+        ->and($germanUrl->url)->toBe('/canonical')
+        ->and($germanUrl->type)->toBeNull();
 });
 
 it('delegates default page setup when copying pages is not requested', function (): void {

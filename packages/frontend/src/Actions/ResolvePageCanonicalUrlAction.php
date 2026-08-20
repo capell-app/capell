@@ -8,6 +8,7 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -28,7 +29,7 @@ final class ResolvePageCanonicalUrlAction
         }
 
         if ($page instanceof Page && $page->relationLoaded('canonicalPage') && $page->canonicalPage instanceof Page && $page->canonicalPage->relationLoaded('pageUrls')) {
-            $canonicalPageUrl = $page->canonicalPage->pageUrls->firstWhere('language_id', $language->id);
+            $canonicalPageUrl = $this->canonicalPageUrl($page->canonicalPage, $language);
 
             if ($canonicalPageUrl?->full_url !== null) {
                 return $canonicalPageUrl->full_url;
@@ -38,13 +39,25 @@ final class ResolvePageCanonicalUrlAction
         $pageUrl = $page->relationLoaded('pageUrl') ? $page->pageUrl : null;
 
         if ($page instanceof Page && $pageUrl?->type === UrlTypeEnum::Alias && $page->relationLoaded('pageUrls')) {
-            $canonicalPageUrl = $page->pageUrls->firstWhere('language_id', $language->id);
+            $canonicalPageUrl = $this->canonicalPageUrl($page, $language);
 
             if ($canonicalPageUrl?->full_url !== null) {
                 return $canonicalPageUrl->full_url;
             }
         }
 
-        return $pageUrl?->full_url;
+        return $pageUrl instanceof PageUrl && $pageUrl->type === null && $pageUrl->status
+            ? $pageUrl->full_url
+            : null;
+    }
+
+    private function canonicalPageUrl(Page $page, Language $language): ?PageUrl
+    {
+        return $page->pageUrls
+            ->where('language_id', $language->id)
+            ->whereNull('type')
+            ->where('status', true)
+            ->sortBy('id')
+            ->first();
     }
 }
