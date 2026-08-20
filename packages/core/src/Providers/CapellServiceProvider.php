@@ -24,6 +24,7 @@ use Capell\Core\Console\Commands\HealthCheckCommand;
 use Capell\Core\Console\Commands\HealthCommand;
 use Capell\Core\Console\Commands\HealthProbeCommand;
 use Capell\Core\Console\Commands\ImportSiteSpecCommand;
+use Capell\Core\Console\Commands\InitializeScreenshotRecordStateFixtureCommand;
 use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Console\Commands\InstallExtensionCommand;
 use Capell\Core\Console\Commands\MakeActionCommand;
@@ -277,6 +278,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             HealthProbeCommand::class,
             HealthCheckCommand::class,
             HealthCommand::class,
+            InitializeScreenshotRecordStateFixtureCommand::class,
             ImportSiteSpecCommand::class,
             InstallExtensionCommand::class,
             UninstallExtensionCommand::class,
