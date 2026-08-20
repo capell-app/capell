@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Models\Language;
+use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Creator\PageCreator;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Lang;
@@ -84,4 +87,41 @@ it('keeps the translated error page anonymous-cacheable', function (): void {
         ->not->toContain('wire:id');
 
     expect($html)->toBe((string) renderNotFoundResponse()->getContent());
+});
+
+/**
+ * CAP-0243(b): Core shipped two casings of the same not-found headline —
+ * `capell::generic.page_not_found` ("Page Not Found"), which names the seeded
+ * error page and blueprint and becomes its translation title, and
+ * `capell::generic.error_404_headline` ("Page not found"), the rendered
+ * per-status headline. Both reach public output through different rungs of the
+ * copy ladder, so a casing split is a visible inconsistency and, as CAP-0241
+ * found, a debugging trap. They are one string by contract.
+ *
+ * `capell-frontend::errors.not_found_headline` is deliberately NOT part of this
+ * contract: it is the framework-level minimal page shown when no CMS site or
+ * static artefact could be resolved at all, and its friendlier wording marks
+ * that different surface.
+ */
+it('keeps the two generic not-found headline keys identical', function (): void {
+    expect(__('capell::generic.page_not_found'))
+        ->toBe(__('capell::generic.error_404_headline'))
+        ->and(__('capell::generic.page_not_found'))->toBe('Page not found');
+});
+
+it('seeds the error page with the headline the rendered 404 copy uses', function (): void {
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state(['language_id' => $language->id])
+        ->create();
+
+    $site = $siteDomain->site;
+    $errorPage = resolve(PageCreator::class)->createErrorPage($site, $site->getAllLanguages());
+
+    $translation = $errorPage->translations()->where('language_id', $language->id)->firstOrFail();
+    $statusCopy = $translation->meta['error_status_copy'][404]['headline'] ?? null;
+
+    expect($errorPage->name)->toBe(__('capell::generic.error_404_headline'))
+        ->and($translation->title)->toBe(__('capell::generic.error_404_headline'))
+        ->and($statusCopy)->toBe(__('capell::generic.error_404_headline'));
 });

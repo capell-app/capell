@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
+use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
@@ -12,6 +14,8 @@ use Capell\Frontend\Actions\RegenerateSiteErrorPagesAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
+use Capell\Frontend\Support\Error\ErrorPageRegenerationFingerprint;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +29,8 @@ class RecordingStaticErrorPageStore implements StaticErrorPageStore
     /** @var array<string, string> */
     public array $files = [];
 
+    public int $writes = 0;
+
     public function exists(string $file): bool
     {
         return array_key_exists($file, $this->files);
@@ -37,6 +43,7 @@ class RecordingStaticErrorPageStore implements StaticErrorPageStore
 
     public function put(string $file, string $contents): void
     {
+        $this->writes++;
         $this->files[$file] = $contents;
     }
 }
@@ -158,4 +165,164 @@ it('swallows a renderer throwable and logs a warning once', function (): void {
 
     expect(fn () => RegenerateSiteErrorPagesAction::run($siteDomain->site_id))
         ->not->toThrow(Throwable::class);
+});
+
+it('renders once for repeated change-driven triggers while the inputs are unchanged', function (): void {
+    // CAP-0243(a): a public 404 flood dispatches change-driven regeneration per
+    // hit. Only the first may render; the rest must cost a fingerprint check.
+    $store = recordingStaticErrorPageStore();
+    bindRecordingRenderer();
+
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state(['language_id' => $language->id])
+        ->create();
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+
+    $writesAfterFirst = $store->writes;
+    expect($writesAfterFirst)->toBeGreaterThan(0);
+
+    foreach (range(1, 9) as $ignoredAttempt) {
+        RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+    }
+
+    expect($store->writes)->toBe($writesAfterFirst);
+
+    // A genuine content change must still regenerate.
+    $site = Site::query()->whereKey($siteDomain->site_id)->firstOrFail();
+    $site->name = 'Renamed site';
+    $site->save();
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+
+    expect($store->writes)->toBeGreaterThan($writesAfterFirst);
+});
+
+it('always renders for an explicit forced run', function (): void {
+    $store = recordingStaticErrorPageStore();
+    bindRecordingRenderer();
+
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state(['language_id' => $language->id])
+        ->create();
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id);
+
+    $files = $store->files;
+    $store->files = [];
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id);
+
+    expect(array_keys($store->files))->toBe(array_keys($files));
+});
+
+it('regenerates when the published artefacts are gone even though nothing changed', function (): void {
+    $store = recordingStaticErrorPageStore();
+    bindRecordingRenderer();
+
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state(['language_id' => $language->id])
+        ->create();
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+    expect($store->files)->not->toBeEmpty();
+
+    File::delete(resolve(ErrorPageManifestStore::class)->path());
+    $store->files = [];
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+
+    expect($store->files)->not->toBeEmpty();
+});
+
+it('regenerates once for a flood of observed writes that do not change rendered output', function (): void {
+    // The production shape of CAP-0243(a): public traffic repeatedly writes a
+    // row the observer accepts, but nothing the error pages render from
+    // changes. Before the fingerprint gate every one of these paid for a full
+    // re-render of every status page for every domain.
+    $store = recordingStaticErrorPageStore();
+    bindRecordingRenderer();
+
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state(['language_id' => $language->id])
+        ->create();
+
+    $media = Media::factory()
+        ->state([
+            'model_type' => resolve(Site::class)->getMorphClass(),
+            'model_id' => $siteDomain->site_id,
+            'collection_name' => MediaCollectionEnum::Logo->value,
+        ])
+        ->create();
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+    $writesAfterFirst = $store->writes;
+    expect($writesAfterFirst)->toBeGreaterThan(0);
+
+    foreach (range(1, 10) as $hit) {
+        $media->order_column = $hit;
+        $media->save();
+    }
+
+    expect($store->writes)->toBe($writesAfterFirst);
+
+    $media->file_name = 'replaced-logo.svg';
+    $media->save();
+
+    expect($store->writes)->toBeGreaterThan($writesAfterFirst);
+});
+
+it('computes a stable fingerprint once the error page has rendered content', function (): void {
+    // Regression guard: the fingerprint used to be read through Eloquent with a
+    // partial column list, so `DynamicContentCast` resolved a translation's
+    // `translatable` morph with no type column. SQLite tolerated the resulting
+    // `where '' = 1`; MySQL raised a QueryException, the gate fell back to
+    // "always render", and every trigger paid for a full regeneration again.
+    recordingStaticErrorPageStore();
+    bindRecordingRenderer();
+
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state(['language_id' => $language->id])
+        ->create();
+
+    $site = Site::query()->whereKey($siteDomain->site_id)->firstOrFail();
+    $fingerprint = resolve(ErrorPageRegenerationFingerprint::class);
+
+    $before = $fingerprint->current($site);
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+
+    $after = $fingerprint->current($site);
+
+    expect($after)->toBe($before)
+        ->and($fingerprint->stored($siteDomain->site_id))->toBe($after);
+});
+
+it('keeps the fingerprint beside the artefacts so a cache flush cannot disable the gate', function (): void {
+    $store = recordingStaticErrorPageStore();
+    bindRecordingRenderer();
+
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state(['language_id' => $language->id])
+        ->create();
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+    $writesAfterFirst = $store->writes;
+
+    expect(data_get(resolve(ErrorPageManifestStore::class)->read(), 'sites.' . $siteDomain->site_id . '.fingerprint'))
+        ->toBeString();
+
+    // Nothing about the published output changed, so nothing may re-render —
+    // including in an environment whose cache keeps nothing between calls.
+    Cache::flush();
+
+    RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
+
+    expect($store->writes)->toBe($writesAfterFirst);
 });

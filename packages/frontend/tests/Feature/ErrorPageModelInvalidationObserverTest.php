@@ -38,7 +38,7 @@ it('dispatches for a site update', function (): void {
     $expectedSiteId = $site->id;
     RegenerateSiteErrorPagesAction::shouldRun()
         ->once()
-        ->with($expectedSiteId);
+        ->with($expectedSiteId, false);
 
     $site->name = 'Renamed site';
     $site->save();
@@ -83,7 +83,7 @@ it('dispatches for a site domain update', function (): void {
 
     RegenerateSiteErrorPagesAction::shouldRun()
         ->once()
-        ->with($site->id);
+        ->with($site->id, false);
 
     $siteDomain->domain = 'changed.test';
     $siteDomain->save();
@@ -94,7 +94,7 @@ it('dispatches for an error page update', function (): void {
 
     RegenerateSiteErrorPagesAction::shouldRun()
         ->once()
-        ->with($site->id);
+        ->with($site->id, false);
 
     $errorPage->name = 'Updated error page';
     $errorPage->save();
@@ -108,7 +108,7 @@ it('dispatches for an error page update through a third-party page subclass', fu
 
     RegenerateSiteErrorPagesAction::shouldRun()
         ->once()
-        ->with($site->id);
+        ->with($site->id, false);
 
     $thirdPartyPage->name = 'Updated extension error page';
     $thirdPartyPage->save();
@@ -124,7 +124,7 @@ it('dispatches for a site-level translation update', function (): void {
 
     RegenerateSiteErrorPagesAction::shouldRun()
         ->once()
-        ->with($site->id);
+        ->with($site->id, false);
 
     $translation->title = 'New site title';
     $translation->save();
@@ -138,7 +138,7 @@ it('dispatches for an error page translation update', function (): void {
 
     RegenerateSiteErrorPagesAction::shouldRun()
         ->once()
-        ->with($site->id);
+        ->with($site->id, false);
 
     $translation->title = 'New error title';
     $translation->save();
@@ -153,7 +153,7 @@ it('dispatches for a site logo media update', function (): void {
 
     RegenerateSiteErrorPagesAction::shouldRun()
         ->once()
-        ->with($site->id);
+        ->with($site->id, false);
 
     $media->name = 'Updated logo';
     $media->save();
@@ -168,7 +168,7 @@ it('dispatches for a deleted site logo media record', function (): void {
 
     RegenerateSiteErrorPagesAction::shouldRun()
         ->once()
-        ->with($site->id);
+        ->with($site->id, false);
 
     $media->delete();
 });
