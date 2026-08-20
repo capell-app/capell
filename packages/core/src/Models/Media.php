@@ -13,6 +13,7 @@ use Capell\Core\Models\Concerns\HasTranslations;
 use Capell\Core\Models\Contracts\Translatable;
 use Capell\Core\Support\Media\LocalizedMediaMetadata;
 use Capell\Core\Support\Media\LocalizedMediaMetadataResolver;
+use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Override;
 use Spatie\MediaLibrary\MediaCollections\Models\Collections\MediaCollection;
 
 /**
@@ -302,6 +304,36 @@ class Media extends \Spatie\MediaLibrary\MediaCollections\Models\Media implement
         }
 
         return $this->getFocalPoint();
+    }
+
+    /**
+     * External videos intentionally have no file on the configured storage
+     * disk. Spatie's default accessor would manufacture a `/storage/*.youtube`
+     * URL from their bookkeeping filename, which an image column then requests
+     * as though it were an uploaded asset. Use a canonical provider thumbnail
+     * for that presentation-only accessor while retaining the external video
+     * source data for renderers. Reparse the persisted source URL before using
+     * it, so malformed metadata cannot make an admin browser request an
+     * arbitrary thumbnail origin.
+     *
+     * @return Attribute<string, never>
+     */
+    #[Override]
+    protected function originalUrl(): Attribute
+    {
+        return Attribute::get(function (): string {
+            $video = $this->externalVideo();
+
+            if ($video instanceof ExternalVideoData) {
+                $canonicalVideo = YouTubeVideoUrl::parse($video->url);
+
+                if ($canonicalVideo instanceof ExternalVideoData) {
+                    return $canonicalVideo->thumbnailUrl;
+                }
+            }
+
+            return parent::getUrl();
+        });
     }
 
     /**
