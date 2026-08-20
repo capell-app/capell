@@ -398,7 +398,7 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('Edit Default')"
+                    "selector": ".fi-modal-window:not([style*='display: none']) .fi-modal-heading:has-text('Edit Foundation')"
                 }
             ],
             "docsPage": "docs/admin/theme-library.md",
