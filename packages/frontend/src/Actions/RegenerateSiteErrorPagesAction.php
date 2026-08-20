@@ -65,7 +65,7 @@ class RegenerateSiteErrorPagesAction
             // loser waits briefly rather than skipping, so a genuine change is
             // never dropped: it re-reads the fingerprint the winner stored and
             // regenerates only if its own change is still unaccounted for.
-            if ($lock !== null && ! $lock->block(5)) {
+            if ($lock instanceof Lock && ! $lock->block(5)) {
                 return;
             }
         } catch (LockTimeoutException) {
