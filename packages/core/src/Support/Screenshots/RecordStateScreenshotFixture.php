@@ -233,7 +233,7 @@ final class RecordStateScreenshotFixture
             $media->uuid = self::MediaUuid;
         }
 
-        $sourcePath = dirname(__DIR__, 5) . '/artwork/foundation-series/references/capell-logo-reference.png';
+        $sourcePath = self::fixtureImagePath();
 
         throw_if(! is_file($sourcePath), ModelNotFoundException::class, 'The screenshot seed image is missing.');
 
@@ -244,8 +244,8 @@ final class RecordStateScreenshotFixture
         $media->fill([
             'collection_name' => MediaCollectionEnum::Image->value,
             'name' => 'Unused editorial image',
-            'file_name' => 'capell-logo-reference.png',
-            'mime_type' => 'image/png',
+            'file_name' => 'record-state-image.svg',
+            'mime_type' => 'image/svg+xml',
             'disk' => 'public',
             'conversions_disk' => 'public',
             'size' => strlen($contents),
@@ -259,5 +259,15 @@ final class RecordStateScreenshotFixture
         ])->save();
 
         Storage::disk($media->disk)->put($media->getKey() . '/' . $media->file_name, $contents);
+    }
+
+    /**
+     * Resolve relative to this class so the asset is available in the installed
+     * Core package within the disposable consumer app, not only in this
+     * aggregate repository checkout.
+     */
+    private static function fixtureImagePath(): string
+    {
+        return dirname(__DIR__, 3) . '/resources/screenshot-fixtures/record-state-image.svg';
     }
 }

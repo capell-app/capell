@@ -50,6 +50,8 @@ it('initializes deterministic record-state data only in the disposable screensho
         ->and(PageUrl::query()->where('pageable_id', $page->getKey())->where('status', false)->exists())->toBeTrue()
         ->and(Layout::query()->where('key', 'record-state-disabled-unused')->where('status', false)->exists())->toBeTrue()
         ->and($media->name)->toBe('Unused editorial image')
+        ->and($media->file_name)->toBe('record-state-image.svg')
+        ->and($media->mime_type)->toBe('image/svg+xml')
         ->and(Storage::disk('public')->exists($media->getKey() . '/' . $media->file_name))->toBeTrue()
         ->and(AssetAttachment::query()->where('asset_id', (string) $media->getKey())->exists())->toBeFalse();
 
@@ -64,6 +66,18 @@ it('initializes deterministic record-state data only in the disposable screensho
         ->and(Media::query()->where('uuid', $mediaUuid)->count())->toBe(1)
         ->and(data_get($rerunMedia->custom_properties, 'capell.screenshot_fixture'))->toBe('record-state')
         ->and(AssetAttachment::query()->where('asset_id', (string) $mediaId)->exists())->toBeFalse();
+});
+
+it('resolves the fixture image from the installed Core package path', function (): void {
+    $classPath = new ReflectionClass(RecordStateScreenshotFixture::class)->getFileName();
+
+    expect($classPath)->not->toBeFalse();
+
+    $packagePath = dirname((string) $classPath, 4);
+    $fixturePath = $packagePath . '/resources/screenshot-fixtures/record-state-image.svg';
+
+    expect($fixturePath)->toBeFile()
+        ->and(file_get_contents($fixturePath))->toContain('<svg');
 });
 
 it('rejects direct initialization without the disposable app marker', function (): void {
@@ -212,7 +226,7 @@ it('fails closed when fixture media has an attachment', function (): void {
 
     $page = Page::query()->where('name', 'Scheduled page without an active URL')->firstOrFail();
     $media = Media::query()->where('uuid', 'c6de44d7-a8d4-4c5d-9e24-7c6492811d48')->firstOrFail();
-    $attachment = AssetAttachment::create([
+    $attachment = AssetAttachment::query()->create([
         'related_type' => $page->getMorphClass(),
         'related_id' => (string) $page->getKey(),
         'asset_type' => $media->getMorphClass(),
