@@ -20,11 +20,18 @@ it('captures deterministic record states through real Filament routes and visibl
         ->and($layouts['url'])->toBe('/layouts')
         ->and($layouts['waitFor'])->toContain('Disabled', 'Unused layout')
         ->and($media['surface'])->toBe('admin')
+        ->and($media['target'])->toBe('MediaResource')
         ->and($media['url'])->toBe('/media')
+        ->and($media['waitFor'])->toBe('.fi-ta')
         ->and($media['interactions'])->toContain([
             'type' => 'waitFor',
-            'selector' => ".fi-ta-row:has-text('capell-logo-reference.png'):has-text('No tracked uses')",
+            'selector' => ".fi-ta-row:has-text('record-state-image.svg'):has-text('No tracked uses')",
         ])
+        ->and($media['interactions'])->toContain([
+            'type' => 'scrollIntoView',
+            'selector' => ".fi-ta-row:has-text('record-state-image.svg'):has-text('No tracked uses')",
+        ])
+        ->and($media['notes'])->toContain('record-state-image.svg', 'zero tracked usage')
         ->and($entries->get('admin-media-edit-focal-point')['waitFor'])->toBe(".fi-sc-tabs:has(button[role='tab']:has-text('Crop and focal point'))")
         ->and($entries->get('admin-media-edit-localized-metadata')['url'])->toBe('/media/{first-record}/edit')
         ->and($entries->get('admin-media-edit-localized-metadata')['interactions'])->toContain([

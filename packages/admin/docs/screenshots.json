@@ -112,17 +112,17 @@
             "interactions": [
                 {
                     "type": "waitFor",
-                    "selector": ".fi-ta-row:has-text('capell-logo-reference.png'):has-text('No tracked uses')"
+                    "selector": ".fi-ta-row:has-text('record-state-image.svg'):has-text('No tracked uses')"
                 },
                 {
                     "type": "scrollIntoView",
-                    "selector": ".fi-ta-row:has-text('capell-logo-reference.png'):has-text('No tracked uses')"
+                    "selector": ".fi-ta-row:has-text('record-state-image.svg'):has-text('No tracked uses')"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-list.png",
             "required": true,
-            "notes": "Uses deterministic local seed data at the real Media resource URL to show an asset with zero tracked usage.",
+            "notes": "Uses the deterministic record-state-image.svg seed at the real Media resource URL to show an asset with zero tracked usage.",
             "covers": [
                 "packages/admin/src/Filament/Resources/Media/Actions/RepairMediaHealthBulkAction.php"
             ]

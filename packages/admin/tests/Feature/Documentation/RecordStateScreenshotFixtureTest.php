@@ -54,9 +54,16 @@ it('initializes idempotent record-state fixtures at actual Filament list and edi
         ->and($pageUrl->status)->toBeFalse()
         ->and($layout->status)->toBeFalse()
         ->and($layout->pages()->count())->toBe(0)
+        ->and($media->file_name)->toBe('record-state-image.svg')
+        ->and($media->mime_type)->toBe('image/svg+xml')
         ->and($media->usage_count)->toBe(0)
         ->and(AssetAttachment::query()->where('asset_id', (string) $media->getKey())->count())->toBe(0)
         ->and(LayoutSelect::make('layout_id')->isHtmlAllowed())->toBeTrue();
+
+    test()->get($mediaListUrl)
+        ->assertSuccessful()
+        ->assertSee('record-state-image.svg')
+        ->assertSee('No tracked uses');
 
     RecordStateScreenshotFixture::initialize();
 
