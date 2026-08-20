@@ -25,8 +25,8 @@ final class InitializeScreenshotRecordStateFixtureCommand extends Command
 
         try {
             RecordStateScreenshotFixture::initialize();
-        } catch (Throwable $exception) {
-            $this->error($exception->getMessage());
+        } catch (Throwable $throwable) {
+            $this->error($throwable->getMessage());
 
             return self::FAILURE;
         }

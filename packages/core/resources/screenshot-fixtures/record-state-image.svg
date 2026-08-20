@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-label="Record state screenshot fixture">
+    <rect width="640" height="400" fill="#172554"/>
+    <path d="M0 270C120 220 200 320 320 270S520 220 640 270V400H0Z" fill="#1d4ed8"/>
+    <circle cx="320" cy="180" r="88" fill="#f8fafc"/>
+    <path d="M280 180h80M320 140v80" stroke="#172554" stroke-linecap="round" stroke-width="18"/>
+</svg>
