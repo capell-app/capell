@@ -15,7 +15,6 @@ use Capell\Core\Models\Site;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -36,7 +35,13 @@ final class RecordStateScreenshotFixture
 
     private const string PageSlug = 'scheduled-no-active-url';
 
+    private const string PageUuid = '2f3f0f74-8e75-4ba2-9d5f-0d5a0ef8f1b8';
+
     private const string MediaUuid = 'c6de44d7-a8d4-4c5d-9e24-7c6492811d48';
+
+    private const string FixtureMarkerKey = 'capell.screenshot_fixture';
+
+    private const string FixtureMarkerValue = 'record-state';
 
     /**
      * Seed deterministic local records for the authenticated screenshot queue.
@@ -58,19 +63,16 @@ final class RecordStateScreenshotFixture
                 'The screenshot app must be seeded before building the record-state fixture.',
             );
 
+            $page = self::fixturePage($site);
             $pageLayout = self::pageLayout($site);
             self::disabledLayoutFor($site);
 
-            $page = Page::query()->firstOrNew(['name' => self::PageName]);
-
-            if (! $page->exists) {
-                $page->uuid = Str::uuid()->toString();
-            }
-
             $page->fill([
                 'site_id' => $site->getKey(),
+                'name' => self::PageName,
                 'layout_id' => $pageLayout->getKey(),
                 'blueprint_id' => $blueprint->getKey(),
+                'meta' => self::fixtureMetadata($page->meta),
                 'visible_from' => now()->addWeek(),
                 'visible_until' => null,
             ])->save();
@@ -120,6 +122,58 @@ final class RecordStateScreenshotFixture
         );
     }
 
+    private static function fixturePage(Site $site): Page
+    {
+        $pages = Page::withTrashed()->where('uuid', self::PageUuid)->get();
+
+        throw_if(
+            $pages->count() > 1,
+            RuntimeException::class,
+            'The record-state screenshot page identity is duplicated across records.',
+        );
+
+        $page = $pages->first();
+
+        if ($page instanceof Page) {
+            throw_if(
+                $page->trashed()
+                    || $page->site_id !== $site->getKey()
+                    || $page->name !== self::PageName
+                    || data_get($page->meta, self::FixtureMarkerKey) !== self::FixtureMarkerValue,
+                RuntimeException::class,
+                'The record-state screenshot page identity is already owned by another record.',
+            );
+
+            return $page;
+        }
+
+        throw_if(
+            Page::withTrashed()
+                ->where('site_id', $site->getKey())
+                ->where('name', self::PageName)
+                ->exists(),
+            RuntimeException::class,
+            'A same-site page already uses the record-state screenshot display name.',
+        );
+
+        $page = new Page;
+        $page->uuid = self::PageUuid;
+
+        return $page;
+    }
+
+    /**
+     * @param  array<array-key, mixed>|null  $existing
+     * @return array<array-key, mixed>
+     */
+    private static function fixtureMetadata(?array $existing): array
+    {
+        $metadata = $existing ?? [];
+        data_set($metadata, self::FixtureMarkerKey, self::FixtureMarkerValue);
+
+        return $metadata;
+    }
+
     private static function pageLayout(Site $site): Layout
     {
         return Layout::query()->updateOrCreate(
@@ -154,7 +208,31 @@ final class RecordStateScreenshotFixture
 
     private static function ensureUnusedMedia(Page $page): void
     {
-        $media = Media::query()->firstOrNew(['uuid' => self::MediaUuid]);
+        $media = Media::withTrashed()->where('uuid', self::MediaUuid)->first();
+
+        if ($media instanceof Media) {
+            throw_if(
+                $media->trashed()
+                    || $media->model_type !== $page->getMorphClass()
+                    || (string) $media->model_id !== (string) $page->getKey()
+                    || data_get($media->custom_properties, self::FixtureMarkerKey) !== self::FixtureMarkerValue,
+                RuntimeException::class,
+                'The record-state screenshot media identity is already owned by another record.',
+            );
+
+            throw_if(
+                AssetAttachment::query()
+                    ->where('asset_type', $media->getMorphClass())
+                    ->where('asset_id', (string) $media->getKey())
+                    ->exists(),
+                RuntimeException::class,
+                'The record-state screenshot media is attached and cannot be reused.',
+            );
+        } else {
+            $media = new Media;
+            $media->uuid = self::MediaUuid;
+        }
+
         $sourcePath = dirname(__DIR__, 5) . '/artwork/foundation-series/references/capell-logo-reference.png';
 
         throw_if(! is_file($sourcePath), ModelNotFoundException::class, 'The screenshot seed image is missing.');
@@ -172,7 +250,7 @@ final class RecordStateScreenshotFixture
             'conversions_disk' => 'public',
             'size' => strlen($contents),
             'manipulations' => [],
-            'custom_properties' => [],
+            'custom_properties' => self::fixtureMetadata($media->custom_properties),
             'generated_conversions' => [],
             'responsive_images' => [],
             'order_column' => 0,
@@ -181,10 +259,5 @@ final class RecordStateScreenshotFixture
         ])->save();
 
         Storage::disk($media->disk)->put($media->getKey() . '/' . $media->file_name, $contents);
-
-        AssetAttachment::query()
-            ->where('asset_type', $media->getMorphClass())
-            ->where('asset_id', (string) $media->getKey())
-            ->delete();
     }
 }
