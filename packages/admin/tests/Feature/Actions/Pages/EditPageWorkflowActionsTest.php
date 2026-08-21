@@ -39,10 +39,10 @@ it('records only confirmed page url changes with one language lookup', function 
     $recorded = [];
     $languageQueries = 0;
 
-    app()->instance(RedirectUrlRecorder::class, new class($recorded) implements RedirectUrlRecorder
+    $recorder = new class implements RedirectUrlRecorder
     {
-        /** @param list<array{page_id: int, language_id: int, url: string}> $recorded */
-        public function __construct(private array &$recorded) {}
+        /** @var list<array{page_id: int, language_id: int, url: string}> */
+        private array $recorded = [];
 
         public function record(Pageable $pageable, Language $language, string $url): void
         {
@@ -54,7 +54,15 @@ it('records only confirmed page url changes with one language lookup', function 
                 'url' => $url,
             ];
         }
-    });
+
+        /** @return list<array{page_id: int, language_id: int, url: string}> */
+        public function recorded(): array
+        {
+            return $this->recorded;
+        }
+    };
+
+    app()->instance(RedirectUrlRecorder::class, $recorder);
 
     DB::listen(function (QueryExecuted $query) use (&$languageQueries): void {
         if (str_starts_with(strtolower($query->sql), 'select') && str_contains($query->sql, 'languages')) {
@@ -77,7 +85,7 @@ it('records only confirmed page url changes with one language lookup', function 
     expect($result)
         ->acceptedCount->toBe(1)
         ->recordedCount->toBe(1)
-        ->and($recorded)->toBe([[
+        ->and($recorder->recorded())->toBe([[
             'page_id' => (int) $page->getKey(),
             'language_id' => (int) $language->getKey(),
             'url' => '/old-page',
@@ -88,22 +96,33 @@ it('records only confirmed page url changes with one language lookup', function 
 it('keeps page saved processing ahead of redirect recording', function (): void {
     $page = Page::factory()->createOne();
     $language = Language::factory()->createOne();
-    $order = [];
-
-    Event::listen(PageSaved::class, function () use (&$order): void {
-        $order[] = 'page-saved';
-    });
-
-    app()->instance(RedirectUrlRecorder::class, new class($order) implements RedirectUrlRecorder
+    $recorder = new class implements RedirectUrlRecorder
     {
-        /** @param list<string> $order */
-        public function __construct(private array &$order) {}
+        /** @var list<string> */
+        private array $order = [];
+
+        public function markPageSaved(): void
+        {
+            $this->order[] = 'page-saved';
+        }
 
         public function record(Pageable $pageable, Language $language, string $url): void
         {
             $this->order[] = 'redirect-recorded';
         }
+
+        /** @return list<string> */
+        public function order(): array
+        {
+            return $this->order;
+        }
+    };
+
+    Event::listen(PageSaved::class, function () use ($recorder): void {
+        $recorder->markPageSaved();
     });
+
+    app()->instance(RedirectUrlRecorder::class, $recorder);
 
     $result = SavePageAuthoringAction::run(new PageAuthoringInputData(
         page: $page,
@@ -113,7 +132,7 @@ it('keeps page saved processing ahead of redirect recording', function (): void 
     ));
 
     expect($result->redirectsRecorded)->toBe(1)
-        ->and($order)->toBe(['page-saved', 'redirect-recorded']);
+        ->and($recorder->order())->toBe(['page-saved', 'redirect-recorded']);
 });
 
 it('returns typed lock decisions without adding writes to the conflict path', function (): void {
