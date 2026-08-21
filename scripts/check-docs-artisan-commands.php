@@ -140,11 +140,15 @@ function discoverDocumentationPaths(string $repositoryRoot): array
     );
 
     foreach ($files as $file) {
-        if (! $file->isFile() || strtolower($file->getExtension()) !== 'md') {
+        if (! $file->isFile()) {
             continue;
         }
 
-        $paths[] = substr($file->getPathname(), strlen($repositoryRoot) + 1);
+        if (strtolower((string) $file->getExtension()) !== 'md') {
+            continue;
+        }
+
+        $paths[] = substr((string) $file->getPathname(), strlen($repositoryRoot) + 1);
     }
 
     sort($paths);
@@ -213,8 +217,11 @@ function registeredCapellCommandDefinitions(string $repositoryRoot): array
         }
 
         $name = $command['name'] ?? null;
+        if (! is_string($name)) {
+            continue;
+        }
 
-        if (! is_string($name) || ! str_starts_with($name, 'capell:')) {
+        if (! str_starts_with($name, 'capell:')) {
             continue;
         }
 

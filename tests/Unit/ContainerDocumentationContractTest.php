@@ -106,6 +106,6 @@ it('describes --user as existing-author selection rather than login credentials'
 
     expect($firstSession)
         ->toContain('`--user=` selects an existing account as the default content author')
-        ->toContain('does not set or change that account\'s login credentials')
+        ->toContain("does not set or change that account's login credentials")
         ->not->toContain('credentials for the user you passed to `--user=`');
 });
