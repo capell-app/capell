@@ -121,8 +121,8 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
             diagnostics.assertHealthy('create draft')
         })
 
-        const anonymousContext = await browser.newContext()
-        const anonymousPage = await anonymousContext.newPage()
+        let anonymousContext = await browser.newContext()
+        let anonymousPage = await anonymousContext.newPage()
         diagnostics.registerPage(anonymousPage, 'anonymous')
 
         await diagnostics.step('draft stays private', async () => {
@@ -144,6 +144,7 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
             })
             diagnostics.assertHealthy('draft public checkpoint')
         })
+        await anonymousContext.close()
 
         await diagnostics.step('preview draft privately', async () => {
             const previewPagePromise = adminContext.waitForEvent('page')
@@ -196,6 +197,9 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
         })
 
         await diagnostics.step('cached anonymous delivery', async () => {
+            anonymousContext = await browser.newContext()
+            anonymousPage = await anonymousContext.newPage()
+            diagnostics.registerPage(anonymousPage, 'anonymous-published')
             allowStylesheetRecovery(anonymousPage)
             const missResponse = await anonymousPage.goto(publicUrl, {
                 waitUntil: 'domcontentloaded',
