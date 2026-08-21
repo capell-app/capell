@@ -14,6 +14,7 @@ use Capell\Installer\Providers\InstallerServiceProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 use Capell\Tests\Fixtures\RuntimeRole\Filament\AuthoringRuntimeRoleProvider;
 use Capell\Tests\Fixtures\RuntimeRole\FrontendPreviewRuntimeRoleProvider;
+use Capell\Tests\Fixtures\RuntimeRole\Unknown\UnknownAuthoringRuntimeRoleProvider;
 
 it('accepts only immutable named runtime roles and falls back safely for invalid configuration', function (): void {
     expect(RuntimeRoleSelectionData::fromConfiguredValue(' PUBLIC '))
@@ -79,6 +80,23 @@ it('loads frontend and auth capabilities publicly while retaining every bucket f
         'FrontendProvider',
         'AuthProvider',
     ])->and($policy->extensionProviders($providers, RuntimeRole::Authoring))->toBe($providers->all());
+});
+
+it('uses manifest buckets rather than provider names for unknown authoring providers', function (): void {
+    $policy = new RuntimeRoleProviderPolicy;
+    $providers = new ExtensionProviderData(
+        metadata: [],
+        install: [],
+        runtime: [],
+        auth: [],
+        admin: [UnknownAuthoringRuntimeRoleProvider::class],
+        frontend: [],
+    );
+
+    expect($policy->extensionProviders($providers, RuntimeRole::Public))
+        ->not->toContain(UnknownAuthoringRuntimeRoleProvider::class)
+        ->and($policy->extensionProviders($providers, RuntimeRole::Authoring))
+        ->toContain(UnknownAuthoringRuntimeRoleProvider::class);
 });
 
 it('reduces the first-party public bootstrap graph to Core and Frontend', function (): void {

@@ -14,6 +14,7 @@ use Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables;
 use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\Env;
+use ReflectionProperty;
 
 final class RuntimeRoleBootstrap
 {
@@ -95,6 +96,7 @@ final class RuntimeRoleBootstrap
         RuntimeRole $role,
         RuntimeRoleProviderPolicy $policy,
     ): void {
+        $additionalProviders = self::additionalProviders();
         $configuredProviders = $application->make(Repository::class)->get('app.providers');
 
         if (is_array($configuredProviders)) {
@@ -109,23 +111,26 @@ final class RuntimeRoleBootstrap
 
         $generatedProviderManifest = $paths->providers($role);
         $bootstrapProviderManifest = $application->bootstrapPath('providers.php');
-        $providers = self::providersFrom($bootstrapProviderManifest);
+        $providers = is_file($generatedProviderManifest)
+            ? self::providersFrom($generatedProviderManifest)
+            : self::providersFrom($bootstrapProviderManifest);
 
         RegisterProviders::flushState();
 
-        if (is_file($generatedProviderManifest)) {
-            RegisterProviders::merge(
-                $policy->filterProviders(self::providersFrom($generatedProviderManifest), $role),
-                dirname(__DIR__, 3) . '/resources/runtime/empty-providers.php',
-            );
-
-            return;
-        }
-
         RegisterProviders::merge(
-            $policy->filterProviders($providers, $role),
+            $policy->filterProviders([...$additionalProviders, ...$providers], $role),
             dirname(__DIR__, 3) . '/resources/runtime/empty-providers.php',
         );
+    }
+
+    /** @return list<string> */
+    private static function additionalProviders(): array
+    {
+        $merge = (new ReflectionProperty(RegisterProviders::class, 'merge'))->getValue();
+
+        return is_array($merge)
+            ? array_values(array_filter($merge, is_string(...)))
+            : [];
     }
 
     /** @return list<string> */

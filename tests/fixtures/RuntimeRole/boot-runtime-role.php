@@ -19,7 +19,9 @@ use Illuminate\Support\Env;
 require dirname(__DIR__, 3) . '/vendor/autoload.php';
 
 $role = $argv[1] ?? 'combined';
-$useStaleGeneratedManifests = ($argv[2] ?? null) === 'stale';
+$fixtureState = $argv[2] ?? null;
+$useStaleGeneratedManifests = $fixtureState === 'stale';
+$useCustomProviders = $fixtureState === 'custom';
 $basePath = sys_get_temp_dir() . '/capell-runtime-role-boot-' . bin2hex(random_bytes(6));
 $files = new Filesystem;
 $files->ensureDirectoryExists($basePath . '/bootstrap/cache');
@@ -28,7 +30,10 @@ $providers = [
     FrontendPreviewRuntimeRoleProvider::class,
     AuthoringRuntimeRoleProvider::class,
 ];
-$files->put($basePath . '/bootstrap/providers.php', '<?php return ' . var_export($providers, true) . ';');
+$files->put(
+    $basePath . '/bootstrap/providers.php',
+    '<?php return ' . var_export($useCustomProviders ? [] : $providers, true) . ';',
+);
 
 if ($useStaleGeneratedManifests) {
     $files->ensureDirectoryExists($basePath . '/bootstrap/cache/capell-runtime/public');
@@ -66,7 +71,9 @@ try {
     RegisterProviders::flushState();
     Env::getRepository()->set('CAPELL_RUNTIME_ROLE', $role);
 
-    $application = new Application($basePath);
+    $application = $useCustomProviders
+        ? Application::configure(basePath: $basePath)->withProviders($providers)->create()
+        : new Application($basePath);
     RuntimeRoleBootstrap::configure($application);
     $application->bootstrapWith([
         LoadEnvironmentVariables::class,

@@ -47,6 +47,17 @@ it('re-filters stale generated manifests before public provider registration', f
         ->not->toContain(AuthoringRuntimeRoleProvider::class);
 });
 
+it('preserves and filters ApplicationBuilder providers when the bootstrap manifest is empty', function (): void {
+    $combined = bootRuntimeRoleFixture('combined', 'custom');
+    $public = bootRuntimeRoleFixture('public', 'custom');
+
+    expect($combined['loaded_providers'])
+        ->toContain(FrontendPreviewRuntimeRoleProvider::class, AuthoringRuntimeRoleProvider::class)
+        ->and($public['loaded_providers'])
+        ->toContain(FrontendPreviewRuntimeRoleProvider::class)
+        ->not->toContain(AuthoringRuntimeRoleProvider::class);
+});
+
 /** @return array<string, mixed> */
 function bootRuntimeRoleFixture(string $role, ?string $manifestState = null): array
 {

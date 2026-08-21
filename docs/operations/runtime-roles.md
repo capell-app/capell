@@ -10,6 +10,10 @@ Capell fixes one runtime role for the lifetime of each PHP process, before Larav
 
 The public role excludes Admin, Installer, Marketplace, Filament, TinyEditor, Shield, and other authoring-only providers before registration. It does not register everything and remove providers later. Anonymous HTML safety remains a separate contract: public Blade, fragments, cached responses, static exports, and crawler output must still contain no authoring controls or metadata.
 
+## Provider ownership contract
+
+Extension providers must be declared in the `capell.json` manifest bucket that owns their work. Runtime roles select those buckets before registration, so an authoring provider is excluded from `public` even when its class name is otherwise unknown. Keep authoring-only host providers out of Laravel's `ApplicationBuilder::withProviders()` list; place them in an enabled package's `providers.admin` bucket instead. Providers supplied through `withProviders()` are preserved for compatibility and are filtered only by the documented Core authoring-provider compatibility list, so they must be safe for every role in which the host may boot.
+
 ## Host bootstrap contract
 
 Installer applies the `runtime-role-bootstrap-patch` to a stock Laravel `bootstrap/app.php`. Its essential shape is:
