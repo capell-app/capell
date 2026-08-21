@@ -22,6 +22,7 @@ $role = $argv[1] ?? 'combined';
 $fixtureState = $argv[2] ?? null;
 $useStaleGeneratedManifests = $fixtureState === 'stale';
 $useCustomProviders = $fixtureState === 'custom';
+$useResolvedApplication = $fixtureState === 'resolved';
 $basePath = sys_get_temp_dir() . '/capell-runtime-role-boot-' . bin2hex(random_bytes(6));
 $files = new Filesystem;
 $files->ensureDirectoryExists($basePath . '/bootstrap/cache');
@@ -74,14 +75,27 @@ try {
     $application = $useCustomProviders
         ? Application::configure(basePath: $basePath)->withProviders($providers)->create()
         : new Application($basePath);
-    RuntimeRoleBootstrap::configure($application);
-    $application->bootstrapWith([
-        LoadEnvironmentVariables::class,
-        LoadConfiguration::class,
-        RegisterFacades::class,
-        RegisterProviders::class,
-        BootProviders::class,
-    ]);
+    if ($useResolvedApplication) {
+        $application->bootstrapWith([
+            LoadEnvironmentVariables::class,
+            LoadConfiguration::class,
+        ]);
+        RuntimeRoleBootstrap::configureResolvedApplication($application);
+        $application->bootstrapWith([
+            RegisterFacades::class,
+            RegisterProviders::class,
+            BootProviders::class,
+        ]);
+    } else {
+        RuntimeRoleBootstrap::configure($application);
+        $application->bootstrapWith([
+            LoadEnvironmentVariables::class,
+            LoadConfiguration::class,
+            RegisterFacades::class,
+            RegisterProviders::class,
+            BootProviders::class,
+        ]);
+    }
 
     $selection = $application->make(RuntimeRoleResolver::class)->selection();
     $loadedProviders = array_keys(array_filter(

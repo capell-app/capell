@@ -69,6 +69,8 @@ export CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED=false
 export CAPELL_MARKETPLACE_URL="${APP_URL}/api/v1"
 export CAPELL_MARKETPLACE_WEB_URL="${APP_URL}"
 
+php scripts/screenshots/configure-testbench-runtime-role.php
+
 php vendor/bin/testbench capell:install \
     --fresh=force \
     --demo \

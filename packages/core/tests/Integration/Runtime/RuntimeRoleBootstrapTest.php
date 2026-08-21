@@ -58,6 +58,16 @@ it('preserves and filters ApplicationBuilder providers when the bootstrap manife
         ->not->toContain(AuthoringRuntimeRoleProvider::class);
 });
 
+it('configures custom application factories after environment and configuration are resolved', function (): void {
+    $result = bootRuntimeRoleFixture('combined', 'resolved');
+
+    expect($result['package_manifest'])->toBe(RuntimeRolePackageManifest::class);
+
+    foreach (['config_cache', 'packages_cache', 'services_cache', 'routes_cache', 'events_cache'] as $cache) {
+        expect($result[$cache])->toContain('/capell-runtime/combined/');
+    }
+});
+
 /** @return array<string, mixed> */
 function bootRuntimeRoleFixture(string $role, ?string $manifestState = null): array
 {

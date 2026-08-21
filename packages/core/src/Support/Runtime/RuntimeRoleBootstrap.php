@@ -34,6 +34,16 @@ final class RuntimeRoleBootstrap
         );
     }
 
+    /**
+     * Configure an application factory that resolves environment and configuration
+     * without dispatching Laravel's standard bootstrapper events.
+     */
+    public static function configureResolvedApplication(Application $application): void
+    {
+        self::configureAfterEnvironment($application);
+        self::configureAfterConfiguration($application);
+    }
+
     private static function configureAfterEnvironment(Application $application): void
     {
         $selection = RuntimeRoleSelectionData::fromConfiguredValue(
