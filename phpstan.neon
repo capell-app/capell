@@ -13,5 +13,6 @@ parameters:
         - scripts/benchmark-boot-child.php
         - scripts/benchmark-boot-support.php
     scanFiles:
+        - scripts/test-all/TestAllDatabaseService.php
         - scripts/test-all/TestAllMatrix.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/full

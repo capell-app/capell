@@ -17,7 +17,7 @@ Allow about ten minutes for the first Composer install.
 | Filament    | Installed by the selected Capell Admin package; supported line `^5.7.6` |
 | Node.js     | 20+                                                                     |
 | Composer    | 2.7+                                                                    |
-| Database    | MySQL 8+, MariaDB 10.5+, PostgreSQL, or SQLite                          |
+| Database    | MySQL 8+, MariaDB 10.5+, PostgreSQL 16+, or SQLite                      |
 
 Required PHP extensions: `fileinfo`, `intl`, `mbstring`, `openssl`, `curl`, `simplexml`, and either `gd` or `imagick`.
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms;
 
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Core\Enums\ImageSourceType;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Media\ImageSourcePolicyResolver;
@@ -184,7 +185,7 @@ class ImageSourcePicker extends Group
     protected function sourceOptions(): array
     {
         return collect($this->allowedSources)
-            ->mapWithKeys(static fn (ImageSourceType $source): array => [$source->value => $source->getLabel()])
+            ->mapWithKeys(static fn (ImageSourceType $source): array => [$source->value => app(EnumPresentationRegistry::class)->label($source)])
             ->all();
     }
 

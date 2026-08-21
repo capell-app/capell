@@ -89,7 +89,7 @@ it('exits successfully when all checks pass', function (): void {
 
     artisanCommand('capell:doctor')
         ->assertExitCode(Command::SUCCESS);
-});
+})->group('database-portability');
 
 it('reports required tables as present', function (): void {
     seedHealthyDoctorInstall();

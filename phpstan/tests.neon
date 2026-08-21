@@ -34,5 +34,6 @@ parameters:
     # The root suite exercises this script-only class, which lives outside any
     # analysed path; the full config scans it for the same reason.
     scanFiles:
+        - ../scripts/test-all/TestAllDatabaseService.php
         - ../scripts/test-all/TestAllMatrix.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/tests

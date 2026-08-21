@@ -30,11 +30,13 @@ use Capell\Admin\Contracts\Dashboard\SiteStatsDataProvider;
 use Capell\Admin\Contracts\DashboardReports\ActivityTrailQueryProvider;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthWidget;
+use Capell\Admin\Contracts\EnumPresentationContributor;
 use Capell\Admin\Contracts\Extenders\PageEditExtender;
 use Capell\Admin\Contracts\Extenders\PageExportExtender;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Extenders\PublishPanelExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionRemovalCoordinator;
+use Capell\Admin\Contracts\Media\AdminMediaFieldFactory;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Contracts\RegistryInspectorInterface;
 use Capell\Admin\Contracts\Support\FlagIconRenderer as FlagIconRendererContract;
@@ -140,8 +142,11 @@ use Capell\Admin\Support\Dashboard\NullMyWorkQueueDataProvider;
 use Capell\Admin\Support\Dashboard\NullRecentlyPublishedDataProvider;
 use Capell\Admin\Support\Dashboard\OverviewStatRegistry;
 use Capell\Admin\Support\DashboardReports\NullActivityTrailQueryProvider;
+use Capell\Admin\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
 use Capell\Admin\Support\Diagnostics\RegistryInspector;
+use Capell\Admin\Support\Enums\CoreEnumPresentationContributor;
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Admin\Support\Extensions\ExtensionManagementSurfaceRegistry;
 use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
@@ -150,6 +155,7 @@ use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
 use Capell\Admin\Support\Icons\FlagIconRenderer;
 use Capell\Admin\Support\ImportEntryRegistry;
 use Capell\Admin\Support\Install\AdminPermissionSynchronizer;
+use Capell\Admin\Support\Install\FilamentAdminPanelUrlResolver;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\DefaultPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\HomePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\MaintenancePageBlueprintInterceptor;
@@ -159,7 +165,8 @@ use Capell\Admin\Support\Makers\AdminBladeComponentMaker;
 use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
-use Capell\Admin\Support\Media\AdminSpatieMediaFieldFactory;
+use Capell\Admin\Support\Media\LegacyAdminMediaFieldFactoryAdapter;
+use Capell\Admin\Support\Media\LegacyAwareAdminMediaFieldFactory;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
@@ -179,8 +186,10 @@ use Capell\Admin\Support\Workspace\AdminWorkspaceNavigator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Capell\Core\Contracts\ActivitySettingsReader;
+use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract;
+use Capell\Core\Contracts\DoctorCheck;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
@@ -280,10 +289,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->singleton(StaticSiteGenerationDispatcher::class, UnavailableStaticSiteGenerationDispatcher::class);
 
-        // Admin overrides the core default factory with a decorator that adds
-        // translated label + max upload size. Plugins (e.g. capell/media-library)
-        // can rebind MediaFieldFactory later to swap the backend entirely.
-        $this->app->bind(MediaFieldFactory::class, AdminSpatieMediaFieldFactory::class);
+        $this->app->bind(AdminMediaFieldFactory::class, LegacyAwareAdminMediaFieldFactory::class);
+        $this->app->bind(MediaFieldFactory::class, LegacyAdminMediaFieldFactoryAdapter::class);
+        $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
+        $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
+        $this->app->singleton(EnumPresentationRegistry::class);
+        $this->app->tag([CoreEnumPresentationContributor::class], EnumPresentationContributor::TAG);
         $this->app->bind(
             'capell.admin.create-default-pages-action',
             fn (): callable => function (Site $site, ?Collection $languages = null, ?array $pages = null): void {

@@ -13,6 +13,7 @@ use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
@@ -86,7 +87,7 @@ class RedirectsTable implements TableConfigurator
         return [
             SelectFilter::make('status_code')
                 ->label(__('capell-admin::table.status_code'))
-                ->options(RedirectStatusCodeEnum::class),
+                ->options(app(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class)),
             TernaryFilter::make('is_manual')
                 ->label(__('capell-admin::table.is_manual'))
                 ->trueLabel(__('capell-admin::generic.manual'))

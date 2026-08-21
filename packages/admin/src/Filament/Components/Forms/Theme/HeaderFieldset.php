@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Components\Forms\Theme;
 
 use Capell\Admin\Enums\HeaderShadowEnum;
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Core\Enums\HeaderPositionEnum;
 use Capell\Core\Enums\MenuAlignmentEnum;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
@@ -57,11 +58,11 @@ class HeaderFieldset extends Fieldset
                                     ->schema([
                                         Select::make('header_position')
                                             ->label(__('capell-admin::form.header_position'))
-                                            ->options(HeaderPositionEnum::class)
+                                            ->options(app(EnumPresentationRegistry::class)->options(HeaderPositionEnum::class))
                                             ->default(HeaderPositionEnum::Static_),
                                         Select::make('header_menu_alignment')
                                             ->label(__('capell-admin::form.header_menu_alignment'))
-                                            ->options(MenuAlignmentEnum::class),
+                                            ->options(app(EnumPresentationRegistry::class)->options(MenuAlignmentEnum::class)),
                                         Select::make('header_shadow')
                                             ->label(__('capell-admin::form.shadow'))
                                             ->options(HeaderShadowEnum::options())

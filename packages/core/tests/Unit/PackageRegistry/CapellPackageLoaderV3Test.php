@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
+use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Bootstrap\CloudInstallContext;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
@@ -133,6 +136,40 @@ it('deduplicates capabilities declared for more than one request surface', funct
         ->toBe([AuthServiceProvider::class]);
 });
 
+it('loads only metadata runtime frontend and auth capabilities in the public role', function (): void {
+    $registry = packageLoaderV3Registry('vendor/public-package', [
+        'metadata' => [AuthServiceProvider::class],
+        'install' => [CacheServiceProvider::class],
+        'runtime' => [FilesystemServiceProvider::class],
+        'admin' => [HashServiceProvider::class],
+        'frontend' => [CacheServiceProvider::class],
+        'auth' => [HashServiceProvider::class],
+    ]);
+
+    CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/public-package')->andReturnTrue();
+
+    expect(packageV3Loader($registry, runtimeRole: RuntimeRole::Public)->collectProviders())
+        ->toBe([
+            AuthServiceProvider::class,
+            FilesystemServiceProvider::class,
+            CacheServiceProvider::class,
+            HashServiceProvider::class,
+        ]);
+});
+
+it('does not load install capabilities for disabled packages in the public role', function (): void {
+    $registry = packageLoaderV3Registry('vendor/disabled-public-package', [
+        'metadata' => [AuthServiceProvider::class],
+        'install' => [CacheServiceProvider::class],
+        'frontend' => [FilesystemServiceProvider::class],
+    ]);
+
+    CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/disabled-public-package')->andReturnFalse();
+
+    expect(packageV3Loader($registry, runtimeRole: RuntimeRole::Public)->collectProviders())
+        ->toBe([AuthServiceProvider::class]);
+});
+
 /** @param array<string, list<class-string>> $providers */
 function packageLoaderV3Registry(string $name, array $providers): CapellPackageRegistry
 {
@@ -148,8 +185,11 @@ function packageLoaderV3Registry(string $name, array $providers): CapellPackageR
     return $registry;
 }
 
-function packageV3Loader(CapellPackageRegistry $registry, ?CloudInstallContext $cloudInstallContext = null): CapellPackageLoader
-{
+function packageV3Loader(
+    CapellPackageRegistry $registry,
+    ?CloudInstallContext $cloudInstallContext = null,
+    RuntimeRole $runtimeRole = RuntimeRole::Combined,
+): CapellPackageLoader {
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
 
@@ -157,5 +197,14 @@ function packageV3Loader(CapellPackageRegistry $registry, ?CloudInstallContext $
         $application->shouldReceive('bound')->with('db')->zeroOrMoreTimes()->andReturnFalse();
     }
 
-    return new CapellPackageLoader($application, $registry, $cloudInstallContext);
+    return new CapellPackageLoader(
+        $application,
+        $registry,
+        $cloudInstallContext,
+        new RuntimeRoleResolver(new RuntimeRoleSelectionData(
+            role: $runtimeRole,
+            configuredValue: $runtimeRole->value,
+            valid: true,
+        )),
+    );
 }

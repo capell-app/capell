@@ -9,5 +9,7 @@ use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 /** @internal */
 interface DoctorCheck
 {
+    public const string TAG = 'capell.doctor.check';
+
     public function check(bool $installSummary = false): DoctorCheckResultData;
 }

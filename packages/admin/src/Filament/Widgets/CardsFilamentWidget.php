@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Widgets;
 use Capell\Admin\Contracts\Widgets\FilamentWidget;
 use Capell\Admin\Filament\Components\Forms\Editor\RichEditor;
 use Capell\Admin\Filament\Components\Forms\MediaLibraryFileUpload;
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Core\Enums\MenuAlignmentEnum;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Field;
@@ -40,9 +41,9 @@ class CardsFilamentWidget implements FilamentWidget
 
                         Select::make('alignment')
                             ->options([
-                                MenuAlignmentEnum::Left->value => MenuAlignmentEnum::Left->getLabel(),
-                                MenuAlignmentEnum::Right->value => MenuAlignmentEnum::Right->getLabel(),
-                                MenuAlignmentEnum::Center->value => MenuAlignmentEnum::Center->getLabel(),
+                                MenuAlignmentEnum::Left->value => app(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Left),
+                                MenuAlignmentEnum::Right->value => app(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Right),
+                                MenuAlignmentEnum::Center->value => app(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Center),
                             ]),
                     ]),
             ]);

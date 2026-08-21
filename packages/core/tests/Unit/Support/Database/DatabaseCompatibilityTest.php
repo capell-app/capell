@@ -455,22 +455,25 @@ it('searches exact JSON strings at mixed wildcard paths', function (): void {
         ], 'hero'))->toBeFalse();
 });
 
-it('matches PostgreSQL JSON values by the supplied search needle', function (): void {
+it('matches active-engine JSON values by the supplied search needle', function (): void {
     $connection = DB::connection();
-
-    if ($connection->getDriverName() !== 'pgsql') {
-        $this->markTestSkipped('PostgreSQL JSON behaviour requires the pgsql test connection.');
-    }
+    $platform = CapellDatabase::for($connection);
+    $select = match ($platform->family()) {
+        DatabaseFamily::MySql => 'CAST(? AS JSON) AS meta',
+        DatabaseFamily::PostgreSql => '?::jsonb AS meta',
+        DatabaseFamily::MariaDb,
+        DatabaseFamily::Sqlite => '? AS meta',
+    };
 
     $matching = $connection->query()->fromSub(
         fn (Builder $query): Builder => $query->selectRaw(
-            '?::jsonb AS meta',
+            $select,
             [json_encode([['data' => 'A Capell needle appears here']], JSON_THROW_ON_ERROR)],
         ),
         'documents',
     );
     $notMatching = clone $matching;
-    $dialect = (new PostgresDatabasePlatform)->queryDialect();
+    $dialect = $platform->queryDialect();
 
     $dialect->jsonSearch(SqlFragment::raw('meta'), SqlFragment::value('needle'), '$[*].data')
         ->applyWhere($matching);
@@ -540,28 +543,39 @@ it('finds quoted SQLite constraint names', function (): void {
     ))->toBeTrue();
 });
 
-it('creates JSON path indexes on active MySQL and PostgreSQL engines', function (): void {
+it('creates JSON path indexes when the active engine advertises support', function (): void {
     $connection = DB::connection();
     $platform = CapellDatabase::for($connection);
     $family = $platform->family();
+    $dialect = $platform->schemaDialect();
+    $supportsJsonPathIndex = $dialect->supports(DatabaseCapability::JsonPathIndex, $connection);
 
-    if (! in_array($family, [DatabaseFamily::MySql, DatabaseFamily::PostgreSql], true)) {
-        $this->markTestSkipped('Functional JSON index execution requires MySQL 8+ or PostgreSQL.');
+    if (! $supportsJsonPathIndex) {
+        expect($family)->toBe(DatabaseFamily::MariaDb);
+
+        return;
     }
 
-    $connection->statement($family === DatabaseFamily::MySql
-        ? 'CREATE TEMPORARY TABLE capell_json_index_test (meta JSON)'
-        : 'CREATE TEMPORARY TABLE capell_json_index_test (meta JSONB)');
+    $table = 'capell_json_index_active';
+    $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $table));
+    $connection->statement($family === DatabaseFamily::PostgreSql
+        ? sprintf('CREATE TABLE %s (meta JSONB)', $table)
+        : sprintf('CREATE TABLE %s (meta JSON)', $table));
     $definition = new DatabaseIndexDefinition(
-        table: 'capell_json_index_test',
-        name: 'capell_json_index_test_path',
+        table: $table,
+        name: 'capell_json_index_active_path',
         columns: ['meta'],
     );
-    $fragment = $platform->schemaDialect()->jsonPathIndex($definition, 'meta', '$.page_id');
-    throw_unless($fragment instanceof SqlFragment, LogicException::class, 'The active platform did not provide a JSON path index.');
 
-    expect($fragment->bindings)->toBeEmpty()
-        ->and($connection->statement($fragment->sql))->toBeTrue();
+    try {
+        $fragment = $dialect->jsonPathIndex($definition, 'meta', '$.page_id');
+        throw_unless($fragment instanceof SqlFragment, LogicException::class, 'The active platform did not provide a JSON path index.');
+
+        expect($fragment->bindings)->toBeEmpty()
+            ->and($connection->statement($fragment->sql))->toBeTrue();
+    } finally {
+        $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $table));
+    }
 });
 
 it('inspects constraints triggers and foreign key references on the active engine', function (): void {
@@ -637,6 +651,14 @@ it('inspects constraints triggers and foreign key references on the active engin
             $generatedColumnInspection->sql,
             $generatedColumnInspection->bindings,
         );
+        $connection->table($parentTable)->insert(['id' => 1]);
+        $connection->table($childTable)->insert(['parent_id' => 1, 'name' => 'valid']);
+        capellExpectIntegrityViolation(
+            fn (): bool => $connection->table($childTable)->insert(['parent_id' => 2, 'name' => 'missing-parent']),
+        );
+        capellExpectIntegrityViolation(
+            fn (): bool => $connection->table($childTable)->insert(['parent_id' => 1, 'name' => '']),
+        );
 
         expect($dialect->hasConstraint($childTable, $constraint, $connection))->toBeTrue()
             ->and($dialect->hasConstraint($childTable, 'missing_constraint', $connection))->toBeFalse()
@@ -656,7 +678,8 @@ it('inspects constraints triggers and foreign key references on the active engin
                 'id',
                 $connection,
             ))->toBeFalse()
-            ->and($generatedColumns)->not->toBeEmpty();
+            ->and($generatedColumns)->not->toBeEmpty()
+            ->and($connection->table($childTable)->count())->toBe(1);
     } finally {
         $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $physicalChildTable));
         $connection->statement(sprintf('DROP TABLE IF EXISTS %s', $physicalParentTable));
@@ -703,59 +726,60 @@ it('provisions sqlite files and skips empty server database names', function ():
     }
 });
 
-it('reports an existing PostgreSQL database as ready', function (): void {
+it('reports the active database as ready through its matching provisioner', function (): void {
     $connection = DB::connection();
-
-    if ($connection->getDriverName() !== 'pgsql') {
-        $this->markTestSkipped('PostgreSQL provisioning readiness requires the pgsql test connection.');
-    }
-
     $connectionName = (string) config('database.default');
     $configuration = config('database.connections.' . $connectionName);
-    throw_unless(is_array($configuration), LogicException::class, 'The PostgreSQL test connection must be configured.');
-    $configuration['maintenance_database'] = 'postgres';
+    throw_unless(is_array($configuration), LogicException::class, 'The active test connection must be configured.');
+    $platform = CapellDatabase::for($connection);
+    $provisioner = $platform->provisioner();
+    throw_unless($provisioner !== null, LogicException::class, 'The active database platform must provide a provisioner.');
 
-    expect((new PostgresDatabasePlatform)->provisioner()->provision($connectionName, $configuration))
+    if ($platform->family() === DatabaseFamily::Sqlite) {
+        $path = storage_path('framework/testing/capell-active-provisioner.sqlite');
+        File::delete($path);
+        $configuration['database'] = $path;
+
+        try {
+            expect($provisioner->provision($connectionName, $configuration))
+                ->toBe(DatabaseProvisioningResult::Created)
+                ->and($provisioner->provision($connectionName, $configuration))
+                ->toBe(DatabaseProvisioningResult::Ready);
+        } finally {
+            File::delete($path);
+        }
+
+        return;
+    }
+
+    if ($platform->family() === DatabaseFamily::PostgreSql) {
+        $configuration['maintenance_database'] = 'postgres';
+    }
+
+    expect($provisioner->provision($connectionName, $configuration))
         ->toBe(DatabaseProvisioningResult::Ready);
 });
 
-it('reports an existing MySQL or MariaDB database as ready', function (): void {
-    $connection = DB::connection();
-
-    if (! in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)) {
-        $this->markTestSkipped('MySQL provisioning readiness requires a mysql or mariadb test connection.');
-    }
-
-    $connectionName = (string) config('database.default');
-    $configuration = config('database.connections.' . $connectionName);
-    throw_unless(is_array($configuration), LogicException::class, 'The MySQL test connection must be configured.');
-
-    expect((new MySqlDatabasePlatform)->provisioner()->provision($connectionName, $configuration))
-        ->toBe(DatabaseProvisioningResult::Ready);
-});
-
-it('creates reconnects to and reuses a disposable server database', function (): void {
+it('creates reconnects to and reuses a disposable database', function (): void {
     $sourceConnection = DB::connection();
     $platform = CapellDatabase::for($sourceConnection);
     $family = $platform->family();
 
-    if (! in_array($family, [
-        DatabaseFamily::MySql,
-        DatabaseFamily::MariaDb,
-        DatabaseFamily::PostgreSql,
-    ], true)) {
-        $this->markTestSkipped('Disposable provisioning requires a mysql, mariadb, or pgsql test connection.');
-    }
-
     $sourceConnectionName = (string) config('database.default');
     $configuration = config('database.connections.' . $sourceConnectionName);
-    throw_unless(is_array($configuration), LogicException::class, 'The server test connection must be configured.');
-    $database = sprintf('capell_provisioner_test_%d', getmypid());
+    throw_unless(is_array($configuration), LogicException::class, 'The active test connection must be configured.');
+    $database = $family === DatabaseFamily::Sqlite
+        ? storage_path(sprintf('framework/testing/capell-provisioner-test-%d.sqlite', getmypid()))
+        : sprintf('capell_provisioner_test_%d', getmypid());
     $connectionName = 'capell_provisioner_disposable';
     $configuration['database'] = $database;
+    if ($family === DatabaseFamily::Sqlite) {
+        File::delete($database);
+    }
+
     Config::set('database.connections.' . $connectionName, $configuration);
     $provisioner = $platform->provisioner();
-    throw_unless($provisioner !== null, LogicException::class, 'The server platform must provide a database provisioner.');
+    throw_unless($provisioner !== null, LogicException::class, 'The active database platform must provide a provisioner.');
 
     try {
         expect($provisioner->provision($connectionName, $configuration))
@@ -766,10 +790,27 @@ it('creates reconnects to and reuses a disposable server database', function ():
     } finally {
         DB::purge($connectionName);
 
-        $dropDatabase = $family === DatabaseFamily::PostgreSql
-            ? sprintf('DROP DATABASE IF EXISTS "%s"', $database)
-            : sprintf('DROP DATABASE IF EXISTS `%s`', $database);
-        $sourceConnection->unprepared($dropDatabase);
+        if ($family === DatabaseFamily::Sqlite) {
+            File::delete($database);
+        } else {
+            $maintenanceConnectionName = 'capell_provisioner_maintenance';
+            $maintenanceConfiguration = $configuration;
+            $maintenanceConfiguration['database'] = $family === DatabaseFamily::PostgreSql
+                ? (string) ($configuration['maintenance_database'] ?? 'postgres')
+                : null;
+            Config::set('database.connections.' . $maintenanceConnectionName, $maintenanceConfiguration);
+            $dropDatabase = $family === DatabaseFamily::PostgreSql
+                ? sprintf('DROP DATABASE IF EXISTS "%s"', $database)
+                : sprintf('DROP DATABASE IF EXISTS `%s`', $database);
+
+            try {
+                DB::connection($maintenanceConnectionName)->unprepared($dropDatabase);
+            } finally {
+                DB::purge($maintenanceConnectionName);
+                Config::set('database.connections.' . $maintenanceConnectionName);
+            }
+        }
+
         Config::set('database.connections.' . $connectionName);
     }
 });

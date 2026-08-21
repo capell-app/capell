@@ -7,19 +7,23 @@ namespace Capell\Marketplace\Filament\Livewire;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
+use Capell\Marketplace\Actions\QueryMarketplaceInstallProgressAction;
 use Capell\Marketplace\Actions\QueueMarketplaceBulkUpdateAction;
-use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
-use Capell\Marketplace\Actions\StartMarketplaceInstallFlowAction;
+use Capell\Marketplace\Actions\StartReviewedMarketplaceSelectionAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
-use Capell\Marketplace\Data\CreateMarketplaceInstallFlowSessionData;
 use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallProgressData;
+use Capell\Marketplace\Data\MarketplaceInstallProgressQueryData;
+use Capell\Marketplace\Data\MarketplaceReviewedSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
+use Capell\Marketplace\Data\MarketplaceSelectionReviewData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
+use Capell\Marketplace\Enums\MarketplaceReviewedSelectionOutcome;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
@@ -27,7 +31,6 @@ use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
 use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
-use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Notifications\Notification;
@@ -40,6 +43,7 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
+use RuntimeException;
 use Throwable;
 
 final class MarketplaceExtensionsBrowser extends Component implements HasActions, HasSchemas, HasTable
@@ -94,6 +98,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     /** @var array<string, mixed>|null */
     private ?array $resolvedMarketplaceSelectionReview = null;
+
+    private ?MarketplaceSelectionReviewData $resolvedMarketplaceSelectionReviewData = null;
 
     private ?MarketplaceEnvironmentReadinessData $marketplaceEnvironmentReadiness = null;
 
@@ -158,13 +164,13 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         if (in_array($composerName, $selectedComposerNames, true)) {
             $this->selectedMarketplaceComposerNames = array_values(array_diff($selectedComposerNames, [$composerName]));
-            $this->resolvedMarketplaceSelectionReview = null;
+            $this->forgetMarketplaceSelectionReview();
 
             return;
         }
 
         $this->selectedMarketplaceComposerNames = [...$selectedComposerNames, $composerName];
-        $this->resolvedMarketplaceSelectionReview = null;
+        $this->forgetMarketplaceSelectionReview();
     }
 
     public function clearMarketplaceSelection(): void
@@ -172,7 +178,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         $this->authorizeMarketplaceAccess();
 
         $this->selectedMarketplaceComposerNames = [];
-        $this->resolvedMarketplaceSelectionReview = null;
+        $this->forgetMarketplaceSelectionReview();
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
         $this->betaMarketplaceExtensionsAcknowledged = false;
         $this->marketplaceStep = self::STEP_BROWSE;
@@ -204,7 +210,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         if (! in_array($composerName, $selectedComposerNames, true)) {
             $this->selectedMarketplaceComposerNames = [...$selectedComposerNames, $composerName];
-            $this->resolvedMarketplaceSelectionReview = null;
+            $this->forgetMarketplaceSelectionReview();
         }
 
         $this->showMarketplaceInstallReview();
@@ -312,7 +318,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             ->send();
 
         $this->selectedMarketplaceComposerNames = [];
-        $this->resolvedMarketplaceSelectionReview = null;
+        $this->forgetMarketplaceSelectionReview();
         $this->activeMarketplaceInstallAttemptIds = array_values($result->queuedAttemptIds);
         $this->marketplaceStep = self::STEP_PROGRESS;
     }
@@ -354,15 +360,19 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
     {
         $this->authorizeMarketplaceAccess();
 
-        $selection = $this->marketplaceSelectionReview();
+        $outcome = StartReviewedMarketplaceSelectionAction::run(new MarketplaceReviewedSelectionInputData(
+            selection: $this->marketplaceSelectionReviewData(),
+            readiness: $this->marketplaceEnvironmentReadiness(),
+            confirmed: $this->installReviewedMarketplaceExtensionsConfirmed,
+            betaAcknowledged: $this->betaMarketplaceExtensionsAcknowledged,
+            licenseKey: $this->marketplaceLicenseKey,
+            activateThemesAfterInstall: $this->activateMarketplaceThemesAfterInstall,
+            selectedInstallOptions: $this->selectedMarketplaceInstallOptions,
+            actor: $this->marketplaceInstallActor(),
+            returnUrl: route('capell-marketplace.install-flow.callback'),
+        ));
 
-        // A host that cannot run an automated install must not be able to reach
-        // a preflight failure through the confirm path; it gets the manual
-        // instructions instead.
-        if (! $this->marketplaceEnvironmentReadiness()->canInstallAutomatically()
-            || ! $selection['can_install']
-            || ! $this->installReviewedMarketplaceExtensionsConfirmed
-            || ($selection['contains_beta'] && ! $this->betaMarketplaceExtensionsAcknowledged)) {
+        if ($outcome->outcome === MarketplaceReviewedSelectionOutcome::Rejected) {
             Notification::make()
                 ->warning()
                 ->title((string) __('capell-marketplace::marketplace.selection.unavailable_title'))
@@ -372,92 +382,51 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             return;
         }
 
-        if ($this->marketplaceSelectionRequiresLicenceKey($selection)) {
-            $this->validate([
-                'marketplaceLicenseKey' => ['required', 'string', 'max:512'],
-            ], [], [
-                'marketplaceLicenseKey' => (string) __('capell-marketplace::marketplace.install.license_key_label'),
-            ]);
+        if ($outcome->outcome === MarketplaceReviewedSelectionOutcome::LicenceValidationFailed) {
+            if ($outcome->licenceValidationRule !== null) {
+                $this->validate([
+                    'marketplaceLicenseKey' => ['required', 'string', 'max:512'],
+                ], [], [
+                    'marketplaceLicenseKey' => (string) __('capell-marketplace::marketplace.install.license_key_label'),
+                ]);
+            }
+
+            $this->addError(
+                'marketplaceLicenseKey',
+                $outcome->licenceValidationMessage
+                    ?? (string) __('capell-marketplace::marketplace.install.license_key_invalid'),
+            );
+
+            return;
         }
 
-        if ($this->marketplaceSelectionNeedsHostedFlow($selection)) {
-            try {
-                $this->redirect(StartMarketplaceInstallFlowAction::run(new CreateMarketplaceInstallFlowSessionData(
-                    selectedExtensions: $this->marketplaceInstallFlowSelections($selection['install_records']),
-                    installOptions: [
-                        ...$this->selectedMarketplaceInstallOptionsByRecord($selection['install_records']),
-                        'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
-                    ],
-                    dependencySnapshot: [
-                        'missing_dependencies' => $selection['missing_dependencies'],
-                        'blocked_dependencies' => $selection['blocked_dependencies'],
-                        'dependency_composer_names' => $selection['dependency_composer_names'],
-                    ],
-                    userContext: [
-                        'user_id' => auth()->id() !== null ? (string) auth()->id() : null,
-                        'user_email' => auth()->user()?->email,
-                    ],
-                    returnUrl: route('capell-marketplace.install-flow.callback'),
-                )));
-
-                return;
-            } catch (Throwable $throwable) {
-                $fallbackUrl = $this->marketplaceSelectionFallbackPurchaseUrl($selection['premium_records']);
-
-                if ($fallbackUrl !== null) {
-                    $this->redirect($fallbackUrl);
-
-                    return;
-                }
-
-                MarketplaceErrorPresenter::notification(
-                    (string) __('capell-marketplace::marketplace.install_flow.failed_title'),
-                    $throwable,
-                )->send();
-
-                return;
+        if (in_array($outcome->outcome, [
+            MarketplaceReviewedSelectionOutcome::HostedFlowRedirect,
+            MarketplaceReviewedSelectionOutcome::PurchaseFallback,
+            MarketplaceReviewedSelectionOutcome::AccountActionRedirect,
+        ], true)) {
+            if ($outcome->redirectUrl !== null && $outcome->redirectUrl !== '') {
+                $this->redirect($outcome->redirectUrl);
             }
+
+            return;
         }
 
-        $installComposerNames = $selection['install_composer_names'];
+        if ($outcome->outcome === MarketplaceReviewedSelectionOutcome::PresentableFailure) {
+            MarketplaceErrorPresenter::notification(
+                (string) __('capell-marketplace::marketplace.install_flow.failed_title'),
+                $outcome->failure ?? new RuntimeException('Marketplace install failed without a diagnostic.'),
+            )->send();
 
-        foreach ($selection['install_records'] as $record) {
-            try {
-                $redirectUrl = resolve(MarketplaceCatalogueTable::class)->installExtension(
-                    arguments: $record,
-                    data: [
-                        'license_key' => $this->marketplaceLicenseKey,
-                        '_validation_errors' => true,
-                        'install_options' => [
-                            ...$this->selectedMarketplaceInstallOptionsForRecords([$record]),
-                            ...$this->themeActivationInstallOption($record),
-                            'beta_acknowledged' => $selection['contains_beta'] && $this->betaMarketplaceExtensionsAcknowledged,
-                        ],
-                    ],
-                    redirectAccountActions: true,
-                );
-            } catch (ValidationException $validationException) {
-                $message = collect($validationException->errors())->flatten()->first();
-                $this->addError('marketplaceLicenseKey', is_string($message)
-                    ? $message
-                    : (string) __('capell-marketplace::marketplace.install.license_key_invalid'));
-
-                return;
-            }
-
-            if (is_string($redirectUrl) && $redirectUrl !== '') {
-                $this->redirect($redirectUrl);
-
-                return;
-            }
+            return;
         }
 
         $this->selectedMarketplaceComposerNames = [];
         $this->selectedMarketplaceInstallOptions = [];
         $this->marketplaceLicenseKey = null;
         $this->installReviewedMarketplaceExtensionsConfirmed = false;
-        $this->resolvedMarketplaceSelectionReview = null;
-        $this->activeMarketplaceInstallAttemptIds = $this->activeMarketplaceInstallAttemptIdsFor($installComposerNames);
+        $this->forgetMarketplaceSelectionReview();
+        $this->activeMarketplaceInstallAttemptIds = $outcome->queuedAttemptIds;
         $this->marketplaceStep = self::STEP_PROGRESS;
     }
 
@@ -491,24 +460,24 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             return [];
         }
 
-        return MarketplaceInstallAttempt::query()
-            ->whereKey($this->activeMarketplaceInstallAttemptIds)
-            ->orderBy('id')
-            ->get()
-            ->map(fn (MarketplaceInstallAttempt $attempt): array => [
-                'id' => (int) $attempt->getKey(),
-                'name' => $attempt->extension_name,
-                'composer_name' => $attempt->composer_name,
-                'status' => $attempt->status->value,
-                'stage' => $attempt->current_stage,
-                'stage_label' => $this->marketplaceInstallStageLabel($attempt),
-                'progress_current' => max(0, $attempt->progress_current ?? 0),
-                'progress_total' => max(1, $attempt->progress_total ?? 5),
-                'active' => $attempt->status->isActiveInstallOperation(),
-                'succeeded' => $attempt->status === MarketplaceInstallIntentStatus::Succeeded,
-                'failure_reason' => $attempt->failure_reason,
-            ])
-            ->all();
+        return array_map(
+            fn (MarketplaceInstallProgressData $progress): array => [
+                'id' => $progress->id,
+                'name' => $progress->name,
+                'composer_name' => $progress->composerName,
+                'status' => $progress->status->value,
+                'stage' => $progress->stage,
+                'stage_label' => $this->marketplaceInstallStageLabel($progress),
+                'progress_current' => $progress->progressCurrent,
+                'progress_total' => $progress->progressTotal,
+                'active' => $progress->isActive(),
+                'succeeded' => $progress->succeeded(),
+                'failure_reason' => $progress->failureReason,
+            ],
+            QueryMarketplaceInstallProgressAction::run(
+                MarketplaceInstallProgressQueryData::forAttemptIds($this->activeMarketplaceInstallAttemptIds),
+            )->items,
+        );
     }
 
     /**
@@ -620,7 +589,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
         $this->tableFilters['installed_status']['value'] = false;
         $this->resetPage();
-        $this->resolvedMarketplaceSelectionReview = null;
+        $this->forgetMarketplaceSelectionReview();
     }
 
     public function table(Table $table): Table
@@ -724,12 +693,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             return $review;
         }
 
-        $review = BuildMarketplaceSelectionReviewAction::run(MarketplaceSelectionInputData::make(
-            selectedComposerNames: $this->selectedMarketplaceComposerNames,
-            lockedKind: $this->lockedKind,
-            includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
-            canManageExtensions: ExtensionsPage::canManageExtensions(),
-        ));
+        $review = $this->marketplaceSelectionReviewData();
 
         return $this->resolvedMarketplaceSelectionReview = $review->toComputedArray(
             freeTotalLabel: (string) __('capell-marketplace::marketplace.install.free'),
@@ -750,53 +714,43 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             ->contains(fn (array $record): bool => $this->marketplaceRecordRequiresLicenceKey($record));
     }
 
+    private function marketplaceSelectionReviewData(): MarketplaceSelectionReviewData
+    {
+        return $this->resolvedMarketplaceSelectionReviewData ??= BuildMarketplaceSelectionReviewAction::run(
+            MarketplaceSelectionInputData::make(
+                selectedComposerNames: $this->selectedMarketplaceComposerNames,
+                lockedKind: $this->lockedKind,
+                includeLocalExtensionState: $this->includeLocalExtensionStateForBrowser(),
+                canManageExtensions: ExtensionsPage::canManageExtensions(),
+            ),
+        );
+    }
+
     private function authorizeMarketplaceAccess(): void
     {
         abort_unless(MarketplacePage::canAccess(), 403);
     }
 
-    /**
-     * @param  array<int, string>  $composerNames
-     * @return array<int, int>
-     */
-    private function activeMarketplaceInstallAttemptIdsFor(array $composerNames): array
+    private function forgetMarketplaceSelectionReview(): void
     {
-        if ($composerNames === []) {
-            return [];
-        }
-
-        return MarketplaceInstallAttempt::query()
-            ->whereIn('composer_name', $composerNames)
-            ->whereIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ])
-            ->latest()
-            ->get()
-            // One row per package: a retried install leaves older attempts for
-            // the same package behind, and showing the operator two pills for
-            // one thing they installed once is a lie about what is happening.
-            ->unique('composer_name')
-            ->map(fn (MarketplaceInstallAttempt $attempt): int => (int) $attempt->getKey())
-            ->values()
-            ->all();
+        $this->resolvedMarketplaceSelectionReview = null;
+        $this->resolvedMarketplaceSelectionReviewData = null;
     }
 
-    private function marketplaceInstallStageLabel(MarketplaceInstallAttempt $attempt): string
+    private function marketplaceInstallStageLabel(MarketplaceInstallProgressData $progress): string
     {
-        if ($attempt->status === MarketplaceInstallIntentStatus::Succeeded) {
+        if ($progress->status === MarketplaceInstallIntentStatus::Succeeded) {
             return (string) __('capell-marketplace::marketplace.progress.stage_completed');
         }
 
-        if (! $attempt->status->isActiveInstallOperation()) {
+        if (! $progress->status->isActiveInstallOperation()) {
             return (string) __('capell-marketplace::marketplace.progress.stage_stopped');
         }
 
         // An attempt whose recorded stage is unrecognised — an older row, or one
         // written by a newer release — is still waiting as far as the operator
         // can tell, so it reads as queued rather than as a broken label.
-        $stage = MarketplaceInstallFailureStage::tryFrom((string) $attempt->current_stage)
+        $stage = MarketplaceInstallFailureStage::tryFrom((string) $progress->stage)
             ?? MarketplaceInstallFailureStage::Queue;
 
         return $stage->progressLabel();
@@ -811,17 +765,13 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             : MarketplaceInstallActorData::system('marketplace-extensions-browser');
     }
 
-    /**
-     * @param  array<string, mixed>  $record
-     * @return array<string, bool>
-     */
-    private function themeActivationInstallOption(array $record): array
+    private function marketplaceInstallActor(): MarketplaceInstallActorData
     {
-        if (($record['kind'] ?? null) !== ExtensionKind::Theme->value) {
-            return [];
-        }
+        $user = auth()->user();
 
-        return [RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL => $this->activateMarketplaceThemesAfterInstall];
+        return $user instanceof Authenticatable
+            ? MarketplaceInstallActorData::fromAuthenticatable($user)
+            : MarketplaceInstallActorData::system('marketplace-catalogue-table');
     }
 
     /** @return array<string, mixed> */
@@ -912,32 +862,6 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         };
     }
 
-    /**
-     * @param  array{
-     *     premium_records: array<int, array<string, mixed>>,
-     *     install_records: array<int, array<string, mixed>>,
-     *     missing_dependencies: array<int, string>,
-     *     blocked_dependencies: array<int, array{name: string, composer_name: string, reason: ?string}>,
-     *     dependency_composer_names: array<int, string>
-     * }  $selection
-     */
-    private function marketplaceSelectionNeedsHostedFlow(array $selection): bool
-    {
-        foreach ($selection['premium_records'] as $record) {
-            if ((bool) ($record['install_authorized'] ?? false)) {
-                continue;
-            }
-
-            if ($this->marketplaceRecordRequiresLicenceKey($record) && filled($this->marketplaceLicenseKey)) {
-                continue;
-            }
-
-            return true;
-        }
-
-        return false;
-    }
-
     /** @param array<string, mixed> $record */
     private function marketplaceRecordRequiresLicenceKey(array $record): bool
     {
@@ -949,59 +873,12 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         ], true);
     }
 
-    /**
-     * @param  array<int, array<string, mixed>>  $records
-     * @return array<int, array<string, mixed>>
-     */
-    private function marketplaceInstallFlowSelections(array $records): array
-    {
-        return array_values(array_map(fn (array $record): array => [
-            'slug' => $this->recordSlug($record),
-            'composer_name' => $this->recordComposerName($record),
-            'name' => $this->recordName($record),
-            'kind' => is_string($record['kind'] ?? null) ? $record['kind'] : 'tool',
-            'price_cents' => is_numeric($record['price_cents'] ?? null) ? (int) $record['price_cents'] : 0,
-            'install_authorized' => (bool) ($record['install_authorized'] ?? false),
-            'install_eligibility' => is_array($record['install_eligibility_policy'] ?? null) ? $record['install_eligibility_policy'] : [],
-        ], $records));
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $records
-     */
-    private function marketplaceSelectionFallbackPurchaseUrl(array $records): ?string
-    {
-        foreach ($records as $record) {
-            $purchaseUrl = $record['purchase_url'] ?? null;
-
-            if (is_string($purchaseUrl) && $purchaseUrl !== '') {
-                return $purchaseUrl;
-            }
-        }
-
-        return null;
-    }
-
     /** @param array<string, mixed> $record */
     private function recordComposerName(array $record): ?string
     {
         return is_string($record['composer_name'] ?? null) && $record['composer_name'] !== ''
             ? $record['composer_name']
             : null;
-    }
-
-    /** @param array<string, mixed> $record */
-    private function recordSlug(array $record): string
-    {
-        return is_string($record['slug'] ?? null) ? $record['slug'] : '';
-    }
-
-    /** @param array<string, mixed> $record */
-    private function recordName(array $record): string
-    {
-        return is_string($record['name'] ?? null) && $record['name'] !== ''
-            ? $record['name']
-            : (string) __('capell-marketplace::marketplace.selection.unknown_extension');
     }
 
     /**
@@ -1031,56 +908,6 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
         }
 
         return $defaults;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $records
-     * @return array<string, mixed>
-     */
-    private function selectedMarketplaceInstallOptionsForRecords(array $records): array
-    {
-        $allowedKeys = [];
-
-        foreach ($records as $record) {
-            foreach ($this->recordInstallOptions($record) as $option) {
-                $key = $this->installOptionKey($option);
-
-                if ($key !== null) {
-                    $allowedKeys[$key] = true;
-                }
-            }
-        }
-
-        return array_intersect_key($this->selectedMarketplaceInstallOptions, $allowedKeys);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $records
-     * @return array<string, array<string, mixed>>
-     */
-    private function selectedMarketplaceInstallOptionsByRecord(array $records): array
-    {
-        $options = [];
-
-        foreach ($records as $record) {
-            $recordOptions = $this->selectedMarketplaceInstallOptionsForRecords([$record]);
-
-            if ($recordOptions === []) {
-                continue;
-            }
-
-            $composerName = $this->recordComposerName($record);
-            if ($composerName !== null) {
-                $options[$composerName] = $recordOptions;
-            }
-
-            $slug = $this->recordSlug($record);
-            if ($slug !== '') {
-                $options[$slug] = $recordOptions;
-            }
-        }
-
-        return $options;
     }
 
     /**

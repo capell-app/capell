@@ -1,0 +1,23 @@
+{
+    "schemaVersion": 1,
+    "status": "draft",
+    "target": "2.x",
+    "coreComposer": {
+        "remove": ["filament/support"]
+    },
+    "coreSource": {
+        "forbidImports": ["Filament\\"],
+        "removeAdapters": [
+            "Capell\\Core\\Contracts\\Media\\MediaFieldFactory",
+            "Capell\\Core\\Support\\Media\\SpatieMediaFieldFactory",
+            "Capell\\Core\\Actions\\Diagnostics\\CheckAdminPanelAccessAction"
+        ]
+    },
+    "consumerFixtures": [
+        "core-only",
+        "core-plus-frontend",
+        "full-aggregate",
+        "public-only"
+    ],
+    "activationGate": "CAP-0270 adoption proof plus an explicit 2.x release decision"
+}

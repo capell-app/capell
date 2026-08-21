@@ -9,6 +9,9 @@ use Filament\Forms\Components\Field;
 /**
  * Builds the Filament form Field for uploading/picking media.
  *
+ * @deprecated 1.x compatibility adapter. First-party Admin code resolves
+ *             Capell\Admin\Contracts\Media\AdminMediaFieldFactory instead.
+ *
  * This contract is the swap point for the admin UI. The default binding in
  * core resolves to Capell\Core\Support\Media\SpatieMediaFieldFactory (the
  * Spatie file-upload component); admin overrides it with a decorator that

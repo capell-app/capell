@@ -19,6 +19,7 @@ Use this section if you build or maintain a Capell package.
 | Know which Capell versions a package supports | [Extension API versioning](extension-api-versioning.md)         |
 | Test a package                             | [Testing packages](testing-packages.md)                            |
 | Debug missing package output               | [Extension troubleshooting](extension-troubleshooting.md)          |
+| Plan the next Core compatibility line      | [Core Filament neutrality and 2.x preparation](core-filament-neutrality.md) |
 
 Use [Extension surface vocabulary](extension-surface-vocabulary.md) when you need the shared definitions for packages, surfaces, contributions, capabilities, install impact, and Marketplace proof.
 
