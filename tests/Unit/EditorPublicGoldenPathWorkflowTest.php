@@ -46,6 +46,8 @@ it('runs the editor to anonymous journey from exact checked-out sources', functi
         ->toContain('capell-app/marketplace:1.x-dev')
         ->toContain('capell-app/discovery-foundation:1.x-dev')
         ->toContain('capell-app/html-cache:1.x-dev')
+        ->toContain('capell-app/layout-builder:1.x-dev')
+        ->toContain('capell-app/navigation:1.x-dev')
         ->toContain('"1.x-dev"')
         ->toContain('laravel_skeleton_version')
         ->toContain('13.0.0')

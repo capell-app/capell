@@ -15,8 +15,8 @@ server_log=""
 diagnostic_secrets='[]'
 laravel_skeleton_version="${CAPELL_GOLDEN_PATH_LARAVEL_VERSION:-13.0.0}"
 
-if [[ ! -f "${packages_root}/packages/discovery-foundation/composer.json" || ! -f "${packages_root}/packages/html-cache/composer.json" ]]; then
-    echo "CAPELL_PACKAGES_ROOT must point to a capell-packages-4 checkout containing discovery-foundation and html-cache." >&2
+if [[ ! -f "${packages_root}/packages/discovery-foundation/composer.json" || ! -f "${packages_root}/packages/html-cache/composer.json" || ! -f "${packages_root}/packages/layout-builder/composer.json" || ! -f "${packages_root}/packages/navigation/composer.json" ]]; then
+    echo "CAPELL_PACKAGES_ROOT must point to a capell-packages checkout containing discovery-foundation, html-cache, layout-builder, and navigation." >&2
     exit 2
 fi
 
@@ -166,7 +166,7 @@ process.stdout.write(JSON.stringify({
 }
 
 # Pull-request merge refs are detached. Explicit branch-alias versions make the
-# fresh consumer solve the five version-aligned split packages from the checked
+# fresh consumer solve the seven version-aligned split packages from the checked
 # out monorepo head. This matches the public release topology and preserves the
 # vendor/capell-app/<package> paths used by install-time asset integration.
 for foundation_package in core admin frontend installer marketplace; do
@@ -178,6 +178,10 @@ composer config repositories.capell-discovery-foundation --json \
     "$(path_repository_json capell-app/discovery-foundation "${packages_root}/packages/discovery-foundation")"
 composer config repositories.capell-html-cache --json \
     "$(path_repository_json capell-app/html-cache "${packages_root}/packages/html-cache")"
+composer config repositories.capell-layout-builder --json \
+    "$(path_repository_json capell-app/layout-builder "${packages_root}/packages/layout-builder")"
+composer config repositories.capell-navigation --json \
+    "$(path_repository_json capell-app/navigation "${packages_root}/packages/navigation")"
 composer require \
     --no-interaction \
     --no-progress \
@@ -188,7 +192,9 @@ composer require \
     capell-app/installer:1.x-dev \
     capell-app/marketplace:1.x-dev \
     capell-app/discovery-foundation:1.x-dev \
-    capell-app/html-cache:1.x-dev
+    capell-app/html-cache:1.x-dev \
+    capell-app/layout-builder:1.x-dev \
+    capell-app/navigation:1.x-dev
 
 php artisan --version | tee "${artifact_dir}/consumer-framework-version.txt"
 
