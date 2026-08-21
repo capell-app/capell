@@ -200,6 +200,13 @@ class JourneyDiagnostics {
             }
 
             if (
+                message.includes('ERR_ABORTED') &&
+                this.consumeAllowedRequestAbort(request, page)
+            ) {
+                return
+            }
+
+            if (
                 this.deferAllowedLivewireRedirectFailure(
                     request,
                     page,
@@ -236,7 +243,14 @@ class JourneyDiagnostics {
         this.allowResponse(options)
     }
 
-    allowResponse({ page, method = 'GET', pathname, status, repeat = false }) {
+    allowResponse({
+        page,
+        method = 'GET',
+        pathname,
+        status,
+        repeat = false,
+        allowRequestAbort = false,
+    }) {
         if (!page) {
             throw new Error('Expected response allowances must be page-bound')
         }
@@ -248,6 +262,7 @@ class JourneyDiagnostics {
             pathname,
             status,
             repeat,
+            allowRequestAbort,
             responseConsumed: false,
             consoleConsumed: false,
             expiresAt: Date.now() + (repeat ? 300_000 : 60_000),
@@ -404,6 +419,19 @@ class JourneyDiagnostics {
         }
 
         return true
+    }
+
+    consumeAllowedRequestAbort(request, page) {
+        this.pruneAllowedResponses()
+        const url = new URL(request.url())
+
+        return this.allowedResponses.some(
+            (allowed) =>
+                allowed.allowRequestAbort &&
+                allowed.page === page &&
+                allowed.method === request.method() &&
+                allowed.pathname === url.pathname,
+        )
     }
 
     consumeAllowedConsole(message, page) {

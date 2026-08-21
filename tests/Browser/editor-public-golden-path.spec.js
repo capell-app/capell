@@ -48,6 +48,7 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
                 pathname: '/resources/css/app.css',
                 status: 404,
                 repeat: true,
+                allowRequestAbort: true,
             })
 
         const adminContext = await browser.newContext()

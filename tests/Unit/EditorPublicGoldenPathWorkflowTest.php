@@ -102,6 +102,7 @@ it('pins the complete authoring lifecycle and every public safety checkpoint', f
         ->toContain("toContain('private')")
         ->toContain("toContain('no-store')")
         ->toContain('forbiddenValues.push(editPath)')
+        ->toContain('allowRequestAbort: true')
         ->toContain("name: 'Roll back to here'")
         ->toContain("name: 'Restore this version'")
         ->toContain("name: 'Sign out'")
