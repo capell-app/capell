@@ -75,17 +75,26 @@ final class FrontendScreenshotSeed
             // The installed site keeps its real display domain. This additional
             // non-default domain lets the isolated HTTP workbench resolve the
             // same public page without redirecting the browser to a live host.
+            // Fresh fixture databases can have no default domain at all; in
+            // that case the local domain must become the default so preview
+            // renderers can resolve the site's canonical origin.
             // Site domains intentionally omit ports; screenshot-tools maps
             // portless local asset URLs back to the configured local server.
-            $page->site->siteDomains()->updateOrCreate([
+            $site = $page->site;
+            $hasDefaultDomain = $site->siteDomain()->exists();
+
+            $siteDomain = $site->siteDomains()->updateOrCreate([
                 'language_id' => $page->site->language_id,
                 'domain' => $origin['host'],
                 'scheme' => $origin['scheme'],
                 'path' => null,
             ], [
-                'default' => false,
                 'status' => true,
             ]);
+
+            if (! $hasDefaultDomain) {
+                $siteDomain->forceFill(['default' => true])->save();
+            }
 
             resolve(CapellCacheManager::class)->flushCache();
         });
