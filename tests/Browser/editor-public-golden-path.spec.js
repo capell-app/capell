@@ -78,6 +78,10 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
         let editPath
 
         await diagnostics.step('create draft', async () => {
+            diagnostics.allowLivewireRedirectOnce({
+                page: adminPage,
+                destinationPathname: '/admin/pages/create',
+            })
             await adminPage.goto(`${baseUrl}/admin/pages/create`, {
                 waitUntil: 'domcontentloaded',
             })

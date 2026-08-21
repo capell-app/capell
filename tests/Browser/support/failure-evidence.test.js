@@ -244,6 +244,43 @@ test('ignores an allowed Livewire POST cancellation only after its successful re
     assert.equal(diagnostics.failures.length, 0)
 })
 
+test('ignores the current admin page Livewire POST cancelled by successful create-page navigation', () => {
+    const diagnostics = new JourneyDiagnostics({
+        artifactDir: '/tmp/not-used',
+        secretValues: [],
+    })
+    const page = new EventEmitter()
+    const mainFrame = {}
+    page.url = () => 'https://example.test/admin'
+    page.mainFrame = () => mainFrame
+    diagnostics.registerPage(page, 'admin')
+    diagnostics.allowLivewireRedirectOnce({
+        page,
+        destinationPathname: '/admin/pages/create',
+    })
+
+    const livewireRequest = {
+        method: () => 'POST',
+        failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+        url: () => 'https://example.test/livewire-88fe3672/update',
+        isNavigationRequest: () => false,
+    }
+    page.emit('request', livewireRequest)
+    page.emit('requestfailed', livewireRequest)
+    page.emit('response', {
+        status: () => 200,
+        url: () => 'https://example.test/admin/pages/create',
+        request: () => ({
+            method: () => 'GET',
+            frame: () => mainFrame,
+            isNavigationRequest: () => true,
+        }),
+    })
+
+    assert.doesNotThrow(() => diagnostics.assertHealthy('create page'))
+    assert.equal(diagnostics.failures.length, 0)
+})
+
 test('ignores the bound Livewire POST cancellation when the successful navigation response arrives first', () => {
     const diagnostics = new JourneyDiagnostics({
         artifactDir: '/tmp/not-used',
