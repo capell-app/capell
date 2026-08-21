@@ -8,6 +8,7 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Actions\DemoPackageAction;
+use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
@@ -130,6 +131,34 @@ function fakeInstallStepExecutorDemoProcess(): void
         }
     });
 }
+
+it('rebuilds package manifests during the install cache step', function (array $cachesToClear, array $expectedCaches): void {
+    $lines = [];
+    $reporter = installStepExecutorReporter($lines);
+    $state = new InstallRunState(
+        new InstallInputData(
+            siteUrl: 'https://example.com',
+            packages: [],
+            languages: ['en'],
+            demoContent: false,
+            cachesToClear: $cachesToClear,
+            generateSitemap: false,
+            generateStaticSite: false,
+        ),
+        $reporter,
+    );
+
+    ClearCachesAction::shouldRun()
+        ->once()
+        ->withArgs(fn (array $actualCaches, ProgressReporter $actualReporter): bool => $actualCaches === $expectedCaches
+            && $actualReporter === $reporter);
+
+    resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_CLEAR_CACHES, $state);
+})->with([
+    'no optional cache selection' => [[], ['packages']],
+    'specific optional cache selection' => [['views'], ['views', 'packages']],
+    'all caches' => [['all'], ['all']],
+]);
 
 /** @param array<string, mixed> $additionalCommands */
 function bindSuccessfulInstallDoctorCommand(array $additionalCommands = []): void

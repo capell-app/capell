@@ -594,7 +594,7 @@ it('exits when filament installation is declined for the admin package', functio
     expect($fake->callCount)->toBe(0);
 });
 
-it('passes the resolved cache selection into RunInstallAction', function (): void {
+it('builds correct InstallInputData and delegates to RunInstallAction without cache selections', function (): void {
     setupInstallTest();
     $user = createTestUser();
     $fake = bindFakeRunInstallAction();
@@ -614,7 +614,7 @@ it('passes the resolved cache selection into RunInstallAction', function (): voi
         ->and($fake->capturedInput)->not()->toBeNull()
         ->and($fake->capturedInput->siteUrl)->toBe('https://example.test')
         ->and($fake->capturedInput->userId)->toBe($user->id)
-        ->and($fake->capturedInput->cachesToClear)->toBe(['all'])
+        ->and($fake->capturedInput->cachesToClear)->toBe([])
         ->and($fake->capturedInput->generateSitemap)->toBeFalse()
         ->and($fake->capturedInput->generateStaticSite)->toBeFalse()
         ->and($fake->capturedInput->demoContent)->toBeFalse();

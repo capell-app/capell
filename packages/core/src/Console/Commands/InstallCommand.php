@@ -376,7 +376,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             generateSitemap: $generateSitemap,
             userId: $userId,
             additionalUsers: $additionalUsers,
-            cachesToClear: $cachesToClear,
         );
 
         return $this->runInstallOrchestration(
@@ -598,7 +597,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      * @param  array<string>  $siteOptions
      * @param  array<NewUserData>  $additionalUsers
      * @param  array<string>  $extraPackages
-     * @param  array<string>  $cachesToClear
      */
     private function buildInstallInput(
         string $siteUrl,
@@ -617,14 +615,13 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         bool $generateSitemap,
         ?int $userId = null,
         array $additionalUsers = [],
-        array $cachesToClear = [],
     ): InstallInputData {
         return resolve(InstallInputFactory::class)->fromResolvedConsoleInput(
             siteUrl: $siteUrl,
             packages: $packages->keys()->all(),
             languages: $languages,
             demoContent: $demo,
-            cachesToClear: $cachesToClear,
+            cachesToClear: [],
             generateSitemap: $generateSitemap,
             generateStaticSite: false,
             demoSites: $demo ? $siteOptions : null,

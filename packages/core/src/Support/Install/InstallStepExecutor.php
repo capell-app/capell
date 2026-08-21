@@ -116,7 +116,10 @@ final class InstallStepExecutor
             InstallPlan::STEP_INSTALL_FILAMENT_PANEL => InstallFilamentPanelAction::run($state->reporter),
             InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING => $this->installDeveloperTooling($state),
             InstallPlan::STEP_INTEGRATE_ADMIN_PANEL => $this->integrateAdminPanel($state),
-            InstallPlan::STEP_CLEAR_CACHES => ClearCachesAction::run($state->inputData->cachesToClear, $state->reporter),
+            InstallPlan::STEP_CLEAR_CACHES => ClearCachesAction::run(
+                $this->installCachesToClear($state->inputData->cachesToClear),
+                $state->reporter,
+            ),
             InstallPlan::STEP_SEED_DATABASE => $this->seedDatabase($state),
             InstallPlan::STEP_REBUILD_RESOURCES => $this->rebuildResources($state),
             InstallPlan::STEP_INSTALL_WELCOME_ROUTE => $this->installWelcomeRoute($state),
@@ -127,6 +130,22 @@ final class InstallStepExecutor
         };
 
         return $state;
+    }
+
+    /**
+     * Package manifests must be rebuilt before the later install health check,
+     * independently of the caller's optional cache selection.
+     *
+     * @param  array<string>  $cachesToClear
+     * @return array<string>
+     */
+    private function installCachesToClear(array $cachesToClear): array
+    {
+        if (in_array('all', $cachesToClear, true)) {
+            return $cachesToClear;
+        }
+
+        return array_values(array_unique([...$cachesToClear, 'packages']));
     }
 
     private function publishPackageMigrations(InstallRunState $state): void
