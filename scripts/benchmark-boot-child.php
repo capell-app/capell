@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\BootProviders;
 use Illuminate\Foundation\Bootstrap\HandleExceptions;
@@ -53,6 +54,7 @@ $app = ProfilingBootApplication::configure($basePath)
     ->withExceptions()
     ->create();
 throw_unless($app instanceof ProfilingBootApplication, RuntimeException::class, 'The profiling application could not be created.');
+RuntimeRoleBootstrap::configure($app);
 $app->instance('request', Request::create('/'));
 $app->bootstrapWith([
     LoadEnvironmentVariables::class,

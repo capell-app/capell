@@ -114,7 +114,7 @@ final readonly class BootBenchmarkOptions
 
         $iterations = self::integer($values['iterations'], 'iterations', 3, 100);
         $warmups = self::integer($values['warmups'], 'warmups', 0, 25);
-        $profile = self::choice($values['profile'], 'profile', ['full', 'production', 'public', 'admin']);
+        $profile = self::choice($values['profile'], 'profile', ['full', 'production', 'combined', 'public', 'admin', 'authoring']);
         $cache = self::choice($values['cache'], 'cache', ['manifest', 'optimized', 'uncached']);
         $format = self::choice($values['format'], 'format', ['text', 'json']);
 
@@ -123,7 +123,7 @@ final readonly class BootBenchmarkOptions
 
     public static function usage(): string
     {
-        return 'Usage: composer benchmark:boot -- [iterations: 3-100] [--profile=full|production|public|admin] [--cache=manifest|optimized|uncached] [--iterations=3-100] [--warmups=0-25] [--format=text|json] [--profiling]';
+        return 'Usage: composer benchmark:boot -- [iterations: 3-100] [--profile=full|production|combined|public|admin|authoring] [--cache=manifest|optimized|uncached] [--iterations=3-100] [--warmups=0-25] [--format=text|json] [--profiling]';
     }
 
     private static function integer(mixed $value, string $name, int $minimum, int $maximum): int
@@ -249,11 +249,13 @@ final class BootProfiles
             LaravelGoogleTranslateServiceProvider::class,
         ];
 
+        $combined = [...$runtime, ...$filament, CapellServiceProvider::class, AdminServiceProvider::class, FrontendServiceProvider::class, InstallerServiceProvider::class, MarketplaceServiceProvider::class, AdminPanelProvider::class];
+
         return match ($profile) {
             'public' => [...$runtime, CapellServiceProvider::class, FrontendServiceProvider::class],
             'admin' => [...$runtime, ...$filament, CapellServiceProvider::class, AdminServiceProvider::class, FrontendServiceProvider::class, MarketplaceServiceProvider::class, AdminPanelProvider::class],
-            'production' => [...$runtime, ...$filament, CapellServiceProvider::class, AdminServiceProvider::class, FrontendServiceProvider::class, InstallerServiceProvider::class, MarketplaceServiceProvider::class, AdminPanelProvider::class],
-            'full' => [...self::providers('production'), ScreenshotWorkbenchServiceProvider::class],
+            'combined', 'production', 'authoring' => $combined,
+            'full' => [...self::providers('combined'), ScreenshotWorkbenchServiceProvider::class],
             default => throw new InvalidArgumentException(sprintf('Unknown benchmark profile [%s].', $profile)),
         };
     }
@@ -324,6 +326,7 @@ final readonly class BootBenchmarkWorkspace
                 'APP_DEBUG' => 'false',
                 'APP_RUNNING_IN_CONSOLE' => $runningInConsole ? 'true' : 'false',
                 'CACHE_STORE' => 'array',
+                'CAPELL_RUNTIME_ROLE' => $this->runtimeRole(),
             ],
         );
     }
@@ -341,13 +344,30 @@ final readonly class BootBenchmarkWorkspace
         $laravelPath = $this->root . '/vendor/orchestra/testbench-core/laravel';
         $laravelFiles = new RecursiveCallbackFilterIterator(
             new RecursiveDirectoryIterator($laravelPath, RecursiveDirectoryIterator::SKIP_DOTS),
-            static fn (SplFileInfo $file): bool => $file->getPathname() !== $laravelPath . '/vendor',
+            static function (SplFileInfo $file) use ($laravelPath): bool {
+                $relativePath = ltrim(substr($file->getPathname(), strlen($laravelPath)), '/');
+
+                return $relativePath !== 'vendor'
+                    && preg_match('#(?:^|/)storage(?:/|$)#', $relativePath) !== 1;
+            },
         );
         $this->files->mirror(
             $laravelPath,
             $this->path . '/laravel',
             new RecursiveIteratorIterator($laravelFiles, RecursiveIteratorIterator::SELF_FIRST),
             ['override' => true, 'delete' => true],
+        );
+        $this->files->mkdir([
+            $this->path . '/laravel/storage/app/public',
+            $this->path . '/laravel/storage/framework/cache/data',
+            $this->path . '/laravel/storage/framework/sessions',
+            $this->path . '/laravel/storage/framework/testing',
+            $this->path . '/laravel/storage/framework/views',
+            $this->path . '/laravel/storage/logs',
+        ]);
+        $this->files->symlink(
+            $this->path . '/laravel/storage/app/public',
+            $this->path . '/laravel/public/storage',
         );
 
         foreach (['vendor', 'packages'] as $directory) {
@@ -402,9 +422,19 @@ final readonly class BootBenchmarkWorkspace
                 'APP_DEBUG' => 'false',
                 'APP_RUNNING_IN_CONSOLE' => $runningInConsole ? 'true' : 'false',
                 'CACHE_STORE' => 'array',
+                'CAPELL_RUNTIME_ROLE' => $this->runtimeRole(),
                 'TESTBENCH_WORKING_PATH' => $this->path,
             ],
         );
+    }
+
+    private function runtimeRole(): string
+    {
+        return match ($this->profile) {
+            'public' => 'public',
+            'admin', 'authoring' => 'authoring',
+            default => 'combined',
+        };
     }
 
     private function validateManifest(): void
@@ -451,6 +481,57 @@ final readonly class BootBenchmarkWorkspace
         );
         $this->files->dumpFile($cachePath . '/packages.php', '<?php return [];' . PHP_EOL);
         $this->files->remove($cachePath . '/services.php');
+
+        foreach (['combined', 'public', 'authoring'] as $role) {
+            $roleCachePath = $cachePath . '/capell-runtime/' . $role;
+            $this->files->mkdir($roleCachePath);
+            $this->files->dumpFile(
+                $roleCachePath . '/config.php',
+                '<?php return ' . var_export($config, return: true) . ';' . PHP_EOL,
+            );
+            $this->files->dumpFile($roleCachePath . '/packages.php', '<?php return [];' . PHP_EOL);
+            $this->files->remove($roleCachePath . '/services.php');
+        }
+    }
+}
+
+final class RuntimeRoleBenchmarkComparison
+{
+    /**
+     * @param  array<string, mixed>  $combined
+     * @param  array<string, mixed>  $public
+     * @return array{combined_p50_ms: float, public_p50_ms: float, p50_delta_ms: float, combined_p75_ms: float, public_p75_ms: float, p75_delta_ms: float, public_p75_regressed: bool}
+     */
+    public static function summarize(array $combined, array $public): array
+    {
+        $combinedStatistics = $combined['statistics_ms'] ?? null;
+        $publicStatistics = $public['statistics_ms'] ?? null;
+
+        throw_unless(is_array($combinedStatistics) && is_array($publicStatistics), InvalidArgumentException::class, 'Both runtime role benchmarks must contain statistics_ms.');
+
+        foreach (['p50', 'p75'] as $percentile) {
+            throw_unless(
+                is_numeric($combinedStatistics[$percentile] ?? null)
+                    && is_numeric($publicStatistics[$percentile] ?? null),
+                InvalidArgumentException::class,
+                sprintf('Both runtime role benchmarks must contain numeric %s statistics.', $percentile),
+            );
+        }
+
+        $combinedP50 = (float) $combinedStatistics['p50'];
+        $publicP50 = (float) $publicStatistics['p50'];
+        $combinedP75 = (float) $combinedStatistics['p75'];
+        $publicP75 = (float) $publicStatistics['p75'];
+
+        return [
+            'combined_p50_ms' => $combinedP50,
+            'public_p50_ms' => $publicP50,
+            'p50_delta_ms' => round($publicP50 - $combinedP50, 3),
+            'combined_p75_ms' => $combinedP75,
+            'public_p75_ms' => $publicP75,
+            'p75_delta_ms' => round($publicP75 - $combinedP75, 3),
+            'public_p75_regressed' => $publicP75 > $combinedP75,
+        ];
     }
 }
 

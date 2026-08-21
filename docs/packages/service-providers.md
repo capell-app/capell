@@ -6,10 +6,12 @@ Split service providers by runtime context. Providers should wire registrations,
 
 Manifest v3 separates lifecycle-safe providers from runtime providers:
 
-- `metadata` and `install` providers are lifecycle-safe.
+- `metadata` and `install` providers are lifecycle-safe. Public processes load `metadata`, but deliberately exclude `install`.
 - `runtime`, `admin`, and `frontend` providers are active-runtime providers and only load for enabled packages.
 - `admin` providers also load in console context for enabled packages so admin-owned commands can resolve their dependencies.
 - `frontend` providers load only in frontend context.
+
+The immutable `public` runtime role loads enabled `runtime`, `frontend`, and `auth` buckets plus `metadata`; it excludes `install` and `admin`. The `combined` and `authoring` roles load every bucket, and authoring retains Frontend for real previews. See [Runtime roles](../operations/runtime-roles.md).
 
 Do not put Filament resources, dashboard Filament widgets, render hooks, frontend middleware, or model behaviour in `metadata` or `install` providers.
 

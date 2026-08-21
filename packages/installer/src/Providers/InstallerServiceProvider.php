@@ -30,6 +30,7 @@ use Capell\Installer\Support\InstallGuide\Patches\FilesystemsPageCacheDiskPatch;
 use Capell\Installer\Support\InstallGuide\Patches\LoggingCapellChannelPatch;
 use Capell\Installer\Support\InstallGuide\Patches\ManualStepPatch;
 use Capell\Installer\Support\InstallGuide\Patches\RemoveWelcomeRoutePatch;
+use Capell\Installer\Support\InstallGuide\Patches\RuntimeRoleBootstrapPatch;
 use Capell\Installer\Support\InstallGuide\Patches\ThemeSourcesPatch;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Capell\Installer\Support\InstallGuide\Patches\ViteThemeInputPatch;
@@ -151,6 +152,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         $registry->register(new ThemeSourcesPatch);
         $registry->register(new ViteThemeInputPatch);
         $registry->register(new RemoveWelcomeRoutePatch);
+        $registry->register(new RuntimeRoleBootstrapPatch);
         $registry->register(new EnvQueueConnectionPatch);
         $registry->register(new EnvSettingsCachePatch);
         $registry->register(new FilesystemsPageCacheDiskPatch);
@@ -169,6 +171,10 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
     {
         /** @var InstallPatchRegistry $installPatchRegistry */
         $installPatchRegistry = $this->app->make(InstallPatchRegistry::class);
+
+        $installPatchRegistry->register(
+            static fn (InstallPatchContext $context): Patch => new RuntimeRoleBootstrapPatch,
+        );
 
         $installPatchRegistry->register(
             static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')

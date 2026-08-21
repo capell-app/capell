@@ -66,6 +66,7 @@ use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\AssetData;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Data\RenderableDefinitionData;
+use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\AssetEnum;
 use Capell\Core\Enums\ComponentTypeEnum;
@@ -169,6 +170,9 @@ use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Capell\Core\Support\Renderables\RenderableRegistry;
+use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
+use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
+use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -223,6 +227,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
         $this->app->singleton(ComponentRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
+        $this->registerRuntimeRole();
         $this->registerSettingsSchemaRegistry();
         $this->bindManagers();
         $this->app->scoped(RuntimeSchemaState::class);
@@ -360,6 +365,30 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         return $this;
+    }
+
+    private function registerRuntimeRole(): void
+    {
+        if (! $this->app->bound(RuntimeRoleSelectionData::class)) {
+            $resolver = RuntimeRoleResolver::fromEnvironment();
+            $this->app->instance(RuntimeRoleSelectionData::class, $resolver->selection());
+            $this->app->instance(RuntimeRoleResolver::class, $resolver);
+        }
+
+        if (! $this->app->bound(RuntimeRoleResolver::class)) {
+            $this->app->singleton(
+                RuntimeRoleResolver::class,
+                fn (): RuntimeRoleResolver => new RuntimeRoleResolver(
+                    $this->app->make(RuntimeRoleSelectionData::class),
+                ),
+            );
+        }
+
+        $this->app->singletonIf(RuntimeRoleProviderPolicy::class);
+        $this->app->singletonIf(
+            RuntimeRoleCachePaths::class,
+            fn (): RuntimeRoleCachePaths => new RuntimeRoleCachePaths($this->app),
+        );
     }
 
     /**
