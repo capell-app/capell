@@ -62,6 +62,7 @@ RUN composer install \
         --optimize-autoloader \
     && npm ci --no-audit --no-fund \
     && npm run build \
+    && php artisan capell:package-cache \
     && rm -rf node_modules \
     && mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
     && chown -R www-data:www-data storage bootstrap/cache

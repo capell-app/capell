@@ -56,7 +56,19 @@ it('keeps runtime secrets and host dependencies out of production image layers',
         ->toContain("vendor\n")
         ->toContain("node_modules\n")
         ->and($dockerfile)
+        ->toContain('php artisan capell:package-cache')
         ->toContain("USER www-data\n");
+});
+
+it('smokes the built production PHP-FPM and Nginx pair', function (): void {
+    $smoke = (string) file_get_contents(dirname(__DIR__, 2) . '/scripts/verify-container-quickstart.sh');
+
+    expect($smoke)
+        ->toContain('test -e bootstrap/cache/capell-package-manifests.php')
+        ->toContain('production_compose')
+        ->toContain('run --rm --user root app php artisan capell:install')
+        ->toContain('response-production.html')
+        ->toContain('Production PHP-FPM/Nginx pair did not serve the home page.');
 });
 
 it('prepares the npm lockfile before enforcing locked production builds', function (): void {

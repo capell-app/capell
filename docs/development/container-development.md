@@ -107,6 +107,7 @@ RUN composer install \
         --optimize-autoloader \
     && npm ci --no-audit --no-fund \
     && npm run build \
+    && php artisan capell:package-cache \
     && rm -rf node_modules \
     && mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
     && chown -R www-data:www-data storage bootstrap/cache
@@ -267,7 +268,7 @@ x-app: &app
     context: .
     dockerfile: .docker/Dockerfile
     target: production
-  image: capell-site-app:local
+  image: ${CAPELL_APP_IMAGE:-capell-site-app:local}
   env_file:
     - .env.production
   restart: unless-stopped
@@ -286,7 +287,7 @@ services:
       context: .
       dockerfile: .docker/Dockerfile
       target: web
-    image: capell-site-web:local
+    image: ${CAPELL_WEB_IMAGE:-capell-site-web:local}
     restart: unless-stopped
     ports:
       - 127.0.0.1:${CAPELL_HTTP_PORT:-8080}:80
@@ -332,7 +333,7 @@ Run the guided installer once in a writable checkout before building this image,
 : "${CAPELL_ADMIN_PASSWORD:?Set CAPELL_ADMIN_PASSWORD in the release runner secret store}"
 docker compose --env-file .env.production -f compose.production.yaml build app web
 docker compose --env-file .env.production -f compose.production.yaml run --rm app php artisan migrate --force
-docker compose --env-file .env.production -f compose.production.yaml run --rm app php artisan capell:install \
+docker compose --env-file .env.production -f compose.production.yaml run --rm --user root app php artisan capell:install \
   --production \
   --package-mode=all \
   --theme=default \
@@ -346,6 +347,10 @@ docker compose --env-file .env.production -f compose.production.yaml run --rm ap
 docker compose --env-file .env.production -f compose.production.yaml run --rm app php artisan capell:doctor
 docker compose --env-file .env.production -f compose.production.yaml up -d app web worker scheduler
 ```
+
+The one-off install container runs as Docker `root` only because it publishes
+application-owned assets into the image filesystem. PHP-FPM, workers, and the
+scheduler still run as the image's unprivileged `www-data` user.
 
 On later deployments, replace `capell:install` with the normal migration and `capell:upgrade` release steps. Run `capell:doctor` before starting traffic, and restart the worker after code changes.
 

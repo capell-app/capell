@@ -18,6 +18,8 @@ consumer_root="${smoke_parent}/consumer"
 project_name="capell-doc-smoke-$RANDOM-$$"
 project_name="${project_name//_/-}"
 compose=(docker compose --project-name "${project_name}" -f compose.sqlite.yaml)
+production_project_name="${project_name}-production"
+production_compose=(docker compose --project-name "${production_project_name}" --env-file .env.production -f compose.production.yaml)
 keep_smoke="${CAPELL_CONTAINER_SMOKE_KEEP:-false}"
 development_image="${project_name}-app:latest"
 production_image="${project_name}-production:latest"
@@ -38,6 +40,14 @@ cleanup() {
         fi
 
         "${compose[@]}" --project-directory "${consumer_root}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+    fi
+
+    if [[ -f "${consumer_root}/compose.production.yaml" ]]; then
+        if [[ "${status}" -ne 0 ]]; then
+            "${production_compose[@]}" --project-directory "${consumer_root}" logs --no-color --tail=200 app web || true
+        fi
+
+        "${production_compose[@]}" --project-directory "${consumer_root}" down --volumes --remove-orphans >/dev/null 2>&1 || true
     fi
 
     docker image rm "${web_image}" "${production_image}" "${development_image}" >/dev/null 2>&1 || true
@@ -79,6 +89,28 @@ cp "${fixture_root}/nginx.conf" "${consumer_root}/.docker/nginx.conf"
 cp "${fixture_root}/compose.sqlite.yaml" "${consumer_root}/compose.sqlite.yaml"
 cp "${fixture_root}/compose.production.yaml" "${consumer_root}/compose.production.yaml"
 cp "${fixture_root}/.env.production.example" "${consumer_root}/.env.production"
+
+production_app_key="$(php -r 'echo "base64:" . base64_encode(random_bytes(32));')"
+CAPELL_PRODUCTION_APP_KEY="${production_app_key}" php -r '
+$path = $argv[1];
+$content = file_get_contents($path);
+
+if (! is_string($content)) {
+    throw new RuntimeException("Unable to read the production environment fixture.");
+}
+
+$updated = preg_replace(
+    "/^APP_KEY=.*$/m",
+    "APP_KEY=" . getenv("CAPELL_PRODUCTION_APP_KEY"),
+    $content,
+    1,
+    $replacements,
+);
+
+if (! is_string($updated) || $replacements !== 1 || file_put_contents($path, $updated) === false) {
+    throw new RuntimeException("Unable to generate the production application key.");
+}
+' "${consumer_root}/.env.production"
 
 for package in admin core frontend installer marketplace; do
     cp -R "${repository_root}/packages/${package}" "${consumer_root}/packages/capell/${package}"
@@ -133,8 +165,10 @@ docker build \
     --tag "${web_image}" \
     .
 docker run --rm "${production_image}" sh -lc 'test ! -e .env && test ! -e .env.production'
+docker run --rm "${production_image}" test -e bootstrap/cache/capell-package-manifests.php
 
-smoke_port="$(php -r '
+reserve_port() {
+    php -r '
 $socket = stream_socket_server("tcp://127.0.0.1:0", $errorCode, $errorMessage);
 
 if ($socket === false) {
@@ -149,7 +183,69 @@ if (! is_string($address) || ! str_contains($address, ":")) {
 }
 
 echo substr($address, strrpos($address, ":") + 1);
-')"
+'
+}
+
+export CAPELL_APP_IMAGE="${production_image}"
+export CAPELL_WEB_IMAGE="${web_image}"
+production_port="$(reserve_port)"
+export CAPELL_HTTP_PORT="${production_port}"
+"${production_compose[@]}" config --quiet
+"${production_compose[@]}" up -d db
+
+database_ready=false
+
+for attempt in {1..60}; do
+    database_container="$("${production_compose[@]}" ps -q db)"
+
+    if [[ -n "${database_container}" ]] && [[ "$(docker inspect --format '{{.State.Health.Status}}' "${database_container}")" == "healthy" ]]; then
+        database_ready=true
+        break
+    fi
+
+    sleep 1
+done
+
+if [[ "${database_ready}" != "true" ]]; then
+    printf 'Production database did not become healthy.\n' >&2
+    exit 1
+fi
+
+"${production_compose[@]}" run --rm app php artisan migrate --force
+"${production_compose[@]}" run --rm --user root app php artisan capell:install \
+    --production \
+    --package-mode=all \
+    --theme=default \
+    --url="http://127.0.0.1:${production_port}" \
+    --name="Capell owner" \
+    --email=owner@example.test \
+    --password=replace-this-production-password \
+    --clear-cache \
+    --install-welcome-route \
+    --no-interaction
+"${production_compose[@]}" run --rm app php artisan capell:doctor
+"${production_compose[@]}" up -d app web
+
+production_response_path="${smoke_parent}/response-production.html"
+production_ready=false
+
+for attempt in {1..60}; do
+    if curl --max-time 2 --location --fail --silent --show-error "http://127.0.0.1:${production_port}/" --output "${production_response_path}"; then
+        production_ready=true
+        break
+    fi
+
+    sleep 1
+done
+
+if [[ "${production_ready}" != "true" ]] || [[ ! -s "${production_response_path}" ]]; then
+    printf 'Production PHP-FPM/Nginx pair did not serve the home page.\n' >&2
+    exit 1
+fi
+
+"${production_compose[@]}" down --volumes --remove-orphans >/dev/null
+
+smoke_port="$(reserve_port)"
 export CAPELL_HTTP_PORT="${smoke_port}"
 http_timeout_seconds="${CAPELL_CONTAINER_SMOKE_HTTP_TIMEOUT_SECONDS:-60}"
 

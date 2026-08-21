@@ -5,7 +5,7 @@ x-app: &app
     context: .
     dockerfile: .docker/Dockerfile
     target: production
-  image: capell-site-app:local
+  image: ${CAPELL_APP_IMAGE:-capell-site-app:local}
   env_file:
     - .env.production
   restart: unless-stopped
@@ -24,7 +24,7 @@ services:
       context: .
       dockerfile: .docker/Dockerfile
       target: web
-    image: capell-site-web:local
+    image: ${CAPELL_WEB_IMAGE:-capell-site-web:local}
     restart: unless-stopped
     ports:
       - 127.0.0.1:${CAPELL_HTTP_PORT:-8080}:80
