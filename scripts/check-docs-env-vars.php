@@ -31,7 +31,7 @@ $allowedExternalVariables = [
     'QUEUE_CONNECTION' => 'Laravel framework',
     'SESSION_DRIVER' => 'Laravel framework',
     'DEBUG_SKIP_CACHE' => 'read by the external capell-app/html-cache package',
-    'CAPELL_RUNTIME_ROLE' => 'read during the pre-configuration runtime-role bootstrap via Illuminate\\Support\\Env',
+    'CAPELL_RUNTIME_ROLE' => 'read during the pre-configuration runtime-role bootstrap via Illuminate\Support\Env',
 ];
 
 $envReaderPattern = '/env\(\s*[\'"]([A-Z][A-Z0-9_]*)[\'"]/';
