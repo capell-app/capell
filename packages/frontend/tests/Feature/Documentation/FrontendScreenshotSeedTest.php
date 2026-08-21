@@ -116,10 +116,33 @@ it('initializes an idempotent generated frontend screenshot fixture without clai
             'domain' => '127.0.0.1',
             'scheme' => 'http',
             'path' => null,
-            'default' => false,
+            'default' => true,
             'status' => true,
         ])->count())->toBe(1)
         ->and(CapellCore::cacheExists('frontend-screenshot-seed-test'))->toBeFalse();
+});
+
+it('keeps an installed site domain as the default', function (): void {
+    ['page' => $page] = frontendScreenshotSeedModels();
+
+    $installedDomain = SiteDomain::factory()
+        ->default()
+        ->for($page->site)
+        ->language($page->site->language)
+        ->createOne();
+
+    FrontendScreenshotSeed::initialize('http://127.0.0.1:8145');
+
+    expect($installedDomain->refresh()->default)->toBeTrue()
+        ->and(SiteDomain::query()->where([
+            'site_id' => $page->site_id,
+            'language_id' => $page->site->language_id,
+            'domain' => '127.0.0.1',
+            'scheme' => 'http',
+            'path' => null,
+            'default' => false,
+            'status' => true,
+        ])->count())->toBe(1);
 });
 
 it('fails clearly when the seeded homepage is missing', function (): void {
