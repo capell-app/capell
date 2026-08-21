@@ -34,6 +34,7 @@
         "check:docs-links": "@php scripts/check-docs-links.php",
         "check:docs-orphans": "@php scripts/check-docs-orphans.php",
         "check:docs-requirements": "@php scripts/check-docs-requirements.php",
+        "check:docs-commands": "@php scripts/check-docs-artisan-commands.php",
         "check:docs-env": "@php scripts/check-docs-env-vars.php",
         "check:docs-config": "@php scripts/check-docs-config-keys.php",
         "check:root-docs": "@php scripts/check-root-docs.php",

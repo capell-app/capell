@@ -30,7 +30,7 @@ This page is the short command map for the host packages in this repository. Run
 | `capell:extension-playground`             | Inspect an extension from a package name, directory, or manifest path           |
 | `capell:package:lint`                     | Lint package manifests, naming, versions, assets, and extension contracts       |
 | `capell:make:extension`                   | Scaffold a local package with a minimal or full manifest profile                |
-| `capell:make:theme`                       | Scaffold a theme with conditional frontend CSS registration                    |
+| `capell:make:theme`                       | Scaffold a theme with conditional frontend CSS registration                     |
 
 ## Developer Makers
 
@@ -95,33 +95,36 @@ Common optional owners:
 
 These commands are defined in the root `composer.json` or `package.json`:
 
-| Script                             | Use it for                                                                  |
-| ---------------------------------- | --------------------------------------------------------------------------- |
-| `composer prepare`                 | Discover Testbench packages                                                 |
-| `composer test:fast`               | Run the sharded fast Pest command while developing                          |
-| `composer test`                    | Run the full Pest test suite                                                |
-| `composer lint`                    | Apply Pint formatting across the repository (alias of `cs:fix`)             |
-| `composer lint:changed`            | Run Pint, Prettier, and ESLint over changed files only                      |
-| `composer analyze`                 | Run the full PHPStan configuration (alias of `analyze:full`)                |
-| `composer analyze:source`          | Analyse package source only — the fast iteration loop, not a gate           |
-| `composer analyze:tests`           | Analyse test suites only — the fast iteration loop, not a gate              |
-| `composer preflight`               | Run all standard gates and report every independent failure                 |
-| `composer preflight:all`           | Apply Rector and Pint, then report all repository-wide gate failures        |
-| `composer preflight:fix`           | Apply Rector, Pint, and Prettier changes, then run `preflight:all`          |
-| `composer check:root-docs`         | Ensure no unexpected Markdown files are added to the repository root        |
-| `composer check:docs-links`        | Ensure all relative documentation links resolve                             |
-| `composer check:docs-orphans`      | Ensure every docs page is reachable from the docs entry points              |
-| `composer check:docs-requirements` | Ensure requirement tables agree with `composer.json` constraints            |
-| `composer check:docs-env`          | Ensure documented env vars are read by code or explicitly allowlisted       |
-| `composer serve`                   | Build and serve the Testbench workbench                                     |
-| `npm run screenshots`              | Capture docs screenshots through the configured screenshot runner           |
-| `npm run screenshots:check`        | Validate docs screenshot manifests through the configured screenshot runner |
-| `npm run docs:publish`             | Sync the local core docs into the external docs app and build it            |
+| Script                             | Use it for                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `composer prepare`                 | Discover Testbench packages                                                   |
+| `composer test:fast`               | Run the sharded fast Pest command while developing                            |
+| `composer test`                    | Run the full Pest test suite                                                  |
+| `composer lint`                    | Apply Pint formatting across the repository (alias of `cs:fix`)               |
+| `composer lint:changed`            | Run Pint, Prettier, and ESLint over changed files only                        |
+| `composer analyze`                 | Run the full PHPStan configuration (alias of `analyze:full`)                  |
+| `composer analyze:source`          | Analyse package source only — the fast iteration loop, not a gate             |
+| `composer analyze:tests`           | Analyse test suites only — the fast iteration loop, not a gate                |
+| `composer preflight`               | Run all standard gates and report every independent failure                   |
+| `composer preflight:all`           | Apply Rector and Pint, then report all repository-wide gate failures          |
+| `composer preflight:fix`           | Apply Rector, Pint, and Prettier changes, then run `preflight:all`            |
+| `composer check:root-docs`         | Ensure no unexpected Markdown files are added to the repository root          |
+| `composer check:docs-links`        | Ensure all relative documentation links resolve                               |
+| `composer check:docs-orphans`      | Ensure every docs page is reachable from the docs entry points                |
+| `composer check:docs-requirements` | Ensure requirement tables agree with `composer.json` constraints              |
+| `composer check:docs-commands`     | Validate fenced Foundation Artisan examples against the live command registry |
+| `composer check:docs-env`          | Ensure documented env vars are read by code or explicitly allowlisted         |
+| `composer serve`                   | Build and serve the Testbench workbench                                       |
+| `npm run screenshots`              | Capture docs screenshots through the configured screenshot runner             |
+| `npm run screenshots:check`        | Validate docs screenshot manifests through the configured screenshot runner   |
+| `npm run docs:publish`             | Sync the local core docs into the external docs app and build it              |
 
 ## Naming Rules
 
 - Host commands use `capell:<name>` or `capell:<package>-<verb>`.
 - Optional add-ons may add their own `capell:<package>-<verb>` commands.
 - Do not copy command names from old planning notes; check the source or run `php artisan list capell` so command documentation reflects shipped behaviour.
+
+The docs command gate discovers fenced `php artisan capell:*` examples across the Markdown tree. Put `<!-- capell-docs-commands: optional-package -->` immediately before a fence only when its command is registered by a separately installed companion package; the gate rejects that marker for commands already registered by Foundation.
 
 See [Artisan commands](artisan-commands.md) for the longer command reference with common options.

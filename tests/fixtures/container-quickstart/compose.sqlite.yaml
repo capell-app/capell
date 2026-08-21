@@ -1,0 +1,20 @@
+name: capell-sqlite
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: development
+    command: php artisan serve --no-reload --host=0.0.0.0 --port=8000
+    env_file:
+      - .env
+    environment:
+      APP_URL: http://localhost:${CAPELL_HTTP_PORT:-8000}
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /var/www/html/database/database.sqlite
+      QUEUE_CONNECTION: sync
+    ports:
+      - 127.0.0.1:${CAPELL_HTTP_PORT:-8000}:8000
+    volumes:
+      - .:/var/www/html

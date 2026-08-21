@@ -13,6 +13,8 @@ It is independent and does not depend on other add-ons. [Content Sections](conte
 
 ## Install
 
+<!-- capell-docs-commands: optional-package -->
+
 ```bash
 composer require capell-app/layout-builder
 php artisan capell:layout-builder-install

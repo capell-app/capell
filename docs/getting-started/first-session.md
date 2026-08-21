@@ -8,7 +8,7 @@ If you haven't installed Capell yet, start with the [Install guide](install.md).
 
 ## Log in
 
-Open `/admin` in your browser. Log in with the credentials for the user you passed to `--user=` during installation, or the one the installer created.
+Open `/admin` in your browser. Log in with the account the installer created, or with the existing account you selected during installation. `--user=` selects an existing account as the default content author; it does not set or change that account's login credentials.
 
 If the login screen appears, the Filament panel is registered.
 

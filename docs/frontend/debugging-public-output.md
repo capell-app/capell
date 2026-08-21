@@ -29,6 +29,8 @@ php artisan list capell
 
 When static HTML cache is installed:
 
+<!-- capell-docs-commands: optional-package -->
+
 ```bash
 php artisan capell:html-cache:clear
 php artisan queue:work

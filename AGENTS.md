@@ -108,8 +108,8 @@ tests.
 - Extension contracts: `composer check:extension-surfaces` and
   `composer check:stable-extension-api`
 - Documentation contracts: `composer check:docs-links`,
-  `composer check:docs-orphans`, `composer check:docs-requirements`, and
-  `composer check:docs-screenshots`
+  `composer check:docs-orphans`, `composer check:docs-requirements`,
+  `composer check:docs-commands`, and `composer check:docs-screenshots`
 
 Run the narrowest relevant command first. Rendering/cache changes need focused
 Frontend safety tests; migration, config, constraint, or public-extension changes

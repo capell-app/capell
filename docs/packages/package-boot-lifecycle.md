@@ -69,6 +69,13 @@ Useful commands:
 php artisan optimize:clear
 php artisan capell:package-cache:clear
 php artisan capell:admin-clear-cache
+```
+
+When `capell-app/html-cache` is installed:
+
+<!-- capell-docs-commands: optional-package -->
+
+```bash
 php artisan capell:html-cache:clear
 ```
 
