@@ -126,7 +126,7 @@ final class RuntimeRoleBootstrap
     /** @return list<string> */
     private static function additionalProviders(): array
     {
-        $merge = (new ReflectionProperty(RegisterProviders::class, 'merge'))->getValue();
+        $merge = new ReflectionProperty(RegisterProviders::class, 'merge')->getValue();
 
         return is_array($merge)
             ? array_values(array_filter($merge, is_string(...)))

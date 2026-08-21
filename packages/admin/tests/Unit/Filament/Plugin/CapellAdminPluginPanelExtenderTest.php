@@ -41,6 +41,7 @@ it('starts a hidden-until-opened sidebar without the collapsed navigation rail',
     $settings = resolve(AdminSettings::class);
     $settings->sidebar_collapsible = SidebarCollapseEnum::HiddenUntilOpened;
     $settings->save();
+
     app()->forgetInstance(AdminSettings::class);
 
     $panel = Panel::make();
