@@ -105,6 +105,8 @@ it('pins the complete authoring lifecycle and every public safety checkpoint', f
         ->toContain('allowRequestAbort: true')
         ->toContain('await anonymousContext.close()')
         ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-published')")
+        ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-republished')")
+        ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-restored')")
         ->toContain("name: 'Roll back to here'")
         ->toContain("name: 'Restore this version'")
         ->toContain("name: 'Sign out'")

@@ -246,6 +246,10 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
         await diagnostics.step(
             'republish invalidates cached delivery',
             async () => {
+                await anonymousContext.close()
+                anonymousContext = await browser.newContext()
+                anonymousPage = await anonymousContext.newPage()
+                diagnostics.registerPage(anonymousPage, 'anonymous-republished')
                 allowStylesheetRecovery(anonymousPage)
                 const missResponse = await anonymousPage.goto(publicUrl, {
                     waitUntil: 'domcontentloaded',
@@ -313,6 +317,10 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
         await diagnostics.step(
             'restore invalidates cached delivery',
             async () => {
+                await anonymousContext.close()
+                anonymousContext = await browser.newContext()
+                anonymousPage = await anonymousContext.newPage()
+                diagnostics.registerPage(anonymousPage, 'anonymous-restored')
                 allowStylesheetRecovery(anonymousPage)
                 const missResponse = await anonymousPage.goto(publicUrl, {
                     waitUntil: 'domcontentloaded',
