@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Enums\SidebarCollapseEnum;
 use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Filament\Settings\AdminSettingsSchema;
@@ -87,6 +88,16 @@ it('admin settings schema exposes form action position control', function (): vo
         ->assertFormFieldExists('admin.form_action_position');
 });
 
+it('persists the hidden-until-opened sidebar setting', function (): void {
+    $settings = resolve(AdminSettings::class);
+    $settings->sidebar_collapsible = SidebarCollapseEnum::HiddenUntilOpened;
+    $settings->save();
+
+    app()->forgetInstance(AdminSettings::class);
+
+    expect(resolve(AdminSettings::class)->sidebar_collapsible)->toBe(SidebarCollapseEnum::HiddenUntilOpened);
+});
+
 it('admin settings schema exposes header navigation tree control', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     test()->actingAsAdmin();
@@ -108,6 +119,11 @@ it('admin settings schema form action position control has translated labels and
     foreach ($translationKeys as $translationKey) {
         expect(__('capell-admin::form.' . $translationKey))->not->toBe('capell-admin::form.' . $translationKey);
     }
+});
+
+it('admin settings schema has a translated hidden-until-opened sidebar option', function (): void {
+    expect(SidebarCollapseEnum::HiddenUntilOpened->getLabel())->toBe(__('capell-admin::generic.hidden_until_opened'))
+        ->and(__('capell-admin::form.sidebar_collapsible_helper'))->not->toBe('capell-admin::form.sidebar_collapsible_helper');
 });
 
 it('admin settings schema header navigation tree control has translated labels and helper text', function (): void {

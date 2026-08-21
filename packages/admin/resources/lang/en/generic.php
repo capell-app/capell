@@ -214,6 +214,7 @@ return [
     'full' => 'Full',
     'full_url_helper' => 'https://domain.com/path (path optional)',
     'fully_collapsible' => 'Fully Collapsible',
+    'hidden_until_opened' => 'Hidden until opened',
     'gallery' => 'Gallery',
     'header_area' => 'Header area',
     'hero_area' => 'Hero',

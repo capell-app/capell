@@ -399,7 +399,7 @@ return [
     'show_resource_statistics' => 'Show resource statistics',
     'show_resource_statistics_helper' => 'Display resource count and status summaries on supported admin pages.',
     'sidebar_collapsible' => 'Sidebar behaviour',
-    'sidebar_collapsible_helper' => 'Control whether the admin sidebar can collapse and how it behaves by default.',
+    'sidebar_collapsible_helper' => 'Control whether the admin sidebar can collapse, including a hidden-until-opened mode that keeps navigation out of the way until you need it.',
     'site' => 'Site',
     'site_domain_availability' => 'Availability',
     'site_domain_url' => 'Site URL',
