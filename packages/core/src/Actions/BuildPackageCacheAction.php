@@ -41,7 +41,7 @@ class BuildPackageCacheAction
         $this->writePackagesCache($manifests);
         $this->writeThemeChainCache($manifests);
         $this->localAppThemes->writeCache();
-        $this->buildRuntimeRoleProviderManifests->handle();
+        $this->buildRuntimeRoleProviderManifests->run();
     }
 
     /** @param array<string, CapellManifestData> $manifests */

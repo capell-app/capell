@@ -11,11 +11,13 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\ServiceProvider;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class BuildRuntimeRoleProviderManifestsAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(

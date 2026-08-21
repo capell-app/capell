@@ -24,6 +24,7 @@ use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\MediaScope;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
@@ -466,7 +467,7 @@ class MediaTable implements TableConfigurator
     {
         $video = $media->externalVideo();
 
-        if ($video !== null) {
+        if ($video instanceof ExternalVideoData) {
             return YouTubeVideoUrl::parse($video->url)?->thumbnailUrl;
         }
 
