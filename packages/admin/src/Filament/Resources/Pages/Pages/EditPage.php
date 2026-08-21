@@ -5,18 +5,27 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Pages;
 
 use Capell\Admin\Actions\MutateContentPresenterAction;
+use Capell\Admin\Actions\Pages\BuildPageEditorSessionAction;
 use Capell\Admin\Actions\Pages\BuildPageRelationshipCountsAction;
+use Capell\Admin\Actions\Pages\DiscardPageEditorScratchDraftAction;
+use Capell\Admin\Actions\Pages\RecordPageUrlRedirectsAction;
 use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
+use Capell\Admin\Actions\Pages\ResolvePageEditorLockAction;
 use Capell\Admin\Actions\Pages\SavePageAuthoringAction;
+use Capell\Admin\Actions\Pages\SavePageEditorScratchDraftAction;
 use Capell\Admin\Actions\Pages\ValidatePageAuthoringAction;
 use Capell\Admin\Contracts\Extenders\PageEditExtender;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Data\Pages\PageAuthoringInputData;
+use Capell\Admin\Data\Pages\PageEditorLockRequestData;
+use Capell\Admin\Data\Pages\PageEditorScratchDraftInputData;
+use Capell\Admin\Data\Pages\PageUrlRedirectRequestData;
 use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\ListenerEnum;
+use Capell\Admin\Enums\PageEditorLockOperation;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\Page\CreatePageAction;
 use Capell\Admin\Filament\Actions\Page\DeletePageAction;
@@ -39,19 +48,12 @@ use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
-use Capell\Core\Actions\ContentLocks\AcquireContentLockAction;
-use Capell\Core\Actions\ContentLocks\FindConflictingContentLockAction;
-use Capell\Core\Actions\ContentLocks\ForceContentLockAction;
-use Capell\Core\Actions\EditorScratchDrafts\DiscardEditorScratchDraftAction;
-use Capell\Core\Actions\EditorScratchDrafts\SaveEditorScratchDraftAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\GetResourceFromBlueprintAction;
 use Capell\Core\Contracts\Pageable;
-use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Models\ContentLock;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -197,26 +199,17 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     {
         Gate::authorize('create', PageUrl::class);
 
-        $redirectUrls = collect($urls)
-            ->mapWithKeys(fn (string $url, int $languageId): array => [$languageId => $url])
-            ->filter(fn (string $url, int $languageId): bool => isset($this->urlChanges[$languageId])
-                && hash_equals($this->urlChanges[$languageId], $url))
-            ->all();
+        $result = RecordPageUrlRedirectsAction::run(new PageUrlRedirectRequestData(
+            page: $this->record,
+            submittedUrls: $urls,
+            expectedUrls: $this->urlChanges,
+        ));
 
-        if ($redirectUrls === []) {
+        if ($result->acceptedCount === 0) {
             return;
         }
 
-        /** @var class-string<Language> $model */
-        $model = Language::class;
-
-        $languages = $model::query()->whereIn('id', array_keys($redirectUrls))->get();
-
-        throw_if($languages->isEmpty(), InvalidArgumentException::class, 'No valid languages found for URL redirects.');
-
-        $languages->each(function (Language $language) use ($redirectUrls): void {
-            resolve(RedirectUrlRecorder::class)->record($this->record, $language, $redirectUrls[$language->id]);
-        });
+        throw_if($result->recordedCount === 0, InvalidArgumentException::class, 'No valid languages found for URL redirects.');
 
         Notification::make('url-redirects-added')
             ->title(__('capell-admin::message.url_redirects_added'))
@@ -380,23 +373,20 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
     public function updatedData(mixed $value = null, ?string $key = null): void
     {
-        $user = $this->currentUser();
-
-        if (! $user instanceof Authenticatable || ! is_array($this->data)) {
+        if (! is_array($this->data)) {
             return;
         }
 
-        if (! Gate::forUser($user)->allows('update', $this->record) || $this->hasConflictingContentLock()) {
-            return;
-        }
-
-        SaveEditorScratchDraftAction::run(
-            record: $this->record,
-            user: $user,
+        $result = SavePageEditorScratchDraftAction::run(new PageEditorScratchDraftInputData(
+            page: $this->record,
+            user: $this->currentUser(),
             locale: app()->getLocale(),
-            context: 'page-editor',
             payload: $this->data,
-        );
+        ));
+
+        if (! $result->wasSaved()) {
+            return;
+        }
 
         $this->dispatch('page-scratch-draft-updated', pageId: (int) $this->record->getKey());
     }
@@ -511,19 +501,17 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
     protected function beforeSave(): void
     {
-        $user = $this->currentUser();
+        $lock = ResolvePageEditorLockAction::run(new PageEditorLockRequestData(
+            record: $this->record,
+            user: $this->currentUser(),
+            operation: PageEditorLockOperation::Save,
+        ));
 
-        if ($user instanceof Authenticatable) {
-            $conflictingLock = FindConflictingContentLockAction::run($this->record, $user);
+        if ($lock->isBlocked()) {
+            $this->notifyContentLockConflict($lock->owner(), saveBlocked: true);
+            $this->halt();
 
-            if ($conflictingLock !== null) {
-                $this->notifyContentLockConflict($this->contentLockUser($conflictingLock), saveBlocked: true);
-                $this->halt();
-
-                return;
-            }
-
-            AcquireContentLockAction::run($this->record, $user);
+            return;
         }
 
         $this->urlChanges = $this->getUpdatedUrlChanges();
@@ -866,39 +854,37 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
     private function acquirePageLock(): void
     {
-        $user = $this->currentUser();
+        $lock = ResolvePageEditorLockAction::run(new PageEditorLockRequestData(
+            record: $this->record,
+            user: $this->currentUser(),
+            operation: PageEditorLockOperation::Open,
+        ));
 
-        if (! $user instanceof Authenticatable) {
-            return;
-        }
-
-        $lock = AcquireContentLockAction::run($this->record, $user);
-
-        if (! $lock->isOwnedBy($user)) {
-            $this->notifyContentLockConflict($this->contentLockUser($lock));
+        if ($lock->isBlocked()) {
+            $this->notifyContentLockConflict($lock->owner());
         }
     }
 
     private function contentLockHeartbeatComponent(): View
     {
+        $session = BuildPageEditorSessionAction::run(
+            page: $this->record,
+            user: $this->currentUser(),
+            locale: app()->getLocale(),
+            heartbeatUrl: Route::has('capell-admin.api.pages.content-lock.heartbeat')
+                ? route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $this->record])
+                : '',
+            releaseUrl: Route::has('capell-admin.api.pages.content-lock.release')
+                ? route('capell-admin.api.pages.content-lock.release', ['page' => $this->record])
+                : '',
+            csrfToken: csrf_token(),
+            initialConflict: $this->hasConflictingContentLock(),
+        );
+
         return View::make('capell-admin::components.content-lock-heartbeat')
             ->viewData([
                 'config' => [
-                    'heartbeatUrl' => Route::has('capell-admin.api.pages.content-lock.heartbeat')
-                        ? route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $this->record])
-                        : '',
-                    'releaseUrl' => Route::has('capell-admin.api.pages.content-lock.release')
-                        ? route('capell-admin.api.pages.content-lock.release', ['page' => $this->record])
-                        : '',
-                    'csrfToken' => csrf_token(),
-                    'intervalMs' => 30000,
-                    'initialConflict' => $this->hasConflictingContentLock(),
-                    'pageId' => (int) $this->record->getKey(),
-                    'storageKey' => $this->editorLocalDraftStorageKey(),
-                    'formSelector' => '#form',
-                    'localDraftDebounceMs' => 750,
-                    'localDraftTtlMs' => 86_400_000,
-                    'localDraftVersion' => 1,
+                    ...$session->configuration(),
                     'localDraftAvailableMessage' => (string) __('capell-admin::scratch_drafts.local_available'),
                     'localDraftRestoreLabel' => (string) __('capell-admin::scratch_drafts.local_restore'),
                     'localDraftDiscardLabel' => (string) __('capell-admin::scratch_drafts.local_discard'),
@@ -929,7 +915,11 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
                 Gate::forUser($user)->authorize('update', $this->record);
 
-                ForceContentLockAction::run($this->record, $user);
+                ResolvePageEditorLockAction::run(new PageEditorLockRequestData(
+                    record: $this->record,
+                    user: $user,
+                    operation: PageEditorLockOperation::TakeOver,
+                ));
 
                 $this->dispatch('content-lock-taken-over', pageId: (int) $this->record->getKey());
 
@@ -942,10 +932,11 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
     private function hasConflictingContentLock(): bool
     {
-        $user = $this->currentUser();
-
-        return $user instanceof Authenticatable
-            && FindConflictingContentLockAction::run($this->record, $user) instanceof ContentLock;
+        return ResolvePageEditorLockAction::run(new PageEditorLockRequestData(
+            record: $this->record,
+            user: $this->currentUser(),
+            operation: PageEditorLockOperation::Inspect,
+        ))->isBlocked();
     }
 
     private function currentUser(): ?Authenticatable
@@ -955,19 +946,6 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         return $user instanceof Authenticatable ? $user : null;
     }
 
-    private function editorLocalDraftStorageKey(): string
-    {
-        $userId = $this->currentUser()?->getAuthIdentifier();
-        $userKey = is_scalar($userId) ? (string) $userId : 'anonymous';
-
-        return sprintf(
-            'capell:page-editor:%s:%s:%s',
-            $userKey,
-            (string) $this->record->getKey(),
-            app()->getLocale(),
-        );
-    }
-
     private function notifyEditorSaved(): void
     {
         $this->dispatch('page-editor-saved', pageId: (int) $this->record->getKey());
@@ -975,27 +953,17 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
     private function discardEditorScratchDraft(): void
     {
-        $user = $this->currentUser();
+        $result = DiscardPageEditorScratchDraftAction::run(
+            page: $this->record,
+            user: $this->currentUser(),
+            locale: app()->getLocale(),
+        );
 
-        if (! $user instanceof Authenticatable) {
+        if (! $result->hasUser()) {
             return;
         }
 
-        DiscardEditorScratchDraftAction::run(
-            record: $this->record,
-            user: $user,
-            locale: app()->getLocale(),
-            context: 'page-editor',
-        );
-
         $this->dispatch('page-scratch-draft-updated', pageId: (int) $this->record->getKey());
-    }
-
-    private function contentLockUser(ContentLock $lock): ?Authenticatable
-    {
-        $user = $lock->user;
-
-        return $user instanceof Authenticatable ? $user : null;
     }
 
     private function notifyContentLockConflict(?Authenticatable $user, bool $saveBlocked = false): void
