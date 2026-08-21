@@ -131,7 +131,7 @@ PHP);
         'DB_PASSWORD' => 'capell-test',
         'DB_PORT' => $driver === 'pgsql' ? '5432' : '3306',
         'DB_USERNAME' => $driver === 'pgsql' ? 'postgres' : 'root',
-        'PATH' => $temporaryDirectory . PATH_SEPARATOR . (string) getenv('PATH'),
+        'PATH' => $temporaryDirectory . PATH_SEPARATOR . getenv('PATH'),
     ];
     $command = implode(' ', array_map(
         static fn (string $key, string $value): string => $key . '=' . escapeshellarg($value),

@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\Schema;
 it('runs the complete schema on the requested database family and proven version', function (): void {
     $requestedFamily = getenv('CAPELL_TEST_DATABASE_FAMILY');
     $requestedFamily = is_string($requestedFamily) && $requestedFamily !== '' ? $requestedFamily : 'sqlite';
+
     $minimumVersion = getenv('CAPELL_TEST_DATABASE_VERSION');
     $minimumVersion = is_string($minimumVersion) && $minimumVersion !== '' ? $minimumVersion : 'runtime';
+
     $connection = DB::connection();
     $serverVersion = match ($requestedFamily) {
         'mysql', 'mariadb' => (string) $connection->selectOne('SELECT VERSION() AS version')->version,

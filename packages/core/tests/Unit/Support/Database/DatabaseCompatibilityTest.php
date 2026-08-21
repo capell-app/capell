@@ -776,6 +776,7 @@ it('creates reconnects to and reuses a disposable database', function (): void {
     if ($family === DatabaseFamily::Sqlite) {
         File::delete($database);
     }
+
     Config::set('database.connections.' . $connectionName, $configuration);
     $provisioner = $platform->provisioner();
     throw_unless($provisioner !== null, LogicException::class, 'The active database platform must provide a provisioner.');

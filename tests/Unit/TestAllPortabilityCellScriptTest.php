@@ -31,32 +31,33 @@ PHP);
     chmod($composerPath, 0700);
 
     $dockerPath = $temporaryDirectory . '/docker';
-    file_put_contents($dockerPath, <<<'PHP'
-#!/usr/bin/env php
-<?php
-
-declare(strict_types=1);
-
-file_put_contents(
-    (string) getenv('DOCKER_CAPTURE_PATH'),
-    json_encode(array_slice($argv, 1), JSON_THROW_ON_ERROR) . PHP_EOL,
-    FILE_APPEND,
-);
-
-match ($argv[1] ?? null) {
-    'run' => print "disposable-container-id\n",
-    'inspect' => print "healthy\n",
-    'port' => print "127.0.0.1:49152\n",
-    'rm' => print "removed\n",
-    default => throw new RuntimeException('Unexpected Docker command.'),
-};
-PHP);
+    file_put_contents($dockerPath, implode(PHP_EOL, [
+        '#!/usr/bin/env php',
+        '<?php',
+        '',
+        'declare(strict_types=1);',
+        '',
+        'file_put_contents(',
+        "    (string) getenv('DOCKER_CAPTURE_PATH'),",
+        '    json_encode(array_slice($argv, 1), JSON_THROW_ON_ERROR) . PHP_EOL,',
+        '    FILE_APPEND,',
+        ');',
+        '',
+        'match ($argv[1] ?? null) {',
+        '    \'run\' => print "disposable-container-id\\n",',
+        '    \'inspect\' => print "healthy\\n",',
+        '    \'port\' => print "127.0.0.1:49152\\n",',
+        '    \'rm\' => print "removed\\n",',
+        "    default => throw new RuntimeException('Unexpected Docker command.'),",
+        '};',
+        '',
+    ]));
     chmod($dockerPath, 0700);
 
     $environment = [
         'COMPOSER_CAPTURE_PATH' => $composerCapture,
         'DOCKER_CAPTURE_PATH' => $dockerCapture,
-        'PATH' => $temporaryDirectory . PATH_SEPARATOR . (string) getenv('PATH'),
+        'PATH' => $temporaryDirectory . PATH_SEPARATOR . getenv('PATH'),
     ];
     $command = implode(' ', array_map(
         static fn (string $key, string $value): string => $key . '=' . escapeshellarg($value),
