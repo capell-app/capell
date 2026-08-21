@@ -56,6 +56,7 @@ use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
+use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
@@ -121,6 +122,7 @@ final class SingletonLifetimeInventory
         return [
             // Core boot registration state.
             CapellPackageRegistry::class => self::boot('Package manifests are discovered once and invalidated only by explicit package mutation.'),
+            RuntimeRolePackageManifest::class => self::boot('The selected package graph and its lazy manifest cache are immutable process boot metadata.'),
             ModelInterceptorRegistry::class => self::boot('Model interceptors are package boot registrations.'),
             SubscriberRegistry::class => self::boot('Subscribers are package boot registrations.'),
             RenderableRegistry::class => self::boot('Renderable types are package boot registrations.'),

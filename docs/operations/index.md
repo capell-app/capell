@@ -11,11 +11,12 @@ Use this section if you deploy, upgrade, or respond to incidents on an installed
 | Upgrade packages and plan rollback          | [Upgrades](upgrading.md)                          |
 | Diagnose an installed site                  | [Troubleshooting](troubleshooting.md)             |
 | Debug Marketplace connection or installs    | [Debugging Marketplace](debugging-marketplace.md) |
-| Prepare a host for Marketplace operations   | [Marketplace hosting](marketplace-hosting.md)      |
+| Prepare a host for Marketplace operations   | [Marketplace hosting](marketplace-hosting.md)     |
 | Plan a reversible migration away            | [Export and exit plan](export-and-exit.md)        |
 | Configure nginx/Apache or scale to >1 node  | [Web server configuration](web-server.md)         |
 | Make public and dynamic requests faster     | [Making Capell fast](making-capell-fast.md)       |
 | Run Capell on Laravel Octane                | [Octane](octane.md)                               |
+| Split public and authoring processes        | [Runtime roles](runtime-roles.md)                 |
 
 ## First Checks
 

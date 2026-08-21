@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ThemeManifestKey;
@@ -29,6 +30,7 @@ class BuildPackageCacheAction
         private readonly Filesystem $files,
         private readonly ManifestLoader $manifestLoader,
         private readonly LocalAppThemeDefinitionRepository $localAppThemes,
+        private readonly BuildRuntimeRoleProviderManifestsAction $buildRuntimeRoleProviderManifests,
     ) {}
 
     /** @param array<string, CapellManifestData>|null $manifests */
@@ -39,6 +41,7 @@ class BuildPackageCacheAction
         $this->writePackagesCache($manifests);
         $this->writeThemeChainCache($manifests);
         $this->localAppThemes->writeCache();
+        $this->buildRuntimeRoleProviderManifests->handle();
     }
 
     /** @param array<string, CapellManifestData> $manifests */

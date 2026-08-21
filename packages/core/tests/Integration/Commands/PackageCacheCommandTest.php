@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\BuildPackageCacheAction;
+use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
+use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Frontend\Support\View\ThemeChainResolver;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -15,6 +18,9 @@ it('capell:package-cache writes package and theme chain cache files', function (
     $packageCachePath = base_path('bootstrap/cache/capell-package-manifests.php');
     $themeCachePath = base_path('bootstrap/cache/capell-theme-chain.php');
     $localAppThemeCachePath = base_path('bootstrap/cache/capell-local-app-themes.php');
+    $runtimePaths = resolve(RuntimeRoleCachePaths::class);
+
+    File::deleteDirectory($runtimePaths->directory());
 
     foreach ([$packageCachePath, $themeCachePath, $localAppThemeCachePath] as $cachePath) {
         if (file_exists($cachePath)) {
@@ -26,7 +32,29 @@ it('capell:package-cache writes package and theme chain cache files', function (
 
     expect(file_exists($packageCachePath))->toBeTrue()
         ->and(file_exists($themeCachePath))->toBeTrue()
-        ->and(file_exists($localAppThemeCachePath))->toBeTrue();
+        ->and(file_exists($localAppThemeCachePath))->toBeTrue()
+        ->and(file_exists($runtimePaths->metadata()))->toBeTrue();
+
+    foreach (RuntimeRole::deploymentRoles() as $role) {
+        expect(file_exists($runtimePaths->packages($role)))->toBeTrue()
+            ->and(file_exists($runtimePaths->providers($role)))->toBeTrue()
+            ->and(file_exists($runtimePaths->services($role)))->toBeTrue();
+    }
+
+    $publicPackages = require $runtimePaths->packages(RuntimeRole::Public);
+    $publicServices = require $runtimePaths->services(RuntimeRole::Public);
+    $policy = new RuntimeRoleProviderPolicy;
+    $publicProviders = $publicServices['providers'];
+
+    expect(array_values(array_intersect(array_keys($publicPackages), [
+        'capell-app/admin',
+        'capell-app/installer',
+        'capell-app/marketplace',
+    ])))->toBe([])
+        ->and(array_filter(
+            $publicProviders,
+            $policy->isAuthoringProvider(...),
+        ))->toBe([]);
 
     $packages = require $packageCachePath;
     $chain = require $themeCachePath;
@@ -52,6 +80,8 @@ it('capell:package-cache writes package and theme chain cache files', function (
             @unlink($cachePath);
         }
     }
+
+    File::deleteDirectory(base_path('bootstrap/cache/capell-runtime'));
 });
 
 it('PackageRegistryBootstrapper uses capell-package-manifests.php when present', function (): void {
@@ -106,16 +136,20 @@ it('capell:package-cache:clear removes package and theme chain cache files', fun
     $packageCachePath = base_path('bootstrap/cache/capell-package-manifests.php');
     $themeCachePath = base_path('bootstrap/cache/capell-theme-chain.php');
     $localAppThemeCachePath = base_path('bootstrap/cache/capell-local-app-themes.php');
+    $runtimeCachePath = base_path('bootstrap/cache/capell-runtime');
 
     file_put_contents($packageCachePath, '<?php return [];');
     file_put_contents($themeCachePath, '<?php return [];');
     file_put_contents($localAppThemeCachePath, '<?php return [];');
+    File::ensureDirectoryExists($runtimeCachePath . '/public');
+    file_put_contents($runtimeCachePath . '/public/services.php', '<?php return [];');
 
     Artisan::call('capell:package-cache:clear');
 
     expect(file_exists($packageCachePath))->toBeFalse()
         ->and(file_exists($themeCachePath))->toBeFalse()
-        ->and(file_exists($localAppThemeCachePath))->toBeFalse();
+        ->and(file_exists($localAppThemeCachePath))->toBeFalse()
+        ->and(file_exists($runtimeCachePath))->toBeFalse();
 });
 
 it('capell:package-cache:clear succeeds when cache files are already absent', function (): void {
@@ -128,6 +162,8 @@ it('capell:package-cache:clear succeeds when cache files are already absent', fu
             @unlink($cachePath);
         }
     }
+
+    File::deleteDirectory(base_path('bootstrap/cache/capell-runtime'));
 
     expect(Artisan::call('capell:package-cache:clear'))->toBe(0)
         ->and(Artisan::output())->toContain('No Capell package cache files found.');

@@ -10,6 +10,8 @@ use Capell\Core\Support\Bootstrap\CloudInstallContext;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Packages\TrustedCorePackages;
+use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
+use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Illuminate\Contracts\Foundation\Application;
 use Throwable;
 
@@ -17,12 +19,20 @@ final class CapellPackageLoader
 {
     private readonly CloudInstallContext $cloudInstallContext;
 
+    private readonly RuntimeRoleResolver $runtimeRoleResolver;
+
+    private readonly RuntimeRoleProviderPolicy $runtimeRoleProviderPolicy;
+
     public function __construct(
         private readonly Application $app,
         private readonly CapellPackageRegistry $registry,
         ?CloudInstallContext $cloudInstallContext = null,
+        ?RuntimeRoleResolver $runtimeRoleResolver = null,
+        ?RuntimeRoleProviderPolicy $runtimeRoleProviderPolicy = null,
     ) {
         $this->cloudInstallContext = $cloudInstallContext ?? CloudInstallContext::fromProcess();
+        $this->runtimeRoleResolver = $runtimeRoleResolver ?? RuntimeRoleResolver::fromEnvironment();
+        $this->runtimeRoleProviderPolicy = $runtimeRoleProviderPolicy ?? new RuntimeRoleProviderPolicy;
     }
 
     public function loadProviders(): void
@@ -69,26 +79,19 @@ final class CapellPackageLoader
     /** @return list<string> */
     private function resolveProviders(CapellManifestData $manifest): array
     {
-        $manifestProviders = $manifest->providers->toArray();
-
-        $providers = array_merge(
-            $manifestProviders['metadata'] ?? [],
-            $manifestProviders['install'] ?? [],
-        );
+        $runtimeRole = $this->runtimeRoleResolver->role();
+        $providers = $runtimeRole->loadsAuthoringProviders()
+            ? [...$manifest->providers->metadata, ...$manifest->providers->install]
+            : $manifest->providers->metadata;
 
         if (! $this->shouldLoadRuntimeProviders($manifest)) {
             return array_values(array_unique($providers));
         }
 
-        $providers = array_merge(
+        return array_values(array_unique(array_merge(
             $providers,
-            $manifestProviders['runtime'] ?? [],
-            $manifestProviders['admin'] ?? [],
-            $manifestProviders['frontend'] ?? [],
-            $manifestProviders['auth'] ?? [],
-        );
-
-        return array_values(array_unique($providers));
+            $this->runtimeRoleProviderPolicy->extensionProviders($manifest->providers, $runtimeRole),
+        )));
     }
 
     private function shouldLoadRuntimeProviders(CapellManifestData $manifest): bool

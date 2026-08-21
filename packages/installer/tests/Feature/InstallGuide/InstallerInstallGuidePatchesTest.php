@@ -27,6 +27,7 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
     writeInstallerInstallGuideFixture('.env', "APP_NAME=Capell\nQUEUE_CONNECTION=sync\n");
     writeInstallerInstallGuideFixture('app/Models/User.php', installerInstallGuideUserModel());
     writeInstallerInstallGuideFixture('app/Providers/Filament/AdminPanelProvider.php', installerInstallGuideAdminPanelProvider());
+    writeInstallerInstallGuideFixture('bootstrap/app.php', installerInstallGuideBootstrapApplication());
     writeInstallerInstallGuideFixture('config/filesystems.php', installerInstallGuideFilesystemsConfig());
     writeInstallerInstallGuideFixture('config/logging.php', installerInstallGuideLoggingConfig());
     writeInstallerInstallGuideFixture('resources/css/filament/admin/theme.css', "@import '../../../../vendor/filament/filament/resources/css/theme.css';\n");
@@ -44,6 +45,7 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
         'theme-sources-patch',
         'vite-theme-input-patch',
         'remove-welcome-route-patch',
+        'runtime-role-bootstrap-patch',
         'env-queue-connection-patch',
         'env-settings-cache-patch',
         'filesystems-page-cache-disk-patch',
@@ -76,6 +78,7 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
         ->and(File::get(base_path('config/logging.php')))->toContain("'capell'")
         ->and(File::get(base_path('resources/css/filament/admin/theme.css')))->toContain('vendor/capell-app/installer/resources/views/**/*.blade.php')
         ->and(File::get(base_path('vite.config.js')))->toContain("'resources/css/filament/admin/theme.css'")
+        ->and(File::get(base_path('bootstrap/app.php')))->toContain('RuntimeRoleBootstrap::configure($app);')
         ->and(File::get(base_path('routes/web.php')))->not->toContain("Route::get('/', function ()");
 
     $userModel = File::get(base_path('app/Models/User.php'));
@@ -190,5 +193,29 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+PHP;
+}
+
+function installerInstallGuideBootstrapApplication(): string
+{
+    return <<<'PHP'
+<?php
+
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        //
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        //
+    })->create();
 PHP;
 }

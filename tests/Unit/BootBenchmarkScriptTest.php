@@ -7,6 +7,8 @@ use Capell\Benchmark\BootBenchmark;
 use Capell\Benchmark\BootBenchmarkOptions;
 use Capell\Benchmark\BootProfiles;
 use Capell\Benchmark\BootStatistics;
+use Capell\Benchmark\RuntimeRoleBenchmarkComparison;
+use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 use Workbench\App\Providers\ScreenshotWorkbenchServiceProvider;
 
@@ -70,6 +72,40 @@ it('keeps screenshot fixtures out of production profiles', function (): void {
             MarketplaceServiceProvider::class,
         );
 });
+
+it('maps immutable runtime role profiles without removing Frontend from authoring', function (): void {
+    expect(BootProfiles::providers('combined'))->toBe(BootProfiles::providers('production'))
+        ->and(BootProfiles::providers('authoring'))->toBe(BootProfiles::providers('combined'))
+        ->and(BootProfiles::providers('authoring'))->toContain(FrontendServiceProvider::class)
+        ->and(BootProfiles::providers('public'))->not->toContain(
+            AdminServiceProvider::class,
+            MarketplaceServiceProvider::class,
+        );
+});
+
+it('reports paired runtime role p50 and p75 regression state', function (): void {
+    $comparison = RuntimeRoleBenchmarkComparison::summarize(
+        ['statistics_ms' => ['p50' => 20.0, 'p75' => 21.0]],
+        ['statistics_ms' => ['p50' => 15.0, 'p75' => 16.0]],
+    );
+
+    expect($comparison)->toMatchArray([
+        'combined_p50_ms' => 20.0,
+        'public_p50_ms' => 15.0,
+        'p50_delta_ms' => -5.0,
+        'combined_p75_ms' => 21.0,
+        'public_p75_ms' => 16.0,
+        'p75_delta_ms' => -5.0,
+        'public_p75_regressed' => false,
+    ]);
+});
+
+it('rejects incomplete paired runtime role statistics', function (): void {
+    RuntimeRoleBenchmarkComparison::summarize(
+        ['statistics_ms' => ['p50' => 20.0]],
+        ['statistics_ms' => ['p50' => 15.0, 'p75' => 16.0]],
+    );
+})->throws(InvalidArgumentException::class, 'Both runtime role benchmarks must contain numeric p75 statistics.');
 
 it('reports in-process framework boot as the primary benchmark sample', function (): void {
     $result = new BootBenchmark(dirname(__DIR__, 2))->run(new BootBenchmarkOptions(

@@ -124,6 +124,7 @@
         "test:shards": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_MAX_PROCESSES:-8} --compact --update-shards --configuration=phpunit.xml",
         "test:profile": "@php scripts/profile-pest-tests.php",
         "benchmark:boot": "@php scripts/benchmark-boot.php",
+        "benchmark:runtime-roles": "@php scripts/benchmark-runtime-roles.php",
         "test:types": "@php vendor/bin/pest --configuration=phpunit.xml --type-coverage",
         "test": [
             "@clear",
