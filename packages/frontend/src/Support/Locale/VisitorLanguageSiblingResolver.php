@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Locale;
 
-use Capell\Core\Actions\LoadSiteDomainFromUrlAction;
+use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
+use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -60,13 +61,17 @@ final class VisitorLanguageSiblingResolver
             return null;
         }
 
-        $resolved = LoadSiteDomainFromUrlAction::run($request->fullUrl(), sites: $sites);
+        $resolution = ResolveSiteDomainAction::run(
+            SiteRequestTargetData::fromUrl($request->fullUrl()),
+            $sites,
+        );
 
-        if (! is_array($resolved) || ! $resolved[0] instanceof SiteDomain) {
+        if ($resolution === null) {
             return null;
         }
 
-        [$siteDomain, $path] = $resolved;
+        $siteDomain = $resolution->siteDomain;
+        $path = $resolution->relativePath;
         $site = $sites->firstWhere('id', $siteDomain->site_id);
         $currentLanguage = $siteDomain->language;
 

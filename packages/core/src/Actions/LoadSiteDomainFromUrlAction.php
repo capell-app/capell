@@ -8,7 +8,6 @@ use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
 use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
-use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -43,35 +42,6 @@ final class LoadSiteDomainFromUrlAction
             return null;
         }
 
-        $domain = $resolution->siteDomain;
-
-        $configuredDomain = $domain->exists
-            ? $domain->getRawOriginal('domain')
-            : ($domain->getAttributes()['domain'] ?? null);
-
-        if ($configuredDomain === null) {
-            $domain = clone $domain;
-            $domain->setAttribute('domain', $resolution->effectiveOrigin->host);
-
-            $configuredScheme = $domain->exists
-                ? $domain->getRawOriginal('scheme')
-                : ($domain->getAttributes()['scheme'] ?? null);
-
-            if ($configuredScheme === null) {
-                $domain->setAttribute('scheme', $resolution->effectiveOrigin->scheme);
-            }
-
-            $defaultPort = SiteDomainAddressing::defaultPort(
-                $resolution->effectiveOrigin->scheme,
-            );
-            $domain->setAttribute(
-                'port',
-                $defaultPort === $resolution->effectiveOrigin->effectivePort
-                    ? null
-                    : $resolution->effectiveOrigin->effectivePort,
-            );
-        }
-
-        return [$domain, $resolution->relativePath];
+        return [$resolution->siteDomainForRequest(), $resolution->relativePath];
     }
 }

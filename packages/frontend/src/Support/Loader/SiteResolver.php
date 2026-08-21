@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Loader;
 
-use Capell\Core\Actions\LoadSiteDomainFromUrlAction;
+use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
+use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Core\Exceptions\SiteDomainNotFoundException;
 use Capell\Core\Exceptions\UrlSiteDomainNotFoundException;
 use Capell\Core\Models\Language;
@@ -13,6 +14,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Frontend\Support\Logging\FrontendLogger;
 use Exception;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 class SiteResolver
 {
@@ -32,19 +34,22 @@ class SiteResolver
             throw new SiteDomainNotFoundException('No sites are configured.');
         }
 
-        $result = LoadSiteDomainFromUrlAction::run($fullUrl, sites: $sites);
+        try {
+            $resolution = ResolveSiteDomainAction::run(
+                SiteRequestTargetData::fromUrl($fullUrl),
+                $sites,
+            );
+        } catch (InvalidArgumentException) {
+            $resolution = null;
+        }
 
-        if (! is_array($result) || count($result) < 2) {
+        if ($resolution === null) {
             $logger->warning('Frontend: site domain not found for URL', ['url' => $fullUrl]);
             throw new UrlSiteDomainNotFoundException($fullUrl);
         }
 
-        [$siteDomain, $url] = $result;
-
-        if (! $siteDomain instanceof SiteDomain) {
-            $logger->warning('Frontend: site domain not found for URL', ['url' => $fullUrl]);
-            throw new UrlSiteDomainNotFoundException($fullUrl);
-        }
+        $siteDomain = $resolution->siteDomainForRequest();
+        $url = $resolution->relativePath;
 
         $site = $sites->firstWhere('id', $siteDomain->site_id);
         if (! $site instanceof Site) {

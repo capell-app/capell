@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Data\SiteDomains;
 
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 
 final readonly class SiteDomainResolutionData
 {
@@ -35,5 +36,38 @@ final readonly class SiteDomainResolutionData
     public function domainKey(): string
     {
         return $this->effectiveOrigin->key() . ':' . hash('sha256', $this->mountedPath);
+    }
+
+    public function siteDomainForRequest(): SiteDomain
+    {
+        $siteDomain = $this->siteDomain;
+        $configuredDomain = $siteDomain->exists
+            ? $siteDomain->getRawOriginal('domain')
+            : ($siteDomain->getAttributes()['domain'] ?? null);
+
+        if ($configuredDomain !== null) {
+            return $siteDomain;
+        }
+
+        $siteDomain = clone $siteDomain;
+        $siteDomain->setAttribute('domain', $this->effectiveOrigin->host);
+
+        $configuredScheme = $siteDomain->exists
+            ? $siteDomain->getRawOriginal('scheme')
+            : ($siteDomain->getAttributes()['scheme'] ?? null);
+
+        if ($configuredScheme === null) {
+            $siteDomain->setAttribute('scheme', $this->effectiveOrigin->scheme);
+        }
+
+        $defaultPort = SiteDomainAddressing::defaultPort($this->effectiveOrigin->scheme);
+        $siteDomain->setAttribute(
+            'port',
+            $defaultPort === $this->effectiveOrigin->effectivePort
+                ? null
+                : $this->effectiveOrigin->effectivePort,
+        );
+
+        return $siteDomain;
     }
 }

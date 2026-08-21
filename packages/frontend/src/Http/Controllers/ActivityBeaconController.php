@@ -6,8 +6,9 @@ namespace Capell\Frontend\Http\Controllers;
 
 use Capell\Core\Actions\Activity\RecordActivityBucketAction;
 use Capell\Core\Actions\Activity\RecordActivityVisitorAction;
-use Capell\Core\Actions\LoadSiteDomainFromUrlAction;
+use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
 use Capell\Core\Contracts\ActivitySettingsReader;
+use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -104,8 +105,11 @@ final class ActivityBeaconController
     private function resolveSiteDomain(Request $request, string $path = '/'): SiteDomain
     {
         $url = $request->getSchemeAndHttpHost() . (str_starts_with($path, '/') ? $path : '/' . $path);
-        $resolved = LoadSiteDomainFromUrlAction::run($url, sites: SiteLoader::getSites());
-        $siteDomain = is_array($resolved) ? $resolved[0] : null;
+        $resolution = ResolveSiteDomainAction::run(
+            SiteRequestTargetData::fromUrl($url),
+            SiteLoader::getSites(),
+        );
+        $siteDomain = $resolution?->siteDomain;
         throw_if(! $siteDomain instanceof SiteDomain || ! $siteDomain->site instanceof Site, RuntimeException::class, 'Activity site could not be resolved.');
 
         return $siteDomain;
