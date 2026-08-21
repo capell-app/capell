@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums\Concerns;
 
-use Filament\Support\Contracts\HasLabel;
-
 /**
- * @mixin HasLabel
+ * @deprecated 1.x compatibility mixin for Core enums that implement
+ *             Filament's HasLabel. Admin-owned enums use
+ *             Capell\Admin\Enums\Concerns\HasEnumOptions.
  */
 trait HasEnumOptions
 {

@@ -68,6 +68,11 @@ final class BuildDoctorReportAction
         $checks = collect(self::CORE_CHECKS)
             ->map(fn (string $check): DoctorCheckResultData => resolve($check)->check($installSummary));
 
+        $checks = $checks->merge(collect(app()->tagged(DoctorCheck::TAG))
+            ->map(fn (DoctorCheck $check): DoctorCheckResultData => $check->check($installSummary)))
+            ->keyBy(fn (DoctorCheckResultData $check): string => $check->id)
+            ->values();
+
         if ($installSummary && $includePackageDoctors) {
             $checks = $checks->merge($this->installedPackageDoctorChecks());
         }

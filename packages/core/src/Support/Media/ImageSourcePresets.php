@@ -53,7 +53,13 @@ final class ImageSourcePresets
     public static function options(string|array|ImageSourceType|null $sources = null): array
     {
         return collect(self::resolve($sources))
-            ->mapWithKeys(static fn (ImageSourceType $source): array => [$source->value => $source->getLabel()])
+            ->mapWithKeys(static fn (ImageSourceType $source): array => [$source->value => match ($source) {
+                ImageSourceType::Url => (string) __('capell::media.image_source.url'),
+                ImageSourceType::Upload => (string) __('capell::media.image_source.upload'),
+                ImageSourceType::Media => (string) __('capell::media.image_source.media'),
+                ImageSourceType::SpatieMedia => (string) __('capell::media.image_source.spatie_media'),
+                ImageSourceType::CuratorMedia => (string) __('capell::media.image_source.curator_media'),
+            }])
             ->all();
     }
 

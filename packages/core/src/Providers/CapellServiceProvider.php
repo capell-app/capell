@@ -55,10 +55,13 @@ use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
 use Capell\Core\Console\Commands\UpgradeCommand;
 use Capell\Core\Contracts\ActivitySettingsReader;
+use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
+use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
+use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
@@ -132,6 +135,7 @@ use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
+use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Links\PageLinkableContentProvider;
 use Capell\Core\Support\Makers\BuiltIn\ActionMaker;
@@ -147,6 +151,8 @@ use Capell\Core\Support\Makers\MakerSafety;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\SpatieMediaFieldFactory;
+use Capell\Core\Support\Media\SpatieMediaUploadConfigurationFactory;
+use Capell\Core\Support\Media\SpatieMediaUploadMetadataResolver;
 use Capell\Core\Support\Metrics\DenyMetricScopeAuthorizer;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
@@ -492,6 +498,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         $this->app->singleton(BackendResolver::class);
+        $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
+        $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
+        $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
         $this->app->bindIf(MediaFieldFactory::class, SpatieMediaFieldFactory::class);
 
         $this->app->singleton(CapellCacheManager::class);
@@ -811,8 +820,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 new AssetData(
                     name: $asset->name,
                     model: $asset->getModel(),
-                    label: fn (): string => $asset->getLabel(),
-                    icon: fn (): string|BackedEnum => $asset->getIcon(),
+                    label: fn (): string => (string) __('capell::generic.page'),
+                    icon: fn (): string|BackedEnum => config('capell-admin.assets.page.icon', 'heroicon-o-rectangle-stack'),
                     hasTranslations: $asset->hasTranslations(),
                 ),
             );

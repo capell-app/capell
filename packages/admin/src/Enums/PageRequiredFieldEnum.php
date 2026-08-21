@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Enums;
 
-use Capell\Core\Enums\Concerns\HasEnumOptions;
+use Capell\Admin\Enums\Concerns\HasEnumOptions;
 use Filament\Support\Contracts\HasLabel;
 
 enum PageRequiredFieldEnum: string implements HasLabel

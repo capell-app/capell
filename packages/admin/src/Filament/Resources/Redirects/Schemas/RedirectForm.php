@@ -9,6 +9,7 @@ use Capell\Admin\Filament\Components\Forms\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
 use Capell\Admin\Filament\Components\Forms\StatusToggle;
 use Capell\Admin\Filament\Contracts\FormConfigurator;
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Core\Actions\Redirects\ValidateRedirectAction;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Enums\UrlTypeEnum;
@@ -158,7 +159,7 @@ class RedirectForm implements FormConfigurator
                     Radio::make('status_code')
                         ->label(__('capell-admin::form.status_code'))
                         ->helperText(__('capell-admin::generic.redirect_status_code_info'))
-                        ->options(RedirectStatusCodeEnum::class)
+                        ->options(app(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class))
                         ->default(RedirectStatusCodeEnum::Permanent)
                         ->inline()
                         ->required(),

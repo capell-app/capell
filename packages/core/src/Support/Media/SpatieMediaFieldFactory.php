@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Media;
 
 use Capell\Core\Contracts\Media\MediaFieldFactory;
-use Capell\Core\Enums\MediaConversionEnum;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Spatie\Image\Image;
 
 /**
- * Default backend-agnostic Spatie-backed media field factory.
+ * Default Spatie-backed Filament compatibility adapter.
  *
- * Core keeps this factory free of admin concerns (no translations, no admin
- * actions). Admin wraps this with AdminSpatieMediaFieldFactory to add its
- * label + max-size on top.
+ * @deprecated 1.x compatibility adapter. New UI integrations should consume
+ *             MediaUploadConfigurationFactory and translate the data at their
+ *             own UI boundary.
  */
 final class SpatieMediaFieldFactory implements MediaFieldFactory
 {
@@ -23,15 +22,17 @@ final class SpatieMediaFieldFactory implements MediaFieldFactory
 
     public function make(string $name): SpatieMediaLibraryFileUpload
     {
+        $configuration = (new SpatieMediaUploadConfigurationFactory($this->cropPresets))->make($name);
+
         return SpatieMediaLibraryFileUpload::make($name)
-            ->collection(fn (SpatieMediaLibraryFileUpload $component): string => $component->getName())
-            ->responsiveImages()
-            ->conversion(MediaConversionEnum::Thumbnail->value)
-            ->panelLayout('grid')
-            ->imageEditor()
-            ->imageEditorMode(2)
-            ->imageEditorAspectRatioOptions(fn (): array => $this->cropPresets->aspectRatioOptions())
-            ->disk('public')
+            ->collection($configuration->collection)
+            ->when($configuration->responsiveImages, fn (SpatieMediaLibraryFileUpload $field): SpatieMediaLibraryFileUpload => $field->responsiveImages())
+            ->conversion($configuration->conversion)
+            ->panelLayout($configuration->panelLayout)
+            ->when($configuration->imageEditor, fn (SpatieMediaLibraryFileUpload $field): SpatieMediaLibraryFileUpload => $field->imageEditor())
+            ->imageEditorMode($configuration->imageEditorMode)
+            ->imageEditorAspectRatioOptions($configuration->aspectRatioOptions)
+            ->disk($configuration->disk)
             ->customProperties(function (TemporaryUploadedFile $file): array {
                 $image = Image::load($file->getRealPath());
 

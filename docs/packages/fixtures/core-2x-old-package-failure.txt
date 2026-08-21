@@ -1,0 +1,1 @@
+Capell 2.x cannot load a 1.x Core integration that still imports the removed Filament compatibility adapters. Upgrade the integration to the Admin-owned media and presentation contracts, then retry discovery.
