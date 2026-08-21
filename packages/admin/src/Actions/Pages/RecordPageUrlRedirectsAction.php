@@ -32,8 +32,11 @@ final class RecordPageUrlRedirectsAction
 
         foreach ($request->submittedUrls as $languageId => $url) {
             $expectedUrl = $request->expectedUrls[$languageId] ?? null;
+            if (! is_string($expectedUrl)) {
+                continue;
+            }
 
-            if (! is_string($expectedUrl) || ! hash_equals($expectedUrl, $url)) {
+            if (! hash_equals($expectedUrl, $url)) {
                 continue;
             }
 

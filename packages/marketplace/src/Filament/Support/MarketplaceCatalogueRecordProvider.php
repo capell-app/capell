@@ -81,7 +81,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     /** @return array<int, ExtensionListingData> */
     public function browseExtensions(): array
     {
-        $downloadedComposerNames = $this->getDownloadedComposerNames();
+        $downloadedComposerNames = $this->localStateSnapshot()->downloadedComposerNames;
         $result = FetchMarketplaceCataloguePageAction::run(
             query: new MarketplaceCatalogueQueryData(
                 sort: MarketplaceClient::DEFAULT_EXTENSION_SORT,
@@ -347,7 +347,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             livewireVersion: $compatibilityVersions['livewire'],
             filamentVersion: $compatibilityVersions['filament'],
             installedStatus: $includeLocalExtensionState ? 'available' : '',
-            installedComposerNames: $includeLocalExtensionState ? $this->getDownloadedComposerNames() : [],
+            installedComposerNames: $includeLocalExtensionState ? $this->localStateSnapshot()->downloadedComposerNames : [],
             page: 1,
             perPage: self::DEFAULT_TABLE_PAGE_OPTION,
             includeMarketplaceContext: $includeLocalExtensionState,
@@ -399,7 +399,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             capabilities: $this->validCapabilities($this->filterValues($filters, 'capability')),
             author: $this->filterValue($filters, 'author', 'author_slug') ?? $this->filterValue($filters, 'author', 'author'),
             installedStatus: $includeLocalExtensionState ? $this->queryInstalledStatus($installedStatus) : '',
-            installedComposerNames: $includeLocalExtensionState ? $this->getDownloadedComposerNames() : [],
+            installedComposerNames: $includeLocalExtensionState ? $this->localStateSnapshot()->downloadedComposerNames : [],
             page: $page,
             perPage: $perPage,
             includeMarketplaceContext: $includeLocalExtensionState,
@@ -556,12 +556,6 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'next_page_url' => $marketplacePage->nextPageUrl,
             'stale' => $marketplacePage->stale,
         ];
-    }
-
-    /** @return list<string> */
-    private function getDownloadedComposerNames(): array
-    {
-        return $this->localStateSnapshot()->downloadedComposerNames;
     }
 
     private function localStateSnapshot(): MarketplaceCatalogueLocalStateSnapshotData

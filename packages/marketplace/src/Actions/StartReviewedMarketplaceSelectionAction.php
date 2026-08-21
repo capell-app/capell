@@ -9,6 +9,7 @@ use Capell\Marketplace\Data\MarketplaceInstallProgressQueryData;
 use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Data\MarketplaceReviewedSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceReviewedSelectionOutcomeData;
+use Capell\Marketplace\Data\MarketplaceSelectionBlockedDependencyData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
@@ -158,7 +159,7 @@ final class StartReviewedMarketplaceSelectionAction
     {
         return new CreateMarketplaceInstallFlowSessionData(
             selectedExtensions: array_values(array_map(
-                fn (MarketplaceSelectionRecordData $record): array => $this->installFlowSelection($record),
+                $this->installFlowSelection(...),
                 $input->selection->installRecords,
             )),
             installOptions: [
@@ -168,7 +169,7 @@ final class StartReviewedMarketplaceSelectionAction
             dependencySnapshot: [
                 'missing_dependencies' => $input->selection->missingDependencies,
                 'blocked_dependencies' => array_map(
-                    static fn ($dependency): array => [
+                    static fn (MarketplaceSelectionBlockedDependencyData $dependency): array => [
                         'name' => $dependency->name,
                         'composer_name' => $dependency->composerName,
                         'reason' => $dependency->failureReasonCode,
