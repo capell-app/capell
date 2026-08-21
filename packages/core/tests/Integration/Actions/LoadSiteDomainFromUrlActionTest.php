@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Actions\LoadSiteDomainFromUrlAction;
+use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
+use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
+use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 
 beforeEach(function (): void {
@@ -15,13 +17,15 @@ beforeEach(function (): void {
 });
 
 it('parses host from URL', function (): void {
-    $result = expectPresent(LoadSiteDomainFromUrlAction::run('https://example.com/path'));
+    $result = expectPresent(ResolveSiteDomainAction::run(
+        SiteRequestTargetData::fromUrl('https://example.com/path'),
+        Site::query()->with('siteDomains')->get(),
+    ));
 
-    expect($result[0]->domain)->toBe('example.com');
+    expect($result->siteDomain->domain)->toBe('example.com');
 });
 
-it('returns null on malformed URL', function (): void {
-    $result = LoadSiteDomainFromUrlAction::run('not-a-url');
-
-    expect($result)->toBeNull();
+it('rejects malformed request URLs before resolution', function (): void {
+    expect(fn (): SiteRequestTargetData => SiteRequestTargetData::fromUrl('not-a-url'))
+        ->toThrow(InvalidArgumentException::class);
 });

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Capell\Admin\Support\Loader;
 
 use Capell\Admin\Enums\CacheEnum;
-use Capell\Core\Actions\LoadSiteDomainFromUrlAction;
+use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
+use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
 
 class SiteLoader
 {
@@ -32,7 +34,15 @@ class SiteLoader
     /** @return list<SiteDomain|string>|null */
     public static function getSiteDomainFromUrl(string $url): ?array
     {
-        return LoadSiteDomainFromUrlAction::run(url: $url, sites: self::getSites());
+        try {
+            $resolution = ResolveSiteDomainAction::run(SiteRequestTargetData::fromUrl($url), self::getSites());
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        return $resolution === null
+            ? null
+            : [$resolution->siteDomain, $resolution->relativePath];
     }
 
     /** @return Collection<int, Site> */

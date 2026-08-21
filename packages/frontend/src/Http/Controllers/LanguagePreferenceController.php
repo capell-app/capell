@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Http\Controllers;
 
-use Capell\Core\Actions\LoadSiteDomainFromUrlAction;
-use Capell\Core\Models\SiteDomain;
+use Capell\Core\Actions\SiteDomains\ResolveSiteDomainAction;
+use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Frontend\Support\Loader\SiteLoader;
 use Capell\Frontend\Support\Locale\AcceptLanguageMatcher;
 use Capell\Frontend\Support\Locale\VisitorLanguageCookie;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -62,9 +63,16 @@ final class LanguagePreferenceController
             return $fallback;
         }
 
-        $resolved = LoadSiteDomainFromUrlAction::run($to, sites: $sites);
+        try {
+            $resolution = ResolveSiteDomainAction::run(
+                SiteRequestTargetData::fromUrl($to),
+                $sites,
+            );
+        } catch (InvalidArgumentException) {
+            return $fallback;
+        }
 
-        if (! is_array($resolved) || ! $resolved[0] instanceof SiteDomain) {
+        if ($resolution === null) {
             return $fallback;
         }
 
