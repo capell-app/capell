@@ -1,0 +1,12 @@
+{
+    "admin": {
+        "name": "CAP-0266 CI Editor",
+        "email": "cap-0266-editor@example.test",
+        "password": "Capell-CAP-0266-only"
+    },
+    "page": {
+        "draftTitle": "CAP-0266 Golden Path v1",
+        "republishedTitle": "CAP-0266 Golden Path v2",
+        "slug": "cap-0266-golden-path-v1"
+    }
+}

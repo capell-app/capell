@@ -1,0 +1,129 @@
+name: Editor to public golden path
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/admin/**'
+      - 'packages/core/**'
+      - 'packages/frontend/**'
+      - 'packages/installer/**'
+      - 'packages/marketplace/**'
+      - 'tests/Browser/**'
+      - 'tests/Unit/EditorPublicGoldenPathWorkflowTest.php'
+      - 'tests/fixtures/editor-public-golden-path.json'
+      - 'scripts/run-editor-public-golden-path.sh'
+      - 'composer.json'
+      - 'composer.lock'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'playwright.config.js'
+      - '.github/workflows/editor-public-golden-path.yml'
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'packages/admin/**'
+      - 'packages/core/**'
+      - 'packages/frontend/**'
+      - 'packages/installer/**'
+      - 'packages/marketplace/**'
+      - 'tests/Browser/**'
+      - 'tests/Unit/EditorPublicGoldenPathWorkflowTest.php'
+      - 'tests/fixtures/editor-public-golden-path.json'
+      - 'scripts/run-editor-public-golden-path.sh'
+      - 'composer.json'
+      - 'composer.lock'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'playwright.config.js'
+      - '.github/workflows/editor-public-golden-path.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: editor-public-golden-path-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  editor-public-golden-path:
+    name: Fresh install, author, cache, and restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: repositories/capell
+
+    steps:
+      - name: Explain fork pull request limitation
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        working-directory: .
+        run: |
+          echo "::error::The golden path requires private screenshot-tools and companion-package checkouts. Fork pull requests cannot receive ACCESS_TOKEN; a maintainer must validate the exact commit from a same-repository branch before merge."
+          exit 1
+
+      - name: Checkout exact Capell head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repositories/capell
+          persist-credentials: false
+
+      - name: Checkout workspace screenshot tools dependency
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: capell-app/capell-screenshot-tools
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: repositories/capell-screenshot-tools
+          persist-credentials: false
+
+      - name: Checkout cache companion packages
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: capell-app/capell-packages-4
+          ref: main
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: repositories/capell-packages-4
+          persist-credentials: false
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: dom, fileinfo, gd, intl, mbstring, simplexml, sqlite3
+          tools: composer:v2
+          coverage: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.x'
+          cache: npm
+          cache-dependency-path: repositories/capell/package-lock.json
+
+      - name: Install browser harness
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+
+      - name: Verify redaction and public-output contracts
+        run: npm run test:editor-public-golden-path:contracts
+
+      - name: Run exact-head editor to public journey
+        env:
+          CAPELL_GOLDEN_PATH_ARTIFACT_DIR: ${{ runner.temp }}/editor-public-golden-path
+          CAPELL_GOLDEN_PATH_REQUIRE_CLEAN: 'true'
+          CAPELL_PACKAGES_ROOT: ${{ github.workspace }}/repositories/capell-packages-4
+        run: npm run test:editor-public-golden-path
+
+      - name: Upload redacted failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: editor-public-golden-path-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/editor-public-golden-path
+          if-no-files-found: warn
+          retention-days: 7
