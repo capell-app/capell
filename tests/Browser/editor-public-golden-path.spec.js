@@ -90,6 +90,10 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
                 .first()
             await titleInput.fill(pageFixture.draftTitle)
             await expect(titleInput).toHaveValue(pageFixture.draftTitle)
+            diagnostics.allowLivewireRedirectOnce({
+                page: adminPage,
+                destinationPathname: /^\/admin\/pages\/\d+\/edit$/,
+            })
             await adminPage
                 .getByRole('button', {
                     name: 'Save as draft',

@@ -159,6 +159,7 @@ class JourneyDiagnostics {
         this.pages = []
         this.trace = []
         this.allowedResponses = []
+        this.allowedLivewireRedirects = []
     }
 
     registerPage(page, label) {
@@ -184,6 +185,10 @@ class JourneyDiagnostics {
             this.recordFailure('pageerror', label, error.message, page.url())
         })
 
+        page.on('request', (request) => {
+            this.bindAllowedLivewireRedirectRequest(request, page)
+        })
+
         page.on('requestfailed', (request) => {
             const message = request.failure()?.errorText ?? 'Request failed'
 
@@ -194,10 +199,23 @@ class JourneyDiagnostics {
                 return
             }
 
+            if (
+                this.deferAllowedLivewireRedirectFailure(
+                    request,
+                    page,
+                    label,
+                    message,
+                )
+            ) {
+                return
+            }
+
             this.recordFailure('network', label, message, request.url())
         })
 
         page.on('response', (response) => {
+            this.consumeAllowedLivewireRedirect(response, page)
+
             if (
                 response.status() < 400 ||
                 this.consumeAllowedResponse(response, page)
@@ -236,6 +254,23 @@ class JourneyDiagnostics {
         })
     }
 
+    allowLivewireRedirectOnce({ page, destinationPathname }) {
+        if (!page) {
+            throw new Error('Expected Livewire redirects must be page-bound')
+        }
+
+        this.pruneAllowedLivewireRedirects()
+        this.allowedLivewireRedirects.push({
+            page,
+            sourcePathname: new URL(page.url()).pathname,
+            destinationPathname,
+            request: null,
+            failure: null,
+            navigationSucceeded: false,
+            expiresAt: Date.now() + 60_000,
+        })
+    }
+
     async step(label, callback) {
         const entry = {
             label,
@@ -263,6 +298,8 @@ class JourneyDiagnostics {
     }
 
     assertHealthy(checkpoint) {
+        this.flushUnresolvedLivewireRedirectFailures()
+
         if (this.failures.length === 0) {
             return
         }
@@ -275,6 +312,7 @@ class JourneyDiagnostics {
     }
 
     async captureFailure(testInfo) {
+        this.flushUnresolvedLivewireRedirectFailures()
         fs.mkdirSync(this.artifactDir, { recursive: true })
 
         const diagnosticsPath = path.join(
@@ -412,6 +450,152 @@ class JourneyDiagnostics {
                     allowed.consoleConsumed
                 ),
         )
+    }
+
+    bindAllowedLivewireRedirectRequest(request, page) {
+        this.pruneAllowedLivewireRedirects()
+
+        if (!this.isLivewireUpdateRequest(request)) {
+            return
+        }
+
+        const sourcePathname = new URL(page.url()).pathname
+        const allowed = this.allowedLivewireRedirects.find(
+            (candidate) =>
+                candidate.page === page &&
+                candidate.request === null &&
+                candidate.sourcePathname === sourcePathname,
+        )
+
+        if (allowed) {
+            allowed.request = request
+        }
+    }
+
+    deferAllowedLivewireRedirectFailure(request, page, label, message) {
+        if (
+            !message.includes('ERR_ABORTED') ||
+            request.isNavigationRequest?.() === true
+        ) {
+            return false
+        }
+
+        this.pruneAllowedLivewireRedirects()
+        const allowed = this.allowedLivewireRedirects.find(
+            (candidate) =>
+                candidate.page === page && candidate.request === request,
+        )
+
+        if (!allowed) {
+            return false
+        }
+
+        if (allowed.navigationSucceeded) {
+            this.allowedLivewireRedirects =
+                this.allowedLivewireRedirects.filter(
+                    (candidate) => candidate !== allowed,
+                )
+
+            return true
+        }
+
+        allowed.failure = {
+            type: 'network',
+            page: label,
+            message,
+            url: request.url(),
+        }
+
+        return true
+    }
+
+    consumeAllowedLivewireRedirect(response, page) {
+        if (
+            response.status() >= 400 ||
+            response.request().isNavigationRequest?.() !== true ||
+            response.request().frame?.() !== page.mainFrame?.()
+        ) {
+            return
+        }
+
+        this.pruneAllowedLivewireRedirects()
+        const pathname = new URL(response.url()).pathname
+        const allowed = this.allowedLivewireRedirects.find(
+            (candidate) =>
+                candidate.page === page &&
+                this.pathnameMatches(candidate.destinationPathname, pathname),
+        )
+
+        if (!allowed) {
+            return
+        }
+
+        allowed.navigationSucceeded = true
+
+        if (allowed.failure !== null) {
+            this.allowedLivewireRedirects =
+                this.allowedLivewireRedirects.filter(
+                    (candidate) => candidate !== allowed,
+                )
+        }
+    }
+
+    flushUnresolvedLivewireRedirectFailures() {
+        for (const allowed of this.allowedLivewireRedirects) {
+            if (allowed.failure === null || allowed.navigationSucceeded) {
+                continue
+            }
+
+            this.recordFailure(
+                allowed.failure.type,
+                allowed.failure.page,
+                allowed.failure.message,
+                allowed.failure.url,
+            )
+        }
+
+        this.allowedLivewireRedirects = this.allowedLivewireRedirects.filter(
+            (allowed) =>
+                allowed.failure === null && allowed.expiresAt > Date.now(),
+        )
+    }
+
+    pruneAllowedLivewireRedirects() {
+        const now = Date.now()
+        const active = []
+
+        for (const allowed of this.allowedLivewireRedirects) {
+            if (allowed.expiresAt > now) {
+                active.push(allowed)
+                continue
+            }
+
+            if (allowed.failure !== null && !allowed.navigationSucceeded) {
+                this.recordFailure(
+                    allowed.failure.type,
+                    allowed.failure.page,
+                    allowed.failure.message,
+                    allowed.failure.url,
+                )
+            }
+        }
+
+        this.allowedLivewireRedirects = active
+    }
+
+    isLivewireUpdateRequest(request) {
+        return (
+            request.method?.() === 'POST' &&
+            /^\/livewire-[a-z0-9-]+\/update$/i.test(
+                new URL(request.url()).pathname,
+            )
+        )
+    }
+
+    pathnameMatches(expected, actual) {
+        return expected instanceof RegExp
+            ? expected.test(actual)
+            : expected === actual
     }
 
     recordFailure(type, page, message, url) {
