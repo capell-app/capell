@@ -132,6 +132,8 @@ Use **Unpublish** from the edit page when the page should come down. To schedule
 
 If the frontend still shows old content, use the admin **Clear Cache** action. Ask a developer to run the cache commands below only when the admin action does not clear the stale output:
 
+<!-- capell-docs-commands: optional-package -->
+
 ```bash
 php artisan capell:html-cache:clear
 ```

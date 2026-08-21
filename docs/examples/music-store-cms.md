@@ -20,6 +20,8 @@ The store needs:
 
 Start with Capell core, then add the editorial packages:
 
+<!-- capell-docs-commands: optional-package -->
+
 ```bash
 composer require capell-app/content-sections capell-app/blog capell-app/address capell-app/site-discovery capell-app/seo-suite
 php artisan capell:content-sections-install
@@ -29,6 +31,8 @@ php artisan capell:seo-suite-install
 ```
 
 For a demo environment, seed examples:
+
+<!-- capell-docs-commands: optional-package -->
 
 ```bash
 php artisan capell:content-sections-demo --sites="Music Store"

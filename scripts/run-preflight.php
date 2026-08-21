@@ -43,6 +43,7 @@ $fullStages = [
     'readme-engineering-standards' => 'check:readme-engineering-standards',
     'docs-orphans' => 'check:docs-orphans',
     'docs-requirements' => 'check:docs-requirements',
+    'docs-commands' => 'check:docs-commands',
     'docs-env' => 'check:docs-env',
     'docs-config' => 'check:docs-config',
     'docs-screenshots' => 'check:docs-screenshots',

@@ -1,0 +1,64 @@
+name: capell-production
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: .docker/Dockerfile
+    target: production
+  image: capell-site-app:local
+  env_file:
+    - .env.production
+  restart: unless-stopped
+  volumes:
+    - capell-storage:/var/www/html/storage
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *app
+
+  web:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: web
+    image: capell-site-web:local
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:${CAPELL_HTTP_PORT:-8080}:80
+    volumes:
+      - capell-storage:/var/www/html/storage:ro
+    depends_on:
+      - app
+
+  worker:
+    <<: *app
+    command: php artisan queue:work --sleep=1 --tries=3 --timeout=90
+
+  scheduler:
+    <<: *app
+    command: php artisan schedule:work
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -u"$${MYSQL_USER}" -p"$${MYSQL_PASSWORD}"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  capell-storage:
+  mysql-data:

@@ -171,6 +171,8 @@ php artisan capell:admin-install
 
 **Run:**
 
+<!-- capell-docs-commands: optional-package -->
+
 ```bash
 php artisan capell:html-cache:clear
 ```
@@ -260,21 +262,25 @@ php artisan optimize:clear
 
 **Why:** A Capell command asked for interactive input while running in CI, Docker, or `--no-interaction`.
 
-**Fix:** Pass the missing values as flags. A full non-interactive install needs a site URL and either an existing user or new user details:
+**Fix:** Pass every prompted decision as a flag. `--user` can select an account that already exists, but it does not create that account or set its login credentials:
 
 ```bash
 php artisan capell:install --no-interaction --url=https://example.com --user=admin@example.com
 ```
 
-For a fresh app with no users yet, use:
+For a fresh app with no users yet, supply the complete first-user and install decisions:
 
 ```bash
 php artisan capell:install \
   --no-interaction \
   --url=https://example.com \
+  --package-mode=all \
+  --theme=default \
   --name="Admin User" \
   --email=admin@example.com \
-  --password="change-this-password"
+  --password="change-this-password" \
+  --clear-cache \
+  --install-welcome-route
 ```
 
 **You should see:** The command either completes or prints the next missing option explicitly.
