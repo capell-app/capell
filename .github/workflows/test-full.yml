@@ -80,9 +80,11 @@ jobs:
             php scripts/test-all-matrix.php target --cell="$TARGET_CELL" > /dev/null
             cell_argument=(--cell="$TARGET_CELL")
           fi
-          echo "behaviour=$(php scripts/test-all-matrix.php behaviour "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
-          echo "unit=$(php scripts/test-all-matrix.php unit "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
-          echo "portability=$(php scripts/test-all-matrix.php portability "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
+          {
+            echo "behaviour=$(php scripts/test-all-matrix.php behaviour "${cell_argument[@]}")"
+            echo "unit=$(php scripts/test-all-matrix.php unit "${cell_argument[@]}")"
+            echo "portability=$(php scripts/test-all-matrix.php portability "${cell_argument[@]}")"
+          } >> "$GITHUB_OUTPUT"
 
   sentinel:
     needs: [fast-pr, matrix]
