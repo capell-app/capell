@@ -16,10 +16,11 @@ $matrix = match ($group) {
     'sentinel' => TestAllMatrix::sentinel(),
     'behaviour' => TestAllMatrix::behaviour(),
     'unit' => TestAllMatrix::unit(),
-    'target' => [...TestAllMatrix::behaviour(), ...TestAllMatrix::unit()],
+    'portability' => TestAllMatrix::portability(),
+    'target' => [...TestAllMatrix::behaviour(), ...TestAllMatrix::unit(), ...TestAllMatrix::portability()],
     'all' => TestAllMatrix::all(),
     default => throw new InvalidArgumentException(
-        'Usage: php scripts/test-all-matrix.php sentinel|behaviour|unit|target|all [--github-output]',
+        'Usage: php scripts/test-all-matrix.php sentinel|behaviour|unit|portability|target|all [--github-output]',
     ),
 };
 

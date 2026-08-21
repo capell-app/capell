@@ -37,7 +37,7 @@ it('runs the full pipeline and records state in the log', function (): void {
     expect(CmdTrackedStep::$runs)->toBe(1)
         ->and(UpgradeLogEntry::query()->steps()->where('key', 'core.cmd-tracked')->where('status', 'success')->exists())->toBeTrue()
         ->and(UpgradeLogEntry::query()->versionSnapshots()->where('key', 'capell-app/capell')->exists())->toBeTrue();
-});
+})->group('database-portability');
 
 it('skips already-applied steps on re-run', function (): void {
     artisanCommand('capell:upgrade', ['--force' => true, '--no-clear-cache' => true])->assertSuccessful();

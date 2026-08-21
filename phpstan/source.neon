@@ -41,5 +41,6 @@ parameters:
             # deliberately does not load.
             - ../packages/*/tests/*
     scanFiles:
+        - ../scripts/test-all/TestAllDatabaseService.php
         - ../scripts/test-all/TestAllMatrix.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/source

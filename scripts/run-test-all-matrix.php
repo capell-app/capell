@@ -5,9 +5,18 @@ declare(strict_types=1);
 require_once __DIR__ . '/test-all/ProcessRunner.php';
 require_once __DIR__ . '/test-all/TestAllMatrix.php';
 
-$parsedOptions = getopt('', ['output-dir:']);
+$parsedOptions = getopt('', ['cell:', 'output-dir:']);
 $options = is_array($parsedOptions) ? $parsedOptions : [];
 $repositoryRoot = dirname(__DIR__);
+$requestedCell = $options['cell'] ?? null;
+$selectedCells = is_string($requestedCell)
+    ? [TestAllMatrix::find($requestedCell)]
+    : TestAllMatrix::all();
+$needsSharedMySql = array_any(
+    $selectedCells,
+    static fn (array $cell): bool => ($cell['kind'] ?? null) !== 'portability'
+        && $cell['database'] === 'mysql',
+);
 
 reapStaleTestAllContainers($repositoryRoot);
 
@@ -38,6 +47,7 @@ if (! mkdir($temporaryRoot, 0700, true) && ! is_dir($temporaryRoot)) {
 
 $containerName = 'capell-test-all-' . getmypid() . '-' . bin2hex(random_bytes(3));
 $containerStarted = false;
+$mysqlEnvironment = [];
 /** @var list<string> $createdWorktrees */
 $createdWorktrees = [];
 /** @var list<array{id: string, exit_code: int, status: string}> $results */
@@ -81,102 +91,104 @@ try {
         ];
     }
 
-    $dockerRun = ProcessRunner::capture([
-        'docker',
-        'run',
-        '--detach',
-        '--rm',
-        '--name',
-        $containerName,
-        // Keep the disposable database from consuming the whole Docker VM while
-        // the parallel matrix workers exercise isolated databases.
-        '--memory=2g',
-        '--memory-swap=2g',
-        '--health-cmd=mysqladmin ping -h 127.0.0.1 -proot || exit 1',
-        '--health-interval=2s',
-        '--health-timeout=2s',
-        '--health-retries=60',
-        '--env',
-        'MYSQL_ROOT_PASSWORD=root',
-        '--env',
-        'MYSQL_DATABASE=test_cms_multi',
-        '--publish',
-        '127.0.0.1::3306',
-        'mysql:8.0',
-        '--innodb-buffer-pool-size=512M',
-        '--performance-schema=OFF',
-        '--max-connections=40',
-        '--table-open-cache=256',
-        '--temptable-max-ram=64M',
-    ], $repositoryRoot);
+    if ($needsSharedMySql) {
+        $dockerRun = ProcessRunner::capture([
+            'docker',
+            'run',
+            '--detach',
+            '--rm',
+            '--name',
+            $containerName,
+            // Keep the disposable database from consuming the whole Docker VM while
+            // the parallel matrix workers exercise isolated databases.
+            '--memory=2g',
+            '--memory-swap=2g',
+            '--health-cmd=mysqladmin ping -h 127.0.0.1 -proot || exit 1',
+            '--health-interval=2s',
+            '--health-timeout=2s',
+            '--health-retries=60',
+            '--env',
+            'MYSQL_ROOT_PASSWORD=root',
+            '--env',
+            'MYSQL_DATABASE=test_cms_multi',
+            '--publish',
+            '127.0.0.1::3306',
+            'mysql:8.0',
+            '--innodb-buffer-pool-size=512M',
+            '--performance-schema=OFF',
+            '--max-connections=40',
+            '--table-open-cache=256',
+            '--temptable-max-ram=64M',
+        ], $repositoryRoot);
 
-    if ($dockerRun['exit_code'] !== 0) {
-        throw new RuntimeException('Unable to start isolated MySQL 8 Test All service: ' . $dockerRun['output']);
-    }
-
-    $containerStarted = true;
-    $deadline = time() + 120;
-
-    do {
-        $health = ProcessRunner::capture(
-            ['docker', 'inspect', '--format={{.State.Health.Status}}', $containerName],
-            $repositoryRoot,
-        );
-
-        if ($health['exit_code'] === 0 && $health['output'] === 'healthy') {
-            break;
+        if ($dockerRun['exit_code'] !== 0) {
+            throw new RuntimeException('Unable to start isolated MySQL 8 Test All service: ' . $dockerRun['output']);
         }
 
-        sleep(2);
-    } while (time() < $deadline);
+        $containerStarted = true;
+        $deadline = time() + 120;
 
-    if ($health['exit_code'] !== 0 || $health['output'] !== 'healthy') {
-        throw new RuntimeException('The isolated MySQL 8 Test All service did not become healthy.');
+        do {
+            $health = ProcessRunner::capture(
+                ['docker', 'inspect', '--format={{.State.Health.Status}}', $containerName],
+                $repositoryRoot,
+            );
+
+            if ($health['exit_code'] === 0 && $health['output'] === 'healthy') {
+                break;
+            }
+
+            sleep(2);
+        } while (time() < $deadline);
+
+        if ($health['exit_code'] !== 0 || $health['output'] !== 'healthy') {
+            throw new RuntimeException('The isolated MySQL 8 Test All service did not become healthy.');
+        }
+
+        $portResult = ProcessRunner::capture(['docker', 'port', $containerName, '3306/tcp'], $repositoryRoot);
+
+        if ($portResult['exit_code'] !== 0 || preg_match('/:(\d+)$/', $portResult['output'], $matches) !== 1) {
+            throw new RuntimeException('Unable to resolve the isolated MySQL 8 Test All port.');
+        }
+
+        $mysqlEnvironment = [
+            'DB_HOST' => '127.0.0.1',
+            'DB_PORT' => $matches[1],
+            'DB_DATABASE' => 'test_cms_multi',
+            'DB_USERNAME' => 'root',
+            'DB_PASSWORD' => 'root',
+        ];
+
+        $tuneExitCode = ProcessRunner::run([
+            'docker',
+            'exec',
+            $containerName,
+            'mysql',
+            '--user=root',
+            '--password=root',
+            '--execute=SET GLOBAL innodb_redo_log_capacity = 2147483648; SET GLOBAL innodb_flush_log_at_trx_commit = 2; SET GLOBAL sync_binlog = 0;',
+        ], $repositoryRoot);
+
+        if ($tuneExitCode !== 0) {
+            throw new RuntimeException('Unable to tune the isolated MySQL 8 Test All service.');
+        }
+
+        $createSentinelDatabaseExitCode = ProcessRunner::run([
+            'docker',
+            'exec',
+            $containerName,
+            'mysql',
+            '--user=root',
+            '--password=root',
+            '--execute=CREATE DATABASE IF NOT EXISTS test_cms_sentinel;',
+        ], $repositoryRoot);
+
+        if ($createSentinelDatabaseExitCode !== 0) {
+            throw new RuntimeException('Unable to create the isolated sentinel database.');
+        }
     }
 
-    $portResult = ProcessRunner::capture(['docker', 'port', $containerName, '3306/tcp'], $repositoryRoot);
-
-    if ($portResult['exit_code'] !== 0 || preg_match('/:(\d+)$/', $portResult['output'], $matches) !== 1) {
-        throw new RuntimeException('Unable to resolve the isolated MySQL 8 Test All port.');
-    }
-
-    $mysqlEnvironment = [
-        'DB_HOST' => '127.0.0.1',
-        'DB_PORT' => $matches[1],
-        'DB_DATABASE' => 'test_cms_multi',
-        'DB_USERNAME' => 'root',
-        'DB_PASSWORD' => 'root',
-    ];
-
-    $tuneExitCode = ProcessRunner::run([
-        'docker',
-        'exec',
-        $containerName,
-        'mysql',
-        '--user=root',
-        '--password=root',
-        '--execute=SET GLOBAL innodb_redo_log_capacity = 2147483648; SET GLOBAL innodb_flush_log_at_trx_commit = 2; SET GLOBAL sync_binlog = 0;',
-    ], $repositoryRoot);
-
-    if ($tuneExitCode !== 0) {
-        throw new RuntimeException('Unable to tune the isolated MySQL 8 Test All service.');
-    }
-
-    $createSentinelDatabaseExitCode = ProcessRunner::run([
-        'docker',
-        'exec',
-        $containerName,
-        'mysql',
-        '--user=root',
-        '--password=root',
-        '--execute=CREATE DATABASE IF NOT EXISTS test_cms_sentinel;',
-    ], $repositoryRoot);
-
-    if ($createSentinelDatabaseExitCode !== 0) {
-        throw new RuntimeException('Unable to create the isolated sentinel database.');
-    }
-
-    foreach (TestAllMatrix::all() as $cell) {
+    foreach ($selectedCells as $cell) {
         $workspace = $workspaces['l13'];
         $cellOutputDirectory = $outputDirectory . DIRECTORY_SEPARATOR . $cell['id'];
 
@@ -198,18 +210,21 @@ try {
         ];
         $maxProcesses = $cell['max_processes']
             ?? (getenv('CAPELL_TEST_ALL_MAX_PROCESSES') ?: '2');
+        $runner = ($cell['kind'] ?? null) === 'portability'
+            ? 'scripts/run-test-all-portability-cell.php'
+            : 'scripts/run-test-all-cell.php';
         $exitCode = ProcessRunner::run(
             [
                 PHP_BINARY,
-                'scripts/run-test-all-cell.php',
+                $runner,
                 '--cell=' . $cell['id'],
                 '--output-dir=' . $cellOutputDirectory,
             ],
             $workspace['path'],
             [
                 ...$cellEnvironment,
-                // The disposable MySQL service is intentionally resource-bounded;
-                // keep its parallel test workers bounded as well on local hosts.
+                // Every local database service is intentionally resource-bounded;
+                // keep its test workers bounded as well on local hosts.
                 'PEST_MAX_PROCESSES' => $maxProcesses,
             ],
         );
@@ -290,10 +305,12 @@ function reapStaleTestAllContainers(string $repositoryRoot): void
         return;
     }
 
-    $containerNames = array_values(array_filter(preg_split('/\s+/', $staleContainers['output'])));
+    $containerNames = array_values(array_filter(
+        preg_split('/\s+/', $staleContainers['output']) ?: [],
+    ));
 
     foreach ($containerNames as $containerName) {
-        if (preg_match('/^capell-test-all-(\d+)-[0-9a-f]{6}$/', $containerName, $matches) !== 1) {
+        if (preg_match('/^capell-test-all-(\d+)-[0-9a-f]{6}(?:-[a-z0-9-]+)?$/', $containerName, $matches) !== 1) {
             continue;
         }
 

@@ -281,7 +281,7 @@ it('creates a new user and marks the package installed during install with newUs
     $userModel = config('auth.providers.users.model');
     expect($userModel::query()->where('email', 'install@example.com')->exists())->toBeTrue();
     expect(CapellCore::isPackageInstalled('test'))->toBeTrue();
-});
+})->group('database-portability');
 
 it('uses an existing user by id and marks the package installed', function (): void {
     Storage::fake();

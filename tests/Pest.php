@@ -15,6 +15,7 @@ use Capell\Marketplace\Enums\MarketplaceReadinessStatus;
 use Capell\Marketplace\Tests\MarketplaceTestCase;
 use Capell\Tests\PackagesTestCase;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -32,6 +33,29 @@ pest()->extend(AdminTestCase::class)->group('admin')->in('../packages/admin/test
 pest()->extend(FrontendTestCase::class)->group('frontend')->in('../packages/frontend/tests');
 pest()->extend(InstallerTestCase::class)->group('installer')->in('../packages/installer/tests');
 pest()->extend(MarketplaceTestCase::class)->group('marketplace')->in('../packages/marketplace/tests');
+pest()->group('database-portability')->in(
+    '../packages/core/tests/Feature/Database/DatabasePortabilityEnvironmentTest.php',
+    '../packages/core/tests/Feature/Permissions/GlobalPermissionTeamUniquenessMigrationTest.php',
+    '../packages/core/tests/Feature/Permissions/PermissionTeamsMigrationTest.php',
+    '../packages/core/tests/Unit/Backup/DatabaseBackupDriversTest.php',
+    '../packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php',
+);
+
+/**
+ * Assert an integrity violation without poisoning PostgreSQL's surrounding
+ * LazilyRefreshDatabase transaction. The nested transaction gives PostgreSQL
+ * a savepoint to roll back while preserving the suite-owned outer boundary.
+ *
+ * @param  Closure(): bool  $operation
+ */
+function capellExpectIntegrityViolation(Closure $operation): void
+{
+    $assertion = DB::connection()->getDriverName() === 'pgsql'
+        ? static fn (): bool => DB::transaction($operation)
+        : $operation;
+
+    expect($assertion)->toThrow(QueryException::class);
+}
 
 /**
  * The Composer invocation this host actually uses.

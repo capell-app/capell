@@ -18,6 +18,7 @@ on:
       - 'scripts/**/*.php'
       - 'docs/getting-started/install.md'
       - 'docs/getting-started/quickstart.md'
+      - 'docs/development/ci.md'
       - '.docker/Dockerfile'
       - '.github/workflows/test-fast-pr.yml'
       - '.github/workflows/test-full.yml'
@@ -26,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       cell:
-        description: 'Optional exact behaviour or unit cell (for example: l12-feature-admin). Leave blank for the complete workflow.'
+        description: 'Optional exact behaviour, unit, or portability cell (for example: l13-portability-postgresql-16). Leave blank for the complete workflow.'
         required: false
         type: string
 
@@ -57,6 +58,7 @@ jobs:
     outputs:
       behaviour: ${{ steps.matrix.outputs.behaviour }}
       unit: ${{ steps.matrix.outputs.unit }}
+      portability: ${{ steps.matrix.outputs.portability }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -80,6 +82,7 @@ jobs:
           fi
           echo "behaviour=$(php scripts/test-all-matrix.php behaviour "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
           echo "unit=$(php scripts/test-all-matrix.php unit "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
+          echo "portability=$(php scripts/test-all-matrix.php portability "${cell_argument[@]}")" >> "$GITHUB_OUTPUT"
 
   sentinel:
     needs: [fast-pr, matrix]
@@ -163,7 +166,8 @@ jobs:
       && needs.matrix.result == 'success'
       && (needs.sentinel.result == 'success'
         || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
-      && (inputs.cell == '' || !contains(inputs.cell, '-unit-'))
+      && (inputs.cell == ''
+        || (!contains(inputs.cell, '-unit-') && !contains(inputs.cell, '-portability-')))
     name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package }} - DBmysql
     runs-on: ubuntu-latest
     env:
@@ -346,6 +350,55 @@ jobs:
           name: engineering-metrics-${{ matrix.artifact_slug }}
           path: engineering-metrics-unit-${{ matrix.package_slug }}.json
           if-no-files-found: error
+
+  test-portability:
+    needs: [sentinel, matrix]
+    if: >-
+      always()
+      && needs.matrix.result == 'success'
+      && (needs.sentinel.result == 'success'
+        || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
+      && (inputs.cell == '' || contains(inputs.cell, '-portability-'))
+    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - DB${{ matrix.database }}${{ matrix.database_version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
+      PAO_DISABLE: 1
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.portability) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_mysql, pdo_pgsql, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup problem matchers
+        run: |
+          echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Prepare exact framework dependencies
+        run: php scripts/prepare-test-all-dependencies.php --laravel='${{ matrix.laravel }}' --testbench='${{ matrix.testbench }}'
+
+      - name: Run ${{ matrix.database }} ${{ matrix.database_version }} portability proof
+        run: php scripts/run-test-all-portability-cell.php --cell='${{ matrix.id }}' --output-dir=test-all-results
+
+      - name: Upload database portability evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: junit-${{ matrix.artifact_slug }}
+          path: test-all-results
+          if-no-files-found: warn
 
   engineering-metrics:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
