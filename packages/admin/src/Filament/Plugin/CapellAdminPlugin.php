@@ -11,7 +11,6 @@ use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\ResourceEnum;
-use Capell\Admin\Enums\SidebarCollapseEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\AvatarProviders\InlineSvgAvatarProvider;
@@ -119,6 +118,8 @@ class CapellAdminPlugin implements Plugin
         $lockdownBannerView = 'capell-admin::components.header.lockdown-banner';
         /** @var view-string $headerActionsView */
         $headerActionsView = 'capell-admin::components.header.actions';
+        /** @var view-string $hiddenNavigationInitialStateView */
+        $hiddenNavigationInitialStateView = 'capell-admin::components.hidden-navigation-initial-state';
 
         $panel->authMiddleware([
             RedirectToInstallerWhenCapellIsNotInstalled::class,
@@ -170,6 +171,12 @@ class CapellAdminPlugin implements Plugin
             ->renderHook(
                 name: PanelsRenderHook::USER_MENU_PROFILE_AFTER,
                 hook: fn (): View => view($languageSelectView),
+            )
+            ->renderHook(
+                name: PanelsRenderHook::HEAD_START,
+                hook: fn (): ?View => CapellAdmin::settings()->sidebar_collapsible->hidesNavigationUntilOpened()
+                    ? view($hiddenNavigationInitialStateView)
+                    : null,
             )
             ->renderHook(
                 name: PanelsRenderHook::BODY_START,
@@ -441,8 +448,8 @@ class CapellAdminPlugin implements Plugin
 
     private function registerSettings(Panel $panel): self
     {
-        $panel->sidebarCollapsibleOnDesktop(fn (): bool => CapellAdmin::settings()->sidebar_collapsible === SidebarCollapseEnum::Collapsible)
-            ->sidebarFullyCollapsibleOnDesktop(fn (): bool => CapellAdmin::settings()->sidebar_collapsible === SidebarCollapseEnum::FullyCollapsible);
+        $panel->sidebarCollapsibleOnDesktop(fn (): bool => CapellAdmin::settings()->sidebar_collapsible->isCollapsibleOnDesktop())
+            ->sidebarFullyCollapsibleOnDesktop(fn (): bool => CapellAdmin::settings()->sidebar_collapsible->isFullyCollapsibleOnDesktop());
 
         return $this;
     }

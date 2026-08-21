@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Enums\CacheToClearEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
+use Capell\Admin\Enums\SidebarCollapseEnum;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
@@ -26,4 +27,16 @@ it('labels dashboard Filament widgets by registered widget class', function (): 
         ->and(FilamentWidgetEnum::RecentlyPublishedFilamentWidget->getLabel())->toBe(__('capell-admin::dashboard.widget_recently_published'))
         ->and(FilamentWidgetEnum::SiteStatsOverviewFilamentWidget->getLabel())->toBe(__('capell-admin::dashboard.widget_site_stats'))
         ->and(FilamentWidgetEnum::UpdateAdvisoryFilamentWidget->getLabel())->toBe(__('capell-admin::dashboard.widget_update_advisories'));
+});
+
+it('distinguishes hidden-until-opened navigation from the collapsed icon rail', function (): void {
+    expect(SidebarCollapseEnum::None->isCollapsibleOnDesktop())->toBeFalse()
+        ->and(SidebarCollapseEnum::None->isFullyCollapsibleOnDesktop())->toBeFalse()
+        ->and(SidebarCollapseEnum::Collapsible->isCollapsibleOnDesktop())->toBeTrue()
+        ->and(SidebarCollapseEnum::Collapsible->isFullyCollapsibleOnDesktop())->toBeFalse()
+        ->and(SidebarCollapseEnum::FullyCollapsible->isCollapsibleOnDesktop())->toBeFalse()
+        ->and(SidebarCollapseEnum::FullyCollapsible->isFullyCollapsibleOnDesktop())->toBeTrue()
+        ->and(SidebarCollapseEnum::HiddenUntilOpened->isCollapsibleOnDesktop())->toBeFalse()
+        ->and(SidebarCollapseEnum::HiddenUntilOpened->isFullyCollapsibleOnDesktop())->toBeTrue()
+        ->and(SidebarCollapseEnum::HiddenUntilOpened->hidesNavigationUntilOpened())->toBeTrue();
 });
