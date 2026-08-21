@@ -19,7 +19,10 @@
         "test:critical-css-layout-parity": "playwright test packages/frontend/tests/Browser/homepage-critical-css-layout-parity.spec.js",
         "test:demo-smoke:required": "CAPELL_SMOKE_REQUIRED=true playwright test packages/frontend/tests/Browser/default-demo-smoke.spec.js",
         "test:marketplace-install-flow": "playwright test packages/marketplace/tests/Browser/marketplace-install-flow.spec.js --project=chromium",
-        "test:marketplace-install-flow:required": "CAPELL_MARKETPLACE_SMOKE_REQUIRED=true playwright test packages/marketplace/tests/Browser/marketplace-install-flow.spec.js --project=chromium"
+        "test:marketplace-install-flow:required": "CAPELL_MARKETPLACE_SMOKE_REQUIRED=true playwright test packages/marketplace/tests/Browser/marketplace-install-flow.spec.js --project=chromium",
+        "test:editor-public-golden-path": "bash scripts/run-editor-public-golden-path.sh",
+        "test:editor-public-golden-path:browser": "playwright test tests/Browser/editor-public-golden-path.spec.js --project=chromium",
+        "test:editor-public-golden-path:contracts": "node --test tests/Browser/support/*.test.js"
     },
     "devDependencies": {
         "@capell-app/screenshot-tools": "file:../capell-screenshot-tools",
