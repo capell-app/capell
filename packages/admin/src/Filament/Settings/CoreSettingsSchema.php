@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Settings;
 
 use Capell\Admin\Filament\Contracts\HasSchema;
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Core\Enums\ImageSourceType;
 use Capell\Core\Support\Media\ImageSourcePresets;
 use Filament\Forms\Components\Checkbox;
@@ -43,9 +44,9 @@ class CoreSettingsSchema implements HasSchema
                         ->label(__('capell-admin::form.default_image_source'))
                         ->helperText(__('capell-admin::form.default_image_source_helper'))
                         ->options([
-                            ImageSourceType::Url->value => ImageSourceType::Url->getLabel(),
-                            ImageSourceType::Upload->value => ImageSourceType::Upload->getLabel(),
-                            ImageSourceType::Media->value => ImageSourceType::Media->getLabel(),
+                            ImageSourceType::Url->value => app(EnumPresentationRegistry::class)->label(ImageSourceType::Url),
+                            ImageSourceType::Upload->value => app(EnumPresentationRegistry::class)->label(ImageSourceType::Upload),
+                            ImageSourceType::Media->value => app(EnumPresentationRegistry::class)->label(ImageSourceType::Media),
                         ])
                         ->default(ImageSourceType::Media->value)
                         ->in([

@@ -10,6 +10,7 @@ the `Update Changelog` workflow.
 ### Added
 
 - Added fail-closed Project Build target compatibility verification and a consumer-owned package installation boundary for applying signed manifests in exact release order.
+- Added the CAP-0270 Core Filament-neutrality seam and CAP-0271's draft 2.x compatibility decision, dependency baseline, consumer fixture, and old-package failure wording. The 1.x adapters and `filament/support` requirement remain active.
 
 ### Fixed
 

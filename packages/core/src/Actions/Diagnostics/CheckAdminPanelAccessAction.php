@@ -17,6 +17,10 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
+/**
+ * @deprecated 1.x compatibility adapter. Admin registers its own tagged
+ *             DoctorCheck contributor for first-party diagnostics.
+ */
 final class CheckAdminPanelAccessAction
 {
     use AsFake;
