@@ -18,8 +18,8 @@ const artifactDir =
 test.describe('CAP-0266 editor to anonymous golden path', () => {
     let diagnostics
 
-    test.afterEach(async (fixtures, testInfo) => {
-        void fixtures
+    test.afterEach(async ({ browser }, testInfo) => {
+        void browser
 
         if (testInfo.status !== testInfo.expectedStatus && diagnostics) {
             await diagnostics.captureFailure(testInfo)
