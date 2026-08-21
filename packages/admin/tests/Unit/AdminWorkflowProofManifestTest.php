@@ -62,7 +62,7 @@ it('requires the theme customize capture to open the installed Foundation theme 
         ->and($entry['beforeWait'])->toBe([
             [
                 'type' => 'click',
-                'selector' => "button[aria-label='Customize']",
+                'selector' => ".capell-theme-card-record:has(h3:has-text('Foundation')) button[aria-label='Customize']",
             ],
         ])
         ->and($entry['interactions'])->toBe([

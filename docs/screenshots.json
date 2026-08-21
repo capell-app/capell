@@ -392,7 +392,7 @@
             "beforeWait": [
                 {
                     "type": "click",
-                    "selector": "button[aria-label='Customize']"
+                    "selector": ".capell-theme-card-record:has(h3:has-text('Foundation')) button[aria-label='Customize']"
                 }
             ],
             "interactions": [
