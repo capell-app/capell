@@ -83,7 +83,7 @@ jobs:
       - name: Checkout cache companion packages
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: capell-app/capell-packages-4
+          repository: capell-app/capell-packages
           ref: main
           token: ${{ secrets.ACCESS_TOKEN }}
           path: repositories/capell-packages-4

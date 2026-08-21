@@ -14,7 +14,7 @@ it('runs the editor to anonymous journey from exact checked-out sources', functi
         ->toContain("- 'packages/frontend/**'")
         ->toContain("- 'packages/installer/**'")
         ->toContain("- 'packages/marketplace/**'")
-        ->toContain('repository: capell-app/capell-packages-4')
+        ->toContain('repository: capell-app/capell-packages')
         ->toContain('repository: capell-app/capell-screenshot-tools')
         ->toContain("github.event_name == 'pull_request'")
         ->toContain('github.event.pull_request.head.repo.full_name != github.repository')
