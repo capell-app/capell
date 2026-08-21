@@ -353,6 +353,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'remove_installer_package' => $removeInstallerPackage,
         ]);
 
+        $cachesToClear = resolve(InstallCacheOptionResolver::class)->resolve(
+            (bool) $clearCache,
+            $freshInstall,
+            fn (string $command): bool => $this->getApplication()?->has($command) === true,
+        );
+
         $inputData = $this->buildInstallInput(
             siteUrl: $siteUrl,
             packages: $packages,
@@ -370,6 +376,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             generateSitemap: $generateSitemap,
             userId: $userId,
             additionalUsers: $additionalUsers,
+            cachesToClear: $cachesToClear,
         );
 
         return $this->runInstallOrchestration(
@@ -378,8 +385,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             seedDefaultData: $seedDefaultData,
             runNpmBuild: $runNpmBuild,
             removeInstallerPackage: $removeInstallerPackage,
-            clearCache: (bool) $clearCache,
-            freshInstall: $freshInstall,
+            cachesToClear: $cachesToClear,
         );
     }
 
@@ -545,14 +551,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return CommandAlias::SUCCESS;
     }
 
+    /** @param array<string> $cachesToClear */
     private function runInstallOrchestration(
         InstallInputData $inputData,
         ProgressReporter $reporter,
         bool $seedDefaultData,
         bool $runNpmBuild,
         bool $removeInstallerPackage,
-        bool $clearCache,
-        bool $freshInstall,
+        array $cachesToClear,
     ): int {
         $this->orchestratedSeedDefaultData = $seedDefaultData;
 
@@ -564,11 +570,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                     outputPlan: ! $this->input->isInteractive(),
                     runNpmBuild: $runNpmBuild,
                     removeInstaller: $removeInstallerPackage,
-                    cachesToClear: resolve(InstallCacheOptionResolver::class)->resolve(
-                        $clearCache,
-                        $freshInstall,
-                        fn (string $command): bool => $this->getApplication()?->has($command) === true,
-                    ),
+                    cachesToClear: $cachesToClear,
                 ),
                 $reporter,
                 $this,
@@ -596,6 +598,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      * @param  array<string>  $siteOptions
      * @param  array<NewUserData>  $additionalUsers
      * @param  array<string>  $extraPackages
+     * @param  array<string>  $cachesToClear
      */
     private function buildInstallInput(
         string $siteUrl,
@@ -614,13 +617,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         bool $generateSitemap,
         ?int $userId = null,
         array $additionalUsers = [],
+        array $cachesToClear = [],
     ): InstallInputData {
         return resolve(InstallInputFactory::class)->fromResolvedConsoleInput(
             siteUrl: $siteUrl,
             packages: $packages->keys()->all(),
             languages: $languages,
             demoContent: $demo,
-            cachesToClear: [],
+            cachesToClear: $cachesToClear,
             generateSitemap: $generateSitemap,
             generateStaticSite: false,
             demoSites: $demo ? $siteOptions : null,
