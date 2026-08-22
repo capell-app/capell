@@ -8,6 +8,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Illuminate\Support\Facades\Blade;
@@ -88,6 +89,11 @@ function wireNavigateTestContext(FrontendRuntimeManifestData $manifest): Fronten
         public function getFrontendData(?string $key = null): mixed
         {
             return $this->manifest;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return new FrontendRenderPayload(runtimeManifest: $this->manifest);
         }
     };
 }

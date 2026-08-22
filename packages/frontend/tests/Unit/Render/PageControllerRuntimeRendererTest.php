@@ -15,6 +15,7 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
 use Capell\Frontend\Contracts\SystemPageResolver;
 use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
@@ -101,6 +102,11 @@ it('renders public pages through the active theme runtime renderer', function ()
         public function getFrontendData(?string $key = null): mixed
         {
             return null;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 
@@ -196,6 +202,11 @@ it('preserves resolved frontend error context when the page is already set', fun
         public function getFrontendData(?string $key = null): mixed
         {
             return null;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 
@@ -306,6 +317,11 @@ it('returns a non-cacheable service unavailable response when no renderer is reg
         {
             return null;
         }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
+        }
     });
 
     $response = resolve(PageController::class)();
@@ -384,6 +400,11 @@ it('renders the configured not found system page when no frontend page resolved'
         public function getFrontendData(?string $key = null): mixed
         {
             return $key === null ? $this->data : ($this->data[$key] ?? null);
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     };
 
@@ -493,6 +514,11 @@ it('returns safe path fallback blade views as public html', function (): void {
         {
             return null;
         }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
+        }
     });
 
     try {
@@ -564,6 +590,11 @@ it('guards fallback blade views before returning public html', function (): void
         public function getFrontendData(?string $key = null): mixed
         {
             return null;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 
@@ -641,6 +672,11 @@ it('guards named route fallback blade views before returning public html', funct
         public function getFrontendData(?string $key = null): mixed
         {
             return null;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 

@@ -13,6 +13,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendContext;
+use Capell\Frontend\Data\FrontendRenderPayload;
 
 final class FrontendState implements FrontendContextReader
 {
@@ -243,5 +244,10 @@ final class FrontendState implements FrontendContextReader
         }
 
         return $this->data[$key] ?? null;
+    }
+
+    public function renderPayload(): FrontendRenderPayload
+    {
+        return FrontendRenderPayload::fromBag($this->data);
     }
 }

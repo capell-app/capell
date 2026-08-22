@@ -15,6 +15,7 @@ use Capell\Frontend\Actions\GenerateAllMaintenancePageCachesAction;
 use Capell\Frontend\Actions\PurgeCdnCacheByPageAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\FrontendRuleContextData;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Http\Middleware\PreventAuthenticatedFrontendRenderingWhenHtmlCacheable;
@@ -327,6 +328,11 @@ it('renders cacheable frontend GET requests anonymously even when Laravel has a 
         public function getFrontendData(?string $key = null): mixed
         {
             return $key === null ? $this->data : ($this->data[$key] ?? null);
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     };
     app()->instance(FrontendContextReader::class, $reader);

@@ -17,6 +17,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
@@ -58,7 +59,7 @@ class GenerateStaticPageArtifactsAction
 
             $this->clearRenderData();
             $response = $this->render($pageUrl, $siteDomain);
-            $renderData = resolve(FrontendContextReader::class)->getFrontendData('publicPageRenderData');
+            $renderData = resolve(FrontendContextReader::class)->renderPayload()->publicPageRenderData;
 
             if (! $this->isWritableHtmlResponse($response)) {
                 return;
@@ -179,10 +180,13 @@ class GenerateStaticPageArtifactsAction
             return false;
         }
 
-        if (is_string($content)
-            && resolve(FrontendContextReader::class)->getFrontendData('publicHtmlSafetyInspected') === true
-            && resolve(FrontendContextReader::class)->getFrontendData('publicHtmlSafetyInspectedHash') === hash('xxh128', $content)) {
-            return true;
+        if (is_string($content)) {
+            $payload = resolve(FrontendContextReader::class)->renderPayload();
+
+            if ($payload->publicHtmlSafetyInspected
+                && $payload->publicHtmlSafetyInspectedHash === hash('xxh128', $content)) {
+                return true;
+            }
         }
 
         if (! is_string($content)) {
@@ -300,6 +304,11 @@ class GenerateStaticPageArtifactsAction
                 }
 
                 return $this->data[$key] ?? null;
+            }
+
+            public function renderPayload(): FrontendRenderPayload
+            {
+                return FrontendRenderPayload::fromBag($this->data);
             }
         };
     }

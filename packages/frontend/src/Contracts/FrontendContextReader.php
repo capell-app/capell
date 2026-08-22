@@ -9,6 +9,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Frontend\Data\FrontendRenderPayload;
 
 interface FrontendContextReader
 {
@@ -40,4 +41,13 @@ interface FrontendContextReader
      * @return mixed|array<string,mixed>
      */
     public function getFrontendData(?string $key = null): mixed;
+
+    /**
+     * A typed view over the same scoped state getFrontendData() reads from
+     * a raw string key — see {@see FrontendRenderPayload}. Prefer this over
+     * getFrontendData(string $key) for the fields it names; the untyped
+     * accessor remains for fields it doesn't (CAP-0231 architecture review,
+     * frontend#2).
+     */
+    public function renderPayload(): FrontendRenderPayload;
 }
