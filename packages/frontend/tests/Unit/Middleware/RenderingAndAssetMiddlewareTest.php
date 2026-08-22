@@ -8,6 +8,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\Middleware\RenderingStrategyMiddleware;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
@@ -158,6 +159,11 @@ function bindFrontendContext(?Page $page = null, ?Theme $theme = null): void
             public function getFrontendData(?string $key = null): mixed
             {
                 return $key === null ? [] : null;
+            }
+
+            public function renderPayload(): FrontendRenderPayload
+            {
+                return FrontendRenderPayload::fromBag($this->data);
             }
         },
     );

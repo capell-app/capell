@@ -130,17 +130,13 @@ final class PublicViewQueryGuard
         }
 
         try {
-            $audience = resolve(FrontendContextReader::class)->getFrontendData('renderAudience');
+            $audience = resolve(FrontendContextReader::class)->renderPayload()->renderAudience;
         } catch (Throwable) {
             return true;
         }
 
         if ($audience instanceof FrontendRenderAudience) {
             return $audience === FrontendRenderAudience::Public;
-        }
-
-        if (is_string($audience)) {
-            return (FrontendRenderAudience::tryFrom($audience) ?? FrontendRenderAudience::Public) === FrontendRenderAudience::Public;
         }
 
         return true;

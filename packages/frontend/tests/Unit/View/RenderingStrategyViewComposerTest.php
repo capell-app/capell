@@ -9,6 +9,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\View\RenderingStrategyViewComposer;
@@ -84,6 +85,11 @@ it('adds a livewire runtime manifest from the active frontend page strategy', fu
         {
             return null;
         }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
+        }
     });
 
     $view = Mockery::mock(View::class);
@@ -153,6 +159,11 @@ it('falls back to blade only view data when frontend context cannot resolve a pa
         public function getFrontendData(?string $key = null): mixed
         {
             return null;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 

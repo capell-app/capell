@@ -123,17 +123,8 @@ final class AssertPublicRenderContractAction
             return FrontendRenderAudience::Public;
         }
 
-        $audience = resolve(FrontendContextReader::class)->getFrontendData('renderAudience');
-
-        if ($audience instanceof FrontendRenderAudience) {
-            return $audience;
-        }
-
-        if (is_string($audience)) {
-            return FrontendRenderAudience::tryFrom($audience) ?? FrontendRenderAudience::Public;
-        }
-
-        return FrontendRenderAudience::Public;
+        return resolve(FrontendContextReader::class)->renderPayload()->renderAudience
+            ?? FrontendRenderAudience::Public;
     }
 
     private function contentIsHtml(Response $response): bool
