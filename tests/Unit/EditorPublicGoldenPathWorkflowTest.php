@@ -102,10 +102,28 @@ it('pins the complete authoring lifecycle and every public safety checkpoint', f
         ->toContain("toContain('private')")
         ->toContain("toContain('no-store')")
         ->toContain('forbiddenValues.push(editPath)')
+        ->toContain('allowRequestAbort: true')
+        ->toContain('await anonymousContext.close()')
+        ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-published')")
+        ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-republished')")
+        ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-restored')")
         ->toContain("name: 'Roll back to here'")
         ->toContain("name: 'Restore this version'")
         ->toContain("name: 'Sign out'")
         ->toContain('const finalContext = await browser.newContext()');
+
+    $createPageAllowance = strpos(
+        $spec,
+        "destinationPathname: '/admin/pages/create'",
+    );
+    $createPageNavigation = strpos(
+        $spec,
+        'await adminPage.goto(`${baseUrl}/admin/pages/create`',
+    );
+
+    expect($createPageAllowance)->not->toBeFalse()
+        ->and($createPageNavigation)->not->toBeFalse()
+        ->and($createPageAllowance)->toBeLessThan($createPageNavigation);
 });
 
 it('retains only redacted browser and backend failure evidence', function (): void {

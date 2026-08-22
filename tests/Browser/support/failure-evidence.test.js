@@ -203,6 +203,161 @@ test('only ignores ERR_ABORTED for navigation cancellations', () => {
     assert.equal(diagnostics.failures.length, 1)
 })
 
+test('ignores an allowed Livewire POST cancellation only after its successful redirect navigation', () => {
+    const diagnostics = new JourneyDiagnostics({
+        artifactDir: '/tmp/not-used',
+        secretValues: [],
+    })
+    const page = new EventEmitter()
+    const mainFrame = {}
+    page.url = () => 'https://example.test/admin/pages/create'
+    page.mainFrame = () => mainFrame
+    diagnostics.registerPage(page, 'admin')
+    diagnostics.allowLivewireRedirectOnce({
+        page,
+        destinationPathname: /^\/admin\/pages\/\d+\/edit$/,
+    })
+
+    const livewireRequest = {
+        method: () => 'POST',
+        failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+        url: () => 'https://example.test/livewire-59e7f451/update',
+        isNavigationRequest: () => false,
+    }
+    page.emit('request', livewireRequest)
+    page.emit('requestfailed', livewireRequest)
+
+    assert.equal(diagnostics.failures.length, 0)
+
+    const navigationRequest = {
+        method: () => 'GET',
+        frame: () => mainFrame,
+        isNavigationRequest: () => true,
+    }
+    page.emit('response', {
+        status: () => 200,
+        url: () => 'https://example.test/admin/pages/5/edit',
+        request: () => navigationRequest,
+    })
+
+    assert.doesNotThrow(() => diagnostics.assertHealthy('create draft'))
+    assert.equal(diagnostics.failures.length, 0)
+})
+
+test('ignores the current admin page Livewire POST cancelled by successful create-page navigation', () => {
+    const diagnostics = new JourneyDiagnostics({
+        artifactDir: '/tmp/not-used',
+        secretValues: [],
+    })
+    const page = new EventEmitter()
+    const mainFrame = {}
+    page.url = () => 'https://example.test/admin'
+    page.mainFrame = () => mainFrame
+    diagnostics.registerPage(page, 'admin')
+    diagnostics.allowLivewireRedirectOnce({
+        page,
+        destinationPathname: '/admin/pages/create',
+    })
+
+    const livewireRequest = {
+        method: () => 'POST',
+        failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+        url: () => 'https://example.test/livewire-88fe3672/update',
+        isNavigationRequest: () => false,
+    }
+    page.emit('request', livewireRequest)
+    page.emit('requestfailed', livewireRequest)
+    page.emit('response', {
+        status: () => 200,
+        url: () => 'https://example.test/admin/pages/create',
+        request: () => ({
+            method: () => 'GET',
+            frame: () => mainFrame,
+            isNavigationRequest: () => true,
+        }),
+    })
+
+    assert.doesNotThrow(() => diagnostics.assertHealthy('create page'))
+    assert.equal(diagnostics.failures.length, 0)
+})
+
+test('ignores the bound Livewire POST cancellation when the successful navigation response arrives first', () => {
+    const diagnostics = new JourneyDiagnostics({
+        artifactDir: '/tmp/not-used',
+        secretValues: [],
+    })
+    const page = new EventEmitter()
+    const mainFrame = {}
+    page.url = () => 'https://example.test/admin/pages/create'
+    page.mainFrame = () => mainFrame
+    diagnostics.registerPage(page, 'admin')
+    diagnostics.allowLivewireRedirectOnce({
+        page,
+        destinationPathname: /^\/admin\/pages\/\d+\/edit$/,
+    })
+
+    const livewireRequest = {
+        method: () => 'POST',
+        failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+        url: () => 'https://example.test/livewire-59e7f451/update',
+        isNavigationRequest: () => false,
+    }
+    page.emit('request', livewireRequest)
+    page.emit('response', {
+        status: () => 200,
+        url: () => 'https://example.test/admin/pages/5/edit',
+        request: () => ({
+            method: () => 'GET',
+            frame: () => mainFrame,
+            isNavigationRequest: () => true,
+        }),
+    })
+    page.emit('requestfailed', livewireRequest)
+
+    assert.doesNotThrow(() => diagnostics.assertHealthy('create draft'))
+    assert.equal(diagnostics.failures.length, 0)
+})
+
+test('keeps allowed Livewire POST cancellations red without the expected successful navigation', () => {
+    const diagnostics = new JourneyDiagnostics({
+        artifactDir: '/tmp/not-used',
+        secretValues: [],
+    })
+    const page = new EventEmitter()
+    const mainFrame = {}
+    page.url = () => 'https://example.test/admin/pages/create'
+    page.mainFrame = () => mainFrame
+    diagnostics.registerPage(page, 'admin')
+    diagnostics.allowLivewireRedirectOnce({
+        page,
+        destinationPathname: /^\/admin\/pages\/\d+\/edit$/,
+    })
+
+    const livewireRequest = {
+        method: () => 'POST',
+        failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+        url: () => 'https://example.test/livewire-59e7f451/update',
+        isNavigationRequest: () => false,
+    }
+    page.emit('request', livewireRequest)
+    page.emit('requestfailed', livewireRequest)
+    page.emit('response', {
+        status: () => 200,
+        url: () => 'https://example.test/admin/pages',
+        request: () => ({
+            method: () => 'GET',
+            frame: () => mainFrame,
+            isNavigationRequest: () => true,
+        }),
+    })
+
+    assert.throws(
+        () => diagnostics.assertHealthy('create draft'),
+        /observed 1 console, network, or backend failure/,
+    )
+    assert.equal(diagnostics.failures.length, 1)
+})
+
 test('retains a repeatable page-bound allowance for stylesheet recovery retries', async () => {
     const diagnostics = new JourneyDiagnostics({
         artifactDir: '/tmp/not-used',
@@ -235,6 +390,7 @@ test('retains a repeatable page-bound allowance for stylesheet recovery retries'
             pathname: '/resources/css/app.css',
             status: 404,
             repeat: true,
+            allowRequestAbort: true,
         })
     })
 
@@ -242,9 +398,20 @@ test('retains a repeatable page-bound allowance for stylesheet recovery retries'
     allowedPage.emit('console', consoleMessage)
     allowedPage.emit('response', response)
     allowedPage.emit('console', consoleMessage)
+    allowedPage.emit('requestfailed', {
+        failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+        method: () => 'GET',
+        url: () => 'https://example.test/resources/css/app.css',
+        isNavigationRequest: () => false,
+    })
     assert.doesNotThrow(() => diagnostics.assertHealthy('delayed recovery'))
 
-    otherPage.emit('response', response)
+    otherPage.emit('requestfailed', {
+        failure: () => ({ errorText: 'net::ERR_ABORTED' }),
+        method: () => 'GET',
+        url: () => 'https://example.test/resources/css/app.css',
+        isNavigationRequest: () => false,
+    })
     assert.throws(
         () => diagnostics.assertHealthy('different page'),
         /observed 1 console, network, or backend failure/,
