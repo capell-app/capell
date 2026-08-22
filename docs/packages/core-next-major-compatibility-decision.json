@@ -1,0 +1,22 @@
+{
+    "schemaVersion": 1,
+    "status": "preparation-only",
+    "line": "2.x",
+    "decision": "defer-core-filament-removal-until-adoption-proof",
+    "decisionDate": "2026-08-21",
+    "scope": {
+        "remove": [
+            "Core Filament presentation adapters",
+            "filament/support requirement from capell/core"
+        ],
+        "retainOn1x": [
+            "Core MediaFieldFactory",
+            "Core enum Filament contracts",
+            "Core CheckAdminPanelAccessAction",
+            "filament/support"
+        ],
+        "separateDecision": "Livewire/Blaze runtime choice"
+    },
+    "gate": "CAP-0270 adoption proof and a real 2.x compatibility line",
+    "rollback": "configuration-only on 1.x; do not remove stable adapters before the gate passes"
+}

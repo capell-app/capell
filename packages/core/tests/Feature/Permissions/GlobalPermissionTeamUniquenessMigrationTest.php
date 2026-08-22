@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -85,24 +84,25 @@ it('enforces fresh-install uniqueness without changing NULL global scope semanti
         'model_type' => 'user',
     ]);
 
-    expect(DB::table('cap_gu_roles')->whereNull('team_id')->count())->toBe(1)
-        ->and(fn (): bool => DB::table('cap_gu_roles')->insert([
-            'team_id' => null,
-            'name' => 'super-admin',
-            'guard_name' => 'web',
-        ]))->toThrow(QueryException::class)
-        ->and(fn (): bool => DB::table('cap_gu_mhr')->insert([
-            'team_id' => null,
-            'role_id' => 10,
-            'model_id' => 20,
-            'model_type' => 'user',
-        ]))->toThrow(QueryException::class)
-        ->and(fn (): bool => DB::table('cap_gu_mhp')->insert([
-            'team_id' => null,
-            'permission_id' => 30,
-            'model_id' => 20,
-            'model_type' => 'user',
-        ]))->toThrow(QueryException::class);
+    expect(DB::table('cap_gu_roles')->whereNull('team_id')->count())->toBe(1);
+
+    capellExpectIntegrityViolation(fn (): bool => DB::table('cap_gu_roles')->insert([
+        'team_id' => null,
+        'name' => 'super-admin',
+        'guard_name' => 'web',
+    ]));
+    capellExpectIntegrityViolation(fn (): bool => DB::table('cap_gu_mhr')->insert([
+        'team_id' => null,
+        'role_id' => 10,
+        'model_id' => 20,
+        'model_type' => 'user',
+    ]));
+    capellExpectIntegrityViolation(fn (): bool => DB::table('cap_gu_mhp')->insert([
+        'team_id' => null,
+        'permission_id' => 30,
+        'model_id' => 20,
+        'model_type' => 'user',
+    ]));
 
     DB::table('cap_gu_roles')->insert([
         ['team_id' => 1, 'name' => 'editor', 'guard_name' => 'web'],

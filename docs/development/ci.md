@@ -45,6 +45,36 @@ To apply Rector, Pint, and Prettier changes before rerunning the same checks, us
 composer preflight:fix
 ```
 
+## Database Portability Matrix
+
+Test All owns a focused portability group for every advertised database family:
+
+| Cell                            | Runtime                                          |
+| ------------------------------- | ------------------------------------------------ |
+| `l13-portability-sqlite`        | SQLite from PHP 8.4                              |
+| `l13-portability-mysql-8`       | `mysql:8.0`                                      |
+| `l13-portability-mariadb-10-5`  | `mariadb:10.5` through the MariaDB platform seam |
+| `l13-portability-postgresql-16` | `postgres:16` through `pdo_pgsql`                |
+
+Every cell runs the same repository-owned Pest group. It proves the complete Core
+migration set, database provisioning, install, doctor and upgrade paths, query and
+JSON dialects, uniqueness and foreign-key behaviour, and safe backup/restore
+process contracts. MariaDB is a separate service and platform assertion rather
+than an alias for the MySQL cell. PostgreSQL-specific executable assertions run in
+the PostgreSQL cell.
+
+Run one exact committed-head cell locally with:
+
+```bash
+composer test:all:matrix:local -- --cell=l13-portability-postgresql-16
+```
+
+The local runner creates a detached worktree at the current `HEAD`, prepares the
+pinned Laravel/Testbench dependencies, and owns a generated database name, random
+host port, and disposable service container. It never uses or mutates a shared
+development database. Evidence is written beneath `.test-all-results/`; a failed
+or timed-out cell is incomplete evidence, not support proof.
+
 ## Next
 
 - [Development commands](commands.md)

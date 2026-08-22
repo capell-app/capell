@@ -119,11 +119,13 @@
         "test:tia": "@php -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_MAX_PROCESSES:-8} --compact --tia --configuration=phpunit.xml",
         "test:database:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --max-processes=${PEST_MAX_PROCESSES:-8} --passthru-php='-d memory_limit=1G' --recreate-databases --compact --configuration=phpunit.xml --testsuite=${PEST_TEST_SUITE:?PEST_TEST_SUITE must be set} --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --ansi",
         "test:database:package:ci": "@php -d memory_limit=1G -d max_execution_time=0 vendor/bin/testbench package:test --parallel --max-processes=${PEST_MAX_PROCESSES:-8} --passthru-php='-d memory_limit=1G' --recreate-databases --compact --configuration=phpunit.xml --testsuite=${PEST_TEST_SUITE:?PEST_TEST_SUITE must be set} --group=${PEST_TEST_GROUP:?PEST_TEST_GROUP must be set} --do-not-fail-on-empty-test-suite --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --ansi",
+        "test:database:portability:ci": "@php -d max_execution_time=0 vendor/bin/pest --compact --configuration=phpunit.xml --group=database-portability --fail-on-empty-test-suite --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set} --colors=always",
         "test:sentinel:unit:ci": "@php -d max_execution_time=0 vendor/bin/pest tests/Unit/FullTestWorkflowDatabaseIsolationTest.php packages/core/tests/Unit/Support/Database/RuntimeSchemaStateTest.php packages/frontend/tests/Unit/Cache/CacheInvalidationRegistryTest.php packages/frontend/tests/Unit/Cache/CacheInvalidationExecutorTest.php --compact --configuration=phpunit.xml --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}",
         "test:sentinel:database:ci": "@php -d max_execution_time=0 vendor/bin/pest packages/core/tests/Feature/Permissions/PermissionTeamsMigrationTest.php packages/core/tests/Feature/Permissions/GlobalPermissionTeamUniquenessMigrationTest.php --compact --configuration=phpunit.xml --log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}",
         "test:shards": "@php -d max_execution_time=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_MAX_PROCESSES:-8} --compact --update-shards --configuration=phpunit.xml",
         "test:profile": "@php scripts/profile-pest-tests.php",
         "benchmark:boot": "@php scripts/benchmark-boot.php",
+        "benchmark:runtime-roles": "@php scripts/benchmark-runtime-roles.php",
         "test:types": "@php vendor/bin/pest --configuration=phpunit.xml --type-coverage",
         "test": [
             "@clear",

@@ -385,6 +385,9 @@ php artisan capell:package-cache:clear
 ```
 
 Use these after changing installed package metadata, manifests, or local Composer path repositories.
+The build command also writes role-aware Laravel provider manifests below
+`bootstrap/cache/capell-runtime`. See [Runtime roles](../operations/runtime-roles.md)
+before deploying separate public and authoring processes.
 
 ### Components
 

@@ -8,32 +8,28 @@ use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
+use Capell\Marketplace\Actions\BuildMarketplaceCatalogueLocalStateSnapshotAction;
+use Capell\Marketplace\Actions\FetchMarketplaceCataloguePageAction;
+use Capell\Marketplace\Actions\ProjectMarketplaceCatalogueRecordAction;
 use Capell\Marketplace\Actions\QueueMarketplaceCatalogueWarmAction;
-use Capell\Marketplace\Actions\ResolveMarketplaceInstallEligibilityAction;
+use Capell\Marketplace\Actions\ResolveMarketplaceCatalogueLocalStateAction;
 use Capell\Marketplace\Contracts\MarketplaceSelectionRecordProvider;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceCatalogueLocalStateData;
+use Capell\Marketplace\Data\MarketplaceCatalogueLocalStateSnapshotData;
 use Capell\Marketplace\Data\MarketplaceCataloguePageData;
 use Capell\Marketplace\Data\MarketplaceCatalogueQueryData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Enums\MarketplaceExtensionCapability;
 use Capell\Marketplace\Enums\MarketplaceExtensionCategory;
-use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceSort;
-use Capell\Marketplace\Models\MarketplaceInstallAttempt;
-use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
-use Capell\Marketplace\Services\VersionCompatibilityChecker;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
-use Capell\Marketplace\Support\MarketplaceTrustedUrlPolicy;
 use Composer\InstalledVersions;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Number;
-use Illuminate\Support\Str;
 use Throwable;
 
 final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMetadataProvider, MarketplaceSelectionRecordProvider
@@ -57,22 +53,11 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
     private ?string $marketplaceBrowseUnavailableReason = null;
 
-    /** @var Collection<int, PackageData>|null */
-    private ?Collection $downloadedExtensions = null;
-
-    /** @var list<string>|null */
-    private ?array $downloadedComposerNames = null;
-
-    /** @var array<string, ?string> */
-    private array $installedPluginVersions = [];
-
-    /** @var array<string, MarketplaceInstallAttempt>|null */
-    private ?array $activeInstallOperationsByComposerName = null;
+    private ?MarketplaceCatalogueLocalStateSnapshotData $localStateSnapshot = null;
 
     public function __construct(
-        private readonly MarketplaceInstallActionPresenter $installActionPresenter,
+        private readonly MarketplaceCatalogueRecordPresenter $recordPresenter,
         private readonly MarketplaceInstanceResolver $instances,
-        private readonly MarketplaceTrustedUrlPolicy $trustedUrlPolicy,
     ) {}
 
     /**
@@ -96,25 +81,26 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     /** @return array<int, ExtensionListingData> */
     public function browseExtensions(): array
     {
-        try {
-            $downloadedComposerNames = $this->getDownloadedComposerNames();
-            $marketplacePage = resolve(MarketplaceClient::class)->listExtensionPage(new MarketplaceCatalogueQueryData(
+        $downloadedComposerNames = $this->localStateSnapshot()->downloadedComposerNames;
+        $result = FetchMarketplaceCataloguePageAction::run(
+            query: new MarketplaceCatalogueQueryData(
                 sort: MarketplaceClient::DEFAULT_EXTENSION_SORT,
                 installedComposerNames: $downloadedComposerNames,
                 page: 1,
                 perPage: 9,
-            ), allowStale: true);
+            ),
+            allowStale: true,
+        );
 
-            return array_values(array_filter(
-                $marketplacePage->extensions,
-                fn (ExtensionListingData $extension): bool => ! $this->isHiddenMarketplaceExtension($extension)
-                    && ! in_array($extension->composerName, $downloadedComposerNames, true),
-            ));
-        } catch (Throwable $throwable) {
-            Log::warning('capell-marketplace: marketplace browse failed', ['error' => $throwable->getMessage()]);
-
+        if ($result->isUnavailable()) {
             return [];
         }
+
+        return array_values(array_filter(
+            $result->page->extensions,
+            fn (ExtensionListingData $extension): bool => ! $this->isHiddenMarketplaceExtension($extension)
+                && ! in_array($extension->composerName, $downloadedComposerNames, true),
+        ));
     }
 
     /**
@@ -361,7 +347,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             livewireVersion: $compatibilityVersions['livewire'],
             filamentVersion: $compatibilityVersions['filament'],
             installedStatus: $includeLocalExtensionState ? 'available' : '',
-            installedComposerNames: $includeLocalExtensionState ? $this->getDownloadedComposerNames() : [],
+            installedComposerNames: $includeLocalExtensionState ? $this->localStateSnapshot()->downloadedComposerNames : [],
             page: 1,
             perPage: self::DEFAULT_TABLE_PAGE_OPTION,
             includeMarketplaceContext: $includeLocalExtensionState,
@@ -413,7 +399,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             capabilities: $this->validCapabilities($this->filterValues($filters, 'capability')),
             author: $this->filterValue($filters, 'author', 'author_slug') ?? $this->filterValue($filters, 'author', 'author'),
             installedStatus: $includeLocalExtensionState ? $this->queryInstalledStatus($installedStatus) : '',
-            installedComposerNames: $includeLocalExtensionState ? $this->getDownloadedComposerNames() : [],
+            installedComposerNames: $includeLocalExtensionState ? $this->localStateSnapshot()->downloadedComposerNames : [],
             page: $page,
             perPage: $perPage,
             includeMarketplaceContext: $includeLocalExtensionState,
@@ -572,35 +558,27 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         ];
     }
 
-    /** @return Collection<int, PackageData> */
-    private function getDownloadedExtensions(): Collection
+    private function localStateSnapshot(): MarketplaceCatalogueLocalStateSnapshotData
     {
-        return $this->downloadedExtensions ??= CapellCore::getPackages()
-            ->filter(fn (PackageData $package): bool => CapellCore::isPackageInstalled($package->name)
-                || CapellCore::isPackageAvailable($package->name))
-            ->values();
+        return $this->localStateSnapshot ??= BuildMarketplaceCatalogueLocalStateSnapshotAction::run();
     }
 
-    /** @return list<string> */
-    private function getDownloadedComposerNames(): array
-    {
-        return $this->downloadedComposerNames ??= array_values($this->getDownloadedExtensions()
-            ->pluck('name')
-            ->merge($this->activeInstallComposerNames())
-            ->unique()
-            ->values()
-            ->all());
-    }
-
-    /** @return list<string> */
-    private function activeInstallComposerNames(): array
-    {
-        return array_keys($this->activeInstallOperations());
+    private function localStateFor(
+        ExtensionListingData $extension,
+        bool $includeLocalExtensionState = true,
+    ): MarketplaceCatalogueLocalStateData {
+        return ResolveMarketplaceCatalogueLocalStateAction::run(
+            listing: $extension,
+            snapshot: $includeLocalExtensionState
+                ? $this->localStateSnapshot()
+                : MarketplaceCatalogueLocalStateSnapshotData::withoutLocalState(),
+            includeLocalState: $includeLocalExtensionState,
+        );
     }
 
     private function isInstalled(ExtensionListingData $extension): bool
     {
-        return array_any(ExtensionListingData::localPackageComposerNameCandidates($extension->composerName), fn (string $composerName): bool => CapellCore::hasPackage($composerName) && CapellCore::isPackageInstalled($composerName));
+        return $this->localStateFor($extension)->isInstalled;
     }
 
     private function matchesInstallAvailability(ExtensionListingData $extension, ?string $installedStatus, bool $includeLocalExtensionState): bool
@@ -651,21 +629,6 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         );
     }
 
-    private function installedPluginVersion(string $composerName): ?string
-    {
-        if (array_key_exists($composerName, $this->installedPluginVersions)) {
-            return $this->installedPluginVersions[$composerName];
-        }
-
-        foreach (ExtensionListingData::localPackageComposerNameCandidates($composerName) as $candidateComposerName) {
-            if (CapellCore::hasPackage($candidateComposerName)) {
-                return $this->installedPluginVersions[$composerName] = CapellCore::getPackage($candidateComposerName)->version;
-            }
-        }
-
-        return $this->installedPluginVersions[$composerName] = null;
-    }
-
     private function canExposeLocalExtensionState(bool $requested): bool
     {
         if (! $requested) {
@@ -677,29 +640,11 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
     private function fetchMarketplaceExtensionPage(MarketplaceCatalogueQueryData $query, bool $allowStale): MarketplaceCataloguePageData
     {
-        try {
-            $this->marketplaceBrowseUnavailable = false;
-            $this->marketplaceBrowseUnavailableReason = null;
-            $marketplacePage = resolve(MarketplaceClient::class)->listExtensionPage($query, allowStale: $allowStale);
+        $result = FetchMarketplaceCataloguePageAction::run($query, $allowStale);
+        $this->marketplaceBrowseUnavailable = $result->isUnavailable();
+        $this->marketplaceBrowseUnavailableReason = $result->unavailableReason;
 
-            if ($marketplacePage->stale) {
-                QueueMarketplaceCatalogueWarmAction::run($query);
-            }
-
-            return $marketplacePage;
-        } catch (Throwable $throwable) {
-            $this->marketplaceBrowseUnavailable = true;
-            $this->marketplaceBrowseUnavailableReason = $throwable->getMessage() !== '' ? $throwable->getMessage() : null;
-
-            Log::warning('capell-marketplace: marketplace browse failed', ['error' => $throwable->getMessage()]);
-
-            return new MarketplaceCataloguePageData(
-                extensions: [],
-                total: 0,
-                currentPage: $query->page,
-                perPage: $query->perPage,
-            );
-        }
+        return $result->page;
     }
 
     /**
@@ -736,319 +681,11 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
     private function extensionTableRecord(ExtensionListingData $extension, bool $includeLocalExtensionState = true): array
     {
-        $isInstalled = $includeLocalExtensionState && $this->isInstalled($extension);
-        $installedVersion = $isInstalled ? $this->installedPluginVersion($extension->composerName) : null;
-        $compatibilityDetails = resolve(VersionCompatibilityChecker::class)->compatibilityDetails($extension);
-        $purchaseUrl = $this->trustedUrlPolicy->trusted($extension->purchaseUrl);
-        $isCompatible = ! in_array('incompatible', $compatibilityDetails, true);
-        $hasUpdateAvailable = $includeLocalExtensionState
-            && $this->hasUpdateAvailable($installedVersion, $extension->latestVersion);
-        $activeInstallOperation = $includeLocalExtensionState
-            ? $this->activeInstallOperation($extension->composerName)
-            : null;
-        $eligibility = ResolveMarketplaceInstallEligibilityAction::run(
+        return $this->recordPresenter->present(ProjectMarketplaceCatalogueRecordAction::run(
             listing: $extension,
-            instance: $this->latestMarketplaceInstance(),
-            action: 'install',
-            remoteEligibility: $extension->installEligibilityPolicy,
-        );
-
-        return [
-            'key' => $extension->slug,
-            'slug' => $extension->slug,
-            'name' => $extension->name,
-            'composer_name' => $extension->composerName,
-            'kind' => $extension->kind,
-            'product_group' => $extension->productGroup,
-            'product_tier' => $extension->productTier,
-            'product_bundle' => $extension->productBundle,
-            'bundle_label' => $extension->productBundle !== null
-                ? (string) __('capell-marketplace::marketplace.suites.bundle_badge', ['bundle' => str($extension->productBundle)->headline()])
-                : null,
-            'catalogue_role' => $extension->catalogueRole,
-            'maturity' => $extension->maturity,
-            'maturity_label' => $extension->maturityLabel,
-            'included_with_capell_all' => $extension->includedWithCapellAll,
-            'effective_certification' => $extension->effectiveCertification,
-            'support_policy' => $extension->supportPolicy,
-            'description' => $extension->description,
-            'image_url' => $this->marketplaceImageUrl($extension->imageUrl),
-            'image_urls' => $this->marketplaceImageUrls($extension->imageUrls),
-            'price_cents' => $extension->priceCents,
-            'currency' => $extension->currency,
-            'price_label' => $this->priceLabel($extension),
-            'trial' => $extension->trial,
-            'trial_label' => $this->trialLabel($extension->trial),
-            'is_paid' => $extension->isPaid,
-            'is_featured' => $extension->isFeatured,
-            'featured_rank' => $extension->featuredRank,
-            'is_publisher_verified' => $extension->publisherVerified,
-            'is_security_reviewed' => $extension->securityReviewed,
-            'latest_version' => $extension->latestVersion,
-            'released_at_label' => $extension->releasedAt?->toFormattedDateString(),
-            'author_name' => $extension->authorName,
-            'author_filter' => $extension->authorSlug ?? $extension->authorName,
-            'rating_average' => $extension->ratingAverage,
-            'rating_average_label' => $this->ratingAverageLabel($extension->ratingAverage),
-            'rating_stars' => $this->ratingStars($extension->ratingAverage),
-            'ratings_count' => $extension->ratingsCount,
-            'ratings_count_label' => $this->ratingsCountLabel($extension->ratingsCount),
-            'is_installed' => $isInstalled,
-            'installed_version' => $installedVersion,
-            'has_update_available' => $hasUpdateAvailable,
-            'documentation_url' => $this->trustedUrlPolicy->trusted($extension->documentationUrl),
-            'purchase_url' => $purchaseUrl,
-            'requires_confirmation' => $extension->requiresConfirmation,
-            'install_confirmation' => $extension->installConfirmation,
-            'install_options' => $extension->installOptions,
-            'required_dependencies' => $extension->requiredDependencies,
-            'install_impact' => is_array($extension->metadata['install_impact'] ?? null)
-                ? $extension->metadata['install_impact']
-                : [],
-            'entitlement' => is_string($extension->metadata['entitlement'] ?? null)
-                ? $extension->metadata['entitlement']
-                : null,
-            'capell_version_constraint' => $extension->capellVersionConstraint,
-            'laravel_version_constraint' => $extension->laravelVersionConstraint,
-            'filament_version_constraint' => $extension->filamentVersionConstraint,
-            'livewire_version_constraint' => $extension->livewireVersionConstraint,
-            'category_labels' => $this->categoryLabels($extension->categories),
-            'capability_labels' => $this->capabilityLabels($extension->capabilities),
-            'surface_labels' => $this->stateLabels($extension->surfaces),
-            'contribution_count' => array_sum($extension->contributionSummary),
-            'is_compatible' => $isCompatible,
-            'compatibility_warnings' => $this->compatibilityWarnings($compatibilityDetails),
-            'activation_required' => $extension->activationRequired,
-            'server_install_state' => $extension->installState,
-            'install_authorized' => $extension->installAuthorized,
-            'install_eligibility_policy' => $eligibility->toArray(),
-            'install_in_progress' => $activeInstallOperation instanceof MarketplaceInstallAttempt,
-            'active_install_operation_id' => $activeInstallOperation?->getKey(),
-            'active_install_operation_status' => $activeInstallOperation?->status->value,
-            'primary_action' => $extension->primaryAction,
-            'marketplace_install_state' => $this->installActionPresenter->state([
-                'is_installed' => $isInstalled,
-                // Without this the presenter can never see an update from here:
-                // it short-circuits an installed record to Installed unless the
-                // key is present, so the persisted state collapsed and every
-                // consumer of marketplace_install_state was blind to
-                // UpdateAvailable.
-                'has_update_available' => $hasUpdateAvailable,
-                'is_compatible' => $isCompatible,
-                'is_paid' => $extension->isPaid,
-                'marketplace_install_state' => $extension->installState,
-                'activation_required' => $extension->activationRequired,
-                'install_authorized' => $extension->installAuthorized,
-                'install_eligibility_policy' => $eligibility->toArray(),
-                'purchase_url' => $purchaseUrl,
-                'install_in_progress' => $activeInstallOperation instanceof MarketplaceInstallAttempt,
-            ])->value,
-        ];
-    }
-
-    private function activeInstallOperation(string $composerName): ?MarketplaceInstallAttempt
-    {
-        foreach (ExtensionListingData::localPackageComposerNameCandidates($composerName) as $candidateComposerName) {
-            if (array_key_exists($candidateComposerName, $this->activeInstallOperations())) {
-                return $this->activeInstallOperations()[$candidateComposerName];
-            }
-        }
-
-        return null;
-    }
-
-    /** @return array<string, MarketplaceInstallAttempt> */
-    private function activeInstallOperations(): array
-    {
-        if ($this->activeInstallOperationsByComposerName !== null) {
-            return $this->activeInstallOperationsByComposerName;
-        }
-
-        return $this->activeInstallOperationsByComposerName = MarketplaceInstallAttempt::query()
-            ->whereIn('status', [
-                MarketplaceInstallIntentStatus::Queued->value,
-                MarketplaceInstallIntentStatus::Running->value,
-                MarketplaceInstallIntentStatus::CancelRequested->value,
-            ])
-            ->latest('updated_at')
-            ->get()
-            ->unique('composer_name')
-            ->keyBy('composer_name')
-            ->all();
-    }
-
-    private function priceLabel(ExtensionListingData $extension): string
-    {
-        if (! $extension->isPaid || $this->isFreeProductTier($extension)) {
-            return (string) __('capell-marketplace::marketplace.install.free');
-        }
-
-        return (string) Number::currency($extension->priceCents / 100, $extension->currency);
-    }
-
-    /** @param array<string, mixed> $trial */
-    private function trialLabel(array $trial): ?string
-    {
-        $label = $trial['label'] ?? null;
-
-        if (is_string($label) && $label !== '') {
-            return $label;
-        }
-
-        $days = $trial['days'] ?? $trial['duration_days'] ?? null;
-
-        return is_numeric($days) && (int) $days > 0
-            ? trans_choice('capell-marketplace::marketplace.suites.trial_days', (int) $days, ['count' => (int) $days])
-            : null;
-    }
-
-    private function isFreeProductTier(ExtensionListingData $extension): bool
-    {
-        return str($extension->productTier ?? '')->lower()->toString() === 'free';
-    }
-
-    private function latestMarketplaceInstance(): ?MarketplaceInstance
-    {
-        return $this->instances->latest();
-    }
-
-    private function ratingAverageLabel(?float $ratingAverage): string
-    {
-        if ($ratingAverage === null) {
-            return (string) __('capell-marketplace::marketplace.card.no_rating');
-        }
-
-        return number_format($ratingAverage, 1);
-    }
-
-    /** @return list<string> */
-    private function ratingStars(?float $ratingAverage): array
-    {
-        $roundedRating = $ratingAverage === null ? 0.0 : round($ratingAverage * 2) / 2;
-        $stars = [];
-
-        foreach (range(1, 5) as $starPosition) {
-            if ($roundedRating >= $starPosition) {
-                $stars[] = 'full';
-
-                continue;
-            }
-
-            $stars[] = $roundedRating >= $starPosition - 0.5 ? 'half' : 'empty';
-        }
-
-        return $stars;
-    }
-
-    private function ratingsCountLabel(int $ratingsCount): string
-    {
-        return trans_choice('capell-marketplace::marketplace.card.ratings_count', $ratingsCount, [
-            'count' => number_format($ratingsCount),
-        ]);
-    }
-
-    private function hasUpdateAvailable(?string $installedVersion, ?string $latestVersion): bool
-    {
-        if (! $this->isComparableVersion($installedVersion) || ! $this->isComparableVersion($latestVersion)) {
-            return false;
-        }
-
-        return version_compare(ltrim((string) $installedVersion, 'v'), ltrim((string) $latestVersion, 'v'), '<');
-    }
-
-    private function isComparableVersion(?string $version): bool
-    {
-        return is_string($version) && preg_match('/^v?\d+(?:\.\d+){0,3}(?:[-+][0-9A-Za-z.-]+)?$/', $version) === 1;
-    }
-
-    /**
-     * @param  list<string>  $categories
-     * @return list<string>
-     */
-    private function categoryLabels(array $categories): array
-    {
-        return array_map(
-            fn (string $category): string => MarketplaceExtensionCategory::tryFrom($category)?->getLabel() ?? Str::headline($category),
-            $categories,
-        );
-    }
-
-    /**
-     * @param  array<string, mixed>  $capabilities
-     * @return list<string>
-     */
-    private function capabilityLabels(array $capabilities): array
-    {
-        return array_map(
-            fn (string $capability): string => MarketplaceExtensionCapability::tryFrom($capability)?->getLabel() ?? Str::headline($capability),
-            $this->capabilitySlugs($capabilities),
-        );
-    }
-
-    /**
-     * @param  list<string>  $states
-     * @return list<string>
-     */
-    private function stateLabels(array $states): array
-    {
-        return array_map(
-            fn (string $state): string => Str::of($state)->replace(['-', '_'], ' ')->headline()->toString(),
-            $states,
-        );
-    }
-
-    /**
-     * @param  array<string, mixed>  $capabilities
-     * @return list<string>
-     */
-    private function capabilitySlugs(array $capabilities): array
-    {
-        $slugs = [];
-
-        foreach ($capabilities as $capabilityKey => $capabilityValue) {
-            if (is_string($capabilityKey) && $capabilityKey !== '' && $capabilityValue !== false && $capabilityValue !== null) {
-                $slugs[] = Str::snake($capabilityKey);
-
-                continue;
-            }
-
-            if (is_array($capabilityValue)) {
-                $capabilitySlug = $capabilityValue['slug'] ?? $capabilityValue['key'] ?? null;
-
-                if (is_scalar($capabilitySlug) && (string) $capabilitySlug !== '') {
-                    $slugs[] = Str::snake((string) $capabilitySlug);
-                }
-
-                continue;
-            }
-
-            if (is_scalar($capabilityValue) && (string) $capabilityValue !== '') {
-                $slugs[] = Str::snake((string) $capabilityValue);
-            }
-        }
-
-        return array_values(array_unique($slugs));
-    }
-
-    /**
-     * @param  array<string, string>  $compatibilityDetails
-     * @return list<string>
-     */
-    private function compatibilityWarnings(array $compatibilityDetails): array
-    {
-        $warnings = [];
-
-        foreach ($compatibilityDetails as $platform => $status) {
-            if ($status !== 'incompatible') {
-                continue;
-            }
-
-            $warnings[] = (string) __('capell-marketplace::marketplace.card.incompatible_platform', [
-                'platform' => (string) __('capell-marketplace::marketplace.platform-builder.' . $platform),
-            ]);
-        }
-
-        return $warnings;
+            localState: $this->localStateFor($extension, $includeLocalExtensionState),
+            instance: $this->instances->latest(),
+        ));
     }
 
     private function filterValue(array $filters, string $filter, string $field = 'value'): ?string
@@ -1192,29 +829,5 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             ->unique()
             ->values()
             ->all());
-    }
-
-    private function marketplaceImageUrl(?string $url): ?string
-    {
-        return MarketplaceAssetUrl::toUrl($url);
-    }
-
-    /**
-     * @param  list<string>  $urls
-     * @return list<string>
-     */
-    private function marketplaceImageUrls(array $urls): array
-    {
-        $resolvedUrls = [];
-
-        foreach ($urls as $url) {
-            $resolvedUrl = $this->marketplaceImageUrl($url);
-
-            if ($resolvedUrl !== null && $resolvedUrl !== '') {
-                $resolvedUrls[] = $resolvedUrl;
-            }
-        }
-
-        return $resolvedUrls;
     }
 }

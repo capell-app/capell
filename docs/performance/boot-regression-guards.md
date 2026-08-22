@@ -22,11 +22,27 @@ composer benchmark:boot -- \
     --warmups=5
 ```
 
-`--profile` accepts `full`, `production`, `public`, or `admin`; `--cache`
-accepts `manifest`, `optimized`, or `uncached`. The historical positional
+`--profile` accepts `full`, `production`, `combined`, `public`, `admin`, or
+`authoring`; `--cache` accepts `manifest`, `optimized`, or `uncached`. The historical positional
 iteration form (`composer benchmark:boot -- 10`) remains supported. Use
 `--format=json` for retained evidence and `--profiling` to include process,
 framework, and per-provider register/boot timings.
+
+`combined` and `authoring` are the immutable runtime-role profiles;
+`production` and `admin` remain compatibility names for existing benchmark
+automation. Runtime-composition admission uses a paired same-host run:
+
+```bash
+composer benchmark:runtime-roles -- \
+    --cache=optimized \
+    --iterations=25 \
+    --warmups=5 \
+    --format=json
+```
+
+It records combined/public p50 and p75 from the same revision and exits non-zero
+if public p75 regresses. See [Runtime roles](../operations/runtime-roles.md) for
+the deployment and rollback contract.
 
 Each invocation creates a disposable workspace under the operating system's
 temporary directory, copies only the Testbench application skeleton, links the

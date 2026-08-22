@@ -32,6 +32,8 @@ if (! is_dir($outputDirectory) && ! mkdir($outputDirectory, 0777, true) && ! is_
 }
 
 $environment = [
+    'CAPELL_TEST_DATABASE_FAMILY' => $cell['database'],
+    'CAPELL_TEST_DATABASE_VERSION' => $cell['database_version'] ?? 'runtime',
     'CACHE_STORE' => 'array',
     'NO_COLOR' => '1',
     'PAO_DISABLE' => '1',
@@ -42,7 +44,9 @@ $environment = [
     'SESSION_DRIVER' => 'array',
 ];
 
-if ($cell['database'] === 'sqlite') {
+$databaseDriver = $cell['database_driver'] ?? $cell['database'];
+
+if ($databaseDriver === 'sqlite') {
     $environment['DB_CONNECTION'] = 'sqlite';
     $environment['DB_DATABASE'] = ':memory:';
 } else {
@@ -50,13 +54,13 @@ if ($cell['database'] === 'sqlite') {
         $value = getenv($required);
 
         if (! is_string($value) || $value === '') {
-            fwrite(STDERR, $required . ' must be set for MySQL Test All cells.' . PHP_EOL);
+            fwrite(STDERR, sprintf('%s must be set for %s Test All cells.', $required, $cell['database']) . PHP_EOL);
 
             exit(2);
         }
     }
 
-    $environment['DB_CONNECTION'] = 'mysql';
+    $environment['DB_CONNECTION'] = $databaseDriver;
 }
 
 fwrite(STDOUT, sprintf('Running Test All cell [%s].', $cellId) . PHP_EOL);

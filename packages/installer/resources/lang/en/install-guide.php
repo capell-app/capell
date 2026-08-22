@@ -50,6 +50,8 @@ return [
     'read_docs' => 'Read the documentation',
     'remove_welcome_route_patch_description' => 'Removes the stock welcome route from routes/web.php',
     'remove_welcome_route_patch_label' => 'Remove Welcome Route Patch',
+    'runtime_role_bootstrap_patch_description' => 'Selects the immutable Capell runtime role before Laravel registers application and package providers.',
+    'runtime_role_bootstrap_patch_label' => 'Runtime role bootstrap patch',
     'select_patches_to_apply' => 'Select patches to apply',
     'theme_sources_patch_description' => 'Adds required @source directives to the Filament theme CSS file',
     'theme_sources_patch_label' => 'Theme Sources Patch',

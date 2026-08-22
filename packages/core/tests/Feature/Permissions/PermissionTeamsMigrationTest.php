@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -125,11 +124,11 @@ it('adds team-compatible permission schema idempotently and reverses it safely',
         'guard_name' => 'web',
     ]);
 
-    expect(fn (): bool => DB::table('cap_mig_roles')->insert([
+    capellExpectIntegrityViolation(fn (): bool => DB::table('cap_mig_roles')->insert([
         'team_id' => 1,
         'name' => 'editor',
         'guard_name' => 'web',
-    ]))->toThrow(QueryException::class);
+    ]));
 
     DB::table('cap_mig_mhr')->insert([
         ['team_id' => null, 'role_id' => 10, 'model_id' => 20, 'model_type' => 'user'],
@@ -149,18 +148,18 @@ it('adds team-compatible permission schema idempotently and reverses it safely',
         ['team_id' => 2, 'permission_id' => 30, 'model_id' => 20, 'model_type' => 'user'],
     ]);
 
-    expect(fn (): bool => DB::table('cap_mig_mhr')->insert([
+    capellExpectIntegrityViolation(fn (): bool => DB::table('cap_mig_mhr')->insert([
         'team_id' => 1,
         'role_id' => 10,
         'model_id' => 20,
         'model_type' => 'user',
-    ]))->toThrow(QueryException::class)
-        ->and(fn (): bool => DB::table('cap_mig_mhp')->insert([
-            'team_id' => 1,
-            'permission_id' => 30,
-            'model_id' => 20,
-            'model_type' => 'user',
-        ]))->toThrow(QueryException::class);
+    ]));
+    capellExpectIntegrityViolation(fn (): bool => DB::table('cap_mig_mhp')->insert([
+        'team_id' => 1,
+        'permission_id' => 30,
+        'model_id' => 20,
+        'model_type' => 'user',
+    ]));
 
     expect(fn () => $migration->down())
         ->toThrow(RuntimeException::class, 'contains team-scoped records');

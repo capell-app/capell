@@ -21,6 +21,7 @@ use Capell\Core\Support\Diagnostics\Checks\ManifestContractsCheck;
 use Capell\Core\Support\Diagnostics\Checks\MorphMapCheck;
 use Capell\Core\Support\Diagnostics\Checks\PageUrlSiteDomainsCheck;
 use Capell\Core\Support\Diagnostics\Checks\RequiredTablesCheck;
+use Capell\Core\Support\Diagnostics\Checks\RuntimeRoleCheck;
 use Capell\Core\Support\Diagnostics\Checks\RuntimeToolingCheck;
 use Capell\Core\Support\Diagnostics\Checks\SeedDataCheck;
 use Capell\Core\Support\Diagnostics\Checks\SharedCacheStoreCheck;
@@ -56,6 +57,7 @@ final class BuildDoctorReportAction
         HomepageRouteCheck::class,
         DefaultThemeAndLayoutCheck::class,
         PageUrlSiteDomainsCheck::class,
+        RuntimeRoleCheck::class,
         RuntimeToolingCheck::class,
         DatabaseBackupBinariesCheck::class,
         SharedCacheStoreCheck::class,
@@ -65,6 +67,11 @@ final class BuildDoctorReportAction
     {
         $checks = collect(self::CORE_CHECKS)
             ->map(fn (string $check): DoctorCheckResultData => resolve($check)->check($installSummary));
+
+        $checks = $checks->merge(collect(app()->tagged(DoctorCheck::TAG))
+            ->map(fn (DoctorCheck $check): DoctorCheckResultData => $check->check($installSummary)))
+            ->keyBy(fn (DoctorCheckResultData $check): string => $check->id)
+            ->values();
 
         if ($installSummary && $includePackageDoctors) {
             $checks = $checks->merge($this->installedPackageDoctorChecks());

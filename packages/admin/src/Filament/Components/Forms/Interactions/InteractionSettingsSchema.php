@@ -8,6 +8,7 @@ use Capell\Admin\Enums\InteractionModalSizeEnum;
 use Capell\Admin\Enums\InteractionStyleEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\Presentation\PresentationSettingsSchema;
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Enums\InteractionBehavior;
 use Capell\Core\Enums\InteractionTargetType;
@@ -57,7 +58,7 @@ class InteractionSettingsSchema
             InteractionTargetType::PublicAction,
         ])
             ->filter(fn (InteractionTargetType $targetType): bool => $targetType !== InteractionTargetType::Fragment || self::fragmentTargetsAvailable())
-            ->mapWithKeys(fn (InteractionTargetType $targetType): array => [$targetType->value => $targetType->getLabel()])
+            ->mapWithKeys(fn (InteractionTargetType $targetType): array => [$targetType->value => app(EnumPresentationRegistry::class)->label($targetType)])
             ->all();
     }
 

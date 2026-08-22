@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Imports;
 
 use Capell\Admin\Filament\Components\Forms\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
+use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\Redirects\ValidateRedirectAction;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
@@ -94,7 +95,7 @@ class RedirectImporter extends Importer
 
             Radio::make('default_status_code')
                 ->label(__('capell-admin::form.default_status_code'))
-                ->options(RedirectStatusCodeEnum::class)
+                ->options(app(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class))
                 ->default(RedirectStatusCodeEnum::Permanent)
                 ->inline(),
         ];

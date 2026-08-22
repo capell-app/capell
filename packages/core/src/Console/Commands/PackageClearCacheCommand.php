@@ -6,6 +6,7 @@ namespace Capell\Core\Console\Commands;
 
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Illuminate\Console\Command;
+use Illuminate\Filesystem\Filesystem;
 
 final class PackageClearCacheCommand extends Command
 {
@@ -13,7 +14,7 @@ final class PackageClearCacheCommand extends Command
 
     protected $signature = 'capell:package-cache:clear';
 
-    public function handle(): int
+    public function handle(Filesystem $files): int
     {
         $cachePaths = [
             $this->laravel->bootstrapPath('cache/capell-package-manifests.php'),
@@ -29,6 +30,13 @@ final class PackageClearCacheCommand extends Command
             }
 
             unlink($cachePath);
+            $cleared = true;
+        }
+
+        $runtimeRoleCachePath = $this->laravel->bootstrapPath('cache/capell-runtime');
+
+        if ($files->isDirectory($runtimeRoleCachePath)) {
+            $files->deleteDirectory($runtimeRoleCachePath);
             $cleared = true;
         }
 

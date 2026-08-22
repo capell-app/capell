@@ -55,10 +55,13 @@ use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
 use Capell\Core\Console\Commands\UpgradeCommand;
 use Capell\Core\Contracts\ActivitySettingsReader;
+use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
+use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
+use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
@@ -66,6 +69,7 @@ use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\AssetData;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Data\RenderableDefinitionData;
+use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\AssetEnum;
 use Capell\Core\Enums\ComponentTypeEnum;
@@ -131,6 +135,7 @@ use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
+use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Links\PageLinkableContentProvider;
 use Capell\Core\Support\Makers\BuiltIn\ActionMaker;
@@ -146,6 +151,8 @@ use Capell\Core\Support\Makers\MakerSafety;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\SpatieMediaFieldFactory;
+use Capell\Core\Support\Media\SpatieMediaUploadConfigurationFactory;
+use Capell\Core\Support\Media\SpatieMediaUploadMetadataResolver;
 use Capell\Core\Support\Metrics\DenyMetricScopeAuthorizer;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
@@ -169,6 +176,9 @@ use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Capell\Core\Support\Renderables\RenderableRegistry;
+use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
+use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
+use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Support\Security\LockdownStaticCacheSwitcher;
 use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -223,6 +233,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
         $this->app->singleton(ComponentRegistry::class);
         $this->app->alias(CapellCoreManager::class, 'capell-admin');
+        $this->registerRuntimeRole();
         $this->registerSettingsSchemaRegistry();
         $this->bindManagers();
         $this->app->scoped(RuntimeSchemaState::class);
@@ -362,6 +373,30 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         return $this;
     }
 
+    private function registerRuntimeRole(): void
+    {
+        if (! $this->app->bound(RuntimeRoleSelectionData::class)) {
+            $resolver = RuntimeRoleResolver::fromEnvironment();
+            $this->app->instance(RuntimeRoleSelectionData::class, $resolver->selection());
+            $this->app->instance(RuntimeRoleResolver::class, $resolver);
+        }
+
+        if (! $this->app->bound(RuntimeRoleResolver::class)) {
+            $this->app->singleton(
+                RuntimeRoleResolver::class,
+                fn (): RuntimeRoleResolver => new RuntimeRoleResolver(
+                    $this->app->make(RuntimeRoleSelectionData::class),
+                ),
+            );
+        }
+
+        $this->app->singletonIf(RuntimeRoleProviderPolicy::class);
+        $this->app->singletonIf(
+            RuntimeRoleCachePaths::class,
+            fn (): RuntimeRoleCachePaths => new RuntimeRoleCachePaths($this->app),
+        );
+    }
+
     /**
      * Boot-phase event-sourcing wiring: the recording bridge that records a
      * revision after every page save. Projector/reactor registration happens in
@@ -463,6 +498,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         $this->app->singleton(BackendResolver::class);
+        $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
+        $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
+        $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
         $this->app->bindIf(MediaFieldFactory::class, SpatieMediaFieldFactory::class);
 
         $this->app->singleton(CapellCacheManager::class);
@@ -782,8 +820,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 new AssetData(
                     name: $asset->name,
                     model: $asset->getModel(),
-                    label: fn (): string => $asset->getLabel(),
-                    icon: fn (): string|BackedEnum => $asset->getIcon(),
+                    label: fn (): string => (string) __('capell::generic.page'),
+                    icon: fn (): string|BackedEnum => config('capell-admin.assets.page.icon', 'heroicon-o-rectangle-stack'),
                     hasTranslations: $asset->hasTranslations(),
                 ),
             );

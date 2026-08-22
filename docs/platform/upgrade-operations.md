@@ -61,6 +61,13 @@ That gives non-technical stakeholders confidence that upgrades are not a black b
 
 ## For Developers And Operators
 
+The next Core compatibility line is prepared, but not activated. See the
+[Core Filament neutrality and 2.x preparation](../packages/core-filament-neutrality.md)
+guide for the draft decision, dependency baseline, consumer fixture names, and
+the exact old-package failure wording. A 1.x site must keep its compatibility
+adapters and `filament/support`; removal waits for CAP-0270 adoption proof and
+a real 2.x release line.
+
 The rest of this page is implementation detail for teams evaluating how Capell behaves during deployment, queue execution, manual recovery, and package lifecycle upgrades.
 
 ## Developer Detail
