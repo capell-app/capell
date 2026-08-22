@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Core\EventSourcing\Rollback;
 
+use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\EventSourcing\Contracts\CarriesAggregateState;
 use Capell\Core\EventSourcing\Contracts\CarriesRollbackOrigin;
 use Capell\Core\EventSourcing\Contracts\EventSourced;
 use Capell\Core\EventSourcing\Exceptions\EventSourcingException;
 use Capell\Core\EventSourcing\Exceptions\RollbackBlocked;
 use Capell\Core\EventSourcing\Rollback\Support\StateDiffer;
+use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Spatie\EventSourcing\StoredEvents\Models\EloquentStoredEvent;
@@ -66,6 +68,10 @@ final class RollbackService
                 ->recordRollback($toVersion, $targetState)
                 ->persist();
         });
+
+        if ($model instanceof Page) {
+            event(new FrontendSurrogateKeysInvalidated(['page-' . $model->getKey()]));
+        }
 
         return $preview;
     }

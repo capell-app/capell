@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\ContentStructure;
+use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\EventSourcing\Aggregates\PageAggregate;
 use Capell\Core\EventSourcing\Enums\PageWorkflowStatus;
 use Capell\Core\EventSourcing\Events\PageRevisionRecorded;
@@ -18,6 +19,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PageWorkflowState;
 use Capell\Core\Models\Translation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 
 function recordRevisionFor(Page $page): void
 {
@@ -85,9 +87,14 @@ it('previews and applies a rollback that restores earlier content', function ():
     expect($preview->isBlocked())->toBeFalse();
     expect($preview->hasChanges())->toBeTrue();
 
+    Event::fake([FrontendSurrogateKeysInvalidated::class]);
     ApplyRollbackAction::run($page->fresh(), $targetVersion);
 
     expect($translation->fresh()->title)->toBe('First');
+    Event::assertDispatched(
+        FrontendSurrogateKeysInvalidated::class,
+        fn (FrontendSurrogateKeysInvalidated $event): bool => $event->surrogateKeys === ['page-' . $page->getKey()],
+    );
     expect(DB::table('stored_events')
         ->where('aggregate_uuid', $page->uuid)
         ->where('event_class', PageRolledBack::class)
