@@ -35,10 +35,12 @@ final class ResolveBlockPickerMetadataAction
             }
 
             foreach ($provider->blockPickerMetadata() as $blockName => $item) {
-                if (! is_string($blockName) || $blockName === '') {
+                if (! is_string($blockName)) {
                     continue;
                 }
-
+                if ($blockName === '') {
+                    continue;
+                }
                 if (! $item instanceof BlockPickerItemMetadataData) {
                     continue;
                 }

@@ -425,7 +425,7 @@ it('keeps legacy widgets with no contributed metadata usable in the picker', fun
     app()->tag([ContentBlockPickerMetadataProvider::class], BlockPickerMetadataProvider::TAG);
 
     $legacyLabel = StateIntegrityFilamentWidget::make()->getLabel();
-    $legacyLabelText = $legacyLabel instanceof Htmlable ? strip_tags($legacyLabel->toHtml()) : (string) $legacyLabel;
+    $legacyLabelText = $legacyLabel instanceof Htmlable ? strip_tags($legacyLabel->toHtml()) : $legacyLabel;
 
     $html = renderBlockPicker(buildContentBuilder());
 
@@ -469,7 +469,6 @@ function buildContentBuilder(): ContentBuilder
 function renderBlockPicker(ContentBuilder $builder): string
 {
     $reflection = new ReflectionMethod($builder, 'generateBlockPickerHtml');
-    $reflection->setAccessible(true);
 
     $html = $reflection->invoke(
         $builder,

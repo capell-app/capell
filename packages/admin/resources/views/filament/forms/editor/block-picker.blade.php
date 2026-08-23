@@ -87,7 +87,9 @@
                         {{ $category }}
                     </x-filament::dropdown.header>
 
-                    <div {{ (new FilamentComponentAttributeBag)->grid(['default' => 1], GridDirection::Column) }}>
+                    <div
+                        {{ (new FilamentComponentAttributeBag)->grid(['default' => 1], GridDirection::Column) }}
+                    >
                         @foreach ($items as $item)
                             <x-filament::dropdown.list.item
                                 :icon="$item->icon"
@@ -95,12 +97,16 @@
                                 x-on:click="close"
                                 :wire:click="$item->wireClickAction"
                             >
-                                <span class="fi-capell-block-picker-item-label block font-medium">
+                                <span
+                                    class="fi-capell-block-picker-item-label block font-medium"
+                                >
                                     {{ $item->label }}
                                 </span>
 
                                 @if (filled($item->description))
-                                    <span class="fi-capell-block-picker-item-description block text-xs text-gray-500 dark:text-gray-400">
+                                    <span
+                                        class="fi-capell-block-picker-item-description block text-xs text-gray-500 dark:text-gray-400"
+                                    >
                                         {{ $item->description }}
                                     </span>
                                 @endif

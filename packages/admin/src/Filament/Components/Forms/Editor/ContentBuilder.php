@@ -35,6 +35,7 @@ use Filament\Support\Enums\Width;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Js;
 use Illuminate\Support\Str;
+use Override;
 use Throwable;
 
 class ContentBuilder extends Builder
@@ -149,6 +150,7 @@ class ContentBuilder extends Builder
      * @param  array<int, Block>  $blocks
      * @param  array<string, ?int> | int | null  $columns
      */
+    #[Override]
     protected function generateBlockPickerHtml(
         Action $action,
         array $blocks,

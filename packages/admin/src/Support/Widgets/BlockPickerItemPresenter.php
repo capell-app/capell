@@ -26,7 +26,7 @@ final class BlockPickerItemPresenter
         string $fallbackCategory,
         string $fallbackIcon,
     ): BlockPickerItemViewData {
-        if ($metadata === null) {
+        if (! $metadata instanceof BlockPickerItemMetadataData) {
             $label = $filamentLabel;
             $description = '';
             $category = $fallbackCategory;
