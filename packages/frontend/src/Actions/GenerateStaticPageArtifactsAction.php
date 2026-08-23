@@ -170,7 +170,7 @@ class GenerateStaticPageArtifactsAction
 
         $contentType = (string) $response->headers->get('content-type', 'text/html');
 
-        if (! str_contains($contentType, 'text/html') || $response->headers->get('X-Capell-Public-Html-Safety') !== null) {
+        if (! str_contains($contentType, 'text/html')) {
             return false;
         }
 
