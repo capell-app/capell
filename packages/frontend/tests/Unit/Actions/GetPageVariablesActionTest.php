@@ -12,6 +12,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\GetPageVariablesAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\FrontendRenderPayload;
 
 it('builds page variables from the active frontend context when route params are unavailable', function (): void {
     $page = Page::factory()->make();
@@ -80,6 +81,11 @@ it('builds page variables from the active frontend context when route params are
         public function getFrontendData(?string $key = null): mixed
         {
             return null;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 
@@ -170,6 +176,11 @@ it('adds archive date variables and parent labels from public route params', fun
         public function getFrontendData(?string $key = null): mixed
         {
             return null;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 

@@ -12,7 +12,7 @@ final class WireNavigateDirective
     {
         return '<?php
             $capellRuntimeManifest = app()->bound(' . FrontendContextReader::class . '::class)
-                ? resolve(' . FrontendContextReader::class . '::class)->getFrontendData(\'runtimeManifest\')
+                ? resolve(' . FrontendContextReader::class . '::class)->renderPayload()->runtimeManifest
                 : null;
 
             if (($capellRuntimeManifest?->usesWireNavigate ?? false) === true) {
