@@ -95,7 +95,7 @@ class RedirectImporter extends Importer
 
             Radio::make('default_status_code')
                 ->label(__('capell-admin::form.default_status_code'))
-                ->options(app(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class))
+                ->options(resolve(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class))
                 ->default(RedirectStatusCodeEnum::Permanent)
                 ->inline(),
         ];

@@ -55,7 +55,7 @@ class PageUrlsTable implements TableConfigurator
                 LanguageColumn::make('language'),
                 IconColumn::make('type')
                     ->label(__('capell-admin::table.type'))
-                    ->tooltip(fn (PageUrl $url): ?string => $url->type === null ? null : app(EnumPresentationRegistry::class)->label($url->type))
+                    ->tooltip(fn (PageUrl $url): ?string => $url->type === null ? null : resolve(EnumPresentationRegistry::class)->label($url->type))
                     ->sortable(),
             ])
             ->defaultSort(function (Builder $query): void {
@@ -79,7 +79,7 @@ class PageUrlsTable implements TableConfigurator
                     ->relationship(name: 'language', titleAttribute: 'name'),
                 SelectFilter::make('type')
                     ->label(__('capell-admin::table.type'))
-                    ->options(app(EnumPresentationRegistry::class)->options(UrlTypeEnum::class)),
+                    ->options(resolve(EnumPresentationRegistry::class)->options(UrlTypeEnum::class)),
             ])
             ->toolbarActions([
                 DeleteBulkAction::make()

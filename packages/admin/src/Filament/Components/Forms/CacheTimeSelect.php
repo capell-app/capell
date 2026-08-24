@@ -18,6 +18,6 @@ class CacheTimeSelect extends Select
 
         $this->label(__('capell-admin::form.cache_time'))
             ->helperText(__('capell-admin::generic.cache_time_info'))
-            ->options(app(EnumPresentationRegistry::class)->options(CacheTime::class));
+            ->options(resolve(EnumPresentationRegistry::class)->options(CacheTime::class));
     }
 }

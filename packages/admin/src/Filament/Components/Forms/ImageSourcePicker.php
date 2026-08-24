@@ -185,7 +185,7 @@ class ImageSourcePicker extends Group
     protected function sourceOptions(): array
     {
         return collect($this->allowedSources)
-            ->mapWithKeys(static fn (ImageSourceType $source): array => [$source->value => app(EnumPresentationRegistry::class)->label($source)])
+            ->mapWithKeys(static fn (ImageSourceType $source): array => [$source->value => resolve(EnumPresentationRegistry::class)->label($source)])
             ->all();
     }
 

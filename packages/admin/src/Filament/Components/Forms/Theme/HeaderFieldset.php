@@ -58,11 +58,11 @@ class HeaderFieldset extends Fieldset
                                     ->schema([
                                         Select::make('header_position')
                                             ->label(__('capell-admin::form.header_position'))
-                                            ->options(app(EnumPresentationRegistry::class)->options(HeaderPositionEnum::class))
+                                            ->options(resolve(EnumPresentationRegistry::class)->options(HeaderPositionEnum::class))
                                             ->default(HeaderPositionEnum::Static_),
                                         Select::make('header_menu_alignment')
                                             ->label(__('capell-admin::form.header_menu_alignment'))
-                                            ->options(app(EnumPresentationRegistry::class)->options(MenuAlignmentEnum::class)),
+                                            ->options(resolve(EnumPresentationRegistry::class)->options(MenuAlignmentEnum::class)),
                                         Select::make('header_shadow')
                                             ->label(__('capell-admin::form.shadow'))
                                             ->options(HeaderShadowEnum::options())
