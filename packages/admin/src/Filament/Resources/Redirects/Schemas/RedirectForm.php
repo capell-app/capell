@@ -159,7 +159,7 @@ class RedirectForm implements FormConfigurator
                     Radio::make('status_code')
                         ->label(__('capell-admin::form.status_code'))
                         ->helperText(__('capell-admin::generic.redirect_status_code_info'))
-                        ->options(app(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class))
+                        ->options(resolve(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class))
                         ->default(RedirectStatusCodeEnum::Permanent)
                         ->inline()
                         ->required(),

@@ -19,7 +19,7 @@ final class EnumPresentationRegistry
             }
 
             $presentation = $contributor->present($enum);
-            if ($presentation !== null) {
+            if ($presentation instanceof EnumPresentationData) {
                 return $presentation;
             }
         }

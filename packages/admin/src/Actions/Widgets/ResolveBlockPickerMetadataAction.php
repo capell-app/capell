@@ -38,9 +38,11 @@ final class ResolveBlockPickerMetadataAction
                 if (! is_string($blockName)) {
                     continue;
                 }
+
                 if ($blockName === '') {
                     continue;
                 }
+
                 if (! $item instanceof BlockPickerItemMetadataData) {
                     continue;
                 }

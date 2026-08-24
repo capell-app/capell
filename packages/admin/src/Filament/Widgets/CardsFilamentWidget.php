@@ -41,9 +41,9 @@ class CardsFilamentWidget implements FilamentWidget
 
                         Select::make('alignment')
                             ->options([
-                                MenuAlignmentEnum::Left->value => app(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Left),
-                                MenuAlignmentEnum::Right->value => app(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Right),
-                                MenuAlignmentEnum::Center->value => app(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Center),
+                                MenuAlignmentEnum::Left->value => resolve(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Left),
+                                MenuAlignmentEnum::Right->value => resolve(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Right),
+                                MenuAlignmentEnum::Center->value => resolve(EnumPresentationRegistry::class)->label(MenuAlignmentEnum::Center),
                             ]),
                     ]),
             ]);

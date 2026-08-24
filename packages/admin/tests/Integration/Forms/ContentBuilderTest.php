@@ -451,20 +451,20 @@ it('renders syntactically valid Alpine expressions throughout the block picker',
     $process = new Process([
         'node',
         '-e',
-        <<<'JS'
-const encodedExpressions = process.argv[1];
-const expressions = JSON.parse(Buffer.from(encodedExpressions, 'base64').toString('utf8'));
+        <<<'JS_WRAP'
+        const encodedExpressions = process.argv[1];
+        const expressions = JSON.parse(Buffer.from(encodedExpressions, 'base64').toString('utf8'));
 
-for (const [attribute, expression] of expressions) {
-    const isStatement = attribute.startsWith('x-on:') || ['x-effect', 'x-init'].includes(attribute);
+        for (const [attribute, expression] of expressions) {
+            const isStatement = attribute.startsWith('x-on:') || ['x-effect', 'x-init'].includes(attribute);
 
-    try {
-        new Function(isStatement ? expression : `return (${expression})`);
-    } catch (error) {
-        throw new SyntaxError(`${attribute}: ${expression}\n${error.message}`, { cause: error });
-    }
-}
-JS,
+            try {
+                new Function(isStatement ? expression : `return (${expression})`);
+            } catch (error) {
+                throw new SyntaxError(`${attribute}: ${expression}\n${error.message}`, { cause: error });
+            }
+        }
+        JS_WRAP,
         base64_encode(json_encode($expressions, JSON_THROW_ON_ERROR)),
     ]);
 
@@ -530,9 +530,7 @@ function renderBlockPicker(ContentBuilder $builder, bool $decodeAttributes = tru
  */
 function alpineExpressions(string $html): array
 {
-    if ($html === '') {
-        throw new RuntimeException('Expected non-empty block picker HTML.');
-    }
+    throw_if($html === '', RuntimeException::class, 'Expected non-empty block picker HTML.');
 
     $document = new DOMDocument;
     $previousUseInternalErrors = libxml_use_internal_errors(true);
@@ -544,7 +542,11 @@ function alpineExpressions(string $html): array
 
     foreach ($document->getElementsByTagName('*') as $element) {
         foreach ($element->attributes as $attribute) {
-            if (! str_starts_with($attribute->name, 'x-') || blank($attribute->value)) {
+            if (! str_starts_with($attribute->name, 'x-')) {
+                continue;
+            }
+
+            if (blank($attribute->value)) {
                 continue;
             }
 

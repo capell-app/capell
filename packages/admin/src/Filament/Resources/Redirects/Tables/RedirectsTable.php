@@ -87,7 +87,7 @@ class RedirectsTable implements TableConfigurator
         return [
             SelectFilter::make('status_code')
                 ->label(__('capell-admin::table.status_code'))
-                ->options(app(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class)),
+                ->options(resolve(EnumPresentationRegistry::class)->options(RedirectStatusCodeEnum::class)),
             TernaryFilter::make('is_manual')
                 ->label(__('capell-admin::table.is_manual'))
                 ->trueLabel(__('capell-admin::generic.manual'))

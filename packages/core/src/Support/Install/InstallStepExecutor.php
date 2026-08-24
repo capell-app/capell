@@ -30,6 +30,7 @@ use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Process\ArtisanSubprocessRunner;
+use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
@@ -38,7 +39,7 @@ use Throwable;
 
 final class InstallStepExecutor
 {
-    private const string FILAMENT_SERVICE_PROVIDER = 'Filament\\FilamentServiceProvider';
+    private const string FILAMENT_SERVICE_PROVIDER = FilamentServiceProvider::class;
 
     private const string INSTALL_PERMISSIONS_DOC_URL = 'https://docs.capell.app/getting-started/install/#install-time-write-permissions';
 

@@ -22,7 +22,7 @@ final class SpatieMediaFieldFactory implements MediaFieldFactory
 
     public function make(string $name): SpatieMediaLibraryFileUpload
     {
-        $configuration = (new SpatieMediaUploadConfigurationFactory($this->cropPresets))->make($name);
+        $configuration = new SpatieMediaUploadConfigurationFactory($this->cropPresets)->make($name);
 
         return SpatieMediaLibraryFileUpload::make($name)
             ->collection($configuration->collection)
