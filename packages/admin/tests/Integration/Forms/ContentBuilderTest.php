@@ -17,6 +17,7 @@ use Filament\Forms\Components\Select;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 it('configures accessible block authoring controls', function (): void {
     $schema = Schema::make(Livewire::make())
@@ -441,6 +442,37 @@ it('exposes every picker item as a focusable, keyboard-activatable button', func
         ->and($html)->not->toContain('tabindex="-1"');
 });
 
+it('renders syntactically valid Alpine expressions throughout the block picker', function (): void {
+    $html = renderBlockPicker(buildContentBuilder(), decodeAttributes: false);
+    $expressions = alpineExpressions($html);
+
+    expect($expressions)->not->toBeEmpty();
+
+    $process = new Process([
+        'node',
+        '-e',
+        <<<'JS'
+const encodedExpressions = process.argv[1];
+const expressions = JSON.parse(Buffer.from(encodedExpressions, 'base64').toString('utf8'));
+
+for (const [attribute, expression] of expressions) {
+    const isStatement = attribute.startsWith('x-on:') || ['x-effect', 'x-init'].includes(attribute);
+
+    try {
+        new Function(isStatement ? expression : `return (${expression})`);
+    } catch (error) {
+        throw new SyntaxError(`${attribute}: ${expression}\n${error.message}`, { cause: error });
+    }
+}
+JS,
+        base64_encode(json_encode($expressions, JSON_THROW_ON_ERROR)),
+    ]);
+
+    $process->run();
+
+    expect($process->isSuccessful())->toBeTrue($process->getErrorOutput());
+});
+
 /**
  * Builds a `ContentBuilder` inside a real Schema/Livewire container, matching
  * every other test in this file. Filament components resolve translations,
@@ -466,7 +498,7 @@ function buildContentBuilder(): ContentBuilder
  * builder's own registered blocks, so assertions target exactly the method
  * CAP-0300 changed without depending on a full Livewire round trip.
  */
-function renderBlockPicker(ContentBuilder $builder): string
+function renderBlockPicker(ContentBuilder $builder, bool $decodeAttributes = true): string
 {
     $reflection = new ReflectionMethod($builder, 'generateBlockPickerHtml');
 
@@ -484,9 +516,39 @@ function renderBlockPicker(ContentBuilder $builder): string
 
     throw_unless(is_string($html), RuntimeException::class, 'Expected block picker HTML.');
 
-    // Filament's attribute bag HTML-escapes `wire:click` values; decode so
-    // assertions can compare against the literal action string it embeds.
-    return html_entity_decode($html, ENT_QUOTES);
+    if ($decodeAttributes) {
+        // Filament's attribute bag HTML-escapes `wire:click` values; decode so
+        // assertions can compare against the literal action string it embeds.
+        return html_entity_decode($html, ENT_QUOTES);
+    }
+
+    return $html;
+}
+
+/**
+ * @return list<array{string, string}>
+ */
+function alpineExpressions(string $html): array
+{
+    $document = new DOMDocument;
+    $previousUseInternalErrors = libxml_use_internal_errors(true);
+    $document->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    libxml_use_internal_errors($previousUseInternalErrors);
+
+    $expressions = [];
+
+    foreach ($document->getElementsByTagName('*') as $element) {
+        foreach ($element->attributes as $attribute) {
+            if (! str_starts_with($attribute->name, 'x-') || blank($attribute->value)) {
+                continue;
+            }
+
+            $expressions[] = [$attribute->name, $attribute->value];
+        }
+    }
+
+    return $expressions;
 }
 
 function componentText(mixed $value): string

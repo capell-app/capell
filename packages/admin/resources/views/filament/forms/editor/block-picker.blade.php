@@ -2,6 +2,7 @@
     use Filament\Support\Enums\Alignment;
     use Filament\Support\Enums\GridDirection;
     use Filament\Support\View\ComponentAttributeBag as FilamentComponentAttributeBag;
+    use Illuminate\Support\Js;
 @endphp
 
 @props([
@@ -93,7 +94,7 @@
                         @foreach ($items as $item)
                             <x-filament::dropdown.list.item
                                 :icon="$item->icon"
-                                x-show="matches(@js($item->searchHaystack))"
+                                :x-show="'matches(' . Js::from($item->searchHaystack) . ')'"
                                 x-on:click="close"
                                 :wire:click="$item->wireClickAction"
                             >
