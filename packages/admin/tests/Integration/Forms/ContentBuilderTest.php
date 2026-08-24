@@ -530,6 +530,10 @@ function renderBlockPicker(ContentBuilder $builder, bool $decodeAttributes = tru
  */
 function alpineExpressions(string $html): array
 {
+    if ($html === '') {
+        throw new RuntimeException('Expected non-empty block picker HTML.');
+    }
+
     $document = new DOMDocument;
     $previousUseInternalErrors = libxml_use_internal_errors(true);
     $document->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
