@@ -222,9 +222,10 @@ it('eager-loads the real pageUrl relation when a language filter is set', functi
         ->withTranslations()
         ->create();
 
-    $component = Livewire::test(ListPagesFilamentWidget::class)
-        ->set('tableFilters.filter.language_id', $language->getKey())
-        ->assertOk();
+    $component = Livewire::test(ListPagesFilamentWidget::class)->assertOk();
+    $component->instance()->tableFilters = [
+        'filter' => ['language_id' => $language->getKey()],
+    ];
 
     $record = $component->instance()->getFilteredTableQuery()->first();
     assert($record instanceof Page);

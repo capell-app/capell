@@ -18,6 +18,7 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\Width;

@@ -53,6 +53,24 @@ class PurgeCdnCacheOnPageChangeListener
 
     public function handleSurrogateKeys(FrontendSurrogateKeysInvalidated $event): void
     {
+        $pageIds = [];
+
+        foreach ($event->surrogateKeys as $surrogateKey) {
+            if (preg_match('/^page-(\d+)$/D', $surrogateKey, $matches) !== 1) {
+                continue;
+            }
+
+            $pageIds[(int) $matches[1]] = true;
+        }
+
+        if ($pageIds !== []) {
+            Page::query()
+                ->whereKey(array_keys($pageIds))
+                ->each(function (Page $page): void {
+                    resolve(CacheInvalidationRegistry::class)->invalidateChangedModel($page);
+                });
+        }
+
         InvalidateFrontendSurrogateKeysAction::run($event->surrogateKeys);
     }
 }
