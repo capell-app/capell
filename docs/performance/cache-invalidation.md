@@ -163,6 +163,23 @@ public function saved(BlogPost $blogPost): void {
 
 - **No automatic wiring** — unlike Capell's built-in models (registered in core observers), custom models are **not** automatically observed. You must wire the observer yourself.
 
+## Graph-based dependent-page invalidation
+
+Pattern registration answers "which cache keys does this model flush." A second, finer path answers "which **pages** must re-render because this model changed": content-graph edges. Extractors (`ContentGraphExtractor` implementations in `packages/core`) record edges such as `Page —UsesLayout→ Layout` or `Page —FoundOnPage→ Page`; when a model changes, `CacheInvalidationRegistry` walks the stored edges from target to source (`dependentPages()`) and plans page-level invalidation for every dependent page it reaches.
+
+Core registers `FoundOnPage` edges for pages embedded in another page's composed block content — widget page references and curated listings. The shipped `PageEmbedContentGraphExtractor` walks every translation's block content and treats these data keys as embedded page references:
+
+| Key           | Shape        | Notes                                                                 |
+| ------------- | ------------ | --------------------------------------------------------------------- |
+| `page_id`     | single key   | `PageSelect` state in widget and section data                         |
+| `pageable_id` | single key   | Skipped when a sibling `pageable_type` resolves to a non-`Page` model |
+| `page_ids`    | list of keys | Curated listings                                                      |
+| `pages`       | list of keys | Curated listings                                                      |
+
+The `__capell` envelope is system state and is never scanned. Self-references and non-numeric values are ignored, traversal is bounded (depth 64, 10,000 nodes), and the edges register with `Weak` strength so embeds inform invalidation and impact previews without blocking deletes.
+
+If your widget stores embedded pages under different keys, register your own extractor — tag it with `ContentGraphRegistry::TAG` or declare a `content-graph` manifest contribution — and emit `FoundOnPage` edges with the embedding page as the **source** and the embedded page as the **target**. The dependent-page walk follows edges from target to source, so that direction is what makes an embedded-page edit reach the embedding page. See the [extension point API reference](../packages/extension-point-api-reference.md).
+
 ## Related
 
 - [Fragment caching](fragment-caching.md) — cache expensive Blade partials with surrogate key invalidation.

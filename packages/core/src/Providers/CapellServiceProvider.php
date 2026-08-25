@@ -123,6 +123,7 @@ use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\ContentGraph\Extractors\LayoutContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\MediaContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageContentGraphExtractor;
+use Capell\Core\Support\ContentGraph\Extractors\PageEmbedContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\PageUrlContentGraphExtractor;
 use Capell\Core\Support\ContentGraph\Extractors\SiteContentGraphExtractor;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
@@ -610,6 +611,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             LayoutContentGraphExtractor::class,
             MediaContentGraphExtractor::class,
             PageContentGraphExtractor::class,
+            PageEmbedContentGraphExtractor::class,
             PageUrlContentGraphExtractor::class,
             SiteContentGraphExtractor::class,
         ], ContentGraphRegistry::TAG);
