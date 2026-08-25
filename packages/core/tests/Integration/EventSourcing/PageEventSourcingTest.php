@@ -10,8 +10,10 @@ use Capell\Core\EventSourcing\Aggregates\PageAggregate;
 use Capell\Core\EventSourcing\Enums\PageWorkflowStatus;
 use Capell\Core\EventSourcing\Events\PageRevisionRecorded;
 use Capell\Core\EventSourcing\Events\PageRolledBack;
+use Capell\Core\EventSourcing\Exceptions\RollbackBlocked;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
 use Capell\Core\EventSourcing\Rollback\Actions\BuildRollbackPreviewAction;
+use Capell\Core\EventSourcing\Rollback\RollbackIssueData;
 use Capell\Core\EventSourcing\Rollback\RollbackService;
 use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
 use Capell\Core\Models\Language;
@@ -97,7 +99,7 @@ it('rebuilds the canonical url when restoring a revision captured before url cre
         ->and($resolution->fields->url)->toBe('/original-url');
 });
 
-it('rejects an empty-url-snapshot rollback when its synthesised canonical url is already live', function (): void {
+it('surfaces an empty-url-snapshot collision as a blocked rollback', function (): void {
     $site = Site::factory()->createOne();
     $language = Language::factory()->createOne();
     $pageA = Page::factory()->site($site)->createOne(['name' => 'Page A']);
@@ -127,18 +129,24 @@ it('rejects an empty-url-snapshot rollback when its synthesised canonical url is
         ->createOne(['title' => 'Page B']);
 
     $targetState = resolve(RollbackService::class)->targetStateAt($pageA->uuid, $targetVersion);
+    $preview = BuildRollbackPreviewAction::run($pageA->fresh(), $targetVersion);
+    $versionBeforeApply = resolve(RollbackService::class)->currentVersion($pageA->uuid);
 
     expect($targetState['pageUrls'] ?? null)->toBe([])
+        ->and($preview->isBlocked())->toBeFalse()
         ->and($pageA->pageUrls()->where('url', '/moved-url')->exists())->toBeTrue()
         ->and($pageB->pageUrls()->where('url', '/shared-url')->exists())->toBeTrue();
 
-    $collision = null;
+    $rollbackBlocked = null;
 
     try {
         ApplyRollbackAction::run($pageA->fresh(), $targetVersion);
-    } catch (Exception $exception) {
-        $collision = $exception;
+    } catch (RollbackBlocked $exception) {
+        $rollbackBlocked = $exception;
     }
+
+    /** @var RollbackIssueData|null $blockingIssue */
+    $blockingIssue = $rollbackBlocked?->issues[0] ?? null;
 
     $sharedUrls = PageUrl::query()
         ->where('site_id', $site->getKey())
@@ -150,12 +158,15 @@ it('rejects an empty-url-snapshot rollback when its synthesised canonical url is
     $movedResolution = ResolvePublicPageByUrlAction::run($site, $language, '/moved-url');
 
     expect($sharedUrls)->toHaveCount(1)
-        ->and($collision)->toBeInstanceOf(Exception::class)
-        ->and($collision?->getMessage())->toBe(sprintf(
-            'Page URL "/shared-url" already exists for site ID %d and language ID %d.',
-            $site->getKey(),
-            $language->getKey(),
-        ))
+        ->and($rollbackBlocked)->toBeInstanceOf(RollbackBlocked::class)
+        ->and($blockingIssue?->code)->toBe('page_url_conflict')
+        ->and($blockingIssue?->message)->toBe("The URL '/shared-url' is already in use by another page.")
+        ->and($blockingIssue?->path)->toBe('pageUrls./shared-url')
+        ->and(resolve(RollbackService::class)->currentVersion($pageA->uuid))->toBe($versionBeforeApply)
+        ->and(DB::table('stored_events')
+            ->where('aggregate_uuid', $pageA->uuid)
+            ->where('event_class', PageRolledBack::class)
+            ->count())->toBe(0)
         ->and($sharedUrls->sole()->pageable_id)->toBe($pageB->getKey())
         ->and($sharedResolution->found())->toBeTrue()
         ->and($sharedResolution->page?->getKey())->toBe($pageB->getKey())

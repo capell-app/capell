@@ -11,6 +11,7 @@ use Capell\Core\EventSourcing\Contracts\EventSourced;
 use Capell\Core\EventSourcing\Exceptions\EventSourcingException;
 use Capell\Core\EventSourcing\Exceptions\RollbackBlocked;
 use Capell\Core\EventSourcing\Rollback\Support\StateDiffer;
+use Capell\Core\Exceptions\PageUrlCollisionException;
 use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -61,13 +62,23 @@ final class RollbackService
         $uuid = $model->aggregateUuid();
         $targetState = $preview->targetState;
 
-        DB::transaction(function () use ($model, $aggregateClass, $uuid, $toVersion, $targetState): void {
-            $model->eventSourcedSerializer()->restore($model, $targetState);
+        try {
+            DB::transaction(function () use ($model, $aggregateClass, $uuid, $toVersion, $targetState): void {
+                $model->eventSourcedSerializer()->restore($model, $targetState);
 
-            $aggregateClass::retrieve($uuid)
-                ->recordRollback($toVersion, $targetState)
-                ->persist();
-        });
+                $aggregateClass::retrieve($uuid)
+                    ->recordRollback($toVersion, $targetState)
+                    ->persist();
+            });
+        } catch (PageUrlCollisionException $exception) {
+            throw new RollbackBlocked([
+                RollbackIssueData::blocking(
+                    code: 'page_url_conflict',
+                    message: sprintf("The URL '%s' is already in use by another page.", $exception->url),
+                    path: 'pageUrls.' . $exception->url,
+                ),
+            ]);
+        }
 
         if ($model instanceof Page) {
             event(new FrontendSurrogateKeysInvalidated(['page-' . $model->getKey()]));
