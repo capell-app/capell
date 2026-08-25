@@ -19,7 +19,8 @@ it('creates a permanent automatic redirect from an old url to a page', function 
         ->and(PageUrl::query()->where('url', '/old')->first())
         ->type->toBe(UrlTypeEnum::Redirect)
         ->is_manual->toBeFalse()
-        ->status_code->toBe(RedirectStatusCodeEnum::Permanent);
+        ->status_code->toBe(RedirectStatusCodeEnum::Permanent)
+        ->target_url->toBe('/new');
 });
 
 it('uses the configured automatic redirect status code', function (): void {
@@ -31,6 +32,26 @@ it('uses the configured automatic redirect status code', function (): void {
 
     expect(PageUrl::query()->where('url', '/old')->first())
         ->status_code->toBe(RedirectStatusCodeEnum::Temporary);
+});
+
+it('updates an existing automatic redirect to the current page url', function (): void {
+    $language = Language::factory()->createOne();
+    $page = Page::factory()->createOne();
+    PageUrl::factory()
+        ->site($page->site)
+        ->language($language)
+        ->page($page)
+        ->state([
+            'url' => '/old',
+            'target_url' => '/previous-current-url',
+            'type' => UrlTypeEnum::Redirect,
+            'is_manual' => false,
+        ])
+        ->createOne();
+
+    expect(CreateAutomaticRedirectAction::run($page, $language, '/old', '/current-url'))->toBeTrue()
+        ->and(PageUrl::query()->where('url', '/old')->sole())
+        ->target_url->toBe('/current-url');
 });
 
 it('does not overwrite an existing manual redirect', function (): void {

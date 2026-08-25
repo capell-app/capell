@@ -195,6 +195,8 @@ return [
     'cancel_scheduled_unpublish_confirmation' => 'This will keep the page live by removing the scheduled unpublish date and clearing public cache for this page and pages that use it.',
     'scheduled_unpublish_cancelled_notification' => 'Scheduled unpublish cancelled. Public cache will be cleared.',
     'add_url_redirect_confirmation' => 'Create redirects from the old URLs to the new page URLs?',
+    'add_url_redirect_confirmation_with_descendants' => 'Create redirects from the old URLs to the new page URLs? Redirects will also be created for :count child pages whose URLs changed with this page.',
+    'descendant_url_redirects_added' => 'Child page redirects recorded: :count.',
     'unknown_widget' => 'Unknown widget: :widget',
     'upgrade_complete' => 'Upgrade complete.',
     'upgrade_failed' => 'Upgrade failed.',
