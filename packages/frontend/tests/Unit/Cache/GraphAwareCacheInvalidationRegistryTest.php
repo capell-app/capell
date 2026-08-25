@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
+use Capell\Core\Enums\ContentStructure;
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -165,6 +168,33 @@ it('keeps registered class rules when graph dependents also exist', function ():
                 && $rule->modelType === Page::class
                 && $rule->modelId === $page->id,
         ))->toBeTrue();
+});
+
+it('plans embedding page invalidation for pages embedded through composed block content', function (): void {
+    $blueprint = Blueprint::factory()->contentStructure(ContentStructure::Blocks)->createOne();
+    $embeddedPage = Page::factory()->withTranslations()->create();
+    $embeddingPage = Page::factory()->type($blueprint)->withTranslations()->create();
+
+    Translation::factory()
+        ->translatable($embeddingPage)
+        ->create([
+            'content' => [
+                [
+                    'type' => 'feature',
+                    'data' => ['page_id' => $embeddedPage->id],
+                ],
+            ],
+        ]);
+
+    RebuildContentGraphForModelAction::run($embeddingPage);
+
+    $plan = resolve(CacheInvalidationRegistry::class)->planForChangedModel($embeddedPage);
+
+    expect(collect($plan->rules)->contains(
+        fn (CacheInvalidationRule $rule): bool => $rule->kind === CacheInvalidationRule::KIND_PAGE_MODEL
+            && $rule->modelType === Page::class
+            && $rule->modelId === $embeddingPage->id,
+    ))->toBeTrue();
 });
 
 it('invalidates page render caches when a page translation changes', function (): void {
