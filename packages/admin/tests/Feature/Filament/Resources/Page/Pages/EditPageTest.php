@@ -1418,10 +1418,12 @@ it('records redirects for child and grandchild urls after reparenting a page thr
         ->withTranslations(slug: 'grandchild')
         ->createOne();
 
+    $pageOldUrl = $page->pageUrl()->whereNull('type')->value('url');
     $childOldUrl = $child->pageUrl()->whereNull('type')->value('url');
     $grandchildOldUrl = $grandchild->pageUrl()->whereNull('type')->value('url');
 
-    expect($childOldUrl)->toBe('/old-parent/moved-page/child')
+    expect($pageOldUrl)->toBe('/old-parent/moved-page')
+        ->and($childOldUrl)->toBe('/old-parent/moved-page/child')
         ->and($grandchildOldUrl)->toBe('/old-parent/moved-page/child/grandchild');
 
     $livewire = Livewire::test(EditPage::class, [
@@ -1443,10 +1445,13 @@ it('records redirects for child and grandchild urls after reparenting a page thr
 
     throw_unless($action instanceof Action, RuntimeException::class, 'Expected add redirect notification action.');
 
-    expect($component->descendantUrlChanges)->toBe([
-        $child->getKey() => [$language->getKey() => $childOldUrl],
-        $grandchild->getKey() => [$language->getKey() => $grandchildOldUrl],
+    expect($component->urlChanges)->toBe([
+        $language->getKey() => $pageOldUrl,
     ])
+        ->and($component->descendantUrlChanges)->toBe([
+            $child->getKey() => [$language->getKey() => $childOldUrl],
+            $grandchild->getKey() => [$language->getKey() => $grandchildOldUrl],
+        ])
         ->and($action->isConfirmationRequired())->toBeTrue()
         ->and($action->getModalDescription())->toBe(__('capell-admin::message.add_url_redirect_confirmation_with_descendants', [
             'count' => 2,
@@ -1462,6 +1467,15 @@ it('records redirects for child and grandchild urls after reparenting a page thr
     $livewire
         ->dispatch($action->getEvent(), ...$action->getEventData())
         ->assertNotified(__('capell-admin::message.url_redirects_added'));
+
+    assertDatabaseHas(PageUrl::class, [
+        'pageable_id' => $page->getKey(),
+        'pageable_type' => $page->getMorphClass(),
+        'language_id' => $language->getKey(),
+        'url' => $pageOldUrl,
+        'target_url' => '/new-parent/moved-page',
+        'type' => 'redirect',
+    ]);
 
     assertDatabaseHas(PageUrl::class, [
         'pageable_id' => $child->getKey(),
