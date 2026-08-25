@@ -119,8 +119,10 @@ final class RecordDescendantUrlRedirectsAction
 
             foreach ($urls as $languageId => $url) {
                 $expectedUrl = $expectedForPage[$languageId] ?? null;
-
-                if (! is_string($expectedUrl) || ! is_string($url)) {
+                if (! is_string($expectedUrl)) {
+                    continue;
+                }
+                if (! is_string($url)) {
                     continue;
                 }
 

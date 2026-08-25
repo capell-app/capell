@@ -1130,7 +1130,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             ->visible(fn (): bool => auth()->user()?->can('create', PageUrl::class) ?? false)
             ->button()
             ->icon('heroicon-o-plus')
-            ->badge(fn (): int => count($this->urlChanges) + array_sum(array_map('count', $this->descendantUrlChanges)))
+            ->badge(fn (): int => count($this->urlChanges) + array_sum(array_map(count(...), $this->descendantUrlChanges)))
             ->dispatchTo(static::getName(), 'add-url-redirects', [$this->urlChanges, $this->descendantUrlChanges]);
     }
 
