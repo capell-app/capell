@@ -70,6 +70,25 @@ it('round-trips a page with translations and urls through the serializer', funct
     expect($serializer->capture($page->fresh()))->toEqual($captured);
 });
 
+it('rebuilds the canonical url when restoring a revision captured before url creation', function (): void {
+    $page = Page::factory()->create();
+    $language = Language::factory()->create();
+
+    Translation::factory()->translatable($page)->language($language)
+        ->slug('original-url')
+        ->create(['title' => 'Original', 'content' => '<p>original body</p>']);
+
+    $serializer = resolve(PageStateSerializer::class);
+    $captured = $serializer->capture($page);
+    $captured['pageUrls'] = [];
+
+    $page->pageUrls()->firstOrFail()->forceFill(['url' => '/changed-url'])->save();
+
+    $serializer->restore($page->fresh(), $captured);
+
+    expect($page->pageUrls()->where('url', '/original-url')->exists())->toBeTrue();
+});
+
 it('previews and applies a rollback that restores earlier content', function (): void {
     $page = Page::factory()->create();
     $language = Language::factory()->create();

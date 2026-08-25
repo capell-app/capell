@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\EventSourcing\Serializers;
 
+use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -98,6 +99,15 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 $this->restoreAttributes($page, $state['attributes'] ?? []);
                 $this->restoreTranslations($page, $state['translations'] ?? []);
                 $this->restorePageUrls($page, $state['pageUrls'] ?? []);
+
+                // The PageSaved bridge can record the initial authoring
+                // revision before the Translation saved listener has created
+                // its derived canonical PageUrl. A page remains routable when
+                // that revision is restored by rebuilding the URL from the
+                // restored translation rather than deleting the live route.
+                if (($state['pageUrls'] ?? []) === []) {
+                    SetupPageUrlsAction::run($page, updateDescendants: false);
+                }
             });
         });
     }
