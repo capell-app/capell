@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Enums\CacheEnum;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -15,9 +17,12 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Observers\PageObserver;
 use Capell\Core\Support\Lookup\ArrayCache;
+use Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 
 it('assigns a uuid when creating a page without one', function (): void {
     $page = new Page([
@@ -132,6 +137,52 @@ it('fills missing default type and layout through page creation events', functio
 
     expect($page->blueprint_id)->toBe($defaultBlueprint->getKey())
         ->and($page->layout_id)->toBe($defaultLayout->getKey());
+});
+
+it('rebuilds content graph edges after a page is saved', function (): void {
+    $relatedPage = Page::factory()->createOne();
+    $page = Page::factory()->createOne();
+
+    $page->update([
+        'meta' => ['related' => [$relatedPage->getKey()]],
+    ]);
+
+    $edgeExists = fn (): bool => ContentGraphEdge::query()
+        ->where('source_type', Page::class)
+        ->where('source_id', $page->getKey())
+        ->where('target_type', Page::class)
+        ->where('target_id', $relatedPage->getKey())
+        ->where('kind', ContentGraphEdgeKind::RelatesToPage)
+        ->exists();
+
+    expect($edgeExists())->toBeFalse();
+
+    defer()->invoke();
+
+    expect($edgeExists())->toBeTrue();
+});
+
+it('rebuilds content graph edges after a page save when the request later fails', function (): void {
+    $relatedPage = Page::factory()->createOne();
+    $page = Page::factory()->createOne();
+
+    $page->update([
+        'meta' => ['related' => [$relatedPage->getKey()]],
+    ]);
+
+    $edgeExists = fn (): bool => ContentGraphEdge::query()
+        ->where('source_type', Page::class)
+        ->where('source_id', $page->getKey())
+        ->where('target_type', Page::class)
+        ->where('target_id', $relatedPage->getKey())
+        ->where('kind', ContentGraphEdgeKind::RelatesToPage)
+        ->exists();
+
+    expect($edgeExists())->toBeFalse();
+
+    resolve(InvokeDeferredCallbacks::class)->terminate(new Request, new Response(status: 500));
+
+    expect($edgeExists())->toBeTrue();
 });
 
 it('fails loudly when a page is created without default content contracts', function (): void {

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
 use Capell\Core\Enums\ContentStructure;
@@ -186,7 +185,7 @@ it('plans embedding page invalidation for pages embedded through composed block 
             ],
         ]);
 
-    RebuildContentGraphForModelAction::run($embeddingPage);
+    defer()->invoke();
 
     $plan = resolve(CacheInvalidationRegistry::class)->planForChangedModel($embeddedPage);
 

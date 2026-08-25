@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Listeners;
 
+use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
 use Capell\Core\Actions\UpdatePageUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\CacheEnum;
@@ -41,5 +42,17 @@ final class PageTranslationSavedListener
             CacheEnum::FirstPageByTypeForSite->value,
             CacheEnum::RelationExists->value,
         ]);
+
+        defer(
+            function () use ($page): void {
+                $freshPage = $page->newQuery()->find($page->getKey());
+
+                if ($freshPage instanceof Model) {
+                    RebuildContentGraphForModelAction::run($freshPage);
+                }
+            },
+            'content-graph:' . $page::class . ':' . $page->getKey(),
+            always: true,
+        );
     }
 }
