@@ -1450,10 +1450,17 @@ it('records redirects for child and grandchild urls after reparenting a page thr
         ->and($action->isConfirmationRequired())->toBeTrue()
         ->and($action->getModalDescription())->toBe(__('capell-admin::message.add_url_redirect_confirmation_with_descendants', [
             'count' => 2,
-        ]));
+        ]))
+        ->and($action->getEvent())->toBe('add-url-redirects')
+        ->and($action->getDispatchDirection())->toBe('to')
+        ->and($action->getDispatchToComponent())->toBe($component->getName())
+        ->and($action->getEventData())->toBe([
+            $component->urlChanges,
+            $component->descendantUrlChanges,
+        ]);
 
     $livewire
-        ->dispatch('add-url-redirects', $component->urlChanges, $component->descendantUrlChanges)
+        ->dispatch($action->getEvent(), ...$action->getEventData())
         ->assertNotified(__('capell-admin::message.url_redirects_added'));
 
     assertDatabaseHas(PageUrl::class, [
