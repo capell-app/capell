@@ -8,6 +8,7 @@ use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlChanged;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Frontend\Actions\InvalidateFrontendSurrogateKeysAction;
@@ -65,9 +66,18 @@ class PurgeCdnCacheOnPageChangeListener
 
         if ($pageIds !== []) {
             Page::query()
+                ->with(['languages', 'translations'])
                 ->whereKey(array_keys($pageIds))
-                ->each(function (Page $page): void {
+                ->each(function (Page $page) use ($event): void {
                     resolve(CacheInvalidationRegistry::class)->invalidateChangedModel($page);
+
+                    $event->surrogateKeys = array_values(array_unique([
+                        ...$event->surrogateKeys,
+                        'site-' . $page->site_id,
+                        ...$page->languages
+                            ->map(fn (Language $language): string => 'lang-' . $language->code)
+                            ->all(),
+                    ]));
                 });
         }
 
