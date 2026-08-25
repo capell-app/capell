@@ -52,6 +52,34 @@ it('records redirects for descendant urls that changed', function (): void {
         ->and($redirect->target_url)->toBe('/moved/child');
 });
 
+it('records redirects for nested descendant urls that changed', function (): void {
+    $site = Site::factory()->withTranslations()->create();
+    $parent = Page::factory()->recycle($site)->withTranslations()->create();
+    $child = Page::factory()->recycle($site)->parent($parent)->withTranslations()->create();
+    $grandchild = Page::factory()->recycle($site)->parent($child)->withTranslations()->create();
+
+    $snapshot = CollectDescendantPageUrlsAction::run($parent);
+    $oldUrl = current($snapshot[$grandchild->getKey()]);
+
+    rewriteCanonicalUrl($grandchild, '/moved/grandchild');
+
+    $result = RecordDescendantUrlRedirectsAction::run(new DescendantUrlRedirectRequestData(
+        page: $parent,
+        submittedUrls: $snapshot,
+        expectedUrls: $snapshot,
+    ));
+
+    $redirect = PageUrl::query()
+        ->where('url', $oldUrl)
+        ->where('type', UrlTypeEnum::Redirect)
+        ->firstOrFail();
+
+    expect($result->acceptedCount)->toBe(count($snapshot[$child->getKey()]) + count($snapshot[$grandchild->getKey()]))
+        ->and($result->recordedCount)->toBe(count($snapshot[$grandchild->getKey()]))
+        ->and($redirect->pageable_id)->toBe($grandchild->getKey())
+        ->and($redirect->target_url)->toBe('/moved/grandchild');
+});
+
 it('rejects submitted urls that do not match the expected snapshot', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $parent = Page::factory()->recycle($site)->withTranslations()->create();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\CollectDescendantPageUrlsAction;
 use Capell\Core\Enums\UrlTypeEnum;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -50,6 +51,28 @@ it('excludes redirect urls from descendant snapshots', function (): void {
 
     expect($snapshots[$child->getKey()] ?? [])
         ->not()->toContain('/legacy-child-url');
+});
+
+it('snapshots each descendant url under its own language id', function (): void {
+    $english = Language::factory()->english()->create();
+    $french = Language::factory()->french()->create();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->create();
+    $parent = Page::factory()->recycle($site)->withTranslations([$english, $french])->create();
+    $child = Page::factory()->recycle($site)->parent($parent)->withTranslations([$english, $french])->create();
+
+    $snapshots = CollectDescendantPageUrlsAction::run($parent);
+
+    $urlsByLanguage = $child->pageUrls()
+        ->where(fn ($query) => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
+        ->pluck('url', 'language_id')
+        ->mapWithKeys(fn (string $url, int|string $languageId): array => [(int) $languageId => $url])
+        ->all();
+
+    expect($snapshots[$child->getKey()])
+        ->toBe($urlsByLanguage)
+        ->toHaveKeys([$english->getKey(), $french->getKey()])
+        ->and($snapshots[$child->getKey()][$english->getKey()])
+        ->not()->toBe($snapshots[$child->getKey()][$french->getKey()]);
 });
 
 it('returns an empty snapshot for a page without descendants', function (): void {

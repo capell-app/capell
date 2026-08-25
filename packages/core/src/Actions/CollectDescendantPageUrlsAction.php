@@ -35,13 +35,12 @@ class CollectDescendantPageUrlsAction
         // Query by key so the tree bounds are read fresh from the database;
         // the instance's nested-set bounds can be stale after other inserts.
         $descendants = $page->newQuery()->whereDescendantOf($page->getKey())->get();
+        $descendants->load('pageUrls');
 
         foreach ($descendants as $descendant) {
             if (! $descendant instanceof Pageable) {
                 continue;
             }
-
-            $descendant->load('pageUrls');
 
             foreach ($descendant->pageUrls as $pageUrl) {
                 if (! $pageUrl instanceof PageUrl) {
