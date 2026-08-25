@@ -213,3 +213,21 @@ it('escapes ancestor names in the pages widget', function (): void {
         ->assertDontSeeHtml('<script>alert(1)</script>')
         ->assertSeeHtml('Parent &lt;script&gt;alert(1)&lt;/script&gt;');
 });
+
+it('eager-loads the real pageUrl relation when a language filter is set', function (): void {
+    test()->actingAsAdmin();
+
+    $language = Language::factory()->createOne();
+    $page = Page::factory()
+        ->withTranslations()
+        ->create();
+
+    $component = Livewire::test(ListPagesFilamentWidget::class)
+        ->set('tableFilters.filter.language_id', $language->getKey())
+        ->assertOk();
+
+    $record = $component->instance()->getFilteredTableQuery()->first();
+    assert($record instanceof Page);
+
+    expect($record->relationLoaded('pageUrl'))->toBeTrue();
+});
