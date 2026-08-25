@@ -1394,6 +1394,87 @@ it('adds url redirect when url changes and user confirms', function (): void {
     assertDatabaseCount(PageUrl::class, 2);
 });
 
+it('records redirects for child and grandchild urls after reparenting a page through the editor', function (): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->recycle($language)->withTranslations()->createOne();
+    $oldParent = Page::factory()->recycle($site)->recycle($language)->withTranslations(slug: 'old-parent')->createOne();
+    $newParent = Page::factory()->recycle($site)->recycle($language)->withTranslations(slug: 'new-parent')->createOne();
+    $page = Page::factory()
+        ->recycle($site)
+        ->recycle($language)
+        ->parent($oldParent)
+        ->withTranslations(slug: 'moved-page')
+        ->createOne();
+    $child = Page::factory()
+        ->recycle($site)
+        ->recycle($language)
+        ->parent($page)
+        ->withTranslations(slug: 'child')
+        ->createOne();
+    $grandchild = Page::factory()
+        ->recycle($site)
+        ->recycle($language)
+        ->parent($child)
+        ->withTranslations(slug: 'grandchild')
+        ->createOne();
+
+    $childOldUrl = $child->pageUrl()->whereNull('type')->value('url');
+    $grandchildOldUrl = $grandchild->pageUrl()->whereNull('type')->value('url');
+
+    expect($childOldUrl)->toBe('/old-parent/moved-page/child')
+        ->and($grandchildOldUrl)->toBe('/old-parent/moved-page/child/grandchild');
+
+    $livewire = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])
+        ->fillForm([
+            'parent_id' => $newParent->getKey(),
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertNotified(__('capell-admin::message.url_changed'));
+
+    $component = $livewire->instance();
+
+    throw_unless($component instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
+
+    $actionFactory = new ReflectionMethod(EditPage::class, 'addUrlRedirectNotificationAction');
+    $action = $actionFactory->invoke($component);
+
+    throw_unless($action instanceof Action, RuntimeException::class, 'Expected add redirect notification action.');
+
+    expect($component->descendantUrlChanges)->toBe([
+        $child->getKey() => [$language->getKey() => $childOldUrl],
+        $grandchild->getKey() => [$language->getKey() => $grandchildOldUrl],
+    ])
+        ->and($action->isConfirmationRequired())->toBeTrue()
+        ->and($action->getModalDescription())->toBe(__('capell-admin::message.add_url_redirect_confirmation_with_descendants', [
+            'count' => 2,
+        ]));
+
+    $livewire
+        ->dispatch('add-url-redirects', $component->urlChanges, $component->descendantUrlChanges)
+        ->assertNotified(__('capell-admin::message.url_redirects_added'));
+
+    assertDatabaseHas(PageUrl::class, [
+        'pageable_id' => $child->getKey(),
+        'pageable_type' => $child->getMorphClass(),
+        'language_id' => $language->getKey(),
+        'url' => $childOldUrl,
+        'target_url' => '/new-parent/moved-page/child',
+        'type' => 'redirect',
+    ]);
+
+    assertDatabaseHas(PageUrl::class, [
+        'pageable_id' => $grandchild->getKey(),
+        'pageable_type' => $grandchild->getMorphClass(),
+        'language_id' => $language->getKey(),
+        'url' => $grandchildOldUrl,
+        'target_url' => '/new-parent/moved-page/child/grandchild',
+        'type' => 'redirect',
+    ]);
+});
+
 it('requires page url create permission before adding url redirects from page edits', function (): void {
     foreach (['View:Page', 'Update:Page', 'Create:PageUrl'] as $permission) {
         Permission::findOrCreate($permission);
