@@ -48,6 +48,7 @@ class CreateAutomaticRedirectAction
             [
                 'status' => true,
                 'status_code' => $this->configuredStatusCode(),
+                'target_url' => $currentUrl,
             ],
         );
 
