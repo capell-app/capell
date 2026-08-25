@@ -51,9 +51,11 @@ class CollectDescendantPageUrlsAction
                 if ($pageUrl->type === UrlTypeEnum::Redirect) {
                     continue;
                 }
+
                 if ($pageUrl->language_id === null) {
                     continue;
                 }
+
                 if (! is_string($pageUrl->url)) {
                     continue;
                 }

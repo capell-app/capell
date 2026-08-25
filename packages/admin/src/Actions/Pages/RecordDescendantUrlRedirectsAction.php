@@ -122,6 +122,7 @@ final class RecordDescendantUrlRedirectsAction
                 if (! is_string($expectedUrl)) {
                     continue;
                 }
+
                 if (! is_string($url)) {
                     continue;
                 }
