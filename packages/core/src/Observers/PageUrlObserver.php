@@ -7,6 +7,7 @@ namespace Capell\Core\Observers;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\PageUrlChanged;
+use Capell\Core\Exceptions\PageUrlCollisionException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\CapellCoreHelper;
@@ -31,16 +32,13 @@ class PageUrlObserver
             ->when($pageUrl->exists, fn (Builder $query): Builder => $query->whereKeyNot($pageUrl->getKey()))
             ->exists();
 
-        throw_if(
-            $duplicateExists,
-            Exception::class,
-            sprintf(
-                'Page URL "%s" already exists for site ID %d and language ID %d.',
-                $pageUrl->url,
-                $pageUrl->site_id,
-                $pageUrl->language_id,
-            ),
-        );
+        if ($duplicateExists) {
+            throw new PageUrlCollisionException(
+                url: $pageUrl->url,
+                siteId: $pageUrl->site_id,
+                languageId: $pageUrl->language_id,
+            );
+        }
     }
 
     public function creating(PageUrl $pageUrl): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\EventSourcing\Serializers;
 
+use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -21,9 +22,11 @@ use InvalidArgumentException;
  * (capture getRawOriginal('content'), restore via forceFill) so an event-sourced
  * rollback reproduces byte-identical content and Phase 6 can retire snapshots.
  *
- * Restore runs event-silent (Model::withoutEvents) so it never re-triggers the
- * recording bridge; side-effects (cache/redirect/beacon) are driven by the
- * reactor reacting to the PageRolledBack event instead.
+ * Raw snapshot replay runs event-silent (Model::withoutEvents) so it never
+ * re-triggers the recording bridge; general rollback side-effects are driven by
+ * the reactor reacting to PageRolledBack. An empty pageUrls snapshot is the
+ * deliberate exception: its derived canonical URL is synthesised inline after
+ * silent replay through the ordinary, collision-checked PageUrl save path.
  */
 final class PageStateSerializer implements EventSourcedStateSerializer
 {
@@ -99,6 +102,14 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 $this->restoreTranslations($page, $state['translations'] ?? []);
                 $this->restorePageUrls($page, $state['pageUrls'] ?? []);
             });
+
+            // The PageSaved bridge can record the initial authoring revision
+            // before the Translation saved listener has created its derived
+            // canonical PageUrl. Rebuild it after event-silent replay so the
+            // normal PageUrl saving observer still rejects live collisions.
+            if (($state['pageUrls'] ?? []) === []) {
+                SetupPageUrlsAction::run($page, updateDescendants: false);
+            }
         });
     }
 
