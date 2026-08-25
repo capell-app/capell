@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Data\PageListingSpec;
+use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Cache\PageCacheInvalidator;
 use Capell\Frontend\Support\Cache\PageListingCache;
 use Capell\Frontend\Support\Cache\PageModelCache;
@@ -51,4 +53,23 @@ it('invalidates listing and model caches when a page is saved', function (): voi
     });
 
     expect($callCount)->toBe(1); // Loader was called → listing was invalidated
+});
+
+it('invalidates page caches when a page surrogate key is invalidated', function (): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->recycle($language)->withTranslations()->create();
+    $type = Blueprint::factory()->page()->create();
+    $page = Page::factory()
+        ->site($site)
+        ->type($type)
+        ->published(CarbonImmutable::now())
+        ->withTranslations($language, [], slug: 'rollback-invalidate')
+        ->create();
+
+    $modelCache = resolve(PageModelCache::class);
+    $modelCache->get(Page::class, $page->id, $site, $language);
+
+    event(new FrontendSurrogateKeysInvalidated(['page-' . $page->id]));
+
+    expect($modelCache->getFromCache(CacheEnum::pageModel(Page::class, $page->id, $site->id, $language->id)))->toBeNull();
 });

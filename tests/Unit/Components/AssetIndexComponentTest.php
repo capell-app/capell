@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Tests\Support\Concerns\TestingFrontend;
 use Illuminate\Support\Facades\View;
@@ -16,6 +17,7 @@ beforeEach(function (): void {
 
     $context = Mockery::mock(FrontendContextReader::class);
     $context->shouldReceive('getFrontendData')->andReturnNull();
+    $context->shouldReceive('renderPayload')->andReturn(new FrontendRenderPayload);
     $context->shouldReceive('theme')->andReturn(Theme::factory()->make(['meta' => []]));
 
     app()->instance(FrontendContextReader::class, $context);
