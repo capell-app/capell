@@ -6,7 +6,9 @@ use Capell\Core\Actions\ContentGraph\BuildContentGraphForModelAction;
 use Capell\Core\Data\ContentGraph\ContentGraphEdgeData;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
+use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\MediaCollectionEnum;
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
@@ -14,6 +16,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
 
 it('extracts page content graph dependencies', function (): void {
@@ -115,6 +118,132 @@ it('extracts page URL content graph dependencies', function (): void {
     expect(expectEdge($edges, ContentGraphEdgeKind::ResolvesToPage, Page::class, $page->id, ContentGraphEdgeStrength::Strong))->toBeTrue()
         ->and(expectEdge($edges, ContentGraphEdgeKind::BelongsToSite, Site::class, $site->id, ContentGraphEdgeStrength::Strong))->toBeTrue()
         ->and(expectEdge($edges, ContentGraphEdgeKind::BelongsToLanguage, Language::class, $language->id, ContentGraphEdgeStrength::Strong))->toBeTrue();
+});
+
+it('extracts found on page edges for pages embedded in composed block content', function (): void {
+    $site = Site::factory()->createOne();
+    $blueprint = Blueprint::factory()->contentStructure(ContentStructure::Blocks)->createOne();
+    $featurePage = Page::factory()->site($site)->create();
+    $actionPage = Page::factory()->site($site)->create();
+    $listedPage = Page::factory()->site($site)->create();
+    $nestedPage = Page::factory()->site($site)->create();
+    $page = Page::factory()->site($site)->type($blueprint)->create();
+
+    Translation::factory()
+        ->translatable($page)
+        ->create([
+            'content' => [
+                [
+                    'type' => 'feature',
+                    'data' => ['page_id' => $featurePage->id],
+                ],
+                [
+                    'type' => 'cta-section',
+                    'data' => [
+                        'actions' => [
+                            ['type' => 'page', 'pageable_id' => (string) $actionPage->id],
+                        ],
+                    ],
+                ],
+                [
+                    'type' => 'listing',
+                    'data' => ['page_ids' => [$listedPage->id, $page->id]],
+                ],
+                [
+                    'type' => 'columns',
+                    'widgets' => [
+                        [
+                            'type' => 'card-grid',
+                            'data' => ['items' => [['pages' => [$nestedPage->id, $featurePage->id]]]],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+    Translation::factory()
+        ->translatable($page)
+        ->create([
+            'content' => [
+                [
+                    'type' => 'feature',
+                    'data' => ['page_id' => $featurePage->id],
+                ],
+            ],
+        ]);
+
+    $edges = BuildContentGraphForModelAction::run($page)->edges;
+    $foundOnPageTargets = collect($edges)
+        ->filter(fn (ContentGraphEdgeData $edge): bool => $edge->kind === ContentGraphEdgeKind::FoundOnPage)
+        ->map(fn (ContentGraphEdgeData $edge): int => $edge->target->modelId)
+        ->sort()
+        ->values()
+        ->all();
+
+    expect(expectEdge($edges, ContentGraphEdgeKind::FoundOnPage, Page::class, $featurePage->id, ContentGraphEdgeStrength::Weak))->toBeTrue()
+        ->and(expectEdge($edges, ContentGraphEdgeKind::FoundOnPage, Page::class, $actionPage->id, ContentGraphEdgeStrength::Weak))->toBeTrue()
+        ->and(expectEdge($edges, ContentGraphEdgeKind::FoundOnPage, Page::class, $listedPage->id, ContentGraphEdgeStrength::Weak))->toBeTrue()
+        ->and(expectEdge($edges, ContentGraphEdgeKind::FoundOnPage, Page::class, $nestedPage->id, ContentGraphEdgeStrength::Weak))->toBeTrue()
+        ->and($foundOnPageTargets)->toBe([$featurePage->id, $actionPage->id, $listedPage->id, $nestedPage->id]);
+});
+
+it('skips malformed self and non page embedded references in composed content', function (): void {
+    $site = Site::factory()->createOne();
+    $blueprint = Blueprint::factory()->contentStructure(ContentStructure::Blocks)->createOne();
+    $page = Page::factory()->site($site)->type($blueprint)->create();
+
+    Translation::factory()
+        ->translatable($page)
+        ->create([
+            'content' => [
+                [
+                    'type' => 'feature',
+                    'data' => ['page_id' => 'not-numeric'],
+                ],
+                [
+                    'type' => 'feature',
+                    'data' => ['page_id' => $page->id],
+                ],
+                [
+                    'type' => 'cta-section',
+                    'data' => [
+                        'actions' => [
+                            [
+                                'type' => 'page',
+                                'pageable_id' => $site->id,
+                                'pageable_type' => $site->getMorphClass(),
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'type' => 'widget',
+                    'data' => ['__capell' => ['page_id' => 999_999]],
+                ],
+                [
+                    'type' => 'listing',
+                    'data' => ['page_ids' => ['not-numeric', null, [], 0, -3]],
+                ],
+            ],
+        ]);
+
+    $edges = BuildContentGraphForModelAction::run($page)->edges;
+
+    expect(hasEdgeKind($edges, ContentGraphEdgeKind::FoundOnPage))->toBeFalse();
+});
+
+it('does not extract found on page edges from html structured content', function (): void {
+    $page = Page::factory()->createOne();
+
+    Translation::factory()
+        ->translatable($page)
+        ->create([
+            'content' => '<p>{"page_id": 12, "page_ids": [34]}</p>',
+        ]);
+
+    $edges = BuildContentGraphForModelAction::run($page)->edges;
+
+    expect(hasEdgeKind($edges, ContentGraphEdgeKind::FoundOnPage))->toBeFalse();
 });
 
 it('extracts media owner dependencies', function (): void {
