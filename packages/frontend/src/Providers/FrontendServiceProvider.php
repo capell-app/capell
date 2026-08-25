@@ -65,6 +65,7 @@ use Capell\Frontend\Http\Middleware\ResolveFrontendMiddleware;
 use Capell\Frontend\Http\Middleware\ServeStaticMaintenancePage;
 use Capell\Frontend\Http\View\RenderingStrategyViewComposer;
 use Capell\Frontend\Listeners\OnFrontendContextResolved;
+use Capell\Frontend\Listeners\PurgeCdnCacheOnPageRollbackSubscriber;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Settings\FrontendSettingsMigrationProvider;
 use Capell\Frontend\Settings\FrontendSettingsReader;
@@ -398,6 +399,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerBladeDirectives()
             ->registerPaginateRoute()
             ->configureVite()
+            ->registerSubscribers()
             ->bootstrapFrontendEvents()
             ->registerPublicViewQueryListener()
             ->registerScheduledPublicationInvalidation()
@@ -590,6 +592,13 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function bootstrapFrontendEvents(): self
     {
         $this->app->make(FrontendEventBootstrapper::class)->boot();
+
+        return $this;
+    }
+
+    private function registerSubscribers(): self
+    {
+        CapellCore::subscriberManager()->subscribe(PurgeCdnCacheOnPageRollbackSubscriber::class);
 
         return $this;
     }
