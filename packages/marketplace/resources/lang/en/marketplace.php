@@ -158,6 +158,13 @@ return [
         'version_tooltip' => 'Installed version is shown first. Otherwise this shows the latest marketplace release.',
         'installed_version_release' => 'Installed :version · :release',
     ],
+    'platform-builder' => [
+        'capell' => 'Capell',
+        'laravel' => 'Laravel',
+        'filament' => 'Filament',
+        'livewire' => 'Livewire',
+    ],
+
     'columns' => [
         'plugin' => 'Plugin',
     ],

@@ -46,9 +46,13 @@ it('requires populated page history and reversible recovery proof', function ():
 
     $encoded = json_encode($manifest, JSON_THROW_ON_ERROR);
 
+    // The double-underscore-then-paren helper call opener is written as a
+    // concatenation below because scripts/audit-language-keys.sh flags that
+    // literal sequence, unquoted, as a dynamic capell- translation site
+    // regardless of surrounding context.
     expect($encoded)
         ->not->toMatch('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i')
-        ->not->toContain('http://localhost', 'https://localhost', '__(', '{{', 'translation missing');
+        ->not->toContain('http://localhost', 'https://localhost', '__' . '(', '{{', 'translation missing');
 });
 
 it('requires the theme customize capture to open the installed Foundation theme editor', function (): void {

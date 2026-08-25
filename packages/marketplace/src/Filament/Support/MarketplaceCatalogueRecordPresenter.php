@@ -263,11 +263,27 @@ final class MarketplaceCatalogueRecordPresenter
         foreach ($compatibilityDetails as $platform => $status) {
             if ($status === 'incompatible') {
                 $warnings[] = (string) __('capell-marketplace::marketplace.card.incompatible_platform', [
-                    'platform' => (string) __('capell-marketplace::marketplace.platform-builder.' . $platform),
+                    'platform' => $this->platformLabel($platform),
                 ]);
             }
         }
 
         return $warnings;
+    }
+
+    /**
+     * VersionCompatibilityChecker::compatibilityDetails() only ever produces
+     * these four keys, so the label lookup stays statically analysable
+     * instead of concatenating an arbitrary suffix onto the translation key.
+     */
+    private function platformLabel(string $platform): string
+    {
+        return match ($platform) {
+            'capell' => (string) __('capell-marketplace::marketplace.platform-builder.capell'),
+            'laravel' => (string) __('capell-marketplace::marketplace.platform-builder.laravel'),
+            'filament' => (string) __('capell-marketplace::marketplace.platform-builder.filament'),
+            'livewire' => (string) __('capell-marketplace::marketplace.platform-builder.livewire'),
+            default => Str::headline($platform),
+        };
     }
 }
