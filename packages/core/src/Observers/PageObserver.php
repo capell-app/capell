@@ -107,6 +107,7 @@ class PageObserver
                 }
             },
             'content-graph:' . $page::class . ':' . $page->getKey(),
+            always: true,
         );
     }
 

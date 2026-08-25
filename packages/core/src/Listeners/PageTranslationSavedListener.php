@@ -52,6 +52,7 @@ final class PageTranslationSavedListener
                 }
             },
             'content-graph:' . $page::class . ':' . $page->getKey(),
+            always: true,
         );
     }
 }

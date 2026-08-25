@@ -17,9 +17,12 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Observers\PageObserver;
 use Capell\Core\Support\Lookup\ArrayCache;
+use Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 
 it('assigns a uuid when creating a page without one', function (): void {
     $page = new Page([
@@ -155,6 +158,29 @@ it('rebuilds content graph edges after a page is saved', function (): void {
     expect($edgeExists())->toBeFalse();
 
     defer()->invoke();
+
+    expect($edgeExists())->toBeTrue();
+});
+
+it('rebuilds content graph edges after a page save when the request later fails', function (): void {
+    $relatedPage = Page::factory()->createOne();
+    $page = Page::factory()->createOne();
+
+    $page->update([
+        'meta' => ['related' => [$relatedPage->getKey()]],
+    ]);
+
+    $edgeExists = fn (): bool => ContentGraphEdge::query()
+        ->where('source_type', Page::class)
+        ->where('source_id', $page->getKey())
+        ->where('target_type', Page::class)
+        ->where('target_id', $relatedPage->getKey())
+        ->where('kind', ContentGraphEdgeKind::RelatesToPage)
+        ->exists();
+
+    expect($edgeExists())->toBeFalse();
+
+    resolve(InvokeDeferredCallbacks::class)->terminate(new Request, new Response(status: 500));
 
     expect($edgeExists())->toBeTrue();
 });
