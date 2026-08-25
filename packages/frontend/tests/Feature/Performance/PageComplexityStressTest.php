@@ -166,5 +166,9 @@ function seedFrontendStressPage(
         )
         ->create();
 
+    // Page creation schedules a content-graph rebuild after the model is persisted.
+    // Drain that setup work before the listener begins measuring the public request.
+    defer()->invoke();
+
     return ['language' => $language, 'page' => $page, 'site' => $site];
 }
