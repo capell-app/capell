@@ -35,15 +35,23 @@ function recordRevisionFor(Page $page): void
     $page->save();
 }
 
-it('records a revision when a page is saved', function (): void {
+it('records the first revision after a page owns its authoring relationships', function (): void {
     $page = Page::factory()->create();
+    $language = Language::factory()->create();
+
+    Translation::factory()
+        ->translatable($page)
+        ->language($language)
+        ->createOne();
+
+    recordRevisionFor($page);
 
     $revisionEvents = DB::table('stored_events')
         ->where('aggregate_uuid', $page->uuid)
         ->where('event_class', PageRevisionRecorded::class)
         ->count();
 
-    expect($revisionEvents)->toBeGreaterThanOrEqual(1);
+    expect($revisionEvents)->toBe(1);
     expect(PageRevision::query()->where('page_uuid', $page->uuid)->exists())->toBeTrue();
 });
 
@@ -207,6 +215,13 @@ it('previews and applies a rollback that restores earlier content', function ():
 
 it('restores the content_structure_override when rolling back across a mode switch', function (): void {
     $page = Page::factory()->create();
+    $language = Language::factory()->create();
+
+    Translation::factory()
+        ->translatable($page)
+        ->language($language)
+        ->createOne();
+
     $page->forceFill(['content_structure_override' => ContentStructure::Html->value])->save();
     recordRevisionFor($page);
 
@@ -225,6 +240,14 @@ it('restores the content_structure_override when rolling back across a mode swit
 it('preserves live pageUrl analytics across a rollback', function (): void {
     $page = Page::factory()->create();
     $language = Language::factory()->create();
+
+    Model::withoutEvents(
+        fn (): Translation => Translation::factory()
+            ->translatable($page)
+            ->language($language)
+            ->slug('analytics-url')
+            ->createOne(),
+    );
 
     $pageUrl = PageUrl::factory()->create([
         'pageable_type' => $page->getMorphClass(),
@@ -254,6 +277,13 @@ it('blocks a rollback whose url would collide with another page', function (): v
     $language = Language::factory()->create();
 
     $pageA = Page::factory()->create();
+    Model::withoutEvents(
+        fn (): Translation => Translation::factory()
+            ->translatable($pageA)
+            ->language($language)
+            ->slug('shared-slug')
+            ->createOne(),
+    );
     PageUrl::factory()->create([
         'pageable_type' => $pageA->getMorphClass(),
         'pageable_id' => $pageA->getKey(),
