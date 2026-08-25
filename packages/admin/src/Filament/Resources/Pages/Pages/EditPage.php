@@ -8,6 +8,7 @@ use Capell\Admin\Actions\MutateContentPresenterAction;
 use Capell\Admin\Actions\Pages\BuildPageEditorSessionAction;
 use Capell\Admin\Actions\Pages\BuildPageRelationshipCountsAction;
 use Capell\Admin\Actions\Pages\DiscardPageEditorScratchDraftAction;
+use Capell\Admin\Actions\Pages\RecordDescendantUrlRedirectsAction;
 use Capell\Admin\Actions\Pages\RecordPageUrlRedirectsAction;
 use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
 use Capell\Admin\Actions\Pages\ResolvePageEditorLockAction;
@@ -18,6 +19,7 @@ use Capell\Admin\Contracts\Extenders\PageEditExtender;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
+use Capell\Admin\Data\Pages\DescendantUrlRedirectRequestData;
 use Capell\Admin\Data\Pages\PageAuthoringInputData;
 use Capell\Admin\Data\Pages\PageEditorLockRequestData;
 use Capell\Admin\Data\Pages\PageEditorScratchDraftInputData;
@@ -48,6 +50,7 @@ use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
+use Capell\Core\Actions\CollectDescendantPageUrlsAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\GetResourceFromBlueprintAction;
 use Capell\Core\Contracts\Pageable;
@@ -109,6 +112,10 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     /** @var array<int, string> */
     #[Locked]
     public array $urlChanges = [];
+
+    /** @var array<int, array<int, string>> */
+    #[Locked]
+    public array $descendantUrlChanges = [];
 
     protected bool $savingAsDraft = false;
 
@@ -193,9 +200,10 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
     /**
      * @param  array<int, string>  $urls
+     * @param  array<int, array<int, string>>  $descendantUrls
      */
     #[On('add-url-redirects')]
-    public function addUrlRedirects(array $urls): void
+    public function addUrlRedirects(array $urls, array $descendantUrls = []): void
     {
         Gate::authorize('create', PageUrl::class);
 
@@ -205,16 +213,37 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             expectedUrls: $this->urlChanges,
         ));
 
-        if ($result->acceptedCount === 0) {
+        $descendantResult = null;
+
+        if ($descendantUrls !== [] && $this->descendantUrlChanges !== []) {
+            $descendantResult = RecordDescendantUrlRedirectsAction::run(new DescendantUrlRedirectRequestData(
+                page: $this->record,
+                submittedUrls: $descendantUrls,
+                expectedUrls: $this->descendantUrlChanges,
+            ));
+        }
+
+        if ($result->acceptedCount === 0 && ($descendantResult === null || $descendantResult->acceptedCount === 0)) {
             return;
         }
 
-        throw_if($result->recordedCount === 0, InvalidArgumentException::class, 'No valid languages found for URL redirects.');
+        throw_if(
+            $result->acceptedCount > 0 && $result->recordedCount === 0,
+            InvalidArgumentException::class,
+            'No valid languages found for URL redirects.',
+        );
 
-        Notification::make('url-redirects-added')
+        $notification = Notification::make('url-redirects-added')
             ->title(__('capell-admin::message.url_redirects_added'))
-            ->success()
-            ->send();
+            ->success();
+
+        if ($descendantResult !== null && $descendantResult->recordedCount > 0) {
+            $notification->body(__('capell-admin::message.descendant_url_redirects_added', [
+                'count' => $descendantResult->recordedCount,
+            ]));
+        }
+
+        $notification->send();
 
         $this->dispatch('close-notification', id: 'url-changes');
 
@@ -515,6 +544,10 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         }
 
         $this->urlChanges = $this->getUpdatedUrlChanges();
+
+        $this->descendantUrlChanges = $this->urlChanges === []
+            ? []
+            : CollectDescendantPageUrlsAction::run($this->record);
     }
 
     protected function afterValidate(): void
@@ -1053,6 +1086,12 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
                     $languages = $model::query()->whereIn('id', array_keys($this->urlChanges))->get()->keyBy('id');
 
+                    $descendantsLine = $this->descendantUrlChanges === []
+                        ? ''
+                        : '<br />' . e(__('capell-admin::generic.url_changes_descendants', [
+                            'count' => count($this->descendantUrlChanges),
+                        ]));
+
                     return new HtmlString(
                         __('capell-admin::generic.url_changes_info') .
                         '<br />' .
@@ -1066,7 +1105,8 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                                     e($url),
                                 );
                             })
-                            ->implode('<br />'),
+                            ->implode('<br />') .
+                        $descendantsLine,
                     );
                 },
             )
@@ -1082,12 +1122,16 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         return Action::make('add-redirect')
             ->label(__('capell-admin::button.add_redirect'))
             ->requiresConfirmation()
-            ->modalDescription(__('capell-admin::message.add_url_redirect_confirmation'))
+            ->modalDescription(fn (): string => $this->descendantUrlChanges === []
+                ? __('capell-admin::message.add_url_redirect_confirmation')
+                : __('capell-admin::message.add_url_redirect_confirmation_with_descendants', [
+                    'count' => count($this->descendantUrlChanges),
+                ]))
             ->visible(fn (): bool => auth()->user()?->can('create', PageUrl::class) ?? false)
             ->button()
             ->icon('heroicon-o-plus')
-            ->badge(fn (): int => count($this->urlChanges))
-            ->dispatchTo(static::getName(), 'add-url-redirects', [$this->urlChanges]);
+            ->badge(fn (): int => count($this->urlChanges) + array_sum(array_map('count', $this->descendantUrlChanges)))
+            ->dispatchTo(static::getName(), 'add-url-redirects', [$this->urlChanges, $this->descendantUrlChanges]);
     }
 
     private function validateParentLanguages(): bool

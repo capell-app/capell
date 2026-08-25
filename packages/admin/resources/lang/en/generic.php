@@ -614,6 +614,7 @@ return [
     'upgrade_stage_readiness' => 'Readiness',
     'upgrade_stage_upgrade_steps' => 'Upgrade steps',
     'upgrade_stage_version_ledger' => 'Version ledger',
+    'url_changes_descendants' => 'This change also updated the URLs of :count child pages.',
     'url_changes_info' => 'Add a redirect to the previous URL.',
     'url_param_key_info' => 'Key of parameter (e.g page)',
     'url_param_value_info' => 'Type of parameter (e.g int)',
