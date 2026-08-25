@@ -44,9 +44,9 @@ class CoreSettingsSchema implements HasSchema
                         ->label(__('capell-admin::form.default_image_source'))
                         ->helperText(__('capell-admin::form.default_image_source_helper'))
                         ->options([
-                            ImageSourceType::Url->value => app(EnumPresentationRegistry::class)->label(ImageSourceType::Url),
-                            ImageSourceType::Upload->value => app(EnumPresentationRegistry::class)->label(ImageSourceType::Upload),
-                            ImageSourceType::Media->value => app(EnumPresentationRegistry::class)->label(ImageSourceType::Media),
+                            ImageSourceType::Url->value => resolve(EnumPresentationRegistry::class)->label(ImageSourceType::Url),
+                            ImageSourceType::Upload->value => resolve(EnumPresentationRegistry::class)->label(ImageSourceType::Upload),
+                            ImageSourceType::Media->value => resolve(EnumPresentationRegistry::class)->label(ImageSourceType::Media),
                         ])
                         ->default(ImageSourceType::Media->value)
                         ->in([

@@ -18,6 +18,7 @@ use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\MainContentRenderHookData;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Enums\RenderHookLocation;
@@ -440,6 +441,11 @@ function bindBladeRendererContext(?Pageable $page, ?Site $site, ?Language $langu
         public function getFrontendData(?string $key = null): mixed
         {
             return $key === null ? $this->frontendData : ($this->frontendData[$key] ?? null);
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->frontendData);
         }
     };
 

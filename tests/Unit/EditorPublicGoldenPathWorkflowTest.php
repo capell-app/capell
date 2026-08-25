@@ -90,7 +90,7 @@ it('pins the complete authoring lifecycle and every public safety checkpoint', f
         'sign out',
         'fresh anonymous recheck',
     ] as $step) {
-        expect($spec)->toMatch('/diagnostics\\.step\\(\\s*\'' . preg_quote($step, '/') . '\'/');
+        expect($spec)->toMatch('/diagnostics\\.step\\(\\s*\'' . preg_quote($step, '/') . "'/");
     }
 
     expect(substr_count($spec, 'expectPublicPage({'))->toBe(6)

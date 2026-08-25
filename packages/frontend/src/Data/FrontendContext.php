@@ -90,4 +90,9 @@ class FrontendContext extends Data implements FrontendContextReader
 
         return $this->params[$key] ?? null;
     }
+
+    public function renderPayload(): FrontendRenderPayload
+    {
+        return FrontendRenderPayload::fromBag($this->params);
+    }
 }

@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Contracts\Widgets\BlockPickerMetadataProvider;
 use Capell\Admin\Filament\Components\Forms\Editor\ContentBuilder;
 use Capell\Admin\Support\Widgets\UnavailableContentWidgetState;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
 use Capell\Admin\Tests\Fixtures\Livewire;
+use Capell\Admin\Tests\Fixtures\Widgets\ContentBlockPickerMetadataProvider;
+use Capell\Admin\Tests\Fixtures\Widgets\DuplicateContentBlockPickerMetadataProvider;
 use Capell\Admin\Tests\Fixtures\Widgets\StateIntegrityFilamentWidget;
 use Capell\Core\Models\BlockTemplate;
 use Filament\Actions\Action;
@@ -14,6 +17,7 @@ use Filament\Forms\Components\Select;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 it('configures accessible block authoring controls', function (): void {
     $schema = Schema::make(Livewire::make())
@@ -357,6 +361,201 @@ it('never strips reserved widget metadata before an extension processor can asse
         ->and($dehydrated[0]['data']['__capell']['future_metadata'])->toBe(['empty' => ''])
         ->and($dehydrated[0]['data']['__capell'])->not->toHaveKey('presentation');
 });
+
+it('renders the block picker with a searchable, accessible field and translated empty-state copy', function (): void {
+    $html = renderBlockPicker(buildContentBuilder());
+
+    expect($html)->toContain('type="search"')
+        ->and($html)->toContain('aria-label="' . __('capell-admin::form.block_picker_search_label') . '"')
+        ->and($html)->toContain(__('capell-admin::form.block_picker_search_placeholder'))
+        ->and($html)->toContain(__('capell-admin::form.block_picker_empty_results'))
+        ->and($html)->toContain(__('capell-admin::form.block_picker_reset_search'));
+});
+
+it('keeps every registered block reachable in the picker when no metadata provider is registered', function (): void {
+    expect(app()->tagged(BlockPickerMetadataProvider::TAG))->toBeEmpty();
+
+    $html = renderBlockPicker(buildContentBuilder());
+
+    expect($html)->toContain('Content')
+        ->and($html)->toContain(__('capell-admin::form.block_picker_uncategorized'))
+        ->and($html)->toContain('fi-icon');
+});
+
+it('preserves the exact add-block action for every item regardless of contributed metadata', function (): void {
+    $html = renderBlockPicker(buildContentBuilder());
+
+    // Filament's own dropdown-list-item template builds this exact
+    // `wire:click` string (unchanged from the original picker); CAP-0300 only
+    // changes how items are grouped and filtered around it. Js::from() embeds
+    // the arguments as a JSON.parse() call with \u-escaped quotes, built here
+    // with strtr() so the test source never has to hand-type an ambiguous
+    // backslash sequence.
+    $expectedAction = strtr(
+        "mountAction('add', JSON.parse('{QUOTEblockQUOTE:QUOTEcontentQUOTE}'), { schemaComponent: 'content' })",
+        ['QUOTE' => '\\u0022'],
+    );
+
+    expect($html)->toContain($expectedAction);
+});
+
+it('renders label, description, category, and icon contributed by a tagged metadata provider', function (): void {
+    app()->tag([ContentBlockPickerMetadataProvider::class], BlockPickerMetadataProvider::TAG);
+
+    $html = renderBlockPicker(buildContentBuilder());
+
+    expect($html)->toContain('Rich content')
+        ->and($html)->toContain('Freeform prose and inline media.')
+        ->and($html)->toContain('Foundation blocks');
+});
+
+it('never renders a duplicate contribution for a block that already has metadata', function (): void {
+    app()->tag([ContentBlockPickerMetadataProvider::class], BlockPickerMetadataProvider::TAG);
+    app()->tag([DuplicateContentBlockPickerMetadataProvider::class], BlockPickerMetadataProvider::TAG);
+
+    $html = renderBlockPicker(buildContentBuilder());
+
+    expect($html)->toContain('Rich content')
+        ->and($html)->not->toContain('Rich content (duplicate)')
+        ->and($html)->not->toContain('This duplicate description must never render.')
+        ->and($html)->not->toContain('Duplicate blocks');
+});
+
+it('keeps legacy widgets with no contributed metadata usable in the picker', function (): void {
+    resolve(WidgetDiscovery::class)->register(StateIntegrityFilamentWidget::class);
+    app()->tag([ContentBlockPickerMetadataProvider::class], BlockPickerMetadataProvider::TAG);
+
+    $legacyLabel = StateIntegrityFilamentWidget::make()->getLabel();
+    $legacyLabelText = $legacyLabel instanceof Htmlable ? strip_tags($legacyLabel->toHtml()) : $legacyLabel;
+
+    $html = renderBlockPicker(buildContentBuilder());
+
+    expect($html)->toContain($legacyLabelText)
+        ->and($html)->toContain(__('capell-admin::form.block_picker_uncategorized'))
+        ->and($html)->toContain('Rich content');
+});
+
+it('exposes every picker item as a focusable, keyboard-activatable button', function (): void {
+    $html = renderBlockPicker(buildContentBuilder());
+
+    expect($html)->toContain('type="button"')
+        ->and($html)->not->toContain('tabindex="-1"');
+});
+
+it('renders syntactically valid Alpine expressions throughout the block picker', function (): void {
+    $html = renderBlockPicker(buildContentBuilder(), decodeAttributes: false);
+    $expressions = alpineExpressions($html);
+
+    expect($expressions)->not->toBeEmpty();
+
+    $process = new Process([
+        'node',
+        '-e',
+        <<<'JS_WRAP'
+        const encodedExpressions = process.argv[1];
+        const expressions = JSON.parse(Buffer.from(encodedExpressions, 'base64').toString('utf8'));
+
+        for (const [attribute, expression] of expressions) {
+            const isStatement = attribute.startsWith('x-on:') || ['x-effect', 'x-init'].includes(attribute);
+
+            try {
+                new Function(isStatement ? expression : `return (${expression})`);
+            } catch (error) {
+                throw new SyntaxError(`${attribute}: ${expression}\n${error.message}`, { cause: error });
+            }
+        }
+        JS_WRAP,
+        base64_encode(json_encode($expressions, JSON_THROW_ON_ERROR)),
+    ]);
+
+    $process->run();
+
+    expect($process->isSuccessful())->toBeTrue($process->getErrorOutput());
+});
+
+/**
+ * Builds a `ContentBuilder` inside a real Schema/Livewire container, matching
+ * every other test in this file. Filament components resolve translations,
+ * labels, and blocks via their container, so a standalone `::make()` call
+ * fails with "Component::$container must not be accessed before
+ * initialization" the moment the block picker reads a block's label or icon.
+ */
+function buildContentBuilder(): ContentBuilder
+{
+    $schema = Schema::make(Livewire::make())
+        ->statePath('data')
+        ->components([ContentBuilder::make('content')]);
+
+    $builder = $schema->getComponents()[0];
+
+    throw_unless($builder instanceof ContentBuilder, RuntimeException::class, 'Expected content builder.');
+
+    return $builder;
+}
+
+/**
+ * Calls the protected `generateBlockPickerHtml()` override directly with the
+ * builder's own registered blocks, so assertions target exactly the method
+ * CAP-0300 changed without depending on a full Livewire round trip.
+ */
+function renderBlockPicker(ContentBuilder $builder, bool $decodeAttributes = true): string
+{
+    $reflection = new ReflectionMethod($builder, 'generateBlockPickerHtml');
+
+    $html = $reflection->invoke(
+        $builder,
+        Action::make('add'),
+        $builder->getBlocks(),
+        'content',
+        '<button type="button">Add content block</button>',
+        null,
+        null,
+        null,
+        null,
+    );
+
+    throw_unless(is_string($html), RuntimeException::class, 'Expected block picker HTML.');
+
+    if ($decodeAttributes) {
+        // Filament's attribute bag HTML-escapes `wire:click` values; decode so
+        // assertions can compare against the literal action string it embeds.
+        return html_entity_decode($html, ENT_QUOTES);
+    }
+
+    return $html;
+}
+
+/**
+ * @return list<array{string, string}>
+ */
+function alpineExpressions(string $html): array
+{
+    throw_if($html === '', RuntimeException::class, 'Expected non-empty block picker HTML.');
+
+    $document = new DOMDocument;
+    $previousUseInternalErrors = libxml_use_internal_errors(true);
+    $document->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    libxml_use_internal_errors($previousUseInternalErrors);
+
+    $expressions = [];
+
+    foreach ($document->getElementsByTagName('*') as $element) {
+        foreach ($element->attributes as $attribute) {
+            if (! str_starts_with($attribute->name, 'x-')) {
+                continue;
+            }
+
+            if (blank($attribute->value)) {
+                continue;
+            }
+
+            $expressions[] = [$attribute->name, $attribute->value];
+        }
+    }
+
+    return $expressions;
+}
 
 function componentText(mixed $value): string
 {

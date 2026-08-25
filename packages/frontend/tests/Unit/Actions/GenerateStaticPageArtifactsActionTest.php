@@ -139,44 +139,6 @@ it('generates static html artifacts for the default enabled site domain', functi
         ->and(File::exists($store->root() . '/https.preview.example.test/default-domain-static-test/index.html'))->toBeFalse();
 });
 
-it('does not write flagged public html safety responses to static artifacts', function (): void {
-    config()->set('cache.default', 'array');
-
-    [, $site, $renderData] = staticPageArtifactsRenderData('/unsafe-static-test');
-
-    app()->instance(Kernel::class, new readonly class($renderData) implements Kernel
-    {
-        public function __construct(private PublicPageRenderData $renderData) {}
-
-        public function bootstrap(): void {}
-
-        public function handle($request): Response
-        {
-            resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
-
-            return new Response(
-                '<html><body data-model-id="42">Unsafe</body></html>',
-                Response::HTTP_OK,
-                ['X-Capell-Public-Html-Safety' => 'authoring_marker'],
-            );
-        }
-
-        public function terminate($request, $response): void {}
-
-        public function getApplication(): Application
-        {
-            return app();
-        }
-    });
-
-    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/unsafe-static-test']);
-    $store = resolve(StaticPageArtifactStore::class);
-
-    expect($manifest['artifacts'])->toBe([])
-        ->and(File::exists($store->root() . '/https.example.test/unsafe-static-test/index.html'))->toBeFalse()
-        ->and($store->readManifest()['artifacts'])->toBe([]);
-});
-
 it('inspects response bodies before writing static artifacts', function (): void {
     config()->set('cache.default', 'array');
 
@@ -207,7 +169,8 @@ it('inspects response bodies before writing static artifacts', function (): void
     $store = resolve(StaticPageArtifactStore::class);
 
     expect($manifest['artifacts'])->toBe([])
-        ->and(File::exists($store->root() . '/https.example.test/unguarded-unsafe-static-test/index.html'))->toBeFalse();
+        ->and(File::exists($store->root() . '/https.example.test/unguarded-unsafe-static-test/index.html'))->toBeFalse()
+        ->and($store->readManifest()['artifacts'])->toBe([]);
 });
 
 it('rejects signed admin urls before writing static artifacts', function (): void {

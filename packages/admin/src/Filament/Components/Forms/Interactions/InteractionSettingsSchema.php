@@ -58,7 +58,7 @@ class InteractionSettingsSchema
             InteractionTargetType::PublicAction,
         ])
             ->filter(fn (InteractionTargetType $targetType): bool => $targetType !== InteractionTargetType::Fragment || self::fragmentTargetsAvailable())
-            ->mapWithKeys(fn (InteractionTargetType $targetType): array => [$targetType->value => app(EnumPresentationRegistry::class)->label($targetType)])
+            ->mapWithKeys(fn (InteractionTargetType $targetType): array => [$targetType->value => resolve(EnumPresentationRegistry::class)->label($targetType)])
             ->all();
     }
 

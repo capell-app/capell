@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Editor;
 
+use BackedEnum;
 use Capell\Admin\Actions\Widgets\MergeContentWidgetSettingsAction;
 use Capell\Admin\Actions\Widgets\NormalizeContentWidgetStateAction;
 use Capell\Admin\Actions\Widgets\PruneBlankWidgetSettingsAction;
 use Capell\Admin\Actions\Widgets\RegenerateContentWidgetIdentitiesAction;
+use Capell\Admin\Actions\Widgets\ResolveBlockPickerMetadataAction;
+use Capell\Admin\Contracts\Widgets\BlockPickerMetadataProvider;
+use Capell\Admin\Data\Widgets\BlockPickerItemViewData;
 use Capell\Admin\Exceptions\ContentWidgetStateTraversalLimitExceeded;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\Interactions\InteractionSettingsSchema;
 use Capell\Admin\Filament\Components\Forms\Presentation\PresentationSettingsSchema;
 use Capell\Admin\Filament\Components\Forms\Presentation\ResourceSettingsSchema;
+use Capell\Admin\Support\Widgets\BlockPickerItemPresenter;
 use Capell\Admin\Support\Widgets\BoundedContentWidgetStateTraversal;
 use Capell\Admin\Support\Widgets\UnavailableContentWidgetState;
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
@@ -25,7 +30,12 @@ use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\Width;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Js;
 use Illuminate\Support\Str;
+use Override;
 use Throwable;
 
 class ContentBuilder extends Builder
@@ -124,6 +134,115 @@ class ContentBuilder extends Builder
         }
 
         return $resolved;
+    }
+
+    /**
+     * Renders the block picker with search, categories, icons, and concise
+     * descriptions sourced from any contributed {@see BlockPickerMetadataProvider}
+     * metadata. Every block keeps its exact `wire:click` add-block action,
+     * key, and state; this only changes how the picker is presented.
+     *
+     * A block without contributed metadata still renders using its Filament
+     * label and icon (or a generic fallback icon) under a shared "other
+     * blocks" category, so packages that have not opted in never lose their
+     * place in the picker.
+     *
+     * @param  array<int, Block>  $blocks
+     * @param  array<string, ?int> | int | null  $columns
+     */
+    #[Override]
+    protected function generateBlockPickerHtml(
+        Action $action,
+        array $blocks,
+        string $key,
+        string $triggerHtml,
+        Alignment|string|null $actionAlignment = null,
+        ?string $afterItem = null,
+        array|int|null $columns = null,
+        Width|string|null $width = null,
+    ): string {
+        $items = $this->blockPickerItems($action, $blocks, $key, $afterItem);
+
+        $presenter = new BlockPickerItemPresenter;
+        $fallbackCategory = __('capell-admin::form.block_picker_uncategorized');
+
+        return view('capell-admin::filament.forms.editor.block-picker', [
+            'trigger' => new HtmlString($triggerHtml),
+            'actionAlignment' => $actionAlignment,
+            'width' => $width,
+            'categories' => $presenter->group($items, $fallbackCategory),
+            'allHaystacks' => array_map(
+                static fn (BlockPickerItemViewData $item): string => $item->searchHaystack,
+                $items,
+            ),
+        ])->render();
+    }
+
+    /**
+     * @param  array<int, Block>  $blocks
+     * @return list<BlockPickerItemViewData>
+     */
+    private function blockPickerItems(Action $action, array $blocks, string $key, ?string $afterItem): array
+    {
+        $metadata = ResolveBlockPickerMetadataAction::run();
+        $presenter = new BlockPickerItemPresenter;
+        $fallbackCategory = __('capell-admin::form.block_picker_uncategorized');
+
+        $items = [];
+
+        foreach ($blocks as $block) {
+            if (! $block instanceof Block) {
+                continue;
+            }
+
+            $blockName = $block->getName();
+
+            $items[] = $presenter->present(
+                blockName: $blockName,
+                filamentLabel: $this->blockLabelValue($block),
+                filamentIcon: $this->blockIconValue($block),
+                metadata: $metadata[$blockName] ?? null,
+                wireClickAction: $this->blockPickerWireClickAction($action, $blockName, $key, $afterItem),
+                fallbackCategory: $fallbackCategory,
+                fallbackIcon: 'heroicon-o-squares-2x2',
+            );
+        }
+
+        return $items;
+    }
+
+    private function blockPickerWireClickAction(Action $action, string $blockName, string $key, ?string $afterItem): string
+    {
+        $arguments = ['block' => $blockName];
+
+        if (filled($afterItem)) {
+            $arguments['afterItem'] = $afterItem;
+        }
+
+        return sprintf(
+            "mountAction('%s', %s, { schemaComponent: '%s' })",
+            $action->getName(),
+            Js::from($arguments),
+            $key,
+        );
+    }
+
+    private function blockLabelValue(Block $block): string
+    {
+        $label = $block->getLabel();
+
+        return is_string($label) ? $label : strip_tags($label->toHtml());
+    }
+
+    private function blockIconValue(Block $block): ?string
+    {
+        $icon = $block->getIcon();
+
+        return match (true) {
+            is_string($icon) => $icon,
+            $icon instanceof BackedEnum => (string) $icon->value,
+            default => null,
+        };
     }
 
     /**

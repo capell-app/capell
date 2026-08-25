@@ -16,6 +16,7 @@ use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Support\Facades\File;
@@ -137,6 +138,11 @@ it('uses editor active preset when rendering theme token css hook', function ():
         public function getFrontendData(?string $key = null): mixed
         {
             return $key === null ? [] : null;
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
         }
     };
 
