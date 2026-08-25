@@ -61,6 +61,10 @@ class UpdatePageUrlAction
             'site_id' => $data['site_id'],
             'pageable_id' => $data['pageable_id'],
             'pageable_type' => $data['pageable_type'],
+        ], [
+            // Eloquent has not applied the database default before saving, but
+            // the observer needs the active state to check a new URL collision.
+            'status' => true,
         ]);
 
         $url->fill(['url' => $data['url']]);

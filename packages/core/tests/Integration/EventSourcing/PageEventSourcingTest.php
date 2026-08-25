@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\ResolvePublicPageByUrlAction;
+use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\EventSourcing\Aggregates\PageAggregate;
@@ -17,7 +19,9 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PageWorkflowState;
+use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
@@ -86,7 +90,77 @@ it('rebuilds the canonical url when restoring a revision captured before url cre
 
     $serializer->restore($page->fresh(), $captured);
 
-    expect($page->pageUrls()->where('url', '/original-url')->exists())->toBeTrue();
+    $resolution = ResolvePublicPageByUrlAction::run($page->site, $language, '/original-url');
+
+    expect($resolution->found())->toBeTrue()
+        ->and($resolution->page?->getKey())->toBe($page->getKey())
+        ->and($resolution->fields->url)->toBe('/original-url');
+});
+
+it('rejects an empty-url-snapshot rollback when its synthesised canonical url is already live', function (): void {
+    $site = Site::factory()->createOne();
+    $language = Language::factory()->createOne();
+    $pageA = Page::factory()->site($site)->createOne(['name' => 'Page A']);
+
+    $translationA = Model::withoutEvents(
+        fn (): Translation => Translation::factory()
+            ->translatable($pageA)
+            ->language($language)
+            ->slug('shared-url')
+            ->createOne(['title' => 'Page A']),
+    );
+
+    recordRevisionFor($pageA);
+    $targetVersion = resolve(RollbackService::class)->currentVersion($pageA->uuid);
+
+    SetupPageUrlsAction::run($pageA, updateDescendants: false);
+    $translationA->forceFill([
+        'meta' => [...($translationA->meta ?? []), 'slug' => 'moved-url'],
+    ])->save();
+    recordRevisionFor($pageA);
+
+    $pageB = Page::factory()->site($site)->createOne(['name' => 'Page B']);
+    Translation::factory()
+        ->translatable($pageB)
+        ->language($language)
+        ->slug('shared-url')
+        ->createOne(['title' => 'Page B']);
+
+    $targetState = resolve(RollbackService::class)->targetStateAt($pageA->uuid, $targetVersion);
+
+    expect($targetState['pageUrls'] ?? null)->toBe([])
+        ->and($pageA->pageUrls()->where('url', '/moved-url')->exists())->toBeTrue()
+        ->and($pageB->pageUrls()->where('url', '/shared-url')->exists())->toBeTrue();
+
+    $collision = null;
+
+    try {
+        ApplyRollbackAction::run($pageA->fresh(), $targetVersion);
+    } catch (Exception $exception) {
+        $collision = $exception;
+    }
+
+    $sharedUrls = PageUrl::query()
+        ->where('site_id', $site->getKey())
+        ->where('language_id', $language->getKey())
+        ->where('url', '/shared-url')
+        ->get();
+
+    $sharedResolution = ResolvePublicPageByUrlAction::run($site, $language, '/shared-url');
+    $movedResolution = ResolvePublicPageByUrlAction::run($site, $language, '/moved-url');
+
+    expect($sharedUrls)->toHaveCount(1)
+        ->and($collision)->toBeInstanceOf(Exception::class)
+        ->and($collision?->getMessage())->toBe(sprintf(
+            'Page URL "/shared-url" already exists for site ID %d and language ID %d.',
+            $site->getKey(),
+            $language->getKey(),
+        ))
+        ->and($sharedUrls->sole()->pageable_id)->toBe($pageB->getKey())
+        ->and($sharedResolution->found())->toBeTrue()
+        ->and($sharedResolution->page?->getKey())->toBe($pageB->getKey())
+        ->and($movedResolution->found())->toBeTrue()
+        ->and($movedResolution->page?->getKey())->toBe($pageA->getKey());
 });
 
 it('previews and applies a rollback that restores earlier content', function (): void {
