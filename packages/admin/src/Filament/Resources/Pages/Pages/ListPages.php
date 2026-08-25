@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Pages\Pages;
 
+use Capell\Admin\Actions\Pages\BuildPageListingQueryAction;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\Page\CreatePageAction;
 use Capell\Admin\Filament\Concerns\ApplySearchRelationsTable;
@@ -16,9 +17,7 @@ use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Core\Models\Blueprint;
-use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
-use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Models\Site;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
@@ -59,24 +58,10 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
             $query = Page::query();
         }
 
-        $hasLanguageFilter = isset($this->getTableFilterState('filter')['language_id']) && $this->getTableFilterState('filter')['language_id'] !== '';
-
-        if ($hasLanguageFilter) {
-            $language_id = $this->getTableFilterState('filter')['language_id'];
-        } else {
-            /** @var class-string<Language> $model */
-            $model = Language::class;
-
-            $language_id = $model::query()->default()->value('id');
-        }
-
-        $query->with([
-            'translation' => fn (BuilderContract $query): BuilderContract => $this->applyLanguageFilter($query, $hasLanguageFilter, $language_id),
-            'pageUrl' => fn (BuilderContract $query): BuilderContract => $this->applyLanguageFilter($query, $hasLanguageFilter, $language_id)
-                ->with('siteDomain'),
-        ]);
-
-        return $query;
+        return BuildPageListingQueryAction::run(
+            $query,
+            $this->getTableFilterState('filter')['language_id'] ?? null,
+        );
     }
 
     #[Override]
@@ -202,18 +187,5 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
                 'create_url',
                 $resource::getUrl('create', ['type' => $pageType->key]),
             ));
-    }
-
-    private function applyLanguageFilter(BuilderContract $query, bool $hasLanguageFilter, ?int $language_id): BuilderContract
-    {
-        if ($language_id === null || $language_id === 0) {
-            return $query;
-        }
-
-        return $query->when(
-            $hasLanguageFilter,
-            fn (BuilderContract $query): BuilderContract => $query->where('language_id', $language_id),
-            fn (BuilderContract $query): BuilderContract => LanguagesOrderScope::applyTo($query, [$language_id]),
-        );
     }
 }

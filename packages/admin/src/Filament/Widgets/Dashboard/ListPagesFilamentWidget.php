@@ -65,7 +65,7 @@ class ListPagesFilamentWidget extends BaseWidget implements CapellFilamentWidget
 
         return $query->with([
             'translations' => fn (BuilderContract $query): BuilderContract => LanguagesOrderScope::applyTo($query, [$languageId]),
-            'url' => fn (BuilderContract $query): BuilderContract => LanguagesOrderScope::applyTo($query, [$languageId]),
+            'pageUrl' => fn (BuilderContract $query): BuilderContract => LanguagesOrderScope::applyTo($query, [$languageId]),
         ]);
     }
 

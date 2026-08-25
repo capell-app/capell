@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\PageUrlChanged;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Frontend\Listeners\PurgeCdnCacheOnPageChangeListener;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
+use Illuminate\Support\Facades\Event;
 
 it('invalidates page render data generation when a page url changes', function (): void {
     config()->set('cache.default', 'array');
@@ -36,6 +38,28 @@ it('invalidates page render data generation when a page url changes', function (
     ));
 
     expect(publicPageRenderGeneration($cache, Page::class, $page->id, $page->site_id, $language->id))->toBe($before + 1);
+});
+
+it('adds site and language keys when a page surrogate key is invalidated', function (): void {
+    $page = Page::factory()
+        ->withTranslations()
+        ->createOne();
+    $language = $page->languages->firstOrFail();
+    $receivedKeys = [];
+
+    Event::listen(
+        FrontendSurrogateKeysInvalidated::class,
+        static function (FrontendSurrogateKeysInvalidated $event) use (&$receivedKeys): void {
+            $receivedKeys = $event->surrogateKeys;
+        },
+    );
+
+    event(new FrontendSurrogateKeysInvalidated(['page-' . $page->id]));
+
+    expect($receivedKeys)
+        ->toContain('page-' . $page->id)
+        ->toContain('site-' . $page->site_id)
+        ->toContain('lang-' . $language->code);
 });
 
 function publicPageRenderGeneration(PublicPageRenderDataCache $cache, string $pageType, int $pageId, int $siteId, int $languageId): int
