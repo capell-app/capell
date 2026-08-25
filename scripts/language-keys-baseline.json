@@ -774,7 +774,7 @@
         "capell-marketplace::marketplace.selection.impact_reason_"
     ],
     "dynamicSiteCount": 98,
-    "dynamicFamilyCount": 39,
+    "dynamicFamilyCount": 40,
     "dynamicSites": [
         "packages/admin/resources/views/activity/details.blade.php::family:capell-admin::activity.skip_reasons.*",
         "packages/admin/resources/views/activity/details.blade.php::family:capell-admin::activity.statuses.*",
@@ -840,6 +840,7 @@
         "packages/admin/tests/Feature/Settings/AdminSettingsSchemaTest.php::family:capell-admin::form.*",
         "packages/core/src/Enums/ExtensionAutoUpdatePolicyEnum.php::family:capell-core::extensions.auto_update_policies.*",
         "packages/core/src/Enums/ExtensionReleaseKindEnum.php::family:capell-core::extensions.release_kinds.*",
+        "packages/frontend/src/Console/Commands/DiagnoseErrorPagesCommand.php::family:capell-frontend::diagnostics.error_pages.*",
         "packages/marketplace/resources/views/filament/livewire/marketplace-extensions-browser/install-review.blade.php::family:capell-marketplace::marketplace.readiness.banner.*",
         "packages/marketplace/resources/views/filament/livewire/marketplace-extensions-browser/install-review.blade.php::family:capell-marketplace::marketplace.selection.impact_values.entitlement.*",
         "packages/marketplace/resources/views/filament/livewire/marketplace-extensions-browser/install-review.blade.php::family:capell-marketplace::marketplace.selection.impact_values.maturity.*",
@@ -870,7 +871,6 @@
         "packages/marketplace/src/Filament/Livewire/MarketplaceExtensionsBrowser.php::family:capell-marketplace::marketplace.install.blocked.*",
         "packages/marketplace/src/Filament/Livewire/MarketplaceExtensionsBrowser.php::family:capell-marketplace::marketplace.selection.blocked.*",
         "packages/marketplace/src/Filament/Pages/MarketplaceExtensionDetailPage.php::family:capell-marketplace::marketplace.detail.licence_statuses.*",
-        "packages/marketplace/src/Filament/Support/MarketplaceCatalogueRecordProvider.php::family:capell-marketplace::marketplace.platform-builder.*",
         "packages/marketplace/src/Filament/Support/MarketplaceInstallActionPresenter.php::family:capell-marketplace::marketplace.install.blocked.*",
         "packages/marketplace/src/Filament/Widgets/MarketplaceInstallOperationsFilamentWidget.php::family:capell-marketplace::marketplace.operations.flow_status.*",
         "packages/marketplace/tests/Unit/Enums/MarketplaceSortTest.php::family:capell-marketplace::marketplace.sort.*"
@@ -890,6 +890,7 @@
         "capell-admin::theme-editor.options.*",
         "capell-core::extensions.auto_update_policies.*",
         "capell-core::extensions.release_kinds.*",
+        "capell-frontend::diagnostics.error_pages.*",
         "capell-marketplace::marketplace.capabilities.*",
         "capell-marketplace::marketplace.categories.*",
         "capell-marketplace::marketplace.detail.licence_statuses.*",
