@@ -47,7 +47,7 @@ final class ContentGraphNodeData extends Data
 
     private static function integerAttribute(Model $model, string $attribute): ?int
     {
-        $value = $model->getAttribute($attribute);
+        $value = $model->getAttributes()[$attribute] ?? null;
 
         return is_numeric($value) ? (int) $value : null;
     }

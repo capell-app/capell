@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
+use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Concerns\RestoresSoftDeletedRelations;
 use Capell\Core\Enums\CacheEnum;
@@ -96,6 +97,17 @@ class PageObserver
     {
         $this->clearCache();
         event(new PageSaved($page));
+
+        defer(
+            function () use ($page): void {
+                $freshPage = Page::query()->find($page->getKey());
+
+                if ($freshPage instanceof Page) {
+                    RebuildContentGraphForModelAction::run($freshPage);
+                }
+            },
+            'content-graph:' . $page::class . ':' . $page->getKey(),
+        );
     }
 
     private function restoreTrashedAncestors(Page $page): void

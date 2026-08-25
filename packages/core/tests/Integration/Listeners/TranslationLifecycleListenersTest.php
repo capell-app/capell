@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\UpdatePageUrlAction;
 use Capell\Core\Enums\CacheEnum;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
+use Capell\Core\Enums\ContentStructure;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -167,4 +171,39 @@ it('runs saved and deleted listeners for pageable translations', function (): vo
     );
 
     expect($hasFlushedPrefixesAfterDelete)->toBeFalse();
+});
+
+it('rebuilds content graph edges after a page translation is saved', function (): void {
+    $embeddedPage = Page::factory()->createOne();
+    $blueprint = Blueprint::factory()->contentStructure(ContentStructure::Blocks)->createOne();
+    $embeddingPage = Page::factory()->type($blueprint)->createOne();
+
+    Translation::factory()
+        ->translatable($embeddingPage)
+        ->createOne([
+            'content' => [
+                [
+                    'type' => 'feature',
+                    'data' => ['page_id' => $embeddedPage->getKey()],
+                ],
+            ],
+        ]);
+
+    $edgeExists = fn (): bool => ContentGraphEdge::query()
+        ->where('source_type', Page::class)
+        ->where('source_id', $embeddingPage->getKey())
+        ->where('target_type', Page::class)
+        ->where('target_id', $embeddedPage->getKey())
+        ->where('kind', ContentGraphEdgeKind::FoundOnPage)
+        ->exists();
+
+    expect($edgeExists())->toBeFalse();
+
+    $deferredCallbacks = defer();
+
+    expect($deferredCallbacks)->not->toBeEmpty();
+
+    $deferredCallbacks->invoke();
+
+    expect($edgeExists())->toBeTrue();
 });
