@@ -12,8 +12,6 @@ use Illuminate\Support\Facades\Event;
 
 use function Pest\Laravel\assertDatabaseMissing;
 
-use RuntimeException;
-
 it('creates a page with validated payload', function (): void {
     $site = Site::factory()->createOne();
 
