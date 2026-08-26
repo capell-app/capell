@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Pages\ValidatePageAuthoringAction;
 use Capell\Core\Contracts\Actionable;
 use Capell\Core\Models\Page;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -33,13 +34,15 @@ class CreatePageAction implements Actionable
         /** @var class-string<Page> $pageModel */
         $pageModel = Page::class;
 
-        $page = $pageModel::create(Arr::except($data, ['translations']));
+        return DB::transaction(function () use ($data, $pageModel): Page {
+            $page = $pageModel::create(Arr::except($data, ['translations']));
 
-        if (isset($data['translations']) && is_array($data['translations']) && $data['translations'] !== []) {
-            $this->createTranslations($page, $data['translations']);
-        }
+            if (isset($data['translations']) && is_array($data['translations']) && $data['translations'] !== []) {
+                $this->createTranslations($page, $data['translations']);
+            }
 
-        return $page;
+            return $page;
+        });
     }
 
     /**
