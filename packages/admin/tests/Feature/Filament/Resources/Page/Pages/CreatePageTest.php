@@ -21,6 +21,7 @@ use Capell\Core\Support\Creator\LayoutCreator;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 
@@ -117,6 +118,41 @@ test(
     [LandingPageConfigurator::class],
     [ResultsPageConfigurator::class],
 ]);
+
+// Regression guard for CreatePage::hasDatabaseTransactions(): Filament opens its
+// transaction in CreateRecord::create() and calls afterCreate() inside it, so the whole
+// SavePageAuthoringAction/PageSaved listener chain is atomic with the pages row. Nothing
+// else asserts that, so dropping the override would otherwise leave the suite green.
+it('rolls back the page when the filament create page fails saving authoring data', function (): void {
+    $language = Language::factory()->createOne();
+    Site::factory()->recycle($language)->withTranslations()->create();
+    $type = Blueprint::factory()->page()->admin('configurator', DefaultPageConfigurator::getKey())->create();
+
+    $newData = Page::factory()->make();
+
+    Event::listen('eloquent.creating: ' . Translation::class, function (): void {
+        throw new RuntimeException('Translation creation failed.');
+    });
+
+    expect(function () use ($language, $type, $newData): void {
+        Livewire::test(CreatePage::class)
+            ->assertSuccessful()
+            ->set('data.translations', [])
+            ->fillForm([
+                'name' => $newData->name,
+                'blueprint_id' => $type->id,
+                'translations' => [
+                    (string) Str::uuid() => [
+                        'language_id' => $language->id,
+                        'title' => $newData->name,
+                    ],
+                ],
+            ])
+            ->call('create');
+    })->toThrow(RuntimeException::class, 'Translation creation failed.');
+
+    assertDatabaseMissing(Page::class, ['name' => $newData->name]);
+});
 
 it('prevents creating a page if parent missing languages', function (): void {
     $languages = Language::factory()->count(2)->create();
@@ -216,6 +252,42 @@ describe('from edit page', function (): void {
         [LandingPageConfigurator::class],
         [ResultsPageConfigurator::class],
     ]);
+
+    // Regression guard for CreatePageAction::setUp()'s ->databaseTransaction().
+    it('rolls back the page when the modal create action fails saving authoring data', function (): void {
+        $page = Page::factory()->withTranslations()->create();
+        $type = Blueprint::factory()->page()->admin('configurator', DefaultPageConfigurator::getKey())->create();
+        $language = $page->site->language;
+
+        $newData = Page::factory()->make();
+        $slug = str($newData->name)->slug()->toString();
+
+        Event::listen('eloquent.creating: ' . Translation::class, function (): void {
+            throw new RuntimeException('Translation creation failed.');
+        });
+
+        expect(function () use ($page, $type, $language, $newData, $slug): void {
+            Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+                ->assertSuccessful()
+                ->mountAction(TestAction::make(CreatePageAction::class))
+                ->set('mountedActions.0.data.translations', [])
+                ->fillForm([
+                    'blueprint_id' => $type->id,
+                    'name' => $newData->name,
+                    'parent_id' => null,
+                    'translations' => [
+                        (string) Str::uuid() => [
+                            'language_id' => $language->id,
+                            'title' => $newData->name,
+                            'meta' => ['slug' => $slug],
+                        ],
+                    ],
+                ])
+                ->callMountedAction();
+        })->toThrow(RuntimeException::class, 'Translation creation failed.');
+
+        assertDatabaseMissing(Page::class, ['name' => $newData->name]);
+    });
 
     it('required fields are required', function (): void {
         $page = Page::factory()->createOne();

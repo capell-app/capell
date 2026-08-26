@@ -54,6 +54,15 @@ class CreatePage extends CreateRecord implements HasPageResource
         return $resource;
     }
 
+    /**
+     * Deliberately overrides the trait method rather than setting the
+     * $hasDatabaseTransactions property, so page creation is always atomic
+     * regardless of the panel default and cannot be turned off with
+     * ->databaseTransaction(false). Filament opens the transaction in
+     * CreateRecord::create() and calls afterCreate() inside it, so the whole
+     * SavePageAuthoringAction/PageSaved listener chain commits or rolls back
+     * with the pages row. Do not "fix" this into an opt-out.
+     */
     public function hasDatabaseTransactions(): bool
     {
         return true;
