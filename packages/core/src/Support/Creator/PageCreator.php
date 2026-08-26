@@ -20,6 +20,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Slug\SlugGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class PageCreator implements PageCreatable
@@ -78,31 +79,35 @@ class PageCreator implements PageCreatable
             ],
         ];
 
-        $page = CapellCore::createOrUpdateModel(
-            $this->pageModel,
-            [
-                'layout_id' => $layout->id,
-                'site_id' => $site->id,
-                'blueprint_id' => $type->id,
-            ],
-            fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
-            PageInterceptorInterface::class,
-        );
-
-        $languages->each(function (Language $language) use ($page): void {
-            $page->translations()->firstOrCreate([
-                'language_id' => $language->id,
-            ], [
-                'title' => __('capell::generic.page_not_found'),
-                'content' => __('capell::generic.page_not_found_content'),
-                'meta' => [
-                    'slug' => 'not-found',
-                    'error_status_copy' => $this->errorStatusCopyDefaults(),
+        $page = DB::transaction(function () use ($defaults, $languages, $layout, $site, $type): Page {
+            $page = CapellCore::createOrUpdateModel(
+                $this->pageModel,
+                [
+                    'layout_id' => $layout->id,
+                    'site_id' => $site->id,
+                    'blueprint_id' => $type->id,
                 ],
-            ]);
-        });
+                fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
+                PageInterceptorInterface::class,
+            );
 
-        SetupPageUrlsAction::run($page);
+            $languages->each(function (Language $language) use ($page): void {
+                $page->translations()->firstOrCreate([
+                    'language_id' => $language->id,
+                ], [
+                    'title' => __('capell::generic.page_not_found'),
+                    'content' => __('capell::generic.page_not_found_content'),
+                    'meta' => [
+                        'slug' => 'not-found',
+                        'error_status_copy' => $this->errorStatusCopyDefaults(),
+                    ],
+                ]);
+            });
+
+            SetupPageUrlsAction::run($page);
+
+            return $page;
+        });
 
         return $page;
     }
@@ -126,28 +131,32 @@ class PageCreator implements PageCreatable
             ],
         ];
 
-        $page = CapellCore::createOrUpdateModel(
-            $this->pageModel,
-            [
-                'layout_id' => $layout->id,
-                'site_id' => $site->id,
-                'blueprint_id' => $type->id,
-            ],
-            fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
-            PageInterceptorInterface::class,
-        );
+        $page = DB::transaction(function () use ($defaults, $languages, $layout, $site, $type): Page {
+            $page = CapellCore::createOrUpdateModel(
+                $this->pageModel,
+                [
+                    'layout_id' => $layout->id,
+                    'site_id' => $site->id,
+                    'blueprint_id' => $type->id,
+                ],
+                fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
+                PageInterceptorInterface::class,
+            );
 
-        $languages->each(function (Language $language) use ($page): void {
-            $page->translations()->firstOrCreate([
-                'language_id' => $language->id,
-            ], [
-                'title' => __('capell::generic.maintenance'),
-                'content' => '<p>We are making a few updates. Please check back soon.</p>',
-                'meta' => ['slug' => 'maintenance'],
-            ]);
+            $languages->each(function (Language $language) use ($page): void {
+                $page->translations()->firstOrCreate([
+                    'language_id' => $language->id,
+                ], [
+                    'title' => __('capell::generic.maintenance'),
+                    'content' => '<p>We are making a few updates. Please check back soon.</p>',
+                    'meta' => ['slug' => 'maintenance'],
+                ]);
+            });
+
+            SetupPageUrlsAction::run($page);
+
+            return $page;
         });
-
-        SetupPageUrlsAction::run($page);
 
         return $page;
     }
@@ -168,41 +177,45 @@ class PageCreator implements PageCreatable
             'order' => 1,
         ];
 
-        $page = $this->existingRootPage($site, $languages);
+        $page = DB::transaction(function () use ($defaults, $languages, $layout, $site, $type): Page {
+            $page = $this->existingRootPage($site, $languages);
 
-        if ($page instanceof Page) {
-            $page->forceFill($defaults)->save();
-        } else {
-            $page = CapellCore::createOrUpdateModel(
-                $this->pageModel,
-                [
-                    'layout_id' => $layout->id,
-                    'site_id' => $site->id,
-                    'blueprint_id' => $type->id,
-                ],
-                fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
-                PageInterceptorInterface::class,
-            );
-        }
+            if ($page instanceof Page) {
+                $page->forceFill($defaults)->save();
+            } else {
+                $page = CapellCore::createOrUpdateModel(
+                    $this->pageModel,
+                    [
+                        'layout_id' => $layout->id,
+                        'site_id' => $site->id,
+                        'blueprint_id' => $type->id,
+                    ],
+                    fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
+                    PageInterceptorInterface::class,
+                );
+            }
 
-        $languages->each(function (Language $language) use ($page, $site): void {
-            $title = ctype_digit($site->name[0]) ? $site->name : Str::title($site->name);
+            $languages->each(function (Language $language) use ($page, $site): void {
+                $title = ctype_digit($site->name[0]) ? $site->name : Str::title($site->name);
 
-            $page->translations()->firstOrCreate([
-                'language_id' => $language->id,
-            ], [
-                'title' => $title,
-                'content' => sprintf('<p>Welcome to %s</p>', $title),
-                'meta' => [
-                    'slug' => '/',
-                    'label' => __('capell::generic.home'),
-                    'title' => ':site',
-                    'hero' => sprintf('<p>Welcome to %s</p>', $title),
-                ],
-            ]);
+                $page->translations()->firstOrCreate([
+                    'language_id' => $language->id,
+                ], [
+                    'title' => $title,
+                    'content' => sprintf('<p>Welcome to %s</p>', $title),
+                    'meta' => [
+                        'slug' => '/',
+                        'label' => __('capell::generic.home'),
+                        'title' => ':site',
+                        'hero' => sprintf('<p>Welcome to %s</p>', $title),
+                    ],
+                ]);
+            });
+
+            SetupPageUrlsAction::run($page);
+
+            return $page;
         });
-
-        SetupPageUrlsAction::run($page);
 
         return $page;
     }
@@ -226,28 +239,32 @@ class PageCreator implements PageCreatable
             ],
         ];
 
-        $page = CapellCore::createOrUpdateModel(
-            $this->pageModel,
-            [
-                'layout_id' => $layout->id,
-                'site_id' => $site->id,
-                'blueprint_id' => $type->id,
-            ],
-            fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
-            PageInterceptorInterface::class,
-        );
+        $page = DB::transaction(function () use ($defaults, $languages, $layout, $site, $type): Page {
+            $page = CapellCore::createOrUpdateModel(
+                $this->pageModel,
+                [
+                    'layout_id' => $layout->id,
+                    'site_id' => $site->id,
+                    'blueprint_id' => $type->id,
+                ],
+                fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
+                PageInterceptorInterface::class,
+            );
 
-        $languages->each(function (Language $language) use ($page): void {
-            $page->translations()->firstOrCreate([
-                'language_id' => $language->id,
-            ], [
-                'title' => __('capell::generic.welcome'),
-                'content' => __('capell::generic.welcome_content'),
-                'meta' => ['slug' => 'welcome'],
-            ]);
+            $languages->each(function (Language $language) use ($page): void {
+                $page->translations()->firstOrCreate([
+                    'language_id' => $language->id,
+                ], [
+                    'title' => __('capell::generic.welcome'),
+                    'content' => __('capell::generic.welcome_content'),
+                    'meta' => ['slug' => 'welcome'],
+                ]);
+            });
+
+            SetupPageUrlsAction::run($page);
+
+            return $page;
         });
-
-        SetupPageUrlsAction::run($page);
 
         return $page;
     }
@@ -272,52 +289,56 @@ class PageCreator implements PageCreatable
         ];
 
         /** @var Page $page */
-        $page = CapellCore::createOrUpdateModel(
-            $this->pageModel,
-            [
-                'name' => $data['name'],
-                'layout_id' => $defaults['layout_id'],
-                'site_id' => $site->id,
-                'blueprint_id' => $defaults['blueprint_id'],
-                'parent_id' => $defaults['parent_id'],
-            ],
-            fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
-            PageInterceptorInterface::class,
-        );
+        $page = DB::transaction(function () use ($data, $defaults, $languages, $site): Page {
+            $page = CapellCore::createOrUpdateModel(
+                $this->pageModel,
+                [
+                    'name' => $data['name'],
+                    'layout_id' => $defaults['layout_id'],
+                    'site_id' => $site->id,
+                    'blueprint_id' => $defaults['blueprint_id'],
+                    'parent_id' => $defaults['parent_id'],
+                ],
+                fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
+                PageInterceptorInterface::class,
+            );
 
-        $languages->each(function (Language $language) use ($data, $page): void {
-            $translation_data = $data['translations'][$language->code] ?? [];
+            $languages->each(function (Language $language) use ($data, $page): void {
+                $translation_data = $data['translations'][$language->code] ?? [];
 
-            $meta = $translation_data['meta'] ?? [];
-            $meta['summary'] = $translation_data['summary'] ?? null;
+                $meta = $translation_data['meta'] ?? [];
+                $meta['summary'] = $translation_data['summary'] ?? null;
 
-            if (isset($translation_data['link_text'])) {
-                $meta['link_text'] = $translation_data['link_text'];
-            }
+                if (isset($translation_data['link_text'])) {
+                    $meta['link_text'] = $translation_data['link_text'];
+                }
 
-            if (! isset($meta['slug'])) {
-                $meta['slug'] = $translation_data['slug'] ?? SlugGenerator::slug($data['name']);
-            }
+                if (! isset($meta['slug'])) {
+                    $meta['slug'] = $translation_data['slug'] ?? SlugGenerator::slug($data['name']);
+                }
 
-            $attributes = [
-                'title' => $translation_data['title'] ?? $data['name'],
-                'content' => $translation_data['content'] ?? null,
-                'meta' => $meta,
-                'language_id' => $language->id,
-            ];
+                $attributes = [
+                    'title' => $translation_data['title'] ?? $data['name'],
+                    'content' => $translation_data['content'] ?? null,
+                    'meta' => $meta,
+                    'language_id' => $language->id,
+                ];
 
-            $translation = $page->translations()->firstOrNew(['language_id' => $language->id]);
+                $translation = $page->translations()->firstOrNew(['language_id' => $language->id]);
 
-            $translation->fill($attributes);
+                $translation->fill($attributes);
 
-            if (isset($data['user_id'])) {
-                $translation->forceFill([
-                    'created_by' => $data['user_id'],
-                    'updated_by' => $data['user_id'],
-                ]);
-            }
+                if (isset($data['user_id'])) {
+                    $translation->forceFill([
+                        'created_by' => $data['user_id'],
+                        'updated_by' => $data['user_id'],
+                    ]);
+                }
 
-            $translation->save();
+                $translation->save();
+            });
+
+            return $page;
         });
 
         return $page;
