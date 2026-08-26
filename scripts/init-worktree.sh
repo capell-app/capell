@@ -163,7 +163,7 @@ echo "Linked $linked packages, copied $copied tool packages ($(du -sh vendor | c
 # Verify. A wrong answer here means the suite would test the primary checkout,
 # so this is a hard failure, not a warning.
 # ---------------------------------------------------------------------------
-PROBE_CLASS='Capell\Core\Enums\Concerns\HasEnumOptions'
+PROBE_CLASS='Capell\Core\Enums\ImageSourceType'
 
 if ! command -v php >/dev/null 2>&1; then
     echo >&2

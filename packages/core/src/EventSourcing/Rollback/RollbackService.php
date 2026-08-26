@@ -70,12 +70,12 @@ final class RollbackService
                     ->recordRollback($toVersion, $targetState)
                     ->persist();
             });
-        } catch (PageUrlCollisionException $exception) {
+        } catch (PageUrlCollisionException $pageUrlCollisionException) {
             throw new RollbackBlocked([
                 RollbackIssueData::blocking(
                     code: 'page_url_conflict',
-                    message: sprintf("The URL '%s' is already in use by another page.", $exception->url),
-                    path: 'pageUrls.' . $exception->url,
+                    message: sprintf("The URL '%s' is already in use by another page.", $pageUrlCollisionException->url),
+                    path: 'pageUrls.' . $pageUrlCollisionException->url,
                 ),
             ]);
         }

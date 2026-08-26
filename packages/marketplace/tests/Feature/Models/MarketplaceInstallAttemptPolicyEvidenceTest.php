@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\CreateMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
+use Capell\Marketplace\Data\MarketplaceInstallAttemptData;
 use Capell\Marketplace\Data\MarketplaceInstallPolicyEvidenceData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
@@ -25,7 +26,7 @@ it('persists consent policy evidence and actor source for every install attempt'
         reason: $acknowledged ? null : 'beta_acknowledgement_required',
     );
 
-    $attempt = RecordMarketplaceInstallAttemptAction::run(
+    $attempt = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
         extensionSlug: 'beta-tools',
         extensionName: 'Beta Tools',
         composerName: 'capell-app/beta-tools',
@@ -35,7 +36,8 @@ it('persists consent policy evidence and actor source for every install attempt'
         policyEvidence: $evidence,
         actor: new MarketplaceInstallActorData('user-42', 'editor@example.test'),
         source: MarketplaceInstallSource::Programmatic,
-    )->fresh();
+        initializeLifecycle: false,
+    ))->fresh();
 
     expect($attempt->beta_acknowledged)->toBe($acknowledged)
         ->and($attempt->policy_evidence['listingFingerprint'])->toBe($evidence->listingFingerprint)

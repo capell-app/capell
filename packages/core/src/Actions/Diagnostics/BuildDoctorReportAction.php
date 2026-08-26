@@ -10,7 +10,6 @@ use Capell\Core\Data\Diagnostics\DoctorReportData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Support\Diagnostics\Checks\AdminUserAccessCheck;
 use Capell\Core\Support\Diagnostics\Checks\ConfigFilesCheck;
 use Capell\Core\Support\Diagnostics\Checks\DatabaseBackupBinariesCheck;
 use Capell\Core\Support\Diagnostics\Checks\DefaultThemeAndLayoutCheck;
@@ -53,7 +52,6 @@ final class BuildDoctorReportAction
         InstalledPackagesCheck::class,
         ViteInputsCheck::class,
         GeneratedTailwindCssCheck::class,
-        AdminUserAccessCheck::class,
         HomepageRouteCheck::class,
         DefaultThemeAndLayoutCheck::class,
         PageUrlSiteDomainsCheck::class,

@@ -8,6 +8,10 @@ use Capell\Core\Actions\Diagnostics\CheckAdminPanelAccessAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 
+/**
+ * @deprecated 1.x compatibility check. Admin registers its own tagged
+ *             DoctorCheck contributor for first-party diagnostics.
+ */
 final class AdminUserAccessCheck extends AbstractDoctorCheck
 {
     protected function id(): string

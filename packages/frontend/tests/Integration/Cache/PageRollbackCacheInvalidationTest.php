@@ -29,6 +29,7 @@ it('invalidates cached page delivery after a real rollback', function (): void {
 
     $page->load(['translations', 'pageUrls']);
     $page->save();
+
     $targetVersion = resolve(RollbackService::class)->currentVersion($page->uuid);
 
     $translation = $page->translations()->where('language_id', $language->getKey())->firstOrFail();

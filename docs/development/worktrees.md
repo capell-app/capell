@@ -121,7 +121,7 @@ authoritative full-suite run, do a real `composer install` in the worktree.
 Verify before trusting a test result:
 
 ```bash
-php -r 'require "vendor/autoload.php"; echo (new ReflectionClass("Capell\Core\Enums\Concerns\HasEnumOptions"))->getFileName(), PHP_EOL;'
+php -r 'require "vendor/autoload.php"; echo (new ReflectionClass("Capell\Core\Enums\ImageSourceType"))->getFileName(), PHP_EOL;'
 ```
 
 The path must be inside your worktree. If it points at the primary checkout, delete
