@@ -83,6 +83,7 @@ use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
+use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
 use Capell\Core\Macros\BlueprintMacros;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
@@ -975,6 +976,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         Event::listen('eloquent.creating: ' . Translation::class, PageTranslationCreatingListener::class);
         Event::listen('eloquent.saved: ' . Translation::class, PageTranslationSavedListener::class);
         Event::listen('eloquent.deleted: ' . Translation::class, PageTranslationDeletedListener::class);
+        CapellCore::subscriberManager()->subscribe(RebuildContentGraphOnPageRollbackSubscriber::class);
 
         return $this;
     }
