@@ -54,6 +54,36 @@ class ThemeDefinitionData extends Data
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function frontendEditor(): array
+    {
+        $editor = $this->frontend['editor'] ?? null;
+
+        return is_array($editor) ? $editor : [];
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function frontendEditorGroups(): array
+    {
+        $groups = $this->frontendEditor()['groups'] ?? null;
+
+        return is_array($groups) ? $groups : [];
+    }
+
+    /**
+     * @return array<string, array{options: list<string>}>
+     */
+    public function frontendEditorTokens(): array
+    {
+        $tokens = $this->frontendEditor()['tokens'] ?? null;
+
+        return is_array($tokens) ? $tokens : [];
+    }
+
     public function preset(string $key): ?ThemePresetData
     {
         foreach ($this->presets as $preset) {
