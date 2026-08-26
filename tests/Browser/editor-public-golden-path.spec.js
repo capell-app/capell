@@ -347,7 +347,7 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
             await adminPage.bringToFront()
             await adminPage.locator('.fi-user-menu-trigger').click()
             await adminPage
-                .getByRole('menuitem', { name: 'Sign out', exact: true })
+                .getByRole('button', { name: 'Sign out', exact: true })
                 .click()
             await adminPage.waitForURL(/\/admin\/login$/)
             diagnostics.assertHealthy('sign out')
