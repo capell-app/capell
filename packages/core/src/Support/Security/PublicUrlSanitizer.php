@@ -15,6 +15,7 @@ final class PublicUrlSanitizer
         'https://',
         'http://',
         'mailto:',
+        'tel:',
     ];
 
     public static function sanitize(mixed $value): ?string
@@ -31,7 +32,11 @@ final class PublicUrlSanitizer
 
         $lowerUrl = strtolower($url);
 
-        if (str_starts_with($lowerUrl, '//')) {
+        // Browsers treat a leading `/\`, `\/` or `\\` exactly like `//`, so a
+        // backslash variant is protocol-relative and navigates off-site. Only
+        // the leading pair is normalised; a backslash later in the string is
+        // left alone so legitimate paths keep working.
+        if (str_starts_with(str_replace('\\', '/', substr($lowerUrl, 0, 2)), '//')) {
             return null;
         }
 
