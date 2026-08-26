@@ -288,13 +288,19 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
                 )
                 .click()
             await expect(adminPage.locator('.fi-ta')).toBeVisible()
-            await adminPage
-                .getByRole('button', {
-                    name: 'Roll back to here',
-                    exact: true,
-                })
-                .last()
-                .click()
+            const rollbackActions = adminPage.getByRole('button', {
+                name: 'Roll back to here',
+                exact: true,
+            })
+
+            // The oldest complete revision is the intentionally private draft.
+            // Restore the next-oldest row: the first snapshot recorded by the
+            // publish action, which keeps the original content publicly visible.
+            await expect
+                .poll(() => rollbackActions.count())
+                .toBeGreaterThanOrEqual(2)
+            const rollbackActionCount = await rollbackActions.count()
+            await rollbackActions.nth(rollbackActionCount - 2).click()
             await expect(
                 adminPage.getByRole('heading', {
                     name: /Roll back to version \d+/,
@@ -341,7 +347,7 @@ test.describe('CAP-0266 editor to anonymous golden path', () => {
             await adminPage.bringToFront()
             await adminPage.locator('.fi-user-menu-trigger').click()
             await adminPage
-                .getByRole('menuitem', { name: 'Sign out', exact: true })
+                .getByRole('button', { name: 'Sign out', exact: true })
                 .click()
             await adminPage.waitForURL(/\/admin\/login$/)
             diagnostics.assertHealthy('sign out')

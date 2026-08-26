@@ -11,6 +11,7 @@ final class PageEditorSessionData extends Data
     public function __construct(
         public readonly string $heartbeatUrl,
         public readonly string $releaseUrl,
+        public readonly string $logoutUrl,
         public readonly ?string $csrfToken,
         public readonly bool $initialConflict,
         public readonly int $pageId,
@@ -21,6 +22,7 @@ final class PageEditorSessionData extends Data
      * @return array{
      *     heartbeatUrl: string,
      *     releaseUrl: string,
+     *     logoutUrl: string,
      *     csrfToken: string|null,
      *     intervalMs: int,
      *     initialConflict: bool,
@@ -37,6 +39,7 @@ final class PageEditorSessionData extends Data
         return [
             'heartbeatUrl' => $this->heartbeatUrl,
             'releaseUrl' => $this->releaseUrl,
+            'logoutUrl' => $this->logoutUrl,
             'csrfToken' => $this->csrfToken,
             'intervalMs' => 30_000,
             'initialConflict' => $this->initialConflict,

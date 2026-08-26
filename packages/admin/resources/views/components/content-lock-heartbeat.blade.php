@@ -5,6 +5,7 @@
      * @var array{
      *     heartbeatUrl: string,
      *     releaseUrl: string,
+     *     logoutUrl: string,
      *     csrfToken: string,
      *     intervalMs: int,
      *     initialConflict: bool,

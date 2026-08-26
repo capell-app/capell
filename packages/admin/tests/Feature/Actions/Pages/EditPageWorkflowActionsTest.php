@@ -215,6 +215,7 @@ it('builds raw editor session configuration without translated presentation', fu
         locale: 'fr',
         heartbeatUrl: '/admin/pages/1/content-lock/heartbeat',
         releaseUrl: '/admin/pages/1/content-lock/release',
+        logoutUrl: '/admin/logout',
         csrfToken: 'csrf-token',
         initialConflict: true,
     );
@@ -222,6 +223,7 @@ it('builds raw editor session configuration without translated presentation', fu
     expect($session->configuration())->toBe([
         'heartbeatUrl' => '/admin/pages/1/content-lock/heartbeat',
         'releaseUrl' => '/admin/pages/1/content-lock/release',
+        'logoutUrl' => '/admin/logout',
         'csrfToken' => 'csrf-token',
         'intervalMs' => 30000,
         'initialConflict' => true,
