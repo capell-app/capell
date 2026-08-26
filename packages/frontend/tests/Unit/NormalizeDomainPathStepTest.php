@@ -23,7 +23,7 @@ it('remains a no-op compatibility step', function (): void {
     // back — CI goes red with no obvious cause. Both go away with the class
     // itself in 2.0.
     $step = resolve('Capell\\Frontend\\Support\\Kernel\\Steps\\NormalizeDomainPathStep');
-    $result = (new ReflectionMethod($step, 'handle'))->invoke($step, $work, fn (FrontendWork $w): FrontendWork => $w);
+    $result = new ReflectionMethod($step, 'handle')->invoke($step, $work, fn (FrontendWork $w): FrontendWork => $w);
 
     expect($result)->toBe($work)
         ->and($state->relativePath())->toBe('/en/products')
