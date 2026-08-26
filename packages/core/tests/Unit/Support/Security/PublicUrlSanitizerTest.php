@@ -12,6 +12,8 @@ it('keeps safe public urls', function (string $url): void {
     'https://example.com/path',
     'HTTP://example.com/path',
     'mailto:editor@example.com',
+    'tel:+441234567890',
+    '/downloads/report\final.pdf',
 ]);
 
 it('rejects unsafe public urls', function (mixed $url): void {
@@ -20,7 +22,18 @@ it('rejects unsafe public urls', function (mixed $url): void {
     'javascript:alert(1)',
     ' data:text/html,<script>alert(1)</script>',
     'ftp://example.com/file',
+    'JaVaScRiPt:alert(1)',
+    "java\tscript:alert(1)",
+    "java\nscript:alert(1)",
+    '&#106;avascript:alert(1)',
+    '&#x6A;avascript:alert(1)',
+    'vbscript:msgbox(1)',
     '//example.com/path',
+    '/\evil.com',
+    '\/evil.com',
+    '\\\\evil.com',
+    "javascript\0:alert(1)",
     '',
     null,
+    123,
 ]);
