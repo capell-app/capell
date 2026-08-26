@@ -10,7 +10,6 @@ use Capell\Core\Actions\CreateDefaultThemeBlueprintAction;
 use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
-use Capell\Core\Enums\Concerns\HasEnumOptions;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
@@ -29,8 +28,8 @@ use Capell\Core\Models\Theme;
  * Labels are literal strings rather than `__()` calls on purpose. Descriptors are
  * built once at boot and cached for the process lifetime, so translating here
  * would freeze every operator's label to whichever locale booted first — the
- * same Octane hazard {@see HasEnumOptions} memoises
- * per-locale to avoid. Display surfaces translate at render time instead.
+ * same Octane hazard that locale-keyed enum option caches avoid. Display surfaces
+ * translate at render time instead.
  */
 final class CoreBlueprintSubjects
 {

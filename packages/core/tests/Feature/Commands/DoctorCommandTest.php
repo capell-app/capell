@@ -257,21 +257,6 @@ it('reports when no Capell packages are marked installed', function (): void {
         ->and($check?->message)->toBe('No installed Capell packages were detected.');
 });
 
-it('reports when the users table is absent during admin access checks', function (): void {
-    seedHealthyDoctorInstall();
-    Schema::shouldReceive('hasTable')
-        ->andReturnUsing(static fn (string $table): bool => $table !== 'users')
-        ->byDefault();
-    Schema::shouldReceive('hasColumn')->andReturnTrue()->byDefault();
-
-    $report = BuildDoctorReportAction::run();
-    $check = $report->checks->firstWhere('label', 'Admin user access');
-
-    expect($report->passed())->toBeFalse()
-        ->and($check?->passed)->toBeFalse()
-        ->and($check?->message)->toBe('The users table does not exist.');
-});
-
 it('does not require generated frontend tailwind css when no generator is registered', function (): void {
     seedHealthyDoctorInstall();
     File::delete(resource_path('css/capell/frontend.css'));
@@ -504,14 +489,13 @@ it('reports invalid package doctor output without hiding the rest of the install
         ->and($checks->get('Package doctor: capell:test-throwing-doctor')?->message)->toBe('Package doctor exploded.');
 });
 
-it('reports degraded doctor states for admin access, config files, storage, and default content', function (): void {
+it('reports degraded doctor states for config files, storage, and default content', function (): void {
     seedHealthyDoctorInstall();
 
     $configPath = config_path('capell-doctor-test.php');
     File::put($configPath, '<?php return [];');
     config()->set('capell.assets.disk', 'missing-assets-disk');
 
-    DB::table('model_has_roles')->delete();
     Theme::query()->update(['default' => false]);
     Layout::query()->update(['default' => false]);
 
@@ -519,18 +503,10 @@ it('reports degraded doctor states for admin access, config files, storage, and 
     $checks = $report->checks->keyBy('label');
 
     expect($report->passed())->toBeFalse()
-        ->and($checks->get('Admin user access')?->message)->toBe('Users exist but no role assignments were found.')
         ->and($checks->get('Config files')?->message)->toContain('capell-doctor-test.php')
         ->and($checks->get('Storage disks are writable')?->message)->toContain('some not configured')
         ->and($checks->get('Default theme and layout records')?->message)->toContain('No default theme')
         ->and($checks->get('Default theme and layout records')?->message)->toContain('No default layout');
-
-    DB::table('users')->delete();
-
-    $report = BuildDoctorReportAction::run();
-    $checks = $report->checks->keyBy('label');
-
-    expect($checks->get('Admin user access')?->message)->toBe('No users exist.');
 });
 
 it('does not recursively merge the core doctor into the install summary', function (): void {

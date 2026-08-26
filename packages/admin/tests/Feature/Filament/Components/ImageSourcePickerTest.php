@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Contracts\Media\AdminMediaFieldFactory;
 use Capell\Admin\Filament\Components\Forms\ImageSourcePicker;
-use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 
 beforeEach(function (): void {
-    app()->bind(MediaFieldFactory::class, static fn (): MediaFieldFactory => new class implements MediaFieldFactory
+    app()->bind(AdminMediaFieldFactory::class, static fn (): AdminMediaFieldFactory => new class implements AdminMediaFieldFactory
     {
         public function make(string $name): TextInput
         {
