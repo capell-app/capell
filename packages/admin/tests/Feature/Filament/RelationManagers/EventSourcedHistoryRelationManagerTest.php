@@ -30,7 +30,7 @@ function recordPageRevisionForRm(Page $page): void
 }
 
 it('lists the page revision index', function (): void {
-    $page = Page::factory()->createOne();
+    $page = Page::factory()->withTranslations()->createOne();
     recordPageRevisionForRm($page);
 
     $revisions = PageRevision::query()->where('page_uuid', $page->uuid)->get();
@@ -44,7 +44,7 @@ it('lists the page revision index', function (): void {
 });
 
 it('renders a translated change label instead of the projector english string', function (): void {
-    $page = Page::factory()->createOne();
+    $page = Page::factory()->withTranslations()->createOne();
     recordPageRevisionForRm($page);
 
     Livewire::test(EventSourcedHistoryRelationManager::class, [
@@ -84,7 +84,7 @@ it('rolls a page back to an earlier revision from the timeline', function (): vo
 });
 
 it('does not record a rollback event when rolling back to the current version', function (): void {
-    $page = Page::factory()->createOne();
+    $page = Page::factory()->withTranslations()->createOne();
     recordPageRevisionForRm($page);
 
     $currentVersion = resolve(RollbackService::class)->currentVersion($page->uuid);
@@ -185,7 +185,7 @@ it('rolls a page forward to undone content from the timeline', function (): void
 });
 
 it('shows the actor name, and System when no actor is recorded', function (): void {
-    $page = Page::factory()->createOne();
+    $page = Page::factory()->withTranslations()->createOne();
     recordPageRevisionForRm($page);
 
     // A revision with no recorded actor — e.g. a console or unauthenticated save.
