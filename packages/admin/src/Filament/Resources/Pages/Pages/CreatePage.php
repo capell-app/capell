@@ -54,6 +54,11 @@ class CreatePage extends CreateRecord implements HasPageResource
         return $resource;
     }
 
+    public function hasDatabaseTransactions(): bool
+    {
+        return true;
+    }
+
     public function createAsDraft(): void
     {
         $this->createdAsDraft = true;

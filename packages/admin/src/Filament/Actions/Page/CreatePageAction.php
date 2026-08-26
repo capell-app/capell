@@ -32,6 +32,7 @@ class CreatePageAction extends CreateAction
         parent::setUp();
 
         $this->slideOver()
+            ->databaseTransaction()
             ->modalWidth(Width::ScreenLarge)
             ->modalHeading(
                 fn (self $action): string => __(
