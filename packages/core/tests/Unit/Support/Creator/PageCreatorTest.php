@@ -13,6 +13,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Support\Facades\Event;
 
 it('creates home and error pages with translations for the supplied languages', function (): void {
     $english = Language::factory()->english()->create();
@@ -246,6 +247,29 @@ it('creates a custom page with translated metadata and preserves creator user st
             'slug' => 'a-propos',
         ]);
 });
+
+it('rolls back a page when translation creation fails', function (): void {
+    $english = Language::factory()->english()->create();
+    $site = Site::factory()->for($english, 'language')->create();
+    $layout = Layout::factory()->createOne(['key' => 'article']);
+    $type = Blueprint::factory()->page()->create(['key' => 'article']);
+
+    Event::listen('eloquent.creating: ' . Translation::class, function (Translation $translation): void {
+        if ($translation->translatable_type === (new Page)->getMorphClass()) {
+            throw new RuntimeException('Intentional translation creation failure.');
+        }
+    });
+
+    expect(fn (): Page => resolve(PageCreator::class)->createPage([
+        'name' => 'Atomic page',
+        'layout_id' => $layout->id,
+        'blueprint_id' => $type->id,
+        'translations' => ['en' => ['title' => 'Atomic page']],
+    ], $site, collect([$english])))->toThrow(RuntimeException::class, 'Intentional translation creation failure.');
+
+    expect(Page::query()->where('site_id', $site->id)->count())->toBe(0);
+});
+
 it('remains extensible for companion package creators', function (): void {
     $creator = new class extends PageCreator {};
 
