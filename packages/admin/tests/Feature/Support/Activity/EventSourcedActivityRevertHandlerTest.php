@@ -43,7 +43,7 @@ it('resolves the event-sourced handler for an event-sourced subject', function (
 });
 
 it('reverts a page through event-sourcing rollback', function (): void {
-    $page = Page::factory()->createOne();
+    $page = Page::factory()->withTranslations()->createOne();
     $page->load(['translations', 'pageUrls']);
     $page->save();
 

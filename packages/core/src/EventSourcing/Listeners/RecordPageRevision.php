@@ -35,6 +35,14 @@ final class RecordPageRevision
             return;
         }
 
+        // A page's initial Eloquent save can happen before the authoring flow
+        // persists its owned translations. The flow dispatches PageSaved again
+        // after relationships exist, which is the first complete aggregate
+        // state that can safely be exposed as a rollback target.
+        if ($page->wasRecentlyCreated && $page->translations()->doesntExist()) {
+            return;
+        }
+
         $aggregateClass = $this->registry->aggregateFor($page);
 
         $aggregateClass::retrieve($page->aggregateUuid())

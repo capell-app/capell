@@ -21,6 +21,7 @@ final class BuildPageEditorSessionAction
         string $locale,
         string $heartbeatUrl,
         string $releaseUrl,
+        string $logoutUrl,
         ?string $csrfToken,
         bool $initialConflict,
     ): PageEditorSessionData {
@@ -30,6 +31,7 @@ final class BuildPageEditorSessionAction
         return new PageEditorSessionData(
             heartbeatUrl: $heartbeatUrl,
             releaseUrl: $releaseUrl,
+            logoutUrl: $logoutUrl,
             csrfToken: $csrfToken,
             initialConflict: $initialConflict,
             pageId: (int) $page->getKey(),

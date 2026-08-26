@@ -2,6 +2,7 @@ export default function capellContentLockHeartbeat(config) {
     return {
         heartbeatUrl: config.heartbeatUrl ?? '',
         releaseUrl: config.releaseUrl ?? '',
+        logoutUrl: config.logoutUrl ?? '',
         csrfToken: config.csrfToken ?? '',
         intervalMs: config.intervalMs ?? 30000,
         localDraftStorageKey: config.storageKey ?? '',
@@ -21,6 +22,9 @@ export default function capellContentLockHeartbeat(config) {
         localDraftTimer: null,
         form: null,
         formObserver: null,
+        logoutForm: null,
+        logoutSubmitHandler: null,
+        logoutPending: false,
         initialDataHash: null,
         localDraft: null,
         localDraftAvailable: false,
@@ -60,6 +64,7 @@ export default function capellContentLockHeartbeat(config) {
 
             this.$nextTick(() => {
                 this.bindForm()
+                this.bindLogoutForm()
             })
 
             this.heartbeat()
@@ -103,6 +108,46 @@ export default function capellContentLockHeartbeat(config) {
             }
 
             this.applyReadOnly()
+        },
+
+        bindLogoutForm() {
+            if (this.logoutForm !== null || this.logoutUrl === '') {
+                return
+            }
+
+            this.logoutForm =
+                Array.from(document.forms).find(
+                    (form) => form.action === this.logoutUrl,
+                ) ?? null
+
+            if (this.logoutForm === null) {
+                return
+            }
+
+            this.logoutSubmitHandler = (event) => {
+                if (this.logoutPending) {
+                    event.preventDefault()
+
+                    return
+                }
+
+                if (this.released) {
+                    return
+                }
+
+                event.preventDefault()
+                this.logoutPending = true
+
+                this.release().finally(() => {
+                    this.logoutForm?.removeEventListener(
+                        'submit',
+                        this.logoutSubmitHandler,
+                    )
+                    this.logoutForm?.requestSubmit()
+                })
+            }
+
+            this.logoutForm.addEventListener('submit', this.logoutSubmitHandler)
         },
 
         heartbeat() {
@@ -444,7 +489,7 @@ export default function capellContentLockHeartbeat(config) {
 
         release(useBeacon = false) {
             if (this.released) {
-                return
+                return Promise.resolve()
             }
 
             if (this.localDraftTimer !== null) {
@@ -457,7 +502,7 @@ export default function capellContentLockHeartbeat(config) {
             this.stop()
 
             if (this.releaseUrl === '') {
-                return
+                return Promise.resolve()
             }
 
             const formData = new FormData()
@@ -466,10 +511,10 @@ export default function capellContentLockHeartbeat(config) {
             if (useBeacon && navigator.sendBeacon) {
                 navigator.sendBeacon(this.releaseUrl, formData)
 
-                return
+                return Promise.resolve()
             }
 
-            window
+            return window
                 .fetch(this.releaseUrl, {
                     method: 'POST',
                     credentials: 'same-origin',
