@@ -123,6 +123,14 @@ return RectorConfig::configure()
         ],
         StringClassNameToClassConstantRector::class => [
             __DIR__ . '/packages/core/src/Actions/Extensions/BuildExtensionSurfaceCatalogAction.php',
+            // These two cover @deprecated compatibility steps that still ship and
+            // stay reachable via the frontend.kernel.steps override. A ::class
+            // reference to a deprecated class emits classConstant.deprecatedClass
+            // and fails the hard-gated deprecations check, so the string FQCN is
+            // deliberate — Rector rewriting it back would make the two gates
+            // contradict each other. Both go away with the classes in 2.0.
+            __DIR__ . '/packages/frontend/tests/Unit/ParseUrlStepTest.php',
+            __DIR__ . '/packages/frontend/tests/Unit/NormalizeDomainPathStepTest.php',
         ],
         NarrowObjectReturnTypeRector::class => [
             __DIR__ . '/packages/core/src/Support/Models/ModelInterceptorRegistry.php',

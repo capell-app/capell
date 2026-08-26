@@ -7,7 +7,6 @@ use Capell\Marketplace\Actions\ClaimMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\CreateMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\DispatchMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
-use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallDeploymentAction;
 use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\TransitionMarketplaceInstallAttemptAction;
@@ -67,13 +66,8 @@ it('creates queued attempts from typed data with timestamps and timeline atomica
         ->and($attempt->events->first()?->message)->toBe('Typed attempt created.');
 });
 
-it('retains the deprecated recorder public signature as a create adapter', function (): void {
-    $parameterNames = collect(new ReflectionMethod(RecordMarketplaceInstallAttemptAction::class, 'handle')
-        ->getParameters())
-        ->map(fn (ReflectionParameter $parameter): string => $parameter->getName())
-        ->all();
-
-    $attempt = RecordMarketplaceInstallAttemptAction::run(
+it('creates attempts without lifecycle initialization when requested', function (): void {
+    $attempt = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
         extensionSlug: 'adapter-suite',
         extensionName: 'Adapter Suite',
         composerName: 'capell-app/adapter-suite',
@@ -84,8 +78,9 @@ it('retains the deprecated recorder public signature as a create adapter', funct
         actor: MarketplaceInstallActorData::system('adapter-test'),
         source: MarketplaceInstallSource::Cli,
         failureReason: 'blocked',
-    );
-    $legacyQueuedAttempt = RecordMarketplaceInstallAttemptAction::run(
+        initializeLifecycle: false,
+    ));
+    $queuedAttempt = CreateMarketplaceInstallAttemptAction::run(new MarketplaceInstallAttemptData(
         extensionSlug: 'adapter-queued-suite',
         extensionName: 'Adapter Queued Suite',
         composerName: 'capell-app/adapter-queued-suite',
@@ -95,39 +90,17 @@ it('retains the deprecated recorder public signature as a create adapter', funct
         policyEvidence: lifecyclePolicyEvidence(),
         actor: MarketplaceInstallActorData::system('adapter-test'),
         source: MarketplaceInstallSource::Cli,
-    );
+        initializeLifecycle: false,
+    ));
 
-    expect($parameterNames)->toBe([
-        'extensionSlug',
-        'extensionName',
-        'composerName',
-        'kind',
-        'status',
-        'betaAcknowledged',
-        'policyEvidence',
-        'actor',
-        'source',
-        'composerCommand',
-        'versionConstraint',
-        'requestedOptions',
-        'eligibility',
-        'context',
-        'deployment',
-        'failureReason',
-        'telemetryStatus',
-        'user',
-        'idempotencyKey',
-    ])
-        ->and(new ReflectionClass(RecordMarketplaceInstallAttemptAction::class)->getDocComment())
-        ->toContain('@deprecated')
-        ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
         ->and($attempt->failure_reason)->toBe('blocked')
         ->and($attempt->resolved_at)->not->toBeNull()
         ->and($attempt->events)->toHaveCount(0);
 
-    expect($legacyQueuedAttempt->queued_at)->toBeNull()
-        ->and($legacyQueuedAttempt->resolved_at)->toBeNull()
-        ->and($legacyQueuedAttempt->events)->toHaveCount(0);
+    expect($queuedAttempt->queued_at)->toBeNull()
+        ->and($queuedAttempt->resolved_at)->toBeNull()
+        ->and($queuedAttempt->events)->toHaveCount(0);
 });
 
 it('allows every declared install attempt lifecycle transition', function (

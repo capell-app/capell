@@ -7,6 +7,7 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionResolverInterface;
@@ -61,30 +62,30 @@ afterEach(function (): void {
     CapellCore::flushCache();
 });
 
-it('caches the unpaginated PageLoader::getPages result and avoids DB hits on the second call', function (): void {
+it('caches an unpaginated typed listing and avoids DB hits on the second call', function (): void {
     $fixture = makeCachingFixture();
     $database = resolve(ConnectionResolverInterface::class);
 
-    $firstResult = PageLoader::getPages(
+    $firstResult = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         pageType: 'page',
         typeKey: 'articles',
-        cacheKeyPrepend: 'caching-test-unpaginated',
-    );
+        cacheKeySuffix: 'caching-test-unpaginated',
+    ));
 
     expect($firstResult)->toBeInstanceOf(EloquentCollection::class);
 
     $database->flushQueryLog();
     $database->enableQueryLog();
 
-    $secondResult = PageLoader::getPages(
+    $secondResult = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         pageType: 'page',
         typeKey: 'articles',
-        cacheKeyPrepend: 'caching-test-unpaginated',
-    );
+        cacheKeySuffix: 'caching-test-unpaginated',
+    ));
 
     $queries = $database->getQueryLog();
 
@@ -93,11 +94,11 @@ it('caches the unpaginated PageLoader::getPages result and avoids DB hits on the
         ->and($secondResult->pluck('id')->all())->toBe($firstResult->pluck('id')->all());
 });
 
-it('caches paginated PageLoader::getPages results via the three-layer stack while preserving paginator behaviour', function (): void {
+it('caches paginated typed listings via the three-layer stack while preserving paginator behaviour', function (): void {
     $fixture = makeCachingFixture();
     $database = resolve(ConnectionResolverInterface::class);
 
-    $firstPaginator = PageLoader::getPages(
+    $firstPaginator = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         limit: 2,
@@ -105,15 +106,15 @@ it('caches paginated PageLoader::getPages results via the three-layer stack whil
         pageType: 'page',
         typeKey: 'articles',
         withPagination: true,
-        cacheKeyPrepend: 'caching-test-paginated',
-    );
+        cacheKeySuffix: 'caching-test-paginated',
+    ));
 
     expect($firstPaginator)->toBeInstanceOf(LengthAwarePaginator::class);
 
     $database->flushQueryLog();
     $database->enableQueryLog();
 
-    $secondPaginator = PageLoader::getPages(
+    $secondPaginator = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         limit: 2,
@@ -121,8 +122,8 @@ it('caches paginated PageLoader::getPages results via the three-layer stack whil
         pageType: 'page',
         typeKey: 'articles',
         withPagination: true,
-        cacheKeyPrepend: 'caching-test-paginated',
-    );
+        cacheKeySuffix: 'caching-test-paginated',
+    ));
 
     assert($firstPaginator instanceof LengthAwarePaginator);
     assert($secondPaginator instanceof LengthAwarePaginator);
@@ -133,28 +134,28 @@ it('caches paginated PageLoader::getPages results via the three-layer stack whil
         ->toBe($firstPaginator->getCollection()->pluck('id')->all());
 });
 
-it('produces distinct cache entries when cacheKeyPrepend differs', function (): void {
+it('produces distinct cache entries when cacheKeySuffix differs', function (): void {
     $fixture = makeCachingFixture();
     $database = resolve(ConnectionResolverInterface::class);
 
-    $firstResult = PageLoader::getPages(
+    $firstResult = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         pageType: 'page',
         typeKey: 'articles',
-        cacheKeyPrepend: 'distinct-keys-test',
-    );
+        cacheKeySuffix: 'distinct-keys-test',
+    ));
 
     $database->flushQueryLog();
     $database->enableQueryLog();
 
-    $secondResult = PageLoader::getPages(
+    $secondResult = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         pageType: 'page',
         typeKey: 'articles',
-        cacheKeyPrepend: 'distinct-keys-test-other',
-    );
+        cacheKeySuffix: 'distinct-keys-test-other',
+    ));
 
     $queries = $database->getQueryLog();
 
@@ -167,28 +168,28 @@ it('produces distinct cache entries when a real filter (withChildren) differs', 
     $fixture = makeCachingFixture();
     $database = resolve(ConnectionResolverInterface::class);
 
-    $firstResult = PageLoader::getPages(
+    $firstResult = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         pageType: 'page',
         typeKey: 'articles',
         withChildren: false,
-        cacheKeyPrepend: 'real-filter-test',
-    );
+        cacheKeySuffix: 'real-filter-test',
+    ));
 
     expect($firstResult)->toBeInstanceOf(EloquentCollection::class);
 
     $database->flushQueryLog();
     $database->enableQueryLog();
 
-    $secondResult = PageLoader::getPages(
+    $secondResult = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         pageType: 'page',
         typeKey: 'articles',
         withChildren: true,
-        cacheKeyPrepend: 'real-filter-test',
-    );
+        cacheKeySuffix: 'real-filter-test',
+    ));
 
     $queries = $database->getQueryLog();
 
@@ -200,28 +201,28 @@ it('produces distinct cache entries when onlyListableTypes differs', function ()
     $fixture = makeCachingFixture();
     $database = resolve(ConnectionResolverInterface::class);
 
-    $firstResult = PageLoader::getPages(
+    $firstResult = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         pageType: 'page',
         typeKey: 'articles',
         onlyListableTypes: true,
-        cacheKeyPrepend: 'listable-filter-test',
-    );
+        cacheKeySuffix: 'listable-filter-test',
+    ));
 
     expect($firstResult)->toBeInstanceOf(EloquentCollection::class);
 
     $database->flushQueryLog();
     $database->enableQueryLog();
 
-    $secondResult = PageLoader::getPages(
+    $secondResult = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         pageType: 'page',
         typeKey: 'articles',
         onlyListableTypes: false,
-        cacheKeyPrepend: 'listable-filter-test',
-    );
+        cacheKeySuffix: 'listable-filter-test',
+    ));
 
     $queries = $database->getQueryLog();
 

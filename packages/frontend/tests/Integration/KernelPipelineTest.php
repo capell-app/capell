@@ -5,8 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\FrontendKernelInterface;
-use Capell\Frontend\Support\Kernel\Steps\NormalizeDomainPathStep;
-use Capell\Frontend\Support\Kernel\Steps\ParseUrlStep;
+use Capell\Frontend\Support\Kernel\FrontendKernelSteps;
 use Capell\Frontend\Support\Kernel\Steps\SiteResolveStep;
 use Capell\Tests\Support\Concerns\TestingFrontend;
 use Illuminate\Http\Request;
@@ -42,7 +41,6 @@ it('uses site resolution as the sole default path resolution step', function ():
     $steps = $stepsProperty->getValue($kernel);
 
     expect($steps)
-        ->toContain(SiteResolveStep::class)
-        ->not->toContain(ParseUrlStep::class)
-        ->not->toContain(NormalizeDomainPathStep::class);
+        ->toBe(FrontendKernelSteps::DEFAULTS)
+        ->and($steps[0] ?? null)->toBe(SiteResolveStep::class);
 });

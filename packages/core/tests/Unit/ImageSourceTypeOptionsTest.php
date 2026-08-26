@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Enums\ImageSourceType;
 use Illuminate\Support\Facades\Lang;
 
-describe('HasEnumOptions', function (): void {
+describe('ImageSourceType options', function (): void {
     it('returns all options as value => label pairs', function (): void {
         expect(ImageSourceType::options())->toBe([
             'url' => 'URL',

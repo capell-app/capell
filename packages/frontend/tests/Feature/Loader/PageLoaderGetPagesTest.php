@@ -7,6 +7,7 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Frontend\Data\PageListingRequestData;
 use Capell\Frontend\Support\Loader\PageLoader;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -136,7 +137,7 @@ function loadPagesForOrderingTest(
     ?PageOrderEnum $ordering,
     bool $withPagination = false,
 ): Collection|LengthAwarePaginator {
-    return PageLoader::getPages(
+    return PageLoader::list(new PageListingRequestData(
         language: $language,
         site: $site,
         limit: $withPagination ? 2 : null,
@@ -146,12 +147,12 @@ function loadPagesForOrderingTest(
         typeKey: $type->key,
         withPagination: $withPagination,
         paginationKey: 'frontend-pages',
-        cacheKeyPrepend: 'ordering-test',
+        cacheKeySuffix: 'ordering-test',
         useCache: false,
         modifyQuery: function (Builder $query) use ($pageIds): void {
             $query->whereIn('id', $pageIds);
         },
-    );
+    ));
 }
 
 function loadPagesWithAllParams(
@@ -179,7 +180,7 @@ function loadPagesWithAllParams(
     bool $useCache,
     ?Closure $modifyQuery,
 ): Collection|LengthAwarePaginator {
-    return PageLoader::getPages(
+    return PageLoader::list(new PageListingRequestData(
         language: $language,
         site: $site,
         page: $page,
@@ -199,11 +200,11 @@ function loadPagesWithAllParams(
         withDate: $withDate,
         onlyListableTypes: $onlyListableTypes,
         paginationKey: $paginationKey,
-        cacheKeyPrepend: $cacheKeyPrepend,
+        cacheKeySuffix: $cacheKeyPrepend,
         morphModel: $morphModel,
         useCache: $useCache,
         modifyQuery: $modifyQuery,
-    );
+    ));
 }
 
 it('orders pages alphabetically when ordering is alphabetical', function (): void {

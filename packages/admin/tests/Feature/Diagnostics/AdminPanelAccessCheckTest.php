@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Actions\Diagnostics\CheckAdminPanelAccessAction;
+use Capell\Admin\Actions\Diagnostics\CheckAdminPanelAccessAction;
+use Capell\Admin\Tests\Fixtures\Models\DiagnosticsDeniedUser;
+use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Tests\Fixtures\Models\User;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
 it('reports critical evidence when no configured users exist', function (): void {
@@ -81,16 +80,28 @@ it('rejects users whose real panel access contract denies access', function (): 
         ->and($result->evidence['accessible_user_count'])->toBe(0);
 });
 
-final class DiagnosticsDeniedUser extends Authenticatable implements FilamentUser
-{
-    use HasFactory;
+it('reports when the users table is absent', function (): void {
+    Schema::shouldReceive('hasTable')
+        ->andReturnUsing(static fn (string $table): bool => $table !== 'users')
+        ->byDefault();
 
-    protected $table = 'users';
+    $result = CheckAdminPanelAccessAction::run();
 
-    protected $guarded = [];
+    expect($result->passed)->toBeFalse()
+        ->and($result->message)->toBe('The users table does not exist.');
+});
 
-    public function canAccessPanel(Panel $panel): bool
-    {
-        return false;
-    }
-}
+it('reports users without an effective admin role assignment', function (): void {
+    User::factory()->createOne();
+
+    $result = CheckAdminPanelAccessAction::run();
+
+    expect($result->passed)->toBeFalse()
+        ->and($result->message)->toBe('Users exist but no role assignments were found.');
+});
+
+it('contributes the Admin-owned access check to the Core doctor report', function (): void {
+    $checks = BuildDoctorReportAction::run(includePackageDoctors: false)->checks;
+
+    expect($checks->where('id', 'core.admin.access'))->toHaveCount(1);
+});

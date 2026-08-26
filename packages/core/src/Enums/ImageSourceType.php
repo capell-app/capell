@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums;
 
-use Capell\Core\Enums\Concerns\HasEnumOptions;
 use Filament\Support\Contracts\HasLabel;
 
 enum ImageSourceType: string implements HasLabel
 {
-    use HasEnumOptions;
-
     case Url = 'url';
 
     case Upload = 'upload';
@@ -20,6 +17,21 @@ enum ImageSourceType: string implements HasLabel
     case SpatieMedia = 'spatie_media';
 
     case CuratorMedia = 'curator_media';
+
+    /**
+     * @return array<string, string>
+     */
+    public static function options(): array
+    {
+        /** @var array<string, array<string, string>> $optionsByLocale */
+        static $optionsByLocale = [];
+
+        $locale = app()->getLocale();
+
+        return $optionsByLocale[$locale] ??= collect(self::cases())
+            ->mapWithKeys(fn (self $case): array => [$case->value => $case->getLabel()])
+            ->all();
+    }
 
     public function getLabel(): string
     {

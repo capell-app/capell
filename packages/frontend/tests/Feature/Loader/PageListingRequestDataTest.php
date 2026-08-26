@@ -136,10 +136,10 @@ it('keeps the 23-argument getPages adapter and maps every input to the typed req
         ->and($captured->modifyQuery)->toBe($modifyQuery);
 });
 
-it('returns the same ordered result through the typed and legacy boundaries', function (): void {
+it('returns ordered pages with canonical relations through the typed boundary', function (): void {
     $fixture = makePageListingRequestFixture();
 
-    $typed = PageLoader::list(new PageListingRequestData(
+    $pages = PageLoader::list(new PageListingRequestData(
         language: $fixture['language'],
         site: $fixture['site'],
         ordering: PageOrderEnum::Default,
@@ -148,18 +148,8 @@ it('returns the same ordered result through the typed and legacy boundaries', fu
         useCache: false,
     ));
 
-    $legacy = PageLoader::getPages(
-        language: $fixture['language'],
-        site: $fixture['site'],
-        ordering: PageOrderEnum::Default,
-        pageType: 'page',
-        typeKey: $fixture['type']->key,
-        useCache: false,
-    );
-
-    expect($typed->pluck('id')->all())->toBe($legacy->pluck('id')->all())
-        ->and(array_keys($typed->firstOrFail()->getRelations()))
-        ->toBe(array_keys($legacy->firstOrFail()->getRelations()));
+    expect($pages->pluck('id')->all())->toBe($fixture['pages']->sortBy('order')->pluck('id')->all())
+        ->and($pages->firstOrFail()->getRelations())->toHaveKeys(['blueprint', 'translation', 'pageUrl']);
 });
 
 it('builds the listing spec directly from the typed request and its deterministic suffix', function (): void {
