@@ -66,6 +66,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Concerns\InteractsWithFormActions;
 use Filament\Resources\Pages\EditRecord;
@@ -910,6 +911,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             releaseUrl: Route::has('capell-admin.api.pages.content-lock.release')
                 ? route('capell-admin.api.pages.content-lock.release', ['page' => $this->record])
                 : '',
+            logoutUrl: Filament::getLogoutUrl(),
             csrfToken: csrf_token(),
             initialConflict: $this->hasConflictingContentLock(),
         );
