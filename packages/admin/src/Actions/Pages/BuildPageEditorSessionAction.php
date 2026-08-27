@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Pages;
 
 use Capell\Admin\Data\Pages\PageEditorSessionData;
-use Capell\Core\Models\Page;
+use Capell\Core\Contracts\Pageable;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -15,8 +16,11 @@ final class BuildPageEditorSessionAction
     use AsFake;
     use AsObject;
 
+    /**
+     * @param  Model&Pageable<Model>  $page
+     */
     public function handle(
-        Page $page,
+        Model&Pageable $page,
         ?Authenticatable $user,
         string $locale,
         string $heartbeatUrl,
