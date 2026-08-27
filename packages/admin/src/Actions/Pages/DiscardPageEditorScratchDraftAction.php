@@ -7,8 +7,9 @@ namespace Capell\Admin\Actions\Pages;
 use Capell\Admin\Data\Pages\PageEditorScratchDraftResultData;
 use Capell\Admin\Enums\PageEditorScratchDraftStatus;
 use Capell\Core\Actions\EditorScratchDrafts\DiscardEditorScratchDraftAction;
-use Capell\Core\Models\Page;
+use Capell\Core\Contracts\Pageable;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -18,7 +19,7 @@ final class DiscardPageEditorScratchDraftAction
     use AsObject;
 
     public function handle(
-        Page $page,
+        Model&Pageable $page,
         ?Authenticatable $user,
         string $locale,
     ): PageEditorScratchDraftResultData {
