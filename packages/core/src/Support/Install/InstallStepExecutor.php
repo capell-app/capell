@@ -46,6 +46,7 @@ final class InstallStepExecutor
     public function execute(string $stepKey, InstallRunState $state): InstallRunState
     {
         config(['app.url' => $state->inputData->siteUrl]);
+        InstallFilamentPanelAction::registerPanelProviders();
         CapellCore::clearExtensionCache();
 
         $stepFailed = false;

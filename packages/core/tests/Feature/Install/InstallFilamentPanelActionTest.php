@@ -6,6 +6,8 @@ use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Install\RecordingInstallProgressReporter;
+use Filament\PanelProvider;
+use Filament\PanelRegistry;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -190,6 +192,7 @@ PHP);
     $kernel->shouldReceive('output')->zeroOrMoreTimes()->andReturn('');
     $this->app->instance(ConsoleKernel::class, $kernel);
     Artisan::clearResolvedInstances();
+    resolve(PanelRegistry::class);
 
     InstallFilamentPanelAction::run(new NullProgressReporter);
 
@@ -197,7 +200,13 @@ PHP);
         ->and(File::get(resource_path('css/filament/admin/theme.css')))
         ->toContain("@import '../../../../vendor/filament/filament/resources/css/theme.css';")
         ->toContain("@source '../../../../app/Filament/**/*';")
-        ->toContain("@source '../../../../resources/views/filament/**/*';");
+        ->toContain("@source '../../../../resources/views/filament/**/*';")
+        ->and(app()->getProvider('App\\Providers\\Filament\\AdminPanelProvider'))
+        ->toBeInstanceOf(PanelProvider::class)
+        ->and(resolve(PanelRegistry::class)->get('admin'))
+        ->not->toBeNull()
+        ->and(resolve(PanelRegistry::class)->getDefault()->getId())
+        ->toBe('admin');
 });
 
 it('falls back to a fresh process when filament install is not registered in-process', function (): void {
