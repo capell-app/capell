@@ -256,9 +256,7 @@ it('rolls back a page when translation creation fails', function (): void {
     $type = Blueprint::factory()->page()->create(['key' => 'article']);
 
     Event::listen('eloquent.creating: ' . Translation::class, function (Translation $translation): void {
-        if ($translation->translatable_type === (new Page)->getMorphClass()) {
-            throw new RuntimeException('Intentional translation creation failure.');
-        }
+        throw_if($translation->translatable_type === (new Page)->getMorphClass(), RuntimeException::class, 'Intentional translation creation failure.');
     });
 
     expect(fn (): Pageable => resolve(PageCreator::class)->createPage([
