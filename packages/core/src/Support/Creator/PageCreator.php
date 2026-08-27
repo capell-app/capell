@@ -79,7 +79,7 @@ class PageCreator implements PageCreatable
             ],
         ];
 
-        $page = DB::transaction(function () use ($defaults, $languages, $layout, $site, $type): Page {
+        return DB::transaction(function () use ($defaults, $languages, $layout, $site, $type): Page {
             $page = CapellCore::createOrUpdateModel(
                 $this->pageModel,
                 [
@@ -108,8 +108,6 @@ class PageCreator implements PageCreatable
 
             return $page;
         });
-
-        return $page;
     }
 
     /**

@@ -63,6 +63,7 @@ class CreatePage extends CreateRecord implements HasPageResource
      * SavePageAuthoringAction/PageSaved listener chain commits or rolls back
      * with the pages row. Do not "fix" this into an opt-out.
      */
+    #[Override]
     public function hasDatabaseTransactions(): bool
     {
         return true;
