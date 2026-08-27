@@ -18,6 +18,9 @@ final class DiscardPageEditorScratchDraftAction
     use AsFake;
     use AsObject;
 
+    /**
+     * @param  Model&Pageable<Model>  $page
+     */
     public function handle(
         Model&Pageable $page,
         ?Authenticatable $user,
