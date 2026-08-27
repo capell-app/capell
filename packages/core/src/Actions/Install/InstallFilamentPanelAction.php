@@ -8,6 +8,9 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Filament\PanelRegistry;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -34,9 +37,42 @@ class InstallFilamentPanelAction
         private readonly ProcessFactoryInterface $processFactory,
     ) {}
 
+    public static function registerPanelProviders(): void
+    {
+        foreach (self::panelProviderPaths() as $path) {
+            $relativePath = str_replace(app_path() . DIRECTORY_SEPARATOR, '', $path);
+            $class = 'App\\' . str_replace(['/', '.php'], ['\\', ''], $relativePath);
+
+            if (! class_exists($class)) {
+                require_once $path;
+            }
+
+            if (! class_exists($class)) {
+                continue;
+            }
+
+            $provider = app()->getProvider($class) ?? app()->register($class);
+
+            if (! $provider instanceof PanelProvider) {
+                continue;
+            }
+
+            if (! app()->resolved(PanelRegistry::class)) {
+                continue;
+            }
+
+            $panel = $provider->panel(Panel::make());
+            $registry = resolve(PanelRegistry::class);
+
+            if ($registry->get($panel->getId()) === null) {
+                $registry->register($panel);
+            }
+        }
+    }
+
     public function handle(ProgressReporter $reporter): void
     {
-        $panelProviderPaths = $this->panelProviderPaths();
+        $panelProviderPaths = self::panelProviderPaths();
 
         if ($panelProviderPaths !== []) {
             $reporter->report('→ Filament admin panel already configured.');
@@ -48,8 +84,9 @@ class InstallFilamentPanelAction
         if (! array_key_exists('filament:install', Artisan::all())) {
             $this->installPanelInFreshProcess($reporter, null);
             $this->ensurePanelProviderWasCreated();
+            self::registerPanelProviders();
             $this->ensureDefaultThemeStylesheetExists();
-            $this->reportMissingThemeConfiguration($this->panelProviderPaths(), $reporter);
+            $this->reportMissingThemeConfiguration(self::panelProviderPaths(), $reporter);
 
             return;
         }
@@ -72,8 +109,29 @@ class InstallFilamentPanelAction
         }
 
         $this->ensurePanelProviderWasCreated();
+        self::registerPanelProviders();
         $this->ensureDefaultThemeStylesheetExists();
-        $this->reportMissingThemeConfiguration($this->panelProviderPaths(), $reporter);
+        $this->reportMissingThemeConfiguration(self::panelProviderPaths(), $reporter);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function panelProviderPaths(): array
+    {
+        $providersDir = app_path('Providers/Filament');
+
+        if (! is_dir($providersDir)) {
+            return [];
+        }
+
+        $paths = glob($providersDir . '/*PanelProvider.php');
+
+        if ($paths === false) {
+            return [];
+        }
+
+        return array_values(array_filter($paths, is_file(...)));
     }
 
     private function installPanelInFreshProcess(ProgressReporter $reporter, ?Throwable $previous): void
@@ -116,7 +174,7 @@ class InstallFilamentPanelAction
 
     private function ensurePanelProviderWasCreated(): void
     {
-        if ($this->panelProviderPaths() !== []) {
+        if (self::panelProviderPaths() !== []) {
             return;
         }
 
@@ -140,26 +198,6 @@ class InstallFilamentPanelAction
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
 CSS);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function panelProviderPaths(): array
-    {
-        $providersDir = app_path('Providers/Filament');
-
-        if (! is_dir($providersDir)) {
-            return [];
-        }
-
-        $paths = glob($providersDir . '/*PanelProvider.php');
-
-        if ($paths === false) {
-            return [];
-        }
-
-        return array_values(array_filter($paths, is_file(...)));
     }
 
     /**
