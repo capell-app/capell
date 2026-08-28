@@ -13,7 +13,7 @@ use Illuminate\Database\Schema\Blueprint;
 class BlueprintMacros
 {
     /**
-     * @return Closure(string $column): void
+     * @return Closure(?string=): void
      *
      * @return-closure-this Blueprint
      */
