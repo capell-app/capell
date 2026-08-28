@@ -20,8 +20,10 @@ class BlueprintMacros
     public function visibleDates(): Closure
     {
         return function (?string $name = null): void {
-            $this->timestamp($name !== null ? $name . '_from' : 'visible_from')->nullable();
-            $this->timestamp($name !== null ? $name . '_until' : 'visible_until')->nullable();
+            // Publication sentinels intentionally live beyond 2038; MySQL
+            // TIMESTAMP cannot represent those dates.
+            $this->dateTime($name !== null ? $name . '_from' : 'visible_from')->nullable();
+            $this->dateTime($name !== null ? $name . '_until' : 'visible_until')->nullable();
         };
     }
 
