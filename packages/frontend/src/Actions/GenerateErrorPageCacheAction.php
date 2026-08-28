@@ -16,6 +16,7 @@ use Capell\Frontend\Enums\ErrorPageStatusEnum;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Support\Error\ErrorPagePathResolver;
+use Capell\Frontend\Support\Error\ErrorPageRegenerationScope;
 use Illuminate\Support\Facades\Date;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -45,7 +46,10 @@ final class GenerateErrorPageCacheAction
         $store = resolve(StaticErrorPageStore::class);
         $site->loadMissing(['language', 'siteDomains.language', 'theme', 'translations', 'logo']);
 
-        $page = resolve(PageCreator::class)->createErrorPage($site, $site->getAllLanguages());
+        $page = resolve(ErrorPageRegenerationScope::class)->whileGenerating(
+            (int) $site->getKey(),
+            fn (): Page => resolve(PageCreator::class)->createErrorPage($site, $site->getAllLanguages()),
+        );
         $entries = [];
         $logoUrl = $this->logoUrl($site);
 

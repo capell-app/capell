@@ -120,6 +120,41 @@ it('regenerates error pages for an enabled site when the store is bound', functi
     expect(data_get($manifest, 'sites.' . $siteDomain->site_id . '.entries.0'))->not->toBeNull();
 });
 
+it('does not recursively regenerate generated error pages but still reacts to external changes', function (): void {
+    $store = recordingStaticErrorPageStore();
+    bindRecordingRenderer();
+
+    $language = Language::factory()->english()->create();
+
+    // Site creation dispatches regeneration before its domain exists. The
+    // generated page writes through the normal Eloquent lifecycle, so this
+    // must return without recursively re-entering the same site action.
+    $site = Site::factory()->for($language, 'language')->create();
+
+    $siteDomain = SiteDomain::factory()
+        ->for($site)
+        ->state(['language_id' => $language->id])
+        ->create();
+
+    $writesAfterCreation = $store->writes;
+    expect($writesAfterCreation)->toBeGreaterThan(0);
+
+    $site->name = 'Externally renamed site';
+    $site->save();
+
+    $writesAfterSiteChange = $store->writes;
+    expect($writesAfterSiteChange)->toBeGreaterThan($writesAfterCreation);
+
+    $errorPage = Page::query()
+        ->where('site_id', $siteDomain->site_id)
+        ->whereHas('blueprint', fn ($query) => $query->where('key', 'error'))
+        ->firstOrFail();
+    $errorPage->name = 'Externally changed error page';
+    $errorPage->save();
+
+    expect($store->writes)->toBeGreaterThan($writesAfterSiteChange);
+});
+
 it('is a no-op when the static error page store is not bound', function (): void {
     app()->forgetInstance(StaticErrorPageStore::class);
 

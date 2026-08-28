@@ -104,6 +104,7 @@ use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Support\Error\ErrorPagePathResolver;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
+use Capell\Frontend\Support\Error\ErrorPageRegenerationScope;
 use Capell\Frontend\Support\Font\FontMimeTypeResolver;
 use Capell\Frontend\Support\Fragments\EncryptedPublicFragmentReferenceCodec;
 use Capell\Frontend\Support\Fragments\FrontendInteractionTargetCapabilityContributor;
@@ -248,6 +249,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ErrorPagePathResolver::class);
         $this->app->singleton(ErrorPageFallbackManifestStore::class);
         $this->app->scoped(ErrorPageRegenerationQueue::class);
+        $this->app->scoped(ErrorPageRegenerationScope::class);
         $this->app->scoped(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->scoped(PublicViewQueryGuard::class);

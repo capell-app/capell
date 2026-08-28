@@ -12,6 +12,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\RegenerateSiteErrorPagesAction;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
+use Capell\Frontend\Support\Error\ErrorPageRegenerationScope;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 
@@ -70,6 +71,10 @@ final class ErrorPageModelInvalidationObserver
             $siteId = $this->resolveSiteId($model);
 
             if ($siteId === null) {
+                return;
+            }
+
+            if (resolve(ErrorPageRegenerationScope::class)->isGenerating($siteId)) {
                 return;
             }
 
