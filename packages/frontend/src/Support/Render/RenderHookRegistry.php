@@ -29,6 +29,8 @@ class RenderHookRegistry
     /** @var array<string, true> Stable keys already contributed, for dedupe. */
     protected array $contributedKeys = [];
 
+    private int $legacyReceiptSequence = 0;
+
     public function __construct(
         private readonly ?Container $container = null,
     ) {}
@@ -252,9 +254,10 @@ class RenderHookRegistry
     private function receipt(mixed $extension, string $location): void
     {
         $implementation = is_string($extension) ? $extension : (is_object($extension) ? $extension::class : get_debug_type($extension));
+        $sequence = ++$this->legacyReceiptSequence;
         $this->receipts()?->recordFromContext(
             ExtensionContributionType::RenderHook,
-            'hook:' . $location . ':' . $implementation,
+            'hook:' . $location . ':' . $implementation . ':' . $sequence,
             $implementation,
             self::class,
             'frontend',

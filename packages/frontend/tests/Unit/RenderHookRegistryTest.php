@@ -45,6 +45,24 @@ it('emits a receipt at the direct render hook boundary', function (): void {
         ->and($receipts->forPackage('vendor/frontend-hooks')[0]->type)->toBe(ExtensionContributionType::RenderHook);
 });
 
+it('emits distinct receipts for unkeyed closures at one hook location', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $registry = new RenderHookRegistry;
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/frontend-hooks', 'frontend', 'Vendor\\FrontendServiceProvider'),
+        function () use ($registry): void {
+            $registry->registerCallable(RenderHookLocation::Footer, static fn (): string => 'one');
+            $registry->registerCallable(RenderHookLocation::Footer, static fn (): string => 'two');
+        },
+    );
+
+    expect($receipts->forPackage('vendor/frontend-hooks'))->toHaveCount(2)
+        ->and($receipts->forPackage('vendor/frontend-hooks')[0]->key)
+        ->not->toBe($receipts->forPackage('vendor/frontend-hooks')[1]->key);
+});
+
 it('deduplicates keyed contributions by stable key and exposes diagnostics', function (): void {
     $registry = new RenderHookRegistry;
 

@@ -170,6 +170,28 @@ it('marks direct foundation component registrations as built-ins', function (): 
         ->and($receipts->all()[0]->foundationBuiltIn)->toBeTrue();
 });
 
+it('receipts built-in backed enum component batches with foundation ownership', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    (new CapellCoreManager)->registerComponents(AssetComponentEnum::Card, AssetComponentEnum::cases());
+
+    expect($receipts->all())->toHaveCount(4)
+        ->and(array_map(
+            static fn (object $receipt): string => $receipt->ownerPackage . ':' . $receipt->providerBucket . ':' . $receipt->implementation,
+            $receipts->all(),
+        ))->toBe([
+            'capell-app/core:runtime:' . AssetComponentEnum::Card->value,
+            'capell-app/core:runtime:' . AssetComponentEnum::Media->value,
+            'capell-app/core:runtime:' . AssetComponentEnum::Page->value,
+            'capell-app/core:runtime:' . AssetComponentEnum::Tile->value,
+        ])
+        ->and(array_filter(
+            $receipts->all(),
+            static fn (object $receipt): bool => ! $receipt->foundationBuiltIn,
+        ))->toBe([]);
+});
+
 enum PackageSurfaceRegistrarTestModel: string
 {
     case Example = stdClass::class;
