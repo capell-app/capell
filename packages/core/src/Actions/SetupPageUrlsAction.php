@@ -141,10 +141,19 @@ class SetupPageUrlsAction
             }
 
             foreach ($target->pageUrls as $pageUrl) {
-                if (! $pageUrl instanceof PageUrl
-                    || $pageUrl->type === UrlTypeEnum::Redirect
-                    || $pageUrl->language_id === null
-                    || ! is_string($pageUrl->url)) {
+                if (! $pageUrl instanceof PageUrl) {
+                    continue;
+                }
+
+                if ($pageUrl->type === UrlTypeEnum::Redirect) {
+                    continue;
+                }
+
+                if ($pageUrl->language_id === null) {
+                    continue;
+                }
+
+                if (! is_string($pageUrl->url)) {
                     continue;
                 }
 
