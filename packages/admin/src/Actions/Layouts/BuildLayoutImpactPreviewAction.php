@@ -107,13 +107,13 @@ final class BuildLayoutImpactPreviewAction
 
         $originalPath = (string) ($parts['path'] ?? '');
         $path = preg_replace('#/{2,}#', '/', $originalPath) ?? $originalPath;
-        $authority = (string) $parts['host'];
+        $authority = $parts['host'];
 
         if (isset($parts['port'])) {
             $authority .= ':' . $parts['port'];
         }
 
-        return (string) $parts['scheme'] . '://' . $authority . $path
+        return $parts['scheme'] . '://' . $authority . $path
             . (isset($parts['query']) ? '?' . $parts['query'] : '')
             . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '');
     }
