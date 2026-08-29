@@ -164,6 +164,25 @@ Examples:
 EOF
 }
 
+require_test_dependencies() {
+    if [ -x "vendor/bin/pest" ]; then
+        return
+    fi
+
+    cat >&2 <<'EOF'
+Capell test tooling is not installed in this checkout: vendor/bin/pest is missing.
+
+Bootstrap this worktree before running tests:
+
+    ./capell up
+    ./capell composer install
+
+Then retry the command. Do not copy or symlink vendor/ from another checkout:
+Composer's autoloader must resolve Capell classes from this worktree.
+EOF
+    exit 78
+}
+
 command_name="${1:-help}"
 
 if [ "$#" -gt 0 ]; then
@@ -206,6 +225,7 @@ case "$command_name" in
         ;;
     composer)
         if [[ "${1:-}" = test* || "${1:-}" = preflight* ]]; then
+            require_test_dependencies
             "${test_exec[@]}" composer "$@"
         else
             "${app_exec[@]}" composer "$@"
@@ -218,9 +238,11 @@ case "$command_name" in
         "${app_exec[@]}" vendor/bin/pint "$@"
         ;;
     test)
+        require_test_dependencies
         "${test_exec[@]}" composer test "$@"
         ;;
     pest)
+        require_test_dependencies
         "${test_exec[@]}" vendor/bin/pest "$@"
         ;;
     analyze)
@@ -230,9 +252,11 @@ case "$command_name" in
         "${app_exec[@]}" composer lint "$@"
         ;;
     preflight)
+        require_test_dependencies
         "${app_exec[@]}" composer preflight "$@"
         ;;
     preflight-all)
+        require_test_dependencies
         "${app_exec[@]}" composer preflight:all "$@"
         ;;
     exec)
