@@ -76,6 +76,7 @@ use Capell\Core\Enums\ComponentTypeEnum;
 use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\PageSaved;
+use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
@@ -948,6 +949,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         Event::listen(PageSaved::class, [CreateRedirectsForChangedPageUrls::class, 'handle']);
+        Event::listen(PageUrlsRewritten::class, [CreateRedirectsForChangedPageUrls::class, 'handleUrlRewrite']);
 
         return $this;
     }

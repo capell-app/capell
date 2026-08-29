@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\SetupPageUrlsAction;
+use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Illuminate\Support\Facades\Event;
 
 beforeEach(function (): void {
     $this->language = Language::factory()->createOne();
@@ -90,4 +92,37 @@ it('does not recreate descendant urls when descendant updates are disabled', fun
     SetupPageUrlsAction::run($this->parent, updateDescendants: false);
 
     expect(pageUrlFor($this->child, $this->language))->toBeNull();
+});
+
+it('emits the page and descendant old-to-new url maps when a page move rewrites urls', function (): void {
+    Event::fake([PageUrlsRewritten::class]);
+
+    $language = Language::factory()->english()->create();
+    $site = Site::factory()->language($language)->withTranslations([$language])->create();
+    $oldParent = Page::factory()->recycle($site)->withTranslations(slug: 'old-parent')->create();
+    $newParent = Page::factory()->recycle($site)->withTranslations(slug: 'new-parent')->create();
+    $page = Page::factory()->recycle($site)->parent($oldParent)->withTranslations(slug: 'page')->create();
+    $child = Page::factory()->recycle($site)->parent($page)->withTranslations(slug: 'child')->create();
+
+    $page->parent_id = $newParent->getKey();
+    $page->save();
+
+    Event::assertDispatched(
+        PageUrlsRewritten::class,
+        fn (PageUrlsRewritten $event): bool => $event->page->is($page)
+            && $event->urlChanges === [
+                $language->getKey() => [
+                    'old' => '/old-parent/page',
+                    'new' => '/new-parent/page',
+                ],
+            ]
+            && $event->descendantUrlChanges === [
+                $child->getKey() => [
+                    $language->getKey() => [
+                        'old' => '/old-parent/page/child',
+                        'new' => '/new-parent/page/child',
+                    ],
+                ],
+            ],
+    );
 });

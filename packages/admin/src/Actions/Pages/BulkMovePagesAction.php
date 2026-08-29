@@ -92,7 +92,11 @@ class BulkMovePagesAction
 
                     $page->parent_id = $newParent->getKey();
                     $page->save();
-                    SetupPageUrlsAction::run($page);
+                    // Bulk Move keeps its explicit opt-in redirect semantics.
+                    // The core rewrite event is still emitted for extensions,
+                    // but its automatic redirect consumer is suppressed so the
+                    // checked path can record manual redirects below.
+                    SetupPageUrlsAction::run($page, automaticRedirectsAllowed: false);
                     $movedCount++;
 
                     if ($addRedirects) {
