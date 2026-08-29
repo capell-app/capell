@@ -14,6 +14,7 @@ use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -78,4 +79,40 @@ it('builds deterministic static page artifact metadata from render data and resp
         ->and($metadataPayload)->not->toContain('resources/css/theme.css')
         ->and($metadataPayload)->not->toContain('build')
         ->and($metadataPayload)->not->toContain('page-' . $page->id);
+});
+
+it('carries validated contributor metadata into static artifacts', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    $pageUrl = PageUrl::factory()->createOne([
+        'site_id' => $page->site_id,
+        'language_id' => $page->translations->first()->language_id,
+        'pageable_type' => Page::class,
+        'pageable_id' => $page->id,
+        'url' => '/catalogue',
+    ]);
+    $renderData = new PublicPageRenderData(
+        page: $page,
+        site: $page->site()->firstOrFail(),
+        language: Language::query()->findOrFail($pageUrl->language_id),
+        layout: Layout::query()->find($page->layout_id),
+        theme: Theme::query()->find($page->site()->value('theme_id')),
+        layoutGraph: null,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+        resourcePlan: ResolveFrontendResourcePlanAction::run([]),
+        surrogateKeys: [],
+        extensionFingerprint: 'catalogue-v1',
+        extensionSurrogateKeys: ['catalogue-' . $page->id],
+        extensionCacheDependencies: [PublicRenderDataCacheDependencyData::forModel($page)],
+    );
+
+    $metadata = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, new Response('<html></html>'));
+
+    expect($metadata->surrogateKeys)->toBe([hash('sha256', 'catalogue-' . $page->id)])
+        ->and($metadata->dependencies['public_render_data'])->toBe([
+            'fingerprint' => hash('sha256', 'catalogue-v1'),
+            'cache_dependencies' => [hash('sha256', Page::class . ':' . $page->id)],
+        ])
+        ->and(json_encode($metadata->toArray(), JSON_THROW_ON_ERROR))
+        ->not->toContain(Page::class)
+        ->not->toContain('catalogue-' . $page->id);
 });

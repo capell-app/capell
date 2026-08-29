@@ -110,6 +110,20 @@ The marker's job is validation and traceability, not wiring. You still register 
 behaviour through the extension points documented above; the declaration is what lets
 manifest audits know the surface exists.
 
+### Runtime contribution receipts
+
+Official Core, Admin, Frontend, Installer, and Marketplace registrars emit a neutral
+`ExtensionContributionReceiptData` receipt containing the owning package, provider
+bucket, contribution type, stable key, implementation, and source class. The
+`ExtensionContributionReceiptRegistry` is available through the
+`RecordsExtensionContributionReceipt` contract. Package boot context supplies the owner
+and bucket; foundation-owned built-ins are marked explicitly.
+
+Manifests may add typed `contributionTraceability` entries with `type`, `key`, `class`,
+and `providerBucket`, plus the existing deferred/runtime integration metadata. Audits
+reconcile receipts only for explicitly booted provider buckets, reporting declared-only,
+loaded-only, wrong-owner, or wrong-bucket states with package/key/source diagnostics.
+
 ```php
 namespace Vendor\Example\Routes;
 
@@ -144,6 +158,7 @@ final class ExampleRoutes implements RegistersExtensionRoute
 | `frontend-component`                | `RegistersExtensionFrontendComponent`            |
 | `content-widget`                    | `RegistersExtensionContentWidget`                |
 | `render-hook`                       | `RegistersExtensionRenderHook`                   |
+| `public-render-data`                | `RegistersExtensionPublicRenderData`             |
 | `asset`                             | `RegistersExtensionAsset`                        |
 | `migration`                         | `RunsExtensionMigration`                         |
 | `scheduled-job`                     | `RunsScheduledExtensionJob`                      |

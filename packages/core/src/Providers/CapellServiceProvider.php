@@ -139,6 +139,8 @@ use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Links\PageLinkableContentProvider;
 use Capell\Core\Support\Makers\BuiltIn\ActionMaker;
@@ -511,6 +513,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(CapellCacheManager::class);
         $this->app->singleton(ModelInterceptorRegistry::class);
         $this->app->singletonIf(CapellPackageRegistry::class);
+        $this->app->singleton(ExtensionContributionReceiptRegistry::class);
+        $this->app->alias(ExtensionContributionReceiptRegistry::class, RecordsExtensionContributionReceipt::class);
 
         $this->app->tag([CapellCoreManager::class, ComponentRegistry::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);
@@ -520,6 +524,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             $app->make(MetricCollectorRegistry::class),
             $app->make(OutboundEventRegistry::class),
             $app->make(BlueprintSubjectRegistry::class),
+            $app->make(ExtensionContributionReceiptRegistry::class),
         ));
         $this->app->singleton(OutboundEventRegistry::class);
         $this->app->singleton(BlueprintSubjectRegistry::class);

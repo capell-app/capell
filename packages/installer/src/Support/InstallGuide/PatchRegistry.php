@@ -6,14 +6,19 @@ namespace Capell\Installer\Support\InstallGuide;
 
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Illuminate\Support\Collection;
 
 /** @extends AbstractKeyedRegistry<Patch> */
 class PatchRegistry extends AbstractKeyedRegistry
 {
+    public function __construct(private readonly ?ExtensionContributionReceiptRegistry $receipts = null) {}
+
     public function register(Patch $patch): self
     {
         $this->setItem($patch->id(), $patch);
+        $this->receipts?->recordFromContext(ExtensionContributionType::Migration, 'install-patch:' . $patch->id(), $patch::class, self::class);
 
         return $this;
     }

@@ -10,6 +10,7 @@ use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Data\StaticPageArtifactData;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
@@ -31,7 +32,10 @@ class BuildStaticPageArtifactMetadataAction
             dependencies: $this->dependencies($renderData),
             runtime: $this->fingerprint($renderData->runtimeManifest->toArray()),
             assets: $this->assets($renderData),
-            surrogateKeys: [],
+            surrogateKeys: array_map(
+                static fn (string $key): string => hash('sha256', $key),
+                $renderData->extensionSurrogateKeys,
+            ),
             generatedAt: Date::now()->toIso8601String(),
         );
     }
@@ -74,7 +78,16 @@ class BuildStaticPageArtifactMetadataAction
             'layout_graph_key' => $renderData->layoutGraphKey(),
         ], fn (mixed $value): bool => $value !== null);
 
-        return $this->fingerprint($dependencies);
+        $metadata = $this->fingerprint($dependencies);
+        $metadata['public_render_data'] = [
+            'fingerprint' => hash('sha256', $renderData->extensionFingerprint),
+            'cache_dependencies' => array_map(
+                static fn (PublicRenderDataCacheDependencyData $dependency): string => hash('sha256', $dependency->identity()),
+                $renderData->extensionCacheDependencies,
+            ),
+        ];
+
+        return $metadata;
     }
 
     /**

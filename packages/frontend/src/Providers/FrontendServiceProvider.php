@@ -13,6 +13,7 @@ use Capell\Core\Data\VendorAssetData;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\Resettable;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
@@ -48,6 +49,7 @@ use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\HtmlMinifier;
 use Capell\Frontend\Contracts\NullCacheBypassResolver;
+use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Capell\Frontend\Contracts\SiteAccessExemptionContributor;
@@ -94,6 +96,7 @@ use Capell\Frontend\Support\Cache\PageHydrator;
 use Capell\Frontend\Support\Cache\PageListingCache;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
+use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Cache\Resolvers\MediaTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\Resolvers\PageableTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\Resolvers\SiteTranslationCacheDependencyResolver;
@@ -126,6 +129,7 @@ use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
+use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
@@ -215,6 +219,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             FrontendComponentRegistrar::class,
             fn (Application $application): FrontendComponentRegistrar => new FrontendComponentRegistrar(
                 $application->tagged(FrontendComponentContributor::TAG),
+                $application->make(ExtensionContributionReceiptRegistry::class),
             ),
         );
         $this->app->singleton(PublicRouteAliasRegistry::class);
@@ -281,7 +286,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
             throw_unless($finder instanceof FileViewFinder, RuntimeException::class, 'The configured view finder must support theme namespaces.');
 
-            return new ThemeViewRegistrar($finder);
+            return new ThemeViewRegistrar($finder, [], $app->make(ExtensionContributionReceiptRegistry::class));
         });
         $this->app->singleton(ThemeChainResolver::class);
         $this->app->singleton(FrontendCachePolicy::class);
@@ -433,6 +438,13 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function registerAssetOptimizationBindings(): void
     {
         $this->app->singleton(FrontendResourceRegistry::class);
+        $this->app->scoped(
+            PublicRenderDataContributorRegistry::class,
+            fn (Application $application): PublicRenderDataContributorRegistry => new PublicRenderDataContributorRegistry(
+                $application->tagged(PublicRenderDataContributor::TAG),
+                $application->make(ExtensionContributionReceiptRegistry::class),
+            ),
+        );
         $this->app->singleton(FrontendPackageDependencyRegistry::class);
         $this->app->singleton(FrontendViteInputRegistry::class);
         $this->app->scoped('capell.frontend.resource-group-options', fn (Application $application): callable => static fn (): array => collect($application->make(FrontendResourceRegistry::class)->all())
@@ -449,6 +461,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function registerCacheInvalidationBindings(): void
     {
         $this->app->singleton(CacheInvalidationDependencyRegistry::class);
+        $this->app->singleton(PublicRenderDataCacheDependencyRegistry::class);
         $this->app->scoped(CacheInvalidationExecutor::class);
         $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
         $this->app->scoped(MediaTranslationCacheDependencyResolver::class);

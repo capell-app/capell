@@ -23,6 +23,7 @@ enum ExtensionContributionType: string
     case FrontendComponent = 'frontend-component';
     case ContentWidget = 'content-widget';
     case RenderHook = 'render-hook';
+    case PublicRenderData = 'public-render-data';
     case Asset = 'asset';
     case Migration = 'migration';
     case ScheduledJob = 'scheduled-job';

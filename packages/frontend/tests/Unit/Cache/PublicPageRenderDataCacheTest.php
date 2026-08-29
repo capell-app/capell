@@ -7,13 +7,22 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
+use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
+use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
+use Capell\Frontend\Data\PublicRenderDataContributionData;
+use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
+use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
+use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 
 it('builds deterministic render data cache keys from page site language strategy and content version', function (): void {
     $page = Page::factory()
@@ -118,6 +127,161 @@ it('remembers public page render data when the render data cache is enabled', fu
     expect($first)->toBeInstanceOf(PublicPageRenderData::class)
         ->and($second)->toBeInstanceOf(PublicPageRenderData::class)
         ->and($calls)->toBe(1);
+});
+
+it('does not rebuild contributor values on a warm cache hit', function (): void {
+    config()->set('cache.default', 'array');
+    config()->set('capell-frontend.public_render_data_cache', true);
+
+    $page = Page::factory()->withTranslations()->createOne();
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $context = new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: Layout::query()->find($page->layout_id),
+        theme: $site->theme,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    );
+    $contributeCalls = 0;
+
+    resolve(PublicRenderDataContributorRegistry::class)->register(new class($contributeCalls) implements PublicRenderDataContributor
+    {
+        public function __construct(private int &$contributeCalls) {}
+
+        public function key(): string
+        {
+            return 'warm-hit';
+        }
+
+        public function supports(FrontendRenderContextData $context): bool
+        {
+            return true;
+        }
+
+        public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+        {
+            return new PublicRenderDataContributionMetadataData('warm-hit-v1');
+        }
+
+        public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
+        {
+            $this->contributeCalls++;
+
+            return new PublicRenderDataContributionData((object) ['value' => 'built']);
+        }
+
+        public function cacheDependencyModelTypes(): array
+        {
+            return [];
+        }
+    });
+
+    $cache = resolve(PublicPageRenderDataCache::class);
+    $builder = static fn (): PublicPageRenderData => BuildPublicPageRenderDataAction::run($context);
+
+    $cache->remember($context, $builder);
+    $cache->remember($context, $builder);
+
+    expect($contributeCalls)->toBe(1);
+});
+
+it('renders hydrated cached contributor data in Blade without public-view queries or internals', function (): void {
+    config()->set('cache.default', 'array');
+    config()->set('capell-frontend.public_render_data_cache', true);
+
+    $page = Page::factory()->withTranslations()->createOne();
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $context = new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: Layout::query()->find($page->layout_id),
+        theme: $site->theme,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    );
+
+    resolve(PublicRenderDataContributorRegistry::class)->register(new class implements PublicRenderDataContributor
+    {
+        public function key(): string
+        {
+            return 'fixture.catalogue';
+        }
+
+        public function supports(FrontendRenderContextData $context): bool
+        {
+            return true;
+        }
+
+        public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+        {
+            return new PublicRenderDataContributionMetadataData('catalogue-v1');
+        }
+
+        public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
+        {
+            return new PublicRenderDataContributionData((object) [
+                'products' => [(object) ['name' => 'Tea', 'price' => '4.00']],
+            ]);
+        }
+
+        public function cacheDependencyModelTypes(): array
+        {
+            return [];
+        }
+    });
+
+    $renderData = resolve(PublicPageRenderDataCache::class)->remember(
+        $context,
+        static fn (): PublicPageRenderData => BuildPublicPageRenderDataAction::run($context),
+    );
+    $queries = 0;
+    DB::listen(static function () use (&$queries): void {
+        $queries++;
+    });
+
+    $html = Blade::render(
+        '<article>{{ $renderData->extensionData(\'fixture.catalogue\')->products[0]->name }}</article>',
+        ['renderData' => $renderData],
+    );
+
+    expect($html)->toContain('<article>Tea</article>')
+        ->and($queries)->toBe(0);
+
+    foreach (['admin', 'permission', 'package', 'Capell\\', 'field_path', 'signed'] as $forbidden) {
+        expect($html)->not->toContain($forbidden);
+    }
+});
+
+it('retains both destinations when the same model is registered repeatedly', function (): void {
+    config()->set('cache.default', 'array');
+    $model = Page::factory()->createOne();
+    $dependency = PublicRenderDataCacheDependencyData::forModel($model);
+    $registry = resolve(PublicRenderDataCacheDependencyRegistry::class);
+
+    $registry->register($dependency, 'render-page-a');
+    $registry->register($dependency, 'render-page-b');
+
+    expect(collect($registry->rulesFor($model))->pluck('cacheKey')->all())
+        ->toBe(['render-page-a', 'render-page-b']);
+});
+
+it('isolates dependency indexes by the Capell cache host namespace', function (): void {
+    config()->set('cache.default', 'array');
+    $model = Page::factory()->createOne();
+    $dependency = PublicRenderDataCacheDependencyData::forModel($model);
+    $registry = resolve(PublicRenderDataCacheDependencyRegistry::class);
+
+    config()->set('app.url', 'https://tenant-a.example.test');
+    $registry->register($dependency, 'tenant-a-render');
+
+    config()->set('app.url', 'https://tenant-b.example.test');
+    expect($registry->rulesFor($model))->toBe([]);
+
+    config()->set('app.url', 'https://tenant-a.example.test');
+    expect(collect($registry->rulesFor($model))->pluck('cacheKey')->all())->toBe(['tenant-a-render']);
 });
 
 it('changes cache keys and entries when the optional payload schema fingerprint changes', function (): void {

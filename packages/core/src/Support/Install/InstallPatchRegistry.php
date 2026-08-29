@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Patching\Patch;
 use Closure;
 
@@ -18,15 +20,27 @@ final class InstallPatchRegistry
     /** @var list<array{factory: Closure(InstallPatchContext): ?Patch, confirmation: ?InstallPatchConfirmation}> */
     private array $contributions = [];
 
+    public function __construct(private readonly ?ExtensionContributionReceiptRegistry $receipts = null) {}
+
     /**
      * @param  callable(InstallPatchContext): ?Patch  $factory  Return the patch when it applies to the context, or null to skip.
      */
-    public function register(callable $factory, ?InstallPatchConfirmation $confirmation = null): void
+    public function register(callable $factory, ?InstallPatchConfirmation $confirmation = null, ?string $key = null): void
     {
+        $callable = Closure::fromCallable($factory);
         $this->contributions[] = [
-            'factory' => Closure::fromCallable($factory),
+            'factory' => $callable,
             'confirmation' => $confirmation,
         ];
+        $reflection = new \ReflectionFunction($callable);
+        $identity = $this->callableIdentity($reflection, $key);
+        $receiptKey = $key !== null && $key !== '' ? $key : hash('sha256', $identity);
+        $this->receipts?->recordFromContext(
+            ExtensionContributionType::Migration,
+            'install-patch:' . $receiptKey,
+            $identity,
+            self::class,
+        );
     }
 
     /**
@@ -47,5 +61,53 @@ final class InstallPatchRegistry
         }
 
         return $registeredPatches;
+    }
+
+    private function callableIdentity(\ReflectionFunction $reflection, ?string $key): string
+    {
+        if ($key !== null && $key !== '') {
+            return 'callable:' . $key;
+        }
+
+        $scope = $reflection->getClosureScopeClass()?->getName();
+        if ($scope !== null && $reflection->getName() !== '{closure}') {
+            return $scope . '::' . $reflection->getName();
+        }
+
+        return 'closure:' . hash('sha256', $this->normalisedClosureSource($reflection));
+    }
+
+    private function normalisedClosureSource(\ReflectionFunction $reflection): string
+    {
+        $file = $reflection->getFileName();
+        $start = $reflection->getStartLine();
+        $end = $reflection->getEndLine();
+
+        if (! is_string($file) || ! is_file($file) || $start === false || $end === false) {
+            return 'unavailable';
+        }
+
+        $lines = file($file);
+        if ($lines === false) {
+            return 'unavailable';
+        }
+
+        $source = implode('', array_slice($lines, $start - 1, $end - $start + 1));
+        $normalised = '';
+
+        foreach (token_get_all('<?php ' . $source) as $token) {
+            if (is_array($token)) {
+                if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+                    continue;
+                }
+
+                $normalised .= $token[1];
+                continue;
+            }
+
+            $normalised .= $token;
+        }
+
+        return $normalised;
     }
 }

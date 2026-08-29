@@ -8,6 +8,8 @@ use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Bootstrap\CloudInstallContext;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
@@ -23,28 +25,52 @@ final class CapellPackageLoader
 
     private readonly RuntimeRoleProviderPolicy $runtimeRoleProviderPolicy;
 
+    private readonly ExtensionContributionReceiptRegistry $receipts;
+
     public function __construct(
         private readonly Application $app,
         private readonly CapellPackageRegistry $registry,
         ?CloudInstallContext $cloudInstallContext = null,
         ?RuntimeRoleResolver $runtimeRoleResolver = null,
         ?RuntimeRoleProviderPolicy $runtimeRoleProviderPolicy = null,
+        ?ExtensionContributionReceiptRegistry $receipts = null,
     ) {
         $this->cloudInstallContext = $cloudInstallContext ?? CloudInstallContext::fromProcess();
         $this->runtimeRoleResolver = $runtimeRoleResolver ?? RuntimeRoleResolver::fromEnvironment();
         $this->runtimeRoleProviderPolicy = $runtimeRoleProviderPolicy ?? new RuntimeRoleProviderPolicy;
+        $this->receipts = $receipts ?? ($app->bound(ExtensionContributionReceiptRegistry::class)
+            ? $app->make(ExtensionContributionReceiptRegistry::class)
+            : new ExtensionContributionReceiptRegistry);
     }
 
     public function loadProviders(): void
     {
         foreach ($this->registry->all() as $manifest) {
-            foreach ($this->resolveProviders($manifest) as $provider) {
+            $runtimeProvidersSelected = $this->shouldLoadRuntimeProviders($manifest);
+
+            foreach ($this->resolveProviders($manifest, $runtimeProvidersSelected) as $provider) {
                 try {
                     if (! class_exists($provider)) {
                         continue;
                     }
 
-                    $this->app->register($provider);
+                    $contexts = array_map(
+                        fn (string $bucket): ExtensionContributionReceiptContext => TrustedCorePackages::contains($manifest->name)
+                            ? ExtensionContributionReceiptContext::foundation($manifest->name, $bucket, $provider)
+                            : ExtensionContributionReceiptContext::forPackage($manifest->name, $bucket, $provider),
+                        $this->selectedProviderBuckets($manifest, $provider, $runtimeProvidersSelected),
+                    );
+
+                    $this->receipts->withContexts($contexts, fn (): mixed => $this->app->register($provider));
+                    foreach ($contexts as $context) {
+                        $this->receipts->rememberProviderContext($provider, $context);
+                    }
+                    $namespace = $manifest->resolvedNamespace();
+                    if ($namespace !== null) {
+                        foreach ($contexts as $context) {
+                            $this->receipts->rememberNamespaceContext($namespace, $context);
+                        }
+                    }
                 } catch (Throwable $throwable) {
                     throw_if(TrustedCorePackages::contains($manifest->name), $throwable);
 
@@ -77,14 +103,14 @@ final class CapellPackageLoader
     }
 
     /** @return list<string> */
-    private function resolveProviders(CapellManifestData $manifest): array
+    private function resolveProviders(CapellManifestData $manifest, ?bool $runtimeProvidersSelected = null): array
     {
         $runtimeRole = $this->runtimeRoleResolver->role();
         $providers = $runtimeRole->loadsAuthoringProviders()
             ? [...$manifest->providers->metadata, ...$manifest->providers->install]
             : $manifest->providers->metadata;
 
-        if (! $this->shouldLoadRuntimeProviders($manifest)) {
+        if (! ($runtimeProvidersSelected ?? $this->shouldLoadRuntimeProviders($manifest))) {
             return array_values(array_unique($providers));
         }
 
@@ -105,6 +131,36 @@ final class CapellPackageLoader
         }
 
         return CapellCore::isPackageEnabled($manifest->name);
+    }
+
+    /** @return list<string> */
+    private function selectedProviderBuckets(
+        CapellManifestData $manifest,
+        string $provider,
+        bool $runtimeProvidersSelected,
+    ): array
+    {
+        $role = $this->runtimeRoleResolver->role();
+        $selected = ['metadata'];
+
+        if ($role->loadsAuthoringProviders()) {
+            $selected[] = 'install';
+        }
+
+        if ($runtimeProvidersSelected) {
+            $selected = [...$selected, 'runtime', 'auth'];
+
+            if ($role->loadsAuthoringProviders()) {
+                $selected[] = 'admin';
+            }
+
+            $selected[] = 'frontend';
+        }
+
+        return array_values(array_filter(
+            $selected,
+            fn (string $bucket): bool => in_array($provider, $manifest->providers[$bucket], true),
+        ));
     }
 
     /**

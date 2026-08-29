@@ -250,6 +250,68 @@ Do not replace the default renderer for small markup changes. Use render hooks, 
 
 ## Cache Invalidation
 
+### Typed public render data
+
+Use `PublicRenderDataContributor` when a package needs hydrated data in a
+cached page or static export. The contributor registry runs before the cache
+key is resolved and passes only validated values to public Blade. Contributor
+ordering follows the shared extension-ordering policy when that resolver is
+available; package code must not depend on incidental registration order.
+
+```php
+use Capell\Frontend\Contracts\PublicRenderDataContributor;
+use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
+use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
+use Capell\Frontend\Data\PublicRenderDataContributionData;
+
+final class CatalogueContributor implements PublicRenderDataContributor
+{
+    public function key(): string
+    {
+        return 'example.catalogue';
+    }
+
+    public function supports(FrontendRenderContextData $context): bool
+    {
+        return $context->page !== null;
+    }
+
+    public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+    {
+        return new PublicRenderDataContributionMetadataData(
+            fingerprint: 'catalogue-v1',
+        );
+    }
+
+    public function cacheDependencyModelTypes(): array
+    {
+        return [Catalogue::class];
+    }
+
+    public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
+    {
+        $catalogue = new CatalogueData(/* fully hydrated public fields */);
+
+        return new PublicRenderDataContributionData(
+            value: $catalogue,
+            surrogateKeys: ['catalogue-' . $catalogue->id],
+        );
+    }
+}
+```
+
+Bind the contributor and tag it with
+`PublicRenderDataContributor::TAG` from the package's frontend provider. The
+value must be a serialisable public DTO; models, closures, resources, signed
+URLs, and authoring state fail closed. Public Blade reads
+`$publicRenderData->extensionData('example.catalogue')`; it must not query or
+resolve the source model. Every model named by `cacheDependencyModelTypes()`
+must be an Eloquent model class, and every metadata dependency must use one of
+those declared classes; invalid or mismatched declarations fail closed during
+frontend bootstrap. CAP-0461 JSON-LD/property projections should use this
+same hydrated seam rather than introducing another public-data transport.
+
 If a package model affects public output, register model-to-cache dependencies during provider boot:
 
 ```php

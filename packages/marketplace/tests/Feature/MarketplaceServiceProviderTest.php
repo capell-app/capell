@@ -13,6 +13,7 @@ use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
 use Capell\Marketplace\Filament\Extenders\MarketplaceExtensionsPageExtender;
 use Capell\Marketplace\Filament\Extenders\ThemeMarketplaceHeaderActionExtender;
@@ -80,6 +81,11 @@ it('registers and boots the marketplace admin bridge once', function (): void {
         ->and($tagCount(ExtensionCatalogueMetadataProvider::TAG, MarketplaceCatalogueRecordProvider::class))->toBe(1)
         ->and($tagCount(ResourceHeaderActionExtender::TAG, ThemeMarketplaceHeaderActionExtender::class))->toBe(1)
         ->and($tagCount(PendingThemeInstallProvider::TAG, PendingMarketplaceThemeInstallProvider::class))->toBe(1);
+
+    expect(collect(resolve(ExtensionContributionReceiptRegistry::class)->forPackage(MarketplaceServiceProvider::$packageName))
+        ->where('providerBucket', 'admin'))
+        ->not->toBeEmpty()
+        ->each(fn ($receipt) => expect($receipt->ownerPackage)->toBe(MarketplaceServiceProvider::$packageName));
 });
 
 it('boots its admin bridge when registered after runtime preparation', function (): void {

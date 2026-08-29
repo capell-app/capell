@@ -13,7 +13,9 @@ use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Enums\CacheEnum;
+use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -27,20 +29,34 @@ final class PublicPageRenderDataCache
      */
     private array $cacheKeysByIdentity = [];
 
+    public function __construct(
+        private readonly PublicRenderDataContributorRegistry $contributors,
+        private readonly PublicRenderDataCacheDependencyRegistry $dependencies,
+    ) {}
+
     /**
      * @param  Closure(): PublicPageRenderData  $builder
      */
     public function remember(FrontendRenderContextData $context, Closure $builder): PublicPageRenderData
     {
-        $key = $this->keyForContext($context);
+        $metadata = $this->contributors->metadata($context);
+        $key = $this->keyForContext($context, $metadata);
 
         if ($key === null || config('capell-frontend.public_render_data_cache') !== true) {
             return $builder();
         }
 
+        foreach ($metadata->cacheDependencies as $dependency) {
+            $this->dependencies->register($dependency, $key);
+        }
+
         $this->rememberKeyForIdentity($context, $key);
 
-        $renderData = $this->rememberCache($key, $builder);
+        $renderData = $this->dependencies->remember(
+            $metadata->cacheDependencies,
+            $key,
+            fn (): mixed => $this->rememberCache($key, $builder),
+        );
 
         if ($renderData instanceof PublicPageRenderData) {
             return $renderData;
@@ -65,7 +81,7 @@ final class PublicPageRenderDataCache
         $this->incrementCacheKey(CacheEnum::publicRenderDataGeneration($pageType, $pageId, $siteId, $languageId));
     }
 
-    public function keyForContext(FrontendRenderContextData $context): ?string
+    public function keyForContext(FrontendRenderContextData $context, ?PublicRenderDataContributionMetadataData $metadata = null): ?string
     {
         $page = $context->page;
 
@@ -83,7 +99,7 @@ final class PublicPageRenderDataCache
             siteId: (int) $context->site->getKey(),
             languageId: (int) $context->language->getKey(),
             renderingStrategy: $context->runtimeManifest->renderingStrategy->value,
-            contentVersion: $this->contentVersion($context) . '-gen-' . $this->currentGeneration(
+            contentVersion: $this->contentVersion($context, $metadata) . '-gen-' . $this->currentGeneration(
                 $page::class,
                 (int) $page->getKey(),
                 (int) $context->site->getKey(),
@@ -92,7 +108,7 @@ final class PublicPageRenderDataCache
         );
     }
 
-    private function contentVersion(FrontendRenderContextData $context): string
+    private function contentVersion(FrontendRenderContextData $context, ?PublicRenderDataContributionMetadataData $metadata = null): string
     {
         $values = [
             $context->page instanceof Model ? $context->page->updated_at?->getTimestamp() : null,
@@ -105,6 +121,7 @@ final class PublicPageRenderDataCache
             $this->translationTimestamp($context->site),
             $this->payloadBuilderFingerprint(),
             $this->themePreviewFingerprint(),
+            ($metadata ?? $this->contributors->metadata($context))->fingerprint,
         ];
 
         return hash('xxh128', implode('|', array_map(

@@ -17,6 +17,7 @@ use Capell\Core\Data\ContentGraph\ContentGraphEdgeCollectionData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
@@ -588,6 +589,7 @@ it('limits contribution blueprints to the v3 enum values', function (): void {
         'frontend-component',
         'content-widget',
         'render-hook',
+        'public-render-data',
         'asset',
         'migration',
         'scheduled-job',
@@ -820,3 +822,31 @@ it('requires usable marketplace screenshot alt text and captions', function (str
     expect(fn () => $validator->validate($manifest, composerJson: manifestV3ComposerJson()))
         ->toThrow(InvalidManifestException::class, $field);
 })->with(['alt', 'caption']);
+
+it('preserves structured runtime event listener traceability', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['contributionTraceability'] = [
+        'runtimeIntegrations' => [
+            'eventListeners' => [
+                ['event' => 'eloquent.created: App\\Models\\Campaign', 'listener' => 'Vendor\\CampaignStudio\\Listeners\\CampaignListener'],
+            ],
+        ],
+    ];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class)
+        ->and(CapellManifestData::fromArray($manifest)->contributionTraceability?->runtimeIntegrations['eventListeners'])
+        ->toBe($manifest['contributionTraceability']['runtimeIntegrations']['eventListeners']);
+});
+
+it('rejects malformed structured runtime event listener traceability', function (array $listeners): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['contributionTraceability'] = ['runtimeIntegrations' => ['eventListeners' => $listeners]];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, 'non-empty homogeneous');
+})->with([
+    'empty string' => [['event' => '', 'listener' => 'Vendor\\Listener']],
+    'extra field' => [['event' => 'created', 'listener' => 'Vendor\\Listener', 'extra' => true]],
+    'mixed entries' => ['created', ['event' => 'created', 'listener' => 'Vendor\\Listener']],
+]);
