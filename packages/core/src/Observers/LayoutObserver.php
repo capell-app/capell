@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Observers;
 
 use Capell\Core\Actions\CaptureLayoutContentSnapshotAction;
+use Capell\Core\Actions\ContentGraph\PruneContentGraphEdgesAction;
+use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
 use Capell\Core\Actions\GenerateUniqueKeyAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
@@ -31,6 +33,18 @@ class LayoutObserver
         ]);
 
         event(new FrontendSurrogateKeysInvalidated($this->surrogateKeysForLayout($layout)));
+
+        defer(
+            function () use ($layout): void {
+                $freshLayout = Layout::query()->find($layout->getKey());
+
+                if ($freshLayout instanceof Layout) {
+                    RebuildContentGraphForModelAction::run($freshLayout);
+                }
+            },
+            'content-graph:' . $layout::class . ':' . $layout->getKey(),
+            always: true,
+        );
     }
 
     public function deleting(Layout $layout): void
@@ -44,6 +58,7 @@ class LayoutObserver
 
     public function deleted(Layout $layout): void
     {
+        PruneContentGraphEdgesAction::run($layout);
         $this->saved($layout);
     }
 
