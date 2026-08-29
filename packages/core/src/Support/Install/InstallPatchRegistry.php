@@ -185,6 +185,11 @@ final class InstallPatchRegistry
         $captures = [];
         $activeObjects = [];
         $activeReferences = [];
+        $boundObject = $reflection->getClosureThis();
+        if ($boundObject !== null) {
+            $captures['$this'] = $this->stableValue($boundObject, $activeObjects, $activeReferences);
+        }
+
         foreach ($reflection->getStaticVariables() as $name => $value) {
             $captures[$name] = $this->stableValue($value, $activeObjects, $activeReferences);
         }

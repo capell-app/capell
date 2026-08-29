@@ -198,6 +198,34 @@ it('includes backed enum captures in anonymous factory identities', function ():
         ->and($receipts->all()[0]->key)->not->toBe($receipts->all()[1]->key);
 });
 
+it('includes bound object state in anonymous factory identities', function (): void {
+    $firstReceipts = new ExtensionContributionReceiptRegistry;
+    $first = new InstallPatchRegistry($firstReceipts);
+    $first->register((new InstallPatchReceiptCapturedState('alpha', InstallPatchReceiptCapturedMode::First))->factory());
+
+    $secondReceipts = new ExtensionContributionReceiptRegistry;
+    $second = new InstallPatchRegistry($secondReceipts);
+    $second->register((new InstallPatchReceiptCapturedState('beta', InstallPatchReceiptCapturedMode::First))->factory());
+
+    $sameStateReceipts = new ExtensionContributionReceiptRegistry;
+    $sameState = new InstallPatchRegistry($sameStateReceipts);
+    $sameState->register((new InstallPatchReceiptCapturedState('alpha', InstallPatchReceiptCapturedMode::First))->factory());
+
+    expect($firstReceipts->all()[0]->key)->not->toBe($secondReceipts->all()[0]->key)
+        ->and($firstReceipts->all()[0]->key)->toBe($sameStateReceipts->all()[0]->key);
+});
+
+it('rejects cyclic bound object captures before storing the patch', function (): void {
+    $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
+    $state = new InstallPatchReceiptCapturedState('recursive-bound', InstallPatchReceiptCapturedMode::First);
+    $state->nested = $state;
+
+    expect(fn (): mixed => $registry->register($state->factory()))
+        ->toThrow(InvalidArgumentException::class, 'cyclic')
+        ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
+        ->toBe([]);
+});
+
 it('requires an explicit key for anonymous factories with unsupported captures', function (): void {
     $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
     $unsupported = new stdClass;
@@ -236,4 +264,9 @@ final class InstallPatchReceiptCapturedState
         public InstallPatchReceiptCapturedMode $mode,
         public mixed $nested = null,
     ) {}
+
+    public function factory(): callable
+    {
+        return fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($this->name);
+    }
 }
