@@ -589,6 +589,7 @@ it('limits contribution blueprints to the v3 enum values', function (): void {
         'frontend-component',
         'content-widget',
         'render-hook',
+        'public-render-data',
         'asset',
         'migration',
         'scheduled-job',

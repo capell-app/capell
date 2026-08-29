@@ -179,6 +179,7 @@ final class ExampleRoutes implements RegistersExtensionRoute
 | `frontend-component`                | `RegistersExtensionFrontendComponent`            |
 | `content-widget`                    | `RegistersExtensionContentWidget`                |
 | `render-hook`                       | `RegistersExtensionRenderHook`                   |
+| `public-render-data`                | `RegistersExtensionPublicRenderData`             |
 | `asset`                             | `RegistersExtensionAsset`                        |
 | `migration`                         | `RunsExtensionMigration`                         |
 | `scheduled-job`                     | `RunsScheduledExtensionJob`                      |

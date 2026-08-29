@@ -99,6 +99,7 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardFilamentWidget($widgetClass, ...$dashboards);
+            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'dashboard-widget:' . $widgetClass, $widgetClass);
         }
     }
 
@@ -107,6 +108,7 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardPanel($region, $widgetClass, ...$dashboards);
+            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'dashboard-panel:' . $region->value . ':' . $widgetClass, $widgetClass);
         }
     }
 
@@ -115,6 +117,7 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardFilamentWidget($widgetClass, DashboardEnum::Extensions);
+            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'extensions-dashboard-widget:' . $widgetClass, $widgetClass);
         }
     }
 
@@ -239,11 +242,13 @@ final class AdminBridgeRegistrar
             sort: $sort,
             group: $group,
         );
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'user-menu-item:' . $key, AdminWorkspaceItemData::class);
     }
 
     public function workspace(AdminWorkspaceItemData $item): void
     {
         CapellAdmin::registerWorkspace($item);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'workspace:' . $item->key, $item::class);
     }
 
     public function welcomeTourStep(
@@ -270,23 +275,27 @@ final class AdminBridgeRegistrar
             chapter: $chapter,
             route: $route,
         );
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'welcome-tour:' . $key, $this->implementation($title));
     }
 
     public function configurator(string $configuratorClass, string $group, string $name): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::configurator($configuratorClass, $group, $name));
+        $this->receipt(ExtensionContributionType::Configurator, 'configurator:' . $group . ':' . $name, $configuratorClass);
     }
 
     public function schemaExtender(string $extenderClass, string $tag): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::schemaExtender($extenderClass, $tag));
         app()->tag([$extenderClass], $tag);
+        $this->receipt(ExtensionContributionType::SchemaExtender, 'schema-extender:' . $tag . ':' . $extenderClass, $extenderClass);
     }
 
     public function panelExtender(string $extenderClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::panelExtender($extenderClass));
         app()->tag([$extenderClass], AdminPanelExtender::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'panel-extender:' . $extenderClass, $extenderClass);
     }
 
     /** @param class-string<UserResourceBridge> $bridgeClass */
@@ -315,11 +324,13 @@ final class AdminBridgeRegistrar
     public function extensionPage(string $packageName, string $pageClass): void
     {
         CapellAdmin::registerExtensionPage($packageName, $pageClass);
+        $this->receipt(ExtensionContributionType::AdminPage, 'extension-page:' . $packageName . ':' . $pageClass, $pageClass);
     }
 
     public function extensionManagementSurface(ExtensionManagementSurfaceData $surface): void
     {
         CapellAdmin::registerExtensionManagementSurface($surface);
+        $this->receipt(ExtensionContributionType::AdminPage, 'extension-management-surface:' . $surface->packageName . ':' . $surface->type . ':' . ($surface->settingsGroup ?? ''), $surface::class);
     }
 
     /**
@@ -356,6 +367,7 @@ final class AdminBridgeRegistrar
             relation: $relation,
             recordResolver: $recordResolver,
         );
+        $this->receipt(ExtensionContributionType::AdminResource, 'activity-resource-link:' . $subjectClass . ':' . ($resourceClass ?? 'default'), $resourceClass ?? $subjectClass);
     }
 
     /**

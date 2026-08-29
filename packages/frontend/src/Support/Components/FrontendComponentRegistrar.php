@@ -33,6 +33,7 @@ final readonly class FrontendComponentRegistrar
             AssetComponentEnum::Tile->value => 'capell::asset.tile',
         ] as $key => $component) {
             $registry->register(key: $key, component: $component, aliases: [$component]);
+            $this->receipts->recordContribution(ExtensionContributionType::FrontendComponent, $key, $component, self::class);
         }
     }
 

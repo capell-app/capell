@@ -23,6 +23,7 @@ enum ExtensionContributionType: string
     case FrontendComponent = 'frontend-component';
     case ContentWidget = 'content-widget';
     case RenderHook = 'render-hook';
+    case PublicRenderData = 'public-render-data';
     case Asset = 'asset';
     case Migration = 'migration';
     case ScheduledJob = 'scheduled-job';
@@ -33,28 +34,4 @@ enum ExtensionContributionType: string
     case WorkflowAttention = 'workflow-attention';
     case OutboundEvent = 'outbound-event';
     case BlueprintSubject = 'blueprint-subject';
-
-    public function bucket(): string
-    {
-        return match ($this) {
-            self::AdminPage,
-            self::AdminResource,
-            self::AdminActionExtender,
-            self::DashboardFilamentWidget,
-            self::OverviewStat,
-            self::SchemaExtender,
-            self::Configurator,
-            self::Permission,
-            self::WorkflowAttention => 'admin',
-            self::Section,
-            self::Route,
-            self::PageVariation,
-            self::FrontendComponent,
-            self::ContentWidget,
-            self::RenderHook,
-            self::Asset => 'frontend',
-            self::Migration => 'install',
-            default => 'runtime',
-        };
-    }
 }

@@ -738,6 +738,7 @@ final class AuditExtensionContractsAction
                 ExtensionContributionType::FrontendComponent,
                 ExtensionContributionType::ContentWidget,
                 ExtensionContributionType::RenderHook,
+                ExtensionContributionType::PublicRenderData,
             ], true)) {
                 return true;
             }
