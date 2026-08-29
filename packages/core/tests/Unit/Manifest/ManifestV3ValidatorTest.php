@@ -849,3 +849,25 @@ it('rejects malformed structured runtime event listener traceability', function 
     'extra field' => [['event' => 'created', 'listener' => 'Vendor\\Listener', 'extra' => true]],
     'mixed entries' => [['created', ['event' => 'created', 'listener' => 'Vendor\\Listener']]],
 ]);
+
+it('rejects unknown traceability fields and empty optional contribution classes', function (array $traceability): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['contributionTraceability'] = $traceability;
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class);
+})->with([
+    'unknown traceability field' => ['unexpected' => true],
+    'unknown contribution field' => ['contributions' => [[
+        'type' => 'asset',
+        'key' => 'vendor.asset',
+        'providerBucket' => 'frontend',
+        'unexpected' => true,
+    ]]],
+    'empty contribution class' => ['contributions' => [[
+        'type' => 'asset',
+        'key' => 'vendor.asset',
+        'class' => '',
+        'providerBucket' => 'frontend',
+    ]]],
+]);

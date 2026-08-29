@@ -337,6 +337,14 @@ final class ManifestValidator
             throw InvalidManifestException::invalidField('contributionTraceability', 'must be an object');
         }
 
+        $traceabilityFields = ['deferredContributions', 'runtimeIntegrations', 'contributions'];
+        if (array_diff(array_keys($traceability), $traceabilityFields) !== []) {
+            throw InvalidManifestException::invalidField(
+                'contributionTraceability',
+                'contains unknown fields',
+            );
+        }
+
         foreach (['deferredContributions'] as $field) {
             $this->rules->stringList($traceability, $field, required: false);
         }
@@ -384,6 +392,13 @@ final class ManifestValidator
                 throw InvalidManifestException::invalidField('contributionTraceability.contributions.' . $index, 'must be an object');
             }
 
+            if (array_diff(array_keys($entry), ['type', 'key', 'class', 'providerBucket']) !== []) {
+                throw InvalidManifestException::invalidField(
+                    'contributionTraceability.contributions.' . $index,
+                    'contains unknown fields',
+                );
+            }
+
             foreach (['type', 'key', 'providerBucket'] as $field) {
                 if (! is_string($entry[$field] ?? null) || $entry[$field] === '') {
                     throw InvalidManifestException::missingField('contributionTraceability.contributions.' . $index . '.' . $field);
@@ -393,6 +408,13 @@ final class ManifestValidator
             if (! ExtensionContributionType::tryFrom($entry['type']) instanceof ExtensionContributionType
                 || ! in_array($entry['providerBucket'], self::VALID_PROVIDER_BUCKETS, true)) {
                 throw InvalidManifestException::invalidField('contributionTraceability.contributions.' . $index, 'contains an invalid type or provider bucket');
+            }
+
+            if (array_key_exists('class', $entry) && (! is_string($entry['class']) || $entry['class'] === '')) {
+                throw InvalidManifestException::invalidField(
+                    'contributionTraceability.contributions.' . $index . '.class',
+                    'must be a non-empty string',
+                );
             }
         }
     }
