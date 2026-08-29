@@ -258,8 +258,11 @@ final class AuditExtensionContractsAction
      * @param  array<string, mixed>  $composerJson
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    /** @param list<string> $bootedProviderBuckets */
-    /** @param array<string, mixed> $composerJson @param list<string> $bootedProviderBuckets */
+    /**
+     * @param  array<string, mixed>  $composerJson
+     * @param  list<string>  $bootedProviderBuckets
+     * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
+     */
     private function derivedResults(CapellManifestData $manifest, string $manifestPath, array $composerJson, array $bootedProviderBuckets = []): array
     {
         return [

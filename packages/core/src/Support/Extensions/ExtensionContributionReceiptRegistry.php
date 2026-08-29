@@ -19,7 +19,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     /** @var list<ExtensionContributionReceiptContext> */
     private array $contexts = [];
 
-    /** @var array<class-string, list<ExtensionContributionReceiptContext>> */
+    /** @var array<string, list<ExtensionContributionReceiptContext>> */
     private array $providerContexts = [];
 
     /** @var array<string, array<string, true>> */
