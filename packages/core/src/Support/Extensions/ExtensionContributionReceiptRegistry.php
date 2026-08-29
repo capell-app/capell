@@ -145,19 +145,17 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
         ?string $sourceClass,
         array $contexts,
     ): void {
-        $contexts = [reset($contexts)];
+        $context = array_values($contexts)[0];
 
-        foreach ($contexts as $context) {
-            $this->record(new ExtensionContributionReceiptData(
-                ownerPackage: $context->ownerPackage,
-                providerBucket: $context->providerBucket,
-                type: $type,
-                key: $key,
-                implementation: $implementation,
-                sourceClass: $sourceClass ?? $context->sourceClass,
-                foundationBuiltIn: $context->foundationBuiltIn,
-            ));
-        }
+        $this->record(new ExtensionContributionReceiptData(
+            ownerPackage: $context->ownerPackage,
+            providerBucket: $context->providerBucket,
+            type: $type,
+            key: $key,
+            implementation: $implementation,
+            sourceClass: $sourceClass ?? $context->sourceClass,
+            foundationBuiltIn: $context->foundationBuiltIn,
+        ));
     }
 
     /** @param list<ExtensionContributionReceiptContext> $contexts */
@@ -174,7 +172,7 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
             },
         ));
 
-        return $matching;
+        return $matching !== [] ? $matching : $contexts;
     }
 
     /** @return list<ExtensionContributionReceiptData> */

@@ -41,6 +41,7 @@ use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Links\LinkableContentRegistry;
@@ -132,6 +133,7 @@ final class SingletonLifetimeInventory
             ThemeChromeRegistry::class => self::boot('Theme chrome definitions are package boot registrations.'),
             ThemeInstallDefaultsRegistry::class => self::boot('Theme install defaults are package boot registrations.'),
             InstallPatchRegistry::class => self::boot('Install patches are package boot registrations.'),
+            ExtensionContributionReceiptRegistry::class => self::boot('Contribution receipts and boot contexts are package boot registrations.'),
             PresentationPresetRegistry::class => self::boot('Presentation presets are package boot registrations.'),
             PublicationReadinessRegistry::class => self::boot('Publication readiness contributors are package boot registrations; explicit clear is reserved for test/runtime reset boundaries.'),
             VendorAssetConditionRegistry::class => self::boot('Vendor asset conditions are package boot registrations.'),

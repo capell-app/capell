@@ -264,6 +264,7 @@ function packageV3Loader(
     CapellPackageRegistry $registry,
     ?CloudInstallContext $cloudInstallContext = null,
     RuntimeRole $runtimeRole = RuntimeRole::Combined,
+    ?ExtensionContributionReceiptRegistry $receipts = null,
 ): CapellPackageLoader {
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
@@ -281,5 +282,6 @@ function packageV3Loader(
             configuredValue: $runtimeRole->value,
             valid: true,
         )),
+        receipts: $receipts ?? new ExtensionContributionReceiptRegistry,
     );
 }

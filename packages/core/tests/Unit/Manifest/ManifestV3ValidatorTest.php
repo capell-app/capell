@@ -847,5 +847,5 @@ it('rejects malformed structured runtime event listener traceability', function 
 })->with([
     'empty string' => [['event' => '', 'listener' => 'Vendor\\Listener']],
     'extra field' => [['event' => 'created', 'listener' => 'Vendor\\Listener', 'extra' => true]],
-    'mixed entries' => ['created', ['event' => 'created', 'listener' => 'Vendor\\Listener']],
+    'mixed entries' => [['created', ['event' => 'created', 'listener' => 'Vendor\\Listener']]],
 ]);

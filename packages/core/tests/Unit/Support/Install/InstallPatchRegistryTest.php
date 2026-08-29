@@ -168,9 +168,12 @@ it('keeps anonymous factories with distinct captures as distinct receipts', func
     $receipts = new ExtensionContributionReceiptRegistry;
     $registry = new InstallPatchRegistry($receipts);
 
-    foreach (['first', 'second'] as $patchId) {
+    foreach ([
+        new InstallPatchReceiptCapturedState('first', InstallPatchReceiptCapturedMode::First),
+        new InstallPatchReceiptCapturedState('second', InstallPatchReceiptCapturedMode::Second),
+    ] as $state) {
         $registry->register(
-            static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($patchId),
+            static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($state->name),
         );
     }
 
@@ -178,3 +181,26 @@ it('keeps anonymous factories with distinct captures as distinct receipts', func
         ->and($receipts->all()[0]->key)->not->toBe($receipts->all()[1]->key)
         ->and($receipts->all()[0]->implementation)->not->toBe($receipts->all()[1]->implementation);
 });
+
+it('requires an explicit key for anonymous factories with unsupported captures', function (): void {
+    $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
+    $unsupported = new stdClass;
+
+    expect(fn (): mixed => $registry->register(
+        static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($unsupported::class),
+    ))->toThrow(InvalidArgumentException::class);
+});
+
+enum InstallPatchReceiptCapturedMode: string
+{
+    case First = 'first';
+    case Second = 'second';
+}
+
+final class InstallPatchReceiptCapturedState
+{
+    public function __construct(
+        public string $name,
+        public InstallPatchReceiptCapturedMode $mode,
+    ) {}
+}

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Data\PageTypeData;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
@@ -85,6 +86,35 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
         ->and($receipt->implementation)->toBe(stdClass::class)
         ->and($receipt->ownerPackage)->toBe('vendor/extension')
         ->and($receipt->providerBucket)->toBe('runtime');
+});
+
+it('preserves an active companion context when a registrar bucket hint does not match it', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->rememberNamespaceContext(
+        'Capell\\Core',
+        ExtensionContributionReceiptContext::foundation('capell-app/core', 'runtime', CapellCoreManager::class),
+    );
+    $receipts->rememberNamespaceContext(
+        'Capell\\Admin',
+        ExtensionContributionReceiptContext::foundation('capell-app/admin', 'admin', CapellCoreManager::class),
+    );
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/extension', 'runtime', 'Vendor\\Extension\\ServiceProvider'),
+        function () use ($receipts): void {
+            $receipts->recordFromContext(
+                ExtensionContributionType::AdminPage,
+                'page:vendor',
+                'Vendor\\Extension\\Page',
+                CapellCoreManager::class,
+                'admin',
+            );
+        },
+    );
+
+    expect($receipts->all())->toHaveCount(1)
+        ->and($receipts->all()[0]->ownerPackage)->toBe('vendor/extension')
+        ->and($receipts->all()[0]->providerBucket)->toBe('runtime');
 });
 
 enum PackageSurfaceRegistrarTestModel: string

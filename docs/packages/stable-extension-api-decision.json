@@ -1,6 +1,11 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "Both Core and Frontend directly use Laravel Prompts when installed independently, so declaring laravel/prompts at ^0.2|^0.3 in each package fixes a real shadow-dependency packaging defect rather than adding an arbitrary requirement. The migrations drift is pre-existing on origin/main, including the 2026_08_14_000001_add_provider_recovery_to_capell_extensions.php migration, and is not caused by this PR.",
-    "drift": ["packageConstraints", "migrations"]
+    "reason": "The receipt contract and registry are an intentional stable extension-surface addition whose generated signatures must be accepted, while the Admin workspace signature, package constraints, and migrations are existing repository drift. The migrations drift includes the 2026_08_14_000001_add_provider_recovery_to_capell_extensions.php migration and is not caused by this PR.",
+    "drift": [
+        "changed public signature: admin.registrar.workspace",
+        "changed public signature: core.registry.extension-contribution-receipt",
+        "migrations",
+        "packageConstraints"
+    ]
 }

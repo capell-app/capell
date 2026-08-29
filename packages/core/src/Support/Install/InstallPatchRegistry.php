@@ -8,6 +8,7 @@ use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Patching\Patch;
 use Closure;
+use InvalidArgumentException;
 
 /**
  * Core-owned seam for install-time application patches. Companion packages
@@ -119,13 +120,7 @@ final class InstallPatchRegistry
     {
         $captures = [];
         foreach ($reflection->getStaticVariables() as $name => $value) {
-            $captures[$name] = match (true) {
-                is_scalar($value), $value === null => $value,
-                $value instanceof \BackedEnum => [$value::class, $value->value],
-                is_array($value) => $this->stableArray($value),
-                is_object($value) => ['object' => $value::class],
-                default => get_debug_type($value),
-            };
+            $captures[$name] = $this->stableValue($value);
         }
 
         ksort($captures);
@@ -138,12 +133,55 @@ final class InstallPatchRegistry
     {
         $stable = [];
         foreach ($values as $key => $value) {
-            $stable[(string) $key] = is_array($value)
-                ? $this->stableArray($value)
-                : (is_scalar($value) || $value === null ? $value : get_debug_type($value));
+            $stable[(string) $key] = $this->stableValue($value);
         }
         ksort($stable);
 
         return $stable;
+    }
+
+    private function stableValue(mixed $value): mixed
+    {
+        if (is_scalar($value) || $value === null) {
+            return $value;
+        }
+
+        if ($value instanceof \BackedEnum) {
+            return ['enum' => $value::class, 'value' => $value->value];
+        }
+
+        if (is_array($value)) {
+            return $this->stableArray($value);
+        }
+
+        if (is_object($value)) {
+            $properties = [];
+            $reflection = new \ReflectionObject($value);
+            foreach ($reflection->getProperties() as $property) {
+                if (! $property->isInitialized($value)) {
+                    continue;
+                }
+
+                $properties[$property->getDeclaringClass()->getName() . ':' . $property->getName()] = $this->stableValue(
+                    $property->getValue($value),
+                );
+            }
+            ksort($properties);
+
+            if ($properties === []) {
+                throw new InvalidArgumentException(
+                    'Anonymous install-patch factories capturing object values must provide an explicit key.',
+                );
+            }
+
+            return [
+                'object' => $value::class,
+                'properties' => $properties,
+            ];
+        }
+
+        throw new InvalidArgumentException(
+            'Anonymous install-patch factories may only capture scalar, enum, array, or stateful object values without an explicit key.',
+        );
     }
 }
