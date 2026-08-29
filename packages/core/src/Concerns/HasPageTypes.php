@@ -28,7 +28,7 @@ trait HasPageTypes
         resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
             ExtensionContributionType::PageType,
             $type->name,
-            $type->model,
+            $type->model ?? 'unresolved',
             self::class,
             'runtime',
         );

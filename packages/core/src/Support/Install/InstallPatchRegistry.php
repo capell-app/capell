@@ -238,7 +238,7 @@ final class InstallPatchRegistry
     }
 
     /**
-     * @param  array<mixed>  $values
+     * @param  array<int|string, mixed>  $values
      * @param  array<int, true>  $activeObjects
      * @param  array<string, true>  $activeReferences
      */

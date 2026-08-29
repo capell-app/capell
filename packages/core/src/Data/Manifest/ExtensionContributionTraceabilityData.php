@@ -8,7 +8,7 @@ use Spatie\LaravelData\Data;
 
 final class ExtensionContributionTraceabilityData extends Data
 {
-    /** @param list<string> $deferredContributions @param array<string, mixed> $runtimeIntegrations */
+    /** @param list<string> $deferredContributions @param array<string, list<string|array<string, string>>> $runtimeIntegrations */
     public function __construct(
         public readonly array $deferredContributions = [],
         public readonly array $runtimeIntegrations = [],

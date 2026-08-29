@@ -399,7 +399,9 @@ final class AdminBridgeRegistrar
         }
 
         if ($action instanceof Action || $action instanceof ActionGroup) {
-            return $action->getName();
+            return method_exists($action, 'getName') && is_string($action->getName())
+                ? $action->getName()
+                : $action::class;
         }
 
         $reflection = new ReflectionFunction($action);
