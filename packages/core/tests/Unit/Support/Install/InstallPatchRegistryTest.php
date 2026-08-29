@@ -182,6 +182,22 @@ it('keeps anonymous factories with distinct captures as distinct receipts', func
         ->and($receipts->all()[0]->implementation)->not->toBe($receipts->all()[1]->implementation);
 });
 
+it('includes backed enum captures in anonymous factory identities', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $registry = new InstallPatchRegistry($receipts);
+
+    foreach ([InstallPatchReceiptCapturedMode::First, InstallPatchReceiptCapturedMode::Second] as $mode) {
+        $registry->register(
+            static fn (InstallPatchContext $context): ?Patch => $mode === InstallPatchReceiptCapturedMode::First
+                ? null
+                : makeInstallPatchRegistryTestPatch('enum-capture'),
+        );
+    }
+
+    expect($receipts->all())->toHaveCount(2)
+        ->and($receipts->all()[0]->key)->not->toBe($receipts->all()[1]->key);
+});
+
 it('requires an explicit key for anonymous factories with unsupported captures', function (): void {
     $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
     $unsupported = new stdClass;
