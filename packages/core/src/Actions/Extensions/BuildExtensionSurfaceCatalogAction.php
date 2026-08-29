@@ -20,6 +20,7 @@ use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
+use Capell\Core\Contracts\Extensions\RegistersExtensionPublicRenderData;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Health\HealthCheck;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;

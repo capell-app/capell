@@ -25,6 +25,7 @@ final class CacheInvalidationRegistry
         private readonly CacheInvalidationDependencyRegistry $dependencies,
         private readonly CacheInvalidationExecutor $executor,
         private readonly TranslationCacheDependencyRegistry $translationDependencies,
+        private readonly PublicRenderDataCacheDependencyRegistry $publicRenderDataDependencies,
     ) {
         foreach ($this->dependencies->allPatterns() as $pattern) {
             $this->executor->registerCacheInvalidationPattern($pattern);
@@ -38,7 +39,17 @@ final class CacheInvalidationRegistry
 
     public function invalidateChangedModel(Model $model): void
     {
-        $this->executor->execute($this->planForChangedModel($model));
+        $this->publicRenderDataDependencies->invalidate($model, function (array $publicRules) use ($model): void {
+            try {
+                $plan = $this->planForChangedModelWithinBounds($model);
+                $this->executor->execute(new CacheInvalidationPlanData($this->uniqueRules([
+                    ...$publicRules,
+                    ...$plan->rules,
+                ])));
+            } catch (RuntimeException) {
+                $this->executor->execute(new CacheInvalidationPlanData([CacheInvalidationRule::flushFrontendTag()]));
+            }
+        });
     }
 
     public function planForModel(string $modelClass): CacheInvalidationPlanData
@@ -64,7 +75,12 @@ final class CacheInvalidationRegistry
     public function planForChangedModel(Model $model): CacheInvalidationPlanData
     {
         try {
-            return $this->planForChangedModelWithinBounds($model);
+            $plan = $this->planForChangedModelWithinBounds($model);
+
+            return new CacheInvalidationPlanData($this->uniqueRules([
+                ...$this->publicRenderDataDependencies->rulesFor($model),
+                ...$plan->rules,
+            ]));
         } catch (RuntimeException) {
             return new CacheInvalidationPlanData([CacheInvalidationRule::flushFrontendTag()]);
         }

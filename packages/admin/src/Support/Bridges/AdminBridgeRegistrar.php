@@ -68,11 +68,13 @@ final class AdminBridgeRegistrar
     public function page(string $pageClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page($pageClass));
+        $this->receipt(ExtensionContributionType::AdminPage, $pageClass, $pageClass);
     }
 
     public function report(ReportDefinitionData $report): void
     {
         CapellAdmin::registerReport($report);
+        $this->receipt(ExtensionContributionType::AdminPage, 'report:' . $report->key, $report::class);
     }
 
     /** @param class-string<Page> $pageClass */
@@ -86,12 +88,14 @@ final class AdminBridgeRegistrar
     public function resource(string $resourceClass, string $group, string $name = 'default'): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource($resourceClass, $group, $name));
+        $this->receipt(ExtensionContributionType::AdminResource, 'resource:' . $group . ':' . $name, $resourceClass);
     }
 
     /** @param class-string $widgetClass */
     public function widget(string $widgetClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::widget($widgetClass));
+        $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'widget:' . $widgetClass, $widgetClass);
     }
 
     /** @param class-string $widgetClass */

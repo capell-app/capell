@@ -72,12 +72,6 @@ final class PackageSurfaceRegistrar
     public function pageType(PageTypeData $type): self
     {
         $this->core->registerPageType($type);
-        $this->receipts->recordContribution(
-            ExtensionContributionType::PageType,
-            $type->name,
-            $type->model,
-            self::class,
-        );
 
         return $this;
     }
@@ -116,12 +110,6 @@ final class PackageSurfaceRegistrar
     public function component(string|BackedEnum $type, string|BackedEnum $name, string $component): self
     {
         $this->core->registerComponent($type, $name, $component);
-        $this->receipts->recordContribution(
-            ExtensionContributionType::ContentWidget,
-            'component:' . $this->stringValue($type) . ':' . $this->stringValue($name),
-            $component,
-            self::class,
-        );
 
         return $this;
     }
@@ -133,19 +121,6 @@ final class PackageSurfaceRegistrar
     {
         $this->core->registerComponents($type, $components);
 
-        foreach ($components as $name => $component) {
-            if (! is_string($component)) {
-                continue;
-            }
-
-            $this->receipts->recordContribution(
-                ExtensionContributionType::ContentWidget,
-                'component:' . $this->stringValue($type) . ':' . (string) $name,
-                $component,
-                self::class,
-            );
-        }
-
         return $this;
     }
 
@@ -155,23 +130,6 @@ final class PackageSurfaceRegistrar
     public function models(array $models): self
     {
         $this->core->registerModels($models);
-
-        foreach ($models as $model) {
-            if ($model instanceof BackedEnum) {
-                $model = (string) $model->value;
-            }
-
-            if (! is_string($model)) {
-                continue;
-            }
-
-            $this->receipts->recordContribution(
-                ExtensionContributionType::Model,
-                'model:' . $model,
-                $model,
-                self::class,
-            );
-        }
 
         return $this;
     }
@@ -188,12 +146,6 @@ final class PackageSurfaceRegistrar
         int $priority = 0,
     ): self {
         $this->core->registerModelInterceptor($model, $interceptorClass, $key, $priority);
-        $this->receipts->recordContribution(
-            ExtensionContributionType::Model,
-            'model-interceptor:' . $model . ':' . $interceptorClass . ':' . $this->keyValue($key),
-            $interceptorClass,
-            self::class,
-        );
 
         return $this;
     }

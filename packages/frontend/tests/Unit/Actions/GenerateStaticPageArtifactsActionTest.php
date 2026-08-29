@@ -12,16 +12,24 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
+use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
+use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Data\PublicRenderDataContributionData;
+use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Response as IlluminateResponse;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -388,6 +396,87 @@ it('skips urls without an enabled site domain or writable html response', functi
         ->and($jsonManifest['artifacts'])->toBe([])
         ->and(File::exists($store->root() . '/https.example.test/missing-domain-static-test/index.html'))->toBeFalse()
         ->and(File::exists($store->root() . '/https.example.test/json-static-test/index.html'))->toBeFalse();
+});
+
+it('generates static HTML from hydrated contributor data without public-view queries or internals', function (): void {
+    config()->set('cache.default', 'array');
+    [$page, $site, $seedRenderData] = staticPageArtifactsRenderData('/catalogue-static-test');
+
+    resolve(PublicRenderDataContributorRegistry::class)->register(new class implements PublicRenderDataContributor
+    {
+        public function key(): string
+        {
+            return 'fixture.catalogue';
+        }
+
+        public function supports(FrontendRenderContextData $context): bool
+        {
+            return true;
+        }
+
+        public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+        {
+            return new PublicRenderDataContributionMetadataData('catalogue-v1');
+        }
+
+        public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
+        {
+            return new PublicRenderDataContributionData((object) [
+                'products' => [(object) ['name' => 'Tea', 'price' => '4.00']],
+            ]);
+        }
+
+        public function cacheDependencyModelTypes(): array
+        {
+            return [];
+        }
+    });
+
+    $renderData = BuildPublicPageRenderDataAction::run(new FrontendRenderContextData(
+        page: $seedRenderData->page,
+        site: $seedRenderData->site,
+        language: $seedRenderData->language,
+        layout: $seedRenderData->layout,
+        theme: $seedRenderData->theme,
+        runtimeManifest: $seedRenderData->runtimeManifest,
+    ));
+    $counter = new stdClass;
+    $counter->queries = 0;
+    app()->instance(Kernel::class, new readonly class($renderData, $counter) implements Kernel
+    {
+        public function __construct(private PublicPageRenderData $renderData, private stdClass $counter) {}
+
+        public function bootstrap(): void {}
+
+        public function handle($request): Response
+        {
+            resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
+            DB::listen(function (): void {
+                $this->counter->queries++;
+            });
+            $html = Blade::render('<article>{{ $renderData->extensionData(\'fixture.catalogue\')->products[0]->name }}</article>', ['renderData' => $this->renderData]);
+
+            return new Response($html, Response::HTTP_OK, ['content-type' => 'text/html']);
+        }
+
+        public function terminate($request, $response): void {}
+
+        public function getApplication(): Application
+        {
+            return app();
+        }
+    });
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/catalogue-static-test']);
+    $html = File::get(resolve(StaticPageArtifactStore::class)->root() . '/https.example.test/catalogue-static-test/index.html');
+
+    expect($manifest['artifacts'])->toHaveCount(1)
+        ->and($html)->toContain('<article>Tea</article>')
+        ->and($counter->queries)->toBe(0);
+
+    foreach (['admin', 'permission', 'package', 'Capell\\', 'field_path', 'signed'] as $forbidden) {
+        expect($html)->not->toContain($forbidden);
+    }
 });
 
 /**

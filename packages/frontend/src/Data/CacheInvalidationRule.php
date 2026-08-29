@@ -20,6 +20,10 @@ final class CacheInvalidationRule extends Data
 
     public const string KIND_PUBLIC_RENDER_DATA = 'public-render-data';
 
+    public const string KIND_STATIC_ARTIFACT = 'static-artifact';
+
+    public const string KIND_SURROGATE_KEYS = 'surrogate-keys';
+
     public function __construct(
         public readonly string $kind,
         public readonly ?string $cacheKey = null,
@@ -27,6 +31,8 @@ final class CacheInvalidationRule extends Data
         public readonly ?int $modelId = null,
         public readonly ?int $siteId = null,
         public readonly ?int $languageId = null,
+        /** @var list<string> */
+        public readonly array $surrogateKeys = [],
     ) {}
 
     public static function forgetKey(string $cacheKey): self
@@ -73,5 +79,16 @@ final class CacheInvalidationRule extends Data
             siteId: $siteId,
             languageId: $languageId,
         );
+    }
+
+    public static function staticArtifact(string $file): self
+    {
+        return new self(kind: self::KIND_STATIC_ARTIFACT, cacheKey: $file);
+    }
+
+    /** @param list<string> $surrogateKeys */
+    public static function surrogateKeys(array $surrogateKeys): self
+    {
+        return new self(kind: self::KIND_SURROGATE_KEYS, surrogateKeys: $surrogateKeys);
     }
 }

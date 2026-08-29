@@ -844,7 +844,7 @@ it('rejects malformed structured runtime event listener traceability', function 
     $manifest['contributionTraceability'] = ['runtimeIntegrations' => ['eventListeners' => $listeners]];
 
     expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
-        ->toThrow(InvalidManifestException::class, 'non-empty homogeneous');
+        ->toThrow(InvalidManifestException::class, 'string list or event listener list');
 })->with([
     'empty string' => [['event' => '', 'listener' => 'Vendor\\Listener']],
     'extra field' => [['event' => 'created', 'listener' => 'Vendor\\Listener', 'extra' => true]],
