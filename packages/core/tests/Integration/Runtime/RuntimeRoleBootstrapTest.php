@@ -92,7 +92,16 @@ function bootRuntimeRoleFixture(string $role, ?string $manifestState = null): ar
         $repositoryPath . '/tests/fixtures/RuntimeRole/boot-runtime-role.php',
         $role,
         ...($manifestState === null ? [] : [$manifestState]),
-    ], $repositoryPath);
+    ], $repositoryPath, [
+        // The direct fixture must not inherit Testbench's runtime bootstrap selector
+        // or the role-specific cache paths installed by the parent Pest process.
+        'CAPELL_TESTBENCH_RUNTIME_ROLE' => false,
+        'APP_CONFIG_CACHE' => false,
+        'APP_PACKAGES_CACHE' => false,
+        'APP_SERVICES_CACHE' => false,
+        'APP_ROUTES_CACHE' => false,
+        'APP_EVENTS_CACHE' => false,
+    ]);
     $process->mustRun();
 
     $result = json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR);
@@ -117,8 +126,24 @@ function bootRuntimeRoleTestbenchFixture(string $role): array
 
             $basePath = \Capell\Tests\Support\IsolatedTestbenchSkeleton::basePath();
             $providersPath = $basePath . '/bootstrap/providers.php';
+            $appProviderPath = $basePath . '/app/Providers/RuntimeRoleAppProvider.php';
+            $appProviderDirectory = dirname($appProviderPath);
+            is_dir($appProviderDirectory) || mkdir($appProviderDirectory, 0777, true);
+            file_put_contents($appProviderPath, <<<'APP_PROVIDER'
+            <?php
+
+            namespace App\Providers;
+
+            use Illuminate\Support\ServiceProvider;
+
+            final class RuntimeRoleAppProvider extends ServiceProvider
+            {
+            }
+            APP_PROVIDER
+            );
             $providers = require $providersPath;
             $providers[] = %s;
+            $providers[] = 'App\\Providers\\RuntimeRoleAppProvider';
             file_put_contents($providersPath, '<?php return ' . var_export(array_values(array_unique($providers)), true) . ';');
 
             $application = require %s;
@@ -134,6 +159,7 @@ function bootRuntimeRoleTestbenchFixture(string $role): array
                 'events_cache' => $application->getCachedEventsPath(),
                 'package_manifest' => $application->make(\Illuminate\Foundation\PackageManifest::class)::class,
                 'ordering_registered' => $application->bound('runtime-role.fixture.ordering'),
+                'app_provider_registered' => $application->getProvider('App\\Providers\\RuntimeRoleAppProvider') !== null,
                 'expected_config_cache' => $paths->config($role),
             ], JSON_THROW_ON_ERROR);
             PHP,
@@ -144,13 +170,19 @@ function bootRuntimeRoleTestbenchFixture(string $role): array
     ], $repositoryPath, [
         'CAPELL_RUNTIME_ROLE' => $role,
         'UNIQUE_TEST_TOKEN' => 'runtime-role-testbench-' . bin2hex(random_bytes(6)),
+        'APP_CONFIG_CACHE' => false,
+        'APP_PACKAGES_CACHE' => false,
+        'APP_SERVICES_CACHE' => false,
+        'APP_ROUTES_CACHE' => false,
+        'APP_EVENTS_CACHE' => false,
     ]);
     $process->mustRun();
 
     $result = json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR);
 
     expect($result)->toBeArray()
-        ->and($result['config_cache'])->toBe($result['expected_config_cache']);
+        ->and($result['config_cache'])->toBe($result['expected_config_cache'])
+        ->and($result['app_provider_registered'])->toBeTrue();
 
     return $result;
 }

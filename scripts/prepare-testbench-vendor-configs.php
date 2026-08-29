@@ -20,6 +20,7 @@ function copyTestbenchFile(string $sourcePath, string $targetPath, string $type)
 }
 
 $configPaths = [
+    'spatie/laravel-activitylog/config/activitylog.php',
     'spatie/laravel-permission/config/permission.php',
     'spatie/laravel-settings/config/settings.php',
     'bezhansalleh/filament-shield/config/filament-shield.php',
