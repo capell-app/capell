@@ -139,8 +139,9 @@ and Installer Admin bridges use the shared `AdminBridgeRegistrar`, which supplie
 selected package context. Tagged contributors are attributed from their supplying package
 context at resolution time; consumer registries do not manufacture a new owner.
 
-Manifests may add typed `contributionTraceability` entries with `type`, `key`, `class`,
-and `providerBucket`, plus the existing deferred/runtime integration metadata. Audits
+Manifest contributions may include a stable `key` and `providerBucket` alongside their
+marker class. The existing `contributionTraceability` envelope retains deferred/runtime
+integration metadata. Audits
 reconcile receipts only for explicitly booted provider buckets, reporting declared-only,
 loaded-only, wrong-owner, or wrong-bucket states with package/key/source diagnostics.
 

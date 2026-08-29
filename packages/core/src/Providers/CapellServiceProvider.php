@@ -58,8 +58,8 @@ use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Database\DatabasePlatform;
-use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
@@ -541,7 +541,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ContentGraphRegistry::class, fn (): ContentGraphRegistry => new ContentGraphRegistry($this->app));
         $this->app->singleton(ThemeChromeRegistry::class);
         $this->app->singleton(ThemeInstallDefaultsRegistry::class);
-        $this->app->singleton(InstallPatchRegistry::class);
+        $this->app->singleton(InstallPatchRegistry::class, fn ($app): InstallPatchRegistry => new InstallPatchRegistry(
+            $app->bound(RecordsExtensionContributionReceipt::class)
+                ? $app->make(RecordsExtensionContributionReceipt::class)
+                : null,
+        ));
         $this->app->singleton(PublicationReadinessRegistry::class, fn ($app): PublicationReadinessRegistry => new PublicationReadinessRegistry($app));
         $this->app->singleton(HealthCheckRegistry::class);
         $this->callAfterResolving(HealthCheckRegistry::class, function (HealthCheckRegistry $registry): void {

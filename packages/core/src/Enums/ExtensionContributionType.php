@@ -33,11 +33,6 @@ enum ExtensionContributionType: string
     case WorkflowAttention = 'workflow-attention';
     case OutboundEvent = 'outbound-event';
     case BlueprintSubject = 'blueprint-subject';
-    case Subscriber = 'subscriber';
-    case MetricCollector = 'metric-collector';
-    case CacheDependency = 'cache-dependency';
-    case InstallPatch = 'install-patch';
-
     public function bucket(): string
     {
         return match ($this) {
@@ -56,10 +51,8 @@ enum ExtensionContributionType: string
             self::FrontendComponent,
             self::ContentWidget,
             self::RenderHook,
-            self::Asset,
-            self::CacheDependency => 'frontend',
-            self::Migration,
-            self::InstallPatch => 'install',
+            self::Asset => 'frontend',
+            self::Migration => 'install',
             default => 'runtime',
         };
     }

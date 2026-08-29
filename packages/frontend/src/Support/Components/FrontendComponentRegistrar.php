@@ -6,6 +6,7 @@ namespace Capell\Frontend\Support\Components;
 
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\AssetComponentEnum;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Frontend\Contracts\FrontendComponentContributor;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;

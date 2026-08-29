@@ -96,7 +96,7 @@ Keep `extra.laravel.providers` to the package bootstrap provider only, and never
         "frontend": ["Capell\\Example\\Providers\\FrontendServiceProvider"]
     },
     "contributes": [],
-    "contributionTraceability": [],
+    "contributionTraceability": {},
     "database": {
         "migrations": true,
         "settings": false,

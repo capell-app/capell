@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
-use Capell\Core\Contracts\Pageable;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
-use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Contracts\Pageable;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Media;
@@ -81,7 +81,7 @@ final class CacheInvalidationRegistry
             }
         }
         $this->receipts()?->recordContribution(
-            ExtensionContributionType::CacheDependency,
+            ExtensionContributionReceiptType::CacheDependency,
             'cache-dependency:' . $modelClass,
             $modelClass,
             self::class,

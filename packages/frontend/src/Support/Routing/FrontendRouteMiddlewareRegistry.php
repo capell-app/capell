@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Routing;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Frontend\Http\Middleware\RejectReservedFrontendDomains;
 use Capell\Frontend\Http\Middleware\RejectReservedFrontendPaths;
 
@@ -39,6 +41,7 @@ final class FrontendRouteMiddlewareRegistry
     public function prepend(array $middleware): self
     {
         $this->middleware = $this->merge($middleware, $this->middleware);
+        $this->receipt($middleware);
 
         return $this;
     }
@@ -49,6 +52,7 @@ final class FrontendRouteMiddlewareRegistry
     public function append(array $middleware): self
     {
         $this->middleware = $this->merge($this->middleware, $middleware);
+        $this->receipt($middleware);
 
         return $this;
     }
@@ -72,6 +76,7 @@ final class FrontendRouteMiddlewareRegistry
             ],
             [],
         );
+        $this->receipt($middleware);
 
         return $this;
     }
@@ -95,6 +100,7 @@ final class FrontendRouteMiddlewareRegistry
             ],
             [],
         );
+        $this->receipt($middleware);
 
         return $this;
     }
@@ -118,5 +124,24 @@ final class FrontendRouteMiddlewareRegistry
             ->unique()
             ->values()
             ->all());
+    }
+
+    /** @param list<class-string|string> $middleware */
+    private function receipt(array $middleware): void
+    {
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
+            return;
+        }
+
+        $receipts = resolve(RecordsExtensionContributionReceipt::class);
+        foreach ($middleware as $item) {
+            $receipts->recordContribution(
+                ExtensionContributionReceiptType::FrontendRouteMiddleware,
+                'frontend-middleware:' . $item,
+                $item,
+                self::class,
+                'frontend',
+            );
+        }
     }
 }

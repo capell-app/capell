@@ -7,6 +7,7 @@ namespace Capell\Admin\Concerns;
 use BackedEnum;
 use Capell\Admin\Data\NavigationGroupData;
 use Capell\Admin\Enums\NavigationGroupPositionEnum;
+use Capell\Core\Enums\ExtensionContributionType;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 
@@ -74,7 +75,7 @@ trait HasNavigation
             ? $this->registeredNavigationGroups[$key]->merge($navigationGroup)
             : $navigationGroup;
         $this->adminReceipt(
-            \Capell\Core\Enums\ExtensionContributionType::AdminActionExtender,
+            ExtensionContributionType::AdminActionExtender,
             'navigation-group:' . $key,
             NavigationGroupData::class,
         );

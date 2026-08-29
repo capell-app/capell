@@ -35,6 +35,7 @@ trait HasComponents
             'component:' . $canonicalType . ':' . $canonicalName,
             $component,
             self::class,
+            'runtime',
         );
 
         return $this;
@@ -72,6 +73,7 @@ trait HasComponents
                 'component:' . $canonicalType . ':' . (string) $name,
                 $component,
                 self::class,
+                'runtime',
             );
         }
 

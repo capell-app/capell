@@ -297,6 +297,17 @@ final class ManifestValidator
 
             $this->validateClass($class, $namespacePrefixes, $isTrustedCore, $this->expectedContributionContract($type));
 
+            if (array_key_exists('key', $contribution)
+                && (! is_string($contribution['key']) || $contribution['key'] === '')) {
+                throw InvalidManifestException::invalidField(sprintf('contributes.%d.key', $index), 'must be a non-empty string');
+            }
+
+            if (array_key_exists('providerBucket', $contribution)
+                && (! is_string($contribution['providerBucket'])
+                    || ! in_array($contribution['providerBucket'], self::VALID_PROVIDER_BUCKETS, true))) {
+                throw InvalidManifestException::invalidField(sprintf('contributes.%d.providerBucket', $index), 'must be a valid provider bucket');
+            }
+
             if ($type === ExtensionContributionType::ContentWidget) {
                 $key = $contribution['key'] ?? null;
                 $packageVendor = str((string) $data['name'])->before('/')->toString();
@@ -333,11 +344,15 @@ final class ManifestValidator
         }
 
         $traceability = $data['contributionTraceability'];
+        if ($traceability === []) {
+            return;
+        }
+
         if (! is_array($traceability)) {
             throw InvalidManifestException::invalidField('contributionTraceability', 'must be an object');
         }
 
-        $traceabilityFields = ['deferredContributions', 'runtimeIntegrations', 'contributions'];
+        $traceabilityFields = ['deferredContributions', 'runtimeIntegrations'];
         if (array_diff(array_keys($traceability), $traceabilityFields) !== []) {
             throw InvalidManifestException::invalidField(
                 'contributionTraceability',
@@ -382,78 +397,6 @@ final class ManifestValidator
             }
         }
 
-        $entries = $traceability['contributions'] ?? [];
-        if (! is_array($entries) || ! array_is_list($entries)) {
-            throw InvalidManifestException::invalidField('contributionTraceability.contributions', 'must be a list');
-        }
-
-        $mappedContributionIndexes = [];
-
-        foreach ($entries as $index => $entry) {
-            if (! is_array($entry)) {
-                throw InvalidManifestException::invalidField('contributionTraceability.contributions.' . $index, 'must be an object');
-            }
-
-            if (array_diff(array_keys($entry), ['type', 'key', 'class', 'providerBucket']) !== []) {
-                throw InvalidManifestException::invalidField(
-                    'contributionTraceability.contributions.' . $index,
-                    'contains unknown fields',
-                );
-            }
-
-            foreach (['type', 'key', 'providerBucket'] as $field) {
-                if (! is_string($entry[$field] ?? null) || $entry[$field] === '') {
-                    throw InvalidManifestException::missingField('contributionTraceability.contributions.' . $index . '.' . $field);
-                }
-            }
-
-            if (! ExtensionContributionType::tryFrom($entry['type']) instanceof ExtensionContributionType
-                || ! in_array($entry['providerBucket'], self::VALID_PROVIDER_BUCKETS, true)) {
-                throw InvalidManifestException::invalidField('contributionTraceability.contributions.' . $index, 'contains an invalid type or provider bucket');
-            }
-
-            if (array_key_exists('class', $entry) && (! is_string($entry['class']) || $entry['class'] === '')) {
-                throw InvalidManifestException::invalidField(
-                    'contributionTraceability.contributions.' . $index . '.class',
-                    'must be a non-empty string',
-                );
-            }
-
-            $matches = array_keys(array_filter(
-                $data['contributes'],
-                static fn (mixed $contribution): bool => is_array($contribution)
-                    && ($contribution['type'] ?? null) === $entry['type']
-                    && (! array_key_exists('class', $entry) || ($contribution['class'] ?? null) === $entry['class']),
-            ));
-
-            if (count($matches) > 1) {
-                $keyMatches = array_values(array_filter(
-                    $matches,
-                    function (int $contributionIndex) use ($data, $entry): bool {
-                        $contribution = $data['contributes'][$contributionIndex];
-                        $values = [];
-
-                        foreach (['key', 'keys', 'event', 'events', 'name', 'names'] as $field) {
-                            $value = $contribution[$field] ?? null;
-                            $values = [...$values, ... (is_array($value) ? $value : [$value])];
-                        }
-
-                        return in_array($entry['key'], array_filter($values, 'is_string'), true);
-                    },
-                ));
-
-                $matches = $keyMatches;
-            }
-
-            if (count($matches) !== 1 || in_array($matches[0], $mappedContributionIndexes, true)) {
-                throw InvalidManifestException::invalidField(
-                    'contributionTraceability.contributions.' . $index,
-                    'must map to exactly one contributes entry by type and class',
-                );
-            }
-
-            $mappedContributionIndexes[] = $matches[0];
-        }
     }
 
     /**

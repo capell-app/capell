@@ -27,6 +27,7 @@ final class RenderableRegistry
                 'renderable:' . $type . ':' . $key,
                 $definition->contribution?->class ?? $definition::class,
                 self::class,
+                'runtime',
             );
         }
     }

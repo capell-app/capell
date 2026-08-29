@@ -89,7 +89,7 @@ Keep the Composer-discovered provider safe. It can publish metadata, but it shou
         ]
     },
     "contributes": [],
-    "contributionTraceability": [],
+    "contributionTraceability": {},
     "database": {
         "migrations": true,
         "settings": false,

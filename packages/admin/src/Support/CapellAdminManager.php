@@ -220,7 +220,7 @@ class CapellAdminManager
         $this->adminReceipt(
             ExtensionContributionType::AdminActionExtender,
             'user-menu-item:' . $key,
-            AdminWorkspaceItemData::class,
+            UserMenuItemData::class,
         );
     }
 
@@ -392,7 +392,7 @@ class CapellAdminManager
      */
     public function registerExtensionPage(string $packageName, string $page): void
     {
-        $this->contributeToAdminSurface(AdminSurfaceContributionData::page($page));
+        $this->adminSurfaceRegistry->register(AdminSurfaceContributionData::page($page));
         $this->suppressExtensionPageNativeNavigation($page);
 
         resolve(ExtensionPageRegistry::class)->register($packageName, $page);
@@ -416,7 +416,7 @@ class CapellAdminManager
     public function registerReport(ReportDefinitionData $report): void
     {
         $this->reportRegistry->register($report);
-        $this->contributeToAdminSurface(AdminSurfaceContributionData::page($report->pageClass));
+        $this->adminSurfaceRegistry->register(AdminSurfaceContributionData::page($report->pageClass));
         $this->adminReceipt(
             ExtensionContributionType::AdminPage,
             'report:' . $report->key,
@@ -543,21 +543,6 @@ class CapellAdminManager
         );
     }
 
-    private function adminReceipt(ExtensionContributionType $type, string $key, string $implementation): void
-    {
-        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
-            return;
-        }
-
-        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
-            $type,
-            $key,
-            $implementation,
-            self::class,
-            'admin',
-        );
-    }
-
     public function clearActivityResourceLinks(): void
     {
         $this->prepareAdminRuntime();
@@ -628,6 +613,21 @@ class CapellAdminManager
         throw_if(! is_string($settingsClass) || $settingsClass === '', RuntimeException::class, 'Admin settings class is not configured.');
 
         return resolve($settingsClass);
+    }
+
+    private function adminReceipt(ExtensionContributionType $type, string $key, string $implementation): void
+    {
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
+            return;
+        }
+
+        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+            $type,
+            $key,
+            $implementation,
+            self::class,
+            'admin',
+        );
     }
 
     private function prepareAdminRuntime(): void

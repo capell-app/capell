@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Concerns;
 
-use Capell\Core\Data\PageTypeData;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\ExtensionContributionType;
 use Illuminate\Support\Collection;

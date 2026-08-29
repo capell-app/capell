@@ -27,6 +27,7 @@ trait HasAssets
                 'core-asset:' . $asset->name,
                 $asset->model,
                 self::class,
+                'runtime',
             );
         }
 

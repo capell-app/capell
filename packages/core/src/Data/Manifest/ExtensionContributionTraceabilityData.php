@@ -8,11 +8,10 @@ use Spatie\LaravelData\Data;
 
 final class ExtensionContributionTraceabilityData extends Data
 {
-    /** @param list<string> $deferredContributions @param array<string, mixed> $runtimeIntegrations @param list<ExtensionContributionTraceabilityEntryData> $contributions */
+    /** @param list<string> $deferredContributions @param array<string, mixed> $runtimeIntegrations */
     public function __construct(
         public readonly array $deferredContributions = [],
         public readonly array $runtimeIntegrations = [],
-        public readonly array $contributions = [],
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -28,10 +27,6 @@ final class ExtensionContributionTraceabilityData extends Data
         return new self(
             deferredContributions: array_values(array_filter($data['deferredContributions'] ?? [], is_string(...))),
             runtimeIntegrations: $integrations,
-            contributions: array_map(
-                ExtensionContributionTraceabilityEntryData::fromArray(...),
-                array_values(array_filter($data['contributions'] ?? [], is_array(...))),
-            ),
         );
     }
 
@@ -41,10 +36,6 @@ final class ExtensionContributionTraceabilityData extends Data
         return [
             'deferredContributions' => $this->deferredContributions,
             'runtimeIntegrations' => $this->runtimeIntegrations,
-            'contributions' => array_map(
-                static fn (ExtensionContributionTraceabilityEntryData $entry): array => $entry->toArray(),
-                $this->contributions,
-            ),
         ];
     }
 }

@@ -30,9 +30,6 @@ class RenderHookRegistry
     /** @var array<string, true> Stable keys already contributed, for dedupe. */
     protected array $contributedKeys = [];
 
-    /** @var array<string, int> Occurrences for indistinguishable legacy registrations. */
-    protected array $legacyReceiptOccurrences = [];
-
     public function __construct(
         private readonly ?Container $container = null,
     ) {}
@@ -257,13 +254,9 @@ class RenderHookRegistry
     {
         $implementation = is_string($extension) ? $extension : (is_object($extension) ? $extension::class : get_debug_type($extension));
         $identity = $this->legacyExtensionIdentity($extension, $implementation);
-        $baseKey = $location . ':' . $identity;
-        $occurrence = ($this->legacyReceiptOccurrences[$baseKey] ?? 0) + 1;
-        $this->legacyReceiptOccurrences[$baseKey] = $occurrence;
-        $identity .= $occurrence > 1 ? ':duplicate-' . $occurrence : '';
         $this->receipts()?->recordContribution(
             ExtensionContributionType::RenderHook,
-            'hook:' . $location . ':' . $identity,
+            'legacy-hook:' . hash('sha256', $location . ':' . $identity),
             $implementation,
             self::class,
             'frontend',

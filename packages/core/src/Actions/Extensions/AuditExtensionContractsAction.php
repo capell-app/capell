@@ -8,6 +8,7 @@ use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\BlueprintSubjectRegistry;
@@ -294,78 +295,71 @@ final class AuditExtensionContractsAction
         $receipts = $registry->all();
         $declared = [];
         $results = [];
-        $trace = $manifest->contributionTraceability?->contributions ?? [];
-
         $expected = [];
-        $tracedMarkers = [];
-        foreach ($trace as $entry) {
-            $candidates = array_values(array_filter(
-                $manifest->contributes,
-                static fn (ExtensionContributionData $contribution): bool => $contribution->type === $entry->type
-                    && ($entry->class === null || $contribution->class === $entry->class),
-            ));
-            $marker = count($candidates) === 1 ? $candidates[0] : array_find(
-                $candidates,
-                fn (ExtensionContributionData $contribution): bool => in_array(
-                    $entry->key,
-                    $this->contributionMetadataStrings($contribution, 'key', 'keys', 'event', 'events', 'name', 'names'),
-                    true,
-                ),
-            );
-            $expected[] = [$entry->type, $entry->key, $entry->providerBucket, $entry->class ?? $marker?->class];
-            if ($marker instanceof ExtensionContributionData) {
-                $tracedMarkers[spl_object_id($marker)] = true;
+        foreach ($manifest->contributes as $contribution) {
+            $keys = $this->contributionMetadataStrings($contribution, 'key', 'keys', 'event', 'events', 'name', 'names');
+            foreach ($keys !== [] ? $keys : [$contribution->type->value] as $key) {
+                $expected[] = [
+                    $contribution->type,
+                    $key,
+                    $contribution->providerBucket ?? $this->receiptBucket($contribution->type),
+                    is_string($contribution->metadata['implementation'] ?? null)
+                        ? $contribution->metadata['implementation']
+                        : null,
+                ];
             }
         }
-        foreach ($manifest->contributes as $contribution) {
-            if (isset($tracedMarkers[spl_object_id($contribution)])) {
+
+        $matchedReceiptIds = [];
+        $matchedKeys = [];
+        foreach ($expected as [$type, $key, $expectedBucket, $expectedClass]) {
+            if (! in_array($expectedBucket, $bootedBuckets, true)) {
                 continue;
             }
-            $keys = $this->contributionMetadataStrings($contribution, 'key', 'keys', 'event', 'events', 'name', 'names');
-            foreach ($keys !== [] ? $keys : [$contribution->class ?? $contribution->type->value] as $key) {
-                $expected[] = [$contribution->type, $key, $this->receiptBucket($contribution->type), $contribution->class];
+
+            $declared[$type->value . ':' . $key] = true;
+            $matching = array_values(array_filter($receipts, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->type === $type && $receipt->key === $key));
+            $exactIndex = array_find_key(
+                $matching,
+                static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->ownerPackage === $manifest->name
+                    && $receipt->providerBucket === $expectedBucket
+                    && ($expectedClass === null || $receipt->implementation === $expectedClass),
+            );
+            if ($exactIndex !== null) {
+                $matchedReceiptIds[spl_object_id($matching[$exactIndex])] = true;
+                $matchedKeys[$type->value . ':' . $key] = true;
+
+                continue;
             }
-        }
 
-        foreach ($expected as [$type, $key, $expectedBucket, $expectedClass]) {
-                if (! in_array($expectedBucket, $bootedBuckets, true)) {
-                    continue;
-                }
-
-                $declared[$type->value . ':' . $key] = true;
-                $matching = array_values(array_filter($receipts, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->type === $type && $receipt->key === $key));
-                $exact = array_values(array_filter($matching, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->ownerPackage === $manifest->name && $receipt->providerBucket === $expectedBucket && ($expectedClass === null || $receipt->implementation === $expectedClass)));
-                if ($exact !== []) {
-                    continue;
-                }
-
-                $actual = $matching[0] ?? null;
-                $results[] = $this->result(
-                    package: $manifest->name,
-                    manifestPath: $manifestPath,
-                    severity: 'warning',
-                    message: $actual instanceof ExtensionContributionReceiptData
-                        ? ($actual->ownerPackage !== $manifest->name ? 'Runtime contribution has the wrong package owner.' : ($actual->providerBucket !== $expectedBucket ? 'Runtime contribution is registered in the wrong provider bucket.' : 'Runtime contribution has the wrong implementation.'))
-                        : 'Declared contribution is not registered at runtime.',
-                    context: [
-                        'status' => $actual instanceof ExtensionContributionReceiptData ? ($actual->ownerPackage !== $manifest->name ? 'wrong-owner' : ($actual->providerBucket !== $expectedBucket ? 'wrong-bucket' : 'wrong-implementation')) : 'declared-only',
-                        'contributionKey' => $key,
-                        'expectedBucket' => $expectedBucket,
-                        'actualBucket' => $actual?->providerBucket,
-                        'expectedImplementation' => $expectedClass,
-                        'actualImplementation' => $actual?->implementation,
-                        'actualOwner' => $actual?->ownerPackage,
-                        'sourceClass' => $actual?->sourceClass ?? $expectedClass,
-                    ],
-                );
+            $actual = $matching[0] ?? null;
+            $results[] = $this->result(
+                package: $manifest->name,
+                manifestPath: $manifestPath,
+                severity: 'warning',
+                message: $actual instanceof ExtensionContributionReceiptData
+                    ? ($actual->ownerPackage !== $manifest->name ? 'Runtime contribution has the wrong package owner.' : ($actual->providerBucket !== $expectedBucket ? 'Runtime contribution is registered in the wrong provider bucket.' : 'Runtime contribution has the wrong implementation.'))
+                    : 'Declared contribution is not registered at runtime.',
+                context: [
+                    'status' => $actual instanceof ExtensionContributionReceiptData ? ($actual->ownerPackage !== $manifest->name ? 'wrong-owner' : ($actual->providerBucket !== $expectedBucket ? 'wrong-bucket' : 'wrong-implementation')) : 'declared-only',
+                    'contributionKey' => $key,
+                    'expectedBucket' => $expectedBucket,
+                    'actualBucket' => $actual?->providerBucket,
+                    'expectedImplementation' => $expectedClass,
+                    'actualImplementation' => $actual?->implementation,
+                    'actualOwner' => $actual?->ownerPackage,
+                    'sourceClass' => $actual?->sourceClass ?? $expectedClass,
+                ],
+            );
         }
 
         foreach ($receipts as $receipt) {
-            if (! in_array($receipt->providerBucket, $bootedBuckets, true) || $receipt->ownerPackage !== $manifest->name || $receipt->foundationBuiltIn) {
+            if (! in_array($receipt->providerBucket, $bootedBuckets, true) || $receipt->ownerPackage !== $manifest->name || $receipt->foundationBuiltIn || isset($matchedReceiptIds[spl_object_id($receipt)])) {
                 continue;
             }
 
-            if (! isset($declared[$receipt->type->value . ':' . $receipt->key])) {
+            $receiptDeclarationKey = $receipt->type->value . ':' . $receipt->key;
+            if (! isset($declared[$receiptDeclarationKey]) || isset($matchedKeys[$receiptDeclarationKey])) {
                 $results[] = $this->result(
                     package: $manifest->name,
                     manifestPath: $manifestPath,
@@ -397,7 +391,7 @@ final class AuditExtensionContractsAction
         return resolve(ExtensionContributionReceiptRegistry::class)->loadedBuckets($manifest->name);
     }
 
-    private function receiptBucket(ExtensionContributionType $type): string
+    private function receiptBucket(ExtensionContributionType|ExtensionContributionReceiptType $type): string
     {
         return $type->bucket();
     }
@@ -919,7 +913,9 @@ final class AuditExtensionContractsAction
         $values = [];
 
         foreach ($metadataKeys as $metadataKey) {
-            $declared = $contribution->metadata[$metadataKey] ?? null;
+            $declared = $metadataKey === 'key'
+                ? $contribution->key
+                : $contribution->metadata[$metadataKey] ?? null;
 
             if (is_string($declared) && $declared !== '') {
                 $values[] = $declared;

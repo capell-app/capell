@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Support\ContentGraph;
 
 use Capell\Core\Contracts\ContentGraph\ContentGraphExtractor;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +35,15 @@ final class ContentGraphRegistry
         }
 
         $this->extractors[$sourceModel][] = $extractor;
+        if (app()->bound(RecordsExtensionContributionReceipt::class)) {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionReceiptType::ContentGraph,
+                'content-graph:' . $sourceModel . ':' . $extractor,
+                $extractor,
+                self::class,
+                'runtime',
+            );
+        }
     }
 
     /**

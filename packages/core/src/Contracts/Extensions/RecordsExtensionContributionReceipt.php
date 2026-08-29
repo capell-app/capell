@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Contracts\Extensions;
 
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 
 interface RecordsExtensionContributionReceipt
 {
     public function recordContribution(
-        ExtensionContributionType $type,
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
         string $implementation,
         string $sourceClass,
@@ -17,7 +18,7 @@ interface RecordsExtensionContributionReceipt
     ): void;
 
     public function recordContributionFromSource(
-        ExtensionContributionType $type,
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
         string $implementation,
         string $sourceClass,

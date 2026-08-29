@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Extensions;
 use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 use Closure;
 
@@ -101,7 +102,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         }
     }
 
-    public function record(ExtensionContributionReceiptData $receipt): void
+    private function record(ExtensionContributionReceiptData $receipt): void
     {
         foreach ($this->receipts as $existing) {
             if ($existing->toArray() === $receipt->toArray()) {
@@ -113,7 +114,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     }
 
     public function recordFromContext(
-        ExtensionContributionType $type,
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
         string $implementation,
         ?string $sourceClass = null,
@@ -128,7 +129,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     }
 
     public function recordContribution(
-        ExtensionContributionType $type,
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
         string $implementation,
         string $sourceClass,
@@ -138,7 +139,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     }
 
     public function recordFromSourceContext(
-        ExtensionContributionType $type,
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
         string $implementation,
         string $sourceClass,
@@ -157,7 +158,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     }
 
     public function recordContributionFromSource(
-        ExtensionContributionType $type,
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
         string $implementation,
         string $sourceClass,
@@ -198,7 +199,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
 
     /** @param list<ExtensionContributionReceiptContext> $contexts */
     private function recordForContexts(
-        ExtensionContributionType $type,
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
         string $implementation,
         ?string $sourceClass,
@@ -233,7 +234,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     }
 
     /** @param list<ExtensionContributionReceiptContext> $contexts */
-    private function contextsForType(array $contexts, ExtensionContributionType $type): array
+    private function contextsForType(array $contexts, ExtensionContributionType|ExtensionContributionReceiptType $type): array
     {
         $bucket = $type->bucket();
 

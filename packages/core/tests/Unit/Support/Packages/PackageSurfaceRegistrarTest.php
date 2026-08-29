@@ -8,6 +8,7 @@ use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
@@ -136,6 +137,47 @@ it('keeps backed enum component receipts aligned with registered names', functio
 
     expect($receipts->forPackage('vendor/components'))->toHaveCount(1)
         ->and($receipts->forPackage('vendor/components')[0]->key)->toBe('component:Card:Media');
+});
+
+it('canonicalises model interceptor condition order in receipt keys', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+    $manager = new CapellCoreManager;
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/interceptors', 'runtime', 'Vendor\\Provider'),
+        function () use ($manager): void {
+            $manager->registerModelInterceptor(stdClass::class, stdClass::class, ['tenant' => 'one', 'site' => 'two']);
+            $manager->registerModelInterceptor(stdClass::class, stdClass::class, ['site' => 'two', 'tenant' => 'one']);
+        },
+    );
+
+    expect($receipts->forPackage('vendor/interceptors'))->toHaveCount(1);
+});
+
+it('does not receipt rejected first-wins component duplicates', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+    app()->instance(ComponentRegistry::class, new ComponentRegistry);
+    $manager = new CapellCoreManager;
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/components', 'runtime', 'Vendor\\Provider'),
+        function () use ($manager): void {
+            $manager->registerComponent('Widget', 'hero', 'vendor::hero');
+            $manager->registerComponent('Widget', 'hero', 'vendor::different-hero');
+            $manager->registerComponents('Widget', [
+                'card' => 'vendor::card',
+                'hero' => 'vendor::different-hero',
+            ]);
+        },
+    );
+
+    expect($receipts->forPackage('vendor/components'))->toHaveCount(2)
+        ->and($receipts->forPackage('vendor/components')[0]->implementation)->toBe('vendor::hero')
+        ->and($receipts->forPackage('vendor/components')[1]->implementation)->toBe('vendor::card');
 });
 
 it('receipts every backed enum component in the direct batch boundary', function (): void {

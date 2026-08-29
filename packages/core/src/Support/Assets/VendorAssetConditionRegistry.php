@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Assets;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Closure;
 use ReflectionFunction;
@@ -20,6 +22,15 @@ final class VendorAssetConditionRegistry extends AbstractKeyedRegistry
         }
 
         $this->setItem($name, $condition(...));
+        if (app()->bound(RecordsExtensionContributionReceipt::class)) {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionReceiptType::VendorAssetCondition,
+                'vendor-asset-condition:' . $name,
+                $condition instanceof \Closure ? $condition::class : get_debug_type($condition),
+                self::class,
+                'runtime',
+            );
+        }
     }
 
     public function passes(?string $condition, mixed ...$arguments): bool

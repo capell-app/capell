@@ -6,7 +6,7 @@ namespace Capell\Core\Support\Install;
 
 use BackedEnum;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
-use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Support\Patching\Patch;
 use Closure;
 use InvalidArgumentException;
@@ -37,7 +37,7 @@ final class InstallPatchRegistry
         $identity = $this->callableIdentity($reflection, $key);
         $receiptKey = $key !== null && $key !== '' ? $key : hash('sha256', $identity);
         $this->receipts?->recordContribution(
-            ExtensionContributionType::InstallPatch,
+            ExtensionContributionReceiptType::InstallPatch,
             'install-patch:' . $receiptKey,
             $identity,
             self::class,

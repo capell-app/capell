@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Concerns;
 
 use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Core\Enums\ExtensionContributionType;
 use Filament\Forms\Components\Builder\Block;
 
 trait HasWidgets
@@ -18,7 +19,7 @@ trait HasWidgets
     {
         $this->widgetDiscovery()->register($widgetClass);
         $this->adminReceipt(
-            \Capell\Core\Enums\ExtensionContributionType::DashboardFilamentWidget,
+            ExtensionContributionType::DashboardFilamentWidget,
             'widget:' . $widgetClass,
             $widgetClass,
         );
@@ -36,7 +37,7 @@ trait HasWidgets
     {
         $this->widgetDiscovery()->registerDiscoverableWidgets($directory, $namespace);
         $this->adminReceipt(
-            \Capell\Core\Enums\ExtensionContributionType::DashboardFilamentWidget,
+            ExtensionContributionType::DashboardFilamentWidget,
             'discoverable-widgets:' . trim($namespace, '\\') . ':' . $directory,
             $namespace,
         );

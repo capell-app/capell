@@ -363,16 +363,6 @@
             "contractTestId": "core.extension-contribution-traceability"
         },
         {
-            "id": "core.dto.extension-contribution-traceability-entry",
-            "kind": "dto",
-            "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityEntryData",
-            "ownerPackage": "capell-app/core",
-            "stability": "stable",
-            "introducedVersion": "1.0.0",
-            "summary": "Typed manifest contribution traceability entry.",
-            "contractTestId": "core.extension-contribution-traceability"
-        },
-        {
             "id": "core.dto.health-check-result",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Health\\HealthCheckResultData",

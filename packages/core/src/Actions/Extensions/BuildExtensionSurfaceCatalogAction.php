@@ -40,7 +40,6 @@ use Capell\Core\Data\Health\HealthCheckResultData;
 use Capell\Core\Data\Health\HealthReportData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionContributionTraceabilityData;
-use Capell\Core\Data\Manifest\ExtensionContributionTraceabilityEntryData;
 use Capell\Core\Data\Metrics\MetricCollectionResultData;
 use Capell\Core\Data\Metrics\MetricDefinitionData;
 use Capell\Core\Data\Metrics\MetricGovernanceData;
@@ -73,6 +72,7 @@ use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 use Capell\Core\Enums\FrontendRouteReservationType;
 use Capell\Core\Enums\Health\HealthSeverity;
 use Capell\Core\Enums\Health\HealthStatus;
+use Capell\Core\Enums\MetricUnitEnum;
 use Capell\Core\Enums\Metrics\MetricAggregation;
 use Capell\Core\Enums\Metrics\MetricBackfillPolicy;
 use Capell\Core\Enums\Metrics\MetricCollectionStatus;
@@ -85,7 +85,6 @@ use Capell\Core\Enums\Metrics\MetricSensitivity;
 use Capell\Core\Enums\Metrics\MetricSource;
 use Capell\Core\Enums\Metrics\MetricValueType;
 use Capell\Core\Enums\Metrics\MetricVisibility;
-use Capell\Core\Enums\MetricUnitEnum;
 use Capell\Core\Events\OutboundEventPublished;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
@@ -191,7 +190,6 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.extension-contribution-receipt', 'contract', RecordsExtensionContributionReceipt::class, ExtensionSurfaceStability::Stable, 'Neutral runtime contribution receipt boundary.', 'core.extension-contribution-receipt'),
             $this->entry('core.dto.extension-contribution-receipt', 'dto', ExtensionContributionReceiptData::class, ExtensionSurfaceStability::Stable, 'Typed runtime contribution receipt.', 'core.extension-contribution-receipt'),
             $this->entry('core.dto.extension-contribution-traceability', 'dto', ExtensionContributionTraceabilityData::class, ExtensionSurfaceStability::Stable, 'Typed manifest runtime traceability envelope.', 'core.extension-contribution-traceability'),
-            $this->entry('core.dto.extension-contribution-traceability-entry', 'dto', ExtensionContributionTraceabilityEntryData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution traceability entry.', 'core.extension-contribution-traceability'),
             $this->entry('core.dto.project-build-artifact-reference', 'dto', ProjectBuildArtifactReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build artifact reference.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-compatibility', 'dto', ProjectBuildCompatibilityData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build compatibility requirements.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-installed-package', 'dto', ProjectBuildInstalledPackageData::class, ExtensionSurfaceStability::Stable, 'Verified installed package release evidence for project build consumers.', 'core.project-build-manifest-install'),

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Routing;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
+
 final class ReservedFrontendPathRegistry
 {
     /** @var array<string, true> */
@@ -21,6 +24,7 @@ final class ReservedFrontendPathRegistry
         }
 
         $this->exactPaths[$path] = true;
+        $this->receipt('exact:' . $path);
     }
 
     public function reservePrefix(string $prefix): void
@@ -32,6 +36,7 @@ final class ReservedFrontendPathRegistry
         }
 
         $this->prefixes[$prefix] = true;
+        $this->receipt('prefix:' . $prefix);
     }
 
     public function isReserved(string $path): bool
@@ -70,5 +75,20 @@ final class ReservedFrontendPathRegistry
         $path = trim($path, '/');
 
         return preg_replace('#/+#', '/', $path) ?? '';
+    }
+
+    private function receipt(string $key): void
+    {
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
+            return;
+        }
+
+        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+            ExtensionContributionReceiptType::ReservedFrontendPath,
+            'reserved-path:' . $key,
+            self::class,
+            self::class,
+            'frontend',
+        );
     }
 }

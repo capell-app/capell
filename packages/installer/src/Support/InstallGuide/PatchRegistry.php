@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Support\InstallGuide;
 
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
-use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Support\Collection;
@@ -19,7 +19,7 @@ class PatchRegistry extends AbstractKeyedRegistry
     {
         $this->setItem($patch->id(), $patch);
         $this->receipts?->recordContribution(
-            ExtensionContributionType::InstallPatch,
+            ExtensionContributionReceiptType::InstallPatch,
             'install-patch:' . $patch->id(),
             $patch::class,
             self::class,

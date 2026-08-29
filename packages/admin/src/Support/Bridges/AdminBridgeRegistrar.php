@@ -199,21 +199,21 @@ final class AdminBridgeRegistrar
     public function extensionsPageHeaderAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerHeaderAction($action, $key);
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-action:' . $this->actionIdentity($action, $key), $this->implementation($action));
     }
 
     /** @param Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup) $action */
     public function extensionsPageHeaderActionGroupAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerHeaderActionGroupAction($action, $key);
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-group-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-group-action:' . $this->actionIdentity($action, $key), $this->implementation($action));
     }
 
     /** @param Action|Closure(ExtensionsPage): Action $action */
     public function extensionsPageTableAction(Action|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerTableAction($action, $key);
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-table-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-table-action:' . $this->actionIdentity($action, $key), $this->implementation($action));
     }
 
     public function userMenuItem(
@@ -389,5 +389,24 @@ final class AdminBridgeRegistrar
     private function implementation(mixed $value): string
     {
         return is_object($value) ? $value::class : get_debug_type($value);
+    }
+
+    private function actionIdentity(Action|ActionGroup|Closure $action, ?string $key): string
+    {
+        if ($key !== null && $key !== '') {
+            return $key;
+        }
+
+        if ($action instanceof Action || $action instanceof ActionGroup) {
+            return $action->getName();
+        }
+
+        $reflection = new \ReflectionFunction($action);
+
+        return 'legacy-' . hash('sha256', implode('|', [
+            $reflection->getFileName() ?: 'unknown',
+            (string) $reflection->getStartLine(),
+            (string) $reflection->getEndLine(),
+        ]));
     }
 }

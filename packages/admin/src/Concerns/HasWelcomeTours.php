@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Concerns;
 
 use Capell\Admin\Data\WelcomeTourStepData;
+use Capell\Core\Enums\ExtensionContributionType;
 use Closure;
 use Illuminate\Support\HtmlString;
 use Illuminate\View\View;
@@ -43,7 +44,7 @@ trait HasWelcomeTours
             route: $route,
         );
         $this->adminReceipt(
-            \Capell\Core\Enums\ExtensionContributionType::AdminActionExtender,
+            ExtensionContributionType::AdminActionExtender,
             'welcome-tour:' . $key,
             is_string($title) ? $title : $title::class,
         );

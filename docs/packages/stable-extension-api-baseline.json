@@ -72,11 +72,6 @@
             "signature": "550052f35522474061a2f373a5c4befb07bc785a13c50cd73d363c92463e6b96",
             "contractTestId": "core.extension-contribution-traceability"
         },
-        "core.dto.extension-contribution-traceability-entry": {
-            "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityEntryData",
-            "signature": "03bc16d63d40cfbf7c1797ec03ff82e41f5b697495ac3014c59472b40626809b",
-            "contractTestId": "core.extension-contribution-traceability"
-        },
         "core.dto.project-build-artifact-reference": {
             "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildArtifactReferenceData",
             "signature": "b9dc1411b6985f9643a217809f591c605fda91734b56148249cbf22f6dd25440",

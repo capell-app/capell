@@ -280,6 +280,18 @@ it('does not inspect a bound object when a non-static factory does not use this'
         ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))->toHaveCount(1);
 });
 
+it('does not mistake literals or prefixed variables for this in a bound factory', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $registry = new InstallPatchRegistry($receipts);
+
+    $state = new InstallPatchReceiptCapturedState('literal-bound', InstallPatchReceiptCapturedMode::First);
+    $state->nested = $state;
+    $registry->register($state->literalFactory());
+
+    expect($receipts->all())->toHaveCount(1)
+        ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))->toHaveCount(1);
+});
+
 it('rejects cyclic anonymous captures before storing the patch', function (): void {
     $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
     $state = new InstallPatchReceiptCapturedState('recursive', InstallPatchReceiptCapturedMode::First);
@@ -313,7 +325,22 @@ final class InstallPatchReceiptCapturedState
 
     public function unusedFactory(): callable
     {
-        return fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch('unused-bound');
+        return function (InstallPatchContext $context): Patch {
+            $literal = '$this';
+            $thisValue = 'not-bound-state';
+
+            return makeInstallPatchRegistryTestPatch('unused-bound');
+        };
+    }
+
+    public function literalFactory(): callable
+    {
+        return function (InstallPatchContext $context): Patch {
+            $literal = '$this';
+            $thisValue = 'not-bound-state';
+
+            return makeInstallPatchRegistryTestPatch('literal-bound');
+        };
     }
 }
 

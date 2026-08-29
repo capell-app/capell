@@ -11,6 +11,7 @@ use Capell\Core\Contracts\SettingsSchema;
 use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Data\PageTypeData;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
@@ -156,7 +157,7 @@ final class PackageSurfaceRegistrar
     {
         $this->core->subscriberManager()->subscribe($subscriber);
         $this->receipts->recordContribution(
-            ExtensionContributionType::Subscriber,
+            ExtensionContributionReceiptType::Subscriber,
             'subscriber:' . $subscriber,
             $subscriber,
             self::class,
@@ -223,7 +224,7 @@ final class PackageSurfaceRegistrar
     {
         $this->metricCollectors->register($collectorClass);
         $this->receipts->recordContribution(
-            ExtensionContributionType::MetricCollector,
+            ExtensionContributionReceiptType::MetricCollector,
             'metric-collector:' . $collectorClass,
             $collectorClass,
             self::class,
