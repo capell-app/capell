@@ -169,6 +169,19 @@ environment the package database guard requires:
 `./capell exec vendor/bin/pest ...` skips that environment and fails with
 `Refusing to run Capell package Pest tests against database [capell_4]`.
 
+Before the first test or preflight in a fresh worktree, install its dependencies:
+
+```bash
+./capell up
+./capell composer install
+```
+
+The wrapper checks for `vendor/bin/pest` before test and preflight commands and
+fails with this bootstrap instruction when it is absent. Never symlink
+`vendor/` from another checkout: Composer's autoloader must resolve Capell
+classes from the current worktree. Use `bash scripts/init-worktree.sh
+--host-only` only when all tooling will run on the host.
+
 On the host it is identical to the primary checkout, but note that this repo's tooling
 needs an explicit memory limit — PHP's 128 MB default causes a fatal that looks like a broken setup:
 

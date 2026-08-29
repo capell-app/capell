@@ -250,8 +250,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(SiteSpecApplierRegistry::class);
         $this->app->scoped(PageUrlRewriteContext::class);
 
-        $this->app->register(MediaLibraryServiceProvider::class);
         config(['media-library.media_model' => Media::class]);
+        $this->app->register(MediaLibraryServiceProvider::class);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', self::$name);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', 'capell-core');
         $this->app->make(PackageRegistryBootstrapper::class)->bootstrap();

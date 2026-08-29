@@ -122,6 +122,20 @@ else
     exit 1
 fi
 
+# Every linked worktree has a distinct administrative directory under the
+# shared Git common directory, even when all checkouts are named capell-4.
+# Derive the Compose project from that ID so one worktree cannot recreate or
+# attach to another worktree's services. Primary checkouts retain the repo
+# name for backwards compatibility.
+compose_project_name="$(basename "$repo_dir")"
+if [ -f .git ] && [ ! -d .git ]; then
+    worktree_git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+    case "$worktree_git_dir" in
+        */worktrees/*) compose_project_name="capell-$(basename "$worktree_git_dir")" ;;
+    esac
+fi
+compose_command+=(--project-name "$compose_project_name")
+
 app_exec=("${compose_command[@]}" exec --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer app)
 test_exec=("${compose_command[@]}" exec --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer --env APP_ENV=testing --env DB_CONNECTION=sqlite --env DB_DATABASE=:memory: --env DB_URL= app)
 app_run=("${compose_command[@]}" run --rm --no-deps --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer app)
@@ -162,6 +176,25 @@ Examples:
   ./capell run composer test
   ./capell compose ps
 EOF
+}
+
+require_test_dependencies() {
+    if [ -x "vendor/bin/pest" ]; then
+        return
+    fi
+
+    cat >&2 <<'EOF'
+Capell test tooling is not installed in this checkout: vendor/bin/pest is missing.
+
+Bootstrap this worktree before running tests:
+
+    ./capell up
+    ./capell composer install
+
+Then retry the command. Do not copy or symlink vendor/ from another checkout:
+Composer's autoloader must resolve Capell classes from this worktree.
+EOF
+    exit 78
 }
 
 command_name="${1:-help}"
@@ -206,6 +239,7 @@ case "$command_name" in
         ;;
     composer)
         if [[ "${1:-}" = test* || "${1:-}" = preflight* ]]; then
+            require_test_dependencies
             "${test_exec[@]}" composer "$@"
         else
             "${app_exec[@]}" composer "$@"
@@ -218,9 +252,11 @@ case "$command_name" in
         "${app_exec[@]}" vendor/bin/pint "$@"
         ;;
     test)
+        require_test_dependencies
         "${test_exec[@]}" composer test "$@"
         ;;
     pest)
+        require_test_dependencies
         "${test_exec[@]}" vendor/bin/pest "$@"
         ;;
     analyze)
@@ -230,9 +266,11 @@ case "$command_name" in
         "${app_exec[@]}" composer lint "$@"
         ;;
     preflight)
+        require_test_dependencies
         "${app_exec[@]}" composer preflight "$@"
         ;;
     preflight-all)
+        require_test_dependencies
         "${app_exec[@]}" composer preflight:all "$@"
         ;;
     exec)
