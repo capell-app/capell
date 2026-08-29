@@ -23,6 +23,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PageWorkflowState;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -124,9 +125,11 @@ it('surfaces an empty-url-snapshot collision as a blocked rollback', function ()
     $targetVersion = resolve(RollbackService::class)->currentVersion($pageA->uuid);
 
     SetupPageUrlsAction::run($pageA, updateDescendants: false);
-    $translationA->forceFill([
-        'meta' => [...($translationA->meta ?? []), 'slug' => 'moved-url'],
-    ])->save();
+    resolve(PageUrlRewriteContext::class)->withoutAutomaticRedirects(function () use ($translationA): void {
+        $translationA->forceFill([
+            'meta' => [...($translationA->meta ?? []), 'slug' => 'moved-url'],
+        ])->save();
+    });
     recordRevisionFor($pageA);
 
     $pageB = Page::factory()->site($site)->createOne(['name' => 'Page B']);
