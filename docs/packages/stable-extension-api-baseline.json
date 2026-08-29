@@ -37,6 +37,11 @@
             "signature": "0331d99d59ddb7eb0972acf2adbd1744294941fa31316a8af8b963951bdba62c",
             "contractTestId": "core.extension-contribution"
         },
+        "core.contract.extension-contribution-receipt": {
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\RecordsExtensionContributionReceipt",
+            "signature": "0870eee905299eb5c8b23da37d46af88508568d782122ab159ada5e0ea09cc3c",
+            "contractTestId": "core.extension-contribution-receipt"
+        },
         "core.contract.project-build-artifact-handler": {
             "identifier": "Capell\\Core\\Contracts\\ProjectBuild\\ProjectBuildArtifactHandler",
             "signature": "268cd49b5a7fbd8166312e916f2e6405866a4c2106a618233a8fc160c8d0f32b",
@@ -56,6 +61,21 @@
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionData",
             "signature": "391e3389ea0d7bcd6d702629028ac990efa19cb738d26c70f87bec568ac2a318",
             "contractTestId": "core.extension-contribution-data"
+        },
+        "core.dto.extension-contribution-receipt": {
+            "identifier": "Capell\\Core\\Data\\Extensions\\ExtensionContributionReceiptData",
+            "signature": "9feb7faef6673419e759c1f988e54c2243a4b635c4877a6affb46aedf461fcaa",
+            "contractTestId": "core.extension-contribution-receipt"
+        },
+        "core.dto.extension-contribution-traceability": {
+            "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityData",
+            "signature": "550052f35522474061a2f373a5c4befb07bc785a13c50cd73d363c92463e6b96",
+            "contractTestId": "core.extension-contribution-traceability"
+        },
+        "core.dto.extension-contribution-traceability-entry": {
+            "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityEntryData",
+            "signature": "03bc16d63d40cfbf7c1797ec03ff82e41f5b697495ac3014c59472b40626809b",
+            "contractTestId": "core.extension-contribution-traceability"
         },
         "core.dto.project-build-artifact-reference": {
             "identifier": "Capell\\Core\\Data\\ProjectBuild\\ProjectBuildArtifactReferenceData",
@@ -111,6 +131,11 @@
             "identifier": "Capell\\Core\\Support\\ProjectBuild\\ProjectBuildArtifactHandlerRegistry",
             "signature": "90e22a203cb0ccaed70bfb14e83296be9d024c2300647ed76b83d7ddc1ca4175",
             "contractTestId": "core.project-build-artifact-handler-registry"
+        },
+        "core.registry.extension-contribution-receipt": {
+            "identifier": "Capell\\Core\\Support\\Extensions\\ExtensionContributionReceiptRegistry",
+            "signature": "cb10fca392f4fbfb7856fefbde7f65a3f3e8e8f47d35fe3dcc0bf1a52d718862",
+            "contractTestId": "core.extension-contribution-receipt"
         },
         "core.tag.project-build-artifact-handler": {
             "identifier": "capell.project-build.artifact-handler",

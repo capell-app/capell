@@ -188,6 +188,7 @@ final class ManifestValidator
 
         $this->validateClassList($data['providers'], $namespacePrefixes, $isTrustedCore, ServiceProvider::class);
         $this->validateContributions($data, $namespacePrefixes, $isTrustedCore);
+        $this->validateContributionTraceability($data);
         $this->sectionValidators[0]->validate($data);
         $this->sectionValidators[1]->validate($data);
         $this->validateHealthChecks($data, $namespacePrefixes, $isTrustedCore);
@@ -320,6 +321,78 @@ final class ManifestValidator
                 }
 
                 $contentWidgetKeys[] = $key;
+            }
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    private function validateContributionTraceability(array $data): void
+    {
+        if (! array_key_exists('contributionTraceability', $data)) {
+            return;
+        }
+
+        $traceability = $data['contributionTraceability'];
+        if (! is_array($traceability)) {
+            throw InvalidManifestException::invalidField('contributionTraceability', 'must be an object');
+        }
+
+        foreach (['deferredContributions'] as $field) {
+            $this->rules->stringList($traceability, $field, required: false);
+        }
+
+        if (isset($traceability['runtimeIntegrations']) && ! is_array($traceability['runtimeIntegrations'])) {
+            throw InvalidManifestException::invalidField('contributionTraceability.runtimeIntegrations', 'must be an object');
+        }
+
+        foreach (($traceability['runtimeIntegrations'] ?? []) as $key => $values) {
+            if (! is_array($values)) {
+                throw InvalidManifestException::invalidField('contributionTraceability.runtimeIntegrations', 'must map each key to a non-empty homogeneous string list or event listener list');
+            }
+
+            $validStringList = true;
+            $validListenerList = is_array($values) && $values !== [];
+
+            foreach ($values as $value) {
+                if (! is_string($value) || $value === '') {
+                    $validStringList = false;
+                }
+
+                if (! is_array($value)
+                    || array_diff(array_keys($value), ['event', 'listener']) !== []
+                    || array_diff(['event', 'listener'], array_keys($value)) !== []
+                    || ! is_string($value['event'] ?? null)
+                    || $value['event'] === ''
+                    || ! is_string($value['listener'] ?? null)
+                    || $value['listener'] === '') {
+                    $validListenerList = false;
+                }
+            }
+
+            if (! is_string($key) || (! $validStringList && ! $validListenerList)) {
+                throw InvalidManifestException::invalidField('contributionTraceability.runtimeIntegrations', 'must map each key to a non-empty homogeneous string list or event listener list');
+            }
+        }
+
+        $entries = $traceability['contributions'] ?? [];
+        if (! is_array($entries) || ! array_is_list($entries)) {
+            throw InvalidManifestException::invalidField('contributionTraceability.contributions', 'must be a list');
+        }
+
+        foreach ($entries as $index => $entry) {
+            if (! is_array($entry)) {
+                throw InvalidManifestException::invalidField('contributionTraceability.contributions.' . $index, 'must be an object');
+            }
+
+            foreach (['type', 'key', 'providerBucket'] as $field) {
+                if (! is_string($entry[$field] ?? null) || $entry[$field] === '') {
+                    throw InvalidManifestException::missingField('contributionTraceability.contributions.' . $index . '.' . $field);
+                }
+            }
+
+            if (! ExtensionContributionType::tryFrom($entry['type']) instanceof ExtensionContributionType
+                || ! in_array($entry['providerBucket'], self::VALID_PROVIDER_BUCKETS, true)) {
+                throw InvalidManifestException::invalidField('contributionTraceability.contributions.' . $index, 'contains an invalid type or provider bucket');
             }
         }
     }

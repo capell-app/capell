@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Manifest;
 
 use Capell\Core\Data\Manifest\ExtensionCommercialData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
+use Capell\Core\Data\Manifest\ExtensionContributionTraceabilityData;
 use Capell\Core\Data\Manifest\ExtensionDependencyData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
 use Capell\Core\Data\Manifest\ExtensionPerformanceBudgetData;
@@ -79,6 +80,7 @@ final class CapellManifestData
         public ?string $installPath = null,
         public string $visibility = 'catalogue',
         public ?string $documentationUrl = null,
+        public ?ExtensionContributionTraceabilityData $contributionTraceability = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -144,6 +146,9 @@ final class CapellManifestData
             installPath: $installPath ?? (isset($data['installPath']) ? (string) $data['installPath'] : null),
             visibility: isset($data['visibility']) ? (string) $data['visibility'] : 'catalogue',
             documentationUrl: self::stringValue($data['documentationUrl'] ?? null) ?? self::stringValue($documentationUrl),
+            contributionTraceability: is_array($data['contributionTraceability'] ?? null)
+                ? ExtensionContributionTraceabilityData::fromArray($data['contributionTraceability'])
+                : null,
         );
     }
 
@@ -245,6 +250,10 @@ final class CapellManifestData
 
         if ($this->documentationUrl !== null) {
             $data['documentationUrl'] = $this->documentationUrl;
+        }
+
+        if ($this->contributionTraceability instanceof ExtensionContributionTraceabilityData) {
+            $data['contributionTraceability'] = $this->contributionTraceability->toArray();
         }
 
         return $data;

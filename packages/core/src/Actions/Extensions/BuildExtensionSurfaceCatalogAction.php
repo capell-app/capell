@@ -18,6 +18,7 @@ use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Health\HealthCheck;
@@ -33,6 +34,9 @@ use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
+use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
+use Capell\Core\Data\Manifest\ExtensionContributionTraceabilityData;
+use Capell\Core\Data\Manifest\ExtensionContributionTraceabilityEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\Health\HealthCheckResultData;
 use Capell\Core\Data\Health\HealthReportData;
@@ -90,6 +94,7 @@ use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestSchema;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
@@ -184,6 +189,11 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.metric-scope', 'dto', MetricScopeData::class, ExtensionSurfaceStability::Experimental, 'Portable metric scope.'),
             $this->entry('core.dto.metric-semantics', 'dto', MetricSemanticsData::class, ExtensionSurfaceStability::Experimental, 'Metric aggregation and gap semantics.'),
             $this->entry('core.dto.metric-value', 'dto', MetricValueData::class, ExtensionSurfaceStability::Experimental, 'Lossless metric numeric value.'),
+            $this->entry('core.contract.extension-contribution-receipt', 'contract', RecordsExtensionContributionReceipt::class, ExtensionSurfaceStability::Stable, 'Neutral runtime contribution receipt boundary.', 'core.extension-contribution-receipt'),
+            $this->entry('core.dto.extension-contribution-receipt', 'dto', ExtensionContributionReceiptData::class, ExtensionSurfaceStability::Stable, 'Typed runtime contribution receipt.', 'core.extension-contribution-receipt'),
+            $this->entry('core.dto.extension-contribution-traceability', 'dto', ExtensionContributionTraceabilityData::class, ExtensionSurfaceStability::Stable, 'Typed manifest runtime traceability envelope.', 'core.extension-contribution-traceability'),
+            $this->entry('core.dto.extension-contribution-traceability-entry', 'dto', ExtensionContributionTraceabilityEntryData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution traceability entry.', 'core.extension-contribution-traceability'),
+            $this->entry('core.registry.extension-contribution-receipt', 'registry', ExtensionContributionReceiptRegistry::class, ExtensionSurfaceStability::Stable, 'Runtime registry for neutral contribution receipts.', 'core.extension-contribution-receipt'),
             $this->entry('core.dto.project-build-artifact-reference', 'dto', ProjectBuildArtifactReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build artifact reference.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-compatibility', 'dto', ProjectBuildCompatibilityData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build compatibility requirements.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-installed-package', 'dto', ProjectBuildInstalledPackageData::class, ExtensionSurfaceStability::Stable, 'Verified installed package release evidence for project build consumers.', 'core.project-build-manifest-install'),

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Enums\RenderHookLocation;
@@ -21,6 +23,7 @@ final class FrontendHookRegistrar
 {
     public function __construct(
         private readonly RenderHookRegistry $registry,
+        private readonly ExtensionContributionReceiptRegistry $receipts,
     ) {}
 
     public function contribute(
@@ -43,5 +46,12 @@ final class FrontendHookRegistrar
             target: $target,
             cacheSafe: $cacheSafe,
         ));
+        $this->receipts->recordFromContext(
+            ExtensionContributionType::RenderHook,
+            $key,
+            is_string($extension) ? $extension : $extension::class,
+            self::class,
+            'frontend',
+        );
     }
 }

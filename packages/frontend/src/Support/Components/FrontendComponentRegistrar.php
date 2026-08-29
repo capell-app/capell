@@ -6,6 +6,8 @@ namespace Capell\Frontend\Support\Components;
 
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\LivewirePageComponentEnum;
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Contracts\FrontendComponentContributor;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
 use Capell\Frontend\Data\FrontendComponentContributionData;
@@ -19,6 +21,7 @@ final readonly class FrontendComponentRegistrar
     /** @param iterable<mixed> $contributors */
     public function __construct(
         private iterable $contributors,
+        private ExtensionContributionReceiptRegistry $receipts,
     ) {}
 
     public function registerCoreComponents(FrontendComponentRegistryInterface $registry): void
@@ -30,6 +33,13 @@ final readonly class FrontendComponentRegistrar
             AssetComponentEnum::Tile->value => 'capell::asset.tile',
         ] as $key => $component) {
             $registry->register(key: $key, component: $component, aliases: [$component]);
+            $this->receipts->recordFromContext(
+                ExtensionContributionType::FrontendComponent,
+                $key,
+                $component,
+                self::class,
+                'frontend',
+            );
         }
     }
 
@@ -105,6 +115,13 @@ final readonly class FrontendComponentRegistrar
                 }
 
                 $components[$component->name] = $component->component;
+                $this->receipts->recordFromSourceContext(
+                    ExtensionContributionType::FrontendComponent,
+                    $component->name,
+                    $component->component,
+                    $contributor::class,
+                    'frontend',
+                );
             }
         }
 

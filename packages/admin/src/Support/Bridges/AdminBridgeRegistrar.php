@@ -31,6 +31,8 @@ use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Contracts\SettingsContract;
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Closure;
@@ -49,6 +51,7 @@ final class AdminBridgeRegistrar
     public function __construct(
         private readonly AdminBridgeRegistry $bridges,
         private readonly SettingsSchemaRegistry $settings,
+        private readonly ExtensionContributionReceiptRegistry $receipts,
     ) {}
 
     /**
@@ -57,35 +60,41 @@ final class AdminBridgeRegistrar
     public function bridge(string $packageName, string $bridgeClass): void
     {
         $this->bridges->register($packageName, $bridgeClass);
+        $this->receipt(ExtensionContributionType::AdminPage, 'bridge:' . $packageName . ':' . $bridgeClass, $bridgeClass);
     }
 
     /** @param class-string $pageClass */
     public function page(string $pageClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page($pageClass));
+        $this->receipt(ExtensionContributionType::AdminPage, $pageClass, $pageClass);
     }
 
     public function report(ReportDefinitionData $report): void
     {
         CapellAdmin::registerReport($report);
+        $this->receipt(ExtensionContributionType::AdminPage, 'report:' . $report->key, $report::class);
     }
 
     /** @param class-string<Page> $pageClass */
     public function dashboardPage(string $pageClass): void
     {
         CapellAdmin::useDashboardPage($pageClass);
+        $this->receipt(ExtensionContributionType::AdminPage, 'dashboard-page:' . $pageClass, $pageClass);
     }
 
     /** @param class-string $resourceClass */
     public function resource(string $resourceClass, string $group, string $name = 'default'): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource($resourceClass, $group, $name));
+        $this->receipt(ExtensionContributionType::AdminResource, 'resource:' . $group . ':' . $name, $resourceClass);
     }
 
     /** @param class-string $widgetClass */
     public function widget(string $widgetClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::widget($widgetClass));
+        $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'widget:' . $widgetClass, $widgetClass);
     }
 
     /** @param class-string $widgetClass */
@@ -93,6 +102,7 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardFilamentWidget($widgetClass, ...$dashboards);
+            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'dashboard-widget:' . $widgetClass, $widgetClass);
         }
     }
 
@@ -101,6 +111,7 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardPanel($region, $widgetClass, ...$dashboards);
+            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'dashboard-panel:' . $region->value . ':' . $widgetClass, $widgetClass);
         }
     }
 
@@ -109,6 +120,7 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardFilamentWidget($widgetClass, DashboardEnum::Extensions);
+            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'extensions-dashboard-widget:' . $widgetClass, $widgetClass);
         }
     }
 
@@ -116,48 +128,56 @@ final class AdminBridgeRegistrar
     public function extensionHealthProvider(string $providerClass): void
     {
         app()->tag([$providerClass], ExtensionHealthProvider::TAG);
+        $this->receipt(ExtensionContributionType::HealthCheck, 'extension-health-provider:' . $providerClass, $providerClass);
     }
 
     /** @param class-string<ExtensionRuntimeCheckProvider> $providerClass */
     public function extensionRuntimeCheckProvider(string $providerClass): void
     {
         app()->tag([$providerClass], ExtensionRuntimeCheckProvider::TAG);
+        $this->receipt(ExtensionContributionType::HealthCheck, 'extension-runtime-check-provider:' . $providerClass, $providerClass);
     }
 
     /** @param class-string<ExtensionQuickActionProvider> $providerClass */
     public function extensionQuickActionProvider(string $providerClass): void
     {
         app()->tag([$providerClass], ExtensionQuickActionProvider::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extension-quick-action-provider:' . $providerClass, $providerClass);
     }
 
     /** @param class-string<ExtensionUpdateMetadataProvider> $providerClass */
     public function extensionUpdateMetadataProvider(string $providerClass): void
     {
         app()->tag([$providerClass], ExtensionUpdateMetadataProvider::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extension-update-metadata-provider:' . $providerClass, $providerClass);
     }
 
     /** @param class-string<ExtensionDependencyProvider> $providerClass */
     public function extensionDependencyProvider(string $providerClass): void
     {
         app()->tag([$providerClass], ExtensionDependencyProvider::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extension-dependency-provider:' . $providerClass, $providerClass);
     }
 
     /** @param class-string<ExtensionsPageExtender> $extenderClass */
     public function extensionsPageExtender(string $extenderClass): void
     {
         app()->tag([$extenderClass], ExtensionsPageExtender::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-extender:' . $extenderClass, $extenderClass);
     }
 
     /** @param class-string<ExtensionCatalogueMetadataProvider> $providerClass */
     public function extensionCatalogueMetadataProvider(string $providerClass): void
     {
         app()->tag([$providerClass], ExtensionCatalogueMetadataProvider::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extension-catalogue-provider:' . $providerClass, $providerClass);
     }
 
     /** @param class-string<ResourceHeaderActionExtender> $extenderClass */
     public function resourceHeaderActionExtender(string $extenderClass): void
     {
         app()->tag([$extenderClass], ResourceHeaderActionExtender::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'resource-header-action-extender:' . $extenderClass, $extenderClass);
     }
 
     /**
@@ -172,30 +192,35 @@ final class AdminBridgeRegistrar
     public function extensionRemovalCoordinator(string $coordinatorClass): void
     {
         app()->bind(ExtensionRemovalCoordinator::class, $coordinatorClass);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extension-removal-coordinator', $coordinatorClass);
     }
 
     /** @param class-string<PendingThemeInstallProvider> $providerClass */
     public function pendingThemeInstallProvider(string $providerClass): void
     {
         app()->tag([$providerClass], PendingThemeInstallProvider::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'pending-theme-install-provider:' . $providerClass, $providerClass);
     }
 
     /** @param Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup) $action */
     public function extensionsPageHeaderAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerHeaderAction($action, $key);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
     }
 
     /** @param Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup) $action */
     public function extensionsPageHeaderActionGroupAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerHeaderActionGroupAction($action, $key);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-group-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
     }
 
     /** @param Action|Closure(ExtensionsPage): Action $action */
     public function extensionsPageTableAction(Action|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerTableAction($action, $key);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-table-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
     }
 
     public function userMenuItem(
@@ -220,11 +245,13 @@ final class AdminBridgeRegistrar
             sort: $sort,
             group: $group,
         );
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'user-menu-item:' . $key, AdminWorkspaceItemData::class);
     }
 
     public function workspace(AdminWorkspaceItemData $item): void
     {
         CapellAdmin::registerWorkspace($item);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'workspace:' . $item->key, $item::class);
     }
 
     public function welcomeTourStep(
@@ -251,23 +278,27 @@ final class AdminBridgeRegistrar
             chapter: $chapter,
             route: $route,
         );
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'welcome-tour:' . $key, $this->implementation($title));
     }
 
     public function configurator(string $configuratorClass, string $group, string $name): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::configurator($configuratorClass, $group, $name));
+        $this->receipt(ExtensionContributionType::Configurator, 'configurator:' . $group . ':' . $name, $configuratorClass);
     }
 
     public function schemaExtender(string $extenderClass, string $tag): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::schemaExtender($extenderClass, $tag));
         app()->tag([$extenderClass], $tag);
+        $this->receipt(ExtensionContributionType::SchemaExtender, 'schema-extender:' . $tag . ':' . $extenderClass, $extenderClass);
     }
 
     public function panelExtender(string $extenderClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::panelExtender($extenderClass));
         app()->tag([$extenderClass], AdminPanelExtender::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'panel-extender:' . $extenderClass, $extenderClass);
     }
 
     /** @param class-string<UserResourceBridge> $bridgeClass */
@@ -278,6 +309,7 @@ final class AdminBridgeRegistrar
         }
 
         app()->tag([$bridgeClass], UserResourceBridge::TAG);
+        $this->receipt(ExtensionContributionType::AdminResource, 'user-resource-bridge:' . $bridgeClass, $bridgeClass);
     }
 
     /**
@@ -286,6 +318,7 @@ final class AdminBridgeRegistrar
     public function dashboardSettingsContributor(string $contributorClass): void
     {
         app()->tag([$contributorClass], DashboardSettingsContributor::TAG);
+        $this->receipt(ExtensionContributionType::Setting, 'dashboard-settings-contributor:' . $contributorClass, $contributorClass);
     }
 
     /**
@@ -294,11 +327,13 @@ final class AdminBridgeRegistrar
     public function extensionPage(string $packageName, string $pageClass): void
     {
         CapellAdmin::registerExtensionPage($packageName, $pageClass);
+        $this->receipt(ExtensionContributionType::AdminPage, 'extension-page:' . $packageName . ':' . $pageClass, $pageClass);
     }
 
     public function extensionManagementSurface(ExtensionManagementSurfaceData $surface): void
     {
         CapellAdmin::registerExtensionManagementSurface($surface);
+        $this->receipt(ExtensionContributionType::AdminPage, 'extension-management-surface:' . $surface->packageName . ':' . $surface->type . ':' . ($surface->settingsGroup ?? ''), $surface::class);
     }
 
     /**
@@ -307,6 +342,7 @@ final class AdminBridgeRegistrar
     public function activityChangeSetBuilder(string $builderClass): void
     {
         app()->tag([$builderClass], ActivityChangeSetBuilder::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'activity-change-set-builder:' . $builderClass, $builderClass);
     }
 
     /**
@@ -315,6 +351,7 @@ final class AdminBridgeRegistrar
     public function activityRevertHandler(string $handlerClass): void
     {
         app()->tag([$handlerClass], ActivityRevertHandler::TAG);
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'activity-revert-handler:' . $handlerClass, $handlerClass);
     }
 
     /**
@@ -333,6 +370,7 @@ final class AdminBridgeRegistrar
             relation: $relation,
             recordResolver: $recordResolver,
         );
+        $this->receipt(ExtensionContributionType::AdminResource, 'activity-resource-link:' . $subjectClass . ':' . ($resourceClass ?? 'default'), $resourceClass ?? $subjectClass);
     }
 
     /**
@@ -341,6 +379,7 @@ final class AdminBridgeRegistrar
     public function settingsSchema(string $group, string $schemaClass, ?string $key = null): void
     {
         $this->settings->register($group, $schemaClass, $key);
+        $this->receipt(ExtensionContributionType::Setting, 'settings-schema:' . $group . ':' . ($key ?? class_basename($schemaClass)), $schemaClass);
     }
 
     /**
@@ -349,10 +388,22 @@ final class AdminBridgeRegistrar
     public function settingsClass(string $group, string $settingsClass): void
     {
         $this->settings->registerSettingsClass($group, $settingsClass);
+        $this->receipt(ExtensionContributionType::Setting, 'settings-class:' . $group, $settingsClass);
     }
 
     public function settingsMetadata(SettingsGroupMetadata $metadata): void
     {
         $this->settings->registerMetadata($metadata);
+        $this->receipt(ExtensionContributionType::Setting, 'settings-metadata:' . $metadata->group, $metadata::class);
+    }
+
+    private function receipt(ExtensionContributionType $type, string $key, string $implementation): void
+    {
+        $this->receipts->recordFromContext($type, $key, $implementation, self::class, 'admin');
+    }
+
+    private function implementation(mixed $value): string
+    {
+        return is_object($value) ? $value::class : get_debug_type($value);
     }
 }

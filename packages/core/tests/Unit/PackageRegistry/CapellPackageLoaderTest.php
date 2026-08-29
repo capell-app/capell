@@ -6,6 +6,8 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
@@ -121,6 +123,23 @@ it('does not quarantine trusted core packages when provider registration fails',
         ->toThrow(RuntimeException::class, 'core provider registration failed');
 });
 
+it('keeps an extension receipt owner while a registered provider boots', function (): void {
+    $registry = packageLoaderRegistry('vendor/boot-receipt', [
+        'runtime' => [BootingReceiptTestProvider::class],
+    ]);
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/boot-receipt')->andReturnTrue();
+
+    (new CapellPackageLoader(app(), $registry, receipts: $receipts))->loadProviders();
+
+    expect($receipts->forPackage('vendor/boot-receipt'))
+        ->toHaveCount(1)
+        ->and($receipts->forPackage('vendor/boot-receipt')[0]->providerBucket)->toBe('runtime')
+        ->and($receipts->forPackage('vendor/boot-receipt')[0]->foundationBuiltIn)->toBeFalse();
+});
+
 /** @param array<string, list<class-string>> $providers */
 function packageLoaderRegistry(string $name, array $providers): CapellPackageRegistry
 {
@@ -142,4 +161,12 @@ function packageLoader(CapellPackageRegistry $registry): CapellPackageLoader
     $application = Mockery::mock(Application::class);
 
     return new CapellPackageLoader($application, $registry);
+}
+
+final class BootingReceiptTestProvider extends Illuminate\Support\ServiceProvider
+{
+    public function boot(): void
+    {
+        resolve(PackageSurfaceRegistrar::class)->models([stdClass::class]);
+    }
 }

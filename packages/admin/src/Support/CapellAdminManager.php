@@ -41,6 +41,9 @@ use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
 use Exception;
 use Filament\Actions\Action;
@@ -427,7 +430,14 @@ class CapellAdminManager
                 continue;
             }
 
-            $bridge->register($registrar, $context);
+            $receiptContext = TrustedCorePackages::contains($packageName)
+                ? ExtensionContributionReceiptContext::foundation($packageName, 'admin', $bridge::class)
+                : ExtensionContributionReceiptContext::forPackage($packageName, 'admin', $bridge::class);
+
+            resolve(ExtensionContributionReceiptRegistry::class)->withContext(
+                $receiptContext,
+                fn (): mixed => $bridge->register($registrar, $context),
+            );
 
             $this->bootedAdminBridges[$bootKey] = true;
         }
