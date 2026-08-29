@@ -31,6 +31,8 @@ final class RuntimeRoleOrderingProvider extends ServiceProvider
 
         throw_unless($this->app->make(PackageManifest::class) instanceof RuntimeRolePackageManifest, RuntimeException::class, 'Runtime role package manifest was configured after provider registration.');
 
+        // The package manifest binding is supplied dynamically by the runtime-role bootstrap.
+        // @phpstan-ignore-next-line deadCode.unreachable
         $this->app->instance('runtime-role.fixture.ordering', true);
     }
 }
