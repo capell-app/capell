@@ -24,6 +24,28 @@ if ($arguments === []) {
 }
 
 $root = dirname(__DIR__);
+$command = $arguments[0] ?? null;
+
+if (in_array($command, ['list', 'optimize'], true)) {
+    $runtimeRoleBootstrap = new Process(
+        [PHP_BINARY, $root . '/scripts/configure-testbench-runtime-role.php'],
+        $root,
+    );
+    $runtimeRoleBootstrap->setTimeout(null);
+
+    $runtimeRoleBootstrapExitCode = $runtimeRoleBootstrap->run();
+
+    if ($runtimeRoleBootstrapExitCode !== 0) {
+        throw new RuntimeException(
+            sprintf(
+                'Unable to configure the Testbench runtime role bootstrap: %s',
+                trim($runtimeRoleBootstrap->getErrorOutput()),
+            ),
+            $runtimeRoleBootstrapExitCode,
+        );
+    }
+}
+
 $process = new Process(
     [PHP_BINARY, $root . '/vendor/bin/testbench', ...$arguments],
     $root,

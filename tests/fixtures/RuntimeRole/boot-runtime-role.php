@@ -6,6 +6,7 @@ use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Tests\Fixtures\RuntimeRole\Filament\AuthoringRuntimeRoleProvider;
 use Capell\Tests\Fixtures\RuntimeRole\FrontendPreviewRuntimeRoleProvider;
+use Capell\Tests\Fixtures\RuntimeRole\RuntimeRoleOrderingProvider;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\BootProviders;
@@ -30,6 +31,7 @@ $files->ensureDirectoryExists($basePath . '/config');
 $providers = [
     FrontendPreviewRuntimeRoleProvider::class,
     AuthoringRuntimeRoleProvider::class,
+    RuntimeRoleOrderingProvider::class,
 ];
 $files->put(
     $basePath . '/bootstrap/providers.php',

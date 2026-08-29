@@ -24,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      CAPELL_TESTBENCH_RUNTIME_ROLE: true
     strategy:
       fail-fast: false
       matrix:
@@ -77,7 +79,7 @@ jobs:
         run: |
           mkdir -p coverage
           composer run prepare
-          php vendor/bin/testbench optimize --except=routes --ansi
+          php scripts/run-testbench-command.php optimize --except=routes --ansi
           php -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --coverage-clover=coverage/clover-${{ matrix.shard }}.xml --parallel --shard=${{ matrix.shard }}/4 --colors=always --stop-on-error --stop-on-failure --configuration=phpunit-coverage.xml
 
       - name: Upload Clover XML for codecov

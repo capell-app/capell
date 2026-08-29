@@ -181,11 +181,13 @@ abstract class AbstractTestCase extends TestCase
         return true;
     }
 
-    protected function resolveApplicationConfiguration(mixed $app): void
+    protected function getApplicationBootstrapFile(string $filename): string|false
     {
-        $this->ignoreDeprecatedPdoMysqlConstants();
+        if ($filename === 'app.php' && getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true') {
+            return dirname(__DIR__) . '/tests/Support/runtime-role-testbench-bootstrap.php';
+        }
 
-        parent::resolveApplicationConfiguration($app);
+        return parent::getApplicationBootstrapFile($filename);
     }
 
     /**
