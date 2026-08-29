@@ -16,6 +16,7 @@ use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -26,6 +27,7 @@ class BuildPublicPageRenderDataAction
 
     public function handle(FrontendRenderContextData $context): PublicPageRenderData
     {
+        $extensionContributions = resolve(PublicRenderDataContributorRegistry::class)->prepare($context);
         $runtimeManifest = $context->runtimeManifest
             ?? FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
 
@@ -52,10 +54,14 @@ class BuildPublicPageRenderDataAction
             layoutGraph: $this->layoutGraph($context),
             runtimeManifest: $runtimeManifest,
             resourcePlan: $resourcePlan,
-            surrogateKeys: $this->surrogateKeys($context),
+            surrogateKeys: array_values(array_unique([
+                ...$this->surrogateKeys($context),
+                ...$extensionContributions->surrogateKeys,
+            ])),
             mediaHints: BuildFrontendMediaHintsAction::run($context),
             contentWidgetPayloads: $this->contentWidgetPayloads($context),
             widgetInteractionLocators: $this->widgetInteractionLocators($context),
+            extensionData: $extensionContributions->values,
         );
     }
 

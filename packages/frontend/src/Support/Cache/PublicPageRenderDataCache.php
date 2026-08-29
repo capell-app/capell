@@ -14,6 +14,7 @@ use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\CacheEnum;
+use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +28,11 @@ final class PublicPageRenderDataCache
      */
     private array $cacheKeysByIdentity = [];
 
+    public function __construct(
+        private readonly PublicRenderDataContributorRegistry $contributors,
+        private readonly PublicRenderDataCacheDependencyRegistry $dependencies,
+    ) {}
+
     /**
      * @param  Closure(): PublicPageRenderData  $builder
      */
@@ -36,6 +42,10 @@ final class PublicPageRenderDataCache
 
         if ($key === null || config('capell-frontend.public_render_data_cache') !== true) {
             return $builder();
+        }
+
+        foreach ($this->contributors->prepare($context)->cacheDependencies as $dependency) {
+            $this->dependencies->register($dependency, $key);
         }
 
         $this->rememberKeyForIdentity($context, $key);
@@ -105,6 +115,7 @@ final class PublicPageRenderDataCache
             $this->translationTimestamp($context->site),
             $this->payloadBuilderFingerprint(),
             $this->themePreviewFingerprint(),
+            $this->contributors->prepare($context)->fingerprint,
         ];
 
         return hash('xxh128', implode('|', array_map(

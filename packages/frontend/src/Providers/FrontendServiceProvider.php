@@ -48,6 +48,7 @@ use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\HtmlMinifier;
 use Capell\Frontend\Contracts\NullCacheBypassResolver;
+use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Contracts\RenderedModelTracker;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Capell\Frontend\Contracts\SiteAccessExemptionContributor;
@@ -94,6 +95,7 @@ use Capell\Frontend\Support\Cache\PageHydrator;
 use Capell\Frontend\Support\Cache\PageListingCache;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
+use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Cache\Resolvers\MediaTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\Resolvers\PageableTranslationCacheDependencyResolver;
 use Capell\Frontend\Support\Cache\Resolvers\SiteTranslationCacheDependencyResolver;
@@ -126,6 +128,7 @@ use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
+use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
@@ -433,6 +436,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function registerAssetOptimizationBindings(): void
     {
         $this->app->singleton(FrontendResourceRegistry::class);
+        $this->app->scoped(
+            PublicRenderDataContributorRegistry::class,
+            fn (Application $application): PublicRenderDataContributorRegistry => new PublicRenderDataContributorRegistry(
+                $application->tagged(PublicRenderDataContributor::TAG),
+            ),
+        );
         $this->app->singleton(FrontendPackageDependencyRegistry::class);
         $this->app->singleton(FrontendViteInputRegistry::class);
         $this->app->scoped('capell.frontend.resource-group-options', fn (Application $application): callable => static fn (): array => collect($application->make(FrontendResourceRegistry::class)->all())
@@ -449,6 +458,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function registerCacheInvalidationBindings(): void
     {
         $this->app->singleton(CacheInvalidationDependencyRegistry::class);
+        $this->app->singleton(PublicRenderDataCacheDependencyRegistry::class);
         $this->app->scoped(CacheInvalidationExecutor::class);
         $this->app->scoped(PageableTranslationCacheDependencyResolver::class);
         $this->app->scoped(MediaTranslationCacheDependencyResolver::class);

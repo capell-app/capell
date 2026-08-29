@@ -19,6 +19,7 @@ class PublicPageRenderData extends Data
      * @param  array<int, FrontendMediaHintData>  $mediaHints
      * @param  array<string, object>  $contentWidgetPayloads
      * @param  array<string, string>  $widgetInteractionLocators
+     * @param  array<string, object>  $extensionData
      */
     public function __construct(
         public ?Pageable $page,
@@ -33,6 +34,7 @@ class PublicPageRenderData extends Data
         public array $mediaHints = [],
         public array $contentWidgetPayloads = [],
         public array $widgetInteractionLocators = [],
+        public array $extensionData = [],
     ) {}
 
     public function contentWidgetPayload(string $instanceId): ?object
@@ -43,6 +45,11 @@ class PublicPageRenderData extends Data
     public function widgetInteractionLocator(string $instanceId): ?string
     {
         return $this->widgetInteractionLocators[$instanceId] ?? null;
+    }
+
+    public function extensionData(string $key): ?object
+    {
+        return $this->extensionData[$key] ?? null;
     }
 
     public function layoutGraphKey(): ?string
