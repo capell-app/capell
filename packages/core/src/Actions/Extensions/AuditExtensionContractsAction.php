@@ -96,7 +96,16 @@ final class AuditExtensionContractsAction
 
             array_push(
                 $results,
-                ...$this->derivedResults($manifest, $manifestPath, $composerJson ?? [], $bootedProviderBuckets),
+                ...$this->derivedResults(
+                    $manifest,
+                    $manifestPath,
+                    $composerJson ?? [],
+                    $bootedProviderBuckets === []
+                        ? []
+                        : (array_is_list($bootedProviderBuckets)
+                            ? $bootedProviderBuckets
+                            : ($bootedProviderBuckets[$manifest->name] ?? [])),
+                ),
             );
         }
 
@@ -269,6 +278,7 @@ final class AuditExtensionContractsAction
             ...$this->packageContractResults($manifest, $manifestPath, $composerJson),
             ...$this->capabilityResults($manifest, $manifestPath),
             ...$this->cacheSafetyResults($manifest, $manifestPath),
+            ...$this->declarationResults($manifest, $manifestPath, $this->bootedBuckets($manifest, $bootedProviderBuckets)),
             ...$this->runtimeReceiptResults($manifest, $manifestPath, $bootedProviderBuckets),
             ...$this->apiCompatibilityResults($manifest, $manifestPath),
         ];
@@ -351,7 +361,9 @@ final class AuditExtensionContractsAction
                     'expectedImplementation' => $expectedClass,
                     'actualImplementation' => $actual?->implementation,
                     'actualOwner' => $actual?->ownerPackage,
-                    'sourceClass' => $actual?->sourceClass ?? $expectedClass,
+                    'sourceClass' => $actual instanceof ExtensionContributionReceiptData
+                        ? $actual->sourceClass
+                        : $expectedClass,
                 ],
             );
         }
@@ -639,6 +651,7 @@ final class AuditExtensionContractsAction
     }
 
     /**
+     * @param  list<string>  $bootedBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
     private function capabilityResults(CapellManifestData $manifest, string $manifestPath): array

@@ -55,7 +55,7 @@ final class CapellPackageLoader
                     }
 
                     $contexts = array_map(
-                        fn (string $bucket): ExtensionContributionReceiptContext => TrustedCorePackages::contains($manifest->name)
+                        fn (string $bucket): ExtensionContributionReceiptContext => $manifest->name === 'capell-app/core'
                             ? ExtensionContributionReceiptContext::foundation($manifest->name, $bucket, $provider)
                             : ExtensionContributionReceiptContext::forPackage($manifest->name, $bucket, $provider),
                         $this->selectedProviderBuckets($manifest, $provider, $runtimeProvidersSelected),
