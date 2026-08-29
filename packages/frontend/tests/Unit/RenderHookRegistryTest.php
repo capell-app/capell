@@ -12,6 +12,7 @@ use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
+use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
@@ -96,6 +97,27 @@ it('deduplicates keyed contributions by stable key and exposes diagnostics', fun
         ->and($diagnostics['footer'][0]['key'])->toBe('footer-banner')
         ->and($diagnostics['footer'][0]['registrationType'])->toBe(RenderHookRegistrationType::ExtensionClass->value)
         ->and($diagnostics['footer'][0]['cacheSafe'])->toBeFalse();
+});
+
+it('deduplicates equivalent contributions when registration provenance differs', function (): void {
+    $registry = new RenderHookRegistry;
+    $registrar = new FrontendHookRegistrar($registry, new ExtensionContributionReceiptRegistry);
+
+    $registry->contribute(new RenderHookContributionData(
+        location: RenderHookLocation::Footer,
+        extension: '<span>navigation</span>',
+        owner: 'capell-app/navigation',
+        key: 'foundation-header-navigation-default',
+        source: RenderHookContributionData::class,
+    ));
+    $registrar->contribute(
+        location: RenderHookLocation::Footer,
+        extension: '<span>navigation</span>',
+        owner: 'capell-app/navigation',
+        key: 'foundation-header-navigation-default',
+    );
+
+    expect($registry->get(RenderHookLocation::Footer))->toHaveCount(1);
 });
 
 it('resolves class-string extensions from the current container scope', function (): void {

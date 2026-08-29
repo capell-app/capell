@@ -150,7 +150,8 @@ class RenderHookRegistry
             if ($existing->key !== $contribution->key) {
                 continue;
             }
-            if ($existing->owner === $contribution->owner && $existing->source === $contribution->source
+            if ($existing->owner === $contribution->owner
+                && $existing->registrationType === $contribution->registrationType
                 && $existing->extension === $contribution->extension
                 && $existing->priority === $contribution->priority
                 && $existing->scenario === $contribution->scenario
