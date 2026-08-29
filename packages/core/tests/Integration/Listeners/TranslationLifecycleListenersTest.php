@@ -6,6 +6,7 @@ use Capell\Core\Actions\UpdatePageUrlAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Enums\ContentStructure;
+use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
 use Capell\Core\EventSourcing\Rollback\RollbackService;
 use Capell\Core\Models\Blueprint;
@@ -30,6 +31,8 @@ it('runs update page url action when a page translation is updated', function ()
 });
 
 it('runs creating, created, and updated listeners for page translations', function (): void {
+    Event::fake([PageUrlsRewritten::class]);
+
     $site = Site::factory()->createOne();
     $language = Language::factory()->createOne();
     $page = Page::factory()->createOne([
@@ -64,6 +67,59 @@ it('runs creating, created, and updated listeners for page translations', functi
     $translation->save();
 
     expect($page->pageUrl->fresh())->url->toBe('/welcome-updated');
+
+    Event::assertDispatched(
+        PageUrlsRewritten::class,
+        fn (PageUrlsRewritten $event): bool => $event->page->is($page)
+            && $event->urlChanges === [
+                $language->getKey() => [
+                    'old' => '/welcome-home',
+                    'new' => '/welcome-updated',
+                ],
+            ]
+            && $event->descendantUrlChanges === [],
+    );
+});
+
+it('rewrites descendant urls when a page translation slug changes', function (): void {
+    $site = Site::factory()->createOne();
+    $language = Language::factory()->createOne();
+    $parent = Page::factory()->createOne(['site_id' => $site->id]);
+    $parentTranslation = Translation::factory()
+        ->translatable($parent)
+        ->language($language)
+        ->slug('parent')
+        ->create();
+    $child = Page::factory()->createOne([
+        'site_id' => $site->id,
+        'parent_id' => $parent->id,
+    ]);
+    Translation::factory()
+        ->translatable($child)
+        ->language($language)
+        ->slug('child')
+        ->create();
+
+    Event::fake([PageUrlsRewritten::class]);
+
+    $parentTranslation->meta = [
+        'slug' => 'renamed-parent',
+    ];
+    $parentTranslation->save();
+
+    expect($child->pageUrl->fresh())->url->toBe('/renamed-parent/child');
+    Event::assertDispatched(
+        PageUrlsRewritten::class,
+        fn (PageUrlsRewritten $event): bool => $event->page->is($parent)
+            && $event->descendantUrlChanges === [
+                $child->getKey() => [
+                    $language->getKey() => [
+                        'old' => '/parent/child',
+                        'new' => '/renamed-parent/child',
+                    ],
+                ],
+            ],
+    );
 });
 
 it('creates page translation metadata without lazy loading its pageable', function (): void {

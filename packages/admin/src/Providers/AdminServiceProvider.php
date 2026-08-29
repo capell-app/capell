@@ -93,6 +93,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioLaunchReadiness
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
+use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
 use Capell\Admin\Livewire\Header\NavigationTree;
@@ -171,6 +172,7 @@ use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
+use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
 use Capell\Admin\Support\Publish\WorkflowPublishPanelExtender;
 use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\Reports\ReportRegistry;
@@ -196,6 +198,7 @@ use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
+use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -320,6 +323,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminWorkspaceRegistry::class);
         $this->app->singleton(AdminWorkspacePreferenceStore::class);
         $this->app->scoped(AdminWorkspaceNavigator::class);
+        $this->app->scoped(PageUrlRewritePromptState::class);
         $this->app->scoped(UserMenuItemResolver::class);
         $this->app->singleton(OverviewStatRegistry::class);
         $this->app->singleton(AdminBridgeRegistry::class);
@@ -420,6 +424,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerSubscribers()
             ->registerModelInterceptors()
             ->registerAdminEventSystem()
+            ->registerPageUrlRewritePrompt()
             ->registerActAsOwnerAuditing()
             ->registerEventSourcingBridges()
             ->registerPolicies()
@@ -871,6 +876,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminEventRegistry::class);
 
         $this->app->singleton(AdminEventRouter::class);
+
+        return $this;
+    }
+
+    private function registerPageUrlRewritePrompt(): self
+    {
+        Event::listen(PageUrlsRewritten::class, [RememberPageUrlRewriteForPrompt::class, 'handle']);
 
         return $this;
     }
