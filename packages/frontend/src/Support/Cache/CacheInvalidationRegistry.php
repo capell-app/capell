@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Media;
@@ -94,6 +96,20 @@ final class CacheInvalidationRegistry
                 $this->executor->registerCacheInvalidationPattern($pattern);
             }
         }
+        $this->receipts()?->recordContribution(
+            ExtensionContributionReceiptType::CacheDependency,
+            'cache-dependency:' . $modelClass,
+            $modelClass,
+            self::class,
+            'frontend',
+        );
+    }
+
+    private function receipts(): ?RecordsExtensionContributionReceipt
+    {
+        return app()->bound(RecordsExtensionContributionReceipt::class)
+            ? resolve(RecordsExtensionContributionReceipt::class)
+            : null;
     }
 
     private function planForChangedModelWithinBounds(Model $model): CacheInvalidationPlanData

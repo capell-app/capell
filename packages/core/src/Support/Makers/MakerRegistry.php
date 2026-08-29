@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Makers;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Makers\Maker;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -15,7 +17,17 @@ final class MakerRegistry extends AbstractKeyedRegistry implements MakerRegistry
 {
     public function register(Maker $maker): void
     {
-        $this->setItem($maker->definition()->key, $maker);
+        $key = $maker->definition()->key;
+        $this->setItem($key, $maker);
+        if (app()->bound(RecordsExtensionContributionReceipt::class)) {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionReceiptType::Maker,
+                'maker:' . $key,
+                $maker::class,
+                self::class,
+                'runtime',
+            );
+        }
     }
 
     public function has(string $key): bool

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Extensions;
 
-use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
+use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 use Closure;
 
-final class ExtensionContributionReceiptRegistry implements RecordsExtensionContributionReceipt
+final class ExtensionContributionReceiptRegistry implements BootsExtensionContributionReceiptContext, RecordsExtensionContributionReceipt
 {
     /** @var list<ExtensionContributionReceiptData> */
     private array $receipts = [];
@@ -17,7 +19,7 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
     /** @var list<ExtensionContributionReceiptContext> */
     private array $contexts = [];
 
-    /** @var array<class-string, list<ExtensionContributionReceiptContext>> */
+    /** @var array<string, list<ExtensionContributionReceiptContext>> */
     private array $providerContexts = [];
 
     /** @var array<string, array<string, true>> */
@@ -30,7 +32,10 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
     {
         $this->providerContexts[$provider] ??= [];
         foreach ($this->providerContexts[$provider] as $existing) {
-            if ($existing == $context) {
+            if ($existing->ownerPackage === $context->ownerPackage
+                && $existing->providerBucket === $context->providerBucket
+                && $existing->sourceClass === $context->sourceClass
+                && $existing->foundationBuiltIn === $context->foundationBuiltIn) {
                 $this->loadedContexts[$context->ownerPackage][$context->providerBucket] = true;
 
                 return;
@@ -57,7 +62,10 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
         if ($namespace !== '\\') {
             $this->namespaceContexts[$namespace] ??= [];
             foreach ($this->namespaceContexts[$namespace] as $existing) {
-                if ($existing == $context) {
+                if ($existing->ownerPackage === $context->ownerPackage
+                    && $existing->providerBucket === $context->providerBucket
+                    && $existing->sourceClass === $context->sourceClass
+                    && $existing->foundationBuiltIn === $context->foundationBuiltIn) {
                     return;
                 }
             }
@@ -68,6 +76,7 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
 
     /**
      * @template TReturn
+     *
      * @param  Closure(): TReturn  $callback
      * @return TReturn
      */
@@ -78,6 +87,7 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
 
     /**
      * @template TReturn
+     *
      * @param  list<ExtensionContributionReceiptContext>  $contexts
      * @param  Closure(): TReturn  $callback
      * @return TReturn
@@ -94,40 +104,58 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
         }
     }
 
-    public function record(ExtensionContributionReceiptData $receipt): void
-    {
-        foreach ($this->receipts as $existing) {
-            if ($existing->toArray() === $receipt->toArray()) {
-                return;
-            }
-        }
-
-        $this->receipts[] = $receipt;
-    }
-
     public function recordFromContext(
-        ExtensionContributionType $type,
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
         string $implementation,
         ?string $sourceClass = null,
+        ?string $providerBucket = null,
     ): void {
-        $contexts = $sourceClass === null ? [] : $this->contextForClass($sourceClass);
-        if ($contexts === []) {
-            $contexts = $this->contexts !== [] ? $this->contexts : $this->bootProviderContexts();
-        }
-        $contexts = $contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass ?? self::class)];
+        $contexts = array_values($this->contexts !== [] ? $this->contexts : $this->bootProviderContexts());
+        $contexts = $this->contextsForBucket($contexts, $providerBucket);
+        $contexts = $providerBucket === null ? $this->contextsForType($contexts, $type) : $contexts;
+        $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass ?? self::class)]);
 
-        foreach ($contexts as $context) {
-            $this->record(new ExtensionContributionReceiptData(
-                ownerPackage: $context->ownerPackage,
-                providerBucket: $context->providerBucket,
-                type: $type,
-                key: $key,
-                implementation: $implementation,
-                sourceClass: $sourceClass ?? $context->sourceClass,
-                foundationBuiltIn: $context->foundationBuiltIn,
-            ));
+        $this->recordForContexts($type, $key, $implementation, $sourceClass, $contexts);
+    }
+
+    public function recordContribution(
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
+        string $key,
+        string $implementation,
+        string $sourceClass,
+        ?string $providerBucket = null,
+    ): void {
+        $this->recordFromContext($type, $key, $implementation, $sourceClass, $providerBucket);
+    }
+
+    public function recordFromSourceContext(
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
+        string $key,
+        string $implementation,
+        string $sourceClass,
+        ?string $providerBucket = null,
+    ): void {
+        $mappedContexts = $this->contextForClass($sourceClass, $providerBucket);
+        $contexts = $mappedContexts ?? [];
+        if ($mappedContexts === null) {
+            $contexts = array_values($this->contexts !== [] ? $this->contexts : $this->bootProviderContexts());
         }
+        $contexts = $this->contextsForBucket($contexts, $providerBucket);
+        $contexts = $providerBucket === null ? $this->contextsForType($contexts, $type) : $contexts;
+        $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass)]);
+
+        $this->recordForContexts($type, $key, $implementation, $sourceClass, $contexts);
+    }
+
+    public function recordContributionFromSource(
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
+        string $key,
+        string $implementation,
+        string $sourceClass,
+        ?string $providerBucket = null,
+    ): void {
+        $this->recordFromSourceContext($type, $key, $implementation, $sourceClass, $providerBucket);
     }
 
     /** @return list<ExtensionContributionReceiptData> */
@@ -160,6 +188,74 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
         $this->namespaceContexts = [];
     }
 
+    private function record(ExtensionContributionReceiptData $receipt): void
+    {
+        foreach ($this->receipts as $existing) {
+            if ($existing->toArray() === $receipt->toArray()) {
+                return;
+            }
+        }
+
+        $this->receipts[] = $receipt;
+    }
+
+    /**
+     * @param  list<ExtensionContributionReceiptContext>  $contexts
+     */
+    private function recordForContexts(
+        ExtensionContributionType|ExtensionContributionReceiptType $type,
+        string $key,
+        string $implementation,
+        ?string $sourceClass,
+        array $contexts,
+    ): void {
+        $context = array_values($contexts)[0];
+
+        $this->record(new ExtensionContributionReceiptData(
+            ownerPackage: $context->ownerPackage,
+            providerBucket: $context->providerBucket,
+            type: $type,
+            key: $key,
+            implementation: $implementation,
+            sourceClass: $sourceClass ?? $context->sourceClass,
+            foundationBuiltIn: $context->foundationBuiltIn,
+        ));
+    }
+
+    /**
+     * @param  list<ExtensionContributionReceiptContext>  $contexts
+     * @return list<ExtensionContributionReceiptContext>
+     */
+    private function contextsForBucket(array $contexts, ?string $providerBucket): array
+    {
+        if ($providerBucket === null || $contexts === []) {
+            return $contexts;
+        }
+
+        $matching = array_values(array_filter(
+            $contexts,
+            static fn (ExtensionContributionReceiptContext $context): bool => $context->providerBucket === $providerBucket,
+        ));
+
+        return $matching !== [] ? $matching : $contexts;
+    }
+
+    /**
+     * @param  list<ExtensionContributionReceiptContext>  $contexts
+     * @return list<ExtensionContributionReceiptContext>
+     */
+    private function contextsForType(array $contexts, ExtensionContributionType|ExtensionContributionReceiptType $type): array
+    {
+        $bucket = $type->bucket();
+
+        $matching = array_values(array_filter(
+            $contexts,
+            static fn (ExtensionContributionReceiptContext $context): bool => $context->providerBucket === $bucket,
+        ));
+
+        return $matching !== [] ? $matching : $contexts;
+    }
+
     /** @return list<ExtensionContributionReceiptContext> */
     private function bootProviderContexts(): array
     {
@@ -178,8 +274,8 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
         return [];
     }
 
-    /** @return list<ExtensionContributionReceiptContext> */
-    private function contextForClass(string $class): array
+    /** @return list<ExtensionContributionReceiptContext>|null */
+    private function contextForClass(string $class, ?string $providerBucket = null): ?array
     {
         $matchedNamespace = null;
         foreach ($this->namespaceContexts as $namespace => $contexts) {
@@ -190,7 +286,13 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
             }
         }
 
-        return $matchedNamespace === null ? [] : $this->namespaceContexts[$matchedNamespace];
+        if ($matchedNamespace === null) {
+            return null;
+        }
+
+        $contexts = array_values($this->namespaceContexts[$matchedNamespace]);
+
+        return $this->contextsForBucket($contexts, $providerBucket);
     }
 
     private function fallbackContext(string $sourceClass): ExtensionContributionReceiptContext

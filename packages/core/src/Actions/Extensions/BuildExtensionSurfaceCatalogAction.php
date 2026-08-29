@@ -41,7 +41,6 @@ use Capell\Core\Data\Health\HealthCheckResultData;
 use Capell\Core\Data\Health\HealthReportData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionContributionTraceabilityData;
-use Capell\Core\Data\Manifest\ExtensionContributionTraceabilityEntryData;
 use Capell\Core\Data\Metrics\MetricCollectionResultData;
 use Capell\Core\Data\Metrics\MetricDefinitionData;
 use Capell\Core\Data\Metrics\MetricGovernanceData;
@@ -93,7 +92,6 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
@@ -194,8 +192,6 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.extension-contribution-receipt', 'contract', RecordsExtensionContributionReceipt::class, ExtensionSurfaceStability::Stable, 'Neutral runtime contribution receipt boundary.', 'core.extension-contribution-receipt'),
             $this->entry('core.dto.extension-contribution-receipt', 'dto', ExtensionContributionReceiptData::class, ExtensionSurfaceStability::Stable, 'Typed runtime contribution receipt.', 'core.extension-contribution-receipt'),
             $this->entry('core.dto.extension-contribution-traceability', 'dto', ExtensionContributionTraceabilityData::class, ExtensionSurfaceStability::Stable, 'Typed manifest runtime traceability envelope.', 'core.extension-contribution-traceability'),
-            $this->entry('core.dto.extension-contribution-traceability-entry', 'dto', ExtensionContributionTraceabilityEntryData::class, ExtensionSurfaceStability::Stable, 'Typed manifest contribution traceability entry.', 'core.extension-contribution-traceability'),
-            $this->entry('core.registry.extension-contribution-receipt', 'registry', ExtensionContributionReceiptRegistry::class, ExtensionSurfaceStability::Stable, 'Runtime registry for neutral contribution receipts.', 'core.extension-contribution-receipt'),
             $this->entry('core.dto.project-build-artifact-reference', 'dto', ProjectBuildArtifactReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build artifact reference.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-compatibility', 'dto', ProjectBuildCompatibilityData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build compatibility requirements.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-installed-package', 'dto', ProjectBuildInstalledPackageData::class, ExtensionSurfaceStability::Stable, 'Verified installed package release evidence for project build consumers.', 'core.project-build-manifest-install'),

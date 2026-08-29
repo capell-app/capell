@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
+
 final class AdminEventRegistry
 {
     /**
@@ -22,6 +25,15 @@ final class AdminEventRegistry
         }
 
         $this->listenersByClass[$className][$event] = $handlerClass;
+        if (app()->bound(RecordsExtensionContributionReceipt::class)) {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionReceiptType::AdminEvent,
+                'admin-event:' . $className . ':' . $event,
+                $handlerClass,
+                self::class,
+                'admin',
+            );
+        }
     }
 
     /**

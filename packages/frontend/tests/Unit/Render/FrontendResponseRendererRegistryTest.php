@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Octane\Resettable;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
@@ -11,6 +13,31 @@ use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
 use Capell\Frontend\Tests\Fixtures\Autoload\RegistryTestRenderer;
 use Symfony\Component\HttpFoundation\Response;
+
+it('emits one receipt for a direct response renderer registration', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $renderer = new class implements FrontendResponseRenderer
+    {
+        public function runtime(): FrontendRuntime
+        {
+            return FrontendRuntime::Blade;
+        }
+
+        public function render(FrontendRenderContextData $context): Response
+        {
+            return response('blade', $context->status ?? 200);
+        }
+    };
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/renderers', 'frontend', 'Vendor\\Frontend\\Provider'),
+        fn (): FrontendResponseRendererRegistry => tap(new FrontendResponseRendererRegistry)->register($renderer),
+    );
+
+    expect($receipts->forPackage('vendor/renderers'))->toHaveCount(1)
+        ->and($receipts->forPackage('vendor/renderers')[0]->key)->toBe('response-renderer:blade');
+});
 
 it('registers and resolves response renderers by runtime', function (): void {
     $renderer = new class implements FrontendResponseRenderer

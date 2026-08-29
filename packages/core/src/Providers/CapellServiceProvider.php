@@ -58,6 +58,8 @@ use Capell\Core\Contracts\ActivitySettingsReader;
 use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
@@ -134,13 +136,12 @@ use Capell\Core\Support\Database\Platforms\MySqlDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\PostgresDatabasePlatform;
 use Capell\Core\Support\Database\Platforms\SqliteDatabasePlatform;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
-use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Links\PageLinkableContentProvider;
 use Capell\Core\Support\Makers\BuiltIn\ActionMaker;
@@ -515,6 +516,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(CapellPackageRegistry::class);
         $this->app->singleton(ExtensionContributionReceiptRegistry::class);
         $this->app->alias(ExtensionContributionReceiptRegistry::class, RecordsExtensionContributionReceipt::class);
+        $this->app->alias(ExtensionContributionReceiptRegistry::class, BootsExtensionContributionReceiptContext::class);
 
         $this->app->tag([CapellCoreManager::class, ComponentRegistry::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);
@@ -539,7 +541,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ContentGraphRegistry::class, fn (): ContentGraphRegistry => new ContentGraphRegistry($this->app));
         $this->app->singleton(ThemeChromeRegistry::class);
         $this->app->singleton(ThemeInstallDefaultsRegistry::class);
-        $this->app->singleton(InstallPatchRegistry::class);
+        $this->app->singleton(InstallPatchRegistry::class, fn ($app): InstallPatchRegistry => new InstallPatchRegistry(
+            $app->bound(RecordsExtensionContributionReceipt::class)
+                ? $app->make(RecordsExtensionContributionReceipt::class)
+                : null,
+        ));
         $this->app->singleton(PublicationReadinessRegistry::class, fn ($app): PublicationReadinessRegistry => new PublicationReadinessRegistry($app));
         $this->app->singleton(HealthCheckRegistry::class);
         $this->callAfterResolving(HealthCheckRegistry::class, function (HealthCheckRegistry $registry): void {

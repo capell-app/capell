@@ -30,9 +30,9 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Enums\ExtensionContributionType;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Closure;
@@ -45,13 +45,14 @@ use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Illuminate\View\View;
+use ReflectionFunction;
 
 final class AdminBridgeRegistrar
 {
     public function __construct(
         private readonly AdminBridgeRegistry $bridges,
         private readonly SettingsSchemaRegistry $settings,
-        private readonly ExtensionContributionReceiptRegistry $receipts,
+        private readonly RecordsExtensionContributionReceipt $receipts,
     ) {}
 
     /**
@@ -206,21 +207,21 @@ final class AdminBridgeRegistrar
     public function extensionsPageHeaderAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerHeaderAction($action, $key);
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-action:' . $this->actionIdentity($action, $key), $this->implementation($action));
     }
 
     /** @param Action|ActionGroup|Closure(ExtensionsPage): (Action|ActionGroup) $action */
     public function extensionsPageHeaderActionGroupAction(Action|ActionGroup|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerHeaderActionGroupAction($action, $key);
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-group-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-header-group-action:' . $this->actionIdentity($action, $key), $this->implementation($action));
     }
 
     /** @param Action|Closure(ExtensionsPage): Action $action */
     public function extensionsPageTableAction(Action|Closure $action, ?string $key = null): void
     {
         resolve(ExtensionsPageActionRegistry::class)->registerTableAction($action, $key);
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-table-action:' . ($key ?? $this->implementation($action)), $this->implementation($action));
+        $this->receipt(ExtensionContributionType::AdminActionExtender, 'extensions-page-table-action:' . $this->actionIdentity($action, $key), $this->implementation($action));
     }
 
     public function userMenuItem(
@@ -399,11 +400,32 @@ final class AdminBridgeRegistrar
 
     private function receipt(ExtensionContributionType $type, string $key, string $implementation): void
     {
-        $this->receipts->recordFromContext($type, $key, $implementation, self::class);
+        $this->receipts->recordContribution($type, $key, $implementation, self::class, 'admin');
     }
 
     private function implementation(mixed $value): string
     {
         return is_object($value) ? $value::class : get_debug_type($value);
+    }
+
+    private function actionIdentity(Action|ActionGroup|Closure $action, ?string $key): string
+    {
+        if ($key !== null && $key !== '') {
+            return $key;
+        }
+
+        if ($action instanceof Action || $action instanceof ActionGroup) {
+            return method_exists($action, 'getName') && is_string($action->getName())
+                ? $action->getName()
+                : $action::class;
+        }
+
+        $reflection = new ReflectionFunction($action);
+
+        return 'legacy-' . hash('sha256', implode('|', [
+            $reflection->getFileName() ?: 'unknown',
+            (string) $reflection->getStartLine(),
+            (string) $reflection->getEndLine(),
+        ]));
     }
 }

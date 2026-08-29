@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Tailwind\TailwindAssetsRegistry;
 
 it('dedupes, trims, and sorts tailwind assets with origins', function (): void {
@@ -23,6 +26,22 @@ it('dedupes, trims, and sorts tailwind assets with origins', function (): void {
             ['value' => 'a/views/**/*.blade.php', 'origin' => 'package:a'],
             ['value' => 'z/views/**/*.blade.php', 'origin' => 'package:z'],
         ]);
+});
+
+it('emits a receipt at the direct tailwind registration boundary', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $registry = new TailwindAssetsRegistry;
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/tailwind', 'frontend', 'Vendor\\FrontendServiceProvider'),
+        function () use ($registry): void {
+            $registry->registerSource('vendor/views/**/*.blade.php');
+        },
+    );
+
+    expect($receipts->forPackage('vendor/tailwind'))->toHaveCount(1)
+        ->and($receipts->forPackage('vendor/tailwind')[0]->type)->toBe(ExtensionContributionType::Asset);
 });
 
 it('chains registration methods fluently', function (): void {

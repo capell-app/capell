@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Rules;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Contracts\FrontendRuleCondition;
 use InvalidArgumentException;
@@ -21,6 +23,15 @@ final class FrontendRuleConditionRegistry extends AbstractKeyedRegistry
         throw_unless($resolvedCondition instanceof FrontendRuleCondition, InvalidArgumentException::class, 'Frontend rule conditions must implement FrontendRuleCondition.');
 
         $this->setItem($resolvedCondition->key(), $condition);
+        if (app()->bound(RecordsExtensionContributionReceipt::class)) {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionReceiptType::FrontendRuleCondition,
+                'frontend-rule-condition:' . $resolvedCondition->key(),
+                is_string($condition) ? $condition : $condition::class,
+                self::class,
+                'frontend',
+            );
+        }
     }
 
     public function get(string $key): ?FrontendRuleCondition

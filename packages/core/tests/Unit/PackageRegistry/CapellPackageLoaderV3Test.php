@@ -8,10 +8,10 @@ use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Bootstrap\CloudInstallContext;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
@@ -149,12 +149,14 @@ it('records only the selected buckets for a shared provider in the public role',
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
     $application->shouldReceive('register')->once()->with(AuthServiceProvider::class)->andReturnUsing(
-        fn (): mixed => $receipts->recordFromContext(
-            ExtensionContributionType::Model,
-            'model:' . stdClass::class,
-            stdClass::class,
-            AuthServiceProvider::class,
-        ),
+        function () use ($receipts): void {
+            $receipts->recordFromContext(
+                ExtensionContributionType::Model,
+                'model:' . stdClass::class,
+                stdClass::class,
+                AuthServiceProvider::class,
+            );
+        },
     );
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/shared-public-package')->andReturnTrue();
@@ -175,7 +177,7 @@ it('records only the selected buckets for a shared provider in the public role',
         ->and(array_map(
             static fn (object $receipt): string => $receipt->providerBucket,
             $receipts->forPackage('vendor/shared-public-package'),
-        ))->toBe(['runtime', 'frontend']);
+        ))->toBe(['runtime']);
 });
 
 it('does not mark an admin bucket as booted for a disabled install-only context', function (): void {
@@ -188,12 +190,14 @@ it('does not mark an admin bucket as booted for a disabled install-only context'
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
     $application->shouldReceive('register')->once()->with(AuthServiceProvider::class)->andReturnUsing(
-        fn (): mixed => $receipts->recordFromContext(
-            ExtensionContributionType::Model,
-            'model:' . stdClass::class,
-            stdClass::class,
-            AuthServiceProvider::class,
-        ),
+        function () use ($receipts): void {
+            $receipts->recordFromContext(
+                ExtensionContributionType::Model,
+                'model:' . stdClass::class,
+                stdClass::class,
+                AuthServiceProvider::class,
+            );
+        },
     );
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/disabled-install-package')->andReturnFalse();
@@ -264,6 +268,7 @@ function packageV3Loader(
     CapellPackageRegistry $registry,
     ?CloudInstallContext $cloudInstallContext = null,
     RuntimeRole $runtimeRole = RuntimeRole::Combined,
+    ?ExtensionContributionReceiptRegistry $receipts = null,
 ): CapellPackageLoader {
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
@@ -281,5 +286,6 @@ function packageV3Loader(
             configuredValue: $runtimeRole->value,
             valid: true,
         )),
+        receipts: $receipts ?? new ExtensionContributionReceiptRegistry,
     );
 }

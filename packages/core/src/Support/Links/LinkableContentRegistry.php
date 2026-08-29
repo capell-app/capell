@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Links;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\LinkableContent;
 use Capell\Core\Data\LinkableContentData;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -20,6 +22,15 @@ final class LinkableContentRegistry extends AbstractKeyedRegistry
         throw_if($key === '', InvalidArgumentException::class, 'Linkable content provider keys cannot be empty.');
 
         $this->setItem($key, $provider);
+        if (app()->bound(RecordsExtensionContributionReceipt::class)) {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionReceiptType::LinkableContent,
+                'linkable-content:' . $key,
+                $provider::class,
+                self::class,
+                'runtime',
+            );
+        }
 
         return $this;
     }

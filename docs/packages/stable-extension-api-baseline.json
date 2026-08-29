@@ -4,7 +4,7 @@
     "surfaces": {
         "admin.registrar.workspace": {
             "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
-            "signature": "288187e7a717d725a402210bcc4a7d2337b4082e21e5715c21ad885a29e82e26",
+            "signature": "f9fa08cbf4e60c42894ddcd9d2472bf400d295dd9ac2a60123a0a1088199053f",
             "contractTestId": "admin.bridge-registrar-workspace"
         },
         "core.action.install-project-build-manifest": {
@@ -39,7 +39,7 @@
         },
         "core.contract.extension-contribution-receipt": {
             "identifier": "Capell\\Core\\Contracts\\Extensions\\RecordsExtensionContributionReceipt",
-            "signature": "0870eee905299eb5c8b23da37d46af88508568d782122ab159ada5e0ea09cc3c",
+            "signature": "9740cc5037cc3a232f182f77ed1ca34d92dfea047a734bad6bcf33d59dd7a09c",
             "contractTestId": "core.extension-contribution-receipt"
         },
         "core.contract.project-build-artifact-handler": {
@@ -59,22 +59,17 @@
         },
         "core.dto.extension-contribution": {
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionData",
-            "signature": "391e3389ea0d7bcd6d702629028ac990efa19cb738d26c70f87bec568ac2a318",
+            "signature": "05faa8047850a71959d4971ebb6897f5ad68c8cfe9cc8f6457f2e2cb11791640",
             "contractTestId": "core.extension-contribution-data"
         },
         "core.dto.extension-contribution-receipt": {
             "identifier": "Capell\\Core\\Data\\Extensions\\ExtensionContributionReceiptData",
-            "signature": "9feb7faef6673419e759c1f988e54c2243a4b635c4877a6affb46aedf461fcaa",
+            "signature": "b48ea5f8a034d38821131abe8b22f4560f9519169c9a920872c4c0fdee16f19f",
             "contractTestId": "core.extension-contribution-receipt"
         },
         "core.dto.extension-contribution-traceability": {
             "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityData",
-            "signature": "550052f35522474061a2f373a5c4befb07bc785a13c50cd73d363c92463e6b96",
-            "contractTestId": "core.extension-contribution-traceability"
-        },
-        "core.dto.extension-contribution-traceability-entry": {
-            "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityEntryData",
-            "signature": "03bc16d63d40cfbf7c1797ec03ff82e41f5b697495ac3014c59472b40626809b",
+            "signature": "241a67b28572c64ec1a87f56062b9d0bd6adcf892c94dab329c307b1a96db019",
             "contractTestId": "core.extension-contribution-traceability"
         },
         "core.dto.project-build-artifact-reference": {
@@ -132,11 +127,6 @@
             "signature": "90e22a203cb0ccaed70bfb14e83296be9d024c2300647ed76b83d7ddc1ca4175",
             "contractTestId": "core.project-build-artifact-handler-registry"
         },
-        "core.registry.extension-contribution-receipt": {
-            "identifier": "Capell\\Core\\Support\\Extensions\\ExtensionContributionReceiptRegistry",
-            "signature": "cb10fca392f4fbfb7856fefbde7f65a3f3e8e8f47d35fe3dcc0bf1a52d718862",
-            "contractTestId": "core.extension-contribution-receipt"
-        },
         "core.tag.project-build-artifact-handler": {
             "identifier": "capell.project-build.artifact-handler",
             "signature": "8c85288aa5a9d7eaecfe0a3a0b002dd2e638703177317909eca53c1969b94454",
@@ -170,6 +160,7 @@
         "filament/support": "^5.7.6",
         "illuminate/database": "^13.0",
         "illuminate/support": "^13.0",
+        "laravel/prompts": "^0.2|^0.3",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
         "spatie/laravel-activitylog": "^4.0",
@@ -238,7 +229,9 @@
         "2026_08_09_000001_add_port_to_site_domains_table.php",
         "2026_08_09_000002_enforce_active_site_domain_origin_uniqueness.php",
         "2026_08_13_000001_create_editor_scratch_drafts_table.php",
-        "2026_08_13_000002_add_admin_workspace_preferences_to_users_table.php"
+        "2026_08_13_000002_add_admin_workspace_preferences_to_users_table.php",
+        "2026_08_14_000001_add_provider_recovery_to_capell_extensions.php",
+        "2026_08_18_000001_create_activity_visitors_table.php"
     ],
     "configKeys": []
 }

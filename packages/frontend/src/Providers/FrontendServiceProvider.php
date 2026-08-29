@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Providers;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\InteractionTargetCapabilityContributor;
 use Capell\Core\Contracts\RedirectResolver;
@@ -219,7 +220,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             FrontendComponentRegistrar::class,
             fn (Application $application): FrontendComponentRegistrar => new FrontendComponentRegistrar(
                 $application->tagged(FrontendComponentContributor::TAG),
-                $application->make(ExtensionContributionReceiptRegistry::class),
+                $application->make(RecordsExtensionContributionReceipt::class),
             ),
         );
         $this->app->singleton(PublicRouteAliasRegistry::class);
@@ -286,7 +287,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
             throw_unless($finder instanceof FileViewFinder, RuntimeException::class, 'The configured view finder must support theme namespaces.');
 
-            return new ThemeViewRegistrar($finder, [], $app->make(ExtensionContributionReceiptRegistry::class));
+            return new ThemeViewRegistrar($finder, [], $app->make(RecordsExtensionContributionReceipt::class));
         });
         $this->app->singleton(ThemeChainResolver::class);
         $this->app->singleton(FrontendCachePolicy::class);

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Components;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;
 use Capell\Frontend\Data\FrontendComponentData;
@@ -34,6 +36,13 @@ class FrontendComponentRegistry extends AbstractKeyedRegistry implements Fronten
         foreach ($data->references() as $reference) {
             $this->references[$reference] = $key;
         }
+        $this->receipts()?->recordContribution(
+            ExtensionContributionType::FrontendComponent,
+            $key,
+            $component,
+            self::class,
+            'frontend',
+        );
 
         return $this;
     }
@@ -74,5 +83,12 @@ class FrontendComponentRegistry extends AbstractKeyedRegistry implements Fronten
     public function all(): Collection
     {
         return collect($this->allItems());
+    }
+
+    private function receipts(): ?RecordsExtensionContributionReceipt
+    {
+        return app()->bound(RecordsExtensionContributionReceipt::class)
+            ? resolve(RecordsExtensionContributionReceipt::class)
+            : null;
     }
 }

@@ -3,15 +3,16 @@
 declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\FilesystemServiceProvider;
+use Illuminate\Support\ServiceProvider;
 use Mockery\MockInterface;
 
 it('always includes metadata and install providers for discovered packages', function (): void {
@@ -98,7 +99,7 @@ it('quarantines an optional package when provider registration fails', function 
         ->with('vendor/failing-extension', AuthServiceProvider::class, Mockery::type('string'));
 
     expect(function () use ($application, $registry): void {
-        new CapellPackageLoader($application, $registry)->loadProviders();
+        new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
     })
         ->not->toThrow(Throwable::class);
 });
@@ -118,7 +119,7 @@ it('does not quarantine trusted core packages when provider registration fails',
     CapellCore::shouldReceive('markPackageProviderQuarantined')->never();
 
     expect(function () use ($application, $registry): void {
-        new CapellPackageLoader($application, $registry)->loadProviders();
+        new CapellPackageLoader($application, $registry, receipts: new ExtensionContributionReceiptRegistry)->loadProviders();
     })
         ->toThrow(RuntimeException::class, 'core provider registration failed');
 });
@@ -160,10 +161,14 @@ function packageLoader(CapellPackageRegistry $registry): CapellPackageLoader
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
 
-    return new CapellPackageLoader($application, $registry);
+    return new CapellPackageLoader(
+        $application,
+        $registry,
+        receipts: new ExtensionContributionReceiptRegistry,
+    );
 }
 
-final class BootingReceiptTestProvider extends Illuminate\Support\ServiceProvider
+final class BootingReceiptTestProvider extends ServiceProvider
 {
     public function boot(): void
     {

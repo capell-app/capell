@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContext;
@@ -11,10 +13,12 @@ use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Data\RenderHookEntryData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
+use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Blade;
 use LogicException;
+use ReflectionFunction;
 
 /**
  * @template T of RenderHookContext
@@ -48,6 +52,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($extension, $location->value);
     }
 
     public function registerView(
@@ -65,6 +70,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($view, $location->value);
     }
 
     public function registerInlineBlade(
@@ -82,6 +88,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($blade, $location->value);
     }
 
     public function registerCallable(
@@ -99,6 +106,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($extension, $location->value);
     }
 
     public function registerExtension(
@@ -116,6 +124,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($extension, $location->value);
     }
 
     /**
@@ -133,6 +142,13 @@ class RenderHookRegistry
         $this->contributedKeys[$stableKey] = true;
 
         $this->addEntry(RenderHookEntryData::contribution($contribution));
+        $this->receipts()?->recordContribution(
+            ExtensionContributionType::RenderHook,
+            $contribution->key,
+            is_string($contribution->extension) ? $contribution->extension : $contribution->extension::class,
+            self::class,
+            'frontend',
+        );
     }
 
     /**
@@ -233,6 +249,129 @@ class RenderHookRegistry
     {
         $key = $entry->location->value;
         $this->extensions[$key][] = $entry;
+    }
+
+    private function receipt(mixed $extension, string $location): void
+    {
+        $implementation = is_string($extension) ? $extension : (is_object($extension) ? $extension::class : get_debug_type($extension));
+        $identity = $this->legacyExtensionIdentity($extension, $implementation);
+        $this->receipts()?->recordContribution(
+            ExtensionContributionType::RenderHook,
+            'legacy-hook:' . hash('sha256', $location . ':' . $identity),
+            $implementation,
+            self::class,
+            'frontend',
+        );
+    }
+
+    private function legacyExtensionIdentity(mixed $extension, string $implementation): string
+    {
+        if (! $extension instanceof Closure) {
+            return $implementation;
+        }
+
+        $reflection = new ReflectionFunction($extension);
+        $file = $reflection->getFileName();
+        $start = $reflection->getStartLine();
+        $end = $reflection->getEndLine();
+
+        if (! is_string($file) || ! is_file($file) || $start === false || $end === false) {
+            return 'closure:' . $implementation;
+        }
+
+        $lines = file($file);
+        if ($lines === false) {
+            return 'closure:' . $implementation;
+        }
+
+        $source = implode('', array_slice($lines, $start - 1, $end - $start + 1));
+        $tokens = token_get_all('<?php ' . $source);
+        $closureIndex = null;
+        foreach ($tokens as $index => $token) {
+            if (! is_array($token) || ! in_array($token[0], [T_FUNCTION, T_FN], true)) {
+                continue;
+            }
+
+            if ($token[0] === T_FUNCTION) {
+                $next = $index + 1;
+                while ($next < count($tokens) && is_array($tokens[$next]) && in_array($tokens[$next][0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+                    $next++;
+                }
+
+                if (isset($tokens[$next]) && is_array($tokens[$next]) && $tokens[$next][0] === T_STRING) {
+                    continue;
+                }
+            }
+
+            $closureIndex = $index;
+            break;
+        }
+
+        if ($closureIndex === null) {
+            return 'closure:' . $implementation;
+        }
+
+        $start = $closureIndex;
+        $previous = $closureIndex - 1;
+        while ($previous >= 0 && is_array($tokens[$previous]) && in_array($tokens[$previous][0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+            $previous--;
+        }
+        if ($previous >= 0 && is_array($tokens[$previous]) && $tokens[$previous][0] === T_STATIC) {
+            $start = $previous;
+        }
+
+        $normalised = '';
+        $started = false;
+        $closureType = $tokens[$closureIndex][0];
+        $depth = 0;
+
+        foreach (array_slice($tokens, $start, null, true) as $token) {
+            $value = is_array($token) ? $token[1] : $token;
+            $type = is_array($token) ? $token[0] : null;
+
+            if (! $started) {
+                if ($type !== T_FUNCTION && $type !== T_FN && $type !== T_STATIC) {
+                    continue;
+                }
+
+                if ($type === T_STATIC) {
+                    $normalised .= $value;
+
+                    continue;
+                }
+
+                $started = true;
+            }
+
+            if ($type !== null && in_array($type, [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+                continue;
+            }
+
+            $normalised .= $value;
+            if ($closureType === T_FN && $value === '=>') {
+                $depth = 1;
+            } elseif ($closureType === T_FUNCTION && $value === '{') {
+                $depth = 1;
+            } elseif ($value === '{') {
+                $depth++;
+            } elseif ($value === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    break;
+                }
+            } elseif ($closureType === T_FN && $depth === 1 && in_array($value, [';', ','], true)) {
+                break;
+            }
+        }
+
+        return 'closure:' . hash('sha256', $reflection->getClosureScopeClass()?->getName() . '|' . $normalised);
+    }
+
+    private function receipts(): ?RecordsExtensionContributionReceipt
+    {
+        return app()->bound(RecordsExtensionContributionReceipt::class)
+            ? resolve(RecordsExtensionContributionReceipt::class)
+            : null;
     }
 
     private function renderEntry(RenderHookEntryData $entry, RenderHookContext $context): mixed

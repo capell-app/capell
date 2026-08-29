@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Bootstrap;
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\ManifestLoader;
@@ -38,7 +39,11 @@ final readonly class PackageRegistryBootstrapper
             );
         }
 
-        new CapellPackageLoader($this->app, $registry)->loadProviders();
+        new CapellPackageLoader(
+            $this->app,
+            $registry,
+            receipts: $this->app->make(ExtensionContributionReceiptRegistry::class),
+        )->loadProviders();
     }
 
     /** @return array<string, CapellManifestData> */

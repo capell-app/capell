@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Tailwind;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionType;
 use Illuminate\Support\Collection;
 
 /**
@@ -38,6 +40,7 @@ final class TailwindAssetsRegistry
 
         if ($source !== '') {
             $this->sources[] = ['value' => $source, 'origin' => $origin];
+            $this->receipt('source', $source);
         }
 
         return $this;
@@ -61,6 +64,7 @@ final class TailwindAssetsRegistry
 
         if ($import !== '') {
             $this->imports[] = ['value' => $import, 'origin' => $origin];
+            $this->receipt('import', $import);
         }
 
         return $this;
@@ -84,6 +88,7 @@ final class TailwindAssetsRegistry
 
         if ($plugin !== '') {
             $this->plugins[] = ['value' => $plugin, 'origin' => $origin];
+            $this->receipt('plugin', $plugin);
         }
 
         return $this;
@@ -108,6 +113,7 @@ final class TailwindAssetsRegistry
 
         if ($name !== '' && $value !== '') {
             $this->themeColors[$name] = ['value' => $value, 'origin' => $origin];
+            $this->receipt('theme-color:' . $name, $value);
         }
 
         return $this;
@@ -196,5 +202,23 @@ final class TailwindAssetsRegistry
             ->sortBy('value')
             ->values()
             ->all();
+    }
+
+    private function receipt(string $key, string $implementation): void
+    {
+        $this->receipts()?->recordContribution(
+            ExtensionContributionType::Asset,
+            'tailwind:' . $key,
+            $implementation,
+            self::class,
+            'frontend',
+        );
+    }
+
+    private function receipts(): ?RecordsExtensionContributionReceipt
+    {
+        return app()->bound(RecordsExtensionContributionReceipt::class)
+            ? resolve(RecordsExtensionContributionReceipt::class)
+            : null;
     }
 }

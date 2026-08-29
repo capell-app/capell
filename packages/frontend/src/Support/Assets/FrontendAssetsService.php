@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Assets;
 
 use BackedEnum;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\AssetEnum;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Frontend\Contracts\AssetsRegistryInterface;
 use Capell\Frontend\Data\FrontendAssetData;
 use Illuminate\Support\Collection;
@@ -19,6 +21,13 @@ class FrontendAssetsService implements AssetsRegistryInterface
     public function registerAsset(AssetEnum|BackedEnum $asset, FrontendAssetData $frontendAsset): static
     {
         $this->assets[$asset->name] = $frontendAsset;
+        $this->receipts()?->recordContribution(
+            ExtensionContributionType::Asset,
+            'frontend-asset:' . $asset->name,
+            $frontendAsset::class,
+            self::class,
+            'frontend',
+        );
 
         return $this;
     }
@@ -45,5 +54,12 @@ class FrontendAssetsService implements AssetsRegistryInterface
     public function hasAsset(string $name): bool
     {
         return isset($this->assets[$name]);
+    }
+
+    private function receipts(): ?RecordsExtensionContributionReceipt
+    {
+        return app()->bound(RecordsExtensionContributionReceipt::class)
+            ? resolve(RecordsExtensionContributionReceipt::class)
+            : null;
     }
 }

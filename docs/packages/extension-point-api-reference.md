@@ -32,6 +32,14 @@ Machine-readable stability and ownership are defined by the [extension surface c
 | Vendor asset condition   | `VendorAssetConditionRegistry::register(...)`                   | Runtime provider                                       | Asset manifest builders                                       | Asset is not conditionally loaded     | Assert condition returns expected value for fixture context.                                                                                             |
 | Developer maker          | `MakerRegistryInterface::register(...)`                         | Runtime/dev provider                                   | Maker commands                                                | Maker command option is absent        | Assert maker appears in registry.                                                                                                                        |
 
+The receipt contract covers the canonical methods behind these entries, including
+`Capell\Core\Support\Renderables\RenderableRegistry::register()`,
+`FrontendComponentRegistry::register()`, `FrontendAssetsService::registerAsset()`,
+and `FrontendResponseRendererRegistry::register()` / `registerClass()`. The Admin
+manager's direct widget, navigation, welcome-tour, report, extension-page,
+workspace, overview-stat, activity-link, and asset methods are likewise receipt
+boundaries; bridge methods delegate to them and do not emit a second receipt.
+
 ## Admin Runtime
 
 | Need                                   | API                                                                                                                               | Register from                          | Called by                          | Safe fallback                         | Test recipe                                                                                                                                                             |
@@ -115,12 +123,25 @@ manifest audits know the surface exists.
 Official Core, Admin, Frontend, Installer, and Marketplace registrars emit a neutral
 `ExtensionContributionReceiptData` receipt containing the owning package, provider
 bucket, contribution type, stable key, implementation, and source class. The
-`ExtensionContributionReceiptRegistry` is available through the
-`RecordsExtensionContributionReceipt` contract. Package boot context supplies the owner
+`RecordsExtensionContributionReceipt` is the public emission boundary. Package boot context supplies the owner
 and bucket; foundation-owned built-ins are marked explicitly.
 
-Manifests may add typed `contributionTraceability` entries with `type`, `key`, `class`,
-and `providerBucket`, plus the existing deferred/runtime integration metadata. Audits
+Receipt emission is attached to the documented public registration boundaries, not only
+to convenience wrappers: `CapellCore::registerPageType()`, `registerModels()`,
+`registerModelInterceptor()`, and `registerComponent(s)`; `CapellAdmin::contributeToAdminSurface()`;
+`RenderHookRegistry` registration methods; `FrontendComponentRegistry::register()`;
+`FrontendAssetsService::registerAsset()`; `FrontendResourceRegistry::register()`;
+`FrontendResponseRendererRegistry::register()` / `registerClass()`;
+`CacheInvalidationRegistry::registerDependency()`; `TailwindAssetsRegistry` registration
+methods; `RenderableRegistry::register()`; and the Core `InstallPatchRegistry` / Installer `PatchRegistry` seams. Marketplace
+and Installer Admin bridges use the shared `AdminBridgeRegistrar`, which supplies the
+`capell-app/marketplace` or `capell-app/installer` owner and the `admin` bucket from the
+selected package context. Tagged contributors are attributed from their supplying package
+context at resolution time; consumer registries do not manufacture a new owner.
+
+Manifest contributions may include a stable `key` and `providerBucket` alongside their
+marker class. The existing `contributionTraceability` envelope retains deferred/runtime
+integration metadata. Audits
 reconcile receipts only for explicitly booted provider buckets, reporting declared-only,
 loaded-only, wrong-owner, or wrong-bucket states with package/key/source diagnostics.
 

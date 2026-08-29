@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Concerns;
 
 use BackedEnum;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Components\ComponentRegistry;
 
 trait HasComponents
@@ -16,7 +18,25 @@ trait HasComponents
 
     public function registerComponent(string|BackedEnum $type, string|BackedEnum $name, string $component): static
     {
-        resolve(ComponentRegistry::class)->registerComponent($type, $name, $component);
+        $registry = resolve(ComponentRegistry::class);
+        $canonicalType = $this->componentValue($type);
+        $canonicalName = $this->componentValue($name);
+        $existing = $registry->getCoreComponents()[$canonicalType][$canonicalName] ?? null;
+        $registry->registerComponent($type, $name, $component);
+        if ($existing !== null && $existing !== $component) {
+            return $this;
+        }
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
+            return $this;
+        }
+
+        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+            ExtensionContributionType::ContentWidget,
+            'component:' . $canonicalType . ':' . $canonicalName,
+            $component,
+            self::class,
+            'runtime',
+        );
 
         return $this;
     }
@@ -26,7 +46,36 @@ trait HasComponents
      */
     public function registerComponents(string|BackedEnum $type, array $components): static
     {
-        resolve(ComponentRegistry::class)->registerComponents($type, $components);
+        $registry = resolve(ComponentRegistry::class);
+        $canonicalType = $this->componentValue($type);
+        $existing = $registry->getCoreComponents()[$canonicalType] ?? [];
+        $registry->registerComponents($type, $components);
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
+            return $this;
+        }
+
+        foreach ($components as $name => $component) {
+            if ($component instanceof BackedEnum) {
+                $name = $component->name;
+                $component = $component->value;
+            }
+
+            if (! is_string($component)) {
+                continue;
+            }
+
+            if (isset($existing[(string) $name]) && $existing[(string) $name] !== $component) {
+                continue;
+            }
+
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionType::ContentWidget,
+                'component:' . $canonicalType . ':' . (string) $name,
+                $component,
+                self::class,
+                'runtime',
+            );
+        }
 
         return $this;
     }
@@ -103,5 +152,10 @@ trait HasComponents
     public function getComponentCachePath(): string
     {
         return resolve(ComponentRegistry::class)->getComponentCachePath();
+    }
+
+    private function componentValue(string|BackedEnum $value): string
+    {
+        return $value instanceof BackedEnum ? $value->name : $value;
     }
 }

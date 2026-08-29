@@ -182,7 +182,6 @@
                             "agent-capability",
                             "content-graph",
                             "health-check",
-                            "content-graph",
                             "workflow-attention",
                             "outbound-event",
                             "blueprint-subject"
@@ -192,9 +191,16 @@
                         "type": "string",
                         "minLength": 1
                     },
+                    "implementation": {
+                        "type": "string",
+                        "minLength": 1
+                    },
                     "key": {
                         "type": "string",
                         "pattern": "^[a-z0-9][a-z0-9-]*\\.[a-z0-9][a-z0-9.-]*$"
+                    },
+                    "providerBucket": {
+                        "enum": ["metadata", "install", "runtime", "auth", "admin", "frontend"]
                     }
                 }
             }
@@ -226,10 +232,12 @@
             "additionalProperties": false
         },
         "contributionTraceability": {
-            "type": "object",
-            "description": "Traceability metadata linking declared contributions to their shipped runtime surfaces.",
-            "additionalProperties": false,
-            "properties": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "description": "Traceability metadata linking declared contributions to their shipped runtime surfaces.",
+                    "additionalProperties": false,
+                    "properties": {
                 "deferredContributions": { "$ref": "#/$defs/stringList" },
                 "runtimeIntegrations": {
                     "type": "object",
@@ -266,7 +274,10 @@
                         }
                     }
                 }
-            }
+                    }
+                },
+                { "type": "array", "maxItems": 0 }
+            ]
         },
         "settings": {
             "$ref": "#/$defs/stringList"

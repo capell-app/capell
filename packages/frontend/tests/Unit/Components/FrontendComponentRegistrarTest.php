@@ -168,6 +168,22 @@ it('records tagged companion contributors under their package namespace', functi
             'Capell\\LayoutBuilder\\LayoutBuilderServiceProvider',
         ),
     );
+    $receipts->rememberNamespaceContext(
+        'Capell\\Frontend\\Tests\\Fixtures',
+        ExtensionContributionReceiptContext::forPackage(
+            'capell-app/layout-builder',
+            'runtime',
+            'Capell\\LayoutBuilder\\LayoutBuilderRuntimeServiceProvider',
+        ),
+    );
+    $receipts->rememberNamespaceContext(
+        'Capell\\Frontend\\Tests\\Fixtures',
+        ExtensionContributionReceiptContext::forPackage(
+            'capell-app/layout-builder',
+            'admin',
+            'Capell\\LayoutBuilder\\LayoutBuilderAdminServiceProvider',
+        ),
+    );
 
     $registrar = new FrontendComponentRegistrar(
         [new LayoutBuilderFrontendComponentContributor],

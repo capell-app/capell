@@ -6,6 +6,7 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Installer\Bridges\InstallerAdminBridge;
 use Capell\Installer\Filament\Pages\InstallCapellPage;
 use Capell\Installer\Filament\Pages\InstallGuidePage;
@@ -13,7 +14,6 @@ use Capell\Installer\Filament\Pages\InstallProgressPage;
 use Capell\Installer\Filament\Widgets\CapellNotInstalledFilamentWidget;
 use Capell\Installer\Providers\InstallerAdminServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 
@@ -31,10 +31,12 @@ it('registers the installer admin bridge through the admin-only provider', funct
             CapellDashboard::class,
         ))->toBeTrue();
 
-    expect(collect(resolve(ExtensionContributionReceiptRegistry::class)->forPackage(InstallerServiceProvider::$packageName))
-        ->where('providerBucket', 'admin'))
-        ->not->toBeEmpty()
-        ->each(fn ($receipt) => expect($receipt->ownerPackage)->toBe(InstallerServiceProvider::$packageName));
+    $receipts = collect(resolve(ExtensionContributionReceiptRegistry::class)->forPackage(InstallerServiceProvider::$packageName))
+        ->where('providerBucket', 'admin');
+
+    expect($receipts)->not->toBeEmpty()
+        ->and($receipts->pluck('ownerPackage')->unique()->values()->all())
+        ->toBe([InstallerServiceProvider::$packageName]);
 });
 
 it('keeps repeated admin provider registration idempotent', function (): void {

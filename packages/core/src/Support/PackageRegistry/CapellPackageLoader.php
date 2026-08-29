@@ -38,9 +38,7 @@ final class CapellPackageLoader
         $this->cloudInstallContext = $cloudInstallContext ?? CloudInstallContext::fromProcess();
         $this->runtimeRoleResolver = $runtimeRoleResolver ?? RuntimeRoleResolver::fromEnvironment();
         $this->runtimeRoleProviderPolicy = $runtimeRoleProviderPolicy ?? new RuntimeRoleProviderPolicy;
-        $this->receipts = $receipts ?? ($app->bound(ExtensionContributionReceiptRegistry::class)
-            ? $app->make(ExtensionContributionReceiptRegistry::class)
-            : new ExtensionContributionReceiptRegistry);
+        $this->receipts = $receipts ?? new ExtensionContributionReceiptRegistry;
     }
 
     public function loadProviders(): void
@@ -55,7 +53,7 @@ final class CapellPackageLoader
                     }
 
                     $contexts = array_map(
-                        fn (string $bucket): ExtensionContributionReceiptContext => TrustedCorePackages::contains($manifest->name)
+                        fn (string $bucket): ExtensionContributionReceiptContext => $manifest->name === 'capell-app/core'
                             ? ExtensionContributionReceiptContext::foundation($manifest->name, $bucket, $provider)
                             : ExtensionContributionReceiptContext::forPackage($manifest->name, $bucket, $provider),
                         $this->selectedProviderBuckets($manifest, $provider, $runtimeProvidersSelected),
@@ -138,8 +136,7 @@ final class CapellPackageLoader
         CapellManifestData $manifest,
         string $provider,
         bool $runtimeProvidersSelected,
-    ): array
-    {
+    ): array {
         $role = $this->runtimeRoleResolver->role();
         $selected = ['metadata'];
 

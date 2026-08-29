@@ -363,16 +363,6 @@
             "contractTestId": "core.extension-contribution-traceability"
         },
         {
-            "id": "core.dto.extension-contribution-traceability-entry",
-            "kind": "dto",
-            "identifier": "Capell\\Core\\Data\\Manifest\\ExtensionContributionTraceabilityEntryData",
-            "ownerPackage": "capell-app/core",
-            "stability": "stable",
-            "introducedVersion": "1.0.0",
-            "summary": "Typed manifest contribution traceability entry.",
-            "contractTestId": "core.extension-contribution-traceability"
-        },
-        {
             "id": "core.dto.frontend-route-reservation",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\FrontendRouteReservationData",
@@ -931,16 +921,6 @@
             "introducedVersion": "1.0.0",
             "summary": "Single runtime database platform resolution seam.",
             "contractTestId": null
-        },
-        {
-            "id": "core.registry.extension-contribution-receipt",
-            "kind": "registry",
-            "identifier": "Capell\\Core\\Support\\Extensions\\ExtensionContributionReceiptRegistry",
-            "ownerPackage": "capell-app/core",
-            "stability": "stable",
-            "introducedVersion": "1.0.0",
-            "summary": "Runtime registry for neutral contribution receipts.",
-            "contractTestId": "core.extension-contribution-receipt"
         },
         {
             "id": "core.registry.operational-health-check",
