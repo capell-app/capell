@@ -39,7 +39,7 @@ final class StylesheetRecoveryRenderer
         $nonce = $this->vite->cspNonce();
         $nonceAttribute = is_string($nonce) && $nonce !== '' ? ' nonce="' . e($nonce) . '"' : '';
 
-        return '<script src="' . e($runtimeUrl) . '"' . $nonceAttribute . ' data-capell-stylesheet-recovery-runtime></script>';
+        return '<script src="' . e($runtimeUrl) . '" defer' . $nonceAttribute . ' data-capell-stylesheet-recovery-runtime></script>';
     }
 
     private function fallbackUrl(): ?string

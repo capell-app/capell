@@ -64,7 +64,7 @@ it('keeps internal handles and composer package ownership out of lazy payloads',
         ->and($json)->not->toContain('capell-app/gallery', 'runtime"');
 });
 
-it('keeps critical-eligible stylesheets blocking in the default fallback with recovery first', function (): void {
+it('defers the stylesheet recovery runtime while keeping critical stylesheets blocking', function (): void {
     resolve(Vite::class)->useCspNonce('recovery-nonce');
     config()->set('capell-frontend.stylesheet_recovery', [
         'enabled' => true,
@@ -88,7 +88,7 @@ it('keeps critical-eligible stylesheets blocking in the default fallback with re
     throw_if($runtimePosition === false || $stylesheetPosition === false, RuntimeException::class, 'Recovery markup is incomplete.');
 
     expect($rendered->headHtml)
-        ->toContain('<script src="/vendor/capell-frontend/stylesheet-recovery.js" nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime></script>')
+        ->toContain('<script src="/vendor/capell-frontend/stylesheet-recovery.js" defer nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime></script>')
         ->toContain('<link rel="stylesheet" href="https://cdn.example.com/build/assets/frontend-old.css"')
         ->toContain('data-capell-stylesheet-recovery')
         ->toContain('data-capell-stylesheet-fallback="/build/fallback/resources/css/capell/frontend.css"')
