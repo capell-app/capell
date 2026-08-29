@@ -10,6 +10,7 @@ use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Data\Assets\FrontendResourceHintData;
 use Capell\Frontend\Data\Assets\ResolvedFrontendResourceData;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Data\StaticPageArtifactData;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
@@ -31,7 +32,7 @@ class BuildStaticPageArtifactMetadataAction
             dependencies: $this->dependencies($renderData),
             runtime: $this->fingerprint($renderData->runtimeManifest->toArray()),
             assets: $this->assets($renderData),
-            surrogateKeys: [],
+            surrogateKeys: $renderData->extensionSurrogateKeys,
             generatedAt: Date::now()->toIso8601String(),
         );
     }
@@ -74,7 +75,30 @@ class BuildStaticPageArtifactMetadataAction
             'layout_graph_key' => $renderData->layoutGraphKey(),
         ], fn (mixed $value): bool => $value !== null);
 
-        return $this->fingerprint($dependencies);
+        $dependencies['public_render_data'] = [
+            'fingerprint' => $renderData->extensionFingerprint,
+            'cache_dependencies' => array_map(
+                static fn (PublicRenderDataCacheDependencyData $dependency): array => [
+                    'model_type' => $dependency->modelType,
+                    'model_id' => $dependency->modelId,
+                ],
+                $renderData->extensionCacheDependencies,
+            ),
+        ];
+
+        $metadata = $this->fingerprint($dependencies);
+        $metadata['public_render_data'] = [
+            'fingerprint' => $renderData->extensionFingerprint,
+            'cache_dependencies' => array_map(
+                static fn (PublicRenderDataCacheDependencyData $dependency): array => [
+                    'model_type' => $dependency->modelType,
+                    'model_id' => $dependency->modelId,
+                ],
+                $renderData->extensionCacheDependencies,
+            ),
+        ];
+
+        return $metadata;
     }
 
     /**

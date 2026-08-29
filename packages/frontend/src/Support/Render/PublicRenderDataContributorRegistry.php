@@ -7,12 +7,13 @@ namespace Capell\Frontend\Support\Render;
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
+use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Data\PublicRenderDataContributionsData;
 use Capell\Frontend\Support\Cache\SurrogateKeyNormalizer;
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use WeakMap;
 
-/** @extends WeakMap<FrontendRenderContextData, PublicRenderDataContributionsData> */
 final class PublicRenderDataContributorRegistry
 {
     /** @var array<string, PublicRenderDataContributor> */
@@ -21,12 +22,16 @@ final class PublicRenderDataContributorRegistry
     /** @var WeakMap<FrontendRenderContextData, PublicRenderDataContributionsData> */
     private WeakMap $prepared;
 
+    /** @var WeakMap<FrontendRenderContextData, PublicRenderDataContributionMetadataData> */
+    private WeakMap $metadata;
+
     /**
      * @param  iterable<PublicRenderDataContributor>  $contributors
      */
     public function __construct(iterable $contributors = [])
     {
         $this->prepared = new WeakMap;
+        $this->metadata = new WeakMap;
 
         foreach ($contributors as $contributor) {
             $this->register($contributor);
@@ -59,9 +64,7 @@ final class PublicRenderDataContributorRegistry
         }
 
         $values = [];
-        $fingerprintMaterial = [];
         $surrogateKeys = [];
-        $cacheDependencies = [];
 
         foreach ($this->all() as $key => $contributor) {
             if (! $contributor->supports($context)) {
@@ -73,6 +76,41 @@ final class PublicRenderDataContributorRegistry
             throw_unless($contribution instanceof PublicRenderDataContributionData, InvalidArgumentException::class, sprintf('Public render-data contributor [%s] returned an invalid contribution.', $key));
 
             $values[$key] = $contribution->value;
+            $surrogateKeys = [...$surrogateKeys, ...$contribution->surrogateKeys];
+        }
+
+        $metadata = $this->metadata($context);
+
+        $prepared = new PublicRenderDataContributionsData(
+            values: $values,
+            fingerprint: $metadata->fingerprint,
+            surrogateKeys: SurrogateKeyNormalizer::normalize([...$metadata->surrogateKeys, ...$surrogateKeys]),
+            cacheDependencies: $metadata->cacheDependencies,
+        );
+
+        $this->prepared[$context] = $prepared;
+
+        return $prepared;
+    }
+
+    public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+    {
+        if (isset($this->metadata[$context])) {
+            return $this->metadata[$context];
+        }
+
+        $fingerprintMaterial = [];
+        $surrogateKeys = [];
+        $cacheDependencies = [];
+
+        foreach ($this->all() as $key => $contributor) {
+            if (! $contributor->supports($context)) {
+                continue;
+            }
+
+            $contribution = $contributor->metadata($context);
+            throw_unless($contribution instanceof PublicRenderDataContributionMetadataData, InvalidArgumentException::class, sprintf('Public render-data contributor [%s] returned invalid metadata.', $key));
+
             $fingerprintMaterial[$key] = $contribution->fingerprint;
             $surrogateKeys = [...$surrogateKeys, ...$contribution->surrogateKeys];
 
@@ -81,15 +119,30 @@ final class PublicRenderDataContributorRegistry
             }
         }
 
-        $prepared = new PublicRenderDataContributionsData(
-            values: $values,
+        $metadata = new PublicRenderDataContributionMetadataData(
             fingerprint: hash('sha256', json_encode($fingerprintMaterial, JSON_THROW_ON_ERROR)),
             surrogateKeys: SurrogateKeyNormalizer::normalize($surrogateKeys),
             cacheDependencies: array_values($cacheDependencies),
         );
 
-        $this->prepared[$context] = $prepared;
+        $this->metadata[$context] = $metadata;
 
-        return $prepared;
+        return $metadata;
+    }
+
+    /** @return list<class-string<Model>> */
+    public function cacheDependencyModelTypes(): array
+    {
+        $modelTypes = [];
+
+        foreach ($this->all() as $contributor) {
+            foreach ($contributor->cacheDependencyModelTypes() as $modelType) {
+                if (is_string($modelType) && is_a($modelType, Model::class, true)) {
+                    $modelTypes[$modelType] = true;
+                }
+            }
+        }
+
+        return array_keys($modelTypes);
     }
 }

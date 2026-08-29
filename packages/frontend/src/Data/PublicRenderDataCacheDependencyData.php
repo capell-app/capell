@@ -14,7 +14,7 @@ final readonly class PublicRenderDataCacheDependencyData
         public string $modelType,
         public int|string $modelId,
     ) {
-        throw_if($this->modelType === '' || ! class_exists($this->modelType), InvalidArgumentException::class, 'Public render cache dependencies require an existing model class.');
+        throw_if($this->modelType === '' || ! is_a($this->modelType, Model::class, true), InvalidArgumentException::class, 'Public render cache dependencies require an Eloquent model class.');
         throw_if($this->modelId === '', InvalidArgumentException::class, 'Public render cache dependencies require a model identifier.');
     }
 

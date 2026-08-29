@@ -21,6 +21,7 @@ use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Listeners\PurgeCdnCacheOnPageChangeListener;
 use Capell\Frontend\Observers\ErrorPageModelInvalidationObserver;
 use Capell\Frontend\Support\Cache\FrontendCacheInvalidationObserver;
+use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Illuminate\Support\Facades\Event;
 
 final class FrontendEventBootstrapper
@@ -40,7 +41,19 @@ final class FrontendEventBootstrapper
         Event::listen('eloquent.updated: *', [ErrorPageModelInvalidationObserver::class, 'updatedFromEvent']);
         Event::listen('eloquent.deleted: *', [ErrorPageModelInvalidationObserver::class, 'deletedFromEvent']);
 
-        foreach ([Language::class, Layout::class, Media::class, PageUrl::class, Site::class, SiteDomain::class, Theme::class, Translation::class] as $model) {
+        $models = array_unique([
+            Language::class,
+            Layout::class,
+            Media::class,
+            PageUrl::class,
+            Site::class,
+            SiteDomain::class,
+            Theme::class,
+            Translation::class,
+            ...resolve(PublicRenderDataContributorRegistry::class)->cacheDependencyModelTypes(),
+        ]);
+
+        foreach ($models as $model) {
             $model::observe(FrontendCacheInvalidationObserver::class);
         }
     }

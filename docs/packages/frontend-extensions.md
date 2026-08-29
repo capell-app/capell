@@ -261,6 +261,7 @@ validated values to public Blade.
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
+use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
 
 final class CatalogueContributor implements PublicRenderDataContributor
@@ -275,15 +276,25 @@ final class CatalogueContributor implements PublicRenderDataContributor
         return $context->page !== null;
     }
 
+    public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+    {
+        return new PublicRenderDataContributionMetadataData(
+            fingerprint: 'catalogue-v1',
+        );
+    }
+
+    public function cacheDependencyModelTypes(): array
+    {
+        return [Catalogue::class];
+    }
+
     public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
     {
         $catalogue = new CatalogueData(/* fully hydrated public fields */);
 
         return new PublicRenderDataContributionData(
             value: $catalogue,
-            fingerprint: $catalogue->version,
             surrogateKeys: ['catalogue-' . $catalogue->id],
-            cacheDependencies: [PublicRenderDataCacheDependencyData::forModel($catalogue->source)],
         );
     }
 }

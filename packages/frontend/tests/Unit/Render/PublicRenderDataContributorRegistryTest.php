@@ -5,8 +5,11 @@ declare(strict_types=1);
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
+use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Illuminate\Database\Eloquent\Model;
 
 it('composes keyed public data deterministically and fingerprints all active contributors', function (): void {
     $context = new FrontendRenderContextData(null, null, null, null, null);
@@ -23,9 +26,19 @@ it('composes keyed public data deterministically and fingerprints all active con
                 return true;
             }
 
+            public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+            {
+                return new PublicRenderDataContributionMetadataData('z-v1');
+            }
+
+            public function cacheDependencyModelTypes(): array
+            {
+                return [];
+            }
+
             public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
             {
-                return new PublicRenderDataContributionData((object) ['value' => 'z'], 'z-v1');
+                return new PublicRenderDataContributionData((object) ['value' => 'z']);
             }
         },
         new class implements PublicRenderDataContributor
@@ -40,9 +53,19 @@ it('composes keyed public data deterministically and fingerprints all active con
                 return true;
             }
 
+            public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+            {
+                return new PublicRenderDataContributionMetadataData('a-v1');
+            }
+
+            public function cacheDependencyModelTypes(): array
+            {
+                return [];
+            }
+
             public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
             {
-                return new PublicRenderDataContributionData((object) ['value' => 'a'], 'a-v1');
+                return new PublicRenderDataContributionData((object) ['value' => 'a']);
             }
         },
     ]);
@@ -66,11 +89,20 @@ it('hydrates contributor values into public page render data before Blade', func
             return true;
         }
 
+        public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+        {
+            return new PublicRenderDataContributionMetadataData('catalogue-v1', ['catalogue-tea']);
+        }
+
+        public function cacheDependencyModelTypes(): array
+        {
+            return [];
+        }
+
         public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
         {
             return new PublicRenderDataContributionData(
                 value: (object) ['products' => [['name' => 'Tea', 'price' => '4.00', 'available' => true]]],
-                fingerprint: 'catalogue-v1',
                 surrogateKeys: ['catalogue-tea'],
             );
         }
@@ -90,8 +122,32 @@ it('fails closed for non-serialisable public values', function (): void {
     };
     $value->callback = static fn (): string => 'private';
 
-    new PublicRenderDataContributionData($value, 'invalid');
+    new PublicRenderDataContributionData($value);
 })->throws(RuntimeException::class, 'serialisable public data');
+
+it('fails closed when an arbitrary value hides an Eloquent model', function (): void {
+    $value = new class(new class extends Model {})
+    {
+
+        private Model $model;
+
+        public function __construct(Model $model)
+        {
+            $this->model = $model;
+        }
+
+        public function model(): Model
+        {
+            return $this->model;
+        }
+    };
+
+    new PublicRenderDataContributionData($value);
+})->throws(RuntimeException::class, 'Eloquent models');
+
+it('rejects non-Eloquent dependency classes', function (): void {
+    new PublicRenderDataCacheDependencyData(stdClass::class, 1);
+})->throws(InvalidArgumentException::class, 'Eloquent model class');
 
 it('rejects duplicate and invalid contributor keys', function (): void {
     $contributor = new class implements PublicRenderDataContributor
@@ -106,9 +162,19 @@ it('rejects duplicate and invalid contributor keys', function (): void {
             return true;
         }
 
+        public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+        {
+            return new PublicRenderDataContributionMetadataData('v1');
+        }
+
+        public function cacheDependencyModelTypes(): array
+        {
+            return [];
+        }
+
         public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
         {
-            return new PublicRenderDataContributionData((object) [], 'v1');
+            return new PublicRenderDataContributionData((object) []);
         }
     };
 

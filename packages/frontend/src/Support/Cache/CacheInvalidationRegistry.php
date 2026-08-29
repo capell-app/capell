@@ -37,8 +37,17 @@ final class CacheInvalidationRegistry
 
     public function invalidateChangedModel(Model $model): void
     {
-        $this->executor->execute($this->planForChangedModel($model));
-        $this->publicRenderDataDependencies->forget($model);
+        $this->publicRenderDataDependencies->invalidate($model, function (array $publicRules) use ($model): void {
+            try {
+                $plan = $this->planForChangedModelWithinBounds($model);
+                $this->executor->execute(new CacheInvalidationPlanData($this->uniqueRules([
+                    ...$publicRules,
+                    ...$plan->rules,
+                ])));
+            } catch (RuntimeException) {
+                $this->executor->execute(new CacheInvalidationPlanData([CacheInvalidationRule::flushFrontendTag()]));
+            }
+        });
     }
 
     public function planForModel(string $modelClass): CacheInvalidationPlanData

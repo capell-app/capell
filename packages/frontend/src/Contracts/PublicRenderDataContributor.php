@@ -6,6 +6,8 @@ namespace Capell\Frontend\Contracts;
 
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
+use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Adds one keyed, public-safe value to the hydrated page render data.
@@ -24,6 +26,11 @@ interface PublicRenderDataContributor
     /** Whether this contributor applies to the supplied public render context. */
     public function supports(FrontendRenderContextData $context): bool;
 
+    public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData;
+
     /** Build the typed value and its cache/public delivery declarations. */
     public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData;
+
+    /** @return list<class-string<Model>> */
+    public function cacheDependencyModelTypes(): array;
 }

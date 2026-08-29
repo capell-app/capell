@@ -20,6 +20,8 @@ class PublicPageRenderData extends Data
      * @param  array<string, object>  $contentWidgetPayloads
      * @param  array<string, string>  $widgetInteractionLocators
      * @param  array<string, object>  $extensionData
+     * @param  list<string>  $extensionSurrogateKeys
+     * @param  list<PublicRenderDataCacheDependencyData>  $extensionCacheDependencies
      */
     public function __construct(
         public ?Pageable $page,
@@ -35,6 +37,9 @@ class PublicPageRenderData extends Data
         public array $contentWidgetPayloads = [],
         public array $widgetInteractionLocators = [],
         public array $extensionData = [],
+        public string $extensionFingerprint = '',
+        public array $extensionSurrogateKeys = [],
+        public array $extensionCacheDependencies = [],
     ) {}
 
     public function contentWidgetPayload(string $instanceId): ?object

@@ -62,6 +62,9 @@ class BuildPublicPageRenderDataAction
             contentWidgetPayloads: $this->contentWidgetPayloads($context),
             widgetInteractionLocators: $this->widgetInteractionLocators($context),
             extensionData: $extensionContributions->values,
+            extensionFingerprint: $extensionContributions->fingerprint,
+            extensionSurrogateKeys: $extensionContributions->surrogateKeys,
+            extensionCacheDependencies: $extensionContributions->cacheDependencies,
         );
     }
 
