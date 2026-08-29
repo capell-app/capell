@@ -30,7 +30,10 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
     {
         $this->providerContexts[$provider] ??= [];
         foreach ($this->providerContexts[$provider] as $existing) {
-            if ($existing == $context) {
+            if ($existing->ownerPackage === $context->ownerPackage
+                && $existing->providerBucket === $context->providerBucket
+                && $existing->sourceClass === $context->sourceClass
+                && $existing->foundationBuiltIn === $context->foundationBuiltIn) {
                 $this->loadedContexts[$context->ownerPackage][$context->providerBucket] = true;
 
                 return;
@@ -57,7 +60,10 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
         if ($namespace !== '\\') {
             $this->namespaceContexts[$namespace] ??= [];
             foreach ($this->namespaceContexts[$namespace] as $existing) {
-                if ($existing == $context) {
+                if ($existing->ownerPackage === $context->ownerPackage
+                    && $existing->providerBucket === $context->providerBucket
+                    && $existing->sourceClass === $context->sourceClass
+                    && $existing->foundationBuiltIn === $context->foundationBuiltIn) {
                     return;
                 }
             }
@@ -137,6 +143,36 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
         $this->recordForContexts($type, $key, $implementation, $sourceClass, $contexts);
     }
 
+    /** @return list<ExtensionContributionReceiptData> */
+    public function all(): array
+    {
+        return $this->receipts;
+    }
+
+    /** @return list<ExtensionContributionReceiptData> */
+    public function forPackage(string $package): array
+    {
+        return array_values(array_filter(
+            $this->receipts,
+            static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->ownerPackage === $package,
+        ));
+    }
+
+    /** @return list<string> */
+    public function loadedBuckets(string $package): array
+    {
+        return array_keys($this->loadedContexts[$package] ?? []);
+    }
+
+    public function clear(): void
+    {
+        $this->receipts = [];
+        $this->contexts = [];
+        $this->providerContexts = [];
+        $this->loadedContexts = [];
+        $this->namespaceContexts = [];
+    }
+
     /** @param list<ExtensionContributionReceiptContext> $contexts */
     private function recordForContexts(
         ExtensionContributionType $type,
@@ -167,42 +203,10 @@ final class ExtensionContributionReceiptRegistry implements RecordsExtensionCont
 
         $matching = array_values(array_filter(
             $contexts,
-            static function (ExtensionContributionReceiptContext $context) use ($providerBucket): bool {
-                return $context->providerBucket === $providerBucket;
-            },
+            static fn (ExtensionContributionReceiptContext $context): bool => $context->providerBucket === $providerBucket,
         ));
 
         return $matching !== [] ? $matching : $contexts;
-    }
-
-    /** @return list<ExtensionContributionReceiptData> */
-    public function all(): array
-    {
-        return $this->receipts;
-    }
-
-    /** @return list<ExtensionContributionReceiptData> */
-    public function forPackage(string $package): array
-    {
-        return array_values(array_filter(
-            $this->receipts,
-            static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->ownerPackage === $package,
-        ));
-    }
-
-    /** @return list<string> */
-    public function loadedBuckets(string $package): array
-    {
-        return array_keys($this->loadedContexts[$package] ?? []);
-    }
-
-    public function clear(): void
-    {
-        $this->receipts = [];
-        $this->contexts = [];
-        $this->providerContexts = [];
-        $this->loadedContexts = [];
-        $this->namespaceContexts = [];
     }
 
     /** @return list<ExtensionContributionReceiptContext> */

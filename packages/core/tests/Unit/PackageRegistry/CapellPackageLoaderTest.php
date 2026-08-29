@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;

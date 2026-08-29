@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Extensions;
 
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
+use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
-use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\OutboundEventRegistry;
@@ -34,9 +34,9 @@ final class AuditExtensionContractsAction
     use AsObject;
 
     /**
+     * @param  array<string, list<string>>|list<string>  $bootedProviderBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    /** @param array<string, list<string>>|list<string> $bootedProviderBuckets */
     public function handle(?string $path = null, array $bootedProviderBuckets = []): array
     {
         $results = [];

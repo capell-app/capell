@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Components;
 
 use Capell\Core\Enums\AssetComponentEnum;
-use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Contracts\FrontendComponentContributor;
 use Capell\Frontend\Contracts\FrontendComponentRegistryInterface;

@@ -9,6 +9,9 @@ use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Patching\Patch;
 use Closure;
 use InvalidArgumentException;
+use ReflectionFunction;
+use ReflectionObject;
+use ReflectionReference;
 
 /**
  * Core-owned seam for install-time application patches. Companion packages
@@ -29,11 +32,7 @@ final class InstallPatchRegistry
     public function register(callable $factory, ?InstallPatchConfirmation $confirmation = null, ?string $key = null): void
     {
         $callable = Closure::fromCallable($factory);
-        $this->contributions[] = [
-            'factory' => $callable,
-            'confirmation' => $confirmation,
-        ];
-        $reflection = new \ReflectionFunction($callable);
+        $reflection = new ReflectionFunction($callable);
         $identity = $this->callableIdentity($reflection, $key);
         $receiptKey = $key !== null && $key !== '' ? $key : hash('sha256', $identity);
         $this->receipts?->recordFromContext(
@@ -43,6 +42,10 @@ final class InstallPatchRegistry
             self::class,
             'install',
         );
+        $this->contributions[] = [
+            'factory' => $callable,
+            'confirmation' => $confirmation,
+        ];
     }
 
     /**
@@ -65,7 +68,7 @@ final class InstallPatchRegistry
         return $registeredPatches;
     }
 
-    private function callableIdentity(\ReflectionFunction $reflection, ?string $key): string
+    private function callableIdentity(ReflectionFunction $reflection, ?string $key): string
     {
         if ($key !== null && $key !== '') {
             return 'callable:' . $key;
@@ -82,7 +85,7 @@ final class InstallPatchRegistry
         return 'closure:' . hash('sha256', $source . '|' . $captures);
     }
 
-    private function normalisedClosureSource(\ReflectionFunction $reflection): string
+    private function normalisedClosureSource(ReflectionFunction $reflection): string
     {
         $file = $reflection->getFileName();
         $start = $reflection->getStartLine();
@@ -116,11 +119,13 @@ final class InstallPatchRegistry
         return $normalised;
     }
 
-    private function closureCaptures(\ReflectionFunction $reflection): string
+    private function closureCaptures(ReflectionFunction $reflection): string
     {
         $captures = [];
+        $activeObjects = [];
+        $activeReferences = [];
         foreach ($reflection->getStaticVariables() as $name => $value) {
-            $captures[$name] = $this->stableValue($value);
+            $captures[$name] = $this->stableValue($value, $activeObjects, $activeReferences);
         }
 
         ksort($captures);
@@ -128,56 +133,96 @@ final class InstallPatchRegistry
         return json_encode($captures, JSON_THROW_ON_ERROR);
     }
 
-    /** @param array<mixed> $values */
-    private function stableArray(array $values): array
+    /**
+     * @param  array<mixed>  $values
+     * @param  array<int, true>  $activeObjects
+     * @param  array<string, true>  $activeReferences
+     */
+    private function stableArray(array $values, array &$activeObjects, array &$activeReferences): array
     {
         $stable = [];
         foreach ($values as $key => $value) {
-            $stable[(string) $key] = $this->stableValue($value);
+            $reference = ReflectionReference::fromArrayElement($values, $key);
+            $referenceId = $reference === null ? null : bin2hex($reference->getId());
+            if ($referenceId !== null) {
+                if (isset($activeReferences[$referenceId])) {
+                    throw new InvalidArgumentException(
+                        'Anonymous install-patch factories may not capture cyclic arrays.',
+                    );
+                }
+
+                $activeReferences[$referenceId] = true;
+            }
+
+            try {
+                $stable[(string) $key] = $this->stableValue($value, $activeObjects, $activeReferences);
+            } finally {
+                if ($referenceId !== null) {
+                    unset($activeReferences[$referenceId]);
+                }
+            }
         }
         ksort($stable);
 
         return $stable;
     }
 
-    private function stableValue(mixed $value): mixed
+    /**
+     * @param  array<int, true>  $activeObjects
+     * @param  array<string, true>  $activeReferences
+     */
+    private function stableValue(mixed $value, array &$activeObjects, array &$activeReferences): mixed
     {
         if (is_scalar($value) || $value === null) {
             return $value;
         }
 
-        if ($value instanceof \BackedEnum) {
+        if ($value instanceof BackedEnum) {
             return ['enum' => $value::class, 'value' => $value->value];
         }
 
         if (is_array($value)) {
-            return $this->stableArray($value);
+            return $this->stableArray($value, $activeObjects, $activeReferences);
         }
 
         if (is_object($value)) {
+            $objectId = spl_object_id($value);
+            if (isset($activeObjects[$objectId])) {
+                throw new InvalidArgumentException(
+                    'Anonymous install-patch factories may not capture cyclic objects.',
+                );
+            }
+
+            $activeObjects[$objectId] = true;
             $properties = [];
-            $reflection = new \ReflectionObject($value);
-            foreach ($reflection->getProperties() as $property) {
-                if (! $property->isInitialized($value)) {
-                    continue;
+            try {
+                $reflection = new ReflectionObject($value);
+                foreach ($reflection->getProperties() as $property) {
+                    if (! $property->isInitialized($value)) {
+                        continue;
+                    }
+
+                    $properties[$property->getDeclaringClass()->getName() . ':' . $property->getName()] = $this->stableValue(
+                        $property->getValue($value),
+                        $activeObjects,
+                        $activeReferences,
+                    );
+                }
+                ksort($properties);
+
+                if ($properties === []) {
+                    throw new InvalidArgumentException(
+                        'Anonymous install-patch factories capturing object values must provide an explicit key.',
+                    );
                 }
 
-                $properties[$property->getDeclaringClass()->getName() . ':' . $property->getName()] = $this->stableValue(
-                    $property->getValue($value),
-                );
+                return [
+                    'object' => $value::class,
+                    'properties' => $properties,
+                ];
+            } finally {
+                unset($activeObjects[$objectId]);
             }
-            ksort($properties);
-
-            if ($properties === []) {
-                throw new InvalidArgumentException(
-                    'Anonymous install-patch factories capturing object values must provide an explicit key.',
-                );
-            }
-
-            return [
-                'object' => $value::class,
-                'properties' => $properties,
-            ];
         }
 
         throw new InvalidArgumentException(

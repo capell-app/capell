@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 
@@ -191,6 +191,18 @@ it('requires an explicit key for anonymous factories with unsupported captures',
     ))->toThrow(InvalidArgumentException::class);
 });
 
+it('rejects cyclic anonymous captures before storing the patch', function (): void {
+    $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
+    $state = new InstallPatchReceiptCapturedState('recursive', InstallPatchReceiptCapturedMode::First);
+    $state->nested = $state;
+
+    expect(fn (): mixed => $registry->register(
+        static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($state->name),
+    ))->toThrow(InvalidArgumentException::class, 'cyclic')
+        ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
+        ->toBe([]);
+});
+
 enum InstallPatchReceiptCapturedMode: string
 {
     case First = 'first';
@@ -202,5 +214,6 @@ final class InstallPatchReceiptCapturedState
     public function __construct(
         public string $name,
         public InstallPatchReceiptCapturedMode $mode,
+        public mixed $nested = null,
     ) {}
 }

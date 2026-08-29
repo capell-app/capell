@@ -110,7 +110,7 @@ final class CapellPackageLoader
             ? [...$manifest->providers->metadata, ...$manifest->providers->install]
             : $manifest->providers->metadata;
 
-        if (! ($runtimeProvidersSelected ?? $this->shouldLoadRuntimeProviders($manifest))) {
+        if (!($runtimeProvidersSelected ?? $this->shouldLoadRuntimeProviders($manifest))) {
             return array_values(array_unique($providers));
         }
 
