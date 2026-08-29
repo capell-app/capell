@@ -27,7 +27,7 @@ use SplFileInfo;
 use Throwable;
 
 /**
- * @method static list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}> run(?string $path = null, array $bootedProviderBuckets = [])
+ * @method static list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}> run(?string $path = null, array<string>|list<string> $bootedProviderBuckets = [])
  */
 final class AuditExtensionContractsAction
 {
@@ -259,6 +259,7 @@ final class AuditExtensionContractsAction
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
     /** @param list<string> $bootedProviderBuckets */
+    /** @param array<string, mixed> $composerJson @param list<string> $bootedProviderBuckets */
     private function derivedResults(CapellManifestData $manifest, string $manifestPath, array $composerJson, array $bootedProviderBuckets = []): array
     {
         return [
