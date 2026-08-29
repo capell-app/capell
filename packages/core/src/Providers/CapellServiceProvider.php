@@ -191,6 +191,7 @@ use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
+use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
@@ -244,6 +245,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
         $this->app->scoped(SiteSpecApplierRegistry::class);
+        $this->app->scoped(PageUrlRewriteContext::class);
 
         $this->app->register(MediaLibraryServiceProvider::class);
         config(['media-library.media_model' => Media::class]);

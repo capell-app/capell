@@ -1353,6 +1353,34 @@ it('does not show warning when url does not change', function (): void {
     assertDatabaseCount(PageUrl::class, 1);
 });
 
+it('clears url change warning state after a later unchanged save', function (): void {
+    $language = Language::factory()->createOne();
+    $page = Page::factory()->recycle($language)->withTranslations(slug: 'old-slug')->create();
+
+    $component = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])
+        ->assertSuccessful()
+        ->fillForm([
+            sprintf('translations.record-%d.meta.slug', $page->translation->id) => 'new-slug',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertNotified(__('capell-admin::message.url_changed'));
+
+    $component
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertNotNotified(__('capell-admin::message.url_changed'));
+
+    $instance = $component->instance();
+
+    throw_unless($instance instanceof EditPage, RuntimeException::class, 'Expected EditPage Livewire component instance.');
+
+    expect($instance->urlChanges)->toBe([])
+        ->and($instance->descendantUrlChanges)->toBe([]);
+});
+
 it('adds url redirect when url changes and user confirms', function (): void {
     $language = Language::factory()->createOne();
     $page = Page::factory()->recycle($language)->withTranslations(slug: 'old-slug')->create();
