@@ -44,6 +44,11 @@ trait HasComponents
         }
 
         foreach ($components as $name => $component) {
+            if ($component instanceof BackedEnum) {
+                $name = $component->name;
+                $component = $component->value;
+            }
+
             if (! is_string($component)) {
                 continue;
             }
@@ -135,6 +140,6 @@ trait HasComponents
 
     private function componentValue(string|BackedEnum $value): string
     {
-        return $value instanceof BackedEnum ? (string) $value->value : $value;
+        return $value instanceof BackedEnum ? $value->name : $value;
     }
 }

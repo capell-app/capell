@@ -103,23 +103,18 @@ final class InstallPatchRegistry
 
         $source = implode('', array_slice($lines, $start - 1, $end - $start + 1));
         $tokens = token_get_all('<?php ' . $source);
-        $closureIndexes = [];
-
+        $closureIndex = null;
         foreach ($tokens as $index => $token) {
-            if (! is_array($token) || ! in_array($token[0], [T_FUNCTION, T_FN], true)) {
-                continue;
+            if (is_array($token) && in_array($token[0], [T_FUNCTION, T_FN], true)) {
+                $closureIndex = $index;
+                break;
             }
-
-            $closureIndexes[] = $index;
         }
 
-        if (count($closureIndexes) !== 1) {
-            throw new InvalidArgumentException(
-                'Anonymous install-patch factories must provide an explicit key when their source span contains multiple closures.',
-            );
+        if ($closureIndex === null) {
+            return 'unavailable';
         }
 
-        $closureIndex = $closureIndexes[0];
         $closureType = $tokens[$closureIndex][0];
         $start = $closureIndex;
         $previous = $closureIndex - 1;
@@ -134,7 +129,8 @@ final class InstallPatchRegistry
         $bodyStarted = $closureType === T_FUNCTION;
         $depth = 0;
 
-        foreach (array_slice($tokens, $start) as $token) {
+        $endIndex = count($tokens) - 1;
+        foreach (array_slice($tokens, $start, null, true) as $index => $token) {
             $value = is_array($token) ? $token[1] : $token;
             $type = is_array($token) ? $token[0] : null;
 
@@ -151,11 +147,13 @@ final class InstallPatchRegistry
 
             if ($closureType === T_FN && $bodyStarted) {
                 if (in_array($value, [',', ';'], true) && $depth === 0) {
+                    $endIndex = $index;
                     break;
                 }
 
                 if (in_array($value, [')', ']', '}'], true)) {
                     if ($depth === 0) {
+                        $endIndex = $index;
                         break;
                     }
 
@@ -176,12 +174,21 @@ final class InstallPatchRegistry
 
                 if ($bodyStarted && $depth === 0 && $value === '}') {
                     $normalised .= $value;
+                    $endIndex = $index;
 
                     break;
                 }
             }
 
             $normalised .= $value;
+        }
+
+        foreach (array_slice($tokens, $endIndex + 1, null, true) as $token) {
+            if (is_array($token) && in_array($token[0], [T_FUNCTION, T_FN], true)) {
+                throw new InvalidArgumentException(
+                    'Anonymous install-patch factories must provide an explicit key when their source span contains multiple closures.',
+                );
+            }
         }
 
         return $normalised;

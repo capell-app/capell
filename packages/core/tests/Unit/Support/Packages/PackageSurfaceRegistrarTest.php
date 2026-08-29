@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Data\PageTypeData;
+use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
@@ -116,6 +117,22 @@ it('preserves an active companion context when a registrar bucket hint does not 
     expect($receipts->all())->toHaveCount(1)
         ->and($receipts->all()[0]->ownerPackage)->toBe('vendor/extension')
         ->and($receipts->all()[0]->providerBucket)->toBe('runtime');
+});
+
+it('keeps backed enum component receipts aligned with registered names', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $manager = new CapellCoreManager;
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/components', 'runtime', 'Vendor\\Provider'),
+        function () use ($manager): void {
+            $manager->registerComponent(AssetComponentEnum::Card, AssetComponentEnum::Media, 'vendor::media');
+        },
+    );
+
+    expect($receipts->forPackage('vendor/components'))->toHaveCount(1)
+        ->and($receipts->forPackage('vendor/components')[0]->key)->toBe('component:Card:Media');
 });
 
 enum PackageSurfaceRegistrarTestModel: string

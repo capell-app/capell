@@ -219,6 +219,15 @@ it('requires a key when an anonymous factory shares its reflected source span', 
         ->toBe([]);
 });
 
+it('allows nested closures inside a keyless factory', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $registry = new InstallPatchRegistry($receipts);
+
+    $registry->register(makeNestedInstallPatchFactory());
+
+    expect($receipts->all())->toHaveCount(1);
+});
+
 it('includes bound object state in anonymous factory identities', function (): void {
     $firstReceipts = new ExtensionContributionReceiptRegistry;
     $first = new InstallPatchRegistry($firstReceipts);
@@ -316,6 +325,11 @@ function makeStaticInstallPatchFactory(): callable
 function makeNonStaticInstallPatchFactory(): callable
 {
     return fn (InstallPatchContext $context): ?Patch => null;
+}
+
+function makeNestedInstallPatchFactory(): callable
+{
+    return static fn (InstallPatchContext $context): ?Patch => (static fn (): ?Patch => null)();
 }
 
 function registerSameLineInstallPatchFactories(InstallPatchRegistry $registry): void
