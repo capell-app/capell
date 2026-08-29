@@ -102,7 +102,7 @@ trait HasModelInterceptors
         }
 
         if (is_array($key)) {
-            return md5((string) json_encode($this->canonicaliseInterceptorKey($key), JSON_THROW_ON_ERROR));
+            return md5(json_encode($this->canonicaliseInterceptorKey($key), JSON_THROW_ON_ERROR));
         }
 
         return $key ?? 'default';
@@ -118,6 +118,7 @@ trait HasModelInterceptors
         foreach ($key as $name => $value) {
             $normalised[$name] = $value instanceof BackedEnum ? $value->value : $value;
         }
+
         ksort($normalised);
 
         return $normalised;

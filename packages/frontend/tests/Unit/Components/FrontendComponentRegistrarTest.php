@@ -195,6 +195,7 @@ it('records tagged companion contributors under their package namespace', functi
     ]);
 
     expect($receipts->forPackage('capell-app/layout-builder'))->toHaveCount(1);
+
     $receipt = $receipts->forPackage('capell-app/layout-builder')[0];
 
     expect($receipt->type->value)->toBe('frontend-component')

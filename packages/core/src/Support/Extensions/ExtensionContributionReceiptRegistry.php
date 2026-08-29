@@ -41,6 +41,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
                 return;
             }
         }
+
         $this->providerContexts[$provider][] = $context;
         $this->loadedContexts[$context->ownerPackage][$context->providerBucket] = true;
     }
@@ -141,6 +142,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         if ($mappedContexts === null) {
             $contexts = array_values($this->contexts !== [] ? $this->contexts : $this->bootProviderContexts());
         }
+
         $contexts = $this->contextsForBucket($contexts, $providerBucket);
         $contexts = $providerBucket === null ? $this->contextsForType($contexts, $type) : $contexts;
         $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass)]);
@@ -279,11 +281,15 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     {
         $matchedNamespace = null;
         foreach ($this->namespaceContexts as $namespace => $contexts) {
-            if (str_starts_with($class, $namespace)) {
-                if ($matchedNamespace === null || strlen($namespace) > strlen($matchedNamespace)) {
-                    $matchedNamespace = $namespace;
-                }
+            if (! str_starts_with($class, $namespace)) {
+                continue;
             }
+
+            if ($matchedNamespace !== null && strlen($namespace) <= strlen($matchedNamespace)) {
+                continue;
+            }
+
+            $matchedNamespace = $namespace;
         }
 
         if ($matchedNamespace === null) {

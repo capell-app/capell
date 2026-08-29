@@ -133,7 +133,7 @@ it('keeps an extension receipt owner while a registered provider boots', functio
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/boot-receipt')->andReturnTrue();
 
-    (new CapellPackageLoader(app(), $registry, receipts: $receipts))->loadProviders();
+    new CapellPackageLoader(app(), $registry, receipts: $receipts)->loadProviders();
 
     expect($receipts->forPackage('vendor/boot-receipt'))
         ->toHaveCount(1)

@@ -253,7 +253,7 @@ class RenderHookRegistry
 
     private function receipt(mixed $extension, string $location): void
     {
-        $implementation = is_string($extension) ? $extension : (is_object($extension) ? $extension::class : get_debug_type($extension));
+        $implementation = is_string($extension) ? $extension : (get_debug_type($extension));
         $identity = $this->legacyExtensionIdentity($extension, $implementation);
         $this->receipts()?->recordContribution(
             ExtensionContributionType::RenderHook,
@@ -288,7 +288,11 @@ class RenderHookRegistry
         $tokens = token_get_all('<?php ' . $source);
         $closureIndex = null;
         foreach ($tokens as $index => $token) {
-            if (! is_array($token) || ! in_array($token[0], [T_FUNCTION, T_FN], true)) {
+            if (! is_array($token)) {
+                continue;
+            }
+
+            if (! in_array($token[0], [T_FUNCTION, T_FN], true)) {
                 continue;
             }
 
@@ -316,6 +320,7 @@ class RenderHookRegistry
         while ($previous >= 0 && is_array($tokens[$previous]) && in_array($tokens[$previous][0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
             $previous--;
         }
+
         if ($previous >= 0 && is_array($tokens[$previous]) && $tokens[$previous][0] === T_STATIC) {
             $start = $previous;
         }
@@ -330,7 +335,7 @@ class RenderHookRegistry
             $type = is_array($token) ? $token[0] : null;
 
             if (! $started) {
-                if ($type !== T_FUNCTION && $type !== T_FN && $type !== T_STATIC) {
+                if (! in_array($type, [T_FUNCTION, T_FN, T_STATIC], true)) {
                     continue;
                 }
 

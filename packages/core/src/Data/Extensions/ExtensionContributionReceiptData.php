@@ -6,6 +6,7 @@ namespace Capell\Core\Data\Extensions;
 
 use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
+use Override;
 use Spatie\LaravelData\Data;
 
 final class ExtensionContributionReceiptData extends Data
@@ -21,6 +22,7 @@ final class ExtensionContributionReceiptData extends Data
     ) {}
 
     /** @return array<string, mixed> */
+    #[Override]
     public function toArray(): array
     {
         return [

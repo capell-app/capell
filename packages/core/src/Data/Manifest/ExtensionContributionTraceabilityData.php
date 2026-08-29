@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\Manifest;
 
+use Override;
 use Spatie\LaravelData\Data;
 
 final class ExtensionContributionTraceabilityData extends Data
@@ -52,6 +53,7 @@ final class ExtensionContributionTraceabilityData extends Data
     }
 
     /** @return array<string, mixed> */
+    #[Override]
     public function toArray(): array
     {
         return [

@@ -36,6 +36,7 @@ class FrontendComponentRegistry extends AbstractKeyedRegistry implements Fronten
         foreach ($data->references() as $reference) {
             $this->references[$reference] = $key;
         }
+
         $this->receipts()?->recordContribution(
             ExtensionContributionType::FrontendComponent,
             $key,

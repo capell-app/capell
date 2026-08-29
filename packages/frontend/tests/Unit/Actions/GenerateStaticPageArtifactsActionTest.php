@@ -442,6 +442,7 @@ it('generates static HTML from hydrated contributor data without public-view que
     ));
     $counter = new stdClass;
     $counter->queries = 0;
+
     app()->instance(Kernel::class, new readonly class($renderData, $counter) implements Kernel
     {
         public function __construct(private PublicPageRenderData $renderData, private stdClass $counter) {}

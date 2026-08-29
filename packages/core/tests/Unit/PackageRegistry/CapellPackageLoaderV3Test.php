@@ -161,7 +161,7 @@ it('records only the selected buckets for a shared provider in the public role',
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/shared-public-package')->andReturnTrue();
 
-    (new CapellPackageLoader(
+    new CapellPackageLoader(
         $application,
         $registry,
         runtimeRoleResolver: new RuntimeRoleResolver(new RuntimeRoleSelectionData(
@@ -170,7 +170,7 @@ it('records only the selected buckets for a shared provider in the public role',
             valid: true,
         )),
         receipts: $receipts,
-    ))->loadProviders();
+    )->loadProviders();
 
     expect($receipts->loadedBuckets('vendor/shared-public-package'))
         ->toBe(['runtime', 'frontend'])
@@ -202,11 +202,11 @@ it('does not mark an admin bucket as booted for a disabled install-only context'
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/disabled-install-package')->andReturnFalse();
 
-    (new CapellPackageLoader(
+    new CapellPackageLoader(
         $application,
         $registry,
         receipts: $receipts,
-    ))->loadProviders();
+    )->loadProviders();
 
     expect($receipts->loadedBuckets('vendor/disabled-install-package'))->toBe(['install'])
         ->and(array_map(

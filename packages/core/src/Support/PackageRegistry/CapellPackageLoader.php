@@ -63,6 +63,7 @@ final class CapellPackageLoader
                     foreach ($contexts as $context) {
                         $this->receipts->rememberProviderContext($provider, $context);
                     }
+
                     $namespace = $manifest->resolvedNamespace();
                     if ($namespace !== null) {
                         foreach ($contexts as $context) {

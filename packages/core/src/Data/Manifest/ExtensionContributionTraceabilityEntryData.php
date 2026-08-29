@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Data\Manifest;
 
 use Capell\Core\Enums\ExtensionContributionType;
+use Override;
 use Spatie\LaravelData\Data;
 
 final class ExtensionContributionTraceabilityEntryData extends Data
@@ -28,6 +29,7 @@ final class ExtensionContributionTraceabilityEntryData extends Data
     }
 
     /** @return array<string, mixed> */
+    #[Override]
     public function toArray(): array
     {
         return array_filter([

@@ -405,7 +405,7 @@ final class AdminBridgeRegistrar
 
     private function implementation(mixed $value): string
     {
-        return is_object($value) ? $value::class : get_debug_type($value);
+        return get_debug_type($value);
     }
 
     private function actionIdentity(Action|ActionGroup|Closure $action, ?string $key): string

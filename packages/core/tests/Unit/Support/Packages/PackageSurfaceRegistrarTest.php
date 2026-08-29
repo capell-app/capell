@@ -25,6 +25,7 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
 
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
     app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+
     $core = Mockery::mock(CapellCoreManager::class)->makePartial();
     $settings = Mockery::mock(SettingsSchemaRegistry::class);
     $subscribers = Mockery::mock(SubscriberRegistry::class);
@@ -126,6 +127,7 @@ it('keeps backed enum component receipts aligned with registered names', functio
     $receipts = new ExtensionContributionReceiptRegistry;
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
     app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+
     $manager = new CapellCoreManager;
 
     $receipts->withContext(
@@ -143,6 +145,7 @@ it('canonicalises model interceptor condition order in receipt keys', function (
     $receipts = new ExtensionContributionReceiptRegistry;
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
     app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+
     $manager = new CapellCoreManager;
 
     $receipts->withContext(
@@ -161,6 +164,7 @@ it('does not receipt rejected first-wins component duplicates', function (): voi
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
     app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
     app()->instance(ComponentRegistry::class, new ComponentRegistry);
+
     $manager = new CapellCoreManager;
 
     $receipts->withContext(
@@ -184,6 +188,7 @@ it('receipts every backed enum component in the direct batch boundary', function
     $receipts = new ExtensionContributionReceiptRegistry;
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
     app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+
     $manager = new CapellCoreManager;
 
     $receipts->withContext(
