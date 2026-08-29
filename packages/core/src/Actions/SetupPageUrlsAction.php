@@ -10,6 +10,7 @@ use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -20,12 +21,16 @@ class SetupPageUrlsAction
     use AsFake;
     use AsObject;
 
+    public function __construct(
+        private readonly PageUrlRewriteContext $rewriteContext,
+    ) {}
+
     /**
      * @template TDeclaringModel of Model
      *
      * @param  Pageable<TDeclaringModel>&Model  $page
      */
-    public function handle(Pageable&Model $page, bool $updateDescendants = true, bool $automaticRedirectsAllowed = true): void
+    public function handle(Pageable&Model $page, bool $updateDescendants = true, ?bool $automaticRedirectsAllowed = null): void
     {
         $page->load($this->getRelations());
 
@@ -61,7 +66,7 @@ class SetupPageUrlsAction
                 page: $page,
                 urlChanges: $urlChanges,
                 descendantUrlChanges: $descendantUrlChanges,
-                automaticRedirectsAllowed: $automaticRedirectsAllowed,
+                automaticRedirectsAllowed: $automaticRedirectsAllowed ?? $this->rewriteContext->automaticRedirectsAllowed(),
             ));
         }
     }

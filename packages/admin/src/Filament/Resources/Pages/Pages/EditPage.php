@@ -1042,6 +1042,9 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
      */
     private function applyPageUrlRewrite(Pageable $page): void
     {
+        $this->urlChanges = [];
+        $this->descendantUrlChanges = [];
+
         $rewrite = resolve(PageUrlRewritePromptState::class)->consume($page);
 
         if ($rewrite === null) {

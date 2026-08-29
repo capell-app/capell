@@ -11,6 +11,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\DB;
@@ -91,11 +92,9 @@ class BulkMovePagesAction
                     $preMoveUrls = $addRedirects ? $this->captureUrls($page) : [];
 
                     $page->parent_id = $newParent->getKey();
-                    $page->save();
-                    // Bulk Move keeps its explicit opt-in redirect semantics.
-                    // The core rewrite event is still emitted for extensions,
-                    // but its automatic redirect consumer is suppressed so the
-                    // checked path can record manual redirects below.
+                    resolve(PageUrlRewriteContext::class)->withoutAutomaticRedirects(function () use ($page): void {
+                        $page->save();
+                    });
                     SetupPageUrlsAction::run($page, automaticRedirectsAllowed: false);
                     $movedCount++;
 
