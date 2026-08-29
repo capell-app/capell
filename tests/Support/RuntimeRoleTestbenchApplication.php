@@ -20,6 +20,7 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
      * register the generated application's namespace before Laravel resolves
      * bootstrap/providers.php.
      */
+    #[Override]
     public static function create(?string $basePath = null, ?callable $resolvingCallback = null, array $options = []): Application
     {
         self::registerGeneratedApplicationNamespace($basePath);
