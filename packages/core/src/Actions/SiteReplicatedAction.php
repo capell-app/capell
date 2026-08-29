@@ -205,8 +205,11 @@ class SiteReplicatedAction
 
         $replacementPages[$page->id] = $replica;
 
-        $languages->each(function (Language $language) use ($page, $replica, $fallbackLanguageId): void {
+        $languages->each(function (Language $language) use ($page, $replica): void {
             $this->replicateTranslation($page, $replica, $language);
+        });
+
+        $languages->each(function (Language $language) use ($page, $replica, $fallbackLanguageId): void {
             $this->replicatePageUrl($page, $replica, $language, $fallbackLanguageId);
         });
 
