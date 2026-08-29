@@ -9,6 +9,7 @@ use Illuminate\Database\SQLiteConnection;
 it('creates DATETIME visibility columns for publication sentinels', function (): void {
     $connection = new SQLiteConnection(new PDO('sqlite::memory:'));
     $connection->useDefaultSchemaGrammar();
+
     $blueprint = new Blueprint($connection, 'example');
 
     (new BlueprintMacros)->visibleDates()->call($blueprint);
