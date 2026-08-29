@@ -16,10 +16,6 @@ $root = dirname(__DIR__, 2);
 $config = Config::loadFromYaml(workingPath: $root, filename: 'testbench.yaml');
 $basePath = IsolatedTestbenchSkeleton::basePath();
 
-if (! is_string($basePath)) {
-    throw new RuntimeException('Unable to resolve the isolated Testbench skeleton path.');
-}
-
 $hasEnvironmentFile = is_file(join_paths($basePath, '.env'));
 
 $app = RuntimeRoleTestbenchApplication::create(
@@ -29,6 +25,8 @@ $app = RuntimeRoleTestbenchApplication::create(
         'extra' => $config->getExtraAttributes(),
     ],
     resolvingCallback: static function (Application $app) use ($config): void {
+        // Testbench exposes this internal hook for bootstrapping its application factory.
+        // @phpstan-ignore-next-line method.internal
         Workbench::startWithProviders($app, $config);
         Workbench::discoverRoutes($app, $config);
     },
