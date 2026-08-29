@@ -20,16 +20,16 @@ $hasEnvironmentFile = is_file(join_paths($basePath, '.env'));
 
 $app = RuntimeRoleTestbenchApplication::create(
     basePath: $basePath,
-    options: [
-        'load_environment_variables' => $hasEnvironmentFile,
-        'extra' => $config->getExtraAttributes(),
-    ],
     resolvingCallback: static function (Application $app) use ($config): void {
         // Testbench exposes this internal hook for bootstrapping its application factory.
         // @phpstan-ignore-next-line method.internal
         Workbench::startWithProviders($app, $config);
         Workbench::discoverRoutes($app, $config);
     },
+    options: [
+        'load_environment_variables' => $hasEnvironmentFile,
+        'extra' => $config->getExtraAttributes(),
+    ],
 );
 
 (new SyncTestbenchCachedRoutes)->bootstrap($app);

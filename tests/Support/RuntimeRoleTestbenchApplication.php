@@ -17,9 +17,7 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
     {
         parent::resolveApplicationConfiguration($app);
 
-        if (! $app instanceof Application) {
-            throw new RuntimeException('Testbench did not resolve a Laravel application.');
-        }
+        throw_unless($app instanceof Application, RuntimeException::class, 'Testbench did not resolve a Laravel application.');
 
         // Testbench calls this method immediately before registering providers. The runtime
         // role must therefore replace the provider and cache manifests before that bootstrapper.
