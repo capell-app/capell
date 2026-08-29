@@ -135,6 +135,41 @@ it('keeps backed enum component receipts aligned with registered names', functio
         ->and($receipts->forPackage('vendor/components')[0]->key)->toBe('component:Card:Media');
 });
 
+it('receipts every backed enum component in the direct batch boundary', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $manager = new CapellCoreManager;
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/components', 'runtime', 'Vendor\\Provider'),
+        function () use ($manager): void {
+            $manager->registerComponents(AssetComponentEnum::Card, AssetComponentEnum::cases());
+        },
+    );
+
+    expect(array_map(
+        static fn (object $receipt): string => $receipt->key,
+        $receipts->forPackage('vendor/components'),
+    ))->toBe([
+        'component:Card:Card',
+        'component:Card:Media',
+        'component:Card:Page',
+        'component:Card:Tile',
+    ]);
+});
+
+it('marks direct foundation component registrations as built-ins', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    (new CapellCoreManager)->registerComponent('Builtin', 'Card', 'capell::asset.index');
+
+    expect($receipts->all())->toHaveCount(1)
+        ->and($receipts->all()[0]->ownerPackage)->toBe('capell-app/core')
+        ->and($receipts->all()[0]->providerBucket)->toBe('runtime')
+        ->and($receipts->all()[0]->foundationBuiltIn)->toBeTrue();
+});
+
 enum PackageSurfaceRegistrarTestModel: string
 {
     case Example = stdClass::class;
