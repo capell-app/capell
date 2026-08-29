@@ -498,7 +498,9 @@ class CapellAdminManager
 
             resolve(BootsExtensionContributionReceiptContext::class)->withContext(
                 $receiptContext,
-                fn (): mixed => $bridge->register($registrar, $context),
+                function () use ($bridge, $registrar, $context): void {
+                    $bridge->register($registrar, $context);
+                },
             );
 
             $this->bootedAdminBridges[$bootKey] = true;

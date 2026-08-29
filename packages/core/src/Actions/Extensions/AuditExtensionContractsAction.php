@@ -100,11 +100,7 @@ final class AuditExtensionContractsAction
                     $manifest,
                     $manifestPath,
                     $composerJson ?? [],
-                    $bootedProviderBuckets === []
-                        ? []
-                        : (array_is_list($bootedProviderBuckets)
-                            ? $bootedProviderBuckets
-                            : ($bootedProviderBuckets[$manifest->name] ?? [])),
+                    $this->bootedBuckets($manifest, $bootedProviderBuckets),
                 ),
             );
         }
@@ -295,11 +291,7 @@ final class AuditExtensionContractsAction
     private function runtimeReceiptResults(CapellManifestData $manifest, string $manifestPath, array $bootedProviderBuckets): array
     {
         $registry = resolve(ExtensionContributionReceiptRegistry::class);
-        $bootedBuckets = $bootedProviderBuckets === []
-            ? $registry->loadedBuckets($manifest->name)
-            : (array_is_list($bootedProviderBuckets)
-                ? $bootedProviderBuckets
-                : ($bootedProviderBuckets[$manifest->name] ?? []));
+        $bootedBuckets = $this->bootedBuckets($manifest, $bootedProviderBuckets);
 
         if ($bootedBuckets === []) {
             return [];
@@ -346,6 +338,13 @@ final class AuditExtensionContractsAction
             }
 
             $actual = $matching[0] ?? null;
+            if ($actual === null && in_array($type, [
+                ExtensionContributionType::OutboundEvent,
+                ExtensionContributionType::BlueprintSubject,
+            ], true)) {
+                continue;
+            }
+
             $results[] = $this->result(
                 package: $manifest->name,
                 manifestPath: $manifestPath,
@@ -394,13 +393,23 @@ final class AuditExtensionContractsAction
         return $results;
     }
 
-    /** @param array<string, list<string>>|list<string> $bootedProviderBuckets */
+    /**
+     * @param  array<string, list<string>>|list<string>  $bootedProviderBuckets
+     * @return list<string>
+     */
     private function bootedBuckets(CapellManifestData $manifest, array $bootedProviderBuckets): array
     {
         if ($bootedProviderBuckets !== []) {
-            return array_is_list($bootedProviderBuckets)
-                ? $bootedProviderBuckets
-                : ($bootedProviderBuckets[$manifest->name] ?? []);
+            if (array_is_list($bootedProviderBuckets)) {
+                return array_values(array_filter($bootedProviderBuckets, is_string(...)));
+            }
+
+            $buckets = $bootedProviderBuckets[$manifest->name] ?? [];
+            if (! is_array($buckets)) {
+                return [];
+            }
+
+            return array_values(array_filter($buckets, is_string(...)));
         }
 
         return resolve(ExtensionContributionReceiptRegistry::class)->loadedBuckets($manifest->name);
@@ -651,7 +660,6 @@ final class AuditExtensionContractsAction
     }
 
     /**
-     * @param  list<string>  $bootedBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
     private function capabilityResults(CapellManifestData $manifest, string $manifestPath): array
@@ -743,6 +751,7 @@ final class AuditExtensionContractsAction
     }
 
     /**
+     * @param  list<string>  $bootedBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
     private function declarationResults(CapellManifestData $manifest, string $manifestPath, array $bootedBuckets = []): array

@@ -374,7 +374,7 @@ final class ManifestValidator
             }
 
             $validStringList = true;
-            $validListenerList = is_array($values) && $values !== [];
+            $validListenerList = $values !== [];
 
             foreach ($values as $value) {
                 if (! is_string($value) || $value === '') {

@@ -82,10 +82,12 @@ it('registers and boots the marketplace admin bridge once', function (): void {
         ->and($tagCount(ResourceHeaderActionExtender::TAG, ThemeMarketplaceHeaderActionExtender::class))->toBe(1)
         ->and($tagCount(PendingThemeInstallProvider::TAG, PendingMarketplaceThemeInstallProvider::class))->toBe(1);
 
-    expect(collect(resolve(ExtensionContributionReceiptRegistry::class)->forPackage(MarketplaceServiceProvider::$packageName))
-        ->where('providerBucket', 'admin'))
-        ->not->toBeEmpty()
-        ->each(fn ($receipt) => expect($receipt->ownerPackage)->toBe(MarketplaceServiceProvider::$packageName));
+    $receipts = collect(resolve(ExtensionContributionReceiptRegistry::class)->forPackage(MarketplaceServiceProvider::$packageName))
+        ->where('providerBucket', 'admin');
+
+    expect($receipts)->not->toBeEmpty()
+        ->and($receipts->pluck('ownerPackage')->unique()->values()->all())
+        ->toBe([MarketplaceServiceProvider::$packageName]);
 });
 
 it('boots its admin bridge when registered after runtime preparation', function (): void {

@@ -31,10 +31,12 @@ it('registers the installer admin bridge through the admin-only provider', funct
             CapellDashboard::class,
         ))->toBeTrue();
 
-    expect(collect(resolve(ExtensionContributionReceiptRegistry::class)->forPackage(InstallerServiceProvider::$packageName))
-        ->where('providerBucket', 'admin'))
-        ->not->toBeEmpty()
-        ->each(fn ($receipt) => expect($receipt->ownerPackage)->toBe(InstallerServiceProvider::$packageName));
+    $receipts = collect(resolve(ExtensionContributionReceiptRegistry::class)->forPackage(InstallerServiceProvider::$packageName))
+        ->where('providerBucket', 'admin');
+
+    expect($receipts)->not->toBeEmpty()
+        ->and($receipts->pluck('ownerPackage')->unique()->values()->all())
+        ->toBe([InstallerServiceProvider::$packageName]);
 });
 
 it('keeps repeated admin provider registration idempotent', function (): void {

@@ -57,7 +57,7 @@ final class AssertContentWidgetKeysAvailableAction
                 continue;
             }
 
-            $key = $contribution->metadata['key'] ?? null;
+            $key = $contribution->key ?? $contribution->metadata['key'] ?? null;
             if (! is_string($key)) {
                 continue;
             }

@@ -254,7 +254,9 @@ it('rejects cyclic bound object captures before storing the patch', function ():
     $state = new InstallPatchReceiptCapturedState('recursive-bound', InstallPatchReceiptCapturedMode::First);
     $state->nested = $state;
 
-    expect(fn (): mixed => $registry->register($state->factory()))
+    expect(function () use ($registry, $state): void {
+        $registry->register($state->factory());
+    })
         ->toThrow(InvalidArgumentException::class, 'cyclic')
         ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
         ->toBe([]);
@@ -264,11 +266,11 @@ it('requires an explicit key for anonymous factories with unsupported captures',
     $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
     $unsupported = new stdClass;
 
-    expect(fn (): mixed => $registry->register(
-        static fn (InstallPatchContext $context): Patch => $unsupported instanceof stdClass
-            ? makeInstallPatchRegistryTestPatch('unsupported')
-            : makeInstallPatchRegistryTestPatch('unreachable'),
-    ))->toThrow(InvalidArgumentException::class)
+    expect(function () use ($registry, $unsupported): void {
+        $registry->register(
+            static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch((string) spl_object_id($unsupported)),
+        );
+    })->toThrow(InvalidArgumentException::class)
         ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
         ->toBe([]);
 });
@@ -301,9 +303,11 @@ it('rejects cyclic anonymous captures before storing the patch', function (): vo
     $state = new InstallPatchReceiptCapturedState('recursive', InstallPatchReceiptCapturedMode::First);
     $state->nested = $state;
 
-    expect(fn (): mixed => $registry->register(
-        static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($state->name),
-    ))->toThrow(InvalidArgumentException::class, 'cyclic')
+    expect(function () use ($registry, $state): void {
+        $registry->register(
+            static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($state->name),
+        );
+    })->toThrow(InvalidArgumentException::class, 'cyclic')
         ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
         ->toBe([]);
 });

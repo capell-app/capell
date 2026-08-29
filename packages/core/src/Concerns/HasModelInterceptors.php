@@ -94,6 +94,7 @@ trait HasModelInterceptors
         return resolve(ModelInterceptorRegistry::class)->mergeModelInterceptorData($defaults, $data);
     }
 
+    /** @param array<string, string|int|float|bool|BackedEnum>|string|BackedEnum|null $key */
     private function interceptorKeyValue(null|array|string|BackedEnum $key): string
     {
         if ($key instanceof BackedEnum) {
@@ -107,7 +108,10 @@ trait HasModelInterceptors
         return $key ?? 'default';
     }
 
-    /** @param array<string, string|int|float|bool|BackedEnum> $key */
+    /**
+     * @param  array<string, string|int|float|bool|BackedEnum>  $key
+     * @return array<string, string|int|float|bool>
+     */
     private function canonicaliseInterceptorKey(array $key): array
     {
         $normalised = [];

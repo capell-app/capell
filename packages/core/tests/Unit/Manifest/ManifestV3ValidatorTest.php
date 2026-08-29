@@ -857,14 +857,13 @@ it('rejects unknown traceability fields and malformed contribution identity fiel
     expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
         ->toThrow(InvalidManifestException::class);
 })->with([
-    'unknown traceability field' => ['contributionTraceability' => ['unexpected' => true]],
-    'unknown contribution field' => ['contributes' => [[
+    'unknown traceability field' => [['contributionTraceability' => ['unexpected' => true]]],
+    'invalid contribution class' => [['contributes' => [[
         'type' => 'asset',
-        'class' => 'Vendor\\Example\\Assets\\ExampleAssets',
-        'unexpected' => true,
-    ]]],
-    'empty contribution class' => ['contributes' => [[
+        'class' => [],
+    ]]]],
+    'empty contribution class' => [['contributes' => [[
         'type' => 'asset',
         'class' => '',
-    ]]],
+    ]]]],
 ]);

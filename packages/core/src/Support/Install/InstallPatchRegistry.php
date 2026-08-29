@@ -241,6 +241,7 @@ final class InstallPatchRegistry
      * @param  array<int|string, mixed>  $values
      * @param  array<int, true>  $activeObjects
      * @param  array<string, true>  $activeReferences
+     * @return array<string, mixed>
      */
     private function stableArray(array $values, array &$activeObjects, array &$activeReferences): array
     {

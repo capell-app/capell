@@ -153,7 +153,7 @@ it('reports declared-only and loaded-only receipt drift', function (): void {
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
     app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
     $declaredDirectory = makeRuntimeRegistrationAuditPackage('vendor/declared-only', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.missing']);
-    expect(runtimeRegistrationAuditResults($declaredDirectory, 'Declared contribution is not registered at runtime.', ['runtime']))->toHaveCount(1);
+    expect(runtimeRegistrationAuditResults($declaredDirectory, 'Outbound event contribution is not registered at runtime.', ['runtime']))->toHaveCount(1);
 
     $loadedDirectory = makeRuntimeRegistrationAuditPackage('vendor/loaded-only', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.other']);
     recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/loaded-only', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-package.unlisted', OutboundEventDefinitionData::class, 'Vendor\\Provider'));

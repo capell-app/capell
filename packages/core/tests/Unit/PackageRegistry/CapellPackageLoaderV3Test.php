@@ -149,12 +149,14 @@ it('records only the selected buckets for a shared provider in the public role',
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
     $application->shouldReceive('register')->once()->with(AuthServiceProvider::class)->andReturnUsing(
-        fn (): mixed => $receipts->recordFromContext(
-            ExtensionContributionType::Model,
-            'model:' . stdClass::class,
-            stdClass::class,
-            AuthServiceProvider::class,
-        ),
+        function () use ($receipts): void {
+            $receipts->recordFromContext(
+                ExtensionContributionType::Model,
+                'model:' . stdClass::class,
+                stdClass::class,
+                AuthServiceProvider::class,
+            );
+        },
     );
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/shared-public-package')->andReturnTrue();
@@ -188,12 +190,14 @@ it('does not mark an admin bucket as booted for a disabled install-only context'
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
     $application->shouldReceive('register')->once()->with(AuthServiceProvider::class)->andReturnUsing(
-        fn (): mixed => $receipts->recordFromContext(
-            ExtensionContributionType::Model,
-            'model:' . stdClass::class,
-            stdClass::class,
-            AuthServiceProvider::class,
-        ),
+        function () use ($receipts): void {
+            $receipts->recordFromContext(
+                ExtensionContributionType::Model,
+                'model:' . stdClass::class,
+                stdClass::class,
+                AuthServiceProvider::class,
+            );
+        },
     );
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/disabled-install-package')->andReturnFalse();

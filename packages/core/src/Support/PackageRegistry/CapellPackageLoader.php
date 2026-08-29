@@ -38,9 +38,7 @@ final class CapellPackageLoader
         $this->cloudInstallContext = $cloudInstallContext ?? CloudInstallContext::fromProcess();
         $this->runtimeRoleResolver = $runtimeRoleResolver ?? RuntimeRoleResolver::fromEnvironment();
         $this->runtimeRoleProviderPolicy = $runtimeRoleProviderPolicy ?? new RuntimeRoleProviderPolicy;
-        $this->receipts = $receipts ?? ($app->bound(ExtensionContributionReceiptRegistry::class)
-            ? $app->make(ExtensionContributionReceiptRegistry::class)
-            : new ExtensionContributionReceiptRegistry);
+        $this->receipts = $receipts ?? new ExtensionContributionReceiptRegistry;
     }
 
     public function loadProviders(): void

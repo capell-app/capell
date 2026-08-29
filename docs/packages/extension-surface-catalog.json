@@ -193,16 +193,6 @@
             "contractTestId": "core.extension-contribution"
         },
         {
-            "id": "core.contract.frontend-route-reservation-contributor",
-            "kind": "contract",
-            "identifier": "Capell\\Core\\Contracts\\FrontendRouteReservationContributor",
-            "ownerPackage": "capell-app/core",
-            "stability": "experimental",
-            "introducedVersion": "1.0.0",
-            "summary": "Typed frontend route reservation contributions.",
-            "contractTestId": null
-        },
-        {
             "id": "core.contract.extension-contribution-receipt",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\RecordsExtensionContributionReceipt",
@@ -211,6 +201,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Neutral runtime contribution receipt boundary.",
             "contractTestId": "core.extension-contribution-receipt"
+        },
+        {
+            "id": "core.contract.frontend-route-reservation-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\FrontendRouteReservationContributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend route reservation contributions.",
+            "contractTestId": null
         },
         {
             "id": "core.contract.health-check",
@@ -333,16 +333,6 @@
             "contractTestId": "core.extension-contribution-data"
         },
         {
-            "id": "core.dto.frontend-route-reservation",
-            "kind": "dto",
-            "identifier": "Capell\\Core\\Data\\FrontendRouteReservationData",
-            "ownerPackage": "capell-app/core",
-            "stability": "experimental",
-            "introducedVersion": "1.0.0",
-            "summary": "Typed frontend route reservation data.",
-            "contractTestId": null
-        },
-        {
             "id": "core.dto.extension-contribution-receipt",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Extensions\\ExtensionContributionReceiptData",
@@ -361,6 +351,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed manifest runtime traceability envelope.",
             "contractTestId": "core.extension-contribution-traceability"
+        },
+        {
+            "id": "core.dto.frontend-route-reservation",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\FrontendRouteReservationData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend route reservation data.",
+            "contractTestId": null
         },
         {
             "id": "core.dto.health-check-result",

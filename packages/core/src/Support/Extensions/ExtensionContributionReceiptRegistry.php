@@ -111,10 +111,10 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         ?string $sourceClass = null,
         ?string $providerBucket = null,
     ): void {
-        $contexts = $this->contexts !== [] ? $this->contexts : $this->bootProviderContexts();
+        $contexts = array_values($this->contexts !== [] ? $this->contexts : $this->bootProviderContexts());
         $contexts = $this->contextsForBucket($contexts, $providerBucket);
         $contexts = $providerBucket === null ? $this->contextsForType($contexts, $type) : $contexts;
-        $contexts = $contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass ?? self::class)];
+        $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass ?? self::class)]);
 
         $this->recordForContexts($type, $key, $implementation, $sourceClass, $contexts);
     }
@@ -139,11 +139,11 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         $mappedContexts = $this->contextForClass($sourceClass, $providerBucket);
         $contexts = $mappedContexts ?? [];
         if ($mappedContexts === null) {
-            $contexts = $this->contexts !== [] ? $this->contexts : $this->bootProviderContexts();
+            $contexts = array_values($this->contexts !== [] ? $this->contexts : $this->bootProviderContexts());
         }
         $contexts = $this->contextsForBucket($contexts, $providerBucket);
         $contexts = $providerBucket === null ? $this->contextsForType($contexts, $type) : $contexts;
-        $contexts = $contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass)];
+        $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass)]);
 
         $this->recordForContexts($type, $key, $implementation, $sourceClass, $contexts);
     }
@@ -199,7 +199,9 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         $this->receipts[] = $receipt;
     }
 
-    /** @param list<ExtensionContributionReceiptContext> $contexts */
+    /**
+     * @param  list<ExtensionContributionReceiptContext>  $contexts
+     */
     private function recordForContexts(
         ExtensionContributionType|ExtensionContributionReceiptType $type,
         string $key,
@@ -220,7 +222,10 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         ));
     }
 
-    /** @param list<ExtensionContributionReceiptContext> $contexts */
+    /**
+     * @param  list<ExtensionContributionReceiptContext>  $contexts
+     * @return list<ExtensionContributionReceiptContext>
+     */
     private function contextsForBucket(array $contexts, ?string $providerBucket): array
     {
         if ($providerBucket === null || $contexts === []) {
@@ -235,7 +240,10 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         return $matching !== [] ? $matching : $contexts;
     }
 
-    /** @param list<ExtensionContributionReceiptContext> $contexts */
+    /**
+     * @param  list<ExtensionContributionReceiptContext>  $contexts
+     * @return list<ExtensionContributionReceiptContext>
+     */
     private function contextsForType(array $contexts, ExtensionContributionType|ExtensionContributionReceiptType $type): array
     {
         $bucket = $type->bucket();
@@ -282,7 +290,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
             return null;
         }
 
-        $contexts = $this->namespaceContexts[$matchedNamespace];
+        $contexts = array_values($this->namespaceContexts[$matchedNamespace]);
 
         return $this->contextsForBucket($contexts, $providerBucket);
     }
