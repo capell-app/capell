@@ -3,8 +3,12 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\CacheEnum;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
+use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\LayoutContentSnapshot;
+use Capell\Core\Models\Theme;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Illuminate\Support\Facades\Cache;
 
@@ -70,4 +74,53 @@ it('does not capture layout content during force deletion', function (): void {
     $layout->forceDelete();
 
     expect(LayoutContentSnapshot::query()->where('layout_id', $layout->getKey())->count())->toBe(0);
+});
+
+it('rebuilds layout content graph edges after a layout is saved', function (): void {
+    $theme = Theme::factory()->createOne();
+    $layout = Layout::factory()->createOne();
+
+    defer()->invoke();
+    ContentGraphEdge::query()->delete();
+
+    $layout->update(['theme_id' => $theme->getKey()]);
+
+    expect(ContentGraphEdge::query()->where([
+        'source_type' => Layout::class,
+        'source_id' => $layout->getKey(),
+        'target_type' => Theme::class,
+        'target_id' => $theme->getKey(),
+        'kind' => ContentGraphEdgeKind::UsesTheme,
+    ])->exists())->toBeFalse();
+
+    defer()->invoke();
+
+    expect(ContentGraphEdge::query()->where([
+        'source_type' => Layout::class,
+        'source_id' => $layout->getKey(),
+        'target_type' => Theme::class,
+        'target_id' => $theme->getKey(),
+        'kind' => ContentGraphEdgeKind::UsesTheme,
+    ])->exists())->toBeTrue();
+});
+
+it('prunes layout content graph edges after a layout is deleted', function (): void {
+    $layout = Layout::factory()->createOne();
+
+    ContentGraphEdge::query()->create([
+        'source_type' => Layout::class,
+        'source_id' => $layout->getKey(),
+        'target_type' => Theme::class,
+        'target_id' => Theme::factory()->createOne()->getKey(),
+        'kind' => ContentGraphEdgeKind::UsesTheme,
+        'strength' => ContentGraphEdgeStrength::Strong,
+        'source_package' => 'capell-app/core',
+    ]);
+
+    $layout->delete();
+
+    expect(ContentGraphEdge::query()
+        ->where('source_type', Layout::class)
+        ->where('source_id', $layout->getKey())
+        ->exists())->toBeFalse();
 });
