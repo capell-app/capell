@@ -12,6 +12,14 @@ it('stages the committed frontend build for isolated Testbench workers', functio
         ->toContain("'packages/frontend/publishes/build' => 'public/vendor/capell-frontend'");
 });
 
+it('stages third-party configuration required by isolated package providers', function (): void {
+    $script = file_get_contents(dirname(__DIR__, 2) . '/scripts/prepare-testbench-vendor-configs.php');
+
+    expect($script)
+        ->toBeString()
+        ->toContain("'spatie/laravel-activitylog/config/activitylog.php'");
+});
+
 it('configures the Testbench application factory before provider registration', function (): void {
     $root = dirname(__DIR__, 2);
     $temporary = sys_get_temp_dir() . '/capell-testbench-runtime-bootstrap-' . bin2hex(random_bytes(6)) . '.php';

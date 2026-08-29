@@ -40,7 +40,24 @@ final class RuntimeRoleBootstrap
      */
     public static function configureResolvedApplication(Application $application): void
     {
+        self::configureResolvedEnvironment($application);
+        self::configureResolvedConfiguration($application);
+    }
+
+    /**
+     * Configure an application after its environment has been resolved but before its
+     * configuration is loaded.
+     */
+    public static function configureResolvedEnvironment(Application $application): void
+    {
         self::configureAfterEnvironment($application);
+    }
+
+    /**
+     * Configure an application after its configuration has been loaded.
+     */
+    public static function configureResolvedConfiguration(Application $application): void
+    {
         self::configureAfterConfiguration($application);
     }
 
