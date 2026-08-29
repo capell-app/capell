@@ -6,8 +6,8 @@ namespace Capell\Core\Concerns;
 
 use BackedEnum;
 use Capell\Core\Enums\ExtensionContributionType;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Components\ComponentRegistry;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 
 trait HasComponents
 {
@@ -19,6 +19,10 @@ trait HasComponents
     public function registerComponent(string|BackedEnum $type, string|BackedEnum $name, string $component): static
     {
         resolve(ComponentRegistry::class)->registerComponent($type, $name, $component);
+        if (! app()->bound(ExtensionContributionReceiptRegistry::class)) {
+            return $this;
+        }
+
         resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
             ExtensionContributionType::ContentWidget,
             'component:' . $this->componentValue($type) . ':' . $this->componentValue($name),
@@ -35,6 +39,10 @@ trait HasComponents
     public function registerComponents(string|BackedEnum $type, array $components): static
     {
         resolve(ComponentRegistry::class)->registerComponents($type, $components);
+        if (! app()->bound(ExtensionContributionReceiptRegistry::class)) {
+            return $this;
+        }
+
         foreach ($components as $name => $component) {
             if (! is_string($component)) {
                 continue;

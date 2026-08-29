@@ -63,6 +63,10 @@ trait HasModels
 
     private function recordModelReceipt(string $model): void
     {
+        if (! app()->bound(ExtensionContributionReceiptRegistry::class)) {
+            return;
+        }
+
         resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
             ExtensionContributionType::Model,
             'model:' . $model,

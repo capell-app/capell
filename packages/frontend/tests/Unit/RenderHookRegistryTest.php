@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Data\MainContentRenderHookData;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
@@ -24,6 +27,22 @@ it('registers and retrieves hooks; handles collisions', function (): void {
         ->and(count($hooks))->toBe(2)
         ->and($hooks[0]())->toBe('A')
         ->and($hooks[1]())->toBe('B');
+});
+
+it('emits a receipt at the direct render hook boundary', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $registry = new RenderHookRegistry;
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/frontend-hooks', 'frontend', 'Vendor\\FrontendServiceProvider'),
+        function () use ($registry): void {
+            $registry->registerView(RenderHookLocation::Footer, 'vendor::footer');
+        },
+    );
+
+    expect($receipts->forPackage('vendor/frontend-hooks'))->toHaveCount(1)
+        ->and($receipts->forPackage('vendor/frontend-hooks')[0]->type)->toBe(ExtensionContributionType::RenderHook);
 });
 
 it('deduplicates keyed contributions by stable key and exposes diagnostics', function (): void {

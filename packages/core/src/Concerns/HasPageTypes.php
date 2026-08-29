@@ -21,6 +21,10 @@ trait HasPageTypes
     public function registerPageType(PageTypeData $type): static
     {
         $this->types[$type->name] = $type;
+        if (! app()->bound(ExtensionContributionReceiptRegistry::class)) {
+            return $this;
+        }
+
         resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
             ExtensionContributionType::PageType,
             $type->name,

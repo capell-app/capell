@@ -19,6 +19,10 @@ trait HasModelInterceptors
     public function registerModelInterceptor(string $model, string $interceptorClass, null|array|string|BackedEnum $key = null, int $priority = 0): void
     {
         resolve(ModelInterceptorRegistry::class)->registerModelInterceptor($model, $interceptorClass, $key, $priority);
+        if (! app()->bound(ExtensionContributionReceiptRegistry::class)) {
+            return;
+        }
+
         resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
             ExtensionContributionType::Model,
             'model-interceptor:' . $model . ':' . $interceptorClass . ':' . $this->interceptorKeyValue($key),
