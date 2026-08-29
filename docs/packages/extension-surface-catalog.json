@@ -923,16 +923,6 @@
             "contractTestId": null
         },
         {
-            "id": "core.registry.extension-contribution-receipt",
-            "kind": "registry",
-            "identifier": "Capell\\Core\\Support\\Extensions\\ExtensionContributionReceiptRegistry",
-            "ownerPackage": "capell-app/core",
-            "stability": "stable",
-            "introducedVersion": "1.0.0",
-            "summary": "Runtime registry for neutral contribution receipts.",
-            "contractTestId": "core.extension-contribution-receipt"
-        },
-        {
             "id": "core.registry.operational-health-check",
             "kind": "registry",
             "identifier": "Capell\\Core\\Support\\Health\\HealthCheckRegistry",
