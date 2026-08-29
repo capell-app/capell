@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
+use BackedEnum;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Data\Extensions\ExtensionOrderDiagnosticData;
 use Capell\Core\Enums\ExtensionContributionType;
@@ -23,6 +24,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Blade;
 use LogicException;
 use ReflectionFunction;
+use UnitEnum;
 
 /**
  * @template T of RenderHookContext
@@ -152,7 +154,7 @@ class RenderHookRegistry
             }
             if ($existing->owner === $contribution->owner
                 && $existing->registrationType === $contribution->registrationType
-                && $existing->extension === $contribution->extension
+                && $this->extensionsMatch($existing->extension, $contribution->extension)
                 && $existing->priority === $contribution->priority
                 && $existing->scenario === $contribution->scenario
                 && $existing->target === $contribution->target
@@ -352,6 +354,77 @@ class RenderHookRegistry
         }
 
         return implode(':', [$position->kind, (string) $position->priority, $position->anchor ?? '']);
+    }
+
+    private function extensionsMatch(mixed $existing, mixed $incoming): bool
+    {
+        if (! is_object($existing) || ! is_object($incoming)) {
+            return $existing === $incoming;
+        }
+
+        return $this->canonicalValue($existing) === $this->canonicalValue($incoming);
+    }
+
+    /**
+     * Build a value-based identity for extension objects without invoking
+     * application code. Opaque values retain object identity so uncertain
+     * payloads remain collisions instead of being silently deduplicated.
+     *
+     * @param  array<int, int>  $references
+     */
+    private function canonicalValue(mixed $value, array &$references = []): mixed
+    {
+        if ($value instanceof UnitEnum) {
+            return [
+                'enum' => $value::class,
+                'value' => $value instanceof BackedEnum ? $value->value : $value->name,
+            ];
+        }
+
+        if ($value instanceof Closure) {
+            return ['opaque-closure' => spl_object_id($value)];
+        }
+
+        if (is_object($value)) {
+            $objectId = spl_object_id($value);
+
+            if (isset($references[$objectId])) {
+                return ['reference' => $references[$objectId]];
+            }
+
+            $references[$objectId] = count($references);
+            $properties = [];
+
+            foreach (get_mangled_object_vars($value) as $property => $item) {
+                $properties[$property] = $this->canonicalValue($item, $references);
+            }
+
+            ksort($properties);
+
+            return [
+                'object' => $value::class,
+                'properties' => $properties,
+            ];
+        }
+
+        if (is_array($value)) {
+            $canonical = [];
+
+            foreach ($value as $key => $item) {
+                $canonical[$key] = $this->canonicalValue($item, $references);
+            }
+
+            return $canonical;
+        }
+
+        if (is_resource($value)) {
+            return [
+                'opaque-resource' => get_resource_type($value),
+                'identity' => get_resource_id($value),
+            ];
+        }
+
+        return $value;
     }
 
     private function receipt(mixed $extension, string $location): void
