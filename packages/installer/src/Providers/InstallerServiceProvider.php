@@ -174,12 +174,14 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
 
         $installPatchRegistry->register(
             static fn (InstallPatchContext $context): Patch => new RuntimeRoleBootstrapPatch,
+            key: 'installer.runtime-role-bootstrap',
         );
 
         $installPatchRegistry->register(
             static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')
                 ? new UserModelPatch
                 : null,
+            key: 'installer.user-model',
         );
 
         $installPatchRegistry->register(
@@ -191,12 +193,14 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
                 hint: __('capell-installer::install-guide.admin_panel_theme_confirm_hint'),
                 skippedMessage: __('capell-installer::install-guide.admin_panel_theme_skipped'),
             ),
+            key: 'installer.admin-panel-theme',
         );
 
         $installPatchRegistry->register(
             static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')
                 ? new ViteThemeInputPatch
                 : null,
+            key: 'installer.vite-theme-input',
         );
     }
 }

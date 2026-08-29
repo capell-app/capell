@@ -6,8 +6,12 @@ use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Data\OutboundEventDefinitionData;
+use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\OutboundEventRegistry;
 
 if (! function_exists('makeRuntimeRegistrationAuditPackage')) {
@@ -81,17 +85,145 @@ if (! function_exists('runtimeRegistrationAuditResults')) {
     /**
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    function runtimeRegistrationAuditResults(string $directory, string $message): array
+    function runtimeRegistrationAuditResults(string $directory, string $message, array $buckets = []): array
     {
         return array_values(array_filter(
-            AuditExtensionContractsAction::run($directory),
+            AuditExtensionContractsAction::run($directory, $buckets),
             static fn (array $result): bool => $result['message'] === $message,
         ));
     }
 }
 
+it('reconciles declared and loaded contributions only for an explicit booted context', function (): void {
+    $outbound = new OutboundEventRegistry;
+    $outbound->register(new OutboundEventDefinitionData(
+        name: 'vendor-package.thing-happened', version: 1,
+        payloadClass: OutboundEventDefinitionData::class,
+        description: 'Test outbound event.', ownerPackage: 'vendor/receipt-match',
+    ));
+    app()->instance(OutboundEventRegistry::class, $outbound);
+
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->record(new ExtensionContributionReceiptData(
+        ownerPackage: 'vendor/receipt-match', providerBucket: 'runtime',
+        type: ExtensionContributionType::OutboundEvent, key: 'vendor-package.thing-happened',
+        implementation: OutboundEventDefinitionData::class, sourceClass: 'Vendor\\Receipt\\Provider',
+    ));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    $directory = makeRuntimeRegistrationAuditPackage(
+        'vendor/receipt-match', RegistersExtensionOutboundEvent::class,
+        ['type' => 'outbound-event', 'event' => 'vendor-package.thing-happened'],
+    );
+
+    expect(AuditExtensionContractsAction::run($directory, ['runtime']))->toBe([]);
+});
+
+it('reports declared-only and loaded-only receipt drift', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+    $declaredDirectory = makeRuntimeRegistrationAuditPackage('vendor/declared-only', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.missing']);
+    expect(runtimeRegistrationAuditResults($declaredDirectory, 'Declared contribution is not registered at runtime.', ['runtime']))->toHaveCount(1);
+
+    $loadedDirectory = makeRuntimeRegistrationAuditPackage('vendor/loaded-only', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.other']);
+    $receipts->record(new ExtensionContributionReceiptData('vendor/loaded-only', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-package.unlisted', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+    expect(runtimeRegistrationAuditResults($loadedDirectory, 'Runtime contribution is not declared in the manifest.', ['runtime']))->toHaveCount(1);
+});
+
+it('reports wrong receipt owner and provider bucket with diagnostics', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->record(new ExtensionContributionReceiptData('vendor/other', 'admin', ExtensionContributionType::OutboundEvent, 'vendor-package.event', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/wrong-receipt', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.event']);
+    $results = runtimeRegistrationAuditResults($directory, 'Runtime contribution has the wrong package owner.', ['runtime']);
+    expect($results)->toHaveCount(1)->and($results[0]['context'])->toMatchArray(['expectedBucket' => 'runtime', 'actualBucket' => 'admin', 'contributionKey' => 'vendor-package.event']);
+});
+
+it('reports a receipt in the wrong provider bucket', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->record(new ExtensionContributionReceiptData('vendor/wrong-bucket', 'admin', ExtensionContributionType::OutboundEvent, 'vendor-package.event', OutboundEventDefinitionData::class, 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/wrong-bucket', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.event']);
+    expect(runtimeRegistrationAuditResults($directory, 'Runtime contribution is registered in the wrong provider bucket.', ['runtime']))->toHaveCount(1);
+});
+
+it('reports swapped implementation identities even when owner and bucket match', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->record(new ExtensionContributionReceiptData('vendor/swapped', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-package.event', stdClass::class, 'Vendor\\Provider'));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/swapped', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.event']);
+    $results = runtimeRegistrationAuditResults($directory, 'Runtime contribution has the wrong implementation.', ['runtime']);
+    expect($results)->toHaveCount(1)->and($results[0]['context'])->toMatchArray(['expectedImplementation' => 'Vendor\\Swapped\\Contributions\\PackageContribution', 'actualImplementation' => stdClass::class, 'actualOwner' => 'vendor/swapped']);
+});
+
+it('does not report foundation built-ins as loaded-only drift', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->record(new ExtensionContributionReceiptData('capell-app/core', 'runtime', ExtensionContributionType::Model, 'core.builtin', stdClass::class, 'Capell\\Core\\Providers\\CapellServiceProvider', true));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+    $directory = makeRuntimeRegistrationAuditPackage('capell-app/core', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'core.declared']);
+    $results = AuditExtensionContractsAction::run($directory, ['runtime']);
+    expect($results)->toHaveCount(1)->and($results[0]['message'])->toBe(OUTBOUND_EVENT_WARNING);
+});
+
+it('does not audit a disabled package as though its current runtime role booted', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/disabled-runtime', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.disabled']);
+    $results = AuditExtensionContractsAction::run($directory);
+    expect($results)->toHaveCount(1)->and($results[0]['message'])->toBe(OUTBOUND_EVENT_WARNING);
+});
+
+it('keeps ownership for a deferred static registrar callback', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->rememberProviderContext(
+        StaticDeferredReceiptProbe::class,
+        ExtensionContributionReceiptContext::forPackage('vendor/deferred', 'frontend', StaticDeferredReceiptProbe::class),
+    );
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    StaticDeferredReceiptProbe::run();
+
+    expect($receipts->forPackage('vendor/deferred')[0]->providerBucket)->toBe('frontend');
+});
+
+it('reconciles a trace key that is distinct from the marker metadata key', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->record(new ExtensionContributionReceiptData(
+        'vendor/trace-link', 'runtime', ExtensionContributionType::OutboundEvent,
+        'vendor-package.runtime-key', 'Vendor\\TraceLink\\Contributions\\PackageContribution', 'Vendor\\TraceLink\\Providers\\PackageServiceProvider',
+    ));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/trace-link', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.marker-key']);
+    $manifestPath = $directory . '/capell.json';
+    $manifest = json_decode((string) file_get_contents($manifestPath), true, flags: JSON_THROW_ON_ERROR);
+    $manifest['contributionTraceability'] = ['contributions' => [['type' => 'outbound-event', 'key' => 'vendor-package.runtime-key', 'class' => 'Vendor\\TraceLink\\Contributions\\PackageContribution', 'providerBucket' => 'runtime']]];
+    file_put_contents($manifestPath, json_encode($manifest, JSON_THROW_ON_ERROR));
+
+    expect(runtimeRegistrationAuditResults($directory, 'Declared contribution is not registered at runtime.', ['runtime']))->toBe([]);
+});
+
 const OUTBOUND_EVENT_WARNING = 'Outbound event contribution is not registered at runtime.';
 const BLUEPRINT_SUBJECT_WARNING = 'Blueprint subject contribution is not registered at runtime.';
+
+final class StaticDeferredReceiptProbe
+{
+    public static function run(): void
+    {
+        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+            ExtensionContributionType::RenderHook,
+            'vendor.deferred.hook',
+            self::class,
+            self::class,
+        );
+    }
+}
 
 it('warns when a declared outbound event is not registered at runtime', function (): void {
     app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);

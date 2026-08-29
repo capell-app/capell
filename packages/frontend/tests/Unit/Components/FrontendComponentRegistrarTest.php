@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\LivewirePageComponentEnum;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Contracts\FrontendComponentContributor;
 use Capell\Frontend\Data\FrontendComponentContributionData;
 use Capell\Frontend\Enums\FrontendComponentTarget;
 use Capell\Frontend\Livewire\Page\Page;
 use Capell\Frontend\Support\Components\FrontendComponentRegistrar;
+use Capell\Frontend\Tests\Fixtures\LayoutBuilderFrontendComponentContributor;
 use Illuminate\Support\Facades\Config;
 use Livewire\Component;
 
@@ -153,6 +156,35 @@ it('resolves contributor state afresh for each registrar instance', function ():
         ->and($second->bladeComponents())->toBe([
             'late-blade' => 'layout-builder::components.late',
         ]);
+});
+
+it('records tagged companion contributors under their package namespace', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $receipts->rememberNamespaceContext(
+        'Capell\\Frontend\\Tests\\Fixtures',
+        ExtensionContributionReceiptContext::forPackage(
+            'capell-app/layout-builder',
+            'frontend',
+            'Capell\\LayoutBuilder\\LayoutBuilderServiceProvider',
+        ),
+    );
+
+    $registrar = new FrontendComponentRegistrar(
+        [new LayoutBuilderFrontendComponentContributor],
+        $receipts,
+    );
+
+    expect($registrar->bladeComponents())->toBe([
+        'layout-builder-contributed' => 'layout-builder::components.contributed',
+    ]);
+
+    expect($receipts->forPackage('capell-app/layout-builder'))->toHaveCount(1);
+    $receipt = $receipts->forPackage('capell-app/layout-builder')[0];
+
+    expect($receipt->type->value)->toBe('frontend-component')
+        ->and($receipt->key)->toBe('layout-builder-contributed')
+        ->and($receipt->implementation)->toBe('layout-builder::components.contributed')
+        ->and($receipt->providerBucket)->toBe('frontend');
 });
 
 function tagFrontendComponentContributor(string $key, object $contributor): void

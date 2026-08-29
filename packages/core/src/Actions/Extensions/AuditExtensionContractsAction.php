@@ -11,6 +11,8 @@ use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\OutboundEventRegistry;
 use Composer\InstalledVersions;
@@ -24,7 +26,7 @@ use SplFileInfo;
 use Throwable;
 
 /**
- * @method static list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}> run(?string $path = null)
+ * @method static list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}> run(?string $path = null, array $bootedProviderBuckets = [])
  */
 final class AuditExtensionContractsAction
 {
@@ -34,7 +36,8 @@ final class AuditExtensionContractsAction
     /**
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    public function handle(?string $path = null): array
+    /** @param array<string, list<string>>|list<string> $bootedProviderBuckets */
+    public function handle(?string $path = null, array $bootedProviderBuckets = []): array
     {
         $results = [];
         $manifestPaths = $this->manifestPaths($path);
@@ -92,7 +95,7 @@ final class AuditExtensionContractsAction
 
             array_push(
                 $results,
-                ...$this->derivedResults($manifest, $manifestPath, $composerJson ?? []),
+                ...$this->derivedResults($manifest, $manifestPath, $composerJson ?? [], $bootedProviderBuckets),
             );
         }
 
@@ -254,15 +257,138 @@ final class AuditExtensionContractsAction
      * @param  array<string, mixed>  $composerJson
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    private function derivedResults(CapellManifestData $manifest, string $manifestPath, array $composerJson): array
+    /** @param list<string> $bootedProviderBuckets */
+    private function derivedResults(CapellManifestData $manifest, string $manifestPath, array $composerJson, array $bootedProviderBuckets = []): array
     {
         return [
             ...$this->packageContractResults($manifest, $manifestPath, $composerJson),
             ...$this->capabilityResults($manifest, $manifestPath),
             ...$this->cacheSafetyResults($manifest, $manifestPath),
             ...$this->declarationResults($manifest, $manifestPath),
+            ...$this->runtimeReceiptResults($manifest, $manifestPath, $bootedProviderBuckets),
             ...$this->apiCompatibilityResults($manifest, $manifestPath),
         ];
+    }
+
+    /**
+     * Reconcile only contexts explicitly supplied by the caller. An audit of a
+     * package directory is commonly run outside that package's runtime; treating
+     * an absent context as loaded would produce false declared-only failures.
+     *
+     * @param array<string, list<string>>|list<string> $bootedProviderBuckets
+     * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
+     */
+    private function runtimeReceiptResults(CapellManifestData $manifest, string $manifestPath, array $bootedProviderBuckets): array
+    {
+        $registry = resolve(ExtensionContributionReceiptRegistry::class);
+        $bootedBuckets = $bootedProviderBuckets === []
+            ? $registry->loadedBuckets($manifest->name)
+            : (array_is_list($bootedProviderBuckets)
+                ? $bootedProviderBuckets
+                : ($bootedProviderBuckets[$manifest->name] ?? []));
+
+        if ($bootedBuckets === []) {
+            return [];
+        }
+
+        $receipts = $registry->all();
+        $declared = [];
+        $results = [];
+        $trace = $manifest->contributionTraceability?->contributions ?? [];
+
+        $expected = [];
+        $tracedMarkers = [];
+        foreach ($trace as $entry) {
+            $marker = array_find($manifest->contributes, static fn (ExtensionContributionData $contribution): bool => $contribution->type === $entry->type && ($entry->class === null || $contribution->class === $entry->class));
+            $expected[] = [$entry->type, $entry->key, $entry->providerBucket, $entry->class ?? $marker?->class];
+            if ($marker instanceof ExtensionContributionData) {
+                $tracedMarkers[spl_object_id($marker)] = true;
+            }
+        }
+        foreach ($manifest->contributes as $contribution) {
+            if (isset($tracedMarkers[spl_object_id($contribution)])) {
+                continue;
+            }
+            $keys = $this->contributionMetadataStrings($contribution, 'key', 'keys', 'event', 'events', 'name', 'names');
+            foreach ($keys !== [] ? $keys : [$contribution->class ?? $contribution->type->value] as $key) {
+                $expected[] = [$contribution->type, $key, $this->receiptBucket($contribution->type), $contribution->class];
+            }
+        }
+
+        foreach ($expected as [$type, $key, $expectedBucket, $expectedClass]) {
+                if (! in_array($expectedBucket, $bootedBuckets, true)) {
+                    continue;
+                }
+
+                $declared[$type->value . ':' . $key] = true;
+                $matching = array_values(array_filter($receipts, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->type === $type && $receipt->key === $key));
+                $exact = array_values(array_filter($matching, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->ownerPackage === $manifest->name && $receipt->providerBucket === $expectedBucket && ($expectedClass === null || $receipt->implementation === $expectedClass)));
+                if ($exact !== []) {
+                    continue;
+                }
+
+                $actual = $matching[0] ?? null;
+                $results[] = $this->result(
+                    package: $manifest->name,
+                    manifestPath: $manifestPath,
+                    severity: 'warning',
+                    message: $actual instanceof ExtensionContributionReceiptData
+                        ? ($actual->ownerPackage !== $manifest->name ? 'Runtime contribution has the wrong package owner.' : ($actual->providerBucket !== $expectedBucket ? 'Runtime contribution is registered in the wrong provider bucket.' : 'Runtime contribution has the wrong implementation.'))
+                        : 'Declared contribution is not registered at runtime.',
+                    context: [
+                        'status' => $actual instanceof ExtensionContributionReceiptData ? ($actual->ownerPackage !== $manifest->name ? 'wrong-owner' : ($actual->providerBucket !== $expectedBucket ? 'wrong-bucket' : 'wrong-implementation')) : 'declared-only',
+                        'contributionKey' => $key,
+                        'expectedBucket' => $expectedBucket,
+                        'actualBucket' => $actual?->providerBucket,
+                        'expectedImplementation' => $expectedClass,
+                        'actualImplementation' => $actual?->implementation,
+                        'actualOwner' => $actual?->ownerPackage,
+                        'sourceClass' => $actual?->sourceClass ?? $expectedClass,
+                    ],
+                );
+        }
+
+        foreach ($receipts as $receipt) {
+            if (! in_array($receipt->providerBucket, $bootedBuckets, true) || $receipt->ownerPackage !== $manifest->name || $receipt->foundationBuiltIn) {
+                continue;
+            }
+
+            if (! isset($declared[$receipt->type->value . ':' . $receipt->key])) {
+                $results[] = $this->result(
+                    package: $manifest->name,
+                    manifestPath: $manifestPath,
+                    severity: 'warning',
+                    message: 'Runtime contribution is not declared in the manifest.',
+                    context: [
+                        'status' => 'loaded-only',
+                        'contributionKey' => $receipt->key,
+                        'expectedBucket' => $this->receiptBucket($receipt->type),
+                        'actualBucket' => $receipt->providerBucket,
+                        'sourceClass' => $receipt->sourceClass,
+                    ],
+                );
+            }
+        }
+
+        return $results;
+    }
+
+    private function receiptBucket(ExtensionContributionType $type): string
+    {
+        return match ($type) {
+            ExtensionContributionType::AdminPage,
+            ExtensionContributionType::AdminResource,
+            ExtensionContributionType::AdminActionExtender,
+            ExtensionContributionType::Configurator,
+            ExtensionContributionType::SchemaExtender,
+            ExtensionContributionType::DashboardFilamentWidget => 'admin',
+            ExtensionContributionType::FrontendComponent,
+            ExtensionContributionType::ContentWidget,
+            ExtensionContributionType::RenderHook,
+            ExtensionContributionType::Asset => 'frontend',
+            ExtensionContributionType::Migration => 'install',
+            default => 'runtime',
+        };
     }
 
     /**

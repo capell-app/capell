@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 
@@ -128,4 +129,37 @@ it('carries an optional confirmation alongside the registered patch', function (
     expect($registeredPatches)->toHaveCount(1)
         ->and($registeredPatches[0]->confirmation)->toBe($confirmation)
         ->and($registeredPatches[0]->confirmation?->default)->toBeTrue();
+});
+
+it('keeps a semantic install-patch receipt key independent of registration order', function (): void {
+    $firstReceipts = new ExtensionContributionReceiptRegistry;
+    $first = new InstallPatchRegistry($firstReceipts);
+    $first->register(static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch('one'), key: 'campaign-studio.patch-one');
+
+    $secondReceipts = new ExtensionContributionReceiptRegistry;
+    $second = new InstallPatchRegistry($secondReceipts);
+    $second->register(static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch('other'), key: 'campaign-studio.patch-other');
+    $second->register(static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch('one'), key: 'campaign-studio.patch-one');
+
+    expect($firstReceipts->all()[0]->key)->toBe('install-patch:campaign-studio.patch-one')
+        ->and($secondReceipts->all()[1]->key)->toBe($firstReceipts->all()[0]->key);
+});
+
+it('emits a deterministic receipt for anonymous patch factories without a key', function (): void {
+    $firstReceipts = new ExtensionContributionReceiptRegistry;
+    $first = new InstallPatchRegistry($firstReceipts);
+    $first->register(
+        static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch('anonymous'),
+    );
+
+    $secondReceipts = new ExtensionContributionReceiptRegistry;
+    $second = new InstallPatchRegistry($secondReceipts);
+    $second->register(
+        static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch('anonymous'),
+    );
+
+    expect($firstReceipts->all())->toHaveCount(1)
+        ->and($secondReceipts->all())->toHaveCount(1)
+        ->and($secondReceipts->all()[0]->key)->toBe($firstReceipts->all()[0]->key)
+        ->and($secondReceipts->all()[0]->implementation)->toBe($firstReceipts->all()[0]->implementation);
 });
