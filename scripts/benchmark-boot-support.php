@@ -468,8 +468,9 @@ final readonly class BootBenchmarkWorkspace
     private function normalizeOptimizedProviderCache(): void
     {
         $cachePath = $this->path . '/laravel/bootstrap/cache';
+        $roleConfigPath = $cachePath . '/capell-runtime/' . $this->runtimeRole() . '/config.php';
         /** @var array<string, mixed> $config */
-        $config = require $cachePath . '/config.php';
+        $config = require $roleConfigPath;
         $config['app']['providers'] = [
             ...ServiceProvider::defaultProviders()->toArray(),
             ...BootProfiles::providers($this->profile),
