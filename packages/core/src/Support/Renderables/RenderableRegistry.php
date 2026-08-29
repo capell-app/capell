@@ -25,7 +25,7 @@ final class RenderableRegistry
             resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
                 ExtensionContributionType::ContentWidget,
                 'renderable:' . $type . ':' . $key,
-                $definition->contribution?->class ?? $definition::class,
+                $definition->contribution->class ?? $definition::class,
                 self::class,
                 'runtime',
             );

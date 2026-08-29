@@ -213,7 +213,11 @@ it('distinguishes static and non-static anonymous factories', function (): void 
 it('requires a key when an anonymous factory shares its reflected source span', function (): void {
     $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
 
-    expect(fn (): mixed => registerSameLineInstallPatchFactories($registry))
+    expect(function () use ($registry): mixed {
+        registerSameLineInstallPatchFactories($registry);
+
+        return null;
+    })
         ->toThrow(InvalidArgumentException::class, 'multiple closures')
         ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
         ->toBe([]);

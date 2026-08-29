@@ -200,7 +200,7 @@ it('does not report foundation built-ins as loaded-only drift', function (): voi
     app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
     $directory = makeRuntimeRegistrationAuditPackage('capell-app/core', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'core.declared']);
     $results = AuditExtensionContractsAction::run($directory, ['runtime']);
-    expect($results)->toHaveCount(1)->and($results[0]['message'])->toBe(OUTBOUND_EVENT_WARNING);
+    expect($results)->toHaveCount(1)->and($results[0]['message'])->toBe('Outbound event contribution is not registered at runtime.');
 });
 
 it('does not audit a disabled package as though its current runtime role booted', function (): void {

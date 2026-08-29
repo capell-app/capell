@@ -232,22 +232,4 @@ final class PackageSurfaceRegistrar
 
         return $this;
     }
-
-    private function stringValue(string|BackedEnum $value): string
-    {
-        return $value instanceof BackedEnum ? (string) $value->value : $value;
-    }
-
-    private function keyValue(null|array|string|BackedEnum $key): string
-    {
-        if ($key instanceof BackedEnum) {
-            return (string) $key->value;
-        }
-
-        if (is_array($key)) {
-            return md5((string) json_encode($key));
-        }
-
-        return $key ?? 'default';
-    }
 }

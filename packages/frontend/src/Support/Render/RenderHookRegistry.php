@@ -352,9 +352,9 @@ class RenderHookRegistry
                 $depth = 1;
             } elseif ($closureType === T_FUNCTION && $value === '{') {
                 $depth = 1;
-            } elseif ($started && $value === '{') {
+            } elseif ($value === '{') {
                 $depth++;
-            } elseif ($started && $value === '}') {
+            } elseif ($value === '}') {
                 $depth--;
                 if ($depth === 0) {
                     break;
