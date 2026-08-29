@@ -20,14 +20,15 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
     $models = [PackageSurfaceRegistrarTestModel::Example];
     $receipts = new ExtensionContributionReceiptRegistry;
 
-    $core = Mockery::mock(CapellCoreManager::class);
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $core = Mockery::mock(CapellCoreManager::class)->makePartial();
     $settings = Mockery::mock(SettingsSchemaRegistry::class);
     $subscribers = Mockery::mock(SubscriberRegistry::class);
     $metricCollectors = new MetricCollectorRegistry(app());
 
-    $core->shouldReceive('registerPageType')->once()->with($pageType);
-    $core->shouldReceive('registerComponent')->once()->with('page', 'hero', 'hero-component');
-    $core->shouldReceive('registerModels')->once()->with($models);
+    $core->shouldReceive('registerPageType')->once()->with($pageType)->passthru();
+    $core->shouldReceive('registerComponent')->once()->with('page', 'hero', 'hero-component')->passthru();
+    $core->shouldReceive('registerModels')->once()->with($models)->passthru();
     $core->shouldReceive('subscriberManager')->once()->andReturn($subscribers);
     $subscribers->shouldReceive('subscribe')->once()->with('App\\Subscriber');
     $settings->shouldReceive('register')->once()->with('seo', 'SchemaClass', null);

@@ -6,6 +6,8 @@ namespace Capell\Core\Concerns;
 
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -19,6 +21,12 @@ trait HasPageTypes
     public function registerPageType(PageTypeData $type): static
     {
         $this->types[$type->name] = $type;
+        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+            ExtensionContributionType::PageType,
+            $type->name,
+            $type->model,
+            self::class,
+        );
 
         return $this;
     }

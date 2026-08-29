@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContext;
@@ -48,6 +50,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($extension, $location->value);
     }
 
     public function registerView(
@@ -65,6 +68,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($view, $location->value);
     }
 
     public function registerInlineBlade(
@@ -82,6 +86,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($blade, $location->value);
     }
 
     public function registerCallable(
@@ -99,6 +104,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($extension, $location->value);
     }
 
     public function registerExtension(
@@ -116,6 +122,7 @@ class RenderHookRegistry
             scenario: $scenario,
             target: $target,
         ));
+        $this->receipt($extension, $location->value);
     }
 
     /**
@@ -133,6 +140,13 @@ class RenderHookRegistry
         $this->contributedKeys[$stableKey] = true;
 
         $this->addEntry(RenderHookEntryData::contribution($contribution));
+        $this->receipts()?->recordFromContext(
+            ExtensionContributionType::RenderHook,
+            $contribution->key,
+            is_string($contribution->extension) ? $contribution->extension : $contribution->extension::class,
+            self::class,
+            'frontend',
+        );
     }
 
     /**
@@ -233,6 +247,25 @@ class RenderHookRegistry
     {
         $key = $entry->location->value;
         $this->extensions[$key][] = $entry;
+    }
+
+    private function receipt(mixed $extension, string $location): void
+    {
+        $implementation = is_string($extension) ? $extension : (is_object($extension) ? $extension::class : get_debug_type($extension));
+        $this->receipts()?->recordFromContext(
+            ExtensionContributionType::RenderHook,
+            'hook:' . $location . ':' . $implementation,
+            $implementation,
+            self::class,
+            'frontend',
+        );
+    }
+
+    private function receipts(): ?ExtensionContributionReceiptRegistry
+    {
+        return app()->bound(ExtensionContributionReceiptRegistry::class)
+            ? resolve(ExtensionContributionReceiptRegistry::class)
+            : null;
     }
 
     private function renderEntry(RenderHookEntryData $entry, RenderHookContext $context): mixed

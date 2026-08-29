@@ -198,6 +198,27 @@ it('includes backed enum captures in anonymous factory identities', function ():
         ->and($receipts->all()[0]->key)->not->toBe($receipts->all()[1]->key);
 });
 
+it('distinguishes static and non-static anonymous factories', function (): void {
+    $staticReceipts = new ExtensionContributionReceiptRegistry;
+    $static = new InstallPatchRegistry($staticReceipts);
+    $static->register(makeStaticInstallPatchFactory());
+
+    $nonStaticReceipts = new ExtensionContributionReceiptRegistry;
+    $nonStatic = new InstallPatchRegistry($nonStaticReceipts);
+    $nonStatic->register(makeNonStaticInstallPatchFactory());
+
+    expect($staticReceipts->all()[0]->key)->not->toBe($nonStaticReceipts->all()[0]->key);
+});
+
+it('requires a key when an anonymous factory shares its reflected source span', function (): void {
+    $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
+
+    expect(fn (): mixed => registerSameLineInstallPatchFactories($registry))
+        ->toThrow(InvalidArgumentException::class, 'multiple closures')
+        ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
+        ->toBe([]);
+});
+
 it('includes bound object state in anonymous factory identities', function (): void {
     $firstReceipts = new ExtensionContributionReceiptRegistry;
     $first = new InstallPatchRegistry($firstReceipts);
@@ -239,6 +260,17 @@ it('requires an explicit key for anonymous factories with unsupported captures',
         ->toBe([]);
 });
 
+it('does not inspect a bound object when a non-static factory does not use this', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    $registry = new InstallPatchRegistry($receipts);
+
+    $state = new InstallPatchReceiptCapturedState('unused-bound', InstallPatchReceiptCapturedMode::First);
+    $registry->register($state->unusedFactory());
+
+    expect($receipts->all())->toHaveCount(1)
+        ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))->toHaveCount(1);
+});
+
 it('rejects cyclic anonymous captures before storing the patch', function (): void {
     $registry = new InstallPatchRegistry(new ExtensionContributionReceiptRegistry);
     $state = new InstallPatchReceiptCapturedState('recursive', InstallPatchReceiptCapturedMode::First);
@@ -269,4 +301,24 @@ final class InstallPatchReceiptCapturedState
     {
         return fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($this->name);
     }
+
+    public function unusedFactory(): callable
+    {
+        return fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch('unused-bound');
+    }
+}
+
+function makeStaticInstallPatchFactory(): callable
+{
+    return static fn (InstallPatchContext $context): ?Patch => null;
+}
+
+function makeNonStaticInstallPatchFactory(): callable
+{
+    return fn (InstallPatchContext $context): ?Patch => null;
+}
+
+function registerSameLineInstallPatchFactories(InstallPatchRegistry $registry): void
+{
+    $registry->register(static fn (InstallPatchContext $context): ?Patch => null); $registry->register(static fn (InstallPatchContext $context): ?Patch => null);
 }

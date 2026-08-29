@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use BackedEnum;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Patching\Patch;
@@ -80,7 +81,7 @@ final class InstallPatchRegistry
         }
 
         $source = $this->normalisedClosureSource($reflection);
-        $captures = $this->closureCaptures($reflection);
+        $captures = $this->closureCaptures($reflection, str_contains($source, '$this'));
 
         return 'closure:' . hash('sha256', $source . '|' . $captures);
     }
@@ -102,25 +103,31 @@ final class InstallPatchRegistry
 
         $source = implode('', array_slice($lines, $start - 1, $end - $start + 1));
         $tokens = token_get_all('<?php ' . $source);
-        $start = null;
-        $closureType = null;
+        $closureIndexes = [];
 
         foreach ($tokens as $index => $token) {
             if (! is_array($token) || ! in_array($token[0], [T_FUNCTION, T_FN], true)) {
                 continue;
             }
 
-            $start = $index;
-            $closureType = $token[0];
-            if ($index > 0 && is_array($tokens[$index - 1]) && $tokens[$index - 1][0] === T_STATIC) {
-                $start--;
-            }
-
-            break;
+            $closureIndexes[] = $index;
         }
 
-        if ($start === null || $closureType === null) {
-            return 'unavailable';
+        if (count($closureIndexes) !== 1) {
+            throw new InvalidArgumentException(
+                'Anonymous install-patch factories must provide an explicit key when their source span contains multiple closures.',
+            );
+        }
+
+        $closureIndex = $closureIndexes[0];
+        $closureType = $tokens[$closureIndex][0];
+        $start = $closureIndex;
+        $previous = $closureIndex - 1;
+        while ($previous >= 0 && is_array($tokens[$previous]) && in_array($tokens[$previous][0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+            $previous--;
+        }
+        if ($previous >= 0 && is_array($tokens[$previous]) && $tokens[$previous][0] === T_STATIC) {
+            $start = $previous;
         }
 
         $normalised = '';
@@ -180,13 +187,13 @@ final class InstallPatchRegistry
         return $normalised;
     }
 
-    private function closureCaptures(ReflectionFunction $reflection): string
+    private function closureCaptures(ReflectionFunction $reflection, bool $includeBoundObject): string
     {
         $captures = [];
         $activeObjects = [];
         $activeReferences = [];
         $boundObject = $reflection->getClosureThis();
-        if ($boundObject !== null) {
+        if ($includeBoundObject && $boundObject !== null) {
             $captures['$this'] = $this->stableValue($boundObject, $activeObjects, $activeReferences);
         }
 

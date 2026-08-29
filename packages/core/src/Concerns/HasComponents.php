@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Concerns;
 
 use BackedEnum;
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Components\ComponentRegistry;
 
 trait HasComponents
@@ -17,6 +19,12 @@ trait HasComponents
     public function registerComponent(string|BackedEnum $type, string|BackedEnum $name, string $component): static
     {
         resolve(ComponentRegistry::class)->registerComponent($type, $name, $component);
+        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+            ExtensionContributionType::ContentWidget,
+            'component:' . $this->componentValue($type) . ':' . $this->componentValue($name),
+            $component,
+            self::class,
+        );
 
         return $this;
     }
@@ -27,6 +35,18 @@ trait HasComponents
     public function registerComponents(string|BackedEnum $type, array $components): static
     {
         resolve(ComponentRegistry::class)->registerComponents($type, $components);
+        foreach ($components as $name => $component) {
+            if (! is_string($component)) {
+                continue;
+            }
+
+            resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+                ExtensionContributionType::ContentWidget,
+                'component:' . $this->componentValue($type) . ':' . (string) $name,
+                $component,
+                self::class,
+            );
+        }
 
         return $this;
     }
@@ -103,5 +123,10 @@ trait HasComponents
     public function getComponentCachePath(): string
     {
         return resolve(ComponentRegistry::class)->getComponentCachePath();
+    }
+
+    private function componentValue(string|BackedEnum $value): string
+    {
+        return $value instanceof BackedEnum ? (string) $value->value : $value;
     }
 }

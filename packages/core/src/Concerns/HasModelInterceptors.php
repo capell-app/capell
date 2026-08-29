@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Concerns;
 
 use BackedEnum;
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Illuminate\Database\Eloquent\Model;
 
@@ -17,6 +19,12 @@ trait HasModelInterceptors
     public function registerModelInterceptor(string $model, string $interceptorClass, null|array|string|BackedEnum $key = null, int $priority = 0): void
     {
         resolve(ModelInterceptorRegistry::class)->registerModelInterceptor($model, $interceptorClass, $key, $priority);
+        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+            ExtensionContributionType::Model,
+            'model-interceptor:' . $model . ':' . $interceptorClass . ':' . $this->interceptorKeyValue($key),
+            $interceptorClass,
+            self::class,
+        );
     }
 
     /**
@@ -79,5 +87,18 @@ trait HasModelInterceptors
     public function mergeModelInterceptorData(array $defaults, array $data): array
     {
         return resolve(ModelInterceptorRegistry::class)->mergeModelInterceptorData($defaults, $data);
+    }
+
+    private function interceptorKeyValue(null|array|string|BackedEnum $key): string
+    {
+        if ($key instanceof BackedEnum) {
+            return (string) $key->value;
+        }
+
+        if (is_array($key)) {
+            return md5((string) json_encode($key));
+        }
+
+        return $key ?? 'default';
     }
 }

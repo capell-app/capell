@@ -67,7 +67,6 @@ final class AdminBridgeRegistrar
     public function page(string $pageClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page($pageClass));
-        $this->receipt(ExtensionContributionType::AdminPage, $pageClass, $pageClass);
     }
 
     public function report(ReportDefinitionData $report): void
@@ -87,14 +86,12 @@ final class AdminBridgeRegistrar
     public function resource(string $resourceClass, string $group, string $name = 'default'): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource($resourceClass, $group, $name));
-        $this->receipt(ExtensionContributionType::AdminResource, 'resource:' . $group . ':' . $name, $resourceClass);
     }
 
     /** @param class-string $widgetClass */
     public function widget(string $widgetClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::widget($widgetClass));
-        $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'widget:' . $widgetClass, $widgetClass);
     }
 
     /** @param class-string $widgetClass */
@@ -284,21 +281,18 @@ final class AdminBridgeRegistrar
     public function configurator(string $configuratorClass, string $group, string $name): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::configurator($configuratorClass, $group, $name));
-        $this->receipt(ExtensionContributionType::Configurator, 'configurator:' . $group . ':' . $name, $configuratorClass);
     }
 
     public function schemaExtender(string $extenderClass, string $tag): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::schemaExtender($extenderClass, $tag));
         app()->tag([$extenderClass], $tag);
-        $this->receipt(ExtensionContributionType::SchemaExtender, 'schema-extender:' . $tag . ':' . $extenderClass, $extenderClass);
     }
 
     public function panelExtender(string $extenderClass): void
     {
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::panelExtender($extenderClass));
         app()->tag([$extenderClass], AdminPanelExtender::TAG);
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'panel-extender:' . $extenderClass, $extenderClass);
     }
 
     /** @param class-string<UserResourceBridge> $bridgeClass */

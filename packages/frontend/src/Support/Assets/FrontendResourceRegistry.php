@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Assets;
 
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\FrontendResourceGroupData;
@@ -28,6 +30,13 @@ final class FrontendResourceRegistry extends AbstractKeyedRegistry
         }
 
         $this->setItem($group->key, $group);
+        $this->receipts()?->recordFromContext(
+            ExtensionContributionType::Asset,
+            'resource-group:' . $group->key,
+            FrontendResourceGroupData::class,
+            self::class,
+            'frontend',
+        );
 
         foreach ($group->resources as $resource) {
             $this->resources[$resource->handle] = $resource;
@@ -53,5 +62,12 @@ final class FrontendResourceRegistry extends AbstractKeyedRegistry
     public function all(): array
     {
         return $this->allItems();
+    }
+
+    private function receipts(): ?ExtensionContributionReceiptRegistry
+    {
+        return app()->bound(ExtensionContributionReceiptRegistry::class)
+            ? resolve(ExtensionContributionReceiptRegistry::class)
+            : null;
     }
 }

@@ -338,6 +338,21 @@ class CapellAdminManager
     public function contributeToAdminSurface(AdminSurfaceContributionData $contribution): void
     {
         $this->adminSurfaceRegistry->register($contribution);
+        $type = match ($contribution->type) {
+            AdminSurfaceContributionType::Page => ExtensionContributionType::AdminPage,
+            AdminSurfaceContributionType::Resource => ExtensionContributionType::AdminResource,
+            AdminSurfaceContributionType::Widget => ExtensionContributionType::DashboardFilamentWidget,
+            AdminSurfaceContributionType::PanelExtender => ExtensionContributionType::AdminActionExtender,
+            AdminSurfaceContributionType::Configurator => ExtensionContributionType::Configurator,
+            AdminSurfaceContributionType::SchemaExtender => ExtensionContributionType::SchemaExtender,
+        };
+        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+            $type,
+            $contribution->key,
+            $contribution->class,
+            self::class,
+            'admin',
+        );
     }
 
     /**

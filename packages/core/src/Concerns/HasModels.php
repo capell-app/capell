@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Concerns;
 
 use BackedEnum;
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
@@ -41,12 +43,14 @@ trait HasModels
                 $class = $model->value;
                 $this->models[$model->name] = $class;
                 $morphMap[Str::snake($model->name)] = $class;
+                $this->recordModelReceipt($class);
             } elseif (is_string($model)) {
                 /** @var class-string<Model> $model */
                 $name = class_basename($model);
 
                 $this->models[$name] = $model;
                 $morphMap[Str::snake($name)] = $model;
+                $this->recordModelReceipt($model);
             }
         }
 
@@ -55,5 +59,15 @@ trait HasModels
         }
 
         return $this;
+    }
+
+    private function recordModelReceipt(string $model): void
+    {
+        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+            ExtensionContributionType::Model,
+            'model:' . $model,
+            $model,
+            self::class,
+        );
     }
 }

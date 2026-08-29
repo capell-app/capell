@@ -119,6 +119,17 @@ bucket, contribution type, stable key, implementation, and source class. The
 `RecordsExtensionContributionReceipt` contract. Package boot context supplies the owner
 and bucket; foundation-owned built-ins are marked explicitly.
 
+Receipt emission is attached to the documented public registration boundaries, not only
+to convenience wrappers: `CapellCore::registerPageType()`, `registerModels()`,
+`registerModelInterceptor()`, and `registerComponent(s)`; `CapellAdmin::contributeToAdminSurface()`;
+`RenderHookRegistry` registration methods; `FrontendResourceRegistry::register()`;
+`CacheInvalidationRegistry::registerDependency()`; `TailwindAssetsRegistry` registration
+methods; and the Core `InstallPatchRegistry` / Installer `PatchRegistry` seams. Marketplace
+and Installer Admin bridges use the shared `AdminBridgeRegistrar`, which supplies the
+`capell-app/marketplace` or `capell-app/installer` owner and the `admin` bucket from the
+selected package context. Tagged contributors are attributed from their supplying package
+context at resolution time; consumer registries do not manufacture a new owner.
+
 Manifests may add typed `contributionTraceability` entries with `type`, `key`, `class`,
 and `providerBucket`, plus the existing deferred/runtime integration metadata. Audits
 reconcile receipts only for explicitly booted provider buckets, reporting declared-only,
