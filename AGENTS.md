@@ -131,6 +131,16 @@ while static checks remain database-free. Run `preflight:all` only after focused
 gates pass and competing lanes are idle; classify setup, tooling, isolation,
 source, and hosted failures separately rather than skipping or baselining them.
 
+## Hosted CI merge contract
+
+This repository is the free Core repository and is not covered by the
+non-blocking GitHub Actions billing exception used by other Capell repositories.
+Every Core pull request must have all of its hosted checks green before merge.
+Local test, analysis, or review evidence may explain a hosted failure, but it
+does not replace a failed or incomplete Core Actions result. Never bypass,
+override, or merge through a red Core check; classify and repair the failure,
+then rerun the affected hosted gates on the exact proposed head.
+
 ## Local Hazards
 
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
