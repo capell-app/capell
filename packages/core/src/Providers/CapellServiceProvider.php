@@ -76,6 +76,7 @@ use Capell\Core\Enums\ComponentTypeEnum;
 use Capell\Core\Enums\LivewirePageComponentEnum;
 use Capell\Core\Enums\RenderableTypeEnum;
 use Capell\Core\Events\PageSaved;
+use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
@@ -190,6 +191,7 @@ use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
+use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
@@ -243,9 +245,10 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(ProjectBuildManifestMigrationRegistry::class);
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
         $this->app->scoped(SiteSpecApplierRegistry::class);
+        $this->app->scoped(PageUrlRewriteContext::class);
 
-        $this->app->register(MediaLibraryServiceProvider::class);
         config(['media-library.media_model' => Media::class]);
+        $this->app->register(MediaLibraryServiceProvider::class);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', self::$name);
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', 'capell-core');
         $this->app->make(PackageRegistryBootstrapper::class)->bootstrap();
@@ -948,6 +951,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         Event::listen(PageSaved::class, [CreateRedirectsForChangedPageUrls::class, 'handle']);
+        Event::listen(PageUrlsRewritten::class, [CreateRedirectsForChangedPageUrls::class, 'handleUrlRewrite']);
 
         return $this;
     }

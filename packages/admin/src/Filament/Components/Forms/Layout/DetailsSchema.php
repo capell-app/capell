@@ -20,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rules\Unique;
 
@@ -71,6 +72,15 @@ class DetailsSchema
                         ->step(1),
                     DefaultToggle::make('default'),
                     StatusToggle::make('status'),
+                ]),
+
+            Section::make(__('capell-admin::generic.layout_impact_preview'))
+                ->description(__('capell-admin::generic.layout_impact_preview_description'))
+                ->columnSpanFull()
+                ->hiddenOn(['create', 'createOption', 'replicate'])
+                ->schema([
+                    View::make('capell-admin::filament.forms.layout-impact-preview')
+                        ->columnSpanFull(),
                 ]),
 
             Section::make(__('capell-admin::form.preview'))

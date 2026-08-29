@@ -11,6 +11,7 @@ use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use BladeUI\Icons\BladeIconsServiceProvider;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\Media;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Tests\Fixtures\Components\Headers\CustomHeader as FakeCustomHeader;
@@ -181,11 +182,13 @@ abstract class AbstractTestCase extends TestCase
         return true;
     }
 
-    protected function resolveApplicationConfiguration(mixed $app): void
+    protected function getApplicationBootstrapFile(string $filename): string|false
     {
-        $this->ignoreDeprecatedPdoMysqlConstants();
+        if ($filename === 'app.php' && getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true') {
+            return dirname(__DIR__) . '/tests/Support/runtime-role-testbench-bootstrap.php';
+        }
 
-        parent::resolveApplicationConfiguration($app);
+        return parent::getApplicationBootstrapFile($filename);
     }
 
     /**
@@ -343,6 +346,8 @@ abstract class AbstractTestCase extends TestCase
             $this->registerPackageConfig($package_key, $config);
         }
 
+        Config::set('media-library.media_model', Media::class);
+
         Config::set('filament-shield.authenticable-resources', [User::class]);
         Config::set('filament-shield.auth_provider_model', User::class);
 
@@ -365,10 +370,20 @@ abstract class AbstractTestCase extends TestCase
     protected function getDefaultPackages(): array
     {
         return [
+            'activitylog' => [
+                'user' => 'spatie',
+                'name' => 'laravel-activitylog',
+                'file' => 'activitylog',
+            ],
             'filament-shield' => [
                 'user' => 'bezhansalleh',
                 'name' => 'filament-shield',
                 'file' => 'filament-shield',
+            ],
+            'media-library' => [
+                'user' => 'spatie',
+                'name' => 'laravel-medialibrary',
+                'file' => 'media-library',
             ],
             'permission' => [
                 'user' => 'spatie',

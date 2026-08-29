@@ -48,9 +48,9 @@ use Capell\Admin\Filament\Resources\Pages\Actions\RevisionsHeaderAction;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
-use Capell\Core\Actions\CollectDescendantPageUrlsAction;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\GetResourceFromBlueprintAction;
 use Capell\Core\Contracts\Pageable;
@@ -487,9 +487,14 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         SavePageAuthoringAction::run(new PageAuthoringInputData(
             page: $page,
             formData: is_array($this->data) ? $this->data : [],
-            previousUrls: $this->urlChanges,
+            previousUrls: [],
             recordRedirects: true,
         ));
+
+        // The rewrite event can be emitted by the page observer or by the
+        // translation lifecycle listener while authoring data is saved. Read
+        // the accumulated state only after that work has completed.
+        $this->applyPageUrlRewrite($page);
 
         $this->discardEditorScratchDraft();
 
@@ -543,12 +548,6 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
             return;
         }
-
-        $this->urlChanges = $this->getUpdatedUrlChanges();
-
-        $this->descendantUrlChanges = $this->urlChanges === []
-            ? []
-            : CollectDescendantPageUrlsAction::run($this->record);
     }
 
     protected function afterValidate(): void
@@ -669,40 +668,6 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     {
         return collect(app()->tagged(PageEditExtender::TAG))
             ->flatMap(fn (PageEditExtender $extender): array => $extender->getHeaderWidgets())
-            ->all();
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    protected function getUpdatedUrlChanges(): array
-    {
-        $data = is_array($this->data) ? $this->data : [];
-
-        if ($this->hasPageHierarchy() && $this->record->parent_id !== ($data['parent_id'] ?? null)) {
-            return $this->record->pageUrls->pluck('url', 'language_id')->toArray();
-        }
-
-        $translations = collect(is_array($data['translations'] ?? null) ? $data['translations'] : []);
-
-        $keyedTranslations = $translations->keyBy('language_id');
-
-        return $this->record
-            ->translations
-            ->filter(function (Translation $translation) use ($keyedTranslations): bool {
-                $existingTranslation = $keyedTranslations[$translation->language_id] ?? null;
-
-                $slug = $existingTranslation['meta']['slug'] ?? null;
-
-                return $existingTranslation === null || $slug !== $translation->slug;
-            })
-            ->mapWithKeys(
-                function (Translation $translation): array {
-                    $pageUrl = $translation->pageUrl;
-
-                    return $pageUrl === null ? [] : [$translation->language_id => $pageUrl->url];
-                },
-            )
             ->all();
     }
 
@@ -1070,6 +1035,32 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                     $action->halt();
                 }
             });
+    }
+
+    /**
+     * @param  Pageable<Model>  $page
+     */
+    private function applyPageUrlRewrite(Pageable $page): void
+    {
+        $this->urlChanges = [];
+        $this->descendantUrlChanges = [];
+
+        $rewrite = resolve(PageUrlRewritePromptState::class)->consume($page);
+
+        if ($rewrite === null) {
+            return;
+        }
+
+        $this->urlChanges = collect($rewrite->urlChanges)
+            ->mapWithKeys(fn (array $change, int $languageId): array => [$languageId => $change['old']])
+            ->all();
+        $this->descendantUrlChanges = collect($rewrite->descendantUrlChanges)
+            ->mapWithKeys(fn (array $changes, int $pageId): array => [
+                $pageId => collect($changes)
+                    ->mapWithKeys(fn (array $change, int $languageId): array => [$languageId => $change['old']])
+                    ->all(),
+            ])
+            ->all();
     }
 
     private function notifyUrlChanges(): void

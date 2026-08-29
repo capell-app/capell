@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\LayoutEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Blueprint;
@@ -255,12 +256,10 @@ it('rolls back a page when translation creation fails', function (): void {
     $type = Blueprint::factory()->page()->create(['key' => 'article']);
 
     Event::listen('eloquent.creating: ' . Translation::class, function (Translation $translation): void {
-        if ($translation->translatable_type === (new Page)->getMorphClass()) {
-            throw new RuntimeException('Intentional translation creation failure.');
-        }
+        throw_if($translation->translatable_type === (new Page)->getMorphClass(), RuntimeException::class, 'Intentional translation creation failure.');
     });
 
-    expect(fn (): Page => resolve(PageCreator::class)->createPage([
+    expect(fn (): Pageable => resolve(PageCreator::class)->createPage([
         'name' => 'Atomic page',
         'layout_id' => $layout->id,
         'blueprint_id' => $type->id,

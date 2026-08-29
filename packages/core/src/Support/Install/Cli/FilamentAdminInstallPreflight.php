@@ -52,7 +52,7 @@ final class FilamentAdminInstallPreflight
             }
         }
 
-        $this->registerPanelProviders();
+        InstallFilamentPanelAction::registerPanelProviders();
 
         if (! $this->hasPanelProvider()) {
             $writeError('Filament panel installation did not create an AdminPanelProvider. Run `php artisan filament:install --panels` manually, then rerun `php artisan capell:install`.');
@@ -66,22 +66,6 @@ final class FilamentAdminInstallPreflight
     public function hasInstalledPanelProvider(): bool
     {
         return $this->hasPanelProvider();
-    }
-
-    private function registerPanelProviders(): void
-    {
-        foreach ($this->panelProviderPaths() as $path) {
-            $relativePath = str_replace(app_path() . DIRECTORY_SEPARATOR, '', $path);
-            $class = 'App\\' . str_replace(['/', '.php'], ['\\', ''], $relativePath);
-
-            if (! class_exists($class)) {
-                require_once $path;
-            }
-
-            if (class_exists($class)) {
-                app()->register($class);
-            }
-        }
     }
 
     private function hasPanelProvider(): bool
