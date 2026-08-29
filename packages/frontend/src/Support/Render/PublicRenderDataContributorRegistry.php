@@ -27,6 +27,9 @@ final class PublicRenderDataContributorRegistry
     /** @var WeakMap<FrontendRenderContextData, PublicRenderDataContributionMetadataData> */
     private WeakMap $metadata;
 
+    /** @var WeakMap<FrontendRenderContextData, array<string, PublicRenderDataContributor>> */
+    private WeakMap $active;
+
     /**
      * @param  iterable<PublicRenderDataContributor>  $contributors
      */
@@ -36,6 +39,7 @@ final class PublicRenderDataContributorRegistry
     ) {
         $this->prepared = new WeakMap;
         $this->metadata = new WeakMap;
+        $this->active = new WeakMap;
 
         foreach ($contributors as $contributor) {
             $this->register($contributor);
@@ -76,11 +80,7 @@ final class PublicRenderDataContributorRegistry
         $values = [];
         $surrogateKeys = [];
 
-        foreach ($this->all() as $key => $contributor) {
-            if (! $contributor->supports($context)) {
-                continue;
-            }
-
+        foreach ($this->activeContributors($context) as $key => $contributor) {
             $contribution = $contributor->contribute($context);
 
             throw_unless($contribution instanceof PublicRenderDataContributionData, InvalidArgumentException::class, sprintf('Public render-data contributor [%s] returned an invalid contribution.', $key));
@@ -113,11 +113,7 @@ final class PublicRenderDataContributorRegistry
         $surrogateKeys = [];
         $cacheDependencies = [];
 
-        foreach ($this->all() as $key => $contributor) {
-            if (! $contributor->supports($context)) {
-                continue;
-            }
-
+        foreach ($this->activeContributors($context) as $key => $contributor) {
             $declaredModelTypes = $this->validatedModelTypes($contributor, $key);
 
             $contribution = $contributor->metadata($context);
@@ -169,5 +165,24 @@ final class PublicRenderDataContributorRegistry
         }
 
         return $modelTypes;
+    }
+
+    /** @return array<string, PublicRenderDataContributor> */
+    private function activeContributors(FrontendRenderContextData $context): array
+    {
+        if (isset($this->active[$context])) {
+            return $this->active[$context];
+        }
+
+        $active = [];
+        foreach ($this->all() as $key => $contributor) {
+            if ($contributor->supports($context)) {
+                $active[$key] = $contributor;
+            }
+        }
+
+        $this->active[$context] = $active;
+
+        return $active;
     }
 }

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Cache;
 
 use Capell\Core\Concerns\HasCache;
+use Capell\Frontend\Actions\InvalidateFrontendSurrogateKeysAction;
 use Capell\Frontend\Data\CacheInvalidationPlanData;
 use Capell\Frontend\Data\CacheInvalidationRule;
+use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 
 final class CacheInvalidationExecutor
 {
@@ -28,6 +30,14 @@ final class CacheInvalidationExecutor
 
             if ($rule->kind === CacheInvalidationRule::KIND_INVALIDATE_PATTERN && $rule->cacheKey !== null) {
                 $this->invalidateCachePattern($rule->cacheKey);
+            }
+
+            if ($rule->kind === CacheInvalidationRule::KIND_STATIC_ARTIFACT && $rule->cacheKey !== null) {
+                resolve(StaticPageArtifactStore::class)->forgetHtml($rule->cacheKey);
+            }
+
+            if ($rule->kind === CacheInvalidationRule::KIND_SURROGATE_KEYS) {
+                InvalidateFrontendSurrogateKeysAction::run($rule->surrogateKeys);
             }
 
             if (

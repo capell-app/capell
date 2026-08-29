@@ -31,6 +31,15 @@ final class StaticPageArtifactStore
         File::put($path, $contents);
     }
 
+    public function forgetHtml(string $file): void
+    {
+        $path = $this->pathWithinRoot($file);
+
+        if (File::exists($path)) {
+            File::delete($path);
+        }
+    }
+
     /**
      * @param  array<string, mixed>  $manifest
      */

@@ -107,12 +107,12 @@ it('carries validated contributor metadata into static artifacts', function (): 
 
     $metadata = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, new Response('<html></html>'));
 
-    expect($metadata->surrogateKeys)->toBe(['catalogue-' . $page->id])
+    expect($metadata->surrogateKeys)->toBe([hash('sha256', 'catalogue-' . $page->id)])
         ->and($metadata->dependencies['public_render_data'])->toBe([
-            'fingerprint' => 'catalogue-v1',
-            'cache_dependencies' => [[
-                'model_type' => Page::class,
-                'model_id' => $page->id,
-            ]],
-        ]);
+            'fingerprint' => hash('sha256', 'catalogue-v1'),
+            'cache_dependencies' => [hash('sha256', Page::class . ':' . $page->id)],
+        ])
+        ->and(json_encode($metadata->toArray(), JSON_THROW_ON_ERROR))
+        ->not->toContain(Page::class)
+        ->not->toContain('catalogue-' . $page->id);
 });

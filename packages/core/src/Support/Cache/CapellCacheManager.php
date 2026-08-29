@@ -176,6 +176,14 @@ final class CapellCacheManager
         return $value === $sentinel ? null : $value;
     }
 
+    /** Read through the backend, bypassing this manager's per-process cache. */
+    public function getFreshFromCache(string $key): mixed
+    {
+        unset($this->localCache[$this->normalizeCacheKey($key)]);
+
+        return $this->getFromCache($key);
+    }
+
     public function setToCache(string $key, mixed $value, Closure|DateTimeInterface|DateInterval|int|null $ttl = null): void
     {
         if ($this->isCacheSaveDisabledForKey($key)) {

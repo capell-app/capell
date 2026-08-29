@@ -165,6 +165,152 @@ it('preserves a typed Spatie Data value as a closed public object', function ():
     expect($contribution->value)->toEqual((object) ['name' => 'Tea']);
 });
 
+it('rejects an Eloquent model nested in a typed Spatie Data value before transformation', function (): void {
+    $value = new class(new Page) extends Data
+    {
+        public function __construct(public Page $model) {}
+    };
+
+    new PublicRenderDataContributionData($value);
+})->throws(RuntimeException::class, 'Eloquent models');
+
+it('rejects an Eloquent model hidden by JsonSerializable before transformation', function (): void {
+    $value = new class(new Page) implements JsonSerializable
+    {
+        public function __construct(private Page $model) {}
+
+        public function jsonSerialize(): array
+        {
+            return ['model' => $this->model->toArray()];
+        }
+    };
+
+    new PublicRenderDataContributionData($value);
+})->throws(RuntimeException::class, 'Eloquent models');
+
+it('rejects an Eloquent model yielded by Traversable before transformation', function (): void {
+    $value = new class(new Page) implements IteratorAggregate
+    {
+        public function __construct(private Page $model) {}
+
+        public function getIterator(): Traversable
+        {
+            yield 'model' => $this->model;
+        }
+    };
+
+    new PublicRenderDataContributionData($value);
+})->throws(RuntimeException::class, 'Eloquent models');
+
+it('fails closed for public and hidden cyclic object graphs', function (bool $hidden): void {
+    if (! $hidden) {
+        $value = new stdClass;
+        $value->self = $value;
+    } else {
+        $node = new stdClass;
+        $value = new class($node)
+        {
+            private stdClass $node;
+
+            public function __construct(stdClass $node)
+            {
+                $this->node = $node;
+            }
+        };
+        $node->owner = $value;
+    }
+
+    new PublicRenderDataContributionData($value);
+})->with([false, true])->throws(RuntimeException::class, 'cyclic object graphs');
+
+it('reuses a false support decision between metadata and value preparation', function (): void {
+    $active = false;
+    $supportsCalls = 0;
+    $contributor = new class($active, $supportsCalls) implements PublicRenderDataContributor
+    {
+        public function __construct(private bool &$active, private int &$supportsCalls) {}
+
+        public function key(): string
+        {
+            return 'support-false-to-true';
+        }
+
+        public function supports(FrontendRenderContextData $context): bool
+        {
+            $this->supportsCalls++;
+
+            return $this->active;
+        }
+
+        public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+        {
+            return new PublicRenderDataContributionMetadataData('support-v1');
+        }
+
+        public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
+        {
+            return new PublicRenderDataContributionData((object) ['value' => 'unexpected']);
+        }
+
+        public function cacheDependencyModelTypes(): array
+        {
+            return [];
+        }
+    };
+    $registry = new PublicRenderDataContributorRegistry([$contributor], new ExtensionContributionReceiptRegistry);
+    $context = new FrontendRenderContextData(null, null, null, null, null);
+
+    $registry->metadata($context);
+    $active = true;
+
+    expect($registry->prepare($context)->values)->toBe([])
+        ->and($supportsCalls)->toBe(1);
+});
+
+it('reuses a true support decision between metadata and value preparation', function (): void {
+    $active = true;
+    $supportsCalls = 0;
+    $contributor = new class($active, $supportsCalls) implements PublicRenderDataContributor
+    {
+        public function __construct(private bool &$active, private int &$supportsCalls) {}
+
+        public function key(): string
+        {
+            return 'support-true-to-false';
+        }
+
+        public function supports(FrontendRenderContextData $context): bool
+        {
+            $this->supportsCalls++;
+
+            return $this->active;
+        }
+
+        public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+        {
+            return new PublicRenderDataContributionMetadataData('support-v1');
+        }
+
+        public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
+        {
+            return new PublicRenderDataContributionData((object) ['value' => 'expected']);
+        }
+
+        public function cacheDependencyModelTypes(): array
+        {
+            return [];
+        }
+    };
+    $registry = new PublicRenderDataContributorRegistry([$contributor], new ExtensionContributionReceiptRegistry);
+    $context = new FrontendRenderContextData(null, null, null, null, null);
+
+    $registry->metadata($context);
+    $active = false;
+
+    expect($registry->prepare($context)->values)->toHaveKey('support-true-to-false')
+        ->and($supportsCalls)->toBe(1);
+});
+
 it('fails the real bootstrap when a contributor dependency is undeclared', function (): void {
     $registry = resolve(PublicRenderDataContributorRegistry::class);
     $registry->register(new class implements PublicRenderDataContributor

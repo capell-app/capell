@@ -24,6 +24,8 @@ final readonly class PublicRenderDataContributionData
         object $value,
         public array $surrogateKeys = [],
     ) {
+        $activeObjects = [];
+        self::assertSafeGraph($value, $activeObjects);
         $this->value = self::publicObject($value);
 
         foreach ($this->surrogateKeys as $key) {
@@ -98,6 +100,59 @@ final readonly class PublicRenderDataContributionData
         }
 
         return $public;
+    }
+
+    /** @param array<int, true> $activeObjects */
+    private static function assertSafeGraph(mixed $value, array &$activeObjects): void
+    {
+        if ($value === null || is_scalar($value)) {
+            return;
+        }
+
+        throw_if(is_resource($value) || $value instanceof Closure, RuntimeException::class, 'Public render-data contributor values must be serialisable public data and cannot contain resources or closures.');
+
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                self::assertSafeGraph($item, $activeObjects);
+            }
+
+            return;
+        }
+
+        throw_if($value instanceof Model, RuntimeException::class, 'Public render-data contributor values cannot contain Eloquent models.');
+
+        $objectId = spl_object_id($value);
+        throw_if(isset($activeObjects[$objectId]), RuntimeException::class, 'Public render-data contributor values cannot contain cyclic object graphs.');
+        $activeObjects[$objectId] = true;
+
+        try {
+            if ($value instanceof Traversable) {
+                foreach ($value as $item) {
+                    self::assertSafeGraph($item, $activeObjects);
+                }
+            }
+
+            if ($value instanceof stdClass) {
+                foreach (get_object_vars($value) as $item) {
+                    self::assertSafeGraph($item, $activeObjects);
+                }
+            } else {
+                foreach ((new ReflectionClass($value))->getProperties() as $property) {
+                    if (! $property->isInitialized($value)) {
+                        continue;
+                    }
+
+                    $property->setAccessible(true);
+                    self::assertSafeGraph($property->getValue($value), $activeObjects);
+                }
+            }
+
+            if ($value instanceof JsonSerializable) {
+                self::assertSafeGraph($value->jsonSerialize(), $activeObjects);
+            }
+        } finally {
+            unset($activeObjects[$objectId]);
+        }
     }
 
     private static function assertSafeHiddenValue(mixed $value): void

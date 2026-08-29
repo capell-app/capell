@@ -25,6 +25,15 @@ final class PublicRenderDataCacheDependencyRegistry
         });
     }
 
+    /** @param list<string> $surrogateKeys */
+    public function registerStaticArtifact(PublicRenderDataCacheDependencyData $dependency, string $file, array $surrogateKeys = []): void
+    {
+        $this->withLock($dependency, function () use ($dependency, $file, $surrogateKeys): void {
+            $this->registerDestinationUnlocked($this->staticIndexKey($dependency), $file);
+            $this->registerSurrogateKeysUnlocked($dependency, $surrogateKeys);
+        });
+    }
+
     /** @return list<CacheInvalidationRule> */
     public function rulesFor(Model $model): array
     {
@@ -36,6 +45,8 @@ final class PublicRenderDataCacheDependencyRegistry
         $dependency = PublicRenderDataCacheDependencyData::forModel($model);
         $this->withLock($dependency, function () use ($dependency): void {
             $this->cache->removeCacheKey($this->indexKey($dependency));
+            $this->cache->removeCacheKey($this->staticIndexKey($dependency));
+            $this->cache->removeCacheKey($this->surrogateIndexKey($dependency));
         });
     }
 
@@ -47,6 +58,8 @@ final class PublicRenderDataCacheDependencyRegistry
         $this->withLock($dependency, function () use ($dependency, $callback): void {
             $callback($this->rulesForUnlocked($dependency));
             $this->cache->removeCacheKey($this->indexKey($dependency));
+            $this->cache->removeCacheKey($this->staticIndexKey($dependency));
+            $this->cache->removeCacheKey($this->surrogateIndexKey($dependency));
         });
     }
 
@@ -69,30 +82,68 @@ final class PublicRenderDataCacheDependencyRegistry
         return self::CACHE_PREFIX . hash('sha256', $dependency->identity());
     }
 
+    private function staticIndexKey(PublicRenderDataCacheDependencyData $dependency): string
+    {
+        return self::CACHE_PREFIX . 'static:' . hash('sha256', $dependency->identity());
+    }
+
+    private function surrogateIndexKey(PublicRenderDataCacheDependencyData $dependency): string
+    {
+        return self::CACHE_PREFIX . 'surrogates:' . hash('sha256', $dependency->identity());
+    }
+
     /** @return list<CacheInvalidationRule> */
     private function rulesForUnlocked(PublicRenderDataCacheDependencyData $dependency): array
     {
-        $cacheKeys = $this->cache->getFromCache($this->indexKey($dependency));
+        $cacheKeys = $this->cache->getFreshFromCache($this->indexKey($dependency));
 
         if (! is_array($cacheKeys)) {
             return [];
         }
 
-        return array_values(array_map(
+        $rules = array_values(array_map(
             static fn (mixed $cacheKey): CacheInvalidationRule => CacheInvalidationRule::forgetKey((string) $cacheKey),
             array_filter($cacheKeys, static fn (mixed $cacheKey): bool => is_string($cacheKey) && $cacheKey !== ''),
         ));
+
+        $staticFiles = $this->cache->getFreshFromCache($this->staticIndexKey($dependency));
+        if (is_array($staticFiles)) {
+            foreach ($staticFiles as $file) {
+                if (is_string($file) && $file !== '') {
+                    $rules[] = CacheInvalidationRule::staticArtifact($file);
+                }
+            }
+        }
+
+        $surrogateKeys = $this->cache->getFreshFromCache($this->surrogateIndexKey($dependency));
+        if (is_array($surrogateKeys) && $surrogateKeys !== []) {
+            $rules[] = CacheInvalidationRule::surrogateKeys(array_values(array_filter($surrogateKeys, static fn (mixed $key): bool => is_string($key) && $key !== '')));
+        }
+
+        return $rules;
     }
 
     private function registerUnlocked(PublicRenderDataCacheDependencyData $dependency, string $cacheKey): void
     {
-        $indexKey = $this->indexKey($dependency);
-        $cacheKeys = $this->cache->getFromCache($indexKey);
+        $this->registerDestinationUnlocked($this->indexKey($dependency), $cacheKey);
+    }
+
+    private function registerDestinationUnlocked(string $indexKey, string $destination): void
+    {
+        $cacheKeys = $this->cache->getFreshFromCache($indexKey);
         $cacheKeys = is_array($cacheKeys) ? $cacheKeys : [];
 
-        if (! in_array($cacheKey, $cacheKeys, true)) {
-            $cacheKeys[] = $cacheKey;
+        if (! in_array($destination, $cacheKeys, true)) {
+            $cacheKeys[] = $destination;
             $this->cache->setToCache($indexKey, $cacheKeys, 0);
+        }
+    }
+
+    /** @param list<string> $surrogateKeys */
+    private function registerSurrogateKeysUnlocked(PublicRenderDataCacheDependencyData $dependency, array $surrogateKeys): void
+    {
+        foreach (array_values(array_unique($surrogateKeys)) as $surrogateKey) {
+            $this->registerDestinationUnlocked($this->surrogateIndexKey($dependency), $surrogateKey);
         }
     }
 

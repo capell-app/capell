@@ -32,7 +32,10 @@ class BuildStaticPageArtifactMetadataAction
             dependencies: $this->dependencies($renderData),
             runtime: $this->fingerprint($renderData->runtimeManifest->toArray()),
             assets: $this->assets($renderData),
-            surrogateKeys: $renderData->extensionSurrogateKeys,
+            surrogateKeys: array_map(
+                static fn (string $key): string => hash('sha256', $key),
+                $renderData->extensionSurrogateKeys,
+            ),
             generatedAt: Date::now()->toIso8601String(),
         );
     }
@@ -77,12 +80,9 @@ class BuildStaticPageArtifactMetadataAction
 
         $metadata = $this->fingerprint($dependencies);
         $metadata['public_render_data'] = [
-            'fingerprint' => $renderData->extensionFingerprint,
+            'fingerprint' => hash('sha256', $renderData->extensionFingerprint),
             'cache_dependencies' => array_map(
-                static fn (PublicRenderDataCacheDependencyData $dependency): array => [
-                    'model_type' => $dependency->modelType,
-                    'model_id' => $dependency->modelId,
-                ],
+                static fn (PublicRenderDataCacheDependencyData $dependency): string => hash('sha256', $dependency->identity()),
                 $renderData->extensionCacheDependencies,
             ),
         ];
