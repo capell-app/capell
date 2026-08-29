@@ -122,6 +122,20 @@ else
     exit 1
 fi
 
+# Every linked worktree has a distinct administrative directory under the
+# shared Git common directory, even when all checkouts are named capell-4.
+# Derive the Compose project from that ID so one worktree cannot recreate or
+# attach to another worktree's services. Primary checkouts retain the repo
+# name for backwards compatibility.
+compose_project_name="$(basename "$repo_dir")"
+if [ -f .git ] && [ ! -d .git ]; then
+    worktree_git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+    case "$worktree_git_dir" in
+        */worktrees/*) compose_project_name="capell-$(basename "$worktree_git_dir")" ;;
+    esac
+fi
+compose_command+=(--project-name "$compose_project_name")
+
 app_exec=("${compose_command[@]}" exec --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer app)
 test_exec=("${compose_command[@]}" exec --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer --env APP_ENV=testing --env DB_CONNECTION=sqlite --env DB_DATABASE=:memory: --env DB_URL= app)
 app_run=("${compose_command[@]}" run --rm --no-deps --user capell --env HOME=/home/capell --env COMPOSER_HOME=/home/capell/.config/composer app)
