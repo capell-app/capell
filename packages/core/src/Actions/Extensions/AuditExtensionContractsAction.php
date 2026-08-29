@@ -368,7 +368,19 @@ final class AuditExtensionContractsAction
         }
 
         foreach ($receipts as $receipt) {
-            if (! in_array($receipt->providerBucket, $bootedBuckets, true) || $receipt->ownerPackage !== $manifest->name || $receipt->foundationBuiltIn || isset($matchedReceiptIds[spl_object_id($receipt)])) {
+            if (! in_array($receipt->providerBucket, $bootedBuckets, true)) {
+                continue;
+            }
+
+            if ($receipt->ownerPackage !== $manifest->name) {
+                continue;
+            }
+
+            if ($receipt->foundationBuiltIn) {
+                continue;
+            }
+
+            if (isset($matchedReceiptIds[spl_object_id($receipt)])) {
                 continue;
             }
 

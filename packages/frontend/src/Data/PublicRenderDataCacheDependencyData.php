@@ -29,6 +29,6 @@ final readonly class PublicRenderDataCacheDependencyData
 
     public function identity(): string
     {
-        return $this->modelType . ':' . (string) $this->modelId;
+        return $this->modelType . ':' . $this->modelId;
     }
 }

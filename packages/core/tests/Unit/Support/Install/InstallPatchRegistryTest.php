@@ -235,15 +235,15 @@ it('allows nested closures inside a keyless factory', function (): void {
 it('includes bound object state in anonymous factory identities', function (): void {
     $firstReceipts = new ExtensionContributionReceiptRegistry;
     $first = new InstallPatchRegistry($firstReceipts);
-    $first->register((new InstallPatchReceiptCapturedState('alpha', InstallPatchReceiptCapturedMode::First))->factory());
+    $first->register(new InstallPatchReceiptCapturedState('alpha', InstallPatchReceiptCapturedMode::First)->factory());
 
     $secondReceipts = new ExtensionContributionReceiptRegistry;
     $second = new InstallPatchRegistry($secondReceipts);
-    $second->register((new InstallPatchReceiptCapturedState('beta', InstallPatchReceiptCapturedMode::First))->factory());
+    $second->register(new InstallPatchReceiptCapturedState('beta', InstallPatchReceiptCapturedMode::First)->factory());
 
     $sameStateReceipts = new ExtensionContributionReceiptRegistry;
     $sameState = new InstallPatchRegistry($sameStateReceipts);
-    $sameState->register((new InstallPatchReceiptCapturedState('alpha', InstallPatchReceiptCapturedMode::First))->factory());
+    $sameState->register(new InstallPatchReceiptCapturedState('alpha', InstallPatchReceiptCapturedMode::First)->factory());
 
     expect($firstReceipts->all()[0]->key)->not->toBe($secondReceipts->all()[0]->key)
         ->and($firstReceipts->all()[0]->key)->toBe($sameStateReceipts->all()[0]->key);
@@ -292,6 +292,7 @@ it('does not mistake literals or prefixed variables for this in a bound factory'
 
     $state = new InstallPatchReceiptCapturedState('literal-bound', InstallPatchReceiptCapturedMode::First);
     $state->nested = $state;
+
     $registry->register($state->literalFactory());
 
     expect($receipts->all())->toHaveCount(1)

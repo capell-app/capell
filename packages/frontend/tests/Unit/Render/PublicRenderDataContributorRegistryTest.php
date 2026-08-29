@@ -13,6 +13,7 @@ use Capell\Frontend\Data\PublicRenderDataContributionData;
 use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Support\Bootstrap\FrontendEventBootstrapper;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\LaravelData\Data;
 
@@ -131,15 +132,13 @@ it('fails closed for non-serialisable public values', function (): void {
 })->throws(RuntimeException::class, 'serialisable public data');
 
 it('fails closed when an arbitrary value hides an Eloquent model', function (): void {
-    $value = new class(new class extends Model {})
+    $value = new readonly class(new class extends Model
+    {
+        use HasFactory;
+    })
     {
 
-        private Model $model;
-
-        public function __construct(Model $model)
-        {
-            $this->model = $model;
-        }
+        public function __construct(private Model $model) {}
 
         public function model(): Model
         {
@@ -175,7 +174,7 @@ it('rejects an Eloquent model nested in a typed Spatie Data value before transfo
 })->throws(RuntimeException::class, 'Eloquent models');
 
 it('rejects an Eloquent model hidden by JsonSerializable before transformation', function (): void {
-    $value = new class(new Page) implements JsonSerializable
+    $value = new readonly class(new Page) implements JsonSerializable
     {
         public function __construct(private Page $model) {}
 
@@ -189,7 +188,7 @@ it('rejects an Eloquent model hidden by JsonSerializable before transformation',
 })->throws(RuntimeException::class, 'Eloquent models');
 
 it('rejects an Eloquent model yielded by Traversable before transformation', function (): void {
-    $value = new class(new Page) implements IteratorAggregate
+    $value = new readonly class(new Page) implements IteratorAggregate
     {
         public function __construct(private Page $model) {}
 
@@ -208,15 +207,11 @@ it('fails closed for public and hidden cyclic object graphs', function (bool $hi
         $value->self = $value;
     } else {
         $node = new stdClass;
-        $value = new class($node)
+        $value = new class
         {
-            private stdClass $node;
-
-            public function __construct(stdClass $node)
-            {
-                $this->node = $node;
-            }
+            public stdClass $node;
         };
+        $value->node = $node;
         $node->owner = $value;
     }
 

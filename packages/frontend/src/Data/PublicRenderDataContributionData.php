@@ -17,7 +17,7 @@ use Traversable;
 /** One normalised, validated public render-data value. */
 final readonly class PublicRenderDataContributionData
 {
-    public readonly object $value;
+    public object $value;
 
     /** @param list<string> $surrogateKeys */
     public function __construct(
@@ -26,7 +26,7 @@ final readonly class PublicRenderDataContributionData
     ) {
         $activeObjects = [];
         self::assertSafeGraph($value, $activeObjects);
-        $this->value = self::publicObject($value);
+        $this->value = $this->publicObject($value);
 
         foreach ($this->surrogateKeys as $key) {
             throw_unless(is_string($key) && preg_match('/\A[A-Za-z0-9_-]+\z/', $key) === 1, RuntimeException::class, 'Public render-data contributors require valid surrogate keys.');
@@ -35,21 +35,8 @@ final readonly class PublicRenderDataContributionData
         try {
             json_encode($this->value, JSON_THROW_ON_ERROR);
         } catch (Throwable $throwable) {
-            throw new RuntimeException('Public render-data contributor values must be serialisable public data.', previous: $throwable);
+            throw new RuntimeException('Public render-data contributor values must be serialisable public data.', $throwable->getCode(), previous: $throwable);
         }
-    }
-
-    private static function publicObject(object $value): object
-    {
-        $normalised = self::publicValue($value);
-
-        if (is_array($normalised)) {
-            $normalised = (object) $normalised;
-        }
-
-        throw_unless(is_object($normalised), RuntimeException::class, 'Public render-data contributor values must be public objects.');
-
-        return $normalised;
     }
 
     private static function publicValue(mixed $value): mixed
@@ -90,7 +77,6 @@ final readonly class PublicRenderDataContributionData
                 continue;
             }
 
-            $property->setAccessible(true);
             $propertyValue = $property->getValue($value);
             self::assertSafeHiddenValue($propertyValue);
 
@@ -137,12 +123,11 @@ final readonly class PublicRenderDataContributionData
                     self::assertSafeGraph($item, $activeObjects);
                 }
             } else {
-                foreach ((new ReflectionClass($value))->getProperties() as $property) {
+                foreach (new ReflectionClass($value)->getProperties() as $property) {
                     if (! $property->isInitialized($value)) {
                         continue;
                     }
 
-                    $property->setAccessible(true);
                     self::assertSafeGraph($property->getValue($value), $activeObjects);
                 }
             }
@@ -174,12 +159,24 @@ final readonly class PublicRenderDataContributionData
         if (is_object($value)) {
             throw_if($value instanceof Model, RuntimeException::class, 'Public render-data contributor values cannot hide Eloquent models.');
 
-            foreach ((new ReflectionClass($value))->getProperties() as $property) {
+            foreach (new ReflectionClass($value)->getProperties() as $property) {
                 if ($property->isInitialized($value)) {
-                    $property->setAccessible(true);
                     self::assertSafeHiddenValue($property->getValue($value));
                 }
             }
         }
+    }
+
+    private function publicObject(object $value): object
+    {
+        $normalised = self::publicValue($value);
+
+        if (is_array($normalised)) {
+            $normalised = (object) $normalised;
+        }
+
+        throw_unless(is_object($normalised), RuntimeException::class, 'Public render-data contributor values must be public objects.');
+
+        return $normalised;
     }
 }

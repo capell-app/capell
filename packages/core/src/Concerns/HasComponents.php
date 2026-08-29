@@ -26,6 +26,7 @@ trait HasComponents
         if ($existing !== null && $existing !== $component) {
             return $this;
         }
+
         if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
             return $this;
         }
@@ -70,7 +71,7 @@ trait HasComponents
 
             resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
                 ExtensionContributionType::ContentWidget,
-                'component:' . $canonicalType . ':' . (string) $name,
+                'component:' . $canonicalType . ':' . $name,
                 $component,
                 self::class,
                 'runtime',

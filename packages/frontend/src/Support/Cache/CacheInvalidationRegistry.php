@@ -96,6 +96,7 @@ final class CacheInvalidationRegistry
                 $this->executor->registerCacheInvalidationPattern($pattern);
             }
         }
+
         $this->receipts()?->recordContribution(
             ExtensionContributionReceiptType::CacheDependency,
             'cache-dependency:' . $modelClass,

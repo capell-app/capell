@@ -105,7 +105,11 @@ final class InstallPatchRegistry
         $tokens = token_get_all('<?php ' . $source);
         $closureIndex = null;
         foreach ($tokens as $index => $token) {
-            if (! is_array($token) || ! in_array($token[0], [T_FUNCTION, T_FN], true)) {
+            if (! is_array($token)) {
+                continue;
+            }
+
+            if (! in_array($token[0], [T_FUNCTION, T_FN], true)) {
                 continue;
             }
 
@@ -134,6 +138,7 @@ final class InstallPatchRegistry
         while ($previous >= 0 && is_array($tokens[$previous]) && in_array($tokens[$previous][0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
             $previous--;
         }
+
         if ($previous >= 0 && is_array($tokens[$previous]) && $tokens[$previous][0] === T_STATIC) {
             $start = $previous;
         }
@@ -197,11 +202,7 @@ final class InstallPatchRegistry
         }
 
         foreach (array_slice($tokens, $endIndex + 1, null, true) as $token) {
-            if (is_array($token) && in_array($token[0], [T_FUNCTION, T_FN], true)) {
-                throw new InvalidArgumentException(
-                    'Anonymous install-patch factories must provide an explicit key when their source span contains multiple closures.',
-                );
-            }
+            throw_if(is_array($token) && in_array($token[0], [T_FUNCTION, T_FN], true), InvalidArgumentException::class, 'Anonymous install-patch factories must provide an explicit key when their source span contains multiple closures.');
         }
 
         return $normalised;
@@ -209,13 +210,7 @@ final class InstallPatchRegistry
 
     private function sourceUsesThis(string $source): bool
     {
-        foreach (token_get_all('<?php ' . $source) as $token) {
-            if (is_array($token) && $token[0] === T_VARIABLE && $token[1] === '$this') {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(token_get_all('<?php ' . $source), fn (string|array $token): bool => is_array($token) && $token[0] === T_VARIABLE && $token[1] === '$this');
     }
 
     private function closureCaptures(ReflectionFunction $reflection, bool $includeBoundObject): string
@@ -248,13 +243,9 @@ final class InstallPatchRegistry
         $stable = [];
         foreach ($values as $key => $value) {
             $reference = ReflectionReference::fromArrayElement($values, $key);
-            $referenceId = $reference === null ? null : bin2hex($reference->getId());
+            $referenceId = $reference instanceof ReflectionReference ? bin2hex($reference->getId()) : null;
             if ($referenceId !== null) {
-                if (isset($activeReferences[$referenceId])) {
-                    throw new InvalidArgumentException(
-                        'Anonymous install-patch factories may not capture cyclic arrays.',
-                    );
-                }
+                throw_if(isset($activeReferences[$referenceId]), InvalidArgumentException::class, 'Anonymous install-patch factories may not capture cyclic arrays.');
 
                 $activeReferences[$referenceId] = true;
             }
@@ -267,6 +258,7 @@ final class InstallPatchRegistry
                 }
             }
         }
+
         ksort($stable);
 
         return $stable;
@@ -292,11 +284,7 @@ final class InstallPatchRegistry
 
         if (is_object($value)) {
             $objectId = spl_object_id($value);
-            if (isset($activeObjects[$objectId])) {
-                throw new InvalidArgumentException(
-                    'Anonymous install-patch factories may not capture cyclic objects.',
-                );
-            }
+            throw_if(isset($activeObjects[$objectId]), InvalidArgumentException::class, 'Anonymous install-patch factories may not capture cyclic objects.');
 
             $activeObjects[$objectId] = true;
             $properties = [];
@@ -313,13 +301,10 @@ final class InstallPatchRegistry
                         $activeReferences,
                     );
                 }
+
                 ksort($properties);
 
-                if ($properties === []) {
-                    throw new InvalidArgumentException(
-                        'Anonymous install-patch factories capturing object values must provide an explicit key.',
-                    );
-                }
+                throw_if($properties === [], InvalidArgumentException::class, 'Anonymous install-patch factories capturing object values must provide an explicit key.');
 
                 return [
                     'object' => $value::class,
