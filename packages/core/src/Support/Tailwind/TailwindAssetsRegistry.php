@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Tailwind;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Illuminate\Support\Collection;
 
 /**
@@ -206,7 +206,7 @@ final class TailwindAssetsRegistry
 
     private function receipt(string $key, string $implementation): void
     {
-        $this->receipts()?->recordFromContext(
+        $this->receipts()?->recordContribution(
             ExtensionContributionType::Asset,
             'tailwind:' . $key,
             $implementation,
@@ -215,10 +215,10 @@ final class TailwindAssetsRegistry
         );
     }
 
-    private function receipts(): ?ExtensionContributionReceiptRegistry
+    private function receipts(): ?RecordsExtensionContributionReceipt
     {
-        return app()->bound(ExtensionContributionReceiptRegistry::class)
-            ? resolve(ExtensionContributionReceiptRegistry::class)
+        return app()->bound(RecordsExtensionContributionReceipt::class)
+            ? resolve(RecordsExtensionContributionReceipt::class)
             : null;
     }
 }

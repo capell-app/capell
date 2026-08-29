@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\View;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Octane\Resettable;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Illuminate\View\FileViewFinder;
 
 final class ThemeViewRegistrar implements Resettable
@@ -22,7 +22,7 @@ final class ThemeViewRegistrar implements Resettable
     public function __construct(
         private readonly FileViewFinder $finder,
         private ?array $fallbackPaths = null,
-        private readonly ?ExtensionContributionReceiptRegistry $receipts = null,
+        private readonly ?RecordsExtensionContributionReceipt $receipts = null,
     ) {}
 
     /**
@@ -55,7 +55,7 @@ final class ThemeViewRegistrar implements Resettable
         $this->registeredKey = $themeKey;
         $this->registeredPaths = $paths;
 
-        $this->receipts?->recordFromContext(
+        $this->receipts?->recordContribution(
             ExtensionContributionType::Asset,
             'theme-view:' . $themeKey,
             $paths[0] ?? self::class,

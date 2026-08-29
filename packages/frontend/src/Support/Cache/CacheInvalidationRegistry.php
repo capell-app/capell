@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Cache;
 
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\ContentGraphEdge;
@@ -12,7 +13,6 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Data\CacheInvalidationPlanData;
 use Capell\Frontend\Data\CacheInvalidationRule;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -80,8 +80,8 @@ final class CacheInvalidationRegistry
                 $this->executor->registerCacheInvalidationPattern($pattern);
             }
         }
-        $this->receipts()?->recordFromContext(
-            ExtensionContributionType::Asset,
+        $this->receipts()?->recordContribution(
+            ExtensionContributionType::CacheDependency,
             'cache-dependency:' . $modelClass,
             $modelClass,
             self::class,
@@ -89,10 +89,10 @@ final class CacheInvalidationRegistry
         );
     }
 
-    private function receipts(): ?ExtensionContributionReceiptRegistry
+    private function receipts(): ?RecordsExtensionContributionReceipt
     {
-        return app()->bound(ExtensionContributionReceiptRegistry::class)
-            ? resolve(ExtensionContributionReceiptRegistry::class)
+        return app()->bound(RecordsExtensionContributionReceipt::class)
+            ? resolve(RecordsExtensionContributionReceipt::class)
             : null;
     }
 

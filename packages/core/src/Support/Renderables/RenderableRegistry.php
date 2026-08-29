@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Renderables;
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Data\RenderableDefinitionData;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\RenderableTypeEnum;
 use InvalidArgumentException;
 
@@ -19,6 +21,14 @@ final class RenderableRegistry
         $type = $this->normalizeType($definition->type);
 
         $this->definitions[$type][$key] = $definition;
+        if (app()->bound(RecordsExtensionContributionReceipt::class)) {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionType::ContentWidget,
+                'renderable:' . $type . ':' . $key,
+                $definition->contribution?->class ?? $definition::class,
+                self::class,
+            );
+        }
     }
 
     /** @param array<int, RenderableDefinitionData> $definitions */

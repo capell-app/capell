@@ -264,7 +264,7 @@ final class AuditExtensionContractsAction
             ...$this->packageContractResults($manifest, $manifestPath, $composerJson),
             ...$this->capabilityResults($manifest, $manifestPath),
             ...$this->cacheSafetyResults($manifest, $manifestPath),
-            ...$this->declarationResults($manifest, $manifestPath),
+            ...$this->declarationResults($manifest, $manifestPath, $this->bootedBuckets($manifest, $bootedProviderBuckets)),
             ...$this->runtimeReceiptResults($manifest, $manifestPath, $bootedProviderBuckets),
             ...$this->apiCompatibilityResults($manifest, $manifestPath),
         ];
@@ -299,7 +299,19 @@ final class AuditExtensionContractsAction
         $expected = [];
         $tracedMarkers = [];
         foreach ($trace as $entry) {
-            $marker = array_find($manifest->contributes, static fn (ExtensionContributionData $contribution): bool => $contribution->type === $entry->type && ($entry->class === null || $contribution->class === $entry->class));
+            $candidates = array_values(array_filter(
+                $manifest->contributes,
+                static fn (ExtensionContributionData $contribution): bool => $contribution->type === $entry->type
+                    && ($entry->class === null || $contribution->class === $entry->class),
+            ));
+            $marker = count($candidates) === 1 ? $candidates[0] : array_find(
+                $candidates,
+                fn (ExtensionContributionData $contribution): bool => in_array(
+                    $entry->key,
+                    $this->contributionMetadataStrings($contribution, 'key', 'keys', 'event', 'events', 'name', 'names'),
+                    true,
+                ),
+            );
             $expected[] = [$entry->type, $entry->key, $entry->providerBucket, $entry->class ?? $marker?->class];
             if ($marker instanceof ExtensionContributionData) {
                 $tracedMarkers[spl_object_id($marker)] = true;
@@ -373,22 +385,21 @@ final class AuditExtensionContractsAction
         return $results;
     }
 
+    /** @param array<string, list<string>>|list<string> $bootedProviderBuckets */
+    private function bootedBuckets(CapellManifestData $manifest, array $bootedProviderBuckets): array
+    {
+        if ($bootedProviderBuckets !== []) {
+            return array_is_list($bootedProviderBuckets)
+                ? $bootedProviderBuckets
+                : ($bootedProviderBuckets[$manifest->name] ?? []);
+        }
+
+        return resolve(ExtensionContributionReceiptRegistry::class)->loadedBuckets($manifest->name);
+    }
+
     private function receiptBucket(ExtensionContributionType $type): string
     {
-        return match ($type) {
-            ExtensionContributionType::AdminPage,
-            ExtensionContributionType::AdminResource,
-            ExtensionContributionType::AdminActionExtender,
-            ExtensionContributionType::Configurator,
-            ExtensionContributionType::SchemaExtender,
-            ExtensionContributionType::DashboardFilamentWidget => 'admin',
-            ExtensionContributionType::FrontendComponent,
-            ExtensionContributionType::ContentWidget,
-            ExtensionContributionType::RenderHook,
-            ExtensionContributionType::Asset => 'frontend',
-            ExtensionContributionType::Migration => 'install',
-            default => 'runtime',
-        };
+        return $type->bucket();
     }
 
     /**
@@ -724,7 +735,7 @@ final class AuditExtensionContractsAction
     /**
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    private function declarationResults(CapellManifestData $manifest, string $manifestPath): array
+    private function declarationResults(CapellManifestData $manifest, string $manifestPath, array $bootedBuckets = []): array
     {
         $results = [];
         $healthCheckClasses = array_values(array_filter(
@@ -766,7 +777,7 @@ final class AuditExtensionContractsAction
             // Severity here is deliberately `warning`, never `error`: the audit can be
             // pointed at packages that are not installed in the current application, so
             // an absent runtime registration is not provably a defect. Do not upgrade.
-            if ($contribution->type === ExtensionContributionType::OutboundEvent) {
+            if ($contribution->type === ExtensionContributionType::OutboundEvent && in_array('runtime', $bootedBuckets, true)) {
                 $outboundEventRegistry = resolve(OutboundEventRegistry::class);
 
                 foreach ($this->contributionMetadataStrings($contribution, 'event', 'events') as $eventName) {
@@ -784,7 +795,7 @@ final class AuditExtensionContractsAction
 
             // Same reasoning as outbound events above: a package that is declared but not
             // installed here cannot register its subjects, so this stays a warning.
-            if ($contribution->type === ExtensionContributionType::BlueprintSubject) {
+            if ($contribution->type === ExtensionContributionType::BlueprintSubject && in_array('runtime', $bootedBuckets, true)) {
                 $blueprintSubjectRegistry = resolve(BlueprintSubjectRegistry::class);
 
                 foreach ($this->contributionMetadataStrings($contribution, 'key', 'keys') as $subjectKey) {

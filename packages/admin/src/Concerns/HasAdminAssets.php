@@ -7,7 +7,9 @@ namespace Capell\Admin\Concerns;
 use BackedEnum;
 use Capell\Admin\Data\AdminAssetData;
 use Capell\Admin\Support\AdminRuntimeActivator;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\AssetEnum;
+use Capell\Core\Enums\ExtensionContributionType;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -21,6 +23,15 @@ trait HasAdminAssets
     public function registerAsset(AssetEnum|BackedEnum $asset, AdminAssetData $adminAsset): static
     {
         $this->assets[$asset->name] = $adminAsset;
+        if (app()->bound(RecordsExtensionContributionReceipt::class)) {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionType::Asset,
+                'admin-asset:' . $asset->name,
+                $adminAsset::class,
+                self::class,
+                'admin',
+            );
+        }
 
         return $this;
     }

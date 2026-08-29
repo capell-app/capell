@@ -1,10 +1,9 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "The receipt contract and registry are an intentional stable extension-surface addition whose generated signatures must be accepted, while the Admin workspace signature, package constraints, and migrations are existing repository drift. The migrations drift includes the 2026_08_14_000001_add_provider_recovery_to_capell_extensions.php migration and is not caused by this PR.",
+    "reason": "The receipt contract signature is intentionally updated to expose only the neutral emission boundary. The Admin workspace signature, package constraints, and migrations are existing repository drift. The migrations drift includes the 2026_08_14_000001_add_provider_recovery_to_capell_extensions.php migration and is not caused by this PR.",
     "drift": [
         "changed public signature: admin.registrar.workspace",
-        "changed public signature: core.registry.extension-contribution-receipt",
         "migrations",
         "packageConstraints"
     ]

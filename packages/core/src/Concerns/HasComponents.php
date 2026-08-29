@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Capell\Core\Concerns;
 
 use BackedEnum;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Components\ComponentRegistry;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 
 trait HasComponents
 {
@@ -18,14 +18,21 @@ trait HasComponents
 
     public function registerComponent(string|BackedEnum $type, string|BackedEnum $name, string $component): static
     {
-        resolve(ComponentRegistry::class)->registerComponent($type, $name, $component);
-        if (! app()->bound(ExtensionContributionReceiptRegistry::class)) {
+        $registry = resolve(ComponentRegistry::class);
+        $canonicalType = $this->componentValue($type);
+        $canonicalName = $this->componentValue($name);
+        $existing = $registry->getCoreComponents()[$canonicalType][$canonicalName] ?? null;
+        $registry->registerComponent($type, $name, $component);
+        if ($existing !== null && $existing !== $component) {
+            return $this;
+        }
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
             return $this;
         }
 
-        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
             ExtensionContributionType::ContentWidget,
-            'component:' . $this->componentValue($type) . ':' . $this->componentValue($name),
+            'component:' . $canonicalType . ':' . $canonicalName,
             $component,
             self::class,
         );
@@ -38,8 +45,11 @@ trait HasComponents
      */
     public function registerComponents(string|BackedEnum $type, array $components): static
     {
-        resolve(ComponentRegistry::class)->registerComponents($type, $components);
-        if (! app()->bound(ExtensionContributionReceiptRegistry::class)) {
+        $registry = resolve(ComponentRegistry::class);
+        $canonicalType = $this->componentValue($type);
+        $existing = $registry->getCoreComponents()[$canonicalType] ?? [];
+        $registry->registerComponents($type, $components);
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
             return $this;
         }
 
@@ -53,9 +63,13 @@ trait HasComponents
                 continue;
             }
 
-            resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+            if (isset($existing[(string) $name]) && $existing[(string) $name] !== $component) {
+                continue;
+            }
+
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
                 ExtensionContributionType::ContentWidget,
-                'component:' . $this->componentValue($type) . ':' . (string) $name,
+                'component:' . $canonicalType . ':' . (string) $name,
                 $component,
                 self::class,
             );

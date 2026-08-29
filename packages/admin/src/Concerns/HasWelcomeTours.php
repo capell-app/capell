@@ -42,6 +42,11 @@ trait HasWelcomeTours
             chapter: $chapter,
             route: $route,
         );
+        $this->adminReceipt(
+            \Capell\Core\Enums\ExtensionContributionType::AdminActionExtender,
+            'welcome-tour:' . $key,
+            is_string($title) ? $title : $title::class,
+        );
     }
 
     /**

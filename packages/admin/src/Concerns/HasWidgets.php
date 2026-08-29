@@ -17,6 +17,11 @@ trait HasWidgets
     public function registerWidget(string $widgetClass): static
     {
         $this->widgetDiscovery()->register($widgetClass);
+        $this->adminReceipt(
+            \Capell\Core\Enums\ExtensionContributionType::DashboardFilamentWidget,
+            'widget:' . $widgetClass,
+            $widgetClass,
+        );
 
         return $this;
     }
@@ -30,6 +35,11 @@ trait HasWidgets
     public function registerDiscoverableWidgets(string $directory, string $namespace): static
     {
         $this->widgetDiscovery()->registerDiscoverableWidgets($directory, $namespace);
+        $this->adminReceipt(
+            \Capell\Core\Enums\ExtensionContributionType::DashboardFilamentWidget,
+            'discoverable-widgets:' . trim($namespace, '\\') . ':' . $directory,
+            $namespace,
+        );
 
         return $this;
     }

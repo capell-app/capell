@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Enums\RenderHookLocation;
@@ -22,7 +22,7 @@ final class FrontendHookRegistrar
 {
     public function __construct(
         private readonly RenderHookRegistry $registry,
-        private readonly ExtensionContributionReceiptRegistry $receipts,
+        private readonly RecordsExtensionContributionReceipt $receipts,
     ) {}
 
     public function contribute(

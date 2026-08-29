@@ -387,6 +387,8 @@ final class ManifestValidator
             throw InvalidManifestException::invalidField('contributionTraceability.contributions', 'must be a list');
         }
 
+        $mappedContributionIndexes = [];
+
         foreach ($entries as $index => $entry) {
             if (! is_array($entry)) {
                 throw InvalidManifestException::invalidField('contributionTraceability.contributions.' . $index, 'must be an object');
@@ -416,6 +418,41 @@ final class ManifestValidator
                     'must be a non-empty string',
                 );
             }
+
+            $matches = array_keys(array_filter(
+                $data['contributes'],
+                static fn (mixed $contribution): bool => is_array($contribution)
+                    && ($contribution['type'] ?? null) === $entry['type']
+                    && (! array_key_exists('class', $entry) || ($contribution['class'] ?? null) === $entry['class']),
+            ));
+
+            if (count($matches) > 1) {
+                $keyMatches = array_values(array_filter(
+                    $matches,
+                    function (int $contributionIndex) use ($data, $entry): bool {
+                        $contribution = $data['contributes'][$contributionIndex];
+                        $values = [];
+
+                        foreach (['key', 'keys', 'event', 'events', 'name', 'names'] as $field) {
+                            $value = $contribution[$field] ?? null;
+                            $values = [...$values, ... (is_array($value) ? $value : [$value])];
+                        }
+
+                        return in_array($entry['key'], array_filter($values, 'is_string'), true);
+                    },
+                ));
+
+                $matches = $keyMatches;
+            }
+
+            if (count($matches) !== 1 || in_array($matches[0], $mappedContributionIndexes, true)) {
+                throw InvalidManifestException::invalidField(
+                    'contributionTraceability.contributions.' . $index,
+                    'must map to exactly one contributes entry by type and class',
+                );
+            }
+
+            $mappedContributionIndexes[] = $matches[0];
         }
     }
 

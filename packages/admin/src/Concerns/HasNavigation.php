@@ -73,6 +73,11 @@ trait HasNavigation
         $this->registeredNavigationGroups[$key] = isset($this->registeredNavigationGroups[$key])
             ? $this->registeredNavigationGroups[$key]->merge($navigationGroup)
             : $navigationGroup;
+        $this->adminReceipt(
+            \Capell\Core\Enums\ExtensionContributionType::AdminActionExtender,
+            'navigation-group:' . $key,
+            NavigationGroupData::class,
+        );
 
         return $this;
     }

@@ -184,7 +184,11 @@
                             "content-graph",
                             "workflow-attention",
                             "outbound-event",
-                            "blueprint-subject"
+                            "blueprint-subject",
+                            "subscriber",
+                            "metric-collector",
+                            "cache-dependency",
+                            "install-patch"
                         ]
                     },
                     "class": {
@@ -258,7 +262,18 @@
                         "additionalProperties": false,
                         "required": ["type", "key", "providerBucket"],
                         "properties": {
-                            "type": { "type": "string" },
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "admin-page", "admin-resource", "admin-action-extender", "section",
+                                    "page-type", "dashboard-widget", "overview-stat", "schema-extender",
+                                    "configurator", "model", "permission", "route", "setting", "page-variation",
+                                    "frontend-component", "content-widget", "render-hook", "asset", "migration",
+                                    "scheduled-job", "console-command", "agent-capability", "content-graph",
+                                    "health-check", "workflow-attention", "outbound-event", "blueprint-subject",
+                                    "subscriber", "metric-collector", "cache-dependency", "install-patch"
+                                ]
+                            },
                             "key": { "type": "string", "minLength": 1 },
                             "class": { "type": "string", "minLength": 1 },
                             "providerBucket": { "enum": ["metadata", "install", "runtime", "auth", "admin", "frontend"] }

@@ -39,7 +39,7 @@
         },
         "core.contract.extension-contribution-receipt": {
             "identifier": "Capell\\Core\\Contracts\\Extensions\\RecordsExtensionContributionReceipt",
-            "signature": "0870eee905299eb5c8b23da37d46af88508568d782122ab159ada5e0ea09cc3c",
+            "signature": "6ecbe9ce83c55f31b2f4ca5dbacb4f745ff4f25a7ffa5a68b3af08a793c6fe63",
             "contractTestId": "core.extension-contribution-receipt"
         },
         "core.contract.project-build-artifact-handler": {
@@ -131,11 +131,6 @@
             "identifier": "Capell\\Core\\Support\\ProjectBuild\\ProjectBuildArtifactHandlerRegistry",
             "signature": "90e22a203cb0ccaed70bfb14e83296be9d024c2300647ed76b83d7ddc1ca4175",
             "contractTestId": "core.project-build-artifact-handler-registry"
-        },
-        "core.registry.extension-contribution-receipt": {
-            "identifier": "Capell\\Core\\Support\\Extensions\\ExtensionContributionReceiptRegistry",
-            "signature": "cb10fca392f4fbfb7856fefbde7f65a3f3e8e8f47d35fe3dcc0bf1a52d718862",
-            "contractTestId": "core.extension-contribution-receipt"
         },
         "core.tag.project-build-artifact-handler": {
             "identifier": "capell.project-build.artifact-handler",

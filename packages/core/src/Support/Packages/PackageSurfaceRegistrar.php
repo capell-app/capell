@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Packages;
 
 use BackedEnum;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Contracts\SettingsSchema;
 use Capell\Core\Data\BlueprintSubjectDescriptorData;
@@ -13,7 +14,6 @@ use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -44,7 +44,7 @@ final class PackageSurfaceRegistrar
         private readonly MetricCollectorRegistry $metricCollectors,
         private readonly OutboundEventRegistry $outboundEvents,
         private readonly BlueprintSubjectRegistry $blueprintSubjects,
-        private readonly ExtensionContributionReceiptRegistry $receipts,
+        private readonly RecordsExtensionContributionReceipt $receipts,
     ) {}
 
     /**
@@ -78,7 +78,7 @@ final class PackageSurfaceRegistrar
     public function outboundEvent(OutboundEventDefinitionData $definition): self
     {
         $this->outboundEvents->register($definition);
-        $this->receipts->recordFromContext(
+        $this->receipts->recordContribution(
             ExtensionContributionType::OutboundEvent,
             $definition->name,
             $definition->payloadClass,
@@ -91,7 +91,7 @@ final class PackageSurfaceRegistrar
     public function blueprintSubject(BlueprintSubjectDescriptorData $subject): self
     {
         $this->blueprintSubjects->register($subject);
-        $this->receipts->recordFromContext(
+        $this->receipts->recordContribution(
             ExtensionContributionType::BlueprintSubject,
             $subject->key,
             $subject->modelClass,
@@ -155,8 +155,8 @@ final class PackageSurfaceRegistrar
     public function subscriber(string $subscriber): self
     {
         $this->core->subscriberManager()->subscribe($subscriber);
-        $this->receipts->recordFromContext(
-            ExtensionContributionType::WorkflowAttention,
+        $this->receipts->recordContribution(
+            ExtensionContributionType::Subscriber,
             'subscriber:' . $subscriber,
             $subscriber,
             self::class,
@@ -179,7 +179,7 @@ final class PackageSurfaceRegistrar
     public function settingsSchema(string $group, string $schemaClass, ?string $key = null): self
     {
         $this->settings->register($group, $schemaClass, $key);
-        $this->receipts->recordFromContext(
+        $this->receipts->recordContribution(
             ExtensionContributionType::Setting,
             'settings-schema:' . $group . ':' . ($key ?? class_basename($schemaClass)),
             $schemaClass,
@@ -195,7 +195,7 @@ final class PackageSurfaceRegistrar
     public function settingsClass(string $group, string $settingsClass): self
     {
         $this->settings->registerSettingsClass($group, $settingsClass);
-        $this->receipts->recordFromContext(
+        $this->receipts->recordContribution(
             ExtensionContributionType::Setting,
             'settings-class:' . $group,
             $settingsClass,
@@ -208,7 +208,7 @@ final class PackageSurfaceRegistrar
     public function settingsMetadata(SettingsGroupMetadata $metadata): self
     {
         $this->settings->registerMetadata($metadata);
-        $this->receipts->recordFromContext(
+        $this->receipts->recordContribution(
             ExtensionContributionType::Setting,
             'settings-metadata:' . $metadata->group,
             $metadata::class,
@@ -222,8 +222,8 @@ final class PackageSurfaceRegistrar
     public function metricCollector(string $collectorClass): self
     {
         $this->metricCollectors->register($collectorClass);
-        $this->receipts->recordFromContext(
-            ExtensionContributionType::HealthCheck,
+        $this->receipts->recordContribution(
+            ExtensionContributionType::MetricCollector,
             'metric-collector:' . $collectorClass,
             $collectorClass,
             self::class,

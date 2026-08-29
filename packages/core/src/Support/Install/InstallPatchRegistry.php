@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install;
 
 use BackedEnum;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Patching\Patch;
 use Closure;
 use InvalidArgumentException;
@@ -25,7 +25,7 @@ final class InstallPatchRegistry
     /** @var list<array{factory: Closure(InstallPatchContext): ?Patch, confirmation: ?InstallPatchConfirmation}> */
     private array $contributions = [];
 
-    public function __construct(private readonly ?ExtensionContributionReceiptRegistry $receipts = null) {}
+    public function __construct(private readonly ?RecordsExtensionContributionReceipt $receipts = null) {}
 
     /**
      * @param  callable(InstallPatchContext): ?Patch  $factory  Return the patch when it applies to the context, or null to skip.
@@ -36,8 +36,8 @@ final class InstallPatchRegistry
         $reflection = new ReflectionFunction($callable);
         $identity = $this->callableIdentity($reflection, $key);
         $receiptKey = $key !== null && $key !== '' ? $key : hash('sha256', $identity);
-        $this->receipts?->recordFromContext(
-            ExtensionContributionType::Migration,
+        $this->receipts?->recordContribution(
+            ExtensionContributionType::InstallPatch,
             'install-patch:' . $receiptKey,
             $identity,
             self::class,
@@ -81,9 +81,9 @@ final class InstallPatchRegistry
         }
 
         $source = $this->normalisedClosureSource($reflection);
-        $captures = $this->closureCaptures($reflection, str_contains($source, '$this'));
+        $captures = $this->closureCaptures($reflection, $this->sourceUsesThis($source));
 
-        return 'closure:' . hash('sha256', $source . '|' . $captures);
+        return 'closure:' . hash('sha256', ($scope ?? '') . '|' . $source . '|' . $captures);
     }
 
     private function normalisedClosureSource(ReflectionFunction $reflection): string
@@ -105,10 +105,23 @@ final class InstallPatchRegistry
         $tokens = token_get_all('<?php ' . $source);
         $closureIndex = null;
         foreach ($tokens as $index => $token) {
-            if (is_array($token) && in_array($token[0], [T_FUNCTION, T_FN], true)) {
-                $closureIndex = $index;
-                break;
+            if (! is_array($token) || ! in_array($token[0], [T_FUNCTION, T_FN], true)) {
+                continue;
             }
+
+            if ($token[0] === T_FUNCTION) {
+                $next = $index + 1;
+                while ($next < count($tokens) && is_array($tokens[$next]) && in_array($tokens[$next][0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+                    $next++;
+                }
+
+                if (isset($tokens[$next]) && is_array($tokens[$next]) && $tokens[$next][0] === T_STRING) {
+                    continue;
+                }
+            }
+
+            $closureIndex = $index;
+            break;
         }
 
         if ($closureIndex === null) {
@@ -192,6 +205,17 @@ final class InstallPatchRegistry
         }
 
         return $normalised;
+    }
+
+    private function sourceUsesThis(string $source): bool
+    {
+        foreach (token_get_all('<?php ' . $source) as $token) {
+            if (is_array($token) && $token[0] === T_VARIABLE && $token[1] === '$this') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function closureCaptures(ReflectionFunction $reflection, bool $includeBoundObject): string

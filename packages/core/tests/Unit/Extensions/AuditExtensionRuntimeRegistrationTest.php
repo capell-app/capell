@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
@@ -176,7 +177,7 @@ it('does not audit a disabled package as though its current runtime role booted'
     app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
     $directory = makeRuntimeRegistrationAuditPackage('vendor/disabled-runtime', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.disabled']);
     $results = AuditExtensionContractsAction::run($directory);
-    expect($results)->toHaveCount(1)->and($results[0]['message'])->toBe(OUTBOUND_EVENT_WARNING);
+    expect($results)->toBe([]);
 });
 
 it('keeps ownership for a deferred static registrar callback', function (): void {
@@ -190,6 +191,27 @@ it('keeps ownership for a deferred static registrar callback', function (): void
     StaticDeferredReceiptProbe::run();
 
     expect($receipts->forPackage('vendor/deferred')[0]->providerBucket)->toBe('frontend');
+});
+
+it('binds receipt ownership to trusted context rather than package input', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/owned', 'runtime', 'Vendor\\Provider'),
+        function (): void {
+            resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+                ExtensionContributionType::OutboundEvent,
+                'vendor.owned.event',
+                OutboundEventDefinitionData::class,
+                'Vendor\\Provider',
+            );
+        },
+    );
+
+    expect($receipts->all()[0]->ownerPackage)->toBe('vendor/owned')
+        ->and($receipts->all()[0]->foundationBuiltIn)->toBeFalse();
 });
 
 it('reconciles a trace key that is distinct from the marker metadata key', function (): void {
@@ -234,7 +256,7 @@ it('warns when a declared outbound event is not registered at runtime', function
         ['type' => 'outbound-event', 'event' => 'vendor-package.thing-happened'],
     );
 
-    $results = runtimeRegistrationAuditResults($directory, OUTBOUND_EVENT_WARNING);
+    $results = runtimeRegistrationAuditResults($directory, OUTBOUND_EVENT_WARNING, ['runtime']);
 
     expect($results)->toHaveCount(1)
         ->and($results[0]['severity'])->toBe('warning')
@@ -270,7 +292,7 @@ it('warns when a declared blueprint subject is not registered at runtime', funct
         ['type' => 'blueprint-subject', 'key' => 'vendor-package.collection'],
     );
 
-    $results = runtimeRegistrationAuditResults($directory, BLUEPRINT_SUBJECT_WARNING);
+    $results = runtimeRegistrationAuditResults($directory, BLUEPRINT_SUBJECT_WARNING, ['runtime']);
 
     expect($results)->toHaveCount(1)
         ->and($results[0]['severity'])->toBe('warning')

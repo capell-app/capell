@@ -33,4 +33,34 @@ enum ExtensionContributionType: string
     case WorkflowAttention = 'workflow-attention';
     case OutboundEvent = 'outbound-event';
     case BlueprintSubject = 'blueprint-subject';
+    case Subscriber = 'subscriber';
+    case MetricCollector = 'metric-collector';
+    case CacheDependency = 'cache-dependency';
+    case InstallPatch = 'install-patch';
+
+    public function bucket(): string
+    {
+        return match ($this) {
+            self::AdminPage,
+            self::AdminResource,
+            self::AdminActionExtender,
+            self::DashboardFilamentWidget,
+            self::OverviewStat,
+            self::SchemaExtender,
+            self::Configurator,
+            self::Permission,
+            self::WorkflowAttention => 'admin',
+            self::Section,
+            self::Route,
+            self::PageVariation,
+            self::FrontendComponent,
+            self::ContentWidget,
+            self::RenderHook,
+            self::Asset,
+            self::CacheDependency => 'frontend',
+            self::Migration,
+            self::InstallPatch => 'install',
+            default => 'runtime',
+        };
+    }
 }

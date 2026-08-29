@@ -6,11 +6,32 @@ use Capell\Core\Actions\ResolveRenderableViewDataAction;
 use Capell\Core\Data\RenderableContributionIdentityData;
 use Capell\Core\Data\RenderableDefinitionData;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Renderables\RenderableViewDataContext;
 use Capell\Core\Support\Renderables\RenderableViewDataResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+
+it('emits a receipt for a direct renderable registration', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/renderables', 'runtime', 'Vendor\\Provider'),
+        function (): void {
+            (new RenderableRegistry)->register(new RenderableDefinitionData(
+                key: 'vendor.renderable.hero',
+                type: 'content-block',
+                blade: 'vendor::hero',
+            ));
+        },
+    );
+
+    expect($receipts->forPackage('vendor/renderables'))->toHaveCount(1)
+        ->and($receipts->forPackage('vendor/renderables')[0]->key)->toBe('renderable:content-block:vendor.renderable.hero');
+});
 
 it('stores renderables by type and stable key', function (): void {
     $registry = new RenderableRegistry;

@@ -59,6 +59,7 @@ use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\BladeComponentResolverInterface;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
@@ -515,6 +516,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singletonIf(CapellPackageRegistry::class);
         $this->app->singleton(ExtensionContributionReceiptRegistry::class);
         $this->app->alias(ExtensionContributionReceiptRegistry::class, RecordsExtensionContributionReceipt::class);
+        $this->app->alias(ExtensionContributionReceiptRegistry::class, BootsExtensionContributionReceiptContext::class);
 
         $this->app->tag([CapellCoreManager::class, ComponentRegistry::class], Resettable::TAG);
         $this->app->scoped(ImageUrlPolicy::class);

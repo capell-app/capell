@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Enums\ExtensionContributionType;
@@ -22,6 +23,7 @@ it('delegates core surfaces to the core manager and returns itself for chaining'
     $receipts = new ExtensionContributionReceiptRegistry;
 
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
     $core = Mockery::mock(CapellCoreManager::class)->makePartial();
     $settings = Mockery::mock(SettingsSchemaRegistry::class);
     $subscribers = Mockery::mock(SubscriberRegistry::class);
@@ -122,6 +124,7 @@ it('preserves an active companion context when a registrar bucket hint does not 
 it('keeps backed enum component receipts aligned with registered names', function (): void {
     $receipts = new ExtensionContributionReceiptRegistry;
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
     $manager = new CapellCoreManager;
 
     $receipts->withContext(
@@ -138,6 +141,7 @@ it('keeps backed enum component receipts aligned with registered names', functio
 it('receipts every backed enum component in the direct batch boundary', function (): void {
     $receipts = new ExtensionContributionReceiptRegistry;
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
     $manager = new CapellCoreManager;
 
     $receipts->withContext(
@@ -161,6 +165,7 @@ it('receipts every backed enum component in the direct batch boundary', function
 it('marks direct foundation component registrations as built-ins', function (): void {
     $receipts = new ExtensionContributionReceiptRegistry;
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
 
     (new CapellCoreManager)->registerComponent('Builtin', 'Card', 'capell::asset.index');
 
@@ -173,6 +178,7 @@ it('marks direct foundation component registrations as built-ins', function (): 
 it('receipts built-in backed enum component batches with foundation ownership', function (): void {
     $receipts = new ExtensionContributionReceiptRegistry;
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
 
     (new CapellCoreManager)->registerComponents(AssetComponentEnum::Card, AssetComponentEnum::cases());
 

@@ -30,9 +30,9 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Enums\ExtensionContributionType;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Closure;
@@ -51,7 +51,7 @@ final class AdminBridgeRegistrar
     public function __construct(
         private readonly AdminBridgeRegistry $bridges,
         private readonly SettingsSchemaRegistry $settings,
-        private readonly ExtensionContributionReceiptRegistry $receipts,
+        private readonly RecordsExtensionContributionReceipt $receipts,
     ) {}
 
     /**
@@ -72,7 +72,6 @@ final class AdminBridgeRegistrar
     public function report(ReportDefinitionData $report): void
     {
         CapellAdmin::registerReport($report);
-        $this->receipt(ExtensionContributionType::AdminPage, 'report:' . $report->key, $report::class);
     }
 
     /** @param class-string<Page> $pageClass */
@@ -99,7 +98,6 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardFilamentWidget($widgetClass, ...$dashboards);
-            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'dashboard-widget:' . $widgetClass, $widgetClass);
         }
     }
 
@@ -108,7 +106,6 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardPanel($region, $widgetClass, ...$dashboards);
-            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'dashboard-panel:' . $region->value . ':' . $widgetClass, $widgetClass);
         }
     }
 
@@ -117,7 +114,6 @@ final class AdminBridgeRegistrar
     {
         if (is_subclass_of($widgetClass, Widget::class)) {
             CapellAdmin::registerDashboardFilamentWidget($widgetClass, DashboardEnum::Extensions);
-            $this->receipt(ExtensionContributionType::DashboardFilamentWidget, 'extensions-dashboard-widget:' . $widgetClass, $widgetClass);
         }
     }
 
@@ -242,13 +238,11 @@ final class AdminBridgeRegistrar
             sort: $sort,
             group: $group,
         );
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'user-menu-item:' . $key, AdminWorkspaceItemData::class);
     }
 
     public function workspace(AdminWorkspaceItemData $item): void
     {
         CapellAdmin::registerWorkspace($item);
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'workspace:' . $item->key, $item::class);
     }
 
     public function welcomeTourStep(
@@ -275,7 +269,6 @@ final class AdminBridgeRegistrar
             chapter: $chapter,
             route: $route,
         );
-        $this->receipt(ExtensionContributionType::AdminActionExtender, 'welcome-tour:' . $key, $this->implementation($title));
     }
 
     public function configurator(string $configuratorClass, string $group, string $name): void
@@ -321,13 +314,11 @@ final class AdminBridgeRegistrar
     public function extensionPage(string $packageName, string $pageClass): void
     {
         CapellAdmin::registerExtensionPage($packageName, $pageClass);
-        $this->receipt(ExtensionContributionType::AdminPage, 'extension-page:' . $packageName . ':' . $pageClass, $pageClass);
     }
 
     public function extensionManagementSurface(ExtensionManagementSurfaceData $surface): void
     {
         CapellAdmin::registerExtensionManagementSurface($surface);
-        $this->receipt(ExtensionContributionType::AdminPage, 'extension-management-surface:' . $surface->packageName . ':' . $surface->type . ':' . ($surface->settingsGroup ?? ''), $surface::class);
     }
 
     /**
@@ -364,7 +355,6 @@ final class AdminBridgeRegistrar
             relation: $relation,
             recordResolver: $recordResolver,
         );
-        $this->receipt(ExtensionContributionType::AdminResource, 'activity-resource-link:' . $subjectClass . ':' . ($resourceClass ?? 'default'), $resourceClass ?? $subjectClass);
     }
 
     /**
@@ -393,7 +383,7 @@ final class AdminBridgeRegistrar
 
     private function receipt(ExtensionContributionType $type, string $key, string $implementation): void
     {
-        $this->receipts->recordFromContext($type, $key, $implementation, self::class, 'admin');
+        $this->receipts->recordContribution($type, $key, $implementation, self::class, 'admin');
     }
 
     private function implementation(mixed $value): string

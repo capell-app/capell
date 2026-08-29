@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Concerns;
 
 use BackedEnum;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
@@ -63,15 +63,16 @@ trait HasModels
 
     private function recordModelReceipt(string $model): void
     {
-        if (! app()->bound(ExtensionContributionReceiptRegistry::class)) {
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
             return;
         }
 
-        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
             ExtensionContributionType::Model,
             'model:' . $model,
             $model,
             self::class,
+            'runtime',
         );
     }
 }

@@ -40,9 +40,11 @@ use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\UserMenu\UserMenuItemRegistry;
 use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
+use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
 use Exception;
@@ -147,6 +149,11 @@ class CapellAdminManager
     public function registerDashboardFilamentWidget(string $widgetClass, DashboardEnum ...$dashboards): void
     {
         $this->dashboardWidgetRegistry->register($widgetClass, ...$dashboards);
+        $this->adminReceipt(
+            ExtensionContributionType::DashboardFilamentWidget,
+            'dashboard-widget:' . $widgetClass,
+            $widgetClass,
+        );
     }
 
     /**
@@ -155,6 +162,11 @@ class CapellAdminManager
     public function registerDashboardPanel(DashboardRegionEnum $region, string $widgetClass, DashboardEnum ...$dashboards): void
     {
         $this->dashboardWidgetRegistry->registerPanel($region, $widgetClass, ...$dashboards);
+        $this->adminReceipt(
+            ExtensionContributionType::DashboardFilamentWidget,
+            'dashboard-panel:' . $region->value . ':' . $widgetClass,
+            $widgetClass,
+        );
     }
 
     /** @return list<class-string<Widget>> */
@@ -166,6 +178,11 @@ class CapellAdminManager
     public function registerMarketingStudioAction(MarketingStudioActionData $action): void
     {
         $this->marketingStudioActionRegistry->register($action);
+        $this->adminReceipt(
+            ExtensionContributionType::AdminActionExtender,
+            'marketing-action:' . $action->key,
+            $action::class,
+        );
     }
 
     /**
@@ -200,6 +217,11 @@ class CapellAdminManager
             sort: $sort,
             group: $group,
         ));
+        $this->adminReceipt(
+            ExtensionContributionType::AdminActionExtender,
+            'user-menu-item:' . $key,
+            AdminWorkspaceItemData::class,
+        );
     }
 
     /** @return array<string, UserMenuItemData> */
@@ -230,6 +252,11 @@ class CapellAdminManager
     public function registerWorkspace(AdminWorkspaceItemData $item): void
     {
         $this->workspaceRegistry->register($item);
+        $this->adminReceipt(
+            ExtensionContributionType::AdminActionExtender,
+            'workspace:' . $item->key,
+            $item::class,
+        );
     }
 
     /** @return array<string, AdminWorkspaceItemData> */
@@ -273,6 +300,11 @@ class CapellAdminManager
             settingsLabel: $settingsLabel,
             settingsDescription: $settingsDescription,
         ));
+        $this->adminReceipt(
+            ExtensionContributionType::OverviewStat,
+            'overview-stat:' . $key,
+            CapellOverviewStatDefinitionData::class,
+        );
     }
 
     /** @return list<CapellOverviewStatData> */
@@ -346,7 +378,7 @@ class CapellAdminManager
             AdminSurfaceContributionType::Configurator => ExtensionContributionType::Configurator,
             AdminSurfaceContributionType::SchemaExtender => ExtensionContributionType::SchemaExtender,
         };
-        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
+        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
             $type,
             $contribution->key,
             $contribution->class,
@@ -364,17 +396,32 @@ class CapellAdminManager
         $this->suppressExtensionPageNativeNavigation($page);
 
         resolve(ExtensionPageRegistry::class)->register($packageName, $page);
+        $this->adminReceipt(
+            ExtensionContributionType::AdminPage,
+            'extension-page:' . $packageName . ':' . $page,
+            $page,
+        );
     }
 
     public function registerExtensionManagementSurface(ExtensionManagementSurfaceData $surface): void
     {
         resolve(ExtensionManagementSurfaceRegistry::class)->register($surface);
+        $this->adminReceipt(
+            ExtensionContributionType::AdminPage,
+            'extension-management-surface:' . $surface->packageName . ':' . $surface->type . ':' . ($surface->settingsGroup ?? ''),
+            $surface::class,
+        );
     }
 
     public function registerReport(ReportDefinitionData $report): void
     {
         $this->reportRegistry->register($report);
         $this->contributeToAdminSurface(AdminSurfaceContributionData::page($report->pageClass));
+        $this->adminReceipt(
+            ExtensionContributionType::AdminPage,
+            'report:' . $report->key,
+            $report::class,
+        );
     }
 
     public function getReport(string $key): ?ReportDefinitionData
@@ -449,7 +496,7 @@ class CapellAdminManager
                 ? ExtensionContributionReceiptContext::foundation($packageName, 'admin', $bridge::class)
                 : ExtensionContributionReceiptContext::forPackage($packageName, 'admin', $bridge::class);
 
-            resolve(ExtensionContributionReceiptRegistry::class)->withContext(
+            resolve(BootsExtensionContributionReceiptContext::class)->withContext(
                 $receiptContext,
                 fn (): mixed => $bridge->register($registrar, $context),
             );
@@ -488,6 +535,26 @@ class CapellAdminManager
             resourceClass: $resourceClass,
             relation: $relation,
             recordResolver: $recordResolver,
+        );
+        $this->adminReceipt(
+            ExtensionContributionType::AdminResource,
+            'activity-resource-link:' . $subjectClass . ':' . ($resourceClass ?? 'default'),
+            $resourceClass ?? $subjectClass,
+        );
+    }
+
+    private function adminReceipt(ExtensionContributionType $type, string $key, string $implementation): void
+    {
+        if (! app()->bound(RecordsExtensionContributionReceipt::class)) {
+            return;
+        }
+
+        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
+            $type,
+            $key,
+            $implementation,
+            self::class,
+            'admin',
         );
     }
 
