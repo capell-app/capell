@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Support\Tailwind\TailwindAssetsRegistry;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Tailwind\TailwindAssetsRegistry;
 
 it('dedupes, trims, and sorts tailwind assets with origins', function (): void {
     $registry = new TailwindAssetsRegistry;

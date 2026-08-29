@@ -45,6 +45,7 @@ use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Illuminate\View\View;
+use ReflectionFunction;
 
 final class AdminBridgeRegistrar
 {
@@ -401,7 +402,7 @@ final class AdminBridgeRegistrar
             return $action->getName();
         }
 
-        $reflection = new \ReflectionFunction($action);
+        $reflection = new ReflectionFunction($action);
 
         return 'legacy-' . hash('sha256', implode('|', [
             $reflection->getFileName() ?: 'unknown',

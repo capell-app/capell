@@ -120,22 +120,28 @@ function recordTestReceipt(ExtensionContributionReceiptRegistry $receipts, Exten
 it('reconciles declared and loaded contributions only for an explicit booted context', function (): void {
     $outbound = new OutboundEventRegistry;
     $outbound->register(new OutboundEventDefinitionData(
-        name: 'vendor-package.thing-happened', version: 1,
+        name: 'vendor-package.thing-happened',
+        version: 1,
         payloadClass: OutboundEventDefinitionData::class,
-        description: 'Test outbound event.', ownerPackage: 'vendor/receipt-match',
+        description: 'Test outbound event.',
+        ownerPackage: 'vendor/receipt-match',
     ));
     app()->instance(OutboundEventRegistry::class, $outbound);
 
     $receipts = new ExtensionContributionReceiptRegistry;
     recordTestReceipt($receipts, new ExtensionContributionReceiptData(
-        ownerPackage: 'vendor/receipt-match', providerBucket: 'runtime',
-        type: ExtensionContributionType::OutboundEvent, key: 'vendor-package.thing-happened',
-        implementation: OutboundEventDefinitionData::class, sourceClass: 'Vendor\\Receipt\\Provider',
+        ownerPackage: 'vendor/receipt-match',
+        providerBucket: 'runtime',
+        type: ExtensionContributionType::OutboundEvent,
+        key: 'vendor-package.thing-happened',
+        implementation: OutboundEventDefinitionData::class,
+        sourceClass: 'Vendor\\Receipt\\Provider',
     ));
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
 
     $directory = makeRuntimeRegistrationAuditPackage(
-        'vendor/receipt-match', RegistersExtensionOutboundEvent::class,
+        'vendor/receipt-match',
+        RegistersExtensionOutboundEvent::class,
         ['type' => 'outbound-event', 'event' => 'vendor-package.thing-happened'],
     );
 
@@ -239,8 +245,12 @@ it('binds receipt ownership to trusted context rather than package input', funct
 it('reconciles a trace key that is distinct from the marker metadata key', function (): void {
     $receipts = new ExtensionContributionReceiptRegistry;
     recordTestReceipt($receipts, new ExtensionContributionReceiptData(
-        'vendor/trace-link', 'runtime', ExtensionContributionType::OutboundEvent,
-        'vendor-package.runtime-key', 'Vendor\\TraceLink\\Contributions\\PackageContribution', 'Vendor\\TraceLink\\Providers\\PackageServiceProvider',
+        'vendor/trace-link',
+        'runtime',
+        ExtensionContributionType::OutboundEvent,
+        'vendor-package.runtime-key',
+        'Vendor\\TraceLink\\Contributions\\PackageContribution',
+        'Vendor\\TraceLink\\Providers\\PackageServiceProvider',
     ));
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
     app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);

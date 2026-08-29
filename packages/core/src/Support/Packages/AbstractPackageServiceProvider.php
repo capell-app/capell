@@ -11,7 +11,6 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
 use Composer\InstalledVersions;
 use Illuminate\Console\Scheduling\Schedule;

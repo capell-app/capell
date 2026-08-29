@@ -26,7 +26,7 @@ final class VendorAssetConditionRegistry extends AbstractKeyedRegistry
             resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
                 ExtensionContributionReceiptType::VendorAssetCondition,
                 'vendor-asset-condition:' . $name,
-                $condition instanceof \Closure ? $condition::class : get_debug_type($condition),
+                $condition instanceof Closure ? $condition::class : get_debug_type($condition),
                 self::class,
                 'runtime',
             );

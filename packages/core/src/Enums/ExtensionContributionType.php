@@ -33,6 +33,7 @@ enum ExtensionContributionType: string
     case WorkflowAttention = 'workflow-attention';
     case OutboundEvent = 'outbound-event';
     case BlueprintSubject = 'blueprint-subject';
+
     public function bucket(): string
     {
         return match ($this) {

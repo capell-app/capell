@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\Extensions;
 
-use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\ExtensionContributionReceiptType;
+use Capell\Core\Enums\ExtensionContributionType;
 use Spatie\LaravelData\Data;
 
 final class ExtensionContributionReceiptData extends Data

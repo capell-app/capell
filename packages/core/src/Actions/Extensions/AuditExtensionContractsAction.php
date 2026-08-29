@@ -276,7 +276,7 @@ final class AuditExtensionContractsAction
      * package directory is commonly run outside that package's runtime; treating
      * an absent context as loaded would produce false declared-only failures.
      *
-     * @param array<string, list<string>>|list<string> $bootedProviderBuckets
+     * @param  array<string, list<string>>|list<string>  $bootedProviderBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
     private function runtimeReceiptResults(CapellManifestData $manifest, string $manifestPath, array $bootedProviderBuckets): array

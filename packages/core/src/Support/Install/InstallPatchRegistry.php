@@ -76,7 +76,7 @@ final class InstallPatchRegistry
         }
 
         $scope = $reflection->getClosureScopeClass()?->getName();
-        if ($scope !== null && $reflection->getName() !== '{closure}') {
+        if ($scope !== null && ! $reflection->isAnonymous()) {
             return $scope . '::' . $reflection->getName();
         }
 

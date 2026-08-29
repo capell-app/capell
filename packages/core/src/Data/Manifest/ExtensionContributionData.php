@@ -28,8 +28,7 @@ final class ExtensionContributionData extends Data
         $class = is_string($data['class'] ?? null) && $data['class'] !== '' ? $data['class'] : null;
         $key = is_string($data['key'] ?? null) && $data['key'] !== '' ? $data['key'] : null;
         $providerBucket = is_string($data['providerBucket'] ?? null) && $data['providerBucket'] !== '' ? $data['providerBucket'] : null;
-        unset($data['type'], $data['class']);
-        unset($data['key'], $data['providerBucket']);
+        unset($data['type'], $data['class'], $data['key'], $data['providerBucket']);
 
         return new self(
             type: $type,

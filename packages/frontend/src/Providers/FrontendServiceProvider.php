@@ -35,8 +35,8 @@ use Capell\Frontend\Console\Commands\InvalidateDueScheduledPublicationCachesComm
 use Capell\Frontend\Console\Commands\UpgradeCommand;
 use Capell\Frontend\Contracts\AdminAccessCheckerInterface;
 use Capell\Frontend\Contracts\AssetsRegistryInterface;
-use Capell\Frontend\Contracts\CacheBypassResolver;
 use Capell\Frontend\Contracts\Cache\TranslationCacheDependencyResolver;
+use Capell\Frontend\Contracts\CacheBypassResolver;
 use Capell\Frontend\Contracts\FontMimeTypeResolverInterface;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentReferenceCodec;
 use Capell\Frontend\Contracts\Fragments\PublicFragmentUrlResolver;

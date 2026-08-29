@@ -13,6 +13,7 @@ use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Data\RenderHookEntryData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
+use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Blade;
@@ -265,7 +266,7 @@ class RenderHookRegistry
 
     private function legacyExtensionIdentity(mixed $extension, string $implementation): string
     {
-        if (! $extension instanceof \Closure) {
+        if (! $extension instanceof Closure) {
             return $implementation;
         }
 
@@ -335,6 +336,7 @@ class RenderHookRegistry
 
                 if ($type === T_STATIC) {
                     $normalised .= $value;
+
                     continue;
                 }
 

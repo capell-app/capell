@@ -12,6 +12,7 @@ use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\FilesystemServiceProvider;
+use Illuminate\Support\ServiceProvider;
 use Mockery\MockInterface;
 
 it('always includes metadata and install providers for discovered packages', function (): void {
@@ -163,7 +164,7 @@ function packageLoader(CapellPackageRegistry $registry): CapellPackageLoader
     return new CapellPackageLoader($application, $registry);
 }
 
-final class BootingReceiptTestProvider extends Illuminate\Support\ServiceProvider
+final class BootingReceiptTestProvider extends ServiceProvider
 {
     public function boot(): void
     {

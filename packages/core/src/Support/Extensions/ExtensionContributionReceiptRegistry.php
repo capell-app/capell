@@ -76,6 +76,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
 
     /**
      * @template TReturn
+     *
      * @param  Closure(): TReturn  $callback
      * @return TReturn
      */
@@ -86,6 +87,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
 
     /**
      * @template TReturn
+     *
      * @param  list<ExtensionContributionReceiptContext>  $contexts
      * @param  Closure(): TReturn  $callback
      * @return TReturn
@@ -100,17 +102,6 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         } finally {
             $this->contexts = $previous;
         }
-    }
-
-    private function record(ExtensionContributionReceiptData $receipt): void
-    {
-        foreach ($this->receipts as $existing) {
-            if ($existing->toArray() === $receipt->toArray()) {
-                return;
-            }
-        }
-
-        $this->receipts[] = $receipt;
     }
 
     public function recordFromContext(
@@ -195,6 +186,17 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         $this->providerContexts = [];
         $this->loadedContexts = [];
         $this->namespaceContexts = [];
+    }
+
+    private function record(ExtensionContributionReceiptData $receipt): void
+    {
+        foreach ($this->receipts as $existing) {
+            if ($existing->toArray() === $receipt->toArray()) {
+                return;
+            }
+        }
+
+        $this->receipts[] = $receipt;
     }
 
     /** @param list<ExtensionContributionReceiptContext> $contexts */
