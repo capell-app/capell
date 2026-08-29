@@ -101,19 +101,80 @@ final class InstallPatchRegistry
         }
 
         $source = implode('', array_slice($lines, $start - 1, $end - $start + 1));
-        $normalised = '';
+        $tokens = token_get_all('<?php ' . $source);
+        $start = null;
+        $closureType = null;
 
-        foreach (token_get_all('<?php ' . $source) as $token) {
-            if (is_array($token)) {
-                if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
-                    continue;
-                }
-
-                $normalised .= $token[1];
+        foreach ($tokens as $index => $token) {
+            if (! is_array($token) || ! in_array($token[0], [T_FUNCTION, T_FN], true)) {
                 continue;
             }
 
-            $normalised .= $token;
+            $start = $index;
+            $closureType = $token[0];
+            if ($index > 0 && is_array($tokens[$index - 1]) && $tokens[$index - 1][0] === T_STATIC) {
+                $start--;
+            }
+
+            break;
+        }
+
+        if ($start === null || $closureType === null) {
+            return 'unavailable';
+        }
+
+        $normalised = '';
+        $bodyStarted = $closureType === T_FUNCTION;
+        $depth = 0;
+
+        foreach (array_slice($tokens, $start) as $token) {
+            $value = is_array($token) ? $token[1] : $token;
+            $type = is_array($token) ? $token[0] : null;
+
+            if ($type !== null && in_array($type, [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+                continue;
+            }
+
+            if ($closureType === T_FN && $value === '=>') {
+                $bodyStarted = true;
+                $normalised .= $value;
+
+                continue;
+            }
+
+            if ($closureType === T_FN && $bodyStarted) {
+                if (in_array($value, [',', ';'], true) && $depth === 0) {
+                    break;
+                }
+
+                if (in_array($value, [')', ']', '}'], true)) {
+                    if ($depth === 0) {
+                        break;
+                    }
+
+                    $depth--;
+                }
+
+                if (in_array($value, ['(', '[', '{'], true)) {
+                    $depth++;
+                }
+            }
+
+            if ($closureType === T_FUNCTION) {
+                if ($value === '{') {
+                    $depth++;
+                } elseif ($value === '}') {
+                    $depth--;
+                }
+
+                if ($bodyStarted && $depth === 0 && $value === '}') {
+                    $normalised .= $value;
+
+                    break;
+                }
+            }
+
+            $normalised .= $value;
         }
 
         return $normalised;

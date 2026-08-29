@@ -187,8 +187,12 @@ it('requires an explicit key for anonymous factories with unsupported captures',
     $unsupported = new stdClass;
 
     expect(fn (): mixed => $registry->register(
-        static fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($unsupported::class),
-    ))->toThrow(InvalidArgumentException::class);
+        static fn (InstallPatchContext $context): Patch => $unsupported instanceof stdClass
+            ? makeInstallPatchRegistryTestPatch('unsupported')
+            : makeInstallPatchRegistryTestPatch('unreachable'),
+    ))->toThrow(InvalidArgumentException::class)
+        ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
+        ->toBe([]);
 });
 
 it('rejects cyclic anonymous captures before storing the patch', function (): void {
