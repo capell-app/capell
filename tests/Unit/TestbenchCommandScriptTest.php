@@ -24,6 +24,19 @@ it('sets the array cache store in the portable Testbench runner', function (): v
 
     expect($script)
         ->toContain("['CACHE_STORE' => 'array']")
+        ->toContain("in_array(\$command, ['list', 'optimize'], true)")
+        ->toContain("\$root . '/scripts/configure-testbench-runtime-role.php'")
+        ->not->toContain('scripts/screenshots/configure-testbench-runtime-role.php');
+
+    expect($script)
         ->toContain("[PHP_BINARY, \$root . '/vendor/bin/testbench', ...\$arguments]")
         ->not->toContain('CACHE_STORE=array');
+});
+
+it('keeps the screenshot runtime-role helper as an explicit compatibility wrapper', function (): void {
+    $wrapper = (string) file_get_contents(dirname(__DIR__, 2) . '/scripts/screenshots/configure-testbench-runtime-role.php');
+
+    expect($wrapper)
+        ->toContain("require dirname(__DIR__) . '/configure-testbench-runtime-role.php';")
+        ->not->toContain('RuntimeRoleBootstrap::configureResolvedApplication');
 });

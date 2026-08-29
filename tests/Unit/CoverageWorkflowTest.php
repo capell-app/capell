@@ -105,6 +105,16 @@ it('pins an array cache store around the release coverage optimize step', functi
     );
 
     expect($workflow)->toContain('CACHE_STORE: array');
+    $coverageJob = strpos($workflow, 'generate-coverage:');
+    $runtimeRoleEnvironment = strpos($workflow, 'CAPELL_TESTBENCH_RUNTIME_ROLE: true');
+
+    expect($coverageJob)->toBeInt()
+        ->and($runtimeRoleEnvironment)->toBeInt()
+        ->and($runtimeRoleEnvironment)->toBeGreaterThan($coverageJob);
+
+    expect($workflow)
+        ->toContain('php scripts/run-testbench-command.php optimize --except=routes --ansi')
+        ->not->toContain('php vendor/bin/testbench optimize --except=routes --ansi');
 
     foreach (['coverage', 'coverage-report'] as $name) {
         $optimizeCommands = array_filter(
