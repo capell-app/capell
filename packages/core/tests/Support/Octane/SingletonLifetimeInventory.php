@@ -77,6 +77,7 @@ use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
+use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Components\FrontendComponentRegistry;
 use Capell\Frontend\Support\Links\PublicRouteAliasRegistry;
 use Capell\Frontend\Support\Locale\FrontendLocaleScope;
@@ -194,6 +195,7 @@ final class SingletonLifetimeInventory
             FrontendPackageDependencyRegistry::class => self::boot('Frontend package dependencies are package boot registrations.'),
             FrontendViteInputRegistry::class => self::boot('Vite inputs are package boot registrations.'),
             CacheInvalidationDependencyRegistry::class => self::boot('Invalidation dependencies are package boot registrations.'),
+            PublicRenderDataCacheDependencyRegistry::class => self::boot('Public render-data cache dependencies are package boot registrations.'),
             DefaultFrontendResourcePlanRenderer::class => self::stateless('The renderer retains collaborators but no operation-derived values.'),
             FrontendHookRegistrar::class => self::boot('The registrar delegates only to the boot-lifetime render hook registry.'),
             ReservedFrontendRequest::class => self::boot('The predicate reads boot-lifetime reserved path and domain registries.'),

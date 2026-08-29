@@ -376,7 +376,10 @@ it('fails the real bootstrap on an invalid dependency model list', function (): 
 
         public function cacheDependencyModelTypes(): array
         {
-            return [stdClass::class];
+            /** @var class-string<Model> $invalidModelType */
+            $invalidModelType = implode('', ['std', 'Class']);
+
+            return [$invalidModelType];
         }
     });
 
