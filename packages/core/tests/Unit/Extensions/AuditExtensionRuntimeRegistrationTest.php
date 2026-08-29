@@ -184,9 +184,13 @@ it('reports swapped implementation identities even when owner and bucket match',
     recordTestReceipt($receipts, new ExtensionContributionReceiptData('vendor/swapped', 'runtime', ExtensionContributionType::OutboundEvent, 'vendor-package.event', stdClass::class, 'Vendor\\Provider'));
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
     app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
-    $directory = makeRuntimeRegistrationAuditPackage('vendor/swapped', RegistersExtensionOutboundEvent::class, ['type' => 'outbound-event', 'event' => 'vendor-package.event']);
+    $directory = makeRuntimeRegistrationAuditPackage('vendor/swapped', RegistersExtensionOutboundEvent::class, [
+        'type' => 'outbound-event',
+        'event' => 'vendor-package.event',
+        'implementation' => OutboundEventDefinitionData::class,
+    ]);
     $results = runtimeRegistrationAuditResults($directory, 'Runtime contribution has the wrong implementation.', ['runtime']);
-    expect($results)->toHaveCount(1)->and($results[0]['context'])->toMatchArray(['expectedImplementation' => 'Vendor\\Swapped\\Contributions\\PackageContribution', 'actualImplementation' => stdClass::class, 'actualOwner' => 'vendor/swapped']);
+    expect($results)->toHaveCount(1)->and($results[0]['context'])->toMatchArray(['expectedImplementation' => OutboundEventDefinitionData::class, 'actualImplementation' => stdClass::class, 'actualOwner' => 'vendor/swapped']);
 });
 
 it('does not report foundation built-ins as loaded-only drift', function (): void {

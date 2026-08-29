@@ -361,6 +361,9 @@ function makeNestedInstallPatchFactory(): callable
 
 function registerSameLineInstallPatchFactories(InstallPatchRegistry $registry): void
 {
-    $registry->register(static fn (InstallPatchContext $context): ?Patch => null);
-    $registry->register(static fn (InstallPatchContext $context): ?Patch => null);
+    $factories = [static fn (): ?Patch => null, static fn (): ?Patch => null];
+
+    foreach ($factories as $factory) {
+        $registry->register($factory);
+    }
 }

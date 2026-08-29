@@ -161,7 +161,11 @@ function packageLoader(CapellPackageRegistry $registry): CapellPackageLoader
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
 
-    return new CapellPackageLoader($application, $registry);
+    return new CapellPackageLoader(
+        $application,
+        $registry,
+        receipts: new ExtensionContributionReceiptRegistry,
+    );
 }
 
 final class BootingReceiptTestProvider extends ServiceProvider
