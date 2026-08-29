@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\MainContentRenderHookData;
 use Capell\Frontend\Data\RenderHookContext;
@@ -274,4 +275,46 @@ it('passes mutable main content context through filtered hooks', function (): vo
         ->and($contextData->slotRendered)->toBeTrue()
         ->and($contextData->pageContentWidgetRendered)->toBeTrue()
         ->and($registry->renderAll(RenderHookLocation::MainContent, $contextData))->toBe('');
+});
+
+it('interleaves keyed hooks with relative positions and reports collisions', function (): void {
+    $registry = new RenderHookRegistry;
+    $registry->contribute(RenderHookContributionData::inlineBlade(
+        RenderHookLocation::Footer,
+        '<span>a</span>',
+        'vendor/a',
+        'a',
+        position: ExtensionPosition::priority(10),
+    ));
+    $registry->contribute(RenderHookContributionData::inlineBlade(
+        RenderHookLocation::Footer,
+        '<span>b</span>',
+        'vendor/b',
+        'b',
+        position: ExtensionPosition::before('a'),
+    ));
+
+    expect($registry->renderAll(RenderHookLocation::Footer))->toBe('<span>b</span><span>a</span>');
+    expect(function () use ($registry): void {
+        $registry->contribute(RenderHookContributionData::inlineBlade(
+            RenderHookLocation::Footer,
+            '<span>collision</span>',
+            'vendor/c',
+            'a',
+        ));
+    })->toThrow(LogicException::class, 'vendor/a');
+});
+
+it('supports explicit replacement and frozen render hooks', function (): void {
+    $registry = new RenderHookRegistry;
+    $registry->contribute(RenderHookContributionData::inlineBlade(RenderHookLocation::Footer, '<span>old</span>', 'vendor/a', 'item'));
+    $registry->replaceContribution(RenderHookContributionData::inlineBlade(RenderHookLocation::Footer, '<span>new</span>', 'vendor/a', 'item'));
+
+    expect($registry->renderAll(RenderHookLocation::Footer))->toBe('<span>new</span>');
+
+    $registry->freeze();
+    expect(function () use ($registry): void {
+        $registry->contribute(RenderHookContributionData::inlineBlade(RenderHookLocation::Footer, '<span>late</span>', 'vendor/b', 'late'));
+    })
+        ->toThrow(LogicException::class, 'frozen');
 });

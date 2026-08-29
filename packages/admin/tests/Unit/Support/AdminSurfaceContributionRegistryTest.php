@@ -7,9 +7,11 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Admin\Filament\Configurators\Pages\DefaultPageConfigurator;
 use Capell\Admin\Filament\Pages\SettingsPage;
+use Capell\Admin\Filament\Pages\SitemapPage;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Tests\Fixtures\Autoload\TestSchemaExtenderForRegistrar;
+use Capell\Core\Support\Extensions\ExtensionPosition;
 
 it('creates page contribution data', function (): void {
     $contribution = AdminSurfaceContributionData::page(SettingsPage::class);
@@ -92,4 +94,32 @@ it('returns tagged schema extenders and clears contributions', function (): void
     $registry->clear();
 
     expect($registry->all())->toBe([]);
+});
+
+it('orders admin contributions and rejects implicit owner collisions', function (): void {
+    $registry = new AdminSurfaceContributionRegistry;
+    $registry->register(new AdminSurfaceContributionData(AdminSurfaceContributionType::Page, SettingsPage::class, 'settings', owner: 'vendor/a', position: ExtensionPosition::priority(20), source: 'Vendor\\Provider'));
+    $registry->register(new AdminSurfaceContributionData(AdminSurfaceContributionType::Page, SitemapPage::class, 'sitemap', owner: 'vendor/b', position: ExtensionPosition::first(), source: 'Other\\Provider'));
+
+    expect($registry->pages())->toBe([SitemapPage::class, SettingsPage::class]);
+
+    expect(function () use ($registry): void {
+        $registry->register(new AdminSurfaceContributionData(AdminSurfaceContributionType::Page, SettingsPage::class, 'settings', owner: 'vendor/c', source: 'Other\\Provider'));
+    })
+        ->toThrow(LogicException::class, 'vendor/a');
+});
+
+it('allows explicit replacement and rejects registrations after freeze', function (): void {
+    $registry = new AdminSurfaceContributionRegistry;
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $registry->replace(new AdminSurfaceContributionData(AdminSurfaceContributionType::Page, SitemapPage::class, SettingsPage::class));
+
+    expect($registry->pages())->toBe([SitemapPage::class]);
+
+    $registry->freeze();
+
+    expect(function () use ($registry): void {
+        $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    })
+        ->toThrow(LogicException::class, 'frozen');
 });

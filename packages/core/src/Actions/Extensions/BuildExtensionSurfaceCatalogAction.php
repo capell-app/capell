@@ -35,6 +35,7 @@ use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
+use Capell\Core\Data\Extensions\ExtensionOrderDiagnosticData;
 use Capell\Core\Data\Extensions\ExtensionSurfaceCatalogEntryData;
 use Capell\Core\Data\FrontendRouteReservationData;
 use Capell\Core\Data\Health\HealthCheckResultData;
@@ -92,6 +93,8 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
+use Capell\Core\Support\Extensions\ExtensionOrderResolver;
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
@@ -192,6 +195,9 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.contract.extension-contribution-receipt', 'contract', RecordsExtensionContributionReceipt::class, ExtensionSurfaceStability::Stable, 'Neutral runtime contribution receipt boundary.', 'core.extension-contribution-receipt'),
             $this->entry('core.dto.extension-contribution-receipt', 'dto', ExtensionContributionReceiptData::class, ExtensionSurfaceStability::Stable, 'Typed runtime contribution receipt.', 'core.extension-contribution-receipt'),
             $this->entry('core.dto.extension-contribution-traceability', 'dto', ExtensionContributionTraceabilityData::class, ExtensionSurfaceStability::Stable, 'Typed manifest runtime traceability envelope.', 'core.extension-contribution-traceability'),
+            $this->entry('core.dto.extension-order-diagnostic', 'dto', ExtensionOrderDiagnosticData::class, ExtensionSurfaceStability::Experimental, 'Structured ordering fallback diagnostic.'),
+            $this->entry('core.dto.extension-position', 'value-object', ExtensionPosition::class, ExtensionSurfaceStability::Experimental, 'Filament-neutral relative extension position.'),
+            $this->entry('core.registry.extension-order-resolver', 'registry', ExtensionOrderResolver::class, ExtensionSurfaceStability::Experimental, 'Deterministic shared extension ordering resolver.'),
             $this->entry('core.dto.project-build-artifact-reference', 'dto', ProjectBuildArtifactReferenceData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build artifact reference.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-compatibility', 'dto', ProjectBuildCompatibilityData::class, ExtensionSurfaceStability::Stable, 'Typed portable project build compatibility requirements.', 'core.project-build-manifest-data'),
             $this->entry('core.dto.project-build-installed-package', 'dto', ProjectBuildInstalledPackageData::class, ExtensionSurfaceStability::Stable, 'Verified installed package release evidence for project build consumers.', 'core.project-build-manifest-install'),
@@ -242,6 +248,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('admin.contract.admin-tool-item', 'contract', 'Capell\\Admin\\Contracts\\AdminTools\\AdminToolItem', ExtensionSurfaceStability::Experimental, 'Typed admin header tool contribution boundary.', owner: 'capell-app/admin'),
             $this->entry('admin.registrar.workspace', 'registrar', 'Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar', ExtensionSurfaceStability::Stable, 'Registers permission-filtered role workspace tools from an Admin bridge.', 'admin.bridge-registrar-workspace', owner: 'capell-app/admin'),
             $this->entry('admin.render-hook.navigation-after', 'render-hook', 'panels::sidebar.nav.end', ExtensionSurfaceStability::Experimental, 'Admin navigation contribution hook.', owner: 'capell-app/admin'),
+            $this->entry('admin.registry.surface-contribution', 'registry', 'Capell\\Admin\\Support\\AdminSurfaceContributionRegistry', ExtensionSurfaceStability::Experimental, 'Owner-aware ordered Admin surface contributions.', owner: 'capell-app/admin'),
             $this->entry('admin.tag.admin-tool-item', 'tagged-service', 'capell-admin:admin-tool-items', ExtensionSurfaceStability::Experimental, 'Container tag for admin header tool contributions.', owner: 'capell-app/admin'),
             $this->entry('marketplace.contract.composer-change-publisher', 'contract', 'Capell\\Marketplace\\Contracts\\MarketplaceComposerChangePublisher', ExtensionSurfaceStability::Experimental, 'Typed optional Composer change publication boundary.', owner: 'capell-app/marketplace'),
             $this->entry('marketplace.dto.composer-publication-request', 'dto', 'Capell\\Marketplace\\Data\\MarketplaceComposerPublicationRequestData', ExtensionSurfaceStability::Experimental, 'Typed Composer publication request data.', owner: 'capell-app/marketplace'),
@@ -258,6 +265,7 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('frontend.dto.public-render-data-cache-dependency', 'dto', 'Capell\\Frontend\\Data\\PublicRenderDataCacheDependencyData', ExtensionSurfaceStability::Experimental, 'Typed public render-data model dependency.', owner: 'capell-app/frontend'),
             $this->entry('frontend.registry.public-render-data-contributor', 'registry', 'Capell\\Frontend\\Support\\Render\\PublicRenderDataContributorRegistry', ExtensionSurfaceStability::Experimental, 'Deterministic public render-data contributor composition.', owner: 'capell-app/frontend'),
             $this->entry('frontend.registry.public-render-data-cache-dependency', 'registry', 'Capell\\Frontend\\Support\\Cache\\PublicRenderDataCacheDependencyRegistry', ExtensionSurfaceStability::Experimental, 'Host-scoped public render-data cache dependency index.', owner: 'capell-app/frontend'),
+            $this->entry('frontend.registry.render-hook', 'registry', 'Capell\\Frontend\\Support\\Render\\RenderHookRegistry', ExtensionSurfaceStability::Experimental, 'Owner-aware ordered Frontend render hooks.', owner: 'capell-app/frontend'),
             $this->entry('frontend.tag.public-render-data-contributor', 'tagged-service', 'capell.frontend.public-render-data-contributor', ExtensionSurfaceStability::Experimental, 'Container tag for public render-data contributors.', owner: 'capell-app/frontend'),
             $this->entry('frontend.contract.widget-resource-usage-contributor', 'contract', 'Capell\\Frontend\\Contracts\\FrontendWidgetResourceUsageContributor', ExtensionSurfaceStability::Experimental, 'Typed widget resource usage contribution boundary.', owner: 'capell-app/frontend'),
             $this->entry('frontend.dto.component-contribution', 'dto', 'Capell\\Frontend\\Data\\FrontendComponentContributionData', ExtensionSurfaceStability::Experimental, 'Named component contribution for a frontend runtime target.', owner: 'capell-app/frontend'),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data;
 
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
@@ -20,6 +21,8 @@ final class RenderHookEntryData
         public readonly ?string $owner = null,
         public readonly ?string $key = null,
         public readonly bool $cacheSafe = true,
+        public readonly ?ExtensionPosition $position = null,
+        public readonly string $source = self::class,
     ) {}
 
     public static function legacy(
@@ -51,6 +54,8 @@ final class RenderHookEntryData
             owner: $contribution->owner,
             key: $contribution->key,
             cacheSafe: $contribution->cacheSafe,
+            position: $contribution->position,
+            source: $contribution->source,
         );
     }
 

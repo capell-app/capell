@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Render;
 
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
+use Capell\Core\Data\Extensions\ExtensionOrderDiagnosticData;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Exceptions\ExtensionContributionConflictException;
+use Capell\Core\Support\Extensions\ExtensionOrderResolver;
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Frontend\Actions\Performance\RecordManifestRenderContributionAction;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContext;
@@ -31,8 +35,11 @@ class RenderHookRegistry
     /** @var array<string, true> Stable keys already contributed, for dedupe. */
     protected array $contributedKeys = [];
 
+    private bool $frozen = false;
+
     public function __construct(
         private readonly ?Container $container = null,
+        private readonly ?ExtensionOrderResolver $orderResolver = null,
     ) {}
 
     /**
@@ -133,7 +140,33 @@ class RenderHookRegistry
      */
     public function contribute(RenderHookContributionData $contribution): void
     {
+        if ($this->frozen) {
+            throw ExtensionContributionConflictException::frozen($contribution->owner, $contribution->source);
+        }
+
         $stableKey = $contribution->stableKey();
+
+        foreach ($this->extensions[$contribution->location->value] ?? [] as $existing) {
+            if ($existing->key !== $contribution->key) {
+                continue;
+            }
+            if ($existing->owner === $contribution->owner && $existing->source === $contribution->source
+                && $existing->extension === $contribution->extension
+                && $existing->priority === $contribution->priority
+                && $existing->scenario === $contribution->scenario
+                && $existing->target === $contribution->target
+                && $existing->cacheSafe === $contribution->cacheSafe
+                && $this->positionKey($existing->position) === $this->positionKey($contribution->position)) {
+                return;
+            }
+            throw ExtensionContributionConflictException::duplicate(
+                $contribution->key,
+                (string) $existing->owner,
+                $existing->source,
+                $contribution->owner,
+                $contribution->source,
+            );
+        }
 
         if (isset($this->contributedKeys[$stableKey])) {
             return;
@@ -219,7 +252,12 @@ class RenderHookRegistry
 
                 return true;
             })
-            ->sortBy(fn (RenderHookEntryData $entry): int => $entry->priority);
+            ->values();
+        $extensions = collect(($this->orderResolver ?? new ExtensionOrderResolver)->resolve(
+            $extensions->all(),
+            static fn (RenderHookEntryData $entry, int $index): string => $entry->key ?? '__legacy:' . $index,
+            static fn (RenderHookEntryData $entry): ExtensionPosition => $entry->position ?? ExtensionPosition::priority($entry->priority),
+        ));
 
         return $extensions
             ->map(fn (RenderHookEntryData $entry): mixed => $this->renderAndRecordEntry($entry, $context))
@@ -236,19 +274,83 @@ class RenderHookRegistry
             return [];
         }
 
+        $ordered = ($this->orderResolver ?? new ExtensionOrderResolver)->resolve(
+            $this->extensions[$key],
+            static fn (RenderHookEntryData $entry, int $index): string => $entry->key ?? '__legacy:' . $index,
+            static fn (RenderHookEntryData $entry): ExtensionPosition => $entry->position ?? ExtensionPosition::priority($entry->priority),
+        );
+
         return array_map(function (RenderHookEntryData $entry) {
             if ($entry->extension instanceof View) {
                 return $entry->extension->render();
             }
 
             return $entry->extension;
-        }, $this->extensions[$key]);
+        }, $ordered);
+    }
+
+    public function replaceContribution(RenderHookContributionData $contribution): void
+    {
+        if ($this->frozen) {
+            throw ExtensionContributionConflictException::frozen($contribution->owner, $contribution->source);
+        }
+        foreach ($this->extensions[$contribution->location->value] ?? [] as $index => $existing) {
+            if ($existing->key !== $contribution->key) {
+                continue;
+            }
+            array_splice(
+                $this->extensions[$contribution->location->value],
+                $index,
+                1,
+                [RenderHookEntryData::contribution($contribution)],
+            );
+            $this->contributedKeys[$contribution->stableKey()] = true;
+
+            return;
+        }
+        throw new LogicException("Cannot replace missing render hook key [{$contribution->key}].");
+    }
+
+    public function freeze(): void
+    {
+        $this->frozen = true;
+    }
+
+    public function isFrozen(): bool
+    {
+        return $this->frozen;
+    }
+
+    /** @return list<ExtensionOrderDiagnosticData> */
+    public function orderingDiagnostics(RenderHookLocation $location): array
+    {
+        $key = $location->value;
+        $resolver = $this->orderResolver ?? new ExtensionOrderResolver;
+        $resolver->resolve(
+            $this->extensions[$key] ?? [],
+            static fn (RenderHookEntryData $entry, int $index): string => $entry->key ?? '__legacy:' . $index,
+            static fn (RenderHookEntryData $entry): ExtensionPosition => $entry->position ?? ExtensionPosition::priority($entry->priority),
+        );
+
+        return $resolver->diagnostics();
     }
 
     private function addEntry(RenderHookEntryData $entry): void
     {
+        if ($this->frozen) {
+            throw ExtensionContributionConflictException::frozen($entry->owner ?? 'unknown', self::class);
+        }
         $key = $entry->location->value;
         $this->extensions[$key][] = $entry;
+    }
+
+    private function positionKey(?ExtensionPosition $position): string
+    {
+        if ($position === null) {
+            return '';
+        }
+
+        return implode(':', [$position->kind, (string) $position->priority, $position->anchor ?? '']);
     }
 
     private function receipt(mixed $extension, string $location): void
