@@ -21,6 +21,8 @@ use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 
 it('builds deterministic render data cache keys from page site language strategy and content version', function (): void {
     $page = Page::factory()
@@ -183,6 +185,74 @@ it('does not rebuild contributor values on a warm cache hit', function (): void 
     $cache->remember($context, $builder);
 
     expect($contributeCalls)->toBe(1);
+});
+
+it('renders hydrated cached contributor data in Blade without public-view queries or internals', function (): void {
+    config()->set('cache.default', 'array');
+    config()->set('capell-frontend.public_render_data_cache', true);
+
+    $page = Page::factory()->withTranslations()->createOne();
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $context = new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: Layout::query()->find($page->layout_id),
+        theme: $site->theme,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    );
+
+    resolve(PublicRenderDataContributorRegistry::class)->register(new class implements PublicRenderDataContributor
+    {
+        public function key(): string
+        {
+            return 'fixture.catalogue';
+        }
+
+        public function supports(FrontendRenderContextData $context): bool
+        {
+            return true;
+        }
+
+        public function metadata(FrontendRenderContextData $context): PublicRenderDataContributionMetadataData
+        {
+            return new PublicRenderDataContributionMetadataData('catalogue-v1');
+        }
+
+        public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
+        {
+            return new PublicRenderDataContributionData((object) [
+                'products' => [(object) ['name' => 'Tea', 'price' => '4.00']],
+            ]);
+        }
+
+        public function cacheDependencyModelTypes(): array
+        {
+            return [];
+        }
+    });
+
+    $renderData = resolve(PublicPageRenderDataCache::class)->remember(
+        $context,
+        static fn (): PublicPageRenderData => BuildPublicPageRenderDataAction::run($context),
+    );
+    $queries = 0;
+    DB::listen(static function () use (&$queries): void {
+        $queries++;
+    });
+
+    $html = Blade::render(
+        '<article>{{ $renderData->extensionData(\'fixture.catalogue\')->products[0]->name }}</article>',
+        ['renderData' => $renderData],
+    );
+
+    expect($html)->toContain('<article>Tea</article>')
+        ->and($queries)->toBe(0);
+
+    foreach (['admin', 'permission', 'package', 'Capell\\', 'field_path', 'signed'] as $forbidden) {
+        expect($html)->not->toContain($forbidden);
+    }
 });
 
 it('retains both destinations when the same model is registered repeatedly', function (): void {

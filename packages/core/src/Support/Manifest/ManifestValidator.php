@@ -17,6 +17,7 @@ use Capell\Core\Contracts\Extensions\RegistersExtensionFrontendComponent;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Contracts\Extensions\RegistersExtensionPageType;
 use Capell\Core\Contracts\Extensions\RegistersExtensionPermission;
+use Capell\Core\Contracts\Extensions\RegistersExtensionPublicRenderData;
 use Capell\Core\Contracts\Extensions\RegistersExtensionRenderHook;
 use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
 use Capell\Core\Contracts\Extensions\RegistersExtensionSection;
@@ -351,7 +352,7 @@ final class ManifestValidator
             }
 
             $validStringList = true;
-            $validListenerList = is_array($values) && $values !== [];
+            $validListenerList = $values !== [];
 
             foreach ($values as $value) {
                 if (! is_string($value) || $value === '') {
@@ -478,6 +479,7 @@ final class ManifestValidator
             ExtensionContributionType::FrontendComponent => RegistersExtensionFrontendComponent::class,
             ExtensionContributionType::ContentWidget => RegistersExtensionContentWidget::class,
             ExtensionContributionType::RenderHook => RegistersExtensionRenderHook::class,
+            ExtensionContributionType::PublicRenderData => RegistersExtensionPublicRenderData::class,
             ExtensionContributionType::Asset => RegistersExtensionAsset::class,
             ExtensionContributionType::Migration => RunsExtensionMigration::class,
             ExtensionContributionType::ScheduledJob => RunsScheduledExtensionJob::class,

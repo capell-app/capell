@@ -52,7 +52,11 @@ final class PublicPageRenderDataCache
 
         $this->rememberKeyForIdentity($context, $key);
 
-        $renderData = $this->rememberCache($key, $builder);
+        $renderData = $this->dependencies->remember(
+            $metadata->cacheDependencies,
+            $key,
+            fn (): mixed => $this->rememberCache($key, $builder),
+        );
 
         if ($renderData instanceof PublicPageRenderData) {
             return $renderData;

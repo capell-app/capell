@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Extensions;
 
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
+use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
 use Capell\Core\Data\Manifest\ExtensionHealthCheckData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
-use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\OutboundEventRegistry;
@@ -275,7 +275,7 @@ final class AuditExtensionContractsAction
      * package directory is commonly run outside that package's runtime; treating
      * an absent context as loaded would produce false declared-only failures.
      *
-     * @param array<string, list<string>>|list<string> $bootedProviderBuckets
+     * @param  array<string, list<string>>|list<string>  $bootedProviderBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
     private function runtimeReceiptResults(CapellManifestData $manifest, string $manifestPath, array $bootedProviderBuckets): array
@@ -316,36 +316,36 @@ final class AuditExtensionContractsAction
         }
 
         foreach ($expected as [$type, $key, $expectedBucket, $expectedClass]) {
-                if (! in_array($expectedBucket, $bootedBuckets, true)) {
-                    continue;
-                }
+            if (! in_array($expectedBucket, $bootedBuckets, true)) {
+                continue;
+            }
 
-                $declared[$type->value . ':' . $key] = true;
-                $matching = array_values(array_filter($receipts, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->type === $type && $receipt->key === $key));
-                $exact = array_values(array_filter($matching, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->ownerPackage === $manifest->name && $receipt->providerBucket === $expectedBucket && ($expectedClass === null || $receipt->implementation === $expectedClass)));
-                if ($exact !== []) {
-                    continue;
-                }
+            $declared[$type->value . ':' . $key] = true;
+            $matching = array_values(array_filter($receipts, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->type === $type && $receipt->key === $key));
+            $exact = array_values(array_filter($matching, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->ownerPackage === $manifest->name && $receipt->providerBucket === $expectedBucket && ($expectedClass === null || $receipt->implementation === $expectedClass)));
+            if ($exact !== []) {
+                continue;
+            }
 
-                $actual = $matching[0] ?? null;
-                $results[] = $this->result(
-                    package: $manifest->name,
-                    manifestPath: $manifestPath,
-                    severity: 'warning',
-                    message: $actual instanceof ExtensionContributionReceiptData
-                        ? ($actual->ownerPackage !== $manifest->name ? 'Runtime contribution has the wrong package owner.' : ($actual->providerBucket !== $expectedBucket ? 'Runtime contribution is registered in the wrong provider bucket.' : 'Runtime contribution has the wrong implementation.'))
-                        : 'Declared contribution is not registered at runtime.',
-                    context: [
-                        'status' => $actual instanceof ExtensionContributionReceiptData ? ($actual->ownerPackage !== $manifest->name ? 'wrong-owner' : ($actual->providerBucket !== $expectedBucket ? 'wrong-bucket' : 'wrong-implementation')) : 'declared-only',
-                        'contributionKey' => $key,
-                        'expectedBucket' => $expectedBucket,
-                        'actualBucket' => $actual?->providerBucket,
-                        'expectedImplementation' => $expectedClass,
-                        'actualImplementation' => $actual?->implementation,
-                        'actualOwner' => $actual?->ownerPackage,
-                        'sourceClass' => $actual?->sourceClass ?? $expectedClass,
-                    ],
-                );
+            $actual = $matching[0] ?? null;
+            $results[] = $this->result(
+                package: $manifest->name,
+                manifestPath: $manifestPath,
+                severity: 'warning',
+                message: $actual instanceof ExtensionContributionReceiptData
+                    ? ($actual->ownerPackage !== $manifest->name ? 'Runtime contribution has the wrong package owner.' : ($actual->providerBucket !== $expectedBucket ? 'Runtime contribution is registered in the wrong provider bucket.' : 'Runtime contribution has the wrong implementation.'))
+                    : 'Declared contribution is not registered at runtime.',
+                context: [
+                    'status' => $actual instanceof ExtensionContributionReceiptData ? ($actual->ownerPackage !== $manifest->name ? 'wrong-owner' : ($actual->providerBucket !== $expectedBucket ? 'wrong-bucket' : 'wrong-implementation')) : 'declared-only',
+                    'contributionKey' => $key,
+                    'expectedBucket' => $expectedBucket,
+                    'actualBucket' => $actual?->providerBucket,
+                    'expectedImplementation' => $expectedClass,
+                    'actualImplementation' => $actual?->implementation,
+                    'actualOwner' => $actual?->ownerPackage,
+                    'sourceClass' => $actual?->sourceClass ?? $expectedClass,
+                ],
+            );
         }
 
         foreach ($receipts as $receipt) {
@@ -385,6 +385,7 @@ final class AuditExtensionContractsAction
             ExtensionContributionType::FrontendComponent,
             ExtensionContributionType::ContentWidget,
             ExtensionContributionType::RenderHook,
+            ExtensionContributionType::PublicRenderData,
             ExtensionContributionType::Asset => 'frontend',
             ExtensionContributionType::Migration => 'install',
             default => 'runtime',
@@ -709,6 +710,7 @@ final class AuditExtensionContractsAction
                 ExtensionContributionType::FrontendComponent,
                 ExtensionContributionType::ContentWidget,
                 ExtensionContributionType::RenderHook,
+                ExtensionContributionType::PublicRenderData,
             ], true)) {
                 return true;
             }

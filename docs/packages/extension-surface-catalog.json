@@ -193,16 +193,6 @@
             "contractTestId": "core.extension-contribution"
         },
         {
-            "id": "core.contract.frontend-route-reservation-contributor",
-            "kind": "contract",
-            "identifier": "Capell\\Core\\Contracts\\FrontendRouteReservationContributor",
-            "ownerPackage": "capell-app/core",
-            "stability": "experimental",
-            "introducedVersion": "1.0.0",
-            "summary": "Typed frontend route reservation contributions.",
-            "contractTestId": null
-        },
-        {
             "id": "core.contract.extension-contribution-receipt",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Extensions\\RecordsExtensionContributionReceipt",
@@ -211,6 +201,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Neutral runtime contribution receipt boundary.",
             "contractTestId": "core.extension-contribution-receipt"
+        },
+        {
+            "id": "core.contract.frontend-route-reservation-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\FrontendRouteReservationContributor",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend route reservation contributions.",
+            "contractTestId": null
         },
         {
             "id": "core.contract.health-check",
@@ -283,6 +283,16 @@
             "contractTestId": "core.project-build-manifest-install"
         },
         {
+            "id": "core.contract.public-render-data",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Extensions\\RegistersExtensionPublicRenderData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Package-owned public render-data contribution marker.",
+            "contractTestId": null
+        },
+        {
             "id": "core.contract.publication-readiness-contributor",
             "kind": "contract",
             "identifier": "Capell\\Core\\Contracts\\Publishing\\PublicationReadinessContributor",
@@ -333,16 +343,6 @@
             "contractTestId": "core.extension-contribution-data"
         },
         {
-            "id": "core.dto.frontend-route-reservation",
-            "kind": "dto",
-            "identifier": "Capell\\Core\\Data\\FrontendRouteReservationData",
-            "ownerPackage": "capell-app/core",
-            "stability": "experimental",
-            "introducedVersion": "1.0.0",
-            "summary": "Typed frontend route reservation data.",
-            "contractTestId": null
-        },
-        {
             "id": "core.dto.extension-contribution-receipt",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Extensions\\ExtensionContributionReceiptData",
@@ -371,6 +371,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed manifest contribution traceability entry.",
             "contractTestId": "core.extension-contribution-traceability"
+        },
+        {
+            "id": "core.dto.frontend-route-reservation",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\FrontendRouteReservationData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed frontend route reservation data.",
+            "contractTestId": null
         },
         {
             "id": "core.dto.health-check-result",
@@ -1083,6 +1093,16 @@
             "contractTestId": null
         },
         {
+            "id": "frontend.contract.public-render-data-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Frontend\\Contracts\\PublicRenderDataContributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed public render-data contribution boundary.",
+            "contractTestId": null
+        },
+        {
             "id": "frontend.contract.widget-resource-usage-contributor",
             "kind": "contract",
             "identifier": "Capell\\Frontend\\Contracts\\FrontendWidgetResourceUsageContributor",
@@ -1110,6 +1130,36 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed frontend package dependency declaration.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.public-render-data-cache-dependency",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\PublicRenderDataCacheDependencyData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed public render-data model dependency.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.public-render-data-contribution",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\PublicRenderDataContributionData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Validated public render-data value.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.public-render-data-contribution-metadata",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\PublicRenderDataContributionMetadataData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Cheap public render-data fingerprint and dependency metadata.",
             "contractTestId": null
         },
         {
@@ -1153,6 +1203,26 @@
             "contractTestId": null
         },
         {
+            "id": "frontend.registry.public-render-data-cache-dependency",
+            "kind": "registry",
+            "identifier": "Capell\\Frontend\\Support\\Cache\\PublicRenderDataCacheDependencyRegistry",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Host-scoped public render-data cache dependency index.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.registry.public-render-data-contributor",
+            "kind": "registry",
+            "identifier": "Capell\\Frontend\\Support\\Render\\PublicRenderDataContributorRegistry",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Deterministic public render-data contributor composition.",
+            "contractTestId": null
+        },
+        {
             "id": "frontend.tag.component-contributor",
             "kind": "tagged-service",
             "identifier": "capell.frontend.component-contributor",
@@ -1160,6 +1230,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Container tag for frontend component contributors.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.tag.public-render-data-contributor",
+            "kind": "tagged-service",
+            "identifier": "capell.frontend.public-render-data-contributor",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Container tag for public render-data contributors.",
             "contractTestId": null
         },
         {

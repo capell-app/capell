@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Contracts;
 
+use Capell\Core\Contracts\Extensions\RegistersExtensionPublicRenderData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
 use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\Model;
  * package provider. A contributor must load all of its data before Blade
  * renders and declare every model dependency that can make that data stale.
  */
-interface PublicRenderDataContributor
+interface PublicRenderDataContributor extends RegistersExtensionPublicRenderData
 {
     public const string TAG = 'capell.frontend.public-render-data-contributor';
 

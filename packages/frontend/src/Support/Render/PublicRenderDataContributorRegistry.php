@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Render;
 
+use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
@@ -28,8 +30,10 @@ final class PublicRenderDataContributorRegistry
     /**
      * @param  iterable<PublicRenderDataContributor>  $contributors
      */
-    public function __construct(iterable $contributors = [])
-    {
+    public function __construct(
+        iterable $contributors,
+        private readonly ExtensionContributionReceiptRegistry $receipts,
+    ) {
         $this->prepared = new WeakMap;
         $this->metadata = new WeakMap;
 
@@ -46,6 +50,12 @@ final class PublicRenderDataContributorRegistry
         throw_if(isset($this->contributors[$key]), InvalidArgumentException::class, sprintf('Public render-data contributor [%s] is already registered.', $key));
 
         $this->contributors[$key] = $contributor;
+        $this->receipts->recordFromContext(
+            ExtensionContributionType::PublicRenderData,
+            $key,
+            $contributor::class,
+            $contributor::class,
+        );
     }
 
     /** @return array<string, PublicRenderDataContributor> */
@@ -108,6 +118,8 @@ final class PublicRenderDataContributorRegistry
                 continue;
             }
 
+            $declaredModelTypes = $this->validatedModelTypes($contributor, $key);
+
             $contribution = $contributor->metadata($context);
             throw_unless($contribution instanceof PublicRenderDataContributionMetadataData, InvalidArgumentException::class, sprintf('Public render-data contributor [%s] returned invalid metadata.', $key));
 
@@ -115,6 +127,7 @@ final class PublicRenderDataContributorRegistry
             $surrogateKeys = [...$surrogateKeys, ...$contribution->surrogateKeys];
 
             foreach ($contribution->cacheDependencies as $dependency) {
+                throw_unless(in_array($dependency->modelType, $declaredModelTypes, true), InvalidArgumentException::class, sprintf('Public render-data contributor [%s] returned an undeclared cache dependency model [%s].', $key, $dependency->modelType));
                 $cacheDependencies[$dependency->identity()] = $dependency;
             }
         }
@@ -136,13 +149,25 @@ final class PublicRenderDataContributorRegistry
         $modelTypes = [];
 
         foreach ($this->all() as $contributor) {
-            foreach ($contributor->cacheDependencyModelTypes() as $modelType) {
-                if (is_string($modelType) && is_a($modelType, Model::class, true)) {
-                    $modelTypes[$modelType] = true;
-                }
+            foreach ($this->validatedModelTypes($contributor, $contributor->key()) as $modelType) {
+                $modelTypes[$modelType] = true;
             }
         }
 
         return array_keys($modelTypes);
+    }
+
+    /** @return list<class-string<Model>> */
+    private function validatedModelTypes(PublicRenderDataContributor $contributor, string $key): array
+    {
+        $modelTypes = $contributor->cacheDependencyModelTypes();
+
+        throw_unless(array_is_list($modelTypes), InvalidArgumentException::class, sprintf('Public render-data contributor [%s] must return a list of dependency model classes.', $key));
+
+        foreach ($modelTypes as $modelType) {
+            throw_unless(is_string($modelType) && is_a($modelType, Model::class, true), InvalidArgumentException::class, sprintf('Public render-data contributor [%s] declared invalid dependency model [%s].', $key, is_scalar($modelType) ? (string) $modelType : get_debug_type($modelType)));
+        }
+
+        return $modelTypes;
     }
 }

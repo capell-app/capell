@@ -17,9 +17,9 @@ use Capell\Core\Data\ContentGraph\ContentGraphEdgeCollectionData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
+use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\ManifestLoader;
-use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Illuminate\Support\ServiceProvider;
 
@@ -589,6 +589,7 @@ it('limits contribution blueprints to the v3 enum values', function (): void {
         'frontend-component',
         'content-widget',
         'render-hook',
+        'public-render-data',
         'asset',
         'migration',
         'scheduled-job',

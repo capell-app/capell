@@ -75,17 +75,6 @@ class BuildStaticPageArtifactMetadataAction
             'layout_graph_key' => $renderData->layoutGraphKey(),
         ], fn (mixed $value): bool => $value !== null);
 
-        $dependencies['public_render_data'] = [
-            'fingerprint' => $renderData->extensionFingerprint,
-            'cache_dependencies' => array_map(
-                static fn (PublicRenderDataCacheDependencyData $dependency): array => [
-                    'model_type' => $dependency->modelType,
-                    'model_id' => $dependency->modelId,
-                ],
-                $renderData->extensionCacheDependencies,
-            ),
-        ];
-
         $metadata = $this->fingerprint($dependencies);
         $metadata['public_render_data'] = [
             'fingerprint' => $renderData->extensionFingerprint,

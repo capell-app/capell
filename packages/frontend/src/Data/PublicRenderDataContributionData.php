@@ -41,6 +41,10 @@ final readonly class PublicRenderDataContributionData
     {
         $normalised = self::publicValue($value);
 
+        if (is_array($normalised)) {
+            $normalised = (object) $normalised;
+        }
+
         throw_unless(is_object($normalised), RuntimeException::class, 'Public render-data contributor values must be public objects.');
 
         return $normalised;
