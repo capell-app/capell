@@ -24,7 +24,7 @@ final class FrontendHookRegistrar
 {
     public function __construct(
         private readonly RenderHookRegistry $registry,
-        private readonly RecordsExtensionContributionReceipt $receipts,
+        private readonly ?RecordsExtensionContributionReceipt $receipts = null,
     ) {}
 
     public function contribute(
@@ -51,6 +51,6 @@ final class FrontendHookRegistrar
             position: $position,
             source: $source,
         ));
-        $this->receipts->recordContribution(ExtensionContributionType::RenderHook, $key, is_string($extension) ? $extension : $extension::class, self::class);
+        $this->receipts?->recordContribution(ExtensionContributionType::RenderHook, $key, is_string($extension) ? $extension : $extension::class, self::class);
     }
 }

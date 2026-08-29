@@ -48,6 +48,28 @@ it('emits a receipt at the direct render hook boundary', function (): void {
         ->and($receipts->forPackage('vendor/frontend-hooks')[0]->type)->toBe(ExtensionContributionType::RenderHook);
 });
 
+it('preserves one-argument construction for direct package callers', function (): void {
+    $registry = new RenderHookRegistry;
+    $registrar = new FrontendHookRegistrar($registry);
+    $extension = new class implements RenderHookExtensionInterface
+    {
+        public function render(RenderHookContext $context): string
+        {
+            return '<aside>compatibility hook</aside>';
+        }
+    };
+
+    $registrar->contribute(
+        RenderHookLocation::Footer,
+        $extension,
+        'vendor/frontend-hooks',
+        'compatibility-hook',
+    );
+
+    expect($registry->renderAll(RenderHookLocation::Footer))
+        ->toBe('<aside>compatibility hook</aside>');
+});
+
 it('emits distinct receipts for unkeyed closures at one hook location', function (): void {
     $receipts = new ExtensionContributionReceiptRegistry;
     app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
