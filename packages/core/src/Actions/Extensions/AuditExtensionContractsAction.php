@@ -342,28 +342,59 @@ final class AuditExtensionContractsAction
         $results = [];
         $expected = [];
         foreach ($manifest->contributes as $contribution) {
-            $keys = $this->contributionMetadataStrings($contribution, 'key', 'keys', 'event', 'events', 'name', 'names');
-            foreach ($keys !== [] ? $keys : [$contribution->type->value] as $key) {
+            $keys = $this->contributionMetadataStrings(
+                $contribution,
+                'key',
+                'keys',
+                'event',
+                'events',
+                'name',
+                'names',
+            );
+            // A contribution class is not itself a runtime receipt identity.
+            // Only reconcile identities explicitly represented by a manifest
+            // key, with ContentGraph's class handled by its registry bridge.
+            if ($keys === [] && $contribution->type === ExtensionContributionType::ContentGraph && $contribution->class !== null) {
+                $keys = [$contribution->class];
+            }
+
+            foreach ($keys as $key) {
                 $expected[] = [
                     $contribution->type,
                     $key,
                     $contribution->providerBucket ?? $this->receiptBucket($contribution->type),
                     is_string($contribution->metadata['implementation'] ?? null)
                         ? $contribution->metadata['implementation']
+                        : ($contribution->type === ExtensionContributionType::ContentGraph
+                            ? $contribution->class
+                            : null),
+                    $contribution->type === ExtensionContributionType::ContentGraph
+                        ? $contribution->class
                         : null,
                 ];
             }
         }
 
         $matchedReceiptIds = [];
-        $matchedKeys = [];
-        foreach ($expected as [$type, $key, $expectedBucket, $expectedClass]) {
+        foreach ($expected as [$type, $key, $expectedBucket, $expectedClass, $receiptImplementation]) {
             if (! in_array($expectedBucket, $bootedBuckets, true)) {
                 continue;
             }
 
             $declared[$type->value . ':' . $key] = true;
-            $matching = array_values(array_filter($receipts, static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->type === $type && $receipt->key === $key));
+            $matching = array_values(array_filter(
+                $receipts,
+                static fn (ExtensionContributionReceiptData $receipt): bool => $receiptImplementation !== null
+                    ? $receipt->type === ExtensionContributionReceiptType::ContentGraph
+                        && str_ends_with($receipt->key, ':' . $receiptImplementation)
+                    : $receipt->type === $type && $receipt->key === $key,
+            ));
+            foreach ($matching as $receipt) {
+                if ($receiptImplementation !== null) {
+                    $declared[$receipt->type->value . ':' . $receipt->key] = true;
+                }
+            }
+
             $exactIndex = array_find_key(
                 $matching,
                 static fn (ExtensionContributionReceiptData $receipt): bool => $receipt->ownerPackage === $manifest->name
@@ -372,7 +403,6 @@ final class AuditExtensionContractsAction
             );
             if ($exactIndex !== null) {
                 $matchedReceiptIds[spl_object_id($matching[$exactIndex])] = true;
-                $matchedKeys[$type->value . ':' . $key] = true;
 
                 continue;
             }
@@ -420,12 +450,19 @@ final class AuditExtensionContractsAction
                 continue;
             }
 
+            // Receipt-only identities other than content-graph have no
+            // manifest-v3 contribution marker to reconcile against.
+            if ($receipt->type instanceof ExtensionContributionReceiptType
+                && $receipt->type !== ExtensionContributionReceiptType::ContentGraph) {
+                continue;
+            }
+
             if (isset($matchedReceiptIds[spl_object_id($receipt)])) {
                 continue;
             }
 
             $receiptDeclarationKey = $receipt->type->value . ':' . $receipt->key;
-            if (! isset($declared[$receiptDeclarationKey]) || isset($matchedKeys[$receiptDeclarationKey])) {
+            if (! isset($declared[$receiptDeclarationKey])) {
                 $results[] = $this->result(
                     package: $manifest->name,
                     manifestPath: $manifestPath,
