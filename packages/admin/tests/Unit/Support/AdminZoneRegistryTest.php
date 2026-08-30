@@ -15,6 +15,11 @@ use Illuminate\Support\Facades\Gate;
 #[AllowDynamicProperties]
 final class AdminZoneDynamicState {}
 
+final class AdminZoneCyclicState
+{
+    public ?self $child = null;
+}
+
 function adminZoneContext(?Authenticatable $user = null): AdminZoneContextData
 {
     return new AdminZoneContextData(AdminZone::PageListTableColumns, 'tests.page-list', $user ?? auth()->user());
@@ -134,6 +139,11 @@ it('enforces idempotence, explicit replacement, duplicate ownership diagnostics,
     expect($registry->resolve(AdminZone::PageListTableColumns, adminZoneContext())[0]->getName())->toBe('replacement');
 
     $registry->freeze();
+    $registry->clear();
+
+    expect($registry->isFrozen())->toBeTrue()
+        ->and($registry->contributions(AdminZone::PageListTableColumns))->toHaveCount(2);
+
     expect(function () use ($registry): void {
         $registry->register(adminZoneContribution(
             'late.key',
@@ -263,15 +273,15 @@ it('fails closed when a resolver re-enters the same zone', function (): void {
 });
 
 it('fails closed when callable identity contains an object and closure cycle', function (): void {
-    $cycle = new stdClass;
+    $cycle = new AdminZoneCyclicState;
     $resolver = Closure::bind(
-        fn (AdminZoneContextData $context): array => [TextColumn::make($cycle->resolver instanceof Closure ? 'cyclic' : 'other')],
+        fn (AdminZoneContextData $context): array => [TextColumn::make($this->child === $this ? 'cyclic' : 'other')],
         $cycle,
     );
 
     throw_unless($resolver instanceof Closure, LogicException::class, 'Expected cyclic Admin zone resolver closure.');
 
-    $cycle->resolver = $resolver;
+    $cycle->child = $cycle;
     $registry = new AdminZoneRegistry;
     $registry->register(adminZoneContribution('cyclic-identity.key', $resolver));
 

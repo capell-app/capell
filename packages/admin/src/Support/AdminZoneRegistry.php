@@ -137,8 +137,11 @@ final class AdminZoneRegistry
 
     public function clear(): void
     {
+        if ($this->frozen) {
+            return;
+        }
+
         $this->contributions = [];
-        $this->frozen = false;
     }
 
     /** @return list<AdminZoneContribution> */
