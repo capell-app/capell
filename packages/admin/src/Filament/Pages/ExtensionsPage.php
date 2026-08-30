@@ -12,12 +12,14 @@ use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionTableDataSource;
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Filament\Concerns\CustomisesExtensionsDashboard;
 use Capell\Admin\Filament\Concerns\InteractsWithExtensionTableData;
 use Capell\Admin\Filament\Pages\Extensions\Concerns\PreservesExtensionTablePosition;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionsTable;
-use Capell\Admin\Filament\Widgets\Extensions\ExtensionStatsOverviewFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -158,9 +160,17 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     {
         return $schema
             ->components([
+                ...resolve(AdminZoneRegistry::class)->resolve(
+                    AdminZone::ExtensionsDashboardContentBefore,
+                    AdminZoneContextData::extensionsDashboard($this, AdminZone::ExtensionsDashboardContentBefore),
+                ),
                 RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_BEFORE),
                 EmbeddedTable::make(),
                 RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_AFTER),
+                ...resolve(AdminZoneRegistry::class)->resolve(
+                    AdminZone::ExtensionsDashboardContentAfter,
+                    AdminZoneContextData::extensionsDashboard($this, AdminZone::ExtensionsDashboardContentAfter),
+                ),
             ]);
     }
 
@@ -199,7 +209,6 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     {
         return collect(app()->tagged(ExtensionsPageExtender::TAG))
             ->flatMap(fn (ExtensionsPageExtender $extender): array => $extender->getBeforeTableContent($this))
-            ->values()
             ->all();
     }
 
@@ -227,9 +236,10 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     {
         SyncDashboardFilamentWidgetSettingsAction::run();
 
-        return $this->configuredDashboardFilamentWidgets([
-            ExtensionStatsOverviewFilamentWidget::class,
-        ]);
+        return $this->configuredDashboardFilamentWidgets(resolve(AdminZoneRegistry::class)->resolve(
+            AdminZone::ExtensionsDashboardHeaderWidgets,
+            AdminZoneContextData::extensionsDashboard($this, AdminZone::ExtensionsDashboardHeaderWidgets),
+        ));
     }
 
     /**
@@ -238,12 +248,13 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     #[Override]
     protected function getHeaderActions(): array
     {
-        $actionRegistry = resolve(ExtensionsPageActionRegistry::class);
-
         return [
-            ...$actionRegistry->headerActions($this),
+            ...resolve(AdminZoneRegistry::class)->resolve(
+                AdminZone::ExtensionsDashboardHeaderActions,
+                AdminZoneContextData::extensionsDashboard($this, AdminZone::ExtensionsDashboardHeaderActions),
+            ),
             ActionGroup::make([
-                ...$actionRegistry->headerActionGroupActions($this),
+                ...resolve(ExtensionsPageActionRegistry::class)->headerActionGroupActions($this),
                 $this->customiseExtensionsDashboardAction(),
             ])
                 ->icon(Heroicon::OutlinedEllipsisVertical)
@@ -253,7 +264,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     }
 
     /**
-     * @param  list<class-string<Widget>>  $widgets
+     * @param  list<class-string<Widget>|WidgetConfiguration>  $widgets
      * @return list<class-string<Widget>|WidgetConfiguration>
      */
     private function configuredDashboardFilamentWidgets(array $widgets): array
@@ -261,7 +272,9 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
         $settings = resolve(AdminSettings::class);
 
         return array_values(collect($widgets)
-            ->filter(function (string $widgetClass) use ($settings): bool {
+            ->filter(function (string|WidgetConfiguration $widget) use ($settings): bool {
+                $widgetClass = $this->normalizeDashboardWidgetClass($widget);
+
                 if (! method_exists($widgetClass, 'settingsKey')) {
                     return true;
                 }
@@ -272,13 +285,19 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
                     || $settingsKey === ''
                     || $settings->isWidgetEnabled($settingsKey);
             })
-            ->sortBy(fn (string $widgetClass, int $index): string => sprintf(
+            ->sortBy(fn (string|WidgetConfiguration $widget, int $index): string => sprintf(
                 '%020d-%020d',
-                $this->widgetSortOrder($settings, $widgetClass),
+                $this->widgetSortOrder($settings, $this->normalizeDashboardWidgetClass($widget)),
                 $index,
             ))
             ->values()
             ->all());
+    }
+
+    /** @param class-string<Widget>|WidgetConfiguration $widget */
+    private function normalizeDashboardWidgetClass(string|WidgetConfiguration $widget): string
+    {
+        return $widget instanceof WidgetConfiguration ? $widget->widget : $widget;
     }
 
     private function widgetSortOrder(AdminSettings $settings, string $widgetClass): int

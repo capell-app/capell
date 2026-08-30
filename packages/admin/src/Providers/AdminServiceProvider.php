@@ -36,6 +36,7 @@ use Capell\Admin\Contracts\Extenders\PageExportExtender;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Extenders\PublishPanelExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionRemovalCoordinator;
+use Capell\Admin\Contracts\Extensions\ExtensionTableDataSource;
 use Capell\Admin\Contracts\Media\AdminMediaFieldFactory;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Contracts\RegistryInspectorInterface;
@@ -60,6 +61,8 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Imports\RedirectImporter;
 use Capell\Admin\Filament\Livewire\PageScratchDraftPanel;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
+use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionsTable;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Filament\Pages\Reports\AccessibilityReadinessReport;
 use Capell\Admin\Filament\Pages\Reports\DemoInstallHealthReport;
 use Capell\Admin\Filament\Pages\Reports\PackageReadinessReport;
@@ -491,6 +494,61 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             zone: AdminZone::PageListTableColumns,
             key: 'capell-admin.pages.list.table.columns',
             resolver: static fn (AdminZoneContextData $context): array => PagesTable::defaultTableColumns(),
+            position: ExtensionPosition::first(),
+            owner: 'capell-app/admin',
+            source: self::class,
+        ));
+
+        resolve(AdminZoneRegistry::class)->register(new AdminZoneContributionData(
+            zone: AdminZone::ExtensionsDashboardHeaderActions,
+            key: 'capell-admin.extensions.dashboard.header-actions',
+            resolver: static fn (AdminZoneContextData $context): array => $context->subject instanceof ExtensionsPage
+                ? array_values(resolve(ExtensionsPageActionRegistry::class)->headerActions($context->subject))
+                : [],
+            position: ExtensionPosition::first(),
+            owner: 'capell-app/admin',
+            source: self::class,
+        ));
+
+        resolve(AdminZoneRegistry::class)->register(new AdminZoneContributionData(
+            zone: AdminZone::ExtensionsDashboardHeaderWidgets,
+            key: 'capell-admin.extensions.dashboard.header-widgets',
+            resolver: static fn (AdminZoneContextData $context): array => $context->subject instanceof ExtensionsPage
+                ? [ExtensionStatsOverviewFilamentWidget::class]
+                : [],
+            position: ExtensionPosition::first(),
+            owner: 'capell-app/admin',
+            source: self::class,
+        ));
+
+        resolve(AdminZoneRegistry::class)->register(new AdminZoneContributionData(
+            zone: AdminZone::ExtensionsDashboardTableFilters,
+            key: 'capell-admin.extensions.dashboard.table.filters',
+            resolver: static fn (AdminZoneContextData $context): array => $context->subject instanceof ExtensionTableDataSource
+                ? array_values(ExtensionsTable::defaultTableFilters($context->subject))
+                : [],
+            position: ExtensionPosition::first(),
+            owner: 'capell-app/admin',
+            source: self::class,
+        ));
+
+        resolve(AdminZoneRegistry::class)->register(new AdminZoneContributionData(
+            zone: AdminZone::ExtensionsDashboardTableColumns,
+            key: 'capell-admin.extensions.dashboard.table.columns',
+            resolver: static fn (AdminZoneContextData $context): array => $context->subject instanceof ExtensionTableDataSource
+                ? array_values(ExtensionsTable::defaultTableColumns())
+                : [],
+            position: ExtensionPosition::first(),
+            owner: 'capell-app/admin',
+            source: self::class,
+        ));
+
+        resolve(AdminZoneRegistry::class)->register(new AdminZoneContributionData(
+            zone: AdminZone::ExtensionsDashboardTableRecordActions,
+            key: 'capell-admin.extensions.dashboard.table.record-actions',
+            resolver: static fn (AdminZoneContextData $context): array => $context->subject instanceof ExtensionTableDataSource
+                ? array_values(ExtensionsTable::defaultTableActions())
+                : [],
             position: ExtensionPosition::first(),
             owner: 'capell-app/admin',
             source: self::class,

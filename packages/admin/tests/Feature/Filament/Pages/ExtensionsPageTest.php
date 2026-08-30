@@ -5,8 +5,11 @@ declare(strict_types=1);
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionRemovalCoordinator;
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Data\AdminZoneContributionData;
 use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
+use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
@@ -17,6 +20,7 @@ use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionStatsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\InstalledExtensionsFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSchema;
@@ -30,6 +34,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\ExtensionHealthAlert;
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -41,7 +46,10 @@ use Capell\Tests\Fixtures\Filament\Pages\PlainRegisteredExtensionPage;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Navigation\NavigationItem;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\Column;
+use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\HtmlString;
 use Livewire\Livewire;
@@ -132,6 +140,65 @@ it('uses extensions naming for the local extensions page', function (): void {
 
 it('does not expose operations tabs on the local extensions page', function (): void {
     expect(method_exists(resolve(ExtensionsPage::class), 'getTabs'))->toBeFalse();
+});
+
+it('routes Extensions dashboard content actions and configured widgets through stable zones', function (): void {
+    grantExtensionsPageAccess();
+
+    /** @var array<string, AdminZoneContextData> $seenContexts */
+    $seenContexts = [];
+    $registry = resolve(AdminZoneRegistry::class);
+
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardContentBefore,
+        key: 'tests.extensions.content-before',
+        resolver: static function (AdminZoneContextData $context) use (&$seenContexts): array {
+            $seenContexts['before'] = $context;
+
+            return [Section::make('stable_extensions_before')];
+        },
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardContentAfter,
+        key: 'tests.extensions.content-after',
+        resolver: static function (AdminZoneContextData $context) use (&$seenContexts): array {
+            $seenContexts['after'] = $context;
+
+            return [Section::make('stable_extensions_after')];
+        },
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardHeaderActions,
+        key: 'tests.extensions.header-action',
+        resolver: static fn (): array => [Action::make('stableExtensionsHeaderAction')],
+        position: ExtensionPosition::after('capell-admin.extensions.dashboard.header-actions'),
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardHeaderWidgets,
+        key: 'tests.extensions.header-widget',
+        resolver: static fn (): array => [ExtensionStatsOverviewFilamentWidget::make()],
+        position: ExtensionPosition::after('capell-admin.extensions.dashboard.header-widgets'),
+    ));
+
+    $page = Livewire::test(ExtensionsPage::class)->assertSuccessful()->instance();
+
+    assert($page instanceof ExtensionsPage);
+
+    $content = $page->content(Schema::make())->getComponents();
+    $headerActions = new ReflectionMethod(ExtensionsPage::class, 'getHeaderActions')->invoke($page);
+    $headerWidgets = new ReflectionMethod(ExtensionsPage::class, 'getHeaderWidgets')->invoke($page);
+
+    expect(collect($content)->contains(fn (object $component): bool => $component instanceof Section
+        && $component->getHeading() === 'stable_extensions_before'))->toBeTrue()
+        ->and(collect($content)->contains(fn (object $component): bool => $component instanceof Section
+            && $component->getHeading() === 'stable_extensions_after'))->toBeTrue()
+        ->and(collect($headerActions)->map(fn (object $action): ?string => method_exists($action, 'getName') ? $action->getName() : null)->all())
+        ->toContain('stableExtensionsHeaderAction')
+        ->and(collect($headerWidgets)->contains(fn (mixed $widget): bool => $widget instanceof WidgetConfiguration))->toBeTrue()
+        ->and($seenContexts['before']->user)->toBe(test()->authenticatedUser())
+        ->and($seenContexts['before']->subject)->toBe($page)
+        ->and($seenContexts['after']->user)->toBe(test()->authenticatedUser())
+        ->and($seenContexts['after']->subject)->toBe($page);
 });
 
 it('shows a navigation badge for unhealthy extensions only', function (): void {

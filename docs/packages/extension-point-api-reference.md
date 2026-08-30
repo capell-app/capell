@@ -10,11 +10,14 @@ Admin surface and Frontend render-hook contributions use the shared [extension o
 
 ## Stable Admin zones
 
-The first promoted zone is `AdminZone::PageListTableColumns`. Register a
-typed `AdminZoneContributionData` through `AdminBridgeRegistrar::zone()` and
-position it with the CAP-0468 `ExtensionPosition` value object. Contributions
-may declare a Gate permission and a context-aware visibility callback; the
-zone validates values before they reach the screen.
+Register a typed `AdminZoneContributionData` through
+`AdminBridgeRegistrar::zone()` and position it with the CAP-0468
+`ExtensionPosition` value object. Stable zones cover Page edit content, form
+actions, and header widgets; Page list table columns; and the Extensions
+dashboard's content before/after the table, header actions/widgets, and table
+columns/filters/record actions. Contributions may declare a Gate permission and
+a context-aware visibility callback; each zone validates values before they
+reach the screen.
 
 The existing focused extenders remain compatible. Page list table columns
 returned by `PageTableExtender` are appended after stable-zone columns and

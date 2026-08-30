@@ -5,7 +5,10 @@ declare(strict_types=1);
 use Capell\Admin\Actions\ExtractContentFromBlocksAction;
 use Capell\Admin\Contracts\ConfiguratorInterface;
 use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Data\AdminZoneContributionData;
 use Capell\Admin\Enums\AdminFormActionPositionEnum;
+use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Filament\Components\Forms\Editor\ContentBuilder;
 use Capell\Admin\Filament\Components\Forms\Page\ContentEditor;
 use Capell\Admin\Filament\Configurators\Pages\DefaultPageConfigurator;
@@ -17,6 +20,7 @@ use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Core\Actions\Redirects\CreateAutomaticRedirectAction;
 use Capell\Core\Contracts\Pageable;
@@ -38,6 +42,7 @@ use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
@@ -137,6 +142,81 @@ it('can render page', function (): void {
         'record' => Page::factory()->createOne(),
     ]))
         ->assertSuccessful();
+});
+
+it('routes Page edit stable content and actions through the authenticated context', function (): void {
+    $page = Page::factory()->createOne();
+    foreach (['View:Page', 'Update:Page'] as $permissionName) {
+        Permission::findOrCreate($permissionName, 'web');
+    }
+
+    $permission = Permission::create(['name' => 'Use:PageEditStableZones', 'guard_name' => 'web']);
+    $user = test()->createUserWithPermission(['View:Page', 'Update:Page']);
+    $user->assignedSiteIds = collect([$page->site_id]);
+
+    test()->actingAs($user);
+
+    /** @var array<string, AdminZoneContextData> $seenContexts */
+    $seenContexts = [];
+    $registry = resolve(AdminZoneRegistry::class);
+
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::PageEditContentBefore,
+        key: 'tests.page-edit.content',
+        resolver: static function (AdminZoneContextData $context) use (&$seenContexts): array {
+            $seenContexts['content'] = $context;
+
+            return [Section::make('stable_page_edit_content')];
+        },
+        permission: $permission->name,
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::PageEditFormActions,
+        key: 'tests.page-edit.action',
+        resolver: static function (AdminZoneContextData $context) use (&$seenContexts): array {
+            $seenContexts['action'] = $context;
+
+            return [Action::make('stablePageEditAction')];
+        },
+        permission: $permission->name,
+    ));
+
+    $component = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])->assertSuccessful()->instance();
+
+    assert($component instanceof EditPage);
+
+    expect(collect($component->getCachedFormActions())
+        ->map(fn (object $action): ?string => filamentObjectName($action))
+        ->all())->not->toContain('stablePageEditAction');
+
+    $user->givePermissionTo($permission);
+
+    $component = Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])->assertSuccessful()->instance();
+
+    assert($component instanceof EditPage);
+
+    $content = $component->content(Schema::make())->getComponents();
+    $formActionNames = collect($component->getCachedFormActions())
+        ->map(fn (object $action): ?string => filamentObjectName($action))
+        ->all();
+    $seenContentRecord = $seenContexts['content']->record;
+    $seenActionRecord = $seenContexts['action']->record;
+
+    assert($seenContentRecord instanceof Page);
+    assert($seenActionRecord instanceof Page);
+
+    expect($formActionNames)->toContain('stablePageEditAction')
+        ->and(collect($content)->contains(fn (object $contentComponent): bool => $contentComponent instanceof Section))->toBeTrue()
+        ->and($seenContexts['content']->user)->toBe(test()->authenticatedUser())
+        ->and($seenContentRecord->getKey())->toBe($page->getKey())
+        ->and($seenContexts['content']->subject)->toBe($component)
+        ->and($seenContexts['action']->user)->toBe(test()->authenticatedUser())
+        ->and($seenActionRecord->getKey())->toBe($page->getKey())
+        ->and($seenContexts['action']->subject)->toBe($component);
 });
 
 it('enables Filament unsaved changes alerts for admin editing', function (): void {

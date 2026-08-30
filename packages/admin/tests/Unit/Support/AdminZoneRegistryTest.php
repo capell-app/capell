@@ -7,7 +7,12 @@ use Capell\Admin\Data\AdminZoneContributionData;
 use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Core\Support\Extensions\ExtensionPosition;
+use Filament\Actions\Action;
+use Filament\Tables\Columns\ColumnGroup;
+use Filament\Tables\Columns\Layout\View as LayoutView;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Widgets\Widget;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
 
@@ -44,6 +49,45 @@ function adminZoneContribution(
         source: 'AdminZoneRegistryTest',
     );
 }
+
+it('catalogues the supported Page edit and Extensions dashboard zones', function (): void {
+    expect(AdminZone::cases())->toHaveCount(12)
+        ->and(AdminZone::PageEditFormActions->stability()->value)->toBe('stable')
+        ->and(AdminZone::PageEditFormActions->summary())->toContain('Page edit')
+        ->and(AdminZone::ExtensionsDashboardTableRecordActions->value)
+        ->toBe('admin.extensions.dashboard.table.record-actions');
+
+    $registry = new AdminZoneRegistry;
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::PageEditFormActions,
+        key: 'tests.page-edit.action',
+        resolver: static fn (): array => [Action::make('page_edit_action')],
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableFilters,
+        key: 'tests.extensions.filter',
+        resolver: static fn (): array => [Filter::make('extensions_filter')],
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableColumns,
+        key: 'tests.extensions.column-group',
+        resolver: static fn (): array => [ColumnGroup::make('Grouped', [TextColumn::make('grouped')])],
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableColumns,
+        key: 'tests.extensions.layout-column',
+        resolver: static function (): array {
+            /** @var view-string $layoutView */
+            $layoutView = 'capell-admin::filament.pages.extensions.extension-card';
+
+            return [LayoutView::make($layoutView)];
+        },
+    ));
+
+    expect($registry->resolve(AdminZone::PageEditFormActions, adminZoneContext()))->toHaveCount(1)
+        ->and($registry->resolve(AdminZone::ExtensionsDashboardTableFilters, adminZoneContext()))->toHaveCount(1)
+        ->and($registry->resolve(AdminZone::ExtensionsDashboardTableColumns, adminZoneContext()))->toHaveCount(2);
+});
 
 it('interleaves built-in and package columns through the shared ordering resolver', function (): void {
     $registry = new AdminZoneRegistry;
@@ -411,4 +455,27 @@ it('rejects values outside the zone contract', function (): void {
 
     expect(fn (): array => $registry->resolve(AdminZone::PageListTableColumns, adminZoneContext()))
         ->toThrow(LogicException::class, 'returned [string]');
+
+    $pageListRegistry = new AdminZoneRegistry;
+    $pageListRegistry->register(new AdminZoneContributionData(
+        zone: AdminZone::PageListTableColumns,
+        key: 'invalid-page-list-column-group',
+        resolver: static fn (AdminZoneContextData $context): array => [ColumnGroup::make('Grouped')],
+    ));
+
+    expect(fn (): array => $pageListRegistry->resolve(AdminZone::PageListTableColumns, adminZoneContext()))
+        ->toThrow(LogicException::class, 'ColumnGroup');
+
+    $widgetRegistry = new AdminZoneRegistry;
+    $widgetRegistry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardHeaderWidgets,
+        key: 'invalid-widget-instance',
+        resolver: static fn (AdminZoneContextData $context): array => [new class extends Widget
+        {
+            protected string $view = 'filament::components.empty-state';
+        }],
+    ));
+
+    expect(fn (): array => $widgetRegistry->resolve(AdminZone::ExtensionsDashboardHeaderWidgets, adminZoneContext()))
+        ->toThrow(LogicException::class, 'Widget');
 });

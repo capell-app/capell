@@ -7,6 +7,8 @@ namespace Capell\Admin\Filament\Pages\Extensions\Tables;
 use Capell\Admin\Actions\BuildSettingsSchemaComponentsAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Contracts\Extensions\ExtensionTableDataSource;
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Pages\Extensions\Tables\Actions\DeleteExtensionAction;
@@ -14,6 +16,7 @@ use Capell\Admin\Filament\Pages\Extensions\Tables\Actions\EnableExtensionAction;
 use Capell\Admin\Filament\Pages\Extensions\Tables\Actions\InstallExtensionAction;
 use Capell\Admin\Filament\Pages\Extensions\Tables\Actions\UninstallExtensionAction;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -27,6 +30,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Layout\View as LayoutView;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\RecordActionsPosition;
+use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
@@ -58,39 +62,14 @@ class ExtensionsTable implements TableConfigurator
                 'xl' => 3,
             ])
             ->recordClasses('capell-extension-card-record')
-            ->columns(static::getTableColumns())
-            ->filters([
-                Filter::make('extension_filters')
-                    ->label(__('capell-admin::filter.extensions'))
-                    ->schema([
-                        TextInput::make('search')
-                            ->label(__('capell-admin::filter.search'))
-                            ->placeholder(__('capell-admin::filter.search_extensions')),
-                        Select::make('tag')
-                            ->label(__('capell-admin::filter.product_group'))
-                            ->placeholder(__('filament-tables::table.filters.select.placeholder'))
-                            ->options(fn (): array => self::tagOptions($livewire)),
-                        Select::make('price')
-                            ->label(__('capell-admin::filter.price'))
-                            ->placeholder(__('capell-admin::filter.any_price'))
-                            ->options(self::priceOptions()),
-                        Select::make('health')
-                            ->label(__('capell-admin::filter.health'))
-                            ->placeholder(__('capell-admin::filter.any_health'))
-                            ->options(self::healthOptions()),
-                    ])
-                    ->columnSpanFull()
-                    ->columns([
-                        'md' => 2,
-                        'xl' => 3,
-                    ])
-                    ->indicateUsing(fn (array $data): array => self::filterIndicators($data)),
-                TernaryFilter::make('installed_status')
-                    ->label(__('capell-admin::filter.installed_status'))
-                    ->placeholder(__('capell-admin::filter.extensions_all'))
-                    ->trueLabel(__('capell-admin::filter.extensions_installed'))
-                    ->falseLabel(__('capell-admin::filter.extensions_uninstalled')),
-            ])
+            ->columns(resolve(AdminZoneRegistry::class)->resolve(
+                AdminZone::ExtensionsDashboardTableColumns,
+                AdminZoneContextData::extensionsTable($livewire, AdminZone::ExtensionsDashboardTableColumns),
+            ))
+            ->filters(resolve(AdminZoneRegistry::class)->resolve(
+                AdminZone::ExtensionsDashboardTableFilters,
+                AdminZoneContextData::extensionsTable($livewire, AdminZone::ExtensionsDashboardTableFilters),
+            ))
             ->filtersFormColumns([
                 'md' => 2,
                 'xl' => 3,
@@ -105,11 +84,14 @@ class ExtensionsTable implements TableConfigurator
             ->columnManager(false)
             ->defaultPaginationPageOption(12)
             ->paginationPageOptions([12, 24, 48, 'all'])
-            ->recordActions(self::defaultTableActions(), RecordActionsPosition::AfterCells);
+            ->recordActions(resolve(AdminZoneRegistry::class)->resolve(
+                AdminZone::ExtensionsDashboardTableRecordActions,
+                AdminZoneContextData::extensionsTable($livewire, AdminZone::ExtensionsDashboardTableRecordActions),
+            ), RecordActionsPosition::AfterCells);
     }
 
     /** @return array<int, mixed> */
-    protected static function getTableColumns(): array
+    public static function defaultTableColumns(): array
     {
         /** @var view-string $extensionCardView */
         $extensionCardView = 'capell-admin::filament.pages.extensions.extension-card';
@@ -122,6 +104,91 @@ class ExtensionsTable implements TableConfigurator
             IdentifierColumn::make('id')
                 ->hidden(),
             LayoutView::make($extensionCardView),
+        ];
+    }
+
+    /** @return array<int, BaseFilter> */
+    public static function defaultTableFilters(ExtensionTableDataSource $livewire): array
+    {
+        return [
+            Filter::make('extension_filters')
+                ->label(__('capell-admin::filter.extensions'))
+                ->schema([
+                    TextInput::make('search')
+                        ->label(__('capell-admin::filter.search'))
+                        ->placeholder(__('capell-admin::filter.search_extensions')),
+                    Select::make('tag')
+                        ->label(__('capell-admin::filter.product_group'))
+                        ->placeholder(__('filament-tables::table.filters.select.placeholder'))
+                        ->options(fn (): array => self::tagOptions($livewire)),
+                    Select::make('price')
+                        ->label(__('capell-admin::filter.price'))
+                        ->placeholder(__('capell-admin::filter.any_price'))
+                        ->options(self::priceOptions()),
+                    Select::make('health')
+                        ->label(__('capell-admin::filter.health'))
+                        ->placeholder(__('capell-admin::filter.any_health'))
+                        ->options(self::healthOptions()),
+                ])
+                ->columnSpanFull()
+                ->columns([
+                    'md' => 2,
+                    'xl' => 3,
+                ])
+                ->indicateUsing(fn (array $data): array => self::filterIndicators($data)),
+            TernaryFilter::make('installed_status')
+                ->label(__('capell-admin::filter.installed_status'))
+                ->placeholder(__('capell-admin::filter.extensions_all'))
+                ->trueLabel(__('capell-admin::filter.extensions_installed'))
+                ->falseLabel(__('capell-admin::filter.extensions_uninstalled')),
+        ];
+    }
+
+    /** @return array<int, mixed> */
+    public static function defaultTableActions(): array
+    {
+        return [
+            Action::make('viewExtensionDetails')
+                ->label(__('capell-admin::button.view_details'))
+                ->icon(Heroicon::OutlinedQuestionMarkCircle)
+                ->color('gray')
+                ->extraAttributes(['class' => 'capell-extension-card-details-action'])
+                ->slideOver()
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel(__('capell-admin::button.close'))
+                ->modalHeading(fn (array $record): string => (string) ($record['label'] ?? $record['packageName'] ?? __('capell-admin::button.view_details')))
+                ->modalContent(fn (array $record): View => view(
+                    'capell-admin::filament.pages.extensions.extension-details',
+                    ['record' => $record],
+                )),
+            Action::make('manageExtension')
+                ->label(__('capell-admin::button.edit'))
+                ->tooltip(__('capell-admin::button.manage_extension'))
+                ->icon(Heroicon::OutlinedPencilSquare)
+                ->color('gray')
+                ->button()
+                ->slideOver()
+                ->modalCancelActionLabel(__('capell-admin::button.close'))
+                ->modalWidth(Width::ScreenLarge)
+                ->modalHeading(fn (?array $record): string => self::managementHeading($record ?? []))
+                ->schema(fn (?array $record, Schema $schema): array => self::managementSchema($record ?? [], $schema))
+                ->fillForm(fn (?array $record): array => self::managementFormData($record ?? []))
+                ->action(function (array $record, array $data): void {
+                    self::saveManagementSurface($record, $data);
+                })
+                ->visible(fn (array $record): bool => self::getPrimaryManagementSurface($record) !== null),
+            Action::make('openExtension')
+                ->label(__('capell-admin::button.edit'))
+                ->icon(Heroicon::OutlinedPencilSquare)
+                ->color('gray')
+                ->button()
+                ->url(fn (array $record): ?string => self::getPrimaryUrl($record))
+                ->visible(fn (array $record): bool => self::getPrimaryManagementSurface($record) === null
+                    && self::getPrimaryUrl($record) !== null),
+            InstallExtensionAction::make(),
+            EnableExtensionAction::make(),
+            UninstallExtensionAction::make(),
+            DeleteExtensionAction::make(),
         ];
     }
 
@@ -275,54 +342,6 @@ class ExtensionsTable implements TableConfigurator
         return collect($groups)
             ->mapWithKeys(fn (string $group): array => [$group => $group])
             ->all();
-    }
-
-    /** @return array<int, mixed> */
-    private static function defaultTableActions(): array
-    {
-        return [
-            Action::make('viewExtensionDetails')
-                ->label(__('capell-admin::button.view_details'))
-                ->icon(Heroicon::OutlinedQuestionMarkCircle)
-                ->color('gray')
-                ->extraAttributes(['class' => 'capell-extension-card-details-action'])
-                ->slideOver()
-                ->modalSubmitAction(false)
-                ->modalCancelActionLabel(__('capell-admin::button.close'))
-                ->modalHeading(fn (array $record): string => (string) ($record['label'] ?? $record['packageName'] ?? __('capell-admin::button.view_details')))
-                ->modalContent(fn (array $record): View => view(
-                    'capell-admin::filament.pages.extensions.extension-details',
-                    ['record' => $record],
-                )),
-            Action::make('manageExtension')
-                ->label(__('capell-admin::button.edit'))
-                ->tooltip(__('capell-admin::button.manage_extension'))
-                ->icon(Heroicon::OutlinedPencilSquare)
-                ->color('gray')
-                ->button()
-                ->slideOver()
-                ->modalCancelActionLabel(__('capell-admin::button.close'))
-                ->modalWidth(Width::ScreenLarge)
-                ->modalHeading(fn (?array $record): string => self::managementHeading($record ?? []))
-                ->schema(fn (?array $record, Schema $schema): array => self::managementSchema($record ?? [], $schema))
-                ->fillForm(fn (?array $record): array => self::managementFormData($record ?? []))
-                ->action(function (array $record, array $data): void {
-                    self::saveManagementSurface($record, $data);
-                })
-                ->visible(fn (array $record): bool => self::getPrimaryManagementSurface($record) !== null),
-            Action::make('openExtension')
-                ->label(__('capell-admin::button.edit'))
-                ->icon(Heroicon::OutlinedPencilSquare)
-                ->color('gray')
-                ->button()
-                ->url(fn (array $record): ?string => self::getPrimaryUrl($record))
-                ->visible(fn (array $record): bool => self::getPrimaryManagementSurface($record) === null
-                    && self::getPrimaryUrl($record) !== null),
-            InstallExtensionAction::make(),
-            EnableExtensionAction::make(),
-            UninstallExtensionAction::make(),
-            DeleteExtensionAction::make(),
-        ];
     }
 
     /** @param array<string, mixed> $record */

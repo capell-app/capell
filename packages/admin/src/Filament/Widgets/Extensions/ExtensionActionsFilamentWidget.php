@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Extensions;
 
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
-use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Filament\Concerns\CustomisesExtensionsDashboard;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
@@ -63,10 +62,7 @@ final class ExtensionActionsFilamentWidget extends Widget implements CapellFilam
     {
         $page = resolve(ExtensionsPage::class);
 
-        return collect(app()->tagged(ExtensionsPageExtender::TAG))
-            ->flatMap(fn (ExtensionsPageExtender $extender): array => $extender->getBeforeTableContent($page))
-            ->values()
-            ->all();
+        return $page->getBeforeTableContent();
     }
 
     /**
