@@ -9,6 +9,8 @@ use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
+use Throwable;
+use UnexpectedValueException;
 
 final class AdminSurfaceContributionCache
 {
@@ -56,15 +58,23 @@ final class AdminSurfaceContributionCache
             return;
         }
 
-        /** @var array<string, mixed> $cachedPayload */
-        $cachedPayload = require $this->path();
-        $cachedContributions = $this->cachedContributions($cachedPayload);
+        $cachedPayload = $this->loadPayload();
 
-        if ($cachedContributions === null) {
+        if ($cachedPayload === null) {
             return;
         }
 
-        $contributions = $this->hydrateContributions($cachedContributions);
+        try {
+            $cachedContributions = $this->cachedContributions($cachedPayload);
+
+            if ($cachedContributions === null) {
+                return;
+            }
+
+            $contributions = $this->hydrateContributions($cachedContributions);
+        } catch (Throwable) {
+            return;
+        }
 
         $this->registry->clear();
 
@@ -91,31 +101,32 @@ final class AdminSurfaceContributionCache
         ];
     }
 
-    private static function hydratePosition(mixed $position): ?ExtensionPosition
+    /**
+     * @param  array{kind: string, priority: int, anchor: string|null}|null  $position
+     */
+    private static function hydratePosition(?array $position): ?ExtensionPosition
     {
-        if (! is_array($position)
-            || ! is_string($position['kind'] ?? null)
-            || ! is_int($position['priority'] ?? null)
-            || (($position['anchor'] ?? null) !== null && ! is_string($position['anchor']))
-        ) {
+        if ($position === null) {
             return null;
         }
 
         $kind = $position['kind'];
         $priority = $position['priority'];
-        $anchor = $position['anchor'] ?? null;
+        $anchor = $position['anchor'];
 
-        if (in_array($kind, ['before', 'after'], true) && (! is_string($anchor) || trim($anchor) === '')) {
-            return null;
+        if ($kind === 'before' || $kind === 'after') {
+            throw_unless(is_string($anchor), UnexpectedValueException::class, 'Invalid cached extension position anchor.');
+
+            return $kind === 'before'
+                ? ExtensionPosition::before($anchor)
+                : ExtensionPosition::after($anchor);
         }
 
         return match ($kind) {
             'first' => ExtensionPosition::first(),
             'last' => ExtensionPosition::last(),
             'priority' => ExtensionPosition::priority($priority),
-            'before' => ExtensionPosition::before($anchor),
-            'after' => ExtensionPosition::after($anchor),
-            default => null,
+            default => throw new UnexpectedValueException('Invalid cached extension position kind.'),
         };
     }
 
@@ -189,6 +200,20 @@ final class AdminSurfaceContributionCache
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    private function loadPayload(): ?array
+    {
+        try {
+            $payload = require $this->path();
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_array($payload) ? $payload : null;
+    }
+
+    /**
      * @param  array<string, mixed>  $cachedPayload
      * @return array<string, array<string, array{
      *     type: string,
@@ -204,28 +229,111 @@ final class AdminSurfaceContributionCache
      */
     private function cachedContributions(array $cachedPayload): ?array
     {
-        if (! array_key_exists('schema_version', $cachedPayload)) {
-            /** @var array<string, array<string, array{type: string, class: string, key: string, group: string|null, name: string, tag: string|null}>> $cachedPayload */
-            return $cachedPayload;
-        }
-
-        if ($cachedPayload['schema_version'] !== self::CACHE_SCHEMA_VERSION) {
+        if (array_key_exists('schema_version', $cachedPayload)
+            && $cachedPayload['schema_version'] !== self::CACHE_SCHEMA_VERSION
+        ) {
             return null;
         }
 
-        unset($cachedPayload['schema_version']);
+        if (array_key_exists('schema_version', $cachedPayload)) {
+            unset($cachedPayload['schema_version']);
+        }
 
-        /** @var array<string, array<string, array{
-         *     type: string,
-         *     class: string,
-         *     key: string,
-         *     group: string|null,
-         *     name: string,
-         *     tag: string|null,
-         *     owner?: string,
-         *     position?: array{kind: string, priority: int, anchor: string|null}|null,
-         *     source?: string,
-         * }>> $cachedPayload */
-        return $cachedPayload;
+        $contributions = [];
+
+        foreach ($cachedPayload as $type => $groupedContributions) {
+            if (! is_string($type)
+                || ! AdminSurfaceContributionType::tryFrom($type) instanceof AdminSurfaceContributionType
+                || ! is_array($groupedContributions)
+            ) {
+                return null;
+            }
+
+            foreach ($groupedContributions as $key => $contribution) {
+                if (! is_string($key) || ! is_array($contribution)) {
+                    return null;
+                }
+
+                $validatedContribution = $this->validatedContribution($type, $key, $contribution);
+
+                if ($validatedContribution === null) {
+                    return null;
+                }
+
+                $contributions[$type][$key] = $validatedContribution;
+            }
+        }
+
+        return $contributions;
+    }
+
+    /**
+     * @param  array<string, mixed>  $contribution
+     * @return array{
+     *     type: string,
+     *     class: string,
+     *     key: string,
+     *     group: string|null,
+     *     name: string,
+     *     tag: string|null,
+     *     owner: string,
+     *     position: array{kind: string, priority: int, anchor: string|null}|null,
+     *     source: string,
+     * }|null
+     */
+    private function validatedContribution(string $type, string $key, array $contribution): ?array
+    {
+        if (($contribution['type'] ?? null) !== $type
+            || ($contribution['key'] ?? null) !== $key
+            || ! is_string($contribution['class'] ?? null)
+            || $contribution['class'] === ''
+            || (($contribution['group'] ?? null) !== null && ! is_string($contribution['group']))
+            || ! is_string($contribution['name'] ?? null)
+            || (($contribution['tag'] ?? null) !== null && ! is_string($contribution['tag']))
+            || (array_key_exists('owner', $contribution) && ! is_string($contribution['owner']))
+            || (array_key_exists('source', $contribution) && ! is_string($contribution['source']))
+            || ! $this->validPosition($contribution['position'] ?? null)
+        ) {
+            return null;
+        }
+
+        return [
+            'type' => $type,
+            'class' => $contribution['class'],
+            'key' => $key,
+            'group' => $contribution['group'] ?? null,
+            'name' => $contribution['name'],
+            'tag' => $contribution['tag'] ?? null,
+            'owner' => $contribution['owner'] ?? 'capell-app/admin',
+            'position' => $contribution['position'] ?? null,
+            'source' => $contribution['source'] ?? AdminSurfaceContributionData::class,
+        ];
+    }
+
+    private function validPosition(mixed $position): bool
+    {
+        if ($position === null) {
+            return true;
+        }
+
+        if (! is_array($position)
+            || ! array_key_exists('kind', $position)
+            || ! array_key_exists('priority', $position)
+            || ! array_key_exists('anchor', $position)
+            || ! is_string($position['kind'])
+            || ! is_int($position['priority'])
+            || ($position['anchor'] !== null && ! is_string($position['anchor']))
+        ) {
+            return false;
+        }
+
+        return match ($position['kind']) {
+            'first', 'last' => $position['priority'] === 0 && $position['anchor'] === null,
+            'priority' => $position['anchor'] === null,
+            'before', 'after' => $position['priority'] === 0
+                && is_string($position['anchor'])
+                && trim($position['anchor']) !== '',
+            default => false,
+        };
     }
 }

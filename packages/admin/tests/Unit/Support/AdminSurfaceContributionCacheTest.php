@@ -151,6 +151,161 @@ it('restores the legacy unversioned cache payload with legacy metadata defaults'
         ->and($restored->source)->toBe(AdminSurfaceContributionData::class);
 });
 
+it('ignores a scalar cache payload without changing the live registry', function (): void {
+    $registry = resolve(AdminSurfaceContributionRegistry::class);
+    $cache = resolve(AdminSurfaceContributionCache::class);
+    $filesystem = resolve(Filesystem::class);
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $before = $registry->all();
+
+    $filesystem->put($cache->path(), '<?php return 123;' . PHP_EOL);
+
+    $cache->restore();
+
+    expect($registry->all())->toEqual($before);
+});
+
+it('ignores a cache file with invalid PHP without changing the live registry', function (): void {
+    $registry = resolve(AdminSurfaceContributionRegistry::class);
+    $cache = resolve(AdminSurfaceContributionCache::class);
+    $filesystem = resolve(Filesystem::class);
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $before = $registry->all();
+
+    $filesystem->put($cache->path(), '<?php return [;' . PHP_EOL);
+
+    $cache->restore();
+
+    expect($registry->all())->toEqual($before);
+});
+
+it('ignores malformed contribution fields without changing the live registry', function (): void {
+    $registry = resolve(AdminSurfaceContributionRegistry::class);
+    $cache = resolve(AdminSurfaceContributionCache::class);
+    $filesystem = resolve(Filesystem::class);
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $before = $registry->all();
+
+    $filesystem->put($cache->path(), '<?php return ' . var_export([
+        'schema_version' => 2,
+        'page' => [
+            'corrupted' => 'not-an-array',
+        ],
+    ], true) . ';' . PHP_EOL);
+
+    $cache->restore();
+
+    expect($registry->all())->toEqual($before);
+});
+
+it('ignores malformed contribution field types without changing the live registry', function (): void {
+    $registry = resolve(AdminSurfaceContributionRegistry::class);
+    $cache = resolve(AdminSurfaceContributionCache::class);
+    $filesystem = resolve(Filesystem::class);
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $before = $registry->all();
+
+    $filesystem->put($cache->path(), '<?php return ' . var_export([
+        'schema_version' => 2,
+        'page' => [
+            'corrupted' => [
+                'type' => 'page',
+                'class' => SettingsPage::class,
+                'key' => 'corrupted',
+                'group' => null,
+                'name' => 'default',
+                'tag' => null,
+                'owner' => ['not-a-string'],
+                'position' => null,
+                'source' => 'Vendor\\Corrupted\\Provider',
+            ],
+        ],
+    ], true) . ';' . PHP_EOL);
+
+    $cache->restore();
+
+    expect($registry->all())->toEqual($before);
+});
+
+it('ignores invalid contribution enum data without changing the live registry', function (): void {
+    $registry = resolve(AdminSurfaceContributionRegistry::class);
+    $cache = resolve(AdminSurfaceContributionCache::class);
+    $filesystem = resolve(Filesystem::class);
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $before = $registry->all();
+
+    $filesystem->put($cache->path(), '<?php return ' . var_export([
+        'schema_version' => 2,
+        'page' => [
+            'corrupted' => [
+                'type' => 'not-a-contribution-type',
+                'class' => SettingsPage::class,
+                'key' => 'corrupted',
+                'group' => null,
+                'name' => 'default',
+                'tag' => null,
+                'owner' => 'vendor/corrupted',
+                'position' => null,
+                'source' => 'Vendor\\Corrupted\\Provider',
+            ],
+        ],
+    ], true) . ';' . PHP_EOL);
+
+    $cache->restore();
+
+    expect($registry->all())->toEqual($before);
+});
+
+it('ignores invalid position data instead of converting it to no ordering', function (): void {
+    $registry = resolve(AdminSurfaceContributionRegistry::class);
+    $cache = resolve(AdminSurfaceContributionCache::class);
+    $filesystem = resolve(Filesystem::class);
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $before = $registry->all();
+
+    $filesystem->put($cache->path(), '<?php return ' . var_export([
+        'schema_version' => 2,
+        'page' => [
+            'corrupted' => [
+                'type' => 'page',
+                'class' => SitemapPage::class,
+                'key' => 'corrupted',
+                'group' => null,
+                'name' => 'default',
+                'tag' => null,
+                'owner' => 'vendor/corrupted',
+                'position' => [
+                    'kind' => 'middle',
+                    'priority' => 0,
+                    'anchor' => null,
+                ],
+                'source' => 'Vendor\\Corrupted\\Provider',
+            ],
+        ],
+    ], true) . ';' . PHP_EOL);
+
+    $cache->restore();
+
+    expect($registry->all())->toEqual($before);
+});
+
+it('leaves the live registry unchanged for unsupported cache versions', function (): void {
+    $registry = resolve(AdminSurfaceContributionRegistry::class);
+    $cache = resolve(AdminSurfaceContributionCache::class);
+    $filesystem = resolve(Filesystem::class);
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $before = $registry->all();
+
+    $filesystem->put($cache->path(), '<?php return ' . var_export([
+        'schema_version' => 3,
+        'page' => [],
+    ], true) . ';' . PHP_EOL);
+
+    $cache->restore();
+
+    expect($registry->all())->toEqual($before);
+});
+
 it('does not change the registry when no cache exists', function (): void {
     $registry = resolve(AdminSurfaceContributionRegistry::class);
     $cache = resolve(AdminSurfaceContributionCache::class);
