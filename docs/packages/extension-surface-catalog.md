@@ -145,7 +145,7 @@ Generated from executable metadata by `scripts/build-extension-surface-catalog.p
 
 ## Contract test references
 
-- `core.testing.extension-harness`: [ExtensionConformanceTest.php](https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceTest.php#L24), [ExtensionConformanceFailureTest.php](https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceFailureTest.php#L26)
+- `core.testing.extension-harness`: [ExtensionConformanceTest.php](https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceTest.php#L24), [ExtensionConformanceFailureTest.php](https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceFailureTest.php#L26)
 
 Stable entries have a direct contract test ID in the JSON catalogue. Experimental entries may change before the first public release. Internal entries are not extension APIs.
 

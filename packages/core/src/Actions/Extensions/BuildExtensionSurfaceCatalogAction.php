@@ -268,8 +268,8 @@ final class BuildExtensionSurfaceCatalogAction
                 'Manifest assertions plus real provider-bucket and receipt conformance checks.',
                 'core.extension-test-harness',
                 contractTestReferences: [
-                    'https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceTest.php#L24',
-                    'https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceFailureTest.php#L26',
+                    'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceTest.php#L24',
+                    'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceFailureTest.php#L26',
                 ],
             ),
             $this->entry('core.schema.project-build-manifest-v1', 'schema', ProjectBuildManifestSchema::class, ExtensionSurfaceStability::Experimental, 'Closed JSON Schema for portable project build manifests.'),
