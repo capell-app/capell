@@ -8,6 +8,8 @@ use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
 use Capell\Admin\Actions\Pages\BuildPageDeletionImpactAction;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Enums\FilamentColorEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\Table\ReplicatePageAction;
@@ -33,6 +35,7 @@ use Capell\Admin\Filament\Resources\Pages\Actions\BulkRevertToDraftBulkAction;
 use Capell\Admin\Filament\Resources\Pages\Actions\BulkSchedulePagesBulkAction;
 use Capell\Admin\Filament\Resources\Pages\Actions\ExportPagesBulkAction;
 use Capell\Admin\Support\AdminSurfaceLookup;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Admin\Support\PageUrlPresenter;
@@ -254,6 +257,77 @@ class PagesTable implements TableConfigurator
                 ->query(self::applySystemPagesFilterQuery(...))
                 ->indicateUsing(self::indicateSystemPagesFilter(...)),
         ];
+    }
+
+    /**
+     * Built-in Page columns are registered as one first-party stable-zone
+     * contribution so package columns can be positioned relative to them.
+     * Legacy PageTableExtender columns remain supported after this pipeline.
+     *
+     * @return list<Column>
+     */
+    public static function defaultTableColumns(): array
+    {
+        $columns = [
+            IdentifierColumn::make('id'),
+            PageSummaryColumn::make('name')
+                ->wrap()
+                ->sortable()
+                ->searchable(query: self::applyNameSearch(...))
+                ->toggleable(),
+            PageAvailabilityColumn::make('availability'),
+            PagePublishStatusColumn::make('publish_status'),
+            DateColumn::make('updated_at'),
+            TextColumn::make('translation.title')
+                ->label(__('capell-admin::table.title'))
+                ->html()
+                ->toggleable(isToggledHiddenByDefault: true),
+            TextColumn::make('parent.name')
+                ->label(__('capell-admin::table.parent'))
+                ->sortable()
+                ->limit(60)
+                ->toggleable(isToggledHiddenByDefault: true)
+                ->url(self::getParentRecordUrl(...)),
+            SiteColumn::make('site.name')
+                ->color(FilamentColorEnum::LightGray->value)
+                ->hidden(self::shouldHideSiteColumn(...)),
+            TextColumn::make('url')
+                ->label(__('capell-admin::table.url'))
+                ->color('primary')
+                ->disabledClick()
+                ->html()
+                ->searchable(query: self::applyUrlSearch(...))
+                ->getStateUsing(self::getUrlColumnState(...))
+                ->toggleable(isToggledHiddenByDefault: true),
+            LanguagesColumn::make('translations.language'),
+            TextColumn::make('layout.name')
+                ->label(__('capell-admin::table.layout'))
+                ->sortable()
+                ->limit(30)
+                ->size('sm')
+                ->color(FilamentColorEnum::LightGray->value)
+                ->toggleable(isToggledHiddenByDefault: true)
+                ->url(self::getLayoutRecordUrl(...))
+                ->width(0),
+            BlueprintColumn::make('blueprint.name')
+                ->label(__('capell-admin::table.page_type')),
+            TextColumn::make('children_count')
+                ->label(__('capell-admin::table.total_children'))
+                ->alignCenter()
+                ->numeric()
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
+            TextColumn::make('creator.name')
+                ->label(__('capell-admin::table.created_by'))
+                ->toggleable(isToggledHiddenByDefault: true),
+            TextColumn::make('editor.name')
+                ->label(__('capell-admin::table.updated_by'))
+                ->toggleable(isToggledHiddenByDefault: true),
+            DateColumn::make('created_at'),
+            DateColumn::make('deleted_at'),
+        ];
+
+        return $columns;
     }
 
     protected static function recordClasses(PageModel $record): ?string
@@ -641,67 +715,13 @@ class PagesTable implements TableConfigurator
     /** @return list<Column> */
     protected static function getTableColumns(): array
     {
-        /** @var list<Column> $columns */
-        $columns = [
-            IdentifierColumn::make('id'),
-            PageSummaryColumn::make('name')
-                ->wrap()
-                ->sortable()
-                ->searchable(query: self::applyNameSearch(...))
-                ->toggleable(),
-            PageAvailabilityColumn::make('availability'),
-            PagePublishStatusColumn::make('publish_status'),
-            DateColumn::make('updated_at'),
-            TextColumn::make('translation.title')
-                ->label(__('capell-admin::table.title'))
-                ->html()
-                ->toggleable(isToggledHiddenByDefault: true),
-            TextColumn::make('parent.name')
-                ->label(__('capell-admin::table.parent'))
-                ->sortable()
-                ->limit(60)
-                ->toggleable(isToggledHiddenByDefault: true)
-                ->url(self::getParentRecordUrl(...)),
-            SiteColumn::make('site.name')
-                ->color(FilamentColorEnum::LightGray->value)
-                ->hidden(self::shouldHideSiteColumn(...)),
-            TextColumn::make('url')
-                ->label(__('capell-admin::table.url'))
-                ->color('primary')
-                ->disabledClick()
-                ->html()
-                ->searchable(query: self::applyUrlSearch(...))
-                ->getStateUsing(self::getUrlColumnState(...))
-                ->toggleable(isToggledHiddenByDefault: true),
-            LanguagesColumn::make('translations.language'),
-            TextColumn::make('layout.name')
-                ->label(__('capell-admin::table.layout'))
-                ->sortable()
-                ->limit(30)
-                ->size('sm')
-                ->color(FilamentColorEnum::LightGray->value)
-                ->toggleable(isToggledHiddenByDefault: true)
-                ->url(self::getLayoutRecordUrl(...))
-                ->width(0),
-            BlueprintColumn::make('blueprint.name')
-                ->label(__('capell-admin::table.page_type')),
-            TextColumn::make('children_count')
-                ->label(__('capell-admin::table.total_children'))
-                ->alignCenter()
-                ->numeric()
-                ->sortable()
-                ->toggleable(isToggledHiddenByDefault: true),
-            TextColumn::make('creator.name')
-                ->label(__('capell-admin::table.created_by'))
-                ->toggleable(isToggledHiddenByDefault: true),
-            TextColumn::make('editor.name')
-                ->label(__('capell-admin::table.updated_by'))
-                ->toggleable(isToggledHiddenByDefault: true),
-            DateColumn::make('created_at'),
-            DateColumn::make('deleted_at'),
+        return [
+            ...resolve(AdminZoneRegistry::class)->resolve(
+                AdminZone::PageListTableColumns,
+                AdminZoneContextData::pageListTable(auth()->user()),
+            ),
+            ...self::getExtenderColumns(),
         ];
-
-        return array_merge($columns, static::getExtenderColumns());
     }
 
     protected static function getParentRecordUrl(PageModel $record): ?string

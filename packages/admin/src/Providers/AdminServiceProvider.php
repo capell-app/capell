@@ -42,11 +42,14 @@ use Capell\Admin\Contracts\RegistryInspectorInterface;
 use Capell\Admin\Contracts\Support\FlagIconRenderer as FlagIconRendererContract;
 use Capell\Admin\Data\AdminAssetData;
 use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Data\AdminZoneContributionData;
 use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
 use Capell\Admin\Data\ImportEntryData;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\AdminAssetEnum;
 use Capell\Admin\Enums\AdminNotificationGroupEnum;
+use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
@@ -62,6 +65,7 @@ use Capell\Admin\Filament\Pages\Reports\DemoInstallHealthReport;
 use Capell\Admin\Filament\Pages\Reports\PackageReadinessReport;
 use Capell\Admin\Filament\Pages\Reports\PublicRenderSafetyReport;
 use Capell\Admin\Filament\Pages\Reports\PublishingReadinessReport;
+use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
 use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
 use Capell\Admin\Filament\Resources\Redirects\RedirectResource;
 use Capell\Admin\Filament\Settings\AdminSettingsSchema;
@@ -128,6 +132,7 @@ use Capell\Admin\Support\AdminResourceResolver;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Backup\NullPageExporter;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
@@ -207,6 +212,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -317,6 +323,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminNotificationGroupRegistry::class);
         $this->app->singleton(WidgetDiscovery::class);
         $this->app->singleton(ActivityResourceLinkRegistry::class);
+        $this->app->singleton(AdminZoneRegistry::class);
         $this->app->singleton(AdminSurfaceContributionRegistry::class);
         $this->app->singleton(AdminSurfaceContributionCache::class);
         $this->app->singleton(ReportRegistry::class);
@@ -468,6 +475,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     private function prepareAdminRuntime(): self
     {
         return $this
+            ->registerAdminZones()
             ->registerMacros()
             ->registerPages()
             ->registerCoreReports()
@@ -475,6 +483,20 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerWidgets()
             ->registerDashboardFilamentWidgets()
             ->registerOverviewStats();
+    }
+
+    private function registerAdminZones(): self
+    {
+        resolve(AdminZoneRegistry::class)->register(new AdminZoneContributionData(
+            zone: AdminZone::PageListTableColumns,
+            key: 'capell-admin.pages.list.table.columns',
+            resolver: static fn (AdminZoneContextData $context): array => PagesTable::defaultTableColumns(),
+            position: ExtensionPosition::first(),
+            owner: 'capell-app/admin',
+            source: self::class,
+        ));
+
+        return $this;
     }
 
     private function activateAdminRuntime(): self

@@ -13,6 +13,56 @@
             "contractTestId": null
         },
         {
+            "id": "admin.contract.admin-zone-contribution",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\AdminZoneContribution",
+            "ownerPackage": "capell-app/admin",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Typed stable Admin zone contribution boundary.",
+            "contractTestId": "admin.admin-zone-registry"
+        },
+        {
+            "id": "admin.dto.admin-zone-context",
+            "kind": "dto",
+            "identifier": "Capell\\Admin\\Data\\AdminZoneContextData",
+            "ownerPackage": "capell-app/admin",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Explicit Admin zone render context.",
+            "contractTestId": "admin.admin-zone-registry"
+        },
+        {
+            "id": "admin.dto.admin-zone-contribution",
+            "kind": "dto",
+            "identifier": "Capell\\Admin\\Data\\AdminZoneContributionData",
+            "ownerPackage": "capell-app/admin",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Owner-aware typed Admin zone contribution.",
+            "contractTestId": "admin.admin-zone-registry"
+        },
+        {
+            "id": "admin.enum.admin-zone",
+            "kind": "enum",
+            "identifier": "Capell\\Admin\\Enums\\AdminZone",
+            "ownerPackage": "capell-app/admin",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Stable Admin zone vocabulary.",
+            "contractTestId": "admin.admin-zone-registry"
+        },
+        {
+            "id": "admin.registrar.admin-zone",
+            "kind": "registrar",
+            "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
+            "ownerPackage": "capell-app/admin",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Registers package contributions to stable Admin zones.",
+            "contractTestId": "admin.admin-zone-registrar"
+        },
+        {
             "id": "admin.registrar.workspace",
             "kind": "registrar",
             "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
@@ -21,6 +71,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Registers permission-filtered role workspace tools from an Admin bridge.",
             "contractTestId": "admin.bridge-registrar-workspace"
+        },
+        {
+            "id": "admin.registry.admin-zone",
+            "kind": "registry",
+            "identifier": "Capell\\Admin\\Support\\AdminZoneRegistry",
+            "ownerPackage": "capell-app/admin",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Deterministic, permission-aware Admin zone composition.",
+            "contractTestId": "admin.admin-zone-registry"
         },
         {
             "id": "admin.registry.surface-contribution",

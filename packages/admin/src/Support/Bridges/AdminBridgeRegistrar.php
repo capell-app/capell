@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Bridges;
 
 use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
+use Capell\Admin\Contracts\AdminZoneContribution;
 use Capell\Admin\Contracts\Bridges\AdminBridge;
 use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
@@ -29,6 +30,7 @@ use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Contracts\HasSchema;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\SettingsContract;
@@ -293,6 +295,16 @@ final class AdminBridgeRegistrar
         CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::schemaExtender($extenderClass, $tag));
         app()->tag([$extenderClass], $tag);
         $this->receipt(ExtensionContributionType::SchemaExtender, 'schema-extender:' . $tag . ':' . $extenderClass, $extenderClass);
+    }
+
+    public function zone(AdminZoneContribution $contribution): void
+    {
+        resolve(AdminZoneRegistry::class)->register($contribution);
+        $this->receipt(
+            ExtensionContributionType::AdminActionExtender,
+            'admin-zone:' . $contribution->zone()->value . ':' . $contribution->key(),
+            $contribution::class,
+        );
     }
 
     public function panelExtender(string $extenderClass): void

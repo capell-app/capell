@@ -2,6 +2,35 @@
 
 Packages extend the admin through `CapellAdmin`, admin bridges, tagged contracts, settings contributors, and Filament classes.
 
+## Stable Admin zones
+
+Capell exposes deliberately small, typed Admin composition zones. The first
+stable zone is the Page list table columns zone:
+
+```php
+use Capell\Admin\Data\AdminZoneContributionData;
+use Capell\Admin\Enums\AdminZone;
+use Capell\Core\Support\Extensions\ExtensionPosition;
+use Filament\Tables\Columns\TextColumn;
+
+$registrar->zone(new AdminZoneContributionData(
+    zone: AdminZone::PageListTableColumns,
+    key: 'acme.pages.reference-column',
+    resolver: static fn (): array => [TextColumn::make('reference')],
+    position: ExtensionPosition::after('capell-admin.pages.list.table.columns'),
+    permission: 'view_any_page',
+    owner: 'acme/example',
+    source: AcmeAdminBridge::class,
+));
+```
+
+The contribution key is scoped to its zone and must be unique. Contributions
+are resolved through the shared CAP-0468 ordering policy, then filtered by
+permission and visibility before their typed values are rendered. Existing
+`PageTableExtender` implementations remain compatible, but their columns are
+appended after this stable pipeline and cannot participate in stable-key
+ordering.
+
 ## Admin Bridges
 
 Use an admin bridge when a package contributes more than one admin concern. The bridge keeps package wiring in one class and lets Capell boot the package's admin surface once.

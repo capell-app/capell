@@ -2,10 +2,40 @@
     "schemaVersion": 1,
     "status": "active",
     "surfaces": {
+        "admin.contract.admin-zone-contribution": {
+            "identifier": "Capell\\Admin\\Contracts\\AdminZoneContribution",
+            "signature": "0c55ef7c1704c2cbb5cfe2bc4960a886a08abe3950682910608e5077b526a8cf",
+            "contractTestId": "admin.admin-zone-registry"
+        },
+        "admin.dto.admin-zone-context": {
+            "identifier": "Capell\\Admin\\Data\\AdminZoneContextData",
+            "signature": "ba11c92ea3a84eb06fafd8bcd740273ea257f3642da7058d5f807d6443cb5dfe",
+            "contractTestId": "admin.admin-zone-registry"
+        },
+        "admin.dto.admin-zone-contribution": {
+            "identifier": "Capell\\Admin\\Data\\AdminZoneContributionData",
+            "signature": "b597a9fa7e59fca0e41b3a3083534a806d3161d0c13587600491da390542b888",
+            "contractTestId": "admin.admin-zone-registry"
+        },
+        "admin.enum.admin-zone": {
+            "identifier": "Capell\\Admin\\Enums\\AdminZone",
+            "signature": "3c49efdd743cebfe60ba6a6e9020393fd9156a3f6f6432a9a4778e06b29b58c8",
+            "contractTestId": "admin.admin-zone-registry"
+        },
+        "admin.registrar.admin-zone": {
+            "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
+            "signature": "3bf983d84a0852030cce8ba77549c419c143dbc09bf2936e03895988ff500ef1",
+            "contractTestId": "admin.admin-zone-registrar"
+        },
         "admin.registrar.workspace": {
             "identifier": "Capell\\Admin\\Support\\Bridges\\AdminBridgeRegistrar",
-            "signature": "f9fa08cbf4e60c42894ddcd9d2472bf400d295dd9ac2a60123a0a1088199053f",
+            "signature": "3bf983d84a0852030cce8ba77549c419c143dbc09bf2936e03895988ff500ef1",
             "contractTestId": "admin.bridge-registrar-workspace"
+        },
+        "admin.registry.admin-zone": {
+            "identifier": "Capell\\Admin\\Support\\AdminZoneRegistry",
+            "signature": "4683738f4bc19ee594731b89789530651cb3542d5220e3da464911dd62870a6c",
+            "contractTestId": "admin.admin-zone-registry"
         },
         "core.action.install-project-build-manifest": {
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\InstallProjectBuildManifestAction",
