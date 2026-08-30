@@ -11,6 +11,10 @@ use Filament\Tables\Columns\TextColumn;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
 
+/** @property string $column */
+#[AllowDynamicProperties]
+final class AdminZoneDynamicState {}
+
 function adminZoneContext(?Authenticatable $user = null): AdminZoneContextData
 {
     return new AdminZoneContextData(AdminZone::PageListTableColumns, 'tests.page-list', $user ?? auth()->user());
@@ -174,6 +178,26 @@ it('does not treat resolver literals or bound object state as equivalent', funct
 
     expect(function () use ($registry, $makeBoundResolver): void {
         $registry->register(adminZoneContribution('bound.key', $makeBoundResolver('bound-two')));
+    })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
+
+    $makeDynamicResolver = static function (string $column): Closure {
+        $boundObject = new AdminZoneDynamicState;
+        $boundObject->column = $column;
+
+        $resolver = Closure::bind(
+            fn (AdminZoneContextData $context): array => [TextColumn::make($this->column)],
+            $boundObject,
+        );
+
+        throw_unless($resolver instanceof Closure, LogicException::class, 'Expected dynamic Admin zone resolver closure.');
+
+        return $resolver;
+    };
+
+    $registry->register(adminZoneContribution('dynamic-bound.key', $makeDynamicResolver('dynamic-one')));
+
+    expect(function () use ($registry, $makeDynamicResolver): void {
+        $registry->register(adminZoneContribution('dynamic-bound.key', $makeDynamicResolver('dynamic-two')));
     })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
 });
 

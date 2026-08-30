@@ -20,6 +20,7 @@ use LogicException;
 use ReflectionClass;
 use ReflectionFunction;
 use ReflectionObject;
+use ReflectionProperty;
 use ReflectionReference;
 use Throwable;
 use UnitEnum;
@@ -338,6 +339,17 @@ final class AdminZoneRegistry
 
         if (! $reflection->isUserDefined()) {
             return false;
+        }
+
+        $declaredPublicProperties = array_map(
+            static fn (ReflectionProperty $property): string => $property->getName(),
+            array_filter($reflection->getProperties(), static fn (ReflectionProperty $property): bool => $property->isPublic()),
+        );
+
+        foreach (array_keys(get_object_vars($value)) as $propertyName) {
+            if (! in_array($propertyName, $declaredPublicProperties, true)) {
+                return false;
+            }
         }
 
         $activeObjects[$objectId] = true;
