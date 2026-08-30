@@ -67,10 +67,6 @@ it('references the Core conformance suites from the harness catalogue entry', fu
     expect($references)->toBe(array_keys($expectedSections));
 
     foreach ($expectedSections as $reference => $expectedSection) {
-        if (! is_string($reference) || ! is_string($expectedSection)) {
-            throw new LogicException('Contract test references must be strings.');
-        }
-
         $path = (string) parse_url($reference, PHP_URL_PATH);
         $line = (int) ltrim((string) parse_url($reference, PHP_URL_FRAGMENT), 'L');
         $source = file($root . '/' . ltrim(str_replace('/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/', '', $path), '/'), FILE_IGNORE_NEW_LINES);
