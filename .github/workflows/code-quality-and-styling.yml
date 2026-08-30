@@ -9,6 +9,7 @@ on:
       - main
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - 'tests/**/*.php'
       - 'packages/**/*.php'
       - 'packages/**/composer.json'
       - 'composer.json'
