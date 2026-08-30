@@ -264,7 +264,7 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
     }
 
     /**
-     * @param  list<class-string<Widget>>  $widgets
+     * @param  list<class-string<Widget>|WidgetConfiguration>  $widgets
      * @return list<class-string<Widget>|WidgetConfiguration>
      */
     private function configuredDashboardFilamentWidgets(array $widgets): array
@@ -272,7 +272,9 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
         $settings = resolve(AdminSettings::class);
 
         return array_values(collect($widgets)
-            ->filter(function (string $widgetClass) use ($settings): bool {
+            ->filter(function (string|WidgetConfiguration $widget) use ($settings): bool {
+                $widgetClass = $this->normalizeDashboardWidgetClass($widget);
+
                 if (! method_exists($widgetClass, 'settingsKey')) {
                     return true;
                 }
@@ -283,13 +285,19 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
                     || $settingsKey === ''
                     || $settings->isWidgetEnabled($settingsKey);
             })
-            ->sortBy(fn (string $widgetClass, int $index): string => sprintf(
+            ->sortBy(fn (string|WidgetConfiguration $widget, int $index): string => sprintf(
                 '%020d-%020d',
-                $this->widgetSortOrder($settings, $widgetClass),
+                $this->widgetSortOrder($settings, $this->normalizeDashboardWidgetClass($widget)),
                 $index,
             ))
             ->values()
             ->all());
+    }
+
+    /** @param class-string<Widget>|WidgetConfiguration $widget */
+    private function normalizeDashboardWidgetClass(string|WidgetConfiguration $widget): string
+    {
+        return $widget instanceof WidgetConfiguration ? $widget->widget : $widget;
     }
 
     private function widgetSortOrder(AdminSettings $settings, string $widgetClass): int

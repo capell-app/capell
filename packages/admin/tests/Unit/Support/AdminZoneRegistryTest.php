@@ -8,6 +8,7 @@ use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Filament\Actions\Action;
+use Filament\Tables\Columns\ColumnGroup;
 use Filament\Tables\Columns\Layout\View as LayoutView;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -68,13 +69,23 @@ it('catalogues the supported Page edit and Extensions dashboard zones', function
     ));
     $registry->register(new AdminZoneContributionData(
         zone: AdminZone::ExtensionsDashboardTableColumns,
+        key: 'tests.extensions.column-group',
+        resolver: static fn (): array => [ColumnGroup::make('Grouped', [TextColumn::make('grouped')])],
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableColumns,
         key: 'tests.extensions.layout-column',
-        resolver: static fn (): array => [LayoutView::make('tests.extensions.layout-column')],
+        resolver: static function (): array {
+            /** @var view-string $layoutView */
+            $layoutView = 'capell-admin::filament.pages.extensions.extension-card';
+
+            return [LayoutView::make($layoutView)];
+        },
     ));
 
     expect($registry->resolve(AdminZone::PageEditFormActions, adminZoneContext()))->toHaveCount(1)
         ->and($registry->resolve(AdminZone::ExtensionsDashboardTableFilters, adminZoneContext()))->toHaveCount(1)
-        ->and($registry->resolve(AdminZone::ExtensionsDashboardTableColumns, adminZoneContext()))->toHaveCount(1);
+        ->and($registry->resolve(AdminZone::ExtensionsDashboardTableColumns, adminZoneContext()))->toHaveCount(2);
 });
 
 it('interleaves built-in and package columns through the shared ordering resolver', function (): void {

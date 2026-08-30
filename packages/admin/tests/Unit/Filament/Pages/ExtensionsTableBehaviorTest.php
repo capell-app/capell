@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Data\AdminZoneContributionData;
+use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionsTable;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSchema;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSettings;
 use Capell\Admin\Tests\Unit\Filament\Pages\Fixtures\ExtensionTableBehaviorLivewire;
@@ -11,13 +15,17 @@ use Capell\Admin\Tests\Unit\Filament\Pages\Fixtures\ExtensionTableBehaviorLivewi
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Schemas\Components\Component as SchemaComponent;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\BaseFilter;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\Indicator;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
@@ -92,6 +100,49 @@ it('passes search filters sorting and pagination through the extensions table da
             ],
         ])
         ->and($allRecordsPage->perPage())->toBe(3);
+});
+
+it('routes Extensions table columns filters and record actions through stable zones', function (): void {
+    $livewire = new ExtensionTableBehaviorLivewire;
+    $registry = resolve(AdminZoneRegistry::class);
+    $seenSubject = null;
+
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableColumns,
+        key: 'tests.extensions.table.column',
+        resolver: static function (AdminZoneContextData $context) use (&$seenSubject): array {
+            $seenSubject = $context->subject;
+
+            return [TextColumn::make('stable_extension_column')];
+        },
+        position: ExtensionPosition::after('capell-admin.extensions.dashboard.table.columns'),
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableFilters,
+        key: 'tests.extensions.table.filter',
+        resolver: static fn (): array => [Filter::make('stable_extension_filter')],
+        position: ExtensionPosition::after('capell-admin.extensions.dashboard.table.filters'),
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableRecordActions,
+        key: 'tests.extensions.table.record-action',
+        resolver: static fn (): array => [Action::make('stableExtensionRecordAction')],
+        position: ExtensionPosition::after('capell-admin.extensions.dashboard.table.record-actions'),
+    ));
+
+    $table = extensionTableForBehaviorTest($livewire);
+
+    expect(array_keys($table->getColumns()))
+        ->toContain('name', 'id', 'stable_extension_column')
+        ->and(collect($table->getFilters(withHidden: true))->map(fn (BaseFilter $filter): string => $filter->getName())->all())
+        ->toContain('extension_filters', 'installed_status', 'stable_extension_filter')
+        ->and(collect($table->getRecordActions())
+            ->map(fn (Action|ActionGroup $action): ?string => $action instanceof Action ? $action->getName() : null)
+            ->filter()
+            ->values()
+            ->all())
+        ->toContain('stableExtensionRecordAction')
+        ->and($seenSubject)->toBe($livewire);
 });
 
 it('builds extension filter indicators and product group options from table state', function (): void {

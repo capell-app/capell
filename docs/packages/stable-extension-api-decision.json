@@ -1,11 +1,6 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "The receipt contract signature is intentionally updated to expose only the neutral emission boundary, and the concrete mutable receipt registry is intentionally removed from the stable catalogue. The Admin workspace signature, package constraints, and migrations are existing repository drift. The migrations drift includes the 2026_08_14_000001_add_provider_recovery_to_capell_extensions.php migration and is not caused by this PR.",
-    "drift": [
-        "changed public signature: admin.registrar.workspace",
-        "removed class: core.registry.extension-contribution-receipt",
-        "migrations",
-        "packageConstraints"
-    ]
+    "reason": "The Admin zone context signature is an intentional compatibility-preserving addition: the context now carries the current actor and an optional surface subject.",
+    "drift": ["changed public signature: admin.dto.admin-zone-context"]
 }

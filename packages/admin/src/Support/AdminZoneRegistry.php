@@ -18,6 +18,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Schemas\Components\Component as SchemaComponent;
 use Filament\Tables\Columns\Column;
+use Filament\Tables\Columns\ColumnGroup;
 use Filament\Tables\Columns\Layout\Component as LayoutColumn;
 use Filament\Tables\Filters\BaseFilter;
 use Filament\Widgets\Widget;
@@ -431,7 +432,9 @@ final class AdminZoneRegistry
                 || $value instanceof WidgetConfiguration
                 || (is_string($value) && is_a($value, Widget::class, true)),
             AdminZone::PageListTableColumns,
-            AdminZone::ExtensionsDashboardTableColumns => $value instanceof Column || $value instanceof LayoutColumn,
+            AdminZone::ExtensionsDashboardTableColumns => $value instanceof Column
+                || $value instanceof ColumnGroup
+                || $value instanceof LayoutColumn,
             AdminZone::PageEditContentBefore,
             AdminZone::PageEditContentAfter,
             AdminZone::ExtensionsDashboardContentBefore,

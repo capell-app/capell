@@ -27,7 +27,7 @@ final readonly class AdminZoneContextData
         return new self(
             zone: AdminZone::PageListTableColumns,
             surface: PagesTable::class,
-            user: $user,
+            user: $user ?? auth()->user(),
         );
     }
 
@@ -36,28 +36,28 @@ final readonly class AdminZoneContextData
         return new self(
             zone: $zone,
             surface: EditPage::class,
-            user: $user,
+            user: $user ?? auth()->user(),
             record: $page->getRecord(),
             subject: $page,
         );
     }
 
-    public static function extensionsDashboard(ExtensionsPage $page, AdminZone $zone): self
+    public static function extensionsDashboard(ExtensionsPage $page, AdminZone $zone, ?Authenticatable $user = null): self
     {
         return new self(
             zone: $zone,
             surface: ExtensionsPage::class,
-            user: auth()->user(),
+            user: $user ?? auth()->user(),
             subject: $page,
         );
     }
 
-    public static function extensionsTable(ExtensionTableDataSource $source, AdminZone $zone): self
+    public static function extensionsTable(ExtensionTableDataSource $source, AdminZone $zone, ?Authenticatable $user = null): self
     {
         return new self(
             zone: $zone,
             surface: ExtensionsTable::class,
-            user: auth()->user(),
+            user: $user ?? auth()->user(),
             subject: $source,
         );
     }
