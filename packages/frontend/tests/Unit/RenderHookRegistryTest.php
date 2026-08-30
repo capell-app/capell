@@ -389,6 +389,7 @@ it('interleaves keyed hooks with relative positions and reports collisions', fun
         'vendor/a',
         'a',
         position: ExtensionPosition::priority(10),
+        source: 'existing-render-hook-source',
     ));
     $registry->contribute(RenderHookContributionData::inlineBlade(
         RenderHookLocation::Footer,
@@ -405,8 +406,9 @@ it('interleaves keyed hooks with relative positions and reports collisions', fun
             '<span>collision</span>',
             'vendor/c',
             'a',
+            source: 'incoming-render-hook-source',
         ));
-    })->toThrow(LogicException::class, 'vendor/a');
+    })->toThrow(LogicException::class, 'Extension key [a] is already registered by [vendor/a] (existing-render-hook-source); [vendor/c] (incoming-render-hook-source) cannot replace it implicitly.');
 });
 
 it('supports explicit replacement and frozen render hooks', function (): void {

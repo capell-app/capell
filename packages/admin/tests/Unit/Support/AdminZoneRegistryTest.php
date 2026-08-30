@@ -37,6 +37,7 @@ function adminZoneContribution(
     ?string $permission = null,
     ?Closure $visibility = null,
     string $owner = 'tests/admin',
+    string $source = 'AdminZoneRegistryTest',
 ): AdminZoneContributionData {
     return new AdminZoneContributionData(
         zone: AdminZone::PageListTableColumns,
@@ -46,7 +47,7 @@ function adminZoneContribution(
         permission: $permission,
         visibility: $visibility,
         owner: $owner,
-        source: 'AdminZoneRegistryTest',
+        source: $source,
     );
 }
 
@@ -171,8 +172,9 @@ it('enforces idempotence, explicit replacement, duplicate ownership diagnostics,
             'same.key',
             static fn (AdminZoneContextData $context): array => [TextColumn::make('conflict')],
             owner: 'vendor/other',
+            source: 'incoming-admin-zone-source',
         ));
-    })->toThrow(LogicException::class, 'Extension key [same.key] is already registered by [tests/admin] (AdminZoneRegistryTest); [vendor/other] (AdminZoneRegistryTest) cannot replace it implicitly.');
+    })->toThrow(LogicException::class, 'Extension key [same.key] is already registered by [tests/admin] (AdminZoneRegistryTest); [vendor/other] (incoming-admin-zone-source) cannot replace it implicitly.');
 
     $replacement = adminZoneContribution(
         'same.key',
