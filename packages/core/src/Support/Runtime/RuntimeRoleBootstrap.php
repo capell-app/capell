@@ -56,9 +56,12 @@ final class RuntimeRoleBootstrap
     /**
      * Configure an application after its configuration has been loaded.
      */
-    public static function configureResolvedConfiguration(Application $application): void
-    {
-        self::configureAfterConfiguration($application);
+    public static function configureResolvedConfiguration(
+        Application $application,
+        bool $includeGeneratedProviders = true,
+        bool $includeAdditionalProviders = true,
+    ): void {
+        self::configureAfterConfiguration($application, $includeGeneratedProviders, $includeAdditionalProviders);
     }
 
     private static function configureAfterEnvironment(Application $application): void
@@ -80,8 +83,11 @@ final class RuntimeRoleBootstrap
         self::configureLaravelPackageManifest($application, $paths, $selection->role, $policy);
     }
 
-    private static function configureAfterConfiguration(Application $application): void
-    {
+    private static function configureAfterConfiguration(
+        Application $application,
+        bool $includeGeneratedProviders = true,
+        bool $includeAdditionalProviders = true,
+    ): void {
         $resolver = $application->make(RuntimeRoleResolver::class);
 
         self::configureApplicationProviders(
@@ -89,6 +95,8 @@ final class RuntimeRoleBootstrap
             $application->make(RuntimeRoleCachePaths::class),
             $resolver->role(),
             $application->make(RuntimeRoleProviderPolicy::class),
+            $includeGeneratedProviders,
+            $includeAdditionalProviders,
         );
     }
 
@@ -107,6 +115,10 @@ final class RuntimeRoleBootstrap
         RuntimeRole $role,
         RuntimeRoleProviderPolicy $policy,
     ): void {
+        // Testbench swaps a resolved generic manifest into the container while
+        // creating its application. Clear that instance before installing the
+        // role-aware singleton so later package discovery cannot bypass it.
+        $application->forgetInstance(PackageManifest::class);
         $application->singleton(PackageManifest::class, static fn (): RuntimeRolePackageManifest => new RuntimeRolePackageManifest(
             files: new Filesystem,
             basePath: $application->basePath(),
@@ -122,30 +134,43 @@ final class RuntimeRoleBootstrap
         RuntimeRoleCachePaths $paths,
         RuntimeRole $role,
         RuntimeRoleProviderPolicy $policy,
+        bool $includeGeneratedProviders = true,
+        bool $includeAdditionalProviders = true,
     ): void {
-        $additionalProviders = self::additionalProviders();
+        $additionalProviders = $includeAdditionalProviders ? self::additionalProviders() : [];
         $configuredProviders = $application->make(Repository::class)->get('app.providers');
 
         if (is_array($configuredProviders)) {
-            $application->make(Repository::class)->set(
-                'app.providers',
-                $policy->filterProviders(
-                    array_values(array_filter($configuredProviders, is_string(...))),
-                    $role,
-                ),
+            $configuredProviders = $policy->filterProviders(
+                array_values(array_filter($configuredProviders, is_string(...))),
+                $role,
             );
+            $configuredProviders = array_values(array_unique($configuredProviders));
+
+            $application->make(Repository::class)->set('app.providers', $configuredProviders);
+        } else {
+            $configuredProviders = [];
         }
 
-        $generatedProviderManifest = $paths->providers($role);
+        $generatedProviderManifest = $includeGeneratedProviders ? $paths->providers($role) : null;
         $bootstrapProviderManifest = $application->bootstrapPath('providers.php');
-        $providers = is_file($generatedProviderManifest)
+        $providers = is_string($generatedProviderManifest) && is_file($generatedProviderManifest)
             ? self::providersFrom($generatedProviderManifest)
             : self::providersFrom($bootstrapProviderManifest);
 
+        if (! $includeGeneratedProviders) {
+            $providers = [];
+        }
+
         RegisterProviders::flushState();
+        $providersToMerge = array_values(array_unique($policy->filterProviders(
+            [...$additionalProviders, ...$providers],
+            $role,
+        )));
+        $providersToMerge = array_values(array_diff($providersToMerge, $configuredProviders));
 
         RegisterProviders::merge(
-            $policy->filterProviders([...$additionalProviders, ...$providers], $role),
+            $providersToMerge,
             dirname(__DIR__, 3) . '/resources/runtime/empty-providers.php',
         );
     }

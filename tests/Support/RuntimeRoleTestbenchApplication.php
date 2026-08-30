@@ -29,6 +29,18 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
     }
 
     #[Override]
+    protected function resolveApplicationResolvingCallback(mixed $app): void
+    {
+        parent::resolveApplicationResolvingCallback($app);
+
+        // The bootstrap file already creates the application, so Testbench runs its
+        // resolving callback a second time around that returned instance. Its callback
+        // swaps in the generic package manifest; restore the role-aware binding before
+        // the outer configuration and provider-registration phases continue.
+        RuntimeRoleBootstrap::configureResolvedEnvironment($app);
+    }
+
+    #[Override]
     protected function resolveApplicationConfiguration(mixed $app): void
     {
         throw_unless($app instanceof Application, RuntimeException::class, 'Testbench did not resolve a Laravel application.');
@@ -44,7 +56,11 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
         // the loader that actually ran; otherwise package providers skip their config merges.
         $app->instance('config_loaded_from_cache', false);
 
-        RuntimeRoleBootstrap::configureResolvedConfiguration($app);
+        // Testbench replaces Laravel's package manifest while creating the application. Reapply
+        // the resolved runtime configuration after that swap so the provider registration phase
+        // and every diagnostic use the role-aware manifest.
+        RuntimeRoleBootstrap::configureResolvedEnvironment($app);
+        RuntimeRoleBootstrap::configureResolvedConfiguration($app, includeGeneratedProviders: false);
     }
 
     private static function registerGeneratedApplicationNamespace(?string $basePath): void

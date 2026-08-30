@@ -26,6 +26,9 @@ it('selects role-specific provider graphs before Laravel registers providers', f
         ->and($public['services_cache'])->not->toBe($authoring['services_cache']);
 
     foreach ([$combined, $public, $authoring] as $result) {
+        expect($result['configured_provider_count'])->toBe($result['configured_provider_unique_count'])
+            ->and($result['services_provider_count'])->toBe($result['services_provider_unique_count']);
+
         foreach (['config_cache', 'packages_cache', 'services_cache', 'routes_cache', 'events_cache'] as $cache) {
             expect($result[$cache])->toContain('/capell-runtime/' . $result['role'] . '/');
         }
