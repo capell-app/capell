@@ -428,10 +428,9 @@ final class AdminZoneRegistry
             AdminZone::ExtensionsDashboardHeaderActions,
             AdminZone::ExtensionsDashboardTableRecordActions => $value instanceof Action || $value instanceof ActionGroup,
             AdminZone::PageEditHeaderWidgets,
-            AdminZone::ExtensionsDashboardHeaderWidgets => $value instanceof Widget
-                || $value instanceof WidgetConfiguration
+            AdminZone::ExtensionsDashboardHeaderWidgets => $value instanceof WidgetConfiguration
                 || (is_string($value) && is_a($value, Widget::class, true)),
-            AdminZone::PageListTableColumns,
+            AdminZone::PageListTableColumns => $value instanceof Column,
             AdminZone::ExtensionsDashboardTableColumns => $value instanceof Column
                 || $value instanceof ColumnGroup
                 || $value instanceof LayoutColumn,

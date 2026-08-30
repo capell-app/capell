@@ -12,6 +12,7 @@ use Filament\Tables\Columns\ColumnGroup;
 use Filament\Tables\Columns\Layout\View as LayoutView;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Widgets\Widget;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
 
@@ -454,4 +455,27 @@ it('rejects values outside the zone contract', function (): void {
 
     expect(fn (): array => $registry->resolve(AdminZone::PageListTableColumns, adminZoneContext()))
         ->toThrow(LogicException::class, 'returned [string]');
+
+    $pageListRegistry = new AdminZoneRegistry;
+    $pageListRegistry->register(new AdminZoneContributionData(
+        zone: AdminZone::PageListTableColumns,
+        key: 'invalid-page-list-column-group',
+        resolver: static fn (AdminZoneContextData $context): array => [ColumnGroup::make('Grouped')],
+    ));
+
+    expect(fn (): array => $pageListRegistry->resolve(AdminZone::PageListTableColumns, adminZoneContext()))
+        ->toThrow(LogicException::class, 'ColumnGroup');
+
+    $widgetRegistry = new AdminZoneRegistry;
+    $widgetRegistry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardHeaderWidgets,
+        key: 'invalid-widget-instance',
+        resolver: static fn (AdminZoneContextData $context): array => [new class extends Widget
+        {
+            protected string $view = 'filament::components.empty-state';
+        }],
+    ));
+
+    expect(fn (): array => $widgetRegistry->resolve(AdminZone::ExtensionsDashboardHeaderWidgets, adminZoneContext()))
+        ->toThrow(LogicException::class, 'Widget');
 });
