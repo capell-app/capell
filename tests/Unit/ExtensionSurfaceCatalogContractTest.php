@@ -50,13 +50,13 @@ it('references the Core conformance suites from the harness catalogue entry', fu
     }
 
     if (! is_array($surface)) {
-        throw new \LogicException('The extension harness catalogue entry is missing.');
+        throw new LogicException('The extension harness catalogue entry is missing.');
     }
 
     $references = $surface['contractTestReferences'] ?? null;
 
     if (! is_array($references)) {
-        throw new \LogicException('The extension harness catalogue references are missing.');
+        throw new LogicException('The extension harness catalogue references are missing.');
     }
 
     expect($references)->toBe([
@@ -66,7 +66,7 @@ it('references the Core conformance suites from the harness catalogue entry', fu
 
     foreach ($references as $reference) {
         if (! is_string($reference)) {
-            throw new \LogicException('Contract test references must be strings.');
+            throw new LogicException('Contract test references must be strings.');
         }
 
         $path = (string) parse_url($reference, PHP_URL_PATH);
