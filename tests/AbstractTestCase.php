@@ -14,6 +14,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Media;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Capell\Tests\Fixtures\Components\Headers\CustomHeader as FakeCustomHeader;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Fixtures\Policies\RolePolicy;
@@ -21,6 +22,8 @@ use Capell\Tests\Support\IsolatedTestbenchSkeleton;
 use Capell\Tests\Support\PackageTestDatabaseGuard;
 use Filament\SpatieLaravelSettingsPluginServiceProvider;
 use Illuminate\Cache\CacheManager;
+use Illuminate\Contracts\Cache\Factory as CacheFactory;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -52,6 +55,7 @@ use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\LaravelSettings\Migrations\SettingsMigration;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\PermissionServiceProvider;
 use Throwable;
 
@@ -189,6 +193,40 @@ abstract class AbstractTestCase extends TestCase
         }
 
         return parent::getApplicationBootstrapFile($filename);
+    }
+
+    #[Override]
+    protected function resolveApplicationResolvingCallback(mixed $app): void
+    {
+        parent::resolveApplicationResolvingCallback($app);
+
+        if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true' && $app instanceof Application) {
+            // Testbench creates the application in the runtime-role bootstrap file and
+            // then runs its own resolving callback around that returned instance. The
+            // latter swaps in Testbench's generic package manifest; restore the role-aware
+            // binding before the outer configuration and provider phases continue.
+            RuntimeRoleBootstrap::configureResolvedEnvironment($app);
+        }
+    }
+
+    #[Override]
+    protected function resolveApplicationBootstrappers(mixed $app): void
+    {
+        if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true' && $app instanceof Application) {
+            // Testbench has assembled the complete provider list by this point. Re-apply
+            // the role filter immediately before provider registration so the outer
+            // test-case providers are retained in the selected graph.
+            $app->instance('config_loaded_from_cache', false);
+            $app->make(Repository::class)->set('app.providers', $this->getPackageProviders($app));
+            RuntimeRoleBootstrap::configureResolvedEnvironment($app);
+            RuntimeRoleBootstrap::configureResolvedConfiguration(
+                $app,
+                includeGeneratedProviders: false,
+                includeAdditionalProviders: false,
+            );
+        }
+
+        parent::resolveApplicationBootstrappers($app);
     }
 
     /**
@@ -340,6 +378,13 @@ abstract class AbstractTestCase extends TestCase
 
         $this->registerPublishConfig('core');
 
+        if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true') {
+            $this->registerPackageConfig(
+                'capell',
+                require dirname(__DIR__) . '/packages/core/config/capell.php',
+            );
+        }
+
         foreach ($packages as $package_key => $package) {
             $config = require dirname(__DIR__) . $this->getPackageFile($package);
 
@@ -448,9 +493,16 @@ abstract class AbstractTestCase extends TestCase
         }
 
         $application->forgetInstance(CapellCacheManager::class);
+        $application->forgetScopedInstances();
+        $application->forgetInstance(PermissionRegistrar::class);
         $application->forgetInstance('cache.store');
         $application->forgetInstance('cache');
         Facade::clearResolvedInstance('cache');
+
+        $application->instance(
+            PermissionRegistrar::class,
+            new PermissionRegistrar($application->make(CacheFactory::class)),
+        );
     }
 
     /**
@@ -471,7 +523,7 @@ abstract class AbstractTestCase extends TestCase
         $currentStore = Config::get('cache.default');
 
         if ($application->bound('cache')) {
-            $cacheManager = $application->make(\Illuminate\Contracts\Cache\Factory::class);
+            $cacheManager = $application->make(CacheFactory::class);
 
             if ($cacheManager instanceof CacheManager && ! $cacheManager instanceof MockInterface) {
                 $stores = [];
@@ -603,6 +655,12 @@ abstract class AbstractTestCase extends TestCase
     {
         foreach ($config as $key => $value) {
             if (is_array($value)) {
+                if ($value === []) {
+                    config()->set(sprintf('%s.%s', $package, $key), []);
+
+                    continue;
+                }
+
                 $this->registerPackageConfig(sprintf('%s.%s', $package, $key), $value);
 
                 continue;

@@ -18,7 +18,9 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
@@ -26,6 +28,8 @@ uses()->group('admin', 'reports');
 
 it('builds demo install health metrics without critical findings for an install-shaped app', function (): void {
     demoInstallHealthSeedInstall();
+
+    expect(resolve(PackageManifest::class))->toBeInstanceOf(RuntimeRolePackageManifest::class);
 
     $snapshot = BuildDemoInstallHealthReportAction::run();
     $metrics = collect($snapshot->metrics)->pluck('value', 'label');

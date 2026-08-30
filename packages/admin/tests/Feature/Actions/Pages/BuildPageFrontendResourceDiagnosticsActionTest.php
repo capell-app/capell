@@ -31,5 +31,9 @@ it('delegates page resource diagnostics to the frontend package binding', functi
 });
 
 it('returns an empty diagnostics payload when the frontend binding is unavailable', function (): void {
+    // Runtime-role Testbench boots trusted Core packages, so explicitly model an
+    // unavailable package boundary instead of relying on provider discovery order.
+    app()->bind('capell.frontend.page-resource-diagnostics', static fn (): null => null);
+
     expect(BuildPageFrontendResourceDiagnosticsAction::run(Page::factory()->createOne()))->toBe([]);
 });
