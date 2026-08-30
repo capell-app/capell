@@ -23,6 +23,16 @@
             "contractTestId": "admin.bridge-registrar-workspace"
         },
         {
+            "id": "admin.registry.surface-contribution",
+            "kind": "registry",
+            "identifier": "Capell\\Admin\\Support\\AdminSurfaceContributionRegistry",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Owner-aware ordered Admin surface contributions.",
+            "contractTestId": null
+        },
+        {
             "id": "admin.render-hook.navigation-after",
             "kind": "render-hook",
             "identifier": "panels::sidebar.nav.end",
@@ -361,6 +371,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Typed manifest runtime traceability envelope.",
             "contractTestId": "core.extension-contribution-traceability"
+        },
+        {
+            "id": "core.dto.extension-order-diagnostic",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Extensions\\ExtensionOrderDiagnosticData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Structured ordering fallback diagnostic.",
+            "contractTestId": null
         },
         {
             "id": "core.dto.frontend-route-reservation",
@@ -923,6 +943,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.registry.extension-order-resolver",
+            "kind": "registry",
+            "identifier": "Capell\\Core\\Support\\Extensions\\ExtensionOrderResolver",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Deterministic shared extension ordering resolver.",
+            "contractTestId": null
+        },
+        {
             "id": "core.registry.operational-health-check",
             "kind": "registry",
             "identifier": "Capell\\Core\\Support\\Health\\HealthCheckRegistry",
@@ -1063,6 +1093,16 @@
             "contractTestId": "core.extension-test-harness"
         },
         {
+            "id": "core.dto.extension-position",
+            "kind": "value-object",
+            "identifier": "Capell\\Core\\Support\\Extensions\\ExtensionPosition",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Filament-neutral relative extension position.",
+            "contractTestId": null
+        },
+        {
             "id": "frontend.contract.component-contributor",
             "kind": "contract",
             "identifier": "Capell\\Frontend\\Contracts\\FrontendComponentContributor",
@@ -1200,6 +1240,16 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Deterministic public render-data contributor composition.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.registry.render-hook",
+            "kind": "registry",
+            "identifier": "Capell\\Frontend\\Support\\Render\\RenderHookRegistry",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Owner-aware ordered Frontend render hooks.",
             "contractTestId": null
         },
         {

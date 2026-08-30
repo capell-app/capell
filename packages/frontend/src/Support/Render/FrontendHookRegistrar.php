@@ -6,6 +6,7 @@ namespace Capell\Frontend\Support\Render;
 
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Enums\RenderHookLocation;
@@ -35,6 +36,8 @@ final class FrontendHookRegistrar
         ?string $scenario = null,
         ?string $target = null,
         bool $cacheSafe = true,
+        ?ExtensionPosition $position = null,
+        string $source = self::class,
     ): void {
         $this->registry->contribute(new RenderHookContributionData(
             location: $location,
@@ -45,6 +48,8 @@ final class FrontendHookRegistrar
             scenario: $scenario,
             target: $target,
             cacheSafe: $cacheSafe,
+            position: $position,
+            source: $source,
         ));
         $this->receipts->recordContribution(ExtensionContributionType::RenderHook, $key, is_string($extension) ? $extension : $extension::class, self::class);
     }

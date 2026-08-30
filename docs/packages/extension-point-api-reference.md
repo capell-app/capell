@@ -6,6 +6,8 @@ Registration uses two complementary mechanisms: contract tags for focused contri
 
 Machine-readable stability and ownership are defined by the [extension surface catalogue](extension-surface-catalog.md). Use its stable IDs in compatibility decisions and package contract failures.
 
+Admin surface and Frontend render-hook contributions use the shared [extension ordering policy](extension-ordering.md) for stable keys, relative positions, ownership-aware collisions, and boot-time freeze behaviour.
+
 ## Reading The Tables
 
 | Column        | Meaning                                                                      |

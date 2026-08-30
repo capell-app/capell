@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Data;
 
+use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
@@ -32,6 +33,8 @@ final class RenderHookContributionData
         public readonly ?string $target = null,
         public readonly bool $cacheSafe = true,
         ?RenderHookRegistrationType $registrationType = null,
+        public readonly ?ExtensionPosition $position = null,
+        public readonly string $source = self::class,
     ) {
         $this->registrationType = $registrationType ?? $this->defaultRegistrationType($extension);
     }
@@ -45,6 +48,8 @@ final class RenderHookContributionData
         ?string $scenario = null,
         ?string $target = null,
         bool $cacheSafe = true,
+        ?ExtensionPosition $position = null,
+        string $source = self::class,
     ): self {
         return new self(
             location: $location,
@@ -56,6 +61,8 @@ final class RenderHookContributionData
             target: $target,
             cacheSafe: $cacheSafe,
             registrationType: RenderHookRegistrationType::View,
+            position: $position,
+            source: $source,
         );
     }
 
@@ -68,6 +75,8 @@ final class RenderHookContributionData
         ?string $scenario = null,
         ?string $target = null,
         bool $cacheSafe = true,
+        ?ExtensionPosition $position = null,
+        string $source = self::class,
     ): self {
         return new self(
             location: $location,
@@ -79,6 +88,8 @@ final class RenderHookContributionData
             target: $target,
             cacheSafe: $cacheSafe,
             registrationType: RenderHookRegistrationType::InlineBlade,
+            position: $position,
+            source: $source,
         );
     }
 
@@ -91,6 +102,8 @@ final class RenderHookContributionData
         ?string $scenario = null,
         ?string $target = null,
         bool $cacheSafe = true,
+        ?ExtensionPosition $position = null,
+        string $source = self::class,
     ): self {
         return new self(
             location: $location,
@@ -102,6 +115,8 @@ final class RenderHookContributionData
             target: $target,
             cacheSafe: $cacheSafe,
             registrationType: RenderHookRegistrationType::ExtensionClass,
+            position: $position,
+            source: $source,
         );
     }
 
