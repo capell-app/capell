@@ -39,8 +39,25 @@ it('references the Core conformance suites from the harness catalogue entry', fu
         true,
         flags: JSON_THROW_ON_ERROR,
     );
-    $surface = collect($catalog['surfaces'])->firstWhere('id', 'core.testing.extension-harness');
+    $surface = null;
+
+    foreach ($catalog['surfaces'] as $candidate) {
+        if (is_array($candidate) && ($candidate['id'] ?? null) === 'core.testing.extension-harness') {
+            $surface = $candidate;
+
+            break;
+        }
+    }
+
+    if (! is_array($surface)) {
+        throw new \LogicException('The extension harness catalogue entry is missing.');
+    }
+
     $references = $surface['contractTestReferences'] ?? null;
+
+    if (! is_array($references)) {
+        throw new \LogicException('The extension harness catalogue references are missing.');
+    }
 
     expect($references)->toBe([
         'https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceTest.php#L24',
@@ -48,6 +65,10 @@ it('references the Core conformance suites from the harness catalogue entry', fu
     ]);
 
     foreach ($references as $reference) {
+        if (! is_string($reference)) {
+            throw new \LogicException('Contract test references must be strings.');
+        }
+
         $path = (string) parse_url($reference, PHP_URL_PATH);
         expect(str_starts_with($reference, 'https://github.com/capell-app/capell/blob/main/'))
             ->toBeTrue()
