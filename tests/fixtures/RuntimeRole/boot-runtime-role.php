@@ -7,6 +7,7 @@ use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Tests\Fixtures\RuntimeRole\Filament\AuthoringRuntimeRoleProvider;
 use Capell\Tests\Fixtures\RuntimeRole\FrontendPreviewRuntimeRoleProvider;
 use Capell\Tests\Fixtures\RuntimeRole\RuntimeRoleOrderingProvider;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\BootProviders;
@@ -104,6 +105,10 @@ try {
         $application->getLoadedProviders(),
         static fn (bool $loaded): bool => $loaded,
     ));
+    $configuredProviders = $application->make(Repository::class)->get('app.providers', []);
+    $servicesManifest = is_file($application->getCachedServicesPath())
+        ? require $application->getCachedServicesPath()
+        : [];
 
     echo json_encode([
         'role' => $selection->role->value,
@@ -115,6 +120,10 @@ try {
         'routes_cache' => $application->getCachedRoutesPath(),
         'events_cache' => $application->getCachedEventsPath(),
         'package_manifest' => $application->make(PackageManifest::class)::class,
+        'configured_provider_count' => is_array($configuredProviders) ? count($configuredProviders) : null,
+        'configured_provider_unique_count' => is_array($configuredProviders) ? count(array_unique($configuredProviders)) : null,
+        'services_provider_count' => is_array($servicesManifest['providers'] ?? null) ? count($servicesManifest['providers']) : null,
+        'services_provider_unique_count' => is_array($servicesManifest['providers'] ?? null) ? count(array_unique($servicesManifest['providers'])) : null,
     ], JSON_THROW_ON_ERROR);
 } finally {
     RegisterProviders::flushState();

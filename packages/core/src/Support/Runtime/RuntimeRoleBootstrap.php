@@ -145,6 +145,7 @@ final class RuntimeRoleBootstrap
                 array_values(array_filter($configuredProviders, is_string(...))),
                 $role,
             );
+            $configuredProviders = array_values(array_unique($configuredProviders));
 
             $application->make(Repository::class)->set('app.providers', $configuredProviders);
         } else {
@@ -162,9 +163,14 @@ final class RuntimeRoleBootstrap
         }
 
         RegisterProviders::flushState();
+        $providersToMerge = array_values(array_unique($policy->filterProviders(
+            [...$additionalProviders, ...$providers],
+            $role,
+        )));
+        $providersToMerge = array_values(array_diff($providersToMerge, $configuredProviders));
 
         RegisterProviders::merge(
-            $policy->filterProviders([...$configuredProviders, ...$additionalProviders, ...$providers], $role),
+            $providersToMerge,
             dirname(__DIR__, 3) . '/resources/runtime/empty-providers.php',
         );
     }
