@@ -139,7 +139,7 @@
         },
         "core.testing.extension-harness": {
             "identifier": "Capell\\Core\\Testing\\ExtensionTestHarness",
-            "signature": "65b878832a0022736ffe00ab1af12be5fbeb432c7ab4221c759c7a7dffe771ea",
+            "signature": "4f371d0adaa39b335b36024922338884e884f608bc1f2ac6172d01b217efaa0a",
             "contractTestId": "core.extension-test-harness"
         }
     },

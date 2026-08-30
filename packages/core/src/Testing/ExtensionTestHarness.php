@@ -7,15 +7,23 @@ namespace Capell\Core\Testing;
 use AssertionError;
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
+use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Enums\RuntimeRole;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
+use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Support\Themes\ThemeAssetUrlInspector;
 use Capell\Core\Testing\Contracts\CompanionPackageContractSuite;
 use Capell\Core\Testing\Data\CompanionPackageContractData;
 use Composer\InstalledVersions;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -81,6 +89,39 @@ final class ExtensionTestHarness
         }
 
         return $this;
+    }
+
+    /**
+     * Register this package through the production provider loader for a host
+     * runtime role. This is intentionally a real registration path: manifest
+     * metadata alone cannot prove provider isolation or boot behaviour.
+     *
+     * @return list<class-string>
+     */
+    public function bootProviders(Application $application, RuntimeRole $role): array
+    {
+        $manifest = $this->manifest();
+        // Loading the manifest validates it through auditResults(). Provider
+        // context is not available until the production loader has run, so a
+        // cached pre-boot audit would hide declared-only and wrong-context
+        // failures from callers that audit after boot.
+        $this->auditResults = null;
+        $registry = new CapellPackageRegistry;
+
+        $registry->register($manifest);
+        CapellCore::registerManifestPackage($manifest);
+        CapellCore::forcePackageInstalled($manifest->name);
+
+        return new CapellPackageLoader(
+            $application,
+            $registry,
+            runtimeRoleResolver: new RuntimeRoleResolver(new RuntimeRoleSelectionData(
+                role: $role,
+                configuredValue: $role->value,
+                valid: true,
+            )),
+            receipts: $application->make(ExtensionContributionReceiptRegistry::class),
+        )->loadProviders();
     }
 
     public function assertContributionRegistered(string $type, string $class): self

@@ -196,6 +196,11 @@ API 1.1, so declare `^1.1` for those.
 Verify with `php artisan capell:extension-audit`, explore with
 `php artisan capell:extension-playground`, and assert in tests with
 `Capell\Core\Testing\ExtensionTestHarness::assertContributionRegistered()`.
+For host conformance tests, `ExtensionTestHarness::bootProviders($app, $role)` runs the
+same package provider loader used during application bootstrap and returns the providers
+that actually registered. This is the Core-owned seam for checking provider-role isolation,
+receipt context, and registration order; the positive package example remains the
+`capell-app/extension-cookbook` showcase.
 
 ## Frontend Route Middleware
 
