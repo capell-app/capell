@@ -127,3 +127,5 @@ jobs:
     with:
       plan_path: release-plan.json
       plan_artifact: approved-release-plan
+    secrets:
+      ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
