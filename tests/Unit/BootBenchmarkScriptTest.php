@@ -90,7 +90,6 @@ it('selects the generated runtime-role config cache before normalisation reads i
     try {
         $reflection = new ReflectionClass($workspace);
         $command = $reflection->getMethod('command');
-        $command->setAccessible(true);
         $command->invoke($workspace, ['optimize', '--except=routes,views', '--no-ansi'], true)->mustRun();
 
         $configPath = $reflection->getMethod('optimizedConfigPath')->invoke($workspace);
