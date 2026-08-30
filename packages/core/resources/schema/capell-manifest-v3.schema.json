@@ -200,7 +200,14 @@
                         "pattern": "^[a-z0-9][a-z0-9-]*\\.[a-z0-9][a-z0-9.-]*$"
                     },
                     "providerBucket": {
-                        "enum": ["metadata", "install", "runtime", "auth", "admin", "frontend"]
+                        "enum": [
+                            "metadata",
+                            "install",
+                            "runtime",
+                            "auth",
+                            "admin",
+                            "frontend"
+                        ]
                     }
                 }
             }
@@ -238,42 +245,62 @@
                     "description": "Traceability metadata linking declared contributions to their shipped runtime surfaces.",
                     "additionalProperties": false,
                     "properties": {
-                "deferredContributions": { "$ref": "#/$defs/stringList" },
-                "runtimeIntegrations": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "oneOf": [
-                            { "$ref": "#/$defs/stringList" },
-                            {
-                                "type": "array",
-                                "minItems": 1,
-                                "items": {
-                                    "type": "object",
-                                    "additionalProperties": false,
-                                    "required": ["event", "listener"],
-                                    "properties": {
-                                        "event": { "type": "string", "minLength": 1 },
-                                        "listener": { "type": "string", "minLength": 1 }
+                        "deferredContributions": {
+                            "$ref": "#/$defs/stringList"
+                        },
+                        "runtimeIntegrations": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "oneOf": [
+                                    { "$ref": "#/$defs/stringList" },
+                                    {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": ["event", "listener"],
+                                            "properties": {
+                                                "event": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "listener": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                }
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "contributions": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": ["type", "key", "providerBucket"],
+                                "properties": {
+                                    "type": { "type": "string" },
+                                    "key": { "type": "string", "minLength": 1 },
+                                    "class": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "providerBucket": {
+                                        "enum": [
+                                            "metadata",
+                                            "install",
+                                            "runtime",
+                                            "auth",
+                                            "admin",
+                                            "frontend"
+                                        ]
                                     }
                                 }
                             }
-                        ]
-                    }
-                },
-                "contributions": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": ["type", "key", "providerBucket"],
-                        "properties": {
-                            "type": { "type": "string" },
-                            "key": { "type": "string", "minLength": 1 },
-                            "class": { "type": "string", "minLength": 1 },
-                            "providerBucket": { "enum": ["metadata", "install", "runtime", "auth", "admin", "frontend"] }
                         }
-                    }
-                }
                     }
                 },
                 { "type": "array", "maxItems": 0 }
