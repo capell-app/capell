@@ -337,6 +337,15 @@ it('keeps legacy string render hook registration as inline blade for compatibili
         ->toBe(RenderHookRegistrationType::LegacyString->value);
 });
 
+it('adapts legacy numeric priority registration through position adapters', function (): void {
+    $registry = new RenderHookRegistry;
+
+    $registry->register(RenderHookLocation::Footer, '<span>low</span>', 20);
+    $registry->register(RenderHookLocation::Footer, '<span>high</span>', 10);
+
+    expect($registry->renderAll(RenderHookLocation::Footer))->toBe('<span>high</span><span>low</span>');
+});
+
 it('passes mutable main content context through filtered hooks', function (): void {
     $registry = new RenderHookRegistry;
     $contextData = new MainContentRenderHookData(
@@ -380,6 +389,7 @@ it('interleaves keyed hooks with relative positions and reports collisions', fun
         'vendor/a',
         'a',
         position: ExtensionPosition::priority(10),
+        source: 'existing-render-hook-source',
     ));
     $registry->contribute(RenderHookContributionData::inlineBlade(
         RenderHookLocation::Footer,
@@ -396,8 +406,9 @@ it('interleaves keyed hooks with relative positions and reports collisions', fun
             '<span>collision</span>',
             'vendor/c',
             'a',
+            source: 'incoming-render-hook-source',
         ));
-    })->toThrow(LogicException::class, 'vendor/a');
+    })->toThrow(LogicException::class, 'Extension key [a] is already registered by [vendor/a] (existing-render-hook-source); [vendor/c] (incoming-render-hook-source) cannot replace it implicitly.');
 });
 
 it('supports explicit replacement and frozen render hooks', function (): void {
