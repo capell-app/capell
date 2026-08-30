@@ -260,7 +260,18 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('marketplace.dto.composer-publication-request', 'dto', 'Capell\\Marketplace\\Data\\MarketplaceComposerPublicationRequestData', ExtensionSurfaceStability::Experimental, 'Typed Composer publication request data.', owner: 'capell-app/marketplace'),
             $this->entry('marketplace.dto.composer-publication-result', 'dto', 'Capell\\Marketplace\\Data\\MarketplaceComposerPublicationResultData', ExtensionSurfaceStability::Experimental, 'Typed Composer publication result data.', owner: 'capell-app/marketplace'),
             $this->entry('marketplace.tag.composer-change-publisher', 'tagged-service', 'capell.marketplace.composer-change-publisher', ExtensionSurfaceStability::Experimental, 'Container tag for optional Composer change publishers.', owner: 'capell-app/marketplace'),
-            $this->entry('core.testing.extension-harness', 'testing', ExtensionTestHarness::class, ExtensionSurfaceStability::Stable, 'Manifest assertions plus real provider-bucket and receipt conformance checks.', 'core.extension-test-harness'),
+            $this->entry(
+                'core.testing.extension-harness',
+                'testing',
+                ExtensionTestHarness::class,
+                ExtensionSurfaceStability::Stable,
+                'Manifest assertions plus real provider-bucket and receipt conformance checks.',
+                'core.extension-test-harness',
+                contractTestReferences: [
+                    'https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceTest.php#L24',
+                    'https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceFailureTest.php#L26',
+                ],
+            ),
             $this->entry('core.schema.project-build-manifest-v1', 'schema', ProjectBuildManifestSchema::class, ExtensionSurfaceStability::Experimental, 'Closed JSON Schema for portable project build manifests.'),
             $this->entry('core.internal.registry-builder', 'internal', BuildExtensionContractRegistryAction::class, ExtensionSurfaceStability::Internal, 'Internal executable contribution index.'),
             $this->entry('core.internal.project-build-manifest-migration', 'internal', ProjectBuildManifestMigration::class, ExtensionSurfaceStability::Internal, 'Core-owned portable manifest migration boundary.'),
@@ -285,6 +296,7 @@ final class BuildExtensionSurfaceCatalogAction
         ];
     }
 
+    /** @param list<string> $contractTestReferences */
     private function entry(
         string $id,
         string $kind,
@@ -293,6 +305,7 @@ final class BuildExtensionSurfaceCatalogAction
         string $summary,
         ?string $contractTestId = null,
         string $owner = 'capell-app/core',
+        array $contractTestReferences = [],
     ): ExtensionSurfaceCatalogEntryData {
         return new ExtensionSurfaceCatalogEntryData(
             id: $id,
@@ -303,6 +316,7 @@ final class BuildExtensionSurfaceCatalogAction
             introducedVersion: '1.0.0',
             summary: $summary,
             contractTestId: $contractTestId,
+            contractTestReferences: $contractTestReferences,
         );
     }
 }

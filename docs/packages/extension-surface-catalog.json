@@ -1150,6 +1150,10 @@
             "stability": "stable",
             "introducedVersion": "1.0.0",
             "summary": "Manifest assertions plus real provider-bucket and receipt conformance checks.",
+            "contractTestReferences": [
+                "https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceTest.php#L24",
+                "https://github.com/capell-app/capell/blob/main/tests/Feature/ExtensionConformanceFailureTest.php#L26"
+            ],
             "contractTestId": "core.extension-test-harness"
         },
         {

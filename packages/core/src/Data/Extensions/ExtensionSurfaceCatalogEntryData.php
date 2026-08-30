@@ -9,6 +9,7 @@ use Spatie\LaravelData\Data;
 
 final class ExtensionSurfaceCatalogEntryData extends Data
 {
+    /** @param list<string> $contractTestReferences */
     public function __construct(
         public readonly string $id,
         public readonly string $kind,
@@ -18,5 +19,6 @@ final class ExtensionSurfaceCatalogEntryData extends Data
         public readonly string $introducedVersion,
         public readonly string $summary,
         public readonly ?string $contractTestId = null,
+        public readonly array $contractTestReferences = [],
     ) {}
 }
