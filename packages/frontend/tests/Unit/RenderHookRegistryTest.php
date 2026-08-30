@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
@@ -49,6 +50,8 @@ it('emits a receipt at the direct render hook boundary', function (): void {
 });
 
 it('preserves one-argument construction for direct package callers', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
     $registry = new RenderHookRegistry;
     $registrar = new FrontendHookRegistrar($registry);
     $extension = new class implements RenderHookExtensionInterface
@@ -59,15 +62,24 @@ it('preserves one-argument construction for direct package callers', function ()
         }
     };
 
-    $registrar->contribute(
-        RenderHookLocation::Footer,
-        $extension,
-        'vendor/frontend-hooks',
-        'compatibility-hook',
+    $receipts->withContext(
+        ExtensionContributionReceiptContext::forPackage('vendor/frontend-hooks', 'frontend', 'Vendor\\FrontendServiceProvider'),
+        function () use ($registrar, $extension): void {
+            $registrar->contribute(
+                RenderHookLocation::Footer,
+                $extension,
+                'vendor/frontend-hooks',
+                'compatibility-hook',
+            );
+        },
     );
 
     expect($registry->renderAll(RenderHookLocation::Footer))
-        ->toBe('<aside>compatibility hook</aside>');
+        ->toBe('<aside>compatibility hook</aside>')
+        ->and(collect($receipts->forPackage('vendor/frontend-hooks'))->contains(
+            static fn (object $receipt): bool => $receipt->key === 'compatibility-hook'
+                && $receipt->sourceClass === FrontendHookRegistrar::class,
+        ))->toBeTrue();
 });
 
 it('emits distinct receipts for unkeyed closures at one hook location', function (): void {
