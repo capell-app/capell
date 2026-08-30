@@ -6,6 +6,8 @@ namespace Capell\Admin\Console\Commands;
 
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Support\AdminRuntimeActivator;
+use Filament\Events\ServingFilament;
+use Filament\Facades\Filament;
 use Illuminate\Console\Command;
 
 class CacheConfiguratorsCommand extends Command
@@ -17,6 +19,12 @@ class CacheConfiguratorsCommand extends Command
     public function handle(): int
     {
         resolve(AdminRuntimeActivator::class)->activate();
+
+        // Mirror the panel lifecycle so serving listeners contribute before caching.
+        $panel = Filament::getDefaultPanel();
+        Filament::setCurrentPanel($panel);
+        Filament::bootCurrentPanel();
+        event(new ServingFilament);
 
         $this->info('Caching registered configurators...');
 

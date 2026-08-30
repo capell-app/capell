@@ -1,0 +1,9 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Tests\Fixtures\Configurators;
+
+use Capell\Admin\Filament\Configurators\Languages\DefaultLanguageConfigurator;
+
+final class ExternalLanguageConfigurator extends DefaultLanguageConfigurator {}
