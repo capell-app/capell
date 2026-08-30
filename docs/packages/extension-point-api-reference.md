@@ -8,6 +8,19 @@ Machine-readable stability and ownership are defined by the [extension surface c
 
 Admin surface and Frontend render-hook contributions use the shared [extension ordering policy](extension-ordering.md) for stable keys, relative positions, ownership-aware collisions, and boot-time freeze behaviour.
 
+## Stable Admin zones
+
+The first promoted zone is `AdminZone::PageListTableColumns`. Register a
+typed `AdminZoneContributionData` through `AdminBridgeRegistrar::zone()` and
+position it with the CAP-0468 `ExtensionPosition` value object. Contributions
+may declare a Gate permission and a context-aware visibility callback; the
+zone validates values before they reach the screen.
+
+The existing focused extenders remain compatible. Page list table columns
+returned by `PageTableExtender` are appended after stable-zone columns and
+cannot participate in stable-key ordering; new integrations should use the
+stable zone when ordering relative to built-in columns matters.
+
 ## Reading The Tables
 
 | Column        | Meaning                                                                      |

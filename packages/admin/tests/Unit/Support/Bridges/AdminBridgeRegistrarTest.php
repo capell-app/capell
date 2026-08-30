@@ -8,14 +8,19 @@ use Capell\Admin\Contracts\Bridges\UserResourceBridge;
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\Activity\ActivityResourceLinkData;
 use Capell\Admin\Data\AdminWorkspaceItemData;
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Data\AdminZoneContributionData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
+use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
+use Capell\Admin\Support\AdminRuntimeActivator;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Tests\Fixtures\Activity\ActivityResourceLinkRecord;
 use Capell\Admin\Tests\Fixtures\Activity\AlternateActivityResourceLinkRecordResource;
@@ -30,6 +35,7 @@ use Capell\Admin\Tests\Fixtures\Autoload\TestSettingsSchemaForRegistrar;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
 
 beforeEach(function (): void {
     CapellAdmin::clearAdminSurfaceContributions();
@@ -37,6 +43,7 @@ beforeEach(function (): void {
     CapellAdmin::clearUserMenuItems();
     CapellAdmin::clearWorkspaces();
     resolve(SettingsSchemaRegistry::class)->removeGroup('admin-bridge-registrar-test');
+    resolve(AdminZoneRegistry::class)->clear();
 });
 
 it('registers admin surface contributions through existing registries', function (): void {
@@ -61,6 +68,39 @@ it('registers admin surface contributions through existing registries', function
         )
         ->and(collect(app()->tagged('admin-bridge-registrar-test'))->first())->toBeInstanceOf(TestSchemaExtenderForRegistrar::class)
         ->and(collect(app()->tagged(AdminPanelExtender::TAG))->first())->toBeInstanceOf(TestPanelExtenderForRegistrar::class);
+});
+
+it('registers stable Admin zone contributions through the bridge', function (): void {
+    $registrar = resolve(AdminBridgeRegistrar::class);
+
+    $registrar->zone(new AdminZoneContributionData(
+        zone: AdminZone::PageListTableColumns,
+        key: 'bridge.reference-column',
+        resolver: static fn (AdminZoneContextData $context): array => [TextColumn::make('bridge_reference')],
+        owner: 'vendor/admin-bridge-registrar-test',
+    ));
+
+    expect(resolve(AdminZoneRegistry::class)->contributions(AdminZone::PageListTableColumns))->toHaveCount(1)
+        ->and(resolve(AdminZoneRegistry::class)->resolve(
+            AdminZone::PageListTableColumns,
+            new AdminZoneContextData(AdminZone::PageListTableColumns, 'tests.bridge'),
+        )[0]->getName())->toBe('bridge_reference');
+});
+
+it('rejects stable Admin zone contributions after runtime activation', function (): void {
+    app()->forgetInstance(AdminRuntimeActivator::class);
+    resolve(AdminRuntimeActivator::class)->activate();
+
+    $registrar = resolve(AdminBridgeRegistrar::class);
+
+    expect(function () use ($registrar): void {
+        $registrar->zone(new AdminZoneContributionData(
+            zone: AdminZone::PageListTableColumns,
+            key: 'late.bridge-column',
+            resolver: static fn (AdminZoneContextData $context): array => [TextColumn::make('late_bridge')],
+            owner: 'vendor/late',
+        ));
+    })->toThrow(LogicException::class, 'vendor/late');
 });
 
 it('registers dashboard Filament widgets through the admin manager', function (): void {

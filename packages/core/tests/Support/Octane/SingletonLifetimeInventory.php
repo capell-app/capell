@@ -10,6 +10,7 @@ use Capell\Admin\Support\AdminEventRouter;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\CapellAdminManager;
@@ -177,6 +178,7 @@ final class SingletonLifetimeInventory
             AdminEventRouter::class => self::boot('The router reads the boot-lifetime admin event registry and does not retain operation payloads.'),
             AdminBridgeRegistrar::class => self::boot('The registrar delegates only to boot-lifetime bridge and settings registries.'),
             AdminWorkspaceRegistry::class => self::boot('Workspace definitions are package boot registrations; actor-specific resolution is computed from the boot definitions.'),
+            AdminZoneRegistry::class => self::boot('Admin zone contributions are package boot registrations; request resolution is computed from the boot definitions.'),
             AdminPermissionSynchronizer::class => self::stateless('The synchronizer retains collaborators but no operation-derived values.'),
 
             // Frontend boot registration state and one reset participant.

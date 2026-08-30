@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\AdminTools\AdminToolItem;
+use Capell\Admin\Contracts\AdminZoneContribution;
+use Capell\Admin\Data\AdminZoneContextData;
+use Capell\Admin\Data\AdminZoneContributionData;
+use Capell\Admin\Enums\AdminZone;
+use Capell\Admin\Support\AdminZoneRegistry;
+use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Core\Actions\Extensions\BuildExtensionSurfaceCatalogAction;
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
 use Capell\Core\Actions\ProjectBuild\InstallProjectBuildManifestAction;
@@ -106,6 +112,30 @@ it('catalogues every supported extension surface kind from explicit metadata', f
         if ($entry->stability === ExtensionSurfaceStability::Stable) {
             expect($entry->contractTestId)->not->toBeNull();
         }
+    }
+});
+
+it('catalogues every stable Admin zone identity directly', function (): void {
+    $catalog = collect(BuildExtensionSurfaceCatalogAction::run())->keyBy('id');
+    $identities = [
+        'admin.contract.admin-zone-contribution' => AdminZoneContribution::class,
+        'admin.dto.admin-zone-context' => AdminZoneContextData::class,
+        'admin.dto.admin-zone-contribution' => AdminZoneContributionData::class,
+        'admin.enum.admin-zone' => AdminZone::class,
+        'admin.registry.admin-zone' => AdminZoneRegistry::class,
+        'admin.registrar.admin-zone' => AdminBridgeRegistrar::class,
+    ];
+
+    expect($catalog)->toHaveKeys(array_keys($identities));
+
+    foreach ($identities as $id => $identifier) {
+        expect($catalog->get($id)?->identifier)->toBe($identifier)
+            ->and($catalog->get($id)?->ownerPackage)->toBe('capell-app/admin')
+            ->and($catalog->get($id)?->stability)->toBe(ExtensionSurfaceStability::Stable)
+            ->and($catalog->get($id)?->contractTestId)
+            ->toBe($id === 'admin.registrar.admin-zone'
+                ? 'admin.admin-zone-registrar'
+                : 'admin.admin-zone-registry');
     }
 });
 
