@@ -41,8 +41,13 @@ final class CapellPackageLoader
         $this->receipts = $receipts ?? new ExtensionContributionReceiptRegistry;
     }
 
-    public function loadProviders(): void
+    /**
+     * @return list<class-string>
+     */
+    public function loadProviders(): array
     {
+        $loadedProviders = [];
+
         foreach ($this->registry->all() as $manifest) {
             $runtimeProvidersSelected = $this->shouldLoadRuntimeProviders($manifest);
 
@@ -60,6 +65,7 @@ final class CapellPackageLoader
                     );
 
                     $this->receipts->withContexts($contexts, fn (): mixed => $this->app->register($provider));
+                    $loadedProviders[] = $provider;
                     foreach ($contexts as $context) {
                         $this->receipts->rememberProviderContext($provider, $context);
                     }
@@ -83,6 +89,8 @@ final class CapellPackageLoader
                 }
             }
         }
+
+        return $loadedProviders;
     }
 
     /** @return list<string> */

@@ -1059,7 +1059,7 @@
             "ownerPackage": "capell-app/core",
             "stability": "stable",
             "introducedVersion": "1.0.0",
-            "summary": "Single-package manifest and contribution assertions.",
+            "summary": "Manifest assertions plus real provider-bucket and receipt conformance checks.",
             "contractTestId": "core.extension-test-harness"
         },
         {
