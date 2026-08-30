@@ -337,6 +337,15 @@ it('keeps legacy string render hook registration as inline blade for compatibili
         ->toBe(RenderHookRegistrationType::LegacyString->value);
 });
 
+it('adapts legacy numeric priority registration through position adapters', function (): void {
+    $registry = new RenderHookRegistry;
+
+    $registry->register(RenderHookLocation::Footer, '<span>low</span>', 20);
+    $registry->register(RenderHookLocation::Footer, '<span>high</span>', 10);
+
+    expect($registry->renderAll(RenderHookLocation::Footer))->toBe('<span>high</span><span>low</span>');
+});
+
 it('passes mutable main content context through filtered hooks', function (): void {
     $registry = new RenderHookRegistry;
     $contextData = new MainContentRenderHookData(

@@ -172,7 +172,7 @@ it('enforces idempotence, explicit replacement, duplicate ownership diagnostics,
             static fn (AdminZoneContextData $context): array => [TextColumn::make('conflict')],
             owner: 'vendor/other',
         ));
-    })->toThrow(LogicException::class, 'vendor/other');
+    })->toThrow(LogicException::class, 'Extension key [same.key] is already registered by [tests/admin] (AdminZoneRegistryTest); [vendor/other] (AdminZoneRegistryTest) cannot replace it implicitly.');
 
     $replacement = adminZoneContribution(
         'same.key',
