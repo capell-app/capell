@@ -263,16 +263,19 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(RenderHookRegistry::class);
 
         $orderingAudit = $this->app->make(ExtensionOrderingAudit::class);
-        $renderHookRegistry = $this->app->make(RenderHookRegistry::class);
-        $orderingAudit->register(RenderHookRegistry::class, static function () use ($renderHookRegistry): array {
-            $diagnostics = [];
+        if (! $orderingAudit->hasSource(RenderHookRegistry::class)) {
+            $orderingAudit->register(RenderHookRegistry::class, static function (): array {
+                $diagnostics = [];
+                $renderHookRegistry = resolve(RenderHookRegistry::class);
 
-            foreach (RenderHookLocation::cases() as $location) {
-                array_push($diagnostics, ...$renderHookRegistry->orderingDiagnostics($location));
-            }
+                foreach (RenderHookLocation::cases() as $location) {
+                    array_push($diagnostics, ...$renderHookRegistry->orderingDiagnostics($location));
+                }
 
-            return $diagnostics;
-        });
+                return $diagnostics;
+            });
+        }
+
         $this->app->singleton(FrontendHookRegistrar::class);
         $this->app->scoped(ThemeTokenHeadCloseHook::class);
         $this->app->singleton(FrontendEventBootstrapper::class);

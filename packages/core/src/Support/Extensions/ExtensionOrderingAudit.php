@@ -25,6 +25,11 @@ final class ExtensionOrderingAudit
         $this->sources[$source] = $diagnostics;
     }
 
+    public function hasSource(string $source): bool
+    {
+        return array_key_exists($source, $this->sources);
+    }
+
     /**
      * @return list<array{source: string, diagnostic: ExtensionOrderDiagnosticData}>
      */

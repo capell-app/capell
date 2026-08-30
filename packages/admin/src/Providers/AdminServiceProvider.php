@@ -332,26 +332,32 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AdminSurfaceContributionRegistry::class);
 
         $orderingAudit = $this->app->make(ExtensionOrderingAudit::class);
-        $adminZoneRegistry = $this->app->make(AdminZoneRegistry::class);
-        $orderingAudit->register(AdminZoneRegistry::class, static function () use ($adminZoneRegistry): array {
-            $diagnostics = [];
+        if (! $orderingAudit->hasSource(AdminZoneRegistry::class)) {
+            $orderingAudit->register(AdminZoneRegistry::class, static function (): array {
+                $diagnostics = [];
+                $adminZoneRegistry = resolve(AdminZoneRegistry::class);
 
-            foreach (AdminZone::cases() as $zone) {
-                array_push($diagnostics, ...$adminZoneRegistry->orderingDiagnostics($zone));
-            }
+                foreach (AdminZone::cases() as $zone) {
+                    array_push($diagnostics, ...$adminZoneRegistry->orderingDiagnostics($zone));
+                }
 
-            return $diagnostics;
-        });
-        $adminSurfaceContributionRegistry = $this->app->make(AdminSurfaceContributionRegistry::class);
-        $orderingAudit->register(AdminSurfaceContributionRegistry::class, static function () use ($adminSurfaceContributionRegistry): array {
-            $diagnostics = [];
+                return $diagnostics;
+            });
+        }
 
-            foreach (AdminSurfaceContributionType::cases() as $type) {
-                array_push($diagnostics, ...$adminSurfaceContributionRegistry->orderingDiagnostics($type));
-            }
+        if (! $orderingAudit->hasSource(AdminSurfaceContributionRegistry::class)) {
+            $orderingAudit->register(AdminSurfaceContributionRegistry::class, static function (): array {
+                $diagnostics = [];
+                $adminSurfaceContributionRegistry = resolve(AdminSurfaceContributionRegistry::class);
 
-            return $diagnostics;
-        });
+                foreach (AdminSurfaceContributionType::cases() as $type) {
+                    array_push($diagnostics, ...$adminSurfaceContributionRegistry->orderingDiagnostics($type));
+                }
+
+                return $diagnostics;
+            });
+        }
+
         $this->app->singleton(AdminSurfaceContributionCache::class);
         $this->app->singleton(ReportRegistry::class);
         $this->app->singleton(DashboardFilamentWidgetRegistry::class);
