@@ -291,6 +291,14 @@ it('rebuilds content graph edges after a real page rollback', function (): void 
 
     ApplyRollbackAction::run($embeddingPage->fresh(), $targetVersion);
 
-    expect(ContentGraphEdge::query()->where('source_id', $embeddingPage->getKey())->where('target_id', $embeddedPage->getKey())->exists())->toBeTrue()
-        ->and(ContentGraphEdge::query()->where('source_id', $embeddingPage->getKey())->where('target_id', $otherEmbeddedPage->getKey())->exists())->toBeFalse();
+    expect(ContentGraphEdge::query()
+        ->where('source_id', $embeddingPage->getKey())
+        ->where('target_id', $embeddedPage->getKey())
+        ->where('kind', ContentGraphEdgeKind::FoundOnPage)
+        ->exists())->toBeTrue()
+        ->and(ContentGraphEdge::query()
+            ->where('source_id', $embeddingPage->getKey())
+            ->where('target_id', $otherEmbeddedPage->getKey())
+            ->where('kind', ContentGraphEdgeKind::FoundOnPage)
+            ->exists())->toBeFalse();
 });
