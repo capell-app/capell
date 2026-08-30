@@ -82,6 +82,7 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\LazyCollection;
 use InvalidArgumentException;
 use Livewire\Component;
+use LogicException;
 
 /**
  * @template TLivewire of Component
@@ -715,13 +716,13 @@ class PagesTable implements TableConfigurator
     /** @return list<Column> */
     protected static function getTableColumns(): array
     {
-        return [
+        return self::narrowColumns([
             ...resolve(AdminZoneRegistry::class)->resolve(
                 AdminZone::PageListTableColumns,
                 AdminZoneContextData::pageListTable(auth()->user()),
             ),
             ...self::getExtenderColumns(),
-        ];
+        ]);
     }
 
     protected static function getParentRecordUrl(PageModel $record): ?string
@@ -1001,5 +1002,25 @@ class PagesTable implements TableConfigurator
             ->get()
             ->pluck('name', 'id')
             ->all();
+    }
+
+    /**
+     * @param  list<mixed>  $values
+     * @return list<Column>
+     */
+    private static function narrowColumns(array $values): array
+    {
+        /** @var list<Column> $columns */
+        $columns = [];
+
+        foreach ($values as $value) {
+            if (! $value instanceof Column) {
+                throw new LogicException(sprintf('Page table columns must be instances of [%s], got [%s].', Column::class, get_debug_type($value)));
+            }
+
+            $columns[] = $value;
+        }
+
+        return $columns;
     }
 }

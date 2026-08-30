@@ -8,11 +8,12 @@ use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
 
-function adminZoneContext(): AdminZoneContextData
+function adminZoneContext(?Authenticatable $user = null): AdminZoneContextData
 {
-    return new AdminZoneContextData(AdminZone::PageListTableColumns, 'tests.page-list', auth()->user());
+    return new AdminZoneContextData(AdminZone::PageListTableColumns, 'tests.page-list', $user ?? auth()->user());
 }
 
 function adminZoneContribution(
@@ -91,7 +92,26 @@ it('enforces idempotence, explicit replacement, duplicate ownership diagnostics,
     $registry->register($original);
     $registry->register($original);
 
-    expect($registry->contributions(AdminZone::PageListTableColumns))->toHaveCount(1);
+    $equivalent = adminZoneContribution(
+        'equivalent.key',
+        static fn (AdminZoneContextData $context): array => [TextColumn::make('equivalent')],
+    );
+    $freshEquivalent = adminZoneContribution(
+        'equivalent.key',
+        static fn (AdminZoneContextData $context): array => [TextColumn::make('equivalent')],
+    );
+    $registry->register($equivalent);
+    $registry->register($freshEquivalent);
+
+    expect($registry->contributions(AdminZone::PageListTableColumns))->toHaveCount(2);
+    expect($registry->contributions(AdminZone::PageListTableColumns)[1])->toBe($equivalent);
+
+    expect(function () use ($registry): void {
+        $registry->register(adminZoneContribution(
+            'equivalent.key',
+            static fn (AdminZoneContextData $context): array => [TextColumn::make('different-payload')],
+        ));
+    })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
 
     expect(function () use ($registry): void {
         $registry->register(adminZoneContribution(
@@ -119,16 +139,118 @@ it('enforces idempotence, explicit replacement, duplicate ownership diagnostics,
     })->toThrow(LogicException::class, 'vendor/late');
 });
 
+it('does not treat resolver literals or bound object state as equivalent', function (): void {
+    $registry = new AdminZoneRegistry;
+
+    $registry->register(adminZoneContribution(
+        'literal.key',
+        static fn (AdminZoneContextData $context): array => [TextColumn::make('literal value')],
+    ));
+
+    expect(function () use ($registry): void {
+        $registry->register(adminZoneContribution(
+            'literal.key',
+            static fn (AdminZoneContextData $context): array => [TextColumn::make('literal  value')],
+        ));
+    })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
+
+    $makeBoundResolver = static function (string $column): Closure {
+        $boundObject = new class($column)
+        {
+            public function __construct(public readonly string $column) {}
+        };
+
+        $resolver = Closure::bind(
+            fn (AdminZoneContextData $context): array => [TextColumn::make($this->column)],
+            $boundObject,
+        );
+
+        if (! $resolver instanceof Closure) {
+            throw new LogicException('Expected bound Admin zone resolver closure.');
+        }
+
+        return $resolver;
+    };
+
+    $registry->register(adminZoneContribution('bound.key', $makeBoundResolver('bound-one')));
+
+    expect(function () use ($registry, $makeBoundResolver): void {
+        $registry->register(adminZoneContribution('bound.key', $makeBoundResolver('bound-two')));
+    })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
+});
+
+it('distinguishes same-line literals and supports equivalent first-class callables', function (): void {
+    $registry = new AdminZoneRegistry;
+    [$first, $second] = [static fn (): array => [TextColumn::make('a')], static fn (): array => [TextColumn::make('b')]];
+
+    $registry->register(adminZoneContribution('same-line.key', $first));
+
+    expect(function () use ($registry, $second): void {
+        $registry->register(adminZoneContribution('same-line.key', $second));
+    })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
+
+    $provider = new class('first-class')
+    {
+        public function __construct(private readonly string $column) {}
+
+        /** @return list<TextColumn> */
+        public function columns(AdminZoneContextData $context): array
+        {
+            return [TextColumn::make($this->column)];
+        }
+    };
+
+    $registry->register(adminZoneContribution('first-class.key', $provider->columns(...)));
+    $registry->register(adminZoneContribution('first-class.key', $provider->columns(...)));
+
+    expect($registry->contributions(AdminZone::PageListTableColumns))->toHaveCount(2);
+});
+
+it('fails closed for recursive resolver captures', function (): void {
+    $recursive = [];
+    $recursive['self'] = &$recursive;
+
+    $registry = new AdminZoneRegistry;
+    $registry->register(adminZoneContribution(
+        'recursive.key',
+        static function (AdminZoneContextData $context) use (&$recursive): array {
+            return [TextColumn::make(count($recursive) > 0 ? 'recursive' : 'missing')];
+        },
+    ));
+
+    expect(function () use ($registry, &$recursive): void {
+        $registry->register(adminZoneContribution(
+            'recursive.key',
+            static function (AdminZoneContextData $context) use (&$recursive): array {
+                return [TextColumn::make(count($recursive) > 0 ? 'recursive' : 'missing')];
+            },
+        ));
+    })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
+});
+
 it('filters contributions by declared permission and visibility', function (): void {
     test()->actingAsAdmin();
+
+    $context = adminZoneContext();
+    $seenVisibilityContext = null;
+    $seenResolverContext = null;
 
     Gate::define('tests.view-admin-zone', static fn (): bool => true);
 
     $registry = new AdminZoneRegistry;
     $registry->register(adminZoneContribution(
         'permitted',
-        static fn (AdminZoneContextData $context): array => [TextColumn::make('permitted')],
+        static function (AdminZoneContextData $callbackContext) use (&$seenResolverContext): array {
+            $seenResolverContext = $callbackContext;
+
+            return [TextColumn::make('permitted')];
+        },
         permission: 'tests.view-admin-zone',
+        visibility: static function (AdminZoneContextData $callbackContext) use (&$seenVisibilityContext): bool {
+            $seenVisibilityContext = $callbackContext;
+
+            return true;
+        },
     ));
     $registry->register(adminZoneContribution(
         'hidden',
@@ -136,10 +258,68 @@ it('filters contributions by declared permission and visibility', function (): v
         visibility: static fn (AdminZoneContextData $context): bool => false,
     ));
 
-    $columns = $registry->resolve(AdminZone::PageListTableColumns, adminZoneContext());
+    $columns = $registry->resolve(AdminZone::PageListTableColumns, $context);
 
     expect($columns)->toHaveCount(1)
-        ->and($columns[0]->getName())->toBe('permitted');
+        ->and($columns[0]->getName())->toBe('permitted')
+        ->and($seenVisibilityContext)->toBe($context)
+        ->and($seenResolverContext)->toBe($context);
+});
+
+it('suppresses a denied contribution before resolving it and propagates the authenticated context', function (): void {
+    $user = test()->createUser();
+    $seenUser = null;
+    $resolved = false;
+
+    Gate::define('tests.denied-admin-zone', function (mixed $actor) use (&$seenUser): bool {
+        $seenUser = $actor;
+
+        return false;
+    });
+
+    $registry = new AdminZoneRegistry;
+    $registry->register(adminZoneContribution(
+        'denied',
+        static function (AdminZoneContextData $context) use (&$resolved): array {
+            $resolved = true;
+
+            return [TextColumn::make('denied')];
+        },
+        permission: 'tests.denied-admin-zone',
+    ));
+
+    expect($registry->resolve(AdminZone::PageListTableColumns, adminZoneContext($user)))->toBe([])
+        ->and($resolved)->toBeFalse()
+        ->and($seenUser)->toBe($user);
+});
+
+it('suppresses a permissioned contribution for anonymous context and propagates null to the gate', function (): void {
+    $seenUser = false;
+    $resolved = false;
+
+    Gate::define('tests.anonymous-admin-zone', function (mixed $actor) use (&$seenUser): bool {
+        $seenUser = $actor !== null;
+
+        return false;
+    });
+
+    $registry = new AdminZoneRegistry;
+    $registry->register(adminZoneContribution(
+        'anonymous',
+        static function (AdminZoneContextData $context) use (&$resolved): array {
+            $resolved = true;
+
+            return [TextColumn::make('anonymous')];
+        },
+        permission: 'tests.anonymous-admin-zone',
+    ));
+
+    expect($registry->resolve(
+        AdminZone::PageListTableColumns,
+        new AdminZoneContextData(AdminZone::PageListTableColumns, 'tests.anonymous'),
+    ))->toBe([])
+        ->and($resolved)->toBeFalse()
+        ->and($seenUser)->toBeFalse();
 });
 
 it('rejects values outside the zone contract', function (): void {
