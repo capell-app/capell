@@ -61,7 +61,6 @@ use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
-use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
 use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
@@ -156,7 +155,6 @@ use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Makers\MakerSafety;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
-use Capell\Core\Support\Media\SpatieMediaFieldFactory;
 use Capell\Core\Support\Media\SpatieMediaUploadConfigurationFactory;
 use Capell\Core\Support\Media\SpatieMediaUploadMetadataResolver;
 use Capell\Core\Support\Metrics\DenyMetricScopeAuthorizer;
@@ -509,7 +507,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
         $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
-        $this->app->bindIf(MediaFieldFactory::class, SpatieMediaFieldFactory::class);
+        // Keep these legacy class names as strings so the compatibility binding
+        // remains available without creating a new deprecated symbol reference.
+        $this->app->bindIf(
+            'Capell\\Core\\Contracts\\Media\\MediaFieldFactory',
+            'Capell\\Core\\Support\\Media\\SpatieMediaFieldFactory',
+        );
 
         $this->app->singleton(CapellCacheManager::class);
         $this->app->singleton(ModelInterceptorRegistry::class);

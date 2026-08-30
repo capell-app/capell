@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\Carbon\Rector\FuncCall\TimeFuncCallToCarbonRector;
 use Rector\CodeQuality\Rector\Catch_\ThrowWithPreviousExceptionRector;
+use Rector\CodeQuality\Rector\FuncCall\InlineIsAInstanceOfRector;
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
 use Rector\Config\RectorConfig;
@@ -131,6 +132,17 @@ return RectorConfig::configure()
             // contradict each other. Both go away with the classes in 2.0.
             __DIR__ . '/packages/frontend/tests/Unit/ParseUrlStepTest.php',
             __DIR__ . '/packages/frontend/tests/Unit/NormalizeDomainPathStepTest.php',
+            // These production compatibility boundaries deliberately keep
+            // deprecated class names as strings for PHPStan's separate
+            // deprecation analysis; the relative entries match the changed
+            // file wrapper's input paths.
+            'packages/admin/src/Providers/AdminServiceProvider.php',
+            'packages/admin/src/Support/Media/LegacyAwareAdminMediaFieldFactory.php',
+            'packages/core/src/Providers/CapellServiceProvider.php',
+        ],
+        InlineIsAInstanceOfRector::class => [
+            __DIR__ . '/packages/admin/src/Support/Media/LegacyAwareAdminMediaFieldFactory.php',
+            'packages/admin/src/Support/Media/LegacyAwareAdminMediaFieldFactory.php',
         ],
         NarrowObjectReturnTypeRector::class => [
             __DIR__ . '/packages/core/src/Support/Models/ModelInterceptorRegistry.php',
