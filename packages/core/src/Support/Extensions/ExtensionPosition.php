@@ -41,9 +41,7 @@ final readonly class ExtensionPosition
 
     private static function anchor(string $key): string
     {
-        if (trim($key) === '') {
-            throw new InvalidArgumentException('Extension position anchors must not be empty.');
-        }
+        throw_if(trim($key) === '', InvalidArgumentException::class, 'Extension position anchors must not be empty.');
 
         return $key;
     }

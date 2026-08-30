@@ -101,9 +101,9 @@ it('deduplicates keyed contributions by stable key and exposes diagnostics', fun
 });
 
 it('deduplicates equivalent contributions across provider bootstrap callbacks', function (): void {
-    $extensionFactory = static fn (string $variant): RenderHookExtensionInterface => new class($variant) implements RenderHookExtensionInterface
+    $extensionFactory = static fn (string $variant): RenderHookExtensionInterface => new readonly class($variant) implements RenderHookExtensionInterface
     {
-        public function __construct(private readonly string $variant) {}
+        public function __construct(private string $variant) {}
 
         public function render(RenderHookContext $context): string
         {

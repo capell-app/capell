@@ -56,7 +56,7 @@ final class AdminSurfaceContributionRegistry
         }
 
         if (! isset($this->contributions[$contribution->type->value][$contribution->key])) {
-            throw new LogicException("Cannot replace missing extension key [{$contribution->key}].");
+            throw new LogicException(sprintf('Cannot replace missing extension key [%s].', $contribution->key));
         }
 
         $this->contributions[$contribution->type->value][$contribution->key] = $contribution;
@@ -225,7 +225,7 @@ final class AdminSurfaceContributionRegistry
 
     private function positionKey(?ExtensionPosition $position): string
     {
-        if ($position === null) {
+        if (! $position instanceof ExtensionPosition) {
             return '';
         }
 

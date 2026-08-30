@@ -34,11 +34,11 @@ final class ExtensionOrderResolver
         foreach ($values as $i => $value) {
             $keys[] = $key($value, $i);
         }
+
         $index = [];
         foreach ($keys as $i => $itemKey) {
-            if ($itemKey === '' || isset($index[$itemKey])) {
-                throw new LogicException("Extension keys must be unique and non-empty: {$itemKey}");
-            }
+            throw_if($itemKey === '' || isset($index[$itemKey]), LogicException::class, 'Extension keys must be unique and non-empty: ' . $itemKey);
+
             $index[$itemKey] = $i;
         }
 
@@ -53,6 +53,7 @@ final class ExtensionOrderResolver
 
                 continue;
             }
+
             $j = $index[$pos->anchor];
             $from = $pos->kind === 'before' ? $i : $j;
             $to = $pos->kind === 'before' ? $j : $i;
@@ -77,9 +78,8 @@ final class ExtensionOrderResolver
                 return [$weight($a), $a] <=> [$weight($b), $b];
             });
             $i = array_shift($ready);
-            if (! is_int($i)) {
-                throw new LogicException('Extension ordering queue contained an invalid item index.');
-            }
+            throw_unless(is_int($i), LogicException::class, 'Extension ordering queue contained an invalid item index.');
+
             $ordered[] = $values[$i];
             foreach ($edges[$i] as $to) {
                 if (--$in[$to] === 0) {
@@ -87,6 +87,7 @@ final class ExtensionOrderResolver
                 }
             }
         }
+
         if (count($ordered) !== count($values)) {
             $cycle = [];
             foreach ($values as $i => $value) {
@@ -95,6 +96,7 @@ final class ExtensionOrderResolver
                     $ordered[] = $value;
                 }
             }
+
             $this->diagnostics[] = new ExtensionOrderDiagnosticData('cycle', $cycle[0], cycle: $cycle);
         }
 

@@ -152,6 +152,7 @@ class RenderHookRegistry
             if ($existing->key !== $contribution->key) {
                 continue;
             }
+
             if ($existing->owner === $contribution->owner
                 && $existing->registrationType === $contribution->registrationType
                 && $this->extensionsMatch($existing->extension, $contribution->extension)
@@ -162,6 +163,7 @@ class RenderHookRegistry
                 && $this->positionKey($existing->position) === $this->positionKey($contribution->position)) {
                 return;
             }
+
             throw ExtensionContributionConflictException::duplicate(
                 $contribution->key,
                 (string) $existing->owner,
@@ -297,10 +299,12 @@ class RenderHookRegistry
         if ($this->frozen) {
             throw ExtensionContributionConflictException::frozen($contribution->owner, $contribution->source);
         }
+
         foreach ($this->extensions[$contribution->location->value] ?? [] as $index => $existing) {
             if ($existing->key !== $contribution->key) {
                 continue;
             }
+
             array_splice(
                 $this->extensions[$contribution->location->value],
                 $index,
@@ -311,7 +315,8 @@ class RenderHookRegistry
 
             return;
         }
-        throw new LogicException("Cannot replace missing render hook key [{$contribution->key}].");
+
+        throw new LogicException(sprintf('Cannot replace missing render hook key [%s].', $contribution->key));
     }
 
     public function freeze(): void
@@ -343,13 +348,14 @@ class RenderHookRegistry
         if ($this->frozen) {
             throw ExtensionContributionConflictException::frozen($entry->owner ?? 'unknown', self::class);
         }
+
         $key = $entry->location->value;
         $this->extensions[$key][] = $entry;
     }
 
     private function positionKey(?ExtensionPosition $position): string
     {
-        if ($position === null) {
+        if (! $position instanceof ExtensionPosition) {
             return '';
         }
 

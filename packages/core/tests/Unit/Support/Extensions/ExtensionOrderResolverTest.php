@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Extensions\ExtensionOrderDiagnosticData;
 use Capell\Core\Support\Extensions\ExtensionOrderResolver;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 
@@ -43,7 +44,7 @@ it('falls back deterministically for missing anchors and cycles', function (): v
     );
 
     expect(array_column($result, 'key'))->toBe(['a', 'b', 'c'])
-        ->and(array_map(static fn ($diagnostic): string => $diagnostic->type, $resolver->diagnostics()))->toBe(['missing-anchor', 'cycle']);
+        ->and(array_map(static fn (ExtensionOrderDiagnosticData $diagnostic): string => $diagnostic->type, $resolver->diagnostics()))->toBe(['missing-anchor', 'cycle']);
 });
 
 it('rejects duplicate and empty keys', function (): void {
