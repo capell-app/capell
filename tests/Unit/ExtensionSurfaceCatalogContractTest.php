@@ -49,15 +49,11 @@ it('references the Core conformance suites from the harness catalogue entry', fu
         }
     }
 
-    if (! is_array($surface)) {
-        throw new LogicException('The extension harness catalogue entry is missing.');
-    }
+    throw_unless(is_array($surface), LogicException::class, 'The extension harness catalogue entry is missing.');
 
     $references = $surface['contractTestReferences'] ?? null;
 
-    if (! is_array($references)) {
-        throw new LogicException('The extension harness catalogue references are missing.');
-    }
+    throw_unless(is_array($references), LogicException::class, 'The extension harness catalogue references are missing.');
 
     $expectedSections = [
         'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceTest.php#L24' => "it('boots only the provider buckets allowed by the public runtime role'",
@@ -71,9 +67,7 @@ it('references the Core conformance suites from the harness catalogue entry', fu
         $line = (int) ltrim((string) parse_url($reference, PHP_URL_FRAGMENT), 'L');
         $source = file($root . '/' . ltrim(str_replace('/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/', '', $path), '/'), FILE_IGNORE_NEW_LINES);
 
-        if ($source === false || $line < 1 || ! isset($source[$line - 1])) {
-            throw new LogicException('Contract test reference target is missing.');
-        }
+        throw_if($source === false || $line < 1 || ! isset($source[$line - 1]), LogicException::class, 'Contract test reference target is missing.');
 
         expect(str_starts_with($reference, 'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/'))
             ->toBeTrue()
