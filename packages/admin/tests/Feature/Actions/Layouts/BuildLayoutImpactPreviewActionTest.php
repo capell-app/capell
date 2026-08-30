@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Layouts\BuildLayoutImpactPreviewAction;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
+use Capell\Core\Data\EditorImpact\EditorImpactPreviewData;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -40,7 +41,7 @@ it('reports accessible pages, locales, and public urls for a layout', function (
 
     $preview = BuildLayoutImpactPreviewAction::run($layout);
 
-    expect($preview)->not->toBeNull()
+    expect($preview)->toBeInstanceOf(EditorImpactPreviewData::class)
         ->and($preview->pageCount)->toBe(1)
         ->and($preview->siteCount)->toBe(1)
         ->and($preview->localeCount)->toBe(2)
