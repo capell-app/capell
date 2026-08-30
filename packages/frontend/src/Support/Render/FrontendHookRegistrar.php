@@ -22,10 +22,16 @@ use Capell\Frontend\Enums\RenderHookLocation;
  */
 final class FrontendHookRegistrar
 {
+    private readonly ?RecordsExtensionContributionReceipt $receipts;
+
     public function __construct(
         private readonly RenderHookRegistry $registry,
-        private readonly RecordsExtensionContributionReceipt $receipts,
-    ) {}
+        ?RecordsExtensionContributionReceipt $receipts = null,
+    ) {
+        $this->receipts = $receipts ?? (app()->bound(RecordsExtensionContributionReceipt::class)
+            ? resolve(RecordsExtensionContributionReceipt::class)
+            : null);
+    }
 
     public function contribute(
         RenderHookLocation $location,
@@ -51,6 +57,6 @@ final class FrontendHookRegistrar
             position: $position,
             source: $source,
         ));
-        $this->receipts->recordContribution(ExtensionContributionType::RenderHook, $key, is_string($extension) ? $extension : $extension::class, self::class);
+        $this->receipts?->recordContribution(ExtensionContributionType::RenderHook, $key, is_string($extension) ? $extension : $extension::class, self::class);
     }
 }
