@@ -3,18 +3,24 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
+use Capell\Core\Contracts\ContentGraph\ContentGraphExtractor;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
+use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
+use Capell\Core\Data\ContentGraph\ContentGraphEdgeCollectionData;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\BlueprintSubjectRegistry;
+use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
+use Illuminate\Database\Eloquent\Model;
 
 if (! function_exists('makeRuntimeRegistrationAuditPackage')) {
     /**
@@ -53,6 +59,22 @@ final class PackageServiceProvider extends ServiceProvider
 }
 PHP);
 
+        $extraMethods = '';
+        if ($contractInterface === ContentGraphExtractor::class) {
+            $extraMethods = <<<'PHP'
+
+    public static function sourceModel(): string
+    {
+        return \Illuminate\Database\Eloquent\Model::class;
+    }
+
+    public function extract(\Illuminate\Database\Eloquent\Model $model): \Capell\Core\Data\ContentGraph\ContentGraphEdgeCollectionData
+    {
+        throw new \RuntimeException('Test extractor should not run.');
+    }
+PHP;
+        }
+
         file_put_contents($directory . '/src/Contributions/PackageContribution.php', <<<PHP
 <?php
 
@@ -66,6 +88,7 @@ final class PackageContribution implements \\{$contractInterface}
     {
         return '^1.0';
     }
+{$extraMethods}
 }
 PHP);
 
@@ -118,6 +141,19 @@ function recordTestReceipt(ExtensionContributionReceiptRegistry $receipts, Exten
     });
 }
 
+final class AuditUnlistedContentGraphExtractor implements ContentGraphExtractor
+{
+    public static function sourceModel(): string
+    {
+        return Model::class;
+    }
+
+    public function extract(Model $model): ContentGraphEdgeCollectionData
+    {
+        return ContentGraphEdgeCollectionData::make();
+    }
+}
+
 it('reconciles declared and loaded contributions only for an explicit booted context', function (): void {
     $outbound = new OutboundEventRegistry;
     $outbound->register(new OutboundEventDefinitionData(
@@ -147,6 +183,130 @@ it('reconciles declared and loaded contributions only for an explicit booted con
     );
 
     expect(AuditExtensionContractsAction::run($directory, ['runtime']))->toBe([]);
+});
+
+it('does not report a matched declaration again for duplicate receipts', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData(
+        'vendor/duplicate-receipts',
+        'runtime',
+        ExtensionContributionType::OutboundEvent,
+        'vendor-package.duplicate',
+        OutboundEventDefinitionData::class,
+        'Vendor\\Provider',
+    ));
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData(
+        'vendor/duplicate-receipts',
+        'runtime',
+        ExtensionContributionType::OutboundEvent,
+        'vendor-package.duplicate',
+        stdClass::class,
+        'Vendor\\SecondaryProvider',
+    ));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    $outboundEvents = new OutboundEventRegistry;
+    $outboundEvents->register(new OutboundEventDefinitionData(
+        name: 'vendor-package.duplicate',
+        version: 1,
+        payloadClass: OutboundEventDefinitionData::class,
+        description: 'Test duplicate outbound event.',
+        ownerPackage: 'vendor/duplicate-receipts',
+    ));
+    app()->instance(OutboundEventRegistry::class, $outboundEvents);
+
+    $directory = makeRuntimeRegistrationAuditPackage(
+        'vendor/duplicate-receipts',
+        RegistersExtensionOutboundEvent::class,
+        [
+            'type' => 'outbound-event',
+            'event' => 'vendor-package.duplicate',
+            'implementation' => OutboundEventDefinitionData::class,
+        ],
+    );
+
+    expect(AuditExtensionContractsAction::run($directory, ['runtime']))->toBe([]);
+});
+
+it('does not require receipt-only identities in a manifest', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    recordTestReceipt($receipts, new ExtensionContributionReceiptData(
+        'vendor/receipt-only',
+        'runtime',
+        ExtensionContributionReceiptType::Subscriber,
+        'subscriber:Vendor\\Subscriber',
+        'Vendor\\Subscriber',
+        'Vendor\\Provider',
+    ));
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $outboundEvents = new OutboundEventRegistry;
+    $outboundEvents->register(new OutboundEventDefinitionData(
+        name: 'vendor-package.declared',
+        version: 1,
+        payloadClass: OutboundEventDefinitionData::class,
+        description: 'Test declared outbound event.',
+        ownerPackage: 'vendor/receipt-only',
+    ));
+    app()->instance(OutboundEventRegistry::class, $outboundEvents);
+
+    $directory = makeRuntimeRegistrationAuditPackage(
+        'vendor/receipt-only',
+        RegistersExtensionOutboundEvent::class,
+        ['type' => 'outbound-event', 'event' => 'vendor-package.declared'],
+    );
+
+    expect(AuditExtensionContractsAction::run($directory, ['runtime']))->toBe([]);
+});
+
+it('does not synthesise a receipt identity for a keyless route contribution', function (): void {
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $directory = makeRuntimeRegistrationAuditPackage(
+        'vendor/keyless-route',
+        RegistersExtensionRoute::class,
+        ['type' => 'route'],
+    );
+
+    expect(AuditExtensionContractsAction::run($directory, ['runtime']))->toBe([]);
+});
+
+it('reconciles ContentGraphRegistry receipts and reports undeclared extractors', function (): void {
+    $packageName = 'vendor/content-graph-receipts';
+    $directory = makeRuntimeRegistrationAuditPackage($packageName, ContentGraphExtractor::class, ['type' => 'content-graph']);
+    $namespace = str($packageName)->after('/')->studly()->prepend('Vendor\\')->append('\\')->toString();
+    $contributionClass = $namespace . 'Contributions\\PackageContribution';
+    require_once $directory . '/src/Contributions/PackageContribution.php';
+
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    app()->instance(RecordsExtensionContributionReceipt::class, $receipts);
+    app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);
+
+    $registry = new ContentGraphRegistry;
+
+    $context = ExtensionContributionReceiptContext::forPackage($packageName, 'runtime', $registry::class);
+    $receipts->withContext($context, function () use ($registry, $contributionClass): void {
+        $registry->register($contributionClass);
+        $registry->register(AuditUnlistedContentGraphExtractor::class);
+    });
+
+    $results = AuditExtensionContractsAction::run($directory, ['runtime']);
+
+    expect($results)->toHaveCount(1)
+        ->and($results[0])->toMatchArray([
+            'package' => $packageName,
+            'severity' => 'warning',
+            'message' => 'Runtime contribution is not declared in the manifest.',
+            'context' => [
+                'status' => 'loaded-only',
+                'contributionKey' => 'content-graph:Illuminate\\Database\\Eloquent\\Model:' . AuditUnlistedContentGraphExtractor::class,
+                'expectedBucket' => 'runtime',
+                'actualBucket' => 'runtime',
+                'sourceClass' => ContentGraphRegistry::class,
+            ],
+        ]);
 });
 
 it('reports declared-only and loaded-only receipt drift', function (): void {
