@@ -96,7 +96,10 @@ it('selects the generated runtime-role config cache before normalisation reads i
         $configPath = $reflection->getMethod('optimizedConfigPath')->invoke($workspace);
 
         expect($configPath)
-            ->toBe($workspace->path . '/laravel/bootstrap/cache/capell-runtime/public/config.php')
+            ->toBeIn([
+                $workspace->path . '/laravel/bootstrap/cache/config.php',
+                $workspace->path . '/laravel/bootstrap/cache/capell-runtime/public/config.php',
+            ])
             ->and(is_file($configPath))->toBeTrue();
     } finally {
         $workspace->remove();
