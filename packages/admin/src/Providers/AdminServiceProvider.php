@@ -50,6 +50,7 @@ use Capell\Admin\Data\ImportEntryData;
 use Capell\Admin\Data\Reports\ReportDefinitionData;
 use Capell\Admin\Enums\AdminAssetEnum;
 use Capell\Admin\Enums\AdminNotificationGroupEnum;
+use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
@@ -215,6 +216,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
@@ -328,6 +330,28 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ActivityResourceLinkRegistry::class);
         $this->app->singleton(AdminZoneRegistry::class);
         $this->app->singleton(AdminSurfaceContributionRegistry::class);
+
+        $orderingAudit = $this->app->make(ExtensionOrderingAudit::class);
+        $adminZoneRegistry = $this->app->make(AdminZoneRegistry::class);
+        $orderingAudit->register(AdminZoneRegistry::class, static function () use ($adminZoneRegistry): array {
+            $diagnostics = [];
+
+            foreach (AdminZone::cases() as $zone) {
+                array_push($diagnostics, ...$adminZoneRegistry->orderingDiagnostics($zone));
+            }
+
+            return $diagnostics;
+        });
+        $adminSurfaceContributionRegistry = $this->app->make(AdminSurfaceContributionRegistry::class);
+        $orderingAudit->register(AdminSurfaceContributionRegistry::class, static function () use ($adminSurfaceContributionRegistry): array {
+            $diagnostics = [];
+
+            foreach (AdminSurfaceContributionType::cases() as $type) {
+                array_push($diagnostics, ...$adminSurfaceContributionRegistry->orderingDiagnostics($type));
+            }
+
+            return $diagnostics;
+        });
         $this->app->singleton(AdminSurfaceContributionCache::class);
         $this->app->singleton(ReportRegistry::class);
         $this->app->singleton(DashboardFilamentWidgetRegistry::class);

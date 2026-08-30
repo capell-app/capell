@@ -14,6 +14,7 @@ use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\OutboundEventRegistry;
 use Composer\InstalledVersions;
@@ -102,6 +103,45 @@ final class AuditExtensionContractsAction
                     $composerJson ?? [],
                     $this->bootedBuckets($manifest, $bootedProviderBuckets),
                 ),
+            );
+        }
+
+        if ($path === null || $path === '') {
+            array_push($results, ...$this->orderingResults());
+        }
+
+        return $results;
+    }
+
+    /**
+     * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
+     */
+    private function orderingResults(): array
+    {
+        $results = [];
+
+        foreach (resolve(ExtensionOrderingAudit::class)->diagnostics() as $entry) {
+            $diagnostic = $entry['diagnostic'];
+            $context = [
+                'source' => $entry['source'],
+                'type' => $diagnostic->type,
+                'key' => $diagnostic->key,
+            ];
+
+            if ($diagnostic->anchor !== null) {
+                $context['anchor'] = $diagnostic->anchor;
+            }
+
+            if ($diagnostic->cycle !== []) {
+                $context['cycle'] = $diagnostic->cycle;
+            }
+
+            $results[] = $this->result(
+                package: 'runtime',
+                manifestPath: '<runtime-ordering>',
+                severity: 'error',
+                message: sprintf('Extension ordering has an unresolved %s diagnostic.', $diagnostic->type),
+                context: $context,
             );
         }
 

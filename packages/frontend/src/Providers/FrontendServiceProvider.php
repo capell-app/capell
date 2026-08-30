@@ -15,6 +15,7 @@ use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
@@ -260,6 +261,18 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->scoped(PublicViewQueryGuard::class);
         $this->app->singleton(RenderHookRegistry::class);
+
+        $orderingAudit = $this->app->make(ExtensionOrderingAudit::class);
+        $renderHookRegistry = $this->app->make(RenderHookRegistry::class);
+        $orderingAudit->register(RenderHookRegistry::class, static function () use ($renderHookRegistry): array {
+            $diagnostics = [];
+
+            foreach (RenderHookLocation::cases() as $location) {
+                array_push($diagnostics, ...$renderHookRegistry->orderingDiagnostics($location));
+            }
+
+            return $diagnostics;
+        });
         $this->app->singleton(FrontendHookRegistrar::class);
         $this->app->scoped(ThemeTokenHeadCloseHook::class);
         $this->app->singleton(FrontendEventBootstrapper::class);
