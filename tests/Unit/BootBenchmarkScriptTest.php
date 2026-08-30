@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Benchmark\BootBenchmark;
 use Capell\Benchmark\BootBenchmarkOptions;
+use Capell\Benchmark\BootBenchmarkWorkspace;
 use Capell\Benchmark\BootProfiles;
 use Capell\Benchmark\BootStatistics;
 use Capell\Benchmark\RuntimeRoleBenchmarkComparison;
@@ -81,6 +82,28 @@ it('maps immutable runtime role profiles without removing Frontend from authorin
             AdminServiceProvider::class,
             MarketplaceServiceProvider::class,
         );
+});
+
+it('selects the generated runtime-role config cache before normalisation reads it', function (): void {
+    $workspace = BootBenchmarkWorkspace::create(dirname(__DIR__, 2), 'public');
+
+    try {
+        $reflection = new ReflectionClass($workspace);
+        $command = $reflection->getMethod('command');
+        $command->setAccessible(true);
+        $command->invoke($workspace, ['optimize', '--except=routes,views', '--no-ansi'], true)->mustRun();
+
+        $configPath = $reflection->getMethod('optimizedConfigPath')->invoke($workspace);
+
+        expect($configPath)
+            ->toBeIn([
+                $workspace->path . '/laravel/bootstrap/cache/config.php',
+                $workspace->path . '/laravel/bootstrap/cache/capell-runtime/public/config.php',
+            ])
+            ->and(is_file($configPath))->toBeTrue();
+    } finally {
+        $workspace->remove();
+    }
 });
 
 it('reports paired runtime role p50 and p75 regression state', function (): void {
