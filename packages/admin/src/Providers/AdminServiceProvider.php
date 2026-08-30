@@ -293,6 +293,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(StaticSiteGenerationDispatcher::class, UnavailableStaticSiteGenerationDispatcher::class);
 
         $this->app->bind(AdminMediaFieldFactory::class, LegacyAwareAdminMediaFieldFactory::class);
+        // @phpstan-ignore-next-line classConstant.deprecatedInterface, classConstant.deprecatedClass (Admin keeps the legacy alias for existing package integrations.)
         $this->app->bind(MediaFieldFactory::class, LegacyAdminMediaFieldFactoryAdapter::class);
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);

@@ -22,10 +22,14 @@ final class LegacyAwareAdminMediaFieldFactory implements AdminMediaFieldFactory
 
     public function make(string $name): Field
     {
+        // @phpstan-ignore-next-line classConstant.deprecatedInterface (This compatibility adapter must inspect the legacy binding.)
         $binding = $this->application->getBindings()[MediaFieldFactory::class]['concrete'] ?? null;
 
+        // @phpstan-ignore-next-line classConstant.deprecatedClass (This comparison identifies the intentional legacy adapter.)
         if ($binding !== LegacyAdminMediaFieldFactoryAdapter::class) {
+            // @phpstan-ignore-next-line classConstant.deprecatedInterface (Resolve the legacy contract only for existing 1.x integrations.)
             $legacy = $this->application->make(MediaFieldFactory::class);
+            // @phpstan-ignore-next-line instanceof.deprecatedClass (Exclude the compatibility adapter before delegating.)
             if (! $legacy instanceof LegacyAdminMediaFieldFactoryAdapter) {
                 return $legacy->make($name);
             }

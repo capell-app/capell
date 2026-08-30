@@ -509,6 +509,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
         $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
+        // @phpstan-ignore-next-line classConstant.deprecatedInterface, classConstant.deprecatedClass (The Core binding preserves the documented 1.x compatibility seam.)
         $this->app->bindIf(MediaFieldFactory::class, SpatieMediaFieldFactory::class);
 
         $this->app->singleton(CapellCacheManager::class);
