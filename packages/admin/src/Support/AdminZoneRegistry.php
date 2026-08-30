@@ -182,9 +182,11 @@ final class AdminZoneRegistry
             $reflection = new ReflectionObject($contribution);
             $visibility = $this->privateProperty($reflection, $contribution, 'visibility');
             $visibilityObjects = [];
-            $visibilityIdentity = $visibility === null ? null : $this->callableIdentity($visibility, $visibilityObjects);
+            $visibilityClosures = [];
+            $visibilityIdentity = $visibility === null ? null : $this->callableIdentity($visibility, $visibilityObjects, $visibilityClosures);
             $resolverObjects = [];
-            $resolverIdentity = $this->callableIdentity($this->privateProperty($reflection, $contribution, 'resolver'), $resolverObjects);
+            $resolverClosures = [];
+            $resolverIdentity = $this->callableIdentity($this->privateProperty($reflection, $contribution, 'resolver'), $resolverObjects, $resolverClosures);
 
             if ($resolverIdentity === null || ($visibility !== null && $visibilityIdentity === null)) {
                 return null;
@@ -212,9 +214,18 @@ final class AdminZoneRegistry
 
     /**
      * @param  array<int, true>  $activeObjects
+     * @param  array<int, true>  $activeClosures
      */
-    private function callableIdentity(Closure $callable, array &$activeObjects): ?string
+    private function callableIdentity(Closure $callable, array &$activeObjects, array &$activeClosures): ?string
     {
+        $callableId = spl_object_id($callable);
+
+        if (isset($activeClosures[$callableId])) {
+            return null;
+        }
+
+        $activeClosures[$callableId] = true;
+
         try {
             $reflection = new ReflectionFunction($callable);
 
@@ -239,20 +250,23 @@ final class AdminZoneRegistry
 
             $normalised = null;
 
-            if (! $this->normaliseIdentityValue($representation, $activeObjects, $normalised)) {
+            if (! $this->normaliseIdentityValue($representation, $activeObjects, $activeClosures, $normalised)) {
                 return null;
             }
 
             return hash('sha256', serialize($normalised));
         } catch (Throwable) {
             return null;
+        } finally {
+            unset($activeClosures[$callableId]);
         }
     }
 
     /**
      * @param  array<int, true>  $activeObjects
+     * @param  array<int, true>  $activeClosures
      */
-    private function normaliseIdentityValue(mixed $value, array &$activeObjects, mixed &$normalised): bool
+    private function normaliseIdentityValue(mixed $value, array &$activeObjects, array &$activeClosures, mixed &$normalised): bool
     {
         if ($value === null || is_scalar($value)) {
             $normalised = [get_debug_type($value), $value];
@@ -277,7 +291,7 @@ final class AdminZoneRegistry
         }
 
         if ($value instanceof Closure) {
-            $identity = $this->callableIdentity($value, $activeObjects);
+            $identity = $this->callableIdentity($value, $activeObjects, $activeClosures);
 
             if ($identity === null) {
                 return false;
@@ -298,7 +312,7 @@ final class AdminZoneRegistry
 
                 $itemValue = null;
 
-                if (! $this->normaliseIdentityValue($item, $activeObjects, $itemValue)) {
+                if (! $this->normaliseIdentityValue($item, $activeObjects, $activeClosures, $itemValue)) {
                     return false;
                 }
 
@@ -344,7 +358,7 @@ final class AdminZoneRegistry
 
             $propertyValue = null;
 
-            if (! $this->normaliseIdentityValue($property->getValue($value), $activeObjects, $propertyValue)) {
+            if (! $this->normaliseIdentityValue($property->getValue($value), $activeObjects, $activeClosures, $propertyValue)) {
                 unset($activeObjects[$objectId]);
 
                 return false;

@@ -49,3 +49,23 @@ it('dogfoods the stable Page list table columns zone and keeps the legacy extend
         ->and($names[0])->toBe('id')
         ->and(Arr::last($names))->toBe('reference_extension_column');
 });
+
+it('preserves late-static dispatch for Page table extender columns', function (): void {
+    resolve(AdminRuntimeActivator::class)->prepare();
+
+    $table = new class extends PagesTable
+    {
+        /** @return list<Column> */
+        protected static function getExtenderColumns(): array
+        {
+            return [TextColumn::make('late_static_column')];
+        }
+    };
+
+    $method = new ReflectionMethod($table, 'getTableColumns');
+    /** @var list<Column> $columns */
+    $columns = $method->invoke(null);
+
+    expect(array_map(static fn (Column $column): string => $column->getName(), $columns))
+        ->toContain('late_static_column');
+});

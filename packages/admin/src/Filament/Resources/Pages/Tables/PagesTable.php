@@ -719,7 +719,7 @@ class PagesTable implements TableConfigurator
                 AdminZone::PageListTableColumns,
                 AdminZoneContextData::pageListTable(auth()->user()),
             ),
-            ...self::getExtenderColumns(),
+            ...static::getExtenderColumns(),
         ]);
     }
 

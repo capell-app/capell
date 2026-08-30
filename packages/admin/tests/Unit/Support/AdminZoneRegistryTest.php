@@ -256,6 +256,24 @@ it('fails closed when callable identity contains an object and closure cycle', f
     })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
 });
 
+it('fails closed when callable identity contains mutually recursive closures', function (): void {
+    $first = null;
+    $second = null;
+    $first = static function (AdminZoneContextData $context) use (&$second): array {
+        return [$second];
+    };
+    $second = static function (AdminZoneContextData $context) use (&$first): array {
+        return [$first];
+    };
+
+    $registry = new AdminZoneRegistry;
+    $registry->register(adminZoneContribution('mutual-closure.key', $first));
+
+    expect(function () use ($registry, $first): void {
+        $registry->register(adminZoneContribution('mutual-closure.key', $first));
+    })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
+});
+
 it('filters contributions by declared permission and visibility', function (): void {
     test()->actingAsAdmin();
 
