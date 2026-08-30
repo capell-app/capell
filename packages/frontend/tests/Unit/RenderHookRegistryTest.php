@@ -16,6 +16,7 @@ use Capell\Frontend\Enums\RenderHookRegistrationType;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
 
@@ -82,30 +83,14 @@ it('preserves one-argument construction for direct package callers', function ()
         ))->toBeTrue();
 });
 
-it('allows one-argument construction without a receipt binding', function (): void {
+it('fails closed for one-argument construction without a receipt binding', function (): void {
     app()->instance(RecordsExtensionContributionReceipt::class, null);
     app()->offsetUnset(RecordsExtensionContributionReceipt::class);
 
     expect(app()->bound(RecordsExtensionContributionReceipt::class))->toBeFalse();
 
-    $registry = new RenderHookRegistry;
-    $registrar = new FrontendHookRegistrar($registry);
-    $extension = new class implements RenderHookExtensionInterface
-    {
-        public function render(RenderHookContext $context): string
-        {
-            return '<aside>standalone hook</aside>';
-        }
-    };
-
-    $registrar->contribute(
-        RenderHookLocation::Footer,
-        $extension,
-        'vendor/frontend-hooks',
-        'standalone-hook',
-    );
-
-    expect($registry->renderAll(RenderHookLocation::Footer))->toBe('<aside>standalone hook</aside>');
+    expect(fn (): FrontendHookRegistrar => new FrontendHookRegistrar(new RenderHookRegistry))
+        ->toThrow(BindingResolutionException::class);
 });
 
 it('emits distinct receipts for unkeyed closures at one hook location', function (): void {
