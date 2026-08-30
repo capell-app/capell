@@ -144,9 +144,7 @@ final class AdminZoneRegistry
 
     private function indexKey(AdminZone $zone, string $key): string
     {
-        if (trim($key) === '') {
-            throw new LogicException('Admin zone contribution keys must not be empty.');
-        }
+        throw_if(trim($key) === '', LogicException::class, 'Admin zone contribution keys must not be empty.');
 
         return $zone->value . ':' . $key;
     }
@@ -206,7 +204,7 @@ final class AdminZoneRegistry
             }
 
             $serializableClosure = SerializableClosure::unsigned($callable);
-            $serializable = (new ReflectionObject($serializableClosure))->getProperty('serializable')->getValue($serializableClosure);
+            $serializable = new ReflectionObject($serializableClosure)->getProperty('serializable')->getValue($serializableClosure);
 
             if (! is_object($serializable) || ! method_exists($serializable, '__serialize')) {
                 return null;
@@ -276,7 +274,7 @@ final class AdminZoneRegistry
             $items = [];
 
             foreach ($value as $key => $item) {
-                if (ReflectionReference::fromArrayElement($value, $key) !== null) {
+                if (ReflectionReference::fromArrayElement($value, $key) instanceof ReflectionReference) {
                     return false;
                 }
 

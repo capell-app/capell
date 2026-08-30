@@ -269,7 +269,7 @@ class PagesTable implements TableConfigurator
      */
     public static function defaultTableColumns(): array
     {
-        $columns = [
+        return [
             IdentifierColumn::make('id'),
             PageSummaryColumn::make('name')
                 ->wrap()
@@ -327,8 +327,6 @@ class PagesTable implements TableConfigurator
             DateColumn::make('created_at'),
             DateColumn::make('deleted_at'),
         ];
-
-        return $columns;
     }
 
     protected static function recordClasses(PageModel $record): ?string

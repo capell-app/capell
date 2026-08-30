@@ -49,7 +49,7 @@ final readonly class AdminZoneContributionData implements AdminZoneContribution
             return false;
         }
 
-        return $this->visibility === null || ($this->visibility)($context);
+        return ! $this->visibility instanceof Closure || ($this->visibility)($context);
     }
 
     /** @return list<mixed> */

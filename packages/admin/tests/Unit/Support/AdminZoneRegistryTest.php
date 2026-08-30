@@ -155,9 +155,9 @@ it('does not treat resolver literals or bound object state as equivalent', funct
     })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
 
     $makeBoundResolver = static function (string $column): Closure {
-        $boundObject = new class($column)
+        $boundObject = new readonly class($column)
         {
-            public function __construct(public readonly string $column) {}
+            public function __construct(public string $column) {}
         };
 
         $resolver = Closure::bind(
@@ -165,9 +165,7 @@ it('does not treat resolver literals or bound object state as equivalent', funct
             $boundObject,
         );
 
-        if (! $resolver instanceof Closure) {
-            throw new LogicException('Expected bound Admin zone resolver closure.');
-        }
+        throw_unless($resolver instanceof Closure, LogicException::class, 'Expected bound Admin zone resolver closure.');
 
         return $resolver;
     };
@@ -189,9 +187,9 @@ it('distinguishes same-line literals and supports equivalent first-class callabl
         $registry->register(adminZoneContribution('same-line.key', $second));
     })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
 
-    $provider = new class('first-class')
+    $provider = new readonly class('first-class')
     {
-        public function __construct(private readonly string $column) {}
+        public function __construct(private string $column) {}
 
         /** @return list<TextColumn> */
         public function columns(AdminZoneContextData $context): array
@@ -214,7 +212,7 @@ it('fails closed for recursive resolver captures', function (): void {
     $registry->register(adminZoneContribution(
         'recursive.key',
         static function (AdminZoneContextData $context) use (&$recursive): array {
-            return [TextColumn::make(count($recursive) > 0 ? 'recursive' : 'missing')];
+            return [TextColumn::make('recursive-' . count($recursive))];
         },
     ));
 
@@ -222,7 +220,7 @@ it('fails closed for recursive resolver captures', function (): void {
         $registry->register(adminZoneContribution(
             'recursive.key',
             static function (AdminZoneContextData $context) use (&$recursive): array {
-                return [TextColumn::make(count($recursive) > 0 ? 'recursive' : 'missing')];
+                return [TextColumn::make('recursive-' . count($recursive))];
             },
         ));
     })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
