@@ -501,8 +501,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function activateAdminRuntime(): self
     {
-        return $this
-            ->registerAssets();
+        $this->registerAssets();
+        resolve(AdminZoneRegistry::class)->freeze();
+
+        return $this;
     }
 
     private function registerResources(): self

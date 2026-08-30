@@ -7,6 +7,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SiteAdminMetricsPage;
 use Capell\Admin\Providers\Filament\AdminPanelProvider;
 use Capell\Admin\Support\AdminRuntimeActivator;
+use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Tests\Unit\Support\Fixtures\AdminRuntimeActivatorTestBridge;
@@ -219,7 +220,8 @@ it('activates on first direct access to runtime asset definitions', function ():
 
     expect($activator->isActivated())->toBeFalse()
         ->and(CapellAdmin::hasAsset('Page'))->toBeTrue()
-        ->and($activator->isActivated())->toBeTrue();
+        ->and($activator->isActivated())->toBeTrue()
+        ->and(resolve(AdminZoneRegistry::class)->isFrozen())->toBeTrue();
 });
 
 it('does not query the database while preparing or activating admin runtime', function (): void {

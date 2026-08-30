@@ -19,6 +19,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Tests\Fixtures\Activity\ActivityResourceLinkRecord;
@@ -84,6 +85,22 @@ it('registers stable Admin zone contributions through the bridge', function (): 
             AdminZone::PageListTableColumns,
             new AdminZoneContextData(AdminZone::PageListTableColumns, 'tests.bridge'),
         )[0]->getName())->toBe('bridge_reference');
+});
+
+it('rejects stable Admin zone contributions after runtime activation', function (): void {
+    app()->forgetInstance(AdminRuntimeActivator::class);
+    resolve(AdminRuntimeActivator::class)->activate();
+
+    $registrar = resolve(AdminBridgeRegistrar::class);
+
+    expect(function () use ($registrar): void {
+        $registrar->zone(new AdminZoneContributionData(
+            zone: AdminZone::PageListTableColumns,
+            key: 'late.bridge-column',
+            resolver: static fn (AdminZoneContextData $context): array => [TextColumn::make('late_bridge')],
+            owner: 'vendor/late',
+        ));
+    })->toThrow(LogicException::class, 'vendor/late');
 });
 
 it('registers dashboard Filament widgets through the admin manager', function (): void {

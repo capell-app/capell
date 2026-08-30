@@ -29,6 +29,9 @@ final class AdminZoneRegistry
     /** @var array<string, AdminZoneContribution> */
     private array $contributions = [];
 
+    /** @var array<string, true> */
+    private array $activeResolutions = [];
+
     private bool $frozen = false;
 
     public function __construct(private readonly ?ExtensionOrderResolver $orderResolver = null) {}
@@ -89,20 +92,31 @@ final class AdminZoneRegistry
      */
     public function resolve(AdminZone $zone, AdminZoneContextData $context): array
     {
-        $resolved = [];
+        $resolutionKey = $zone->value;
 
-        foreach ($this->ordered($zone) as $contribution) {
-            if (! $contribution->isVisible($context)) {
-                continue;
-            }
-
-            foreach ($contribution->resolve($context) as $value) {
-                $this->assertValue($zone, $value, $contribution);
-                $resolved[] = $value;
-            }
+        if (isset($this->activeResolutions[$resolutionKey])) {
+            throw new LogicException(sprintf('Recursive Admin zone resolution detected for [%s].', $zone->value));
         }
 
-        return $resolved;
+        $this->activeResolutions[$resolutionKey] = true;
+        $resolved = [];
+
+        try {
+            foreach ($this->ordered($zone) as $contribution) {
+                if (! $contribution->isVisible($context)) {
+                    continue;
+                }
+
+                foreach ($contribution->resolve($context) as $value) {
+                    $this->assertValue($zone, $value, $contribution);
+                    $resolved[] = $value;
+                }
+            }
+
+            return $resolved;
+        } finally {
+            unset($this->activeResolutions[$resolutionKey]);
+        }
     }
 
     /** @return list<AdminZoneContribution> */
@@ -167,8 +181,10 @@ final class AdminZoneRegistry
             $position = $contribution->position();
             $reflection = new ReflectionObject($contribution);
             $visibility = $this->privateProperty($reflection, $contribution, 'visibility');
-            $visibilityIdentity = $visibility === null ? null : $this->callableIdentity($visibility);
-            $resolverIdentity = $this->callableIdentity($this->privateProperty($reflection, $contribution, 'resolver'));
+            $visibilityObjects = [];
+            $visibilityIdentity = $visibility === null ? null : $this->callableIdentity($visibility, $visibilityObjects);
+            $resolverObjects = [];
+            $resolverIdentity = $this->callableIdentity($this->privateProperty($reflection, $contribution, 'resolver'), $resolverObjects);
 
             if ($resolverIdentity === null || ($visibility !== null && $visibilityIdentity === null)) {
                 return null;
@@ -194,7 +210,10 @@ final class AdminZoneRegistry
         return $reflection->getProperty($name)->getValue($contribution);
     }
 
-    private function callableIdentity(Closure $callable): ?string
+    /**
+     * @param  array<int, true>  $activeObjects
+     */
+    private function callableIdentity(Closure $callable, array &$activeObjects): ?string
     {
         try {
             $reflection = new ReflectionFunction($callable);
@@ -219,7 +238,6 @@ final class AdminZoneRegistry
             unset($representation['self']);
 
             $normalised = null;
-            $activeObjects = [];
 
             if (! $this->normaliseIdentityValue($representation, $activeObjects, $normalised)) {
                 return null;
@@ -259,7 +277,7 @@ final class AdminZoneRegistry
         }
 
         if ($value instanceof Closure) {
-            $identity = $this->callableIdentity($value);
+            $identity = $this->callableIdentity($value, $activeObjects);
 
             if ($identity === null) {
                 return false;

@@ -226,6 +226,36 @@ it('fails closed for recursive resolver captures', function (): void {
     })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
 });
 
+it('fails closed when a resolver re-enters the same zone', function (): void {
+    $registry = new AdminZoneRegistry;
+
+    $registry->register(adminZoneContribution(
+        'recursive-resolution.key',
+        fn (AdminZoneContextData $context): array => $registry->resolve(AdminZone::PageListTableColumns, $context),
+    ));
+
+    expect(fn (): array => $registry->resolve(AdminZone::PageListTableColumns, adminZoneContext()))
+        ->toThrow(LogicException::class, 'Recursive Admin zone resolution detected');
+});
+
+it('fails closed when callable identity contains an object and closure cycle', function (): void {
+    $cycle = new stdClass;
+    $resolver = Closure::bind(
+        fn (AdminZoneContextData $context): array => [TextColumn::make($cycle->resolver instanceof Closure ? 'cyclic' : 'other')],
+        $cycle,
+    );
+
+    throw_unless($resolver instanceof Closure, LogicException::class, 'Expected cyclic Admin zone resolver closure.');
+
+    $cycle->resolver = $resolver;
+    $registry = new AdminZoneRegistry;
+    $registry->register(adminZoneContribution('cyclic-identity.key', $resolver));
+
+    expect(function () use ($registry, $resolver): void {
+        $registry->register(adminZoneContribution('cyclic-identity.key', $resolver));
+    })->toThrow(LogicException::class, 'AdminZoneRegistryTest');
+});
+
 it('filters contributions by declared permission and visibility', function (): void {
     test()->actingAsAdmin();
 
