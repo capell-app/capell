@@ -498,11 +498,6 @@ abstract class AbstractTestCase extends TestCase
         $application->forgetInstance('cache.store');
         $application->forgetInstance('cache');
         Facade::clearResolvedInstance('cache');
-
-        $application->instance(
-            PermissionRegistrar::class,
-            new PermissionRegistrar($application->make(CacheFactory::class)),
-        );
     }
 
     /**
