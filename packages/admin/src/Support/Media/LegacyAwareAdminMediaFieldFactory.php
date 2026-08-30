@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Support\Media;
 
 use Capell\Admin\Contracts\Media\AdminMediaFieldFactory;
-use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Filament\Forms\Components\Field;
 use Illuminate\Contracts\Foundation\Application;
 
@@ -15,6 +14,10 @@ use Illuminate\Contracts\Foundation\Application;
  */
 final class LegacyAwareAdminMediaFieldFactory implements AdminMediaFieldFactory
 {
+    private const string LEGACY_MEDIA_FIELD_FACTORY = 'Capell\\Core\\Contracts\\Media\\MediaFieldFactory';
+
+    private const string LEGACY_ADAPTER = 'Capell\\Admin\\Support\\Media\\LegacyAdminMediaFieldFactoryAdapter';
+
     public function __construct(
         private readonly Application $application,
         private readonly AdminSpatieMediaFieldFactory $default,
@@ -22,15 +25,12 @@ final class LegacyAwareAdminMediaFieldFactory implements AdminMediaFieldFactory
 
     public function make(string $name): Field
     {
-        // @phpstan-ignore-next-line classConstant.deprecatedInterface (This compatibility adapter must inspect the legacy binding.)
-        $binding = $this->application->getBindings()[MediaFieldFactory::class]['concrete'] ?? null;
+        $binding = $this->application->getBindings()[self::LEGACY_MEDIA_FIELD_FACTORY]['concrete'] ?? null;
 
-        // @phpstan-ignore-next-line classConstant.deprecatedClass (This comparison identifies the intentional legacy adapter.)
-        if ($binding !== LegacyAdminMediaFieldFactoryAdapter::class) {
-            // @phpstan-ignore-next-line classConstant.deprecatedInterface (Resolve the legacy contract only for existing 1.x integrations.)
-            $legacy = $this->application->make(MediaFieldFactory::class);
-            // @phpstan-ignore-next-line instanceof.deprecatedClass (Exclude the compatibility adapter before delegating.)
-            if (! $legacy instanceof LegacyAdminMediaFieldFactoryAdapter) {
+        if ($binding !== self::LEGACY_ADAPTER) {
+            $legacy = $this->application->make(self::LEGACY_MEDIA_FIELD_FACTORY);
+
+            if (! is_a($legacy, self::LEGACY_ADAPTER, true)) {
                 return $legacy->make($name);
             }
         }

@@ -166,7 +166,6 @@ use Capell\Admin\Support\Makers\AdminBladeComponentMaker;
 use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
-use Capell\Admin\Support\Media\LegacyAdminMediaFieldFactoryAdapter;
 use Capell\Admin\Support\Media\LegacyAwareAdminMediaFieldFactory;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
@@ -194,7 +193,6 @@ use Capell\Core\Contracts\AdminResourceResolver as AdminResourceResolverContract
 use Capell\Core\Contracts\DoctorCheck;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
-use Capell\Core\Contracts\Media\MediaFieldFactory;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
@@ -293,8 +291,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(StaticSiteGenerationDispatcher::class, UnavailableStaticSiteGenerationDispatcher::class);
 
         $this->app->bind(AdminMediaFieldFactory::class, LegacyAwareAdminMediaFieldFactory::class);
-        // @phpstan-ignore-next-line classConstant.deprecatedInterface, classConstant.deprecatedClass (Admin keeps the legacy alias for existing package integrations.)
-        $this->app->bind(MediaFieldFactory::class, LegacyAdminMediaFieldFactoryAdapter::class);
+        // Keep the legacy class names as strings so existing package bindings
+        // remain available without creating new deprecated symbol references.
+        $this->app->bind(
+            'Capell\\Core\\Contracts\\Media\\MediaFieldFactory',
+            'Capell\\Admin\\Support\\Media\\LegacyAdminMediaFieldFactoryAdapter',
+        );
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
         $this->app->singleton(EnumPresentationRegistry::class);
