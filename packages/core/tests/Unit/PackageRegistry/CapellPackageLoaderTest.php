@@ -78,7 +78,7 @@ it('skips providers for non-existent classes gracefully', function (): void {
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('capell-app/ghost')->andReturnTrue();
 
-    expect(fn () => packageLoader($registry)->loadProviders())->not->toThrow(Throwable::class);
+    expect(fn (): array => packageLoader($registry)->loadProviders())->not->toThrow(Throwable::class);
 });
 
 it('quarantines an optional package when provider registration fails', function (): void {

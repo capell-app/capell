@@ -101,6 +101,11 @@ final class ExtensionTestHarness
     public function bootProviders(Application $application, RuntimeRole $role): array
     {
         $manifest = $this->manifest();
+        // Loading the manifest validates it through auditResults(). Provider
+        // context is not available until the production loader has run, so a
+        // cached pre-boot audit would hide declared-only and wrong-context
+        // failures from callers that audit after boot.
+        $this->auditResults = null;
         $registry = new CapellPackageRegistry;
 
         $registry->register($manifest);

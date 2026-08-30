@@ -7,9 +7,11 @@ namespace Vendor\ExtensionConformance;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Illuminate\Support\ServiceProvider;
+use Override;
 
 final class AuthProvider extends ServiceProvider
 {
+    #[Override]
     public function register(): void
     {
         $this->app->make(ConformanceRecorder::class)->record('auth');
