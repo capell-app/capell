@@ -24,17 +24,35 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/admin/src/Support/Activity/ActivityResourceLinkRegistry.php',
         'packages/admin/src/Support/AdminEventRegistry.php',
         'packages/admin/src/Support/AdminSurfaceContributionRegistry.php',
+        // Partitioned, ordered contribution storage with enum-owned vocabularies and freeze/replace semantics.
+        'packages/admin/src/Support/AdminZoneRegistry.php',
+        // Resolves tagged enum presentation contributors; it has no generic keyed item lifecycle.
+        'packages/admin/src/Support/Enums/EnumPresentationRegistry.php',
         'packages/admin/src/Support/AdminTools/AdminToolRegistry.php',
         'packages/admin/src/Support/Bridges/AdminBridgeRegistry.php',
         'packages/admin/src/Support/Extensions/ExtensionManagementSurfaceRegistry.php',
         'packages/admin/src/Support/Extensions/ExtensionPageRegistry.php',
         'packages/admin/src/Support/Extensions/ExtensionsPageActionRegistry.php',
         'packages/admin/src/Support/Themes/ThemeEditorExtensionRegistry.php',
+        // Workspace definitions are security-filtered, generation-tracked discovery state rather than keyed values.
+        'packages/admin/src/Support/Workspace/AdminWorkspaceRegistry.php',
         'packages/core/src/EventSourcing/Rollback/RollbackValidatorRegistry.php',
         'packages/core/src/Support/Components/ComponentRegistry.php',
         'packages/core/src/Support/ContentGraph/ContentGraphRegistry.php',
+        // Blueprint descriptors own validation and package-install reopen semantics.
+        'packages/core/src/Support/BlueprintSubjectRegistry.php',
+        // One platform can own multiple driver aliases and resolves connection/server families.
+        'packages/core/src/Support/Database/DatabasePlatformRegistry.php',
+        // Records provider/namespace contribution receipts and context, not keyed extension items.
+        'packages/core/src/Support/Extensions/ExtensionContributionReceiptRegistry.php',
+        // Discovers tagged checks and validates category/timeout metadata.
+        'packages/core/src/Support/Health/HealthCheckRegistry.php',
         'packages/core/src/Support/Install/InstallPatchRegistry.php',
         'packages/core/src/Support/Models/ModelInterceptorRegistry.php',
+        // Lifecycle-aware manifest event definitions with install reopen/freeze and domain validation.
+        'packages/core/src/Support/OutboundEventRegistry.php',
+        // Aggregates publication readiness contributors and owns the readiness state machine.
+        'packages/core/src/Support/Publishing/PublicationReadinessRegistry.php',
         // Keyed by an integer schema version and walked as an ordered migration chain, not looked up by a single string key.
         'packages/core/src/Support/ProjectBuild/ProjectBuildManifestMigrationRegistry.php',
         'packages/core/src/Support/Registries/AbstractKeyedRegistry.php',
@@ -51,7 +69,11 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/frontend/src/Support/Cache/CacheInvalidationDependencyRegistry.php',
         'packages/frontend/src/Support/Cache/CacheInvalidationRegistry.php',
         'packages/frontend/src/Support/Cache/TranslationCacheDependencyRegistry.php',
+        // Persists and locks model cache destinations; it is not an in-memory keyed contribution map.
+        'packages/frontend/src/Support/Cache/PublicRenderDataCacheDependencyRegistry.php',
         'packages/frontend/src/Support/Render/RenderHookRegistry.php',
+        // Request-context-aware public transport preparation around keyed contributors.
+        'packages/frontend/src/Support/Render/PublicRenderDataContributorRegistry.php',
         'packages/frontend/src/Support/Renderables/RenderableDynamicDataRegistry.php',
         'packages/frontend/src/Support/Routing/FrontendRouteMiddlewareRegistry.php',
         'packages/frontend/src/Support/Routing/ReservedFrontendPathRegistry.php',

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
+use Capell\Core\Data\Extensions\ExtensionOrderDiagnosticData;
+use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Symfony\Component\Console\Command\Command;
 
 if (! function_exists('makeExtensionAuditPackage')) {
@@ -86,6 +88,18 @@ it('passes valid extension manifests without errors', function (): void {
     artisanCommand('capell:extension-audit', ['path' => $directory])
         ->expectsOutputToContain('No extension contract errors found.')
         ->assertExitCode(Command::SUCCESS);
+});
+
+it('fails the strict audit when runtime ordering diagnostics are present', function (): void {
+    resolve(ExtensionOrderingAudit::class)->register('tests/runtime-ordering', static fn (): array => [
+        new ExtensionOrderDiagnosticData('missing-anchor', 'test.contribution', 'missing.anchor'),
+        new ExtensionOrderDiagnosticData('cycle', 'test.first', cycle: ['test.first', 'test.second']),
+    ]);
+
+    artisanCommand('capell:extension-audit')
+        ->expectsOutputToContain('unresolved missing-anchor diagnostic')
+        ->expectsOutputToContain('unresolved cycle diagnostic')
+        ->assertExitCode(Command::FAILURE);
 });
 
 it('accepts both current and previous minor extension API constraints', function (string $constraint): void {
