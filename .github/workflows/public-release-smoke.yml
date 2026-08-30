@@ -9,6 +9,9 @@ on:
       plan_artifact:
         required: true
         type: string
+    secrets:
+      ACCESS_TOKEN:
+        required: true
 
 permissions:
   contents: read
