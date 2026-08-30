@@ -415,7 +415,7 @@ final readonly class BootBenchmarkWorkspace
     private function command(array $arguments, bool $runningInConsole = false): Process
     {
         return new Process(
-            [PHP_BINARY, $this->root . '/vendor/bin/testbench', ...$arguments],
+            [PHP_BINARY, $this->root . '/scripts/run-testbench-command.php', ...$arguments],
             $this->root,
             [
                 'APP_ENV' => 'production',
@@ -468,9 +468,9 @@ final readonly class BootBenchmarkWorkspace
     private function normalizeOptimizedProviderCache(): void
     {
         $cachePath = $this->path . '/laravel/bootstrap/cache';
-        $roleConfigPath = $cachePath . '/capell-runtime/' . $this->runtimeRole() . '/config.php';
+        $generatedConfigPath = $this->optimizedConfigPath();
         /** @var array<string, mixed> $config */
-        $config = require $roleConfigPath;
+        $config = require $generatedConfigPath;
         $config['app']['providers'] = [
             ...ServiceProvider::defaultProviders()->toArray(),
             ...BootProfiles::providers($this->profile),
@@ -493,6 +493,30 @@ final readonly class BootBenchmarkWorkspace
             $this->files->dumpFile($roleCachePath . '/packages.php', '<?php return [];' . PHP_EOL);
             $this->files->remove($roleCachePath . '/services.php');
         }
+    }
+
+    private function optimizedConfigPath(): string
+    {
+        $cachePath = $this->path . '/laravel/bootstrap/cache';
+        $roleConfigPath = $cachePath . '/capell-runtime/' . $this->runtimeRole() . '/config.php';
+
+        if (is_file($roleConfigPath)) {
+            return $roleConfigPath;
+        }
+
+        $legacyConfigPath = $cachePath . '/config.php';
+
+        throw_unless(
+            is_file($legacyConfigPath),
+            RuntimeException::class,
+            sprintf(
+                'Testbench did not generate an optimized config cache at the runtime-role path [%s] or legacy path [%s].',
+                $roleConfigPath,
+                $legacyConfigPath,
+            ),
+        );
+
+        return $legacyConfigPath;
     }
 }
 
