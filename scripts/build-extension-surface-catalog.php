@@ -23,6 +23,9 @@ $json = json_encode([
         'stability' => $entry->stability->value,
         'introducedVersion' => $entry->introducedVersion,
         'summary' => $entry->summary,
+        ...($entry->contractTestReferences === [] ? [] : [
+            'contractTestReferences' => $entry->contractTestReferences,
+        ]),
         'contractTestId' => $entry->contractTestId,
     ], $entries),
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
@@ -59,12 +62,30 @@ $formatRow = static function (array $row) use ($widths): string {
 };
 $rows = array_map($formatRow, $table);
 array_splice($rows, 1, 0, [$formatRow(array_map(static fn (int $width): string => str_repeat('-', $width), $widths))]);
+$contractTestReferenceRows = [];
+
+foreach ($entries as $entry) {
+    if ($entry->contractTestReferences === []) {
+        continue;
+    }
+
+    $references = array_map(
+        static fn (string $reference): string => sprintf('[%s](%s)', basename((string) parse_url($reference, PHP_URL_PATH)), $reference),
+        $entry->contractTestReferences,
+    );
+    $contractTestReferenceRows[] = sprintf('- `%s`: %s', $entry->id, implode(', ', $references));
+}
+
 $markdown = implode(PHP_EOL, [
     '# Extension surface catalogue',
     '',
     'Generated from executable metadata by `scripts/build-extension-surface-catalog.php`. JSON is the machine-readable source; this page is the human index.',
     '',
     ...$rows,
+    '',
+    '## Contract test references',
+    '',
+    ...$contractTestReferenceRows,
     '',
     'Stable entries have a direct contract test ID in the JSON catalogue. Experimental entries may change before the first public release. Internal entries are not extension APIs.',
     '',

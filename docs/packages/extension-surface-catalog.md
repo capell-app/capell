@@ -143,6 +143,10 @@ Generated from executable metadata by `scripts/build-extension-surface-catalog.p
 | `marketplace.dto.composer-publication-result`             | dto            | `Capell\Marketplace\Data\MarketplaceComposerPublicationResultData`                    | `capell-app/marketplace` | experimental | Typed Composer publication result data.                                                        |
 | `marketplace.tag.composer-change-publisher`               | tagged-service | `capell.marketplace.composer-change-publisher`                                        | `capell-app/marketplace` | experimental | Container tag for optional Composer change publishers.                                         |
 
+## Contract test references
+
+- `core.testing.extension-harness`: [ExtensionConformanceTest.php](https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceTest.php#L24), [ExtensionConformanceFailureTest.php](https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceFailureTest.php#L26)
+
 Stable entries have a direct contract test ID in the JSON catalogue. Experimental entries may change before the first public release. Internal entries are not extension APIs.
 
 Compatibility enforcement is active in `stable-extension-api-baseline.json`; drift requires an explicit compatibility decision and is never silently reformatted away.

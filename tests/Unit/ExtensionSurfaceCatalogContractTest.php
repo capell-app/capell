@@ -32,6 +32,53 @@ it('requires direct contract IDs for every stable surface', function (): void {
     }
 });
 
+it('references the Core conformance suites from the harness catalogue entry', function (): void {
+    $root = dirname(__DIR__, 2);
+    $catalog = json_decode(
+        (string) file_get_contents($root . '/docs/packages/extension-surface-catalog.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+    $surface = null;
+
+    foreach ($catalog['surfaces'] as $candidate) {
+        if (is_array($candidate) && ($candidate['id'] ?? null) === 'core.testing.extension-harness') {
+            $surface = $candidate;
+
+            break;
+        }
+    }
+
+    throw_unless(is_array($surface), LogicException::class, 'The extension harness catalogue entry is missing.');
+
+    $references = $surface['contractTestReferences'] ?? null;
+
+    throw_unless(is_array($references), LogicException::class, 'The extension harness catalogue references are missing.');
+
+    $expectedSections = [
+        'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceTest.php#L24' => "it('boots only the provider buckets allowed by the public runtime role'",
+        'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceFailureTest.php#L26' => "it('catches a loaded provider whose declared contribution emitted no receipt'",
+    ];
+
+    expect($references)->toBe(array_keys($expectedSections));
+
+    foreach ($expectedSections as $reference => $expectedSection) {
+        $path = (string) parse_url($reference, PHP_URL_PATH);
+        $line = (int) ltrim((string) parse_url($reference, PHP_URL_FRAGMENT), 'L');
+        $source = file($root . '/' . ltrim(str_replace('/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/', '', $path), '/'), FILE_IGNORE_NEW_LINES);
+
+        throw_if($source === false || $line < 1 || ! isset($source[$line - 1]), LogicException::class, 'Contract test reference target is missing.');
+
+        expect(str_starts_with($reference, 'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/'))
+            ->toBeTrue()
+            ->and($source[$line - 1])->toContain($expectedSection);
+    }
+
+    expect((string) file_get_contents($root . '/docs/packages/extension-surface-catalog.md'))
+        ->toContain('[ExtensionConformanceTest.php](https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceTest.php#L24)')
+        ->toContain('[ExtensionConformanceFailureTest.php](https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceFailureTest.php#L26)');
+});
+
 it('links the human API references to the machine-owned catalogue', function (): void {
     $root = dirname(__DIR__, 2);
 
