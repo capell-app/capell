@@ -7,7 +7,10 @@ use Capell\Admin\Data\AdminZoneContributionData;
 use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Core\Support\Extensions\ExtensionPosition;
+use Filament\Actions\Action;
+use Filament\Tables\Columns\Layout\View as LayoutView;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
 
@@ -44,6 +47,35 @@ function adminZoneContribution(
         source: 'AdminZoneRegistryTest',
     );
 }
+
+it('catalogues the supported Page edit and Extensions dashboard zones', function (): void {
+    expect(AdminZone::cases())->toHaveCount(12)
+        ->and(AdminZone::PageEditFormActions->stability()->value)->toBe('stable')
+        ->and(AdminZone::PageEditFormActions->summary())->toContain('Page edit')
+        ->and(AdminZone::ExtensionsDashboardTableRecordActions->value)
+        ->toBe('admin.extensions.dashboard.table.record-actions');
+
+    $registry = new AdminZoneRegistry;
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::PageEditFormActions,
+        key: 'tests.page-edit.action',
+        resolver: static fn (): array => [Action::make('page_edit_action')],
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableFilters,
+        key: 'tests.extensions.filter',
+        resolver: static fn (): array => [Filter::make('extensions_filter')],
+    ));
+    $registry->register(new AdminZoneContributionData(
+        zone: AdminZone::ExtensionsDashboardTableColumns,
+        key: 'tests.extensions.layout-column',
+        resolver: static fn (): array => [LayoutView::make('tests.extensions.layout-column')],
+    ));
+
+    expect($registry->resolve(AdminZone::PageEditFormActions, adminZoneContext()))->toHaveCount(1)
+        ->and($registry->resolve(AdminZone::ExtensionsDashboardTableFilters, adminZoneContext()))->toHaveCount(1)
+        ->and($registry->resolve(AdminZone::ExtensionsDashboardTableColumns, adminZoneContext()))->toHaveCount(1);
+});
 
 it('interleaves built-in and package columns through the shared ordering resolver', function (): void {
     $registry = new AdminZoneRegistry;

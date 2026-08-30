@@ -4,8 +4,10 @@ Packages extend the admin through `CapellAdmin`, admin bridges, tagged contracts
 
 ## Stable Admin zones
 
-Capell exposes deliberately small, typed Admin composition zones. The first
-stable zone is the Page list table columns zone:
+Capell exposes deliberately small, typed Admin composition zones. Stable zones
+cover Page edit content/actions/header widgets, Page list table columns, and
+the Extensions dashboard's content before/after the table, header
+actions/widgets, table columns/filters, and record actions:
 
 ```php
 use Capell\Admin\Data\AdminZoneContributionData;
@@ -30,6 +32,13 @@ permission and visibility before their typed values are rendered. Existing
 `PageTableExtender` implementations remain compatible, but their columns are
 appended after this stable pipeline and cannot participate in stable-key
 ordering.
+
+The legacy `PageEditExtender` and `ExtensionsPageExtender` contracts remain
+compatible as explicit post-zone fallback paths. New package code should
+prefer `AdminZoneContributionData` so actions, widgets, filters, and table
+values can declare relative positions, permissions, and visibility. Zones only
+exist where the current screen has a corresponding Filament seam; sidebar
+locations remain outside this vocabulary rather than being silently implied.
 
 ## Admin Bridges
 

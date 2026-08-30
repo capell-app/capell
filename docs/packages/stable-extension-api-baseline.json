@@ -9,7 +9,7 @@
         },
         "admin.dto.admin-zone-context": {
             "identifier": "Capell\\Admin\\Data\\AdminZoneContextData",
-            "signature": "ba11c92ea3a84eb06fafd8bcd740273ea257f3642da7058d5f807d6443cb5dfe",
+            "signature": "1e745c1e34f1d27c7dfcb27dc5af214172aed4b009f2159d897509964b29421c",
             "contractTestId": "admin.admin-zone-registry"
         },
         "admin.dto.admin-zone-contribution": {
