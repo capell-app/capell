@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Layouts;
 
-use Capell\Admin\Data\Layouts\LayoutImpactPageData;
-use Capell\Admin\Data\Layouts\LayoutImpactPreviewData;
-use Capell\Admin\Data\Layouts\LayoutImpactUrlData;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Data\EditorImpact\EditorImpactPageData;
+use Capell\Core\Data\EditorImpact\EditorImpactPreviewData;
+use Capell\Core\Data\EditorImpact\EditorImpactUrlData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -26,7 +26,7 @@ final class BuildLayoutImpactPreviewAction
     use AsFake;
     use AsObject;
 
-    public function handle(Layout $layout): ?LayoutImpactPreviewData
+    public function handle(Layout $layout): ?EditorImpactPreviewData
     {
         if (! $this->canUpdateLayout($layout)) {
             return null;
@@ -58,34 +58,34 @@ final class BuildLayoutImpactPreviewAction
         }
 
         $impactPages = $pages
-            ->map(fn (Page $page): LayoutImpactPageData => $this->pageData($page))
-            ->sortBy(fn (LayoutImpactPageData $page): string => $page->site . '|' . $page->name . '|' . $page->type)
+            ->map(fn (Page $page): EditorImpactPageData => $this->pageData($page))
+            ->sortBy(fn (EditorImpactPageData $page): string => $page->site . '|' . $page->name . '|' . $page->type)
             ->values();
 
-        return new LayoutImpactPreviewData(
+        return new EditorImpactPreviewData(
             pageCount: $impactPages->count(),
             siteCount: $pages->pluck('site_id')->unique()->count(),
             localeCount: $impactPages
-                ->flatMap(fn (LayoutImpactPageData $page): array => $page->locales)
+                ->flatMap(fn (EditorImpactPageData $page): array => $page->locales)
                 ->unique()
                 ->count(),
             pages: array_values($impactPages->all()),
         );
     }
 
-    private function pageData(Page $page): LayoutImpactPageData
+    private function pageData(Page $page): EditorImpactPageData
     {
         $site = $page->getRelation('site');
         $urls = collect($page->pageUrls)
             ->filter(fn (PageUrl $pageUrl): bool => $pageUrl->status && ! $pageUrl->isRedirect())
-            ->map(fn (PageUrl $pageUrl): LayoutImpactUrlData => new LayoutImpactUrlData(
+            ->map(fn (PageUrl $pageUrl): EditorImpactUrlData => new EditorImpactUrlData(
                 locale: $this->locale($pageUrl),
                 url: $this->publicUrl($pageUrl),
             ))
-            ->sortBy(fn (LayoutImpactUrlData $url): string => $url->locale . '|' . $url->url)
+            ->sortBy(fn (EditorImpactUrlData $url): string => $url->locale . '|' . $url->url)
             ->values();
 
-        return new LayoutImpactPageData(
+        return new EditorImpactPageData(
             name: (string) $page->getAttribute('name'),
             type: class_basename($page),
             site: $site instanceof Site

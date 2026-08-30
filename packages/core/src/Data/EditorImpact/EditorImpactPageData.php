@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Capell\Admin\Data\Layouts;
+namespace Capell\Core\Data\EditorImpact;
 
 use Spatie\LaravelData\Data;
 
-final class LayoutImpactPageData extends Data
+final class EditorImpactPageData extends Data
 {
     /**
      * @param  list<string>  $locales
-     * @param  list<LayoutImpactUrlData>  $urls
+     * @param  list<EditorImpactUrlData>  $urls
      */
     public function __construct(
         public readonly string $name,
