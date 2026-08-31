@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 use Capell\Admin\Data\Dashboard\CapellOverviewStatData;
 use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Filament\Configurators\Languages\DefaultLanguageConfigurator;
+use Capell\Admin\Filament\Pages\SettingsPage;
+use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
+use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Settings\AdminSettingsSchema;
 use Capell\Admin\Filament\Settings\CoreSettingsSchema;
 use Capell\Admin\Filament\Settings\Schemas\DashboardSettingsSchema;
@@ -31,13 +36,16 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioLaunchReadiness
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
+use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\DefaultPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\HomePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\MaintenancePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\NotFoundPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\SystemPageBlueprintInterceptor;
 use Capell\Admin\Support\Routing\AdminFrontendRouteReservationContributor;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\FrontendRouteReservationContributor;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
@@ -45,9 +53,55 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
+use Filament\Panel;
 use Filament\Support\Icons\Heroicon;
+
+it('registers Core before Admin when Admin is registered first', function (): void {
+    $loadedProviders = new ReflectionProperty($this->app, 'loadedProviders');
+    $serviceProviders = new ReflectionProperty($this->app, 'serviceProviders');
+    $booted = new ReflectionProperty($this->app, 'booted');
+    $originalLoadedProviders = $loadedProviders->getValue($this->app);
+    $originalServiceProviders = $serviceProviders->getValue($this->app);
+    $originalBooted = $booted->getValue($this->app);
+
+    $providersWithoutCore = $originalLoadedProviders;
+    $serviceProvidersWithoutCore = $originalServiceProviders;
+    unset($providersWithoutCore[CapellServiceProvider::class], $serviceProvidersWithoutCore[CapellServiceProvider::class]);
+
+    $loadedProviders->setValue($this->app, $providersWithoutCore);
+    $serviceProviders->setValue($this->app, $serviceProvidersWithoutCore);
+    $booted->setValue($this->app, false);
+
+    try {
+        new AdminServiceProvider($this->app)->registeringPackage();
+
+        expect($this->app->providerIsLoaded(CapellServiceProvider::class))->toBeTrue()
+            ->and(resolve(RecordsExtensionContributionReceipt::class))
+            ->toBeInstanceOf(RecordsExtensionContributionReceipt::class)
+            ->and(resolve(PackageSurfaceRegistrar::class))
+            ->toBeInstanceOf(PackageSurfaceRegistrar::class);
+
+        resolve(AdminRuntimeActivator::class)->prepare();
+
+        $plugin = resolve(CapellAdminPlugin::class);
+        $panel = Panel::make()->id('admin-first-provider-order');
+        $plugin->register($panel);
+
+        expect(array_count_values($panel->getPages())[SettingsPage::class] ?? 0)->toBe(1)
+            ->and(array_count_values($panel->getResources())[LayoutResource::class] ?? 0)->toBe(1)
+            ->and(CapellAdmin::getAdminSurfaceRegistry()->resources())
+            ->toContain(ResourceEnum::Layout->value)
+            ->and(CapellAdmin::getAdminSurfaceRegistry()->configuratorsForGroup('Languages'))
+            ->toBe(['Default' => DefaultLanguageConfigurator::class]);
+    } finally {
+        $loadedProviders->setValue($this->app, $originalLoadedProviders);
+        $serviceProviders->setValue($this->app, $originalServiceProviders);
+        $booted->setValue($this->app, $originalBooted);
+    }
+});
 
 it('registers the admin frontend route reservation contribution', function (): void {
     $contributors = collect($this->app->tagged(FrontendRouteReservationContributor::TAG));

@@ -570,6 +570,13 @@ class CapellAdminPlugin implements Plugin
         $classes = [];
 
         foreach (CapellCore::getInstalledPackages() as $package) {
+            // Admin's own built-ins are registered from ResourceEnum/PageEnum
+            // by AdminRuntimeActivator. Discovering this package as an
+            // installed extension registers the same key a second time.
+            if ($package->name === AdminServiceProvider::$packageName) {
+                continue;
+            }
+
             if (! is_string($package->path)) {
                 continue;
             }

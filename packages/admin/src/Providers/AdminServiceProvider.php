@@ -297,6 +297,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     public function registeringPackage(): void
     {
+        // Composer's package manifest is alphabetical, so Admin can be
+        // registered before Core even though every Admin surface depends on
+        // Core's contribution registrar and receipt contract.
+        if (! $this->app->providerIsLoaded(CapellServiceProvider::class)) {
+            $this->app->register(CapellServiceProvider::class);
+        }
+
         parent::registeringPackage();
 
         $this->app->singleton(StaticSiteGenerationDispatcher::class, UnavailableStaticSiteGenerationDispatcher::class);

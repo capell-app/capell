@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
+use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestLatePage;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestLateResource;
 use Filament\Panel;
@@ -106,6 +107,19 @@ it('can resynchronize late admin-surface contributions onto the panel', function
 
     expect($panel->getPages())->toContain(TestLatePage::class)
         ->and($panel->getResources())->toContain(TestLateResource::class);
+});
+
+it('does not rediscover the admin package built-in resources', function (): void {
+    $plugin = CapellAdminPlugin::make();
+    CapellAdmin::clearAdminSurfaceContributions();
+
+    $discoverResources = Closure::bind(
+        fn (): array => $this->discoverInstalledPackageFilamentResources(),
+        $plugin,
+        $plugin::class,
+    );
+
+    expect($discoverResources())->not->toContain(LayoutResource::class);
 });
 
 it('removes resources that no longer register with the panel during resync', function (): void {
