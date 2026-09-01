@@ -38,6 +38,7 @@ use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamen
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Widgets\Widget;
@@ -275,7 +276,11 @@ it('only passes page filters to widgets that declare the property', function ():
     ]);
 
     expect($components)->toHaveCount(1)
-        ->and($components[0]->getData())->not->toHaveKey('pageFilters');
+        ->and($components[0])->toBeInstanceOf(Livewire::class);
+
+    assert($components[0] instanceof Livewire);
+
+    expect($components[0]->getData())->not->toHaveKey('pageFilters');
 });
 
 it('keeps dashboard tools and customisation out of dashboard header actions', function (): void {
