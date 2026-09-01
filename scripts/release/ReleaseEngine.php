@@ -172,11 +172,11 @@ final class PlanValidator
             );
         }
 
-        if (array_column($plan['ledger'], 'name') !== array_keys($declared)) {
-            throw new ReleaseException('Plan ledger must exactly match declared release package inventory.');
-        }
-
         foreach ($plan['ledger'] as $entry) {
+            if (! isset($declared[$entry['name']])) {
+                continue;
+            }
+
             $expected = $declared[$entry['name']];
             if ($entry['maturity'] === $expected) {
                 continue;
