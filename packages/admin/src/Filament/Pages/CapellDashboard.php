@@ -181,7 +181,7 @@ class CapellDashboard extends Dashboard
                         ] : $widget::getDefaultProperties()),
                         ...(property_exists($widgetClass, 'pageFilters') ? ['pageFilters' => $this->filters] : []),
                     ],
-                )->key("{$widgetClass}-{$widgetKey}")->liberatedFromContainerGrid();
+                )->key(sprintf('%s-%d', $widgetClass, $widgetKey))->liberatedFromContainerGrid();
             })
             ->all();
     }
