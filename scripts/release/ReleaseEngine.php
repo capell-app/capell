@@ -560,6 +560,15 @@ final class ReleaseEngine
     public function publish(array $plan, string $planPath): void
     {
         (new PlanValidator)->validate($plan);
+        // validate() checks plan structure only. The declared maturity in
+        // config/release-packages.json is what decides whether a tag is cut as
+        // stable or beta, and publication is irreversible: once the tag exists
+        // at the wrong stability, consumers have already resolved it. The plan
+        // reaching publish() is not always the one plan() produced -- the App's
+        // fast-release lane regenerates it, rewrites it with jq on its no-op
+        // paths, and validates only the baseline -- so re-assert declarations
+        // here, against the definitions on disk at publication time.
+        PlanValidator::assertDeclaredMaturity($plan, $this->releaseDefinitions());
         $planHash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : ['plan_sha256' => $planHash, 'source_commit' => $plan['source']['commit'], 'packages' => []];

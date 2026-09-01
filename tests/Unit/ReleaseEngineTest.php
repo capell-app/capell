@@ -267,7 +267,12 @@ it('publishes without retired eligibility or preflight gates', function (): void
     $path = tempnam(sys_get_temp_dir(), 'release-plan-');
     try {
         $plan = releaseEnginePlan($sha, $tree);
-        new ReleaseEngine(dirname(__DIR__, 2), $runner)->publish($plan, $path);
+        // publish() now re-asserts declared maturity, which compares the plan
+        // ledger against the root's config/release-packages.json. This case is
+        // about the retired eligibility/preflight gates, not the real package
+        // inventory, so give it a root whose declarations match its one-package
+        // plan rather than the repository's own five-package inventory.
+        new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
 
         $commands = array_map(static fn (array $command): string => implode(' ', $command), $runner->commands);
         $state = json_decode((string) file_get_contents($path . '.state.json'), true, 512, JSON_THROW_ON_ERROR);
@@ -1106,4 +1111,44 @@ it('resumes a matching tag without retired preflight state', function (): void {
         ->and($state['packages']['capell-app/core']['tag_sha'])->toBe($split);
     @unlink($path);
     @unlink($path . '.state.json');
+});
+
+it('refuses to publish a plan whose maturity contradicts the declared inventory', function (): void {
+    // The gap this closes: the App's fast-release lane runs `release.php publish`
+    // and `release.php verify` and never `validate`, so before this guard the
+    // only caller of assertDeclaredMaturity on the real release path was a check
+    // against the previous baseline. A declaration flipped after the plan was
+    // generated would have cut an immutable stable tag for a beta package.
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $runner = new class implements CommandRunner
+    {
+        public array $commands = [];
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+
+            return ['output' => '', 'exitCode' => 0];
+        }
+    };
+
+    $plan = releaseEnginePlan($sha, $tree);
+    $root = releaseEngineRootForPlan($plan);
+    $definitionsPath = $root . '/config/release-packages.json';
+    $definitions = json_decode((string) file_get_contents($definitionsPath), true, 512, JSON_THROW_ON_ERROR);
+    $definitions[0]['maturity'] = 'beta';
+    file_put_contents($definitionsPath, json_encode($definitions, JSON_THROW_ON_ERROR));
+
+    putenv('GH_TOKEN=test-token');
+
+    expect(fn () => new ReleaseEngine($root, $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-')))
+        ->toThrow(
+            ReleaseException::class,
+            'Package capell-app/core declares maturity beta in config/release-packages.json but the plan resolves stable.',
+        );
+
+    // The refusal must land before any remote work: a tag pushed and then
+    // rejected is not a refusal, it is a wrong release with an error after it.
+    expect($runner->commands)->toBeEmpty();
 });
