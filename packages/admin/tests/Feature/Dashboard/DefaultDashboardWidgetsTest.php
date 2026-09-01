@@ -31,6 +31,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFil
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Tests\Feature\Filament\Widgets\Fixtures\UngatedFixtureFilamentWidget;
 use Capell\Core\Models\Site;
 use Capell\Marketplace\Filament\Widgets\MarketplaceCommercialWarningFilamentWidget;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
@@ -42,6 +43,7 @@ use Filament\Schemas\Schema;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Auth;
 use ReflectionMethod;
+use ReflectionProperty;
 
 uses(CreatesAdminUser::class);
 
@@ -260,6 +262,20 @@ it('consumes dashboard panel regions in the composed widget shell', function ():
     expect($sections)->not->toBeEmpty()
         ->and($sections[0])->toBeInstanceOf(Section::class)
         ->and($sections)->toHaveCount(5);
+});
+
+it('only passes page filters to widgets that declare the property', function (): void {
+    Auth::login(test()->createUserWithRole('super_admin'));
+    $dashboard = new CapellDashboard;
+    $filters = new ReflectionProperty($dashboard, 'filters');
+    $filters->setValue($dashboard, ['date_range' => 'today']);
+
+    $components = $dashboard->getWidgetsSchemaComponents([
+        UngatedFixtureFilamentWidget::class,
+    ]);
+
+    expect($components)->toHaveCount(1)
+        ->and($components[0]->getData())->not->toHaveKey('pageFilters');
 });
 
 it('keeps dashboard tools and customisation out of dashboard header actions', function (): void {
