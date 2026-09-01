@@ -39,7 +39,21 @@ final class StylesheetRecoveryRenderer
         $nonce = $this->vite->cspNonce();
         $nonceAttribute = is_string($nonce) && $nonce !== '' ? ' nonce="' . e($nonce) . '"' : '';
 
-        return '<script src="' . e($runtimeUrl) . '" defer' . $nonceAttribute . ' data-capell-stylesheet-recovery-runtime></script>';
+        // Deliberately NOT deferred. The runtime works purely by registering
+        // capture-phase 'error' and 'load' listeners on document; it performs no
+        // retrospective scan for stylesheets that already failed. A deferred
+        // script executes only after the document has been parsed, by which time
+        // the recovery-eligible <link> has already been requested and may have
+        // already fired its error event - so the listener is registered too late
+        // to see it, and recovery silently never happens for exactly the case it
+        // exists to handle: a stylesheet failing on initial load.
+        //
+        // The tag must therefore execute inline, before the stylesheet link is
+        // parsed. That ordering is asserted by frontend-optimizer's
+        // RenderProfileAssetRendererTest and documented in its
+        // docs/critical-css.md ("load stylesheet-recovery.js before the
+        // stylesheet").
+        return '<script src="' . e($runtimeUrl) . '"' . $nonceAttribute . ' data-capell-stylesheet-recovery-runtime></script>';
     }
 
     private function fallbackUrl(): ?string
