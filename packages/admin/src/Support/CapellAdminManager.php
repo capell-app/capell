@@ -378,13 +378,7 @@ class CapellAdminManager
             AdminSurfaceContributionType::Configurator => ExtensionContributionType::Configurator,
             AdminSurfaceContributionType::SchemaExtender => ExtensionContributionType::SchemaExtender,
         };
-        resolve(RecordsExtensionContributionReceipt::class)->recordContribution(
-            $type,
-            $contribution->key,
-            $contribution->class,
-            self::class,
-            'admin',
-        );
+        $this->adminReceipt($type, $contribution->key, $contribution->class);
     }
 
     /**
@@ -496,12 +490,15 @@ class CapellAdminManager
                 ? ExtensionContributionReceiptContext::foundation($packageName, 'admin', $bridge::class)
                 : ExtensionContributionReceiptContext::forPackage($packageName, 'admin', $bridge::class);
 
-            resolve(BootsExtensionContributionReceiptContext::class)->withContext(
-                $receiptContext,
-                function () use ($bridge, $registrar, $context): void {
-                    $bridge->register($registrar, $context);
-                },
-            );
+            $registerBridge = function () use ($bridge, $registrar, $context): void {
+                $bridge->register($registrar, $context);
+            };
+
+            if (app()->bound(BootsExtensionContributionReceiptContext::class)) {
+                resolve(BootsExtensionContributionReceiptContext::class)->withContext($receiptContext, $registerBridge);
+            } else {
+                $registerBridge();
+            }
 
             $this->bootedAdminBridges[$bootKey] = true;
         }

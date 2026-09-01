@@ -11,8 +11,10 @@ use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Illuminate\Container\Container;
 
 it('registers built in resources and pages as contributions', function (): void {
     $registerConfigurators = new ReflectionMethod(CapellAdminPlugin::class, 'registerConfigurators');
@@ -74,4 +76,27 @@ it('filters contributions by type', function (): void {
 
     expect(CapellAdmin::getAdminSurfaceContributions(AdminSurfaceContributionType::Page))->toHaveCount(1)
         ->and(CapellAdmin::getAdminSurfaceContributions(AdminSurfaceContributionType::Resource))->toBe([]);
+});
+
+it('still contributes an admin surface when the receipt recorder is not bound', function (): void {
+    // Regression: package test harnesses can contribute admin surfaces before
+    // Core's service provider has aliased RecordsExtensionContributionReceipt.
+    // An unguarded resolve() threw BindingResolutionException and took the whole
+    // companion-package suite down (87 failures in capell-packages-4/bookings).
+    CapellAdmin::clearAdminSurfaceContributions();
+
+    $manager = CapellAdmin::getFacadeRoot();
+    $original = Container::getInstance();
+
+    try {
+        Container::setInstance(new Container);
+
+        expect(Container::getInstance()->bound(RecordsExtensionContributionReceipt::class))->toBeFalse();
+
+        $manager->contributeToAdminSurface(AdminSurfaceContributionData::page(SettingsPage::class));
+    } finally {
+        Container::setInstance($original);
+    }
+
+    expect(CapellAdmin::getAdminSurfaceRegistry()->pages())->toBe([SettingsPage::class]);
 });
