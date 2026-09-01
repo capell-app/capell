@@ -52,19 +52,31 @@ it('accepts a stable v1 internal minimum', function (string $constraint): void {
     expect(true)->toBeTrue();
 })->with(['^1.0', '^1.0.34']);
 
-it('requires the plan ledger to exactly match the declared release package inventory', function (array $definitions): void {
+it('allows the declared release inventory to add or retire packages around a published baseline', function (array $definitions): void {
     $plan = releaseEnginePlan(str_repeat('a', 40), str_repeat('b', 40));
 
-    expect(fn () => PlanValidator::assertDeclaredMaturity($plan, $definitions))
-        ->toThrow(ReleaseException::class, 'Plan ledger must exactly match declared release package inventory.');
+    PlanValidator::assertDeclaredMaturity($plan, $definitions);
+
+    expect(true)->toBeTrue();
 })->with([
-    'missing declaration' => [[]],
-    'unknown declaration' => [[['name' => 'capell-app/admin', 'maturity' => 'stable']]],
-    'additional declaration' => [[
+    'retired package' => [[]],
+    'replacement package' => [[['name' => 'capell-app/admin', 'maturity' => 'stable']]],
+    'new package' => [[
         ['name' => 'capell-app/core', 'maturity' => 'stable'],
         ['name' => 'capell-app/admin', 'maturity' => 'stable'],
     ]],
 ]);
+
+it('requires published packages that remain declared to retain their declared maturity', function (): void {
+    $plan = releaseEnginePlan(str_repeat('a', 40), str_repeat('b', 40));
+
+    expect(fn () => PlanValidator::assertDeclaredMaturity($plan, [
+        ['name' => 'capell-app/core', 'maturity' => 'beta'],
+    ]))->toThrow(
+        ReleaseException::class,
+        'Package capell-app/core declares maturity beta in config/release-packages.json but the plan resolves stable.',
+    );
+});
 
 it('rejects release metadata that does not describe the exact version transition', function (array $package): void {
     expect(fn () => PlanValidator::assertVersionTransition($package))
