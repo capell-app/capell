@@ -6,8 +6,9 @@ use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\CapellCoreManager;
-use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Illuminate\Container\Container as LaravelContainer;
+use Illuminate\Contracts\Container\Container as ContainerContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -22,15 +23,15 @@ final class EarlyPackageSurfaceBindingOrderModel extends Model
 }
 
 it('resolves the surface registrar before its provider binding has been registered', function (): void {
-    app()->offsetUnset(PackageSurfaceRegistrar::class);
-    app()->offsetUnset(ExtensionContributionReceiptRegistry::class);
-    app()->offsetUnset(RecordsExtensionContributionReceipt::class);
-    app()->bind(PackageSurfaceRegistrar::class, PackageSurfaceRegistrar::class);
+    $container = new LaravelContainer;
+    $container->instance(ContainerContract::class, $container);
 
-    expect(resolve(PackageSurfaceRegistrar::class))
-        ->toBeInstanceOf(PackageSurfaceRegistrar::class)
-        ->and(resolve(ExtensionContributionReceiptRegistry::class))
-        ->toBeInstanceOf(ExtensionContributionReceiptRegistry::class);
+    expect($container->bound(PackageSurfaceRegistrar::class))->toBeFalse()
+        ->and($container->bound(RecordsExtensionContributionReceipt::class))->toBeFalse()
+        ->and($container->getAlias(RecordsExtensionContributionReceipt::class))
+        ->toBe(RecordsExtensionContributionReceipt::class)
+        ->and($container->make(PackageSurfaceRegistrar::class))
+        ->toBeInstanceOf(PackageSurfaceRegistrar::class);
 });
 
 it('adopts a manager resolved before provider registration without losing its surfaces', function (): void {
