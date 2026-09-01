@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +20,18 @@ final class EarlyPackageSurfaceBindingOrderModel extends Model
 {
     use HasFactory;
 }
+
+it('resolves the surface registrar before its provider binding has been registered', function (): void {
+    app()->offsetUnset(PackageSurfaceRegistrar::class);
+    app()->offsetUnset(ExtensionContributionReceiptRegistry::class);
+    app()->offsetUnset(RecordsExtensionContributionReceipt::class);
+    app()->bind(PackageSurfaceRegistrar::class, PackageSurfaceRegistrar::class);
+
+    expect(resolve(PackageSurfaceRegistrar::class))
+        ->toBeInstanceOf(PackageSurfaceRegistrar::class)
+        ->and(resolve(ExtensionContributionReceiptRegistry::class))
+        ->toBeInstanceOf(ExtensionContributionReceiptRegistry::class);
+});
 
 it('adopts a manager resolved before provider registration without losing its surfaces', function (): void {
     app()->offsetUnset(CapellCoreManager::class);

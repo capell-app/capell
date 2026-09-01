@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Packages;
 
 use BackedEnum;
-use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Contracts\SettingsSchema;
 use Capell\Core\Data\BlueprintSubjectDescriptorData;
@@ -15,6 +14,7 @@ use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\CapellCoreManager;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -45,7 +45,7 @@ final class PackageSurfaceRegistrar
         private readonly MetricCollectorRegistry $metricCollectors,
         private readonly OutboundEventRegistry $outboundEvents,
         private readonly BlueprintSubjectRegistry $blueprintSubjects,
-        private readonly RecordsExtensionContributionReceipt $receipts,
+        private readonly ExtensionContributionReceiptRegistry $receipts,
     ) {}
 
     /**
