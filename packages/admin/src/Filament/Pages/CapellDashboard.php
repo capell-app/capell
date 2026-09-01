@@ -18,12 +18,14 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -148,6 +150,40 @@ class CapellDashboard extends Dashboard
         return Grid::make($this->getColumns())
             ->schema($regions)
             ->columnSpanFull();
+    }
+
+    /**
+     * @param  array<string | WidgetConfiguration>  $widgets
+     * @param  array<string, mixed>  $data
+     * @return array<Component | Action | ActionGroup>
+     */
+    #[Override]
+    public function getWidgetsSchemaComponents(array $widgets, array $data = []): array
+    {
+        return collect($widgets)
+            ->values()
+            ->filter(function (string|WidgetConfiguration $widget): bool {
+                /** @var class-string<Widget>|WidgetConfiguration $widget */
+                return $this->normalizeWidgetClass($widget)::canView();
+            })
+            ->map(function (string|WidgetConfiguration $widget, int $widgetKey) use ($data): Livewire {
+                /** @var class-string<Widget>|WidgetConfiguration $widget */
+                $widgetClass = $this->normalizeWidgetClass($widget);
+
+                return Livewire::make(
+                    $widgetClass,
+                    fn (): array => [
+                        ...$this->getWidgetData(),
+                        ...$data,
+                        ...(($widget instanceof WidgetConfiguration) ? [
+                            ...$widget->widget::getDefaultProperties(),
+                            ...$widget->getProperties(),
+                        ] : $widget::getDefaultProperties()),
+                        ...(property_exists($widgetClass, 'pageFilters') ? ['pageFilters' => $this->filters] : []),
+                    ],
+                )->key(sprintf('%s-%d', $widgetClass, $widgetKey))->liberatedFromContainerGrid();
+            })
+            ->all();
     }
 
     /**
