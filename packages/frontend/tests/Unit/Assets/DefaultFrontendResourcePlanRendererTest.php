@@ -88,7 +88,7 @@ it('defers the stylesheet recovery runtime while keeping critical stylesheets bl
     throw_if($runtimePosition === false || $stylesheetPosition === false, RuntimeException::class, 'Recovery markup is incomplete.');
 
     expect($rendered->headHtml)
-        ->toContain('<script src="/vendor/capell-frontend/stylesheet-recovery.js" defer nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime></script>')
+        ->toContain('<script src="/vendor/capell-frontend/stylesheet-recovery.js" nonce="recovery-nonce" data-capell-stylesheet-recovery-runtime></script>')
         ->toContain('<link rel="stylesheet" href="https://cdn.example.com/build/assets/frontend-old.css"')
         ->toContain('data-capell-stylesheet-recovery')
         ->toContain('data-capell-stylesheet-fallback="/build/fallback/resources/css/capell/frontend.css"')
