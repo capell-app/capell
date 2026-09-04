@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'impact_plan_stale' => 'This impact preview is out of date. Review the updated impact preview, then save again.',
     'asset_added' => 'Asset added successfully.',
     'asset_created_successfully' => 'Asset ":name" created successfully.',
     'assets_removed_save_layout' => 'Assets removed successfully. Save the layout to apply changes.',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Layouts\Pages;
 
+use Capell\Admin\Actions\Layouts\BuildLayoutImpactPreviewAction;
 use Capell\Admin\Actions\ReplicateLayoutAction;
 use Capell\Admin\Enums\ListenerEnum;
 use Capell\Admin\Enums\ResourceEnum;
@@ -18,6 +19,8 @@ use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\Layouts\LayoutCardData;
+use Capell\Core\Actions\ContentGraph\ReconcileContentImpactAction;
+use Capell\Core\Data\EditorImpact\EditorImpactPreviewData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
 use Filament\Actions\ActionGroup;
@@ -27,6 +30,8 @@ use Filament\Resources\Pages\EditRecord;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Override;
 
 /**
@@ -39,6 +44,13 @@ class EditLayout extends EditRecord implements ValidatesDelete
     use HasExtensibleRecordHeading;
     use LayoutValidation;
 
+    #[Locked]
+    public ?string $impactPlanFingerprint = null;
+
+    /** @var list<string> */
+    #[Locked]
+    public array $impactPlanSurfaces = [];
+
     /** @return class-string<LayoutResource> */
     #[Override]
     public static function getResource(): string
@@ -47,6 +59,13 @@ class EditLayout extends EditRecord implements ValidatesDelete
         $resource = AdminSurfaceLookup::resource(ResourceEnum::Layout);
 
         return $resource;
+    }
+
+    #[Override]
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+        $this->rememberImpactPlan();
     }
 
     #[Override]
@@ -77,9 +96,25 @@ class EditLayout extends EditRecord implements ValidatesDelete
 
     protected function afterSave(): void
     {
+        $this->reconcileImpactPlan();
         $this->notifyEditRecordHeadingSaved();
 
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::AfterSave, $this);
+    }
+
+    protected function beforeSave(): void
+    {
+        $preview = BuildLayoutImpactPreviewAction::run($this->record);
+
+        if ($preview === null
+            || $this->impactPlanFingerprint === null
+            || ! hash_equals($this->impactPlanFingerprint, $preview->fingerprint)) {
+            throw ValidationException::withMessages([
+                'data.impactPlanFingerprint' => __('capell-admin::message.impact_plan_stale'),
+            ]);
+        }
+
+        $this->impactPlanSurfaces = $preview->surfaceKeys();
     }
 
     #[Override]
@@ -143,5 +178,36 @@ class EditLayout extends EditRecord implements ValidatesDelete
         $title = $this->getRecordTitle();
 
         return $title instanceof Htmlable ? $title->toHtml() : $title;
+    }
+
+    private function rememberImpactPlan(): void
+    {
+        $preview = BuildLayoutImpactPreviewAction::run($this->record);
+
+        $this->impactPlanFingerprint = $preview?->fingerprint;
+        $this->impactPlanSurfaces = $preview?->surfaceKeys() ?? [];
+    }
+
+    private function reconcileImpactPlan(): void
+    {
+        if ($this->impactPlanFingerprint === null) {
+            return;
+        }
+
+        $this->record->refresh();
+        $actualPreview = BuildLayoutImpactPreviewAction::run($this->record);
+
+        if (! $actualPreview instanceof EditorImpactPreviewData) {
+            return;
+        }
+
+        ReconcileContentImpactAction::run(
+            $this->record,
+            $this->impactPlanSurfaces,
+            $actualPreview->surfaceKeys(),
+        );
+
+        $this->impactPlanFingerprint = $actualPreview->fingerprint;
+        $this->impactPlanSurfaces = $actualPreview->surfaceKeys();
     }
 }
