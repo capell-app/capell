@@ -5,10 +5,16 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Media\BuildMediaUsageItemsAction;
 use Capell\Admin\Contracts\Extenders\MediaEditActionExtender;
 use Capell\Admin\Filament\Resources\Media\Pages\EditMedia;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
+use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
 use Capell\Core\Models\AssetAttachment;
+use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media as CapellMedia;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
@@ -91,6 +97,55 @@ function createEditableImageMedia(): CapellMedia
 
     return $media;
 }
+
+it('shows shared media impact before the media item is saved', function (): void {
+    test()->actingAsAdmin();
+
+    $language = Language::factory()->english()->createOne();
+    $site = Site::factory()
+        ->language($language)
+        ->withTranslations($language, siteDomainData: [
+            'domain' => 'example.test',
+            'scheme' => 'http',
+            'path' => null,
+        ])
+        ->createOne();
+    $layout = Layout::factory()->site($site)->createOne(['name' => 'Shared layout']);
+    $page = Page::factory()->site($site)->layout($layout)->createOne(['name' => 'Shared landing']);
+    PageUrl::factory()->page($page)->site($site)->language($language)->createOne(['url' => '/landing']);
+    $media = CapellMedia::factory()->model($page)->createOne(['name' => 'Shared hero']);
+
+    ContentGraphEdge::query()->create([
+        'source_type' => Page::class,
+        'source_id' => $page->getKey(),
+        'target_type' => CapellMedia::class,
+        'target_id' => $media->getKey(),
+        'kind' => ContentGraphEdgeKind::UsesMedia,
+        'strength' => ContentGraphEdgeStrength::Strong,
+        'source_package' => 'capell-app/core',
+    ]);
+    ContentGraphEdge::query()->create([
+        'source_type' => Layout::class,
+        'source_id' => $layout->getKey(),
+        'target_type' => CapellMedia::class,
+        'target_id' => $media->getKey(),
+        'kind' => ContentGraphEdgeKind::UsesMedia,
+        'strength' => ContentGraphEdgeStrength::Strong,
+        'source_package' => 'capell-app/core',
+    ]);
+
+    Livewire::test(EditMedia::class, [
+        'record' => $media->getRouteKey(),
+    ])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::media.impact_preview'))
+        ->assertSee(__('capell-admin::media.impact_preview_exact'))
+        ->assertSee('Shared landing')
+        ->assertSee('Shared layout')
+        ->assertSee($site->name)
+        ->assertSee('http://example.test/landing')
+        ->assertSee(__('capell-core::generic.content_impact_consequence_strong'));
+});
 
 it('loads focal point and crop preset state for an image', function (): void {
     $media = createEditableImageMedia();
