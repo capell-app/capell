@@ -15,6 +15,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Impact\ImpactPlanFingerprint;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -62,7 +63,7 @@ final class BuildLayoutImpactPreviewAction
             ->sortBy(fn (EditorImpactPageData $page): string => $page->site . '|' . $page->name . '|' . $page->type)
             ->values();
 
-        return new EditorImpactPreviewData(
+        $preview = new EditorImpactPreviewData(
             pageCount: $impactPages->count(),
             siteCount: $pages->pluck('site_id')->unique()->count(),
             localeCount: $impactPages
@@ -70,6 +71,10 @@ final class BuildLayoutImpactPreviewAction
                 ->unique()
                 ->count(),
             pages: array_values($impactPages->all()),
+        );
+
+        return $preview->withFingerprint(
+            ImpactPlanFingerprint::for($layout, $preview->planPayload()),
         );
     }
 

@@ -9,6 +9,7 @@ return [
     'content_impact_consequence_strong' => 'Directly depends on this content.',
     'content_impact_consequence_weak' => 'May need review after this content changes.',
     'black' => 'Black',
+    'content_impact_reconciliation' => 'Content impact reconciliation',
     'daily' => 'Daily',
     'danger' => 'Danger',
     'dark_gray' => 'Dark gray',

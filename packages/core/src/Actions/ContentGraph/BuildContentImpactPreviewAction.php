@@ -16,6 +16,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Impact\ImpactPlanFingerprint;
 use Closure;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
@@ -41,7 +42,7 @@ final class BuildContentImpactPreviewAction
 
         $sourceRecords = $this->resolveSourceRecords($dependentEdges, $visible);
 
-        return new ContentImpactPreviewData(
+        $preview = new ContentImpactPreviewData(
             blocked: $sourceRecords->contains(
                 fn (array $sourceRecord): bool => $sourceRecord['strongestStrength'] === ContentGraphEdgeStrength::Strong,
             ),
@@ -49,6 +50,10 @@ final class BuildContentImpactPreviewAction
             weakCount: $sourceRecords->where('strongestStrength', ContentGraphEdgeStrength::Weak)->count(),
             informationalCount: $sourceRecords->where('strongestStrength', ContentGraphEdgeStrength::Informational)->count(),
             groups: $this->buildGroups($sourceRecords),
+        );
+
+        return $preview->withFingerprint(
+            ImpactPlanFingerprint::for($target, $preview->planPayload()),
         );
     }
 
