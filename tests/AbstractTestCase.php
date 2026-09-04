@@ -210,6 +210,38 @@ abstract class AbstractTestCase extends TestCase
     }
 
     #[Override]
+    protected function resolveApplicationConfiguration(mixed $app): void
+    {
+        if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true' && $app instanceof Application) {
+            // Testbench creates AND FULLY BOOTS the application inside the runtime-role
+            // bootstrap file (config resolved, providers registered, config merged by
+            // those providers), then runs this same resolveApplicationConfiguration()
+            // step again around that already-booted instance. Testbench's own
+            // LoadConfiguration bootstrap (Orchestra\Testbench\Bootstrap\LoadConfiguration)
+            // unconditionally rebuilds the config repository from an empty array and
+            // reloads only the skeleton's config/*.php files — it has no knowledge of
+            // config merged by already-registered service providers via
+            // mergeConfigFrom(). Because those providers (Filament's SupportServiceProvider
+            // included) already registered during the first boot, Laravel never re-runs
+            // their register() method on this second pass, so package config merged
+            // in the first boot (e.g. filament.default_filesystem_disk) is silently
+            // dropped and never restored. That is CAP-0501: ImageColumn::getDiskName()
+            // then reads a null default disk and throws a TypeError, but only when this
+            // runtime-role bootstrap runs the app through two config-loading passes,
+            // which is only wired up when CAPELL_TESTBENCH_RUNTIME_ROLE is set (the
+            // Coverage CI job). Re-running configuration resolution here would
+            // reproduce that data loss, so skip it and just keep the role-specific
+            // cache paths pinned on the environment, mirroring what
+            // resolveApplicationBootstrappers() already does for the provider phase.
+            RuntimeRoleBootstrap::configureResolvedEnvironment($app);
+
+            return;
+        }
+
+        parent::resolveApplicationConfiguration($app);
+    }
+
+    #[Override]
     protected function resolveApplicationBootstrappers(mixed $app): void
     {
         if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true' && $app instanceof Application) {
