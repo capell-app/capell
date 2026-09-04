@@ -479,7 +479,7 @@ it('denies update of a specific page for an editor whose role is scoped to a dif
     expect($this->user->can('update', $this->page))->toBeFalse();
 });
 
-it('allows view of a specific page once the active site matches the editor role\'s assigned site', function (): void {
+it("allows view of a specific page once the active site matches the editor role's assigned site", function (): void {
     config(['permission.teams' => true]);
     resolve(PermissionRegistrar::class)->teams = true;
 
