@@ -6,13 +6,26 @@ use Capell\Core\Actions\ContentGraph\BuildContentImpactPreviewAction;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
 use Capell\Core\Models\ContentGraphEdge;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 
 it('groups dependents by model type and reports delete safety', function (): void {
-    $page = Page::factory()->createOne();
-    $layout = Layout::factory()->createOne();
+    $language = Language::factory()->english()->createOne();
+    $site = Site::factory()
+        ->language($language)
+        ->withTranslations($language, siteDomainData: [
+            'domain' => 'example.test',
+            'scheme' => 'http',
+            'path' => null,
+        ])
+        ->createOne();
+    $page = Page::factory()->site($site)->createOne(['name' => 'Shared landing']);
+    $layout = Layout::factory()->site($site)->createOne();
+
+    PageUrl::factory()->page($page)->site($site)->language($language)->createOne(['url' => '/landing']);
 
     ContentGraphEdge::query()->create([
         'source_type' => Page::class,
@@ -29,7 +42,14 @@ it('groups dependents by model type and reports delete safety', function (): voi
     expect($preview->blocked)->toBeTrue()
         ->and($preview->groups)->toHaveCount(1)
         ->and($preview->groups[0]->label)->toBe('Pages')
-        ->and($preview->groups[0]->count)->toBe(1);
+        ->and($preview->groups[0]->count)->toBe(1)
+        ->and($preview->groups[0]->dependencies[0]->name)->toBe('Shared landing')
+        ->and($preview->groups[0]->dependencies[0]->type)->toBe('Page')
+        ->and($preview->groups[0]->dependencies[0]->site)->toBe($site->name)
+        ->and($preview->groups[0]->dependencies[0]->locales)->toBe(['en'])
+        ->and($preview->groups[0]->dependencies[0]->urls[0]->url)->toBe('http://example.test/landing')
+        ->and($preview->groups[0]->dependencies[0]->consequence)
+        ->toBe(__('capell-core::generic.content_impact_consequence_strong'));
 });
 
 it('returns an empty preview when the target has no dependents', function (): void {
@@ -63,7 +83,8 @@ it('counts multiple edges from the same source record once by strongest strength
         ->and($preview->groups)->toHaveCount(1)
         ->and($preview->groups[0]->strongestStrength)->toBe(ContentGraphEdgeStrength::Strong)
         ->and($preview->groups[0]->count)->toBe(2)
-        ->and($preview->groups[0]->recordIds)->toBe([$strongPage->id, $weakPage->id]);
+        ->and(collect($preview->groups[0]->dependencies)->pluck('name')->sort()->values()->all())
+        ->toBe(collect([$strongPage->name, $weakPage->name])->sort()->values()->all());
 });
 
 it('counts weak and informational source records correctly', function (): void {
@@ -86,7 +107,7 @@ it('counts weak and informational source records correctly', function (): void {
         ->and($preview->groups[0]->count)->toBe(2);
 });
 
-it('groups multiple source model blueprints with labels strongest strengths counts and record ids', function (): void {
+it('groups multiple source models with editor-facing labels and dependencies', function (): void {
     $page = Page::factory()->createOne();
     $firstSite = Site::factory()->createOne();
     $secondSite = Site::factory()->createOne();
@@ -98,21 +119,39 @@ it('groups multiple source model blueprints with labels strongest strengths coun
     createContentImpactPreviewEdge($secondSite, $layout, ContentGraphEdgeStrength::Informational);
 
     $preview = BuildContentImpactPreviewAction::run($layout);
-    $groups = collect($preview->groups)->keyBy('modelType');
+    $groups = collect($preview->groups)->keyBy('label');
 
     expect($preview->blocked)->toBeFalse()
         ->and($preview->strongCount)->toBe(0)
         ->and($preview->weakCount)->toBe(1)
         ->and($preview->informationalCount)->toBe(2)
         ->and($groups)->toHaveCount(2)
-        ->and($groups[Page::class]->label)->toBe('Pages')
-        ->and($groups[Page::class]->strongestStrength)->toBe(ContentGraphEdgeStrength::Informational)
-        ->and($groups[Page::class]->count)->toBe(1)
-        ->and($groups[Page::class]->recordIds)->toBe([$page->id])
-        ->and($groups[Site::class]->label)->toBe('Sites')
-        ->and($groups[Site::class]->strongestStrength)->toBe(ContentGraphEdgeStrength::Weak)
-        ->and($groups[Site::class]->count)->toBe(2)
-        ->and($groups[Site::class]->recordIds)->toBe([$firstSite->id, $secondSite->id]);
+        ->and($groups['Pages']->strongestStrength)->toBe(ContentGraphEdgeStrength::Informational)
+        ->and($groups['Pages']->count)->toBe(1)
+        ->and($groups['Pages']->dependencies[0]->name)->toBe($page->name)
+        ->and($groups['Sites']->label)->toBe('Sites')
+        ->and($groups['Sites']->strongestStrength)->toBe(ContentGraphEdgeStrength::Weak)
+        ->and($groups['Sites']->count)->toBe(2)
+        ->and(collect($groups['Sites']->dependencies)->pluck('name')->sort()->values()->all())
+        ->toBe(collect([$firstSite->name, $secondSite->name])->sort()->values()->all());
+});
+
+it('filters inaccessible dependent models before building the preview', function (): void {
+    $visiblePage = Page::factory()->createOne(['name' => 'Visible page']);
+    $hiddenPage = Page::factory()->createOne(['name' => 'Hidden page']);
+    $layout = Layout::factory()->createOne();
+
+    createContentImpactPreviewEdge($visiblePage, $layout, ContentGraphEdgeStrength::Strong);
+    createContentImpactPreviewEdge($hiddenPage, $layout, ContentGraphEdgeStrength::Strong);
+
+    $preview = BuildContentImpactPreviewAction::run(
+        $layout,
+        fn (Page $page): bool => $page->name === 'Visible page',
+    );
+
+    expect($preview->strongCount)->toBe(1)
+        ->and($preview->groups[0]->count)->toBe(1)
+        ->and($preview->groups[0]->dependencies[0]->name)->toBe('Visible page');
 });
 
 function createContentImpactPreviewEdge(

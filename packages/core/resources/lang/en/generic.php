@@ -5,6 +5,9 @@ declare(strict_types=1);
 return [
     'alias' => 'Alias',
     'alias_description' => 'Serves the target page at an additional URL',
+    'content_impact_consequence_informational' => 'Recorded as an informational dependency.',
+    'content_impact_consequence_strong' => 'Directly depends on this content.',
+    'content_impact_consequence_weak' => 'May need review after this content changes.',
     'black' => 'Black',
     'daily' => 'Daily',
     'danger' => 'Danger',
@@ -68,6 +71,8 @@ return [
     'success' => 'Success',
     'system' => 'System',
     'url' => 'URL',
+    'unknown_site' => 'Unknown site',
+    'unnamed_content' => 'Unnamed :type',
     'warning' => 'Warning',
     'weekly' => 'Weekly',
     'white' => 'White',
