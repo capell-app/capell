@@ -125,6 +125,8 @@ class EditMedia extends EditRecord
     {
         /** @var view-string $usageView */
         $usageView = 'capell-admin::filament.resources.media.usage';
+        /** @var view-string $impactPreviewView */
+        $impactPreviewView = 'capell-admin::filament.resources.media.impact-preview';
 
         return [
             Section::make(__('capell-admin::media.file_heading'))
@@ -198,6 +200,12 @@ class EditMedia extends EditRecord
                         ->columns(2)
                         ->defaultItems(0)
                         ->addActionLabel(__('capell-admin::media.add_locale_metadata'))
+                        ->columnSpanFull(),
+                ]),
+            Section::make(__('capell-admin::media.impact_preview'))
+                ->description(__('capell-admin::media.impact_preview_description'))
+                ->schema([
+                    View::make($impactPreviewView)
                         ->columnSpanFull(),
                 ]),
             Section::make(__('capell-admin::media.usage_heading'))
