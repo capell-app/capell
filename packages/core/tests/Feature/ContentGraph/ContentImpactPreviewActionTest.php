@@ -40,6 +40,7 @@ it('groups dependents by model type and reports delete safety', function (): voi
     $preview = BuildContentImpactPreviewAction::run($layout);
 
     expect($preview->blocked)->toBeTrue()
+        ->and($preview->fingerprint)->toHaveLength(64)
         ->and($preview->groups)->toHaveCount(1)
         ->and($preview->groups[0]->label)->toBe('Pages')
         ->and($preview->groups[0]->count)->toBe(1)
@@ -50,6 +51,25 @@ it('groups dependents by model type and reports delete safety', function (): voi
         ->and($preview->groups[0]->dependencies[0]->urls[0]->url)->toBe('http://example.test/landing')
         ->and($preview->groups[0]->dependencies[0]->consequence)
         ->toBe(__('capell-core::generic.content_impact_consequence_strong'));
+});
+
+it('changes the fingerprint when the target or dependent graph changes', function (): void {
+    $layout = Layout::factory()->createOne();
+
+    $firstPreview = BuildContentImpactPreviewAction::run($layout);
+
+    $page = Page::factory()->createOne();
+    createContentImpactPreviewEdge($page, $layout, ContentGraphEdgeStrength::Strong);
+
+    $secondPreview = BuildContentImpactPreviewAction::run($layout);
+
+    expect($secondPreview->fingerprint)->not->toBe($firstPreview->fingerprint);
+
+    $layout->update(['name' => 'Changed layout']);
+
+    $thirdPreview = BuildContentImpactPreviewAction::run($layout->refresh());
+
+    expect($thirdPreview->fingerprint)->not->toBe($secondPreview->fingerprint);
 });
 
 it('returns an empty preview when the target has no dependents', function (): void {
