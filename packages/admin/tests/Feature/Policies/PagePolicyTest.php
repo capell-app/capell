@@ -11,6 +11,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * PagePolicy ability matrix tests.
@@ -409,4 +410,91 @@ it('allows manageRestrictions when the user has manage_restrictions permission',
     $this->user->givePermissionTo(CapellPermission::ManagePageRestrictions->name());
 
     expect($this->user->can('manageRestrictions', Page::class))->toBeTrue();
+});
+
+// ---------------------------------------------------------------------------
+// site-scoped cross-site denial (CAP-0532)
+//
+// config('permission.teams') is false in production today, so these checks
+// are dormant there. This section proves the direct-record behaviour once
+// the flag is enabled and model_has_roles.team_id is populated (the
+// CAP-0532 backfill target): an editor whose role is scoped to one site
+// must be denied on a *specific record* belonging to another site, not
+// merely see an empty list. Enabling teams here is scoped to this describe
+// block only — afterEach restores the registrar and config so the rest of
+// the suite (which assumes teams are off) is unaffected.
+// ---------------------------------------------------------------------------
+
+afterEach(function (): void {
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId(null);
+    resolve(PermissionRegistrar::class)->teams = false;
+    resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+    config(['permission.teams' => false]);
+});
+
+it('denies view of a specific page for an editor whose role is scoped to a different site', function (): void {
+    config(['permission.teams' => true]);
+    resolve(PermissionRegistrar::class)->teams = true;
+
+    $editorsSite = Site::factory()->createOne();
+    $role = Role::findOrCreate('editor');
+    $role->givePermissionTo('View:Page');
+
+    DB::table('model_has_roles')->insert([
+        'role_id' => $role->getKey(),
+        'model_type' => $this->user->getMorphClass(),
+        'model_id' => $this->user->getKey(),
+        'team_id' => $editorsSite->getKey(),
+    ]);
+
+    // $this->page belongs to $this->site (set up in the top-level
+    // beforeEach) — a different site to the one the editor's role is
+    // scoped to. Activate $this->site's team context, the way
+    // SetSitePermissionScope would when the request resolves to that
+    // site's record.
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId($this->site->getKey());
+    resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    expect($this->user->can('view', $this->page))->toBeFalse();
+});
+
+it('denies update of a specific page for an editor whose role is scoped to a different site', function (): void {
+    config(['permission.teams' => true]);
+    resolve(PermissionRegistrar::class)->teams = true;
+
+    $editorsSite = Site::factory()->createOne();
+    $role = Role::findOrCreate('editor');
+    $role->givePermissionTo('Update:Page');
+
+    DB::table('model_has_roles')->insert([
+        'role_id' => $role->getKey(),
+        'model_type' => $this->user->getMorphClass(),
+        'model_id' => $this->user->getKey(),
+        'team_id' => $editorsSite->getKey(),
+    ]);
+
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId($this->site->getKey());
+    resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    expect($this->user->can('update', $this->page))->toBeFalse();
+});
+
+it("allows view of a specific page once the active site matches the editor role's assigned site", function (): void {
+    config(['permission.teams' => true]);
+    resolve(PermissionRegistrar::class)->teams = true;
+
+    $role = Role::findOrCreate('editor');
+    $role->givePermissionTo('View:Page');
+
+    DB::table('model_has_roles')->insert([
+        'role_id' => $role->getKey(),
+        'model_type' => $this->user->getMorphClass(),
+        'model_id' => $this->user->getKey(),
+        'team_id' => $this->site->getKey(),
+    ]);
+
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId($this->site->getKey());
+    resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    expect($this->user->can('view', $this->page))->toBeTrue();
 });

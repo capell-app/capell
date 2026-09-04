@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 it('keeps package-merged Filament config after the runtime-role bootstrap double-boots the app', function (): void {
     if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') !== 'true') {
-        $this->markTestSkipped('Only reproducible under the Coverage CI job\'s CAPELL_TESTBENCH_RUNTIME_ROLE=true bootstrap.');
+        $this->markTestSkipped("Only reproducible under the Coverage CI job's CAPELL_TESTBENCH_RUNTIME_ROLE=true bootstrap.");
     }
 
     // CAP-0501 regression: Testbench's LoadConfiguration bootstrap rebuilds the
