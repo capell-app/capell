@@ -47,8 +47,15 @@ final class AgentPropertyCacheObserver
 
     private function pageForUrl(PageUrl $url): ?Page
     {
-        $page = $url->pageable;
+        if ($url->pageable_type !== new Page()->getMorphClass()) {
+            return null;
+        }
 
-        return $page instanceof Page && $page->site_id === $url->site_id ? $page : null;
+        $page = Page::query()
+            ->whereKey($url->pageable_id)
+            ->where('site_id', $url->site_id)
+            ->first();
+
+        return $page instanceof Page ? $page : null;
     }
 }
