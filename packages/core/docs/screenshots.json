@@ -29,7 +29,6 @@
             "docsPage": "packages/core/docs/content-management.md",
             "output": "packages/core/docs/images/screenshots/core-settings-backed-configuration.png",
             "required": true,
-            "sameCaptureAs": "admin-settings",
             "notes": "Used where settings-backed content and configuration are introduced."
         }
     ]
