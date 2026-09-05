@@ -11,6 +11,8 @@ use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\Site;
+use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\DB;
 use Workbench\App\Support\RecordStateScreenshotFixture;
@@ -83,7 +85,21 @@ it('denies guests access to record-state fixture routes', function (): void {
 });
 
 it('does not expose a screenshot fixture login endpoint', function (): void {
-    test()->get('/screenshot-fixtures/login')
+    // Request the domain the beforeEach fixture site actually owns. Hitting an
+    // arbitrary/default host here would route through
+    // SiteResolveStep::handle()'s capell-frontend.redirect_default_site branch
+    // (enabled by default, packages/frontend/config/capell-frontend.php) before
+    // page resolution ever runs, turning ANY unmatched path on a foreign host
+    // into a 302 to the canonical domain — a real, unrelated frontend feature,
+    // not a screenshot-fixture route leak. Targeting the resolvable site's own
+    // domain (with its own path prefix, if any) isolates what this test is
+    // actually meant to prove, without writing to the domain (a save() here
+    // fires cache-invalidation listeners unrelated to this assertion).
+    $domain = Site::query()->firstOrFail()->siteDomains()->firstOrFail();
+    $prefix = SiteDomainAddressing::normalizePath($domain->path);
+    $prefix = $prefix === '/' ? '' : $prefix;
+
+    test()->get($domain->root_url . $prefix . '/screenshot-fixtures/login')
         ->assertNotFound();
 });
 
