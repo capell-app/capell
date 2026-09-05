@@ -32,6 +32,7 @@ final class AgentPropertyCacheObserver
             $model instanceof PropertyDefinition => PropertySet::query()->find($model->property_set_id),
             $model instanceof BlueprintPropertySet => Blueprint::query()->find($model->blueprint_id),
             $model instanceof Term => Taxonomy::query()->find($model->taxonomy_id),
+            $model instanceof PropertySet, $model instanceof Taxonomy => $model,
             default => null,
         };
         if ($owner instanceof Model) {

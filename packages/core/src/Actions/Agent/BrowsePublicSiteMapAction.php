@@ -12,11 +12,13 @@ use Capell\Core\Models\Site;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** List anonymous-safe, URL-addressable pages for a site and language. */
 final class BrowsePublicSiteMapAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return LengthAwarePaginator<int, array{url: string, title: string}> */

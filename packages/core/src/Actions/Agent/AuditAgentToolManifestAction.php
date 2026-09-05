@@ -8,11 +8,13 @@ use Capell\Core\Data\Agent\AgentManifestAuditData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Agent\AgentToolDefinitionNormalizer;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Shared, data-only audit for extension checks and Marketplace readiness. */
 final class AuditAgentToolManifestAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param array<string, mixed> $manifest */

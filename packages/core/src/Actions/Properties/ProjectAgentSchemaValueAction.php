@@ -18,12 +18,14 @@ use Capell\Core\Support\Media\MediaModel;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 /** Projects typed values into safe, public schema.org values. */
 final class ProjectAgentSchemaValueAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(AgentPropertyEntryData $entry, ?int $siteId = null, ?Language $language = null): mixed

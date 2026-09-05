@@ -22,8 +22,6 @@ final readonly class AgentBlueprintWriteTool implements AgentAdminTool
 {
     public function __construct(
         private AgentAdminAuthorization $authorization,
-        private CreateAgentBlueprintAction $create,
-        private UpdateBlueprintAction $update,
     ) {}
 
     public function definition(): AgentToolDefinitionData
@@ -107,8 +105,8 @@ final readonly class AgentBlueprintWriteTool implements AgentAdminTool
         $operation = (string) $invocation->payload['operation'];
         $data = $this->data($invocation, $operation);
         $blueprint = $operation === 'create'
-            ? $this->create->handle($data)
-            : $this->update->handle(Blueprint::query()->whereKey((int) $invocation->payload['id'])->firstOrFail(), $data);
+            ? CreateAgentBlueprintAction::run($data)
+            : UpdateBlueprintAction::run(Blueprint::query()->whereKey((int) $invocation->payload['id'])->firstOrFail(), $data);
 
         return new AgentAdminToolResultData(
             ok: true,

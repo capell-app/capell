@@ -8,6 +8,7 @@ use Capell\Core\Actions\Agent\DiscoverAgentToolDefinitionsAction;
 use Capell\Core\Actions\Properties\BuildAgentToolManifestAction;
 use Capell\Core\Actions\Properties\BuildPageSchemaGraphAction;
 use Capell\Core\Contracts\Agent\AgentPageSearch;
+use Capell\Core\Data\SchemaGraphData;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Page;
@@ -30,6 +31,15 @@ use Illuminate\Database\Eloquent\Model;
 
 final class AgentPublicRenderDataContributor implements PublicRenderDataContributor
 {
+    /** @var array<string, bool> */
+    private array $hasInlineData = [];
+
+    /** @var array<string, ?SchemaGraphData> */
+    private array $graphs = [];
+
+    /** @var array<string, bool> */
+    private array $metadataPrepared = [];
+
     public function key(): string
     {
         return 'agent';
@@ -44,13 +54,13 @@ final class AgentPublicRenderDataContributor implements PublicRenderDataContribu
 
     public function contribute(FrontendRenderContextData $context): PublicRenderDataContributionData
     {
-        $graph = $context->page instanceof Page
-            ? BuildPageSchemaGraphAction::run($context->page, $context->language)
-            : null;
+        $graph = $this->graph($context);
+
+        $this->hasInlineData[$this->contextKey($context)] = $graph instanceof SchemaGraphData;
 
         return new PublicRenderDataContributionData((object) [
             'graph' => $graph?->toJsonLd(),
-            'manifest' => $this->toolManifest($graph !== null),
+            'manifest' => $this->toolManifest($graph instanceof SchemaGraphData),
         ]);
     }
 
@@ -61,6 +71,22 @@ final class AgentPublicRenderDataContributor implements PublicRenderDataContribu
         }
 
         $page = $context->page;
+
+        $contextKey = $this->contextKey($context);
+        $graph = $this->graph($context, refresh: isset($this->metadataPrepared[$contextKey]));
+        $this->metadataPrepared[$contextKey] = true;
+        $this->hasInlineData[$contextKey] = $graph instanceof SchemaGraphData;
+
+        // Empty pages still depend on their page row, but do not enumerate
+        // property and term relations when the schema graph is empty.
+        if (! $graph instanceof SchemaGraphData) {
+            return new PublicRenderDataContributionMetadataData(
+                fingerprint: hash('sha256', json_encode(['manifest' => $this->toolManifest(false), 'version' => 1], JSON_THROW_ON_ERROR)),
+                surrogateKeys: ['page-' . $page->id],
+                cacheDependencies: [PublicRenderDataCacheDependencyData::forModel($page)],
+            );
+        }
+
         $models = [$page];
         $values = [];
         if ($page->blueprint instanceof Blueprint) {
@@ -202,6 +228,37 @@ final class AgentPublicRenderDataContributor implements PublicRenderDataContribu
         }
 
         return $models;
+    }
+
+    private function contextKey(FrontendRenderContextData $context): string
+    {
+        $page = $context->page;
+        $site = $context->site;
+        $language = $context->language;
+
+        return implode(':', [
+            $page instanceof Page ? (string) $page->getKey() : 'none',
+            $site instanceof Model ? (string) $site->getKey() : 'none',
+            $language instanceof Model ? (string) $language->getKey() : 'none',
+        ]);
+    }
+
+    private function graph(FrontendRenderContextData $context, bool $refresh = false): ?SchemaGraphData
+    {
+        $key = $this->contextKey($context);
+        if ($refresh) {
+            unset($this->graphs[$key]);
+        }
+
+        if (array_key_exists($key, $this->graphs)) {
+            return $this->graphs[$key];
+        }
+
+        $this->graphs[$key] = $context->page instanceof Page
+            ? BuildPageSchemaGraphAction::run($context->page, $context->language)
+            : null;
+
+        return $this->graphs[$key];
     }
 
     /** @return array{capellAgentSchema: int, tools: list<array<string, mixed>>, messages: array{confirmForm: string}} */

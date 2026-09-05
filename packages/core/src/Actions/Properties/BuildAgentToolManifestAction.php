@@ -10,11 +10,13 @@ use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Support\Agent\AgentToolRegistry;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Core-authored descriptions only: page content never becomes a tool instruction. */
 final class BuildAgentToolManifestAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return array{capellAgentSchema: int, tools: list<array<string, mixed>>, messages: array{confirmForm: string}} */

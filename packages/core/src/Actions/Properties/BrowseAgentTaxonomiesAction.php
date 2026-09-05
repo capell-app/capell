@@ -7,16 +7,19 @@ namespace Capell\Core\Actions\Properties;
 use Capell\Core\Data\Properties\AgentPropertyEntryData;
 use Capell\Core\Enums\PropertyType;
 use Capell\Core\Models\PropertyDefinition;
+use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use stdClass;
 
 final class BrowseAgentTaxonomiesAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return LengthAwarePaginator<int, array{key: string, name: string, hierarchical: bool}>|LengthAwarePaginator<int, array{slug: string, name: string, parent: string|null, properties: stdClass}> */
@@ -33,11 +36,12 @@ final class BrowseAgentTaxonomiesAction
         }
 
         $taxonomy = Taxonomy::query()->where('site_id', $site->id)->where('key', $key)->firstOrFail();
-        $definitions = $taxonomy->propertySet?->definitions()->where('agent_visible', true)->get()->keyBy('id');
+        $propertySet = $taxonomy->propertySet;
+        $definitions = $propertySet?->definitions()->where('agent_visible', true)->get()->keyBy('id');
 
         return $taxonomy->terms()->with(['parent', 'propertyValues'])->orderBy('id')
             ->paginate(50, ['*'], 'page', $page)
-            ->through(function (Term $term) use ($taxonomy, $definitions): array {
+            ->through(function (Term $term) use ($taxonomy, $definitions, $propertySet): array {
                 $properties = [];
                 /** @var TermPropertyValue $row */
                 foreach ($term->propertyValues as $row) {
@@ -46,13 +50,12 @@ final class BrowseAgentTaxonomiesAction
                         continue;
                     }
 
-                    if ($definition->semantic === null) {
-                        continue;
-                    }
-
-                    if (preg_match('/\Aschema:([A-Za-z][A-Za-z0-9]*)\z/', (string) $definition->semantic, $matches) !== 1) {
-                        continue;
-                    }
+                    $propertyKey = $propertySet instanceof PropertySet
+                        ? $propertySet->key . '.' . $definition->key
+                        : $definition->key;
+                    $key = preg_match('/\Aschema:([A-Za-z][A-Za-z0-9]*)\z/', (string) $definition->semantic, $matches) === 1
+                        ? $matches[1]
+                        : 'capell:' . $propertyKey;
 
                     $value = match (true) {
                         $definition->type->isNumeric() => $row->value_number !== null ? (float) $row->value_number : null,
@@ -76,7 +79,7 @@ final class BrowseAgentTaxonomiesAction
                         },
                     ), $taxonomy->site_id);
                     if ($projected !== null) {
-                        $properties[$matches[1]][] = $projected;
+                        $properties[$key][] = $projected;
                     }
                 }
 

@@ -15,10 +15,12 @@ use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Support\Properties\BuiltInPropertySets;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class VerifyAgentSchemaAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(?int $siteId = null): AgentSchemaReportData

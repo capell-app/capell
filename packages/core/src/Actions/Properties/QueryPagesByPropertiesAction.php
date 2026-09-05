@@ -24,11 +24,13 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Validation\ValidationException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** SQL-backed public property query using the same precedence as the resolver. */
 final class QueryPagesByPropertiesAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return LengthAwarePaginator<int, Page> */

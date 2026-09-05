@@ -13,11 +13,13 @@ use Capell\Core\Exceptions\UrlMissingSiteDomainException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Builder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Public API projection, including the documented Capell property namespace. */
 final class BuildAgentPageReadDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Page $page, Language $language): ?AgentPageReadData

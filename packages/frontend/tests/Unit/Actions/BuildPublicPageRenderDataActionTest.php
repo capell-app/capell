@@ -86,8 +86,10 @@ it('builds public page render data from the resolved frontend render context', f
         ->and($renderData->site)->toBe($site)
         ->and($renderData->language)->toBe($language)
         ->and($renderData->runtimeManifest->usesLivewire)->toBeFalse()
-        ->and($renderData->resourcePlan->headResources)->toHaveCount(1)
-        ->and($renderData->resourcePlan->headResources[0]->url)->toEndWith('/resources/css/app.css')
+        ->and($renderData->resourcePlan->headResources)->toHaveCount(2)
+        ->and(collect($renderData->resourcePlan->headResources)
+            ->first(fn (object $resource): bool => str_ends_with($resource->url, '/resources/css/app.css')))
+        ->not->toBeNull()
         ->and($renderData->surrogateKeys)->toBe([
             'page-' . $page->getKey(),
             'site-' . $site->getKey(),

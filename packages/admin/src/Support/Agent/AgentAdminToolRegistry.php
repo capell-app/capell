@@ -4,15 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Agent;
 
-use Capell\Admin\Actions\Agent\CreateAgentBlueprintAction;
 use Capell\Admin\Actions\Agent\UpdateAgentSettingsAction;
-use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
 use Capell\Admin\Contracts\Agent\AgentAdminTool;
 use Capell\Admin\Data\Agent\AgentAdminToolInvocationData;
-use Capell\Core\Actions\Properties\CreatePropertySetAction;
-use Capell\Core\Actions\Properties\UpdatePropertySetAction;
-use Capell\Core\Actions\Taxonomies\CreateTaxonomyAction;
-use Capell\Core\Actions\Taxonomies\UpdateTaxonomyAction;
 use Capell\Core\Data\Agent\AgentToolDefinitionData;
 use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Support\Registries\AbstractKeyedRegistry;
@@ -37,18 +31,8 @@ final class AgentAdminToolRegistry extends AbstractKeyedRegistry
         $this->register(new AgentSiteReadinessTool($authorization));
         $this->register(new AgentSettingsWriteTool($authorization, new UpdateAgentSettingsAction));
         $this->register(new AgentBlueprintReadTool($authorization));
-        $this->register(new AgentBlueprintWriteTool(
-            $authorization,
-            new CreateAgentBlueprintAction,
-            new UpdateBlueprintAction,
-        ));
-        $this->register(new AgentStructureWriteTool(
-            $authorization,
-            new CreateTaxonomyAction,
-            new UpdateTaxonomyAction,
-            new CreatePropertySetAction,
-            new UpdatePropertySetAction,
-        ));
+        $this->register(new AgentBlueprintWriteTool($authorization));
+        $this->register(new AgentStructureWriteTool($authorization));
     }
 
     public function register(AgentAdminTool $tool): self

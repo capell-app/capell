@@ -15,8 +15,10 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PropertyDefinition;
+use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Theme;
@@ -53,7 +55,9 @@ final class FrontendEventBootstrapper
             PagePropertyValue::class,
             TermPropertyValue::class,
             PropertyDefinition::class,
+            PropertySet::class,
             BlueprintPropertySet::class,
+            Taxonomy::class,
             Term::class,
         ] as $propertyModel) {
             $propertyModel::observe(AgentPropertyCacheObserver::class);

@@ -24,10 +24,6 @@ final readonly class AgentStructureWriteTool implements AgentAdminTool
 {
     public function __construct(
         private AgentAdminAuthorization $authorization,
-        private CreateTaxonomyAction $createTaxonomy,
-        private UpdateTaxonomyAction $updateTaxonomy,
-        private CreatePropertySetAction $createPropertySet,
-        private UpdatePropertySetAction $updatePropertySet,
     ) {}
 
     public function definition(): AgentToolDefinitionData
@@ -141,13 +137,13 @@ final readonly class AgentStructureWriteTool implements AgentAdminTool
         if ($resource === 'taxonomy') {
             $site = $this->authorization->site($invocation->user, $invocation->siteId);
             $taxonomy = $operation === 'create'
-                ? $this->createTaxonomy->handle($site, $data)
-                : $this->updateTaxonomy->handle(Taxonomy::query()->whereKey((int) $id)->where('site_id', $site->id)->firstOrFail(), $data);
+                ? CreateTaxonomyAction::run($site, $data)
+                : UpdateTaxonomyAction::run(Taxonomy::query()->whereKey((int) $id)->where('site_id', $site->id)->firstOrFail(), $data);
             $savedId = $taxonomy->id;
         } else {
             $propertySet = $operation === 'create'
-                ? $this->createPropertySet->handle($data)
-                : $this->updatePropertySet->handle(PropertySet::query()->whereKey((int) $id)->firstOrFail(), $data);
+                ? CreatePropertySetAction::run($data)
+                : UpdatePropertySetAction::run(PropertySet::query()->whereKey((int) $id)->firstOrFail(), $data);
             $savedId = $propertySet->id;
         }
 

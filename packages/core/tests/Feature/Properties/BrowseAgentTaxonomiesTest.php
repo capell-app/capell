@@ -46,6 +46,35 @@ it('projects semantic term values and a same-taxonomy parent without internal id
         ->and(json_encode($items, JSON_THROW_ON_ERROR))->not->toContain('Hidden value', 'internal-', 'taxonomy_id', 'property_definition_id');
 });
 
+it('retains unmapped visible term values in the Capell namespace', function (): void {
+    $site = Site::factory()->create();
+    $set = PropertySet::factory()->create(['key' => 'catalogue.details']);
+    $taxonomy = Taxonomy::factory()->create([
+        'site_id' => $site->id,
+        'property_set_id' => $set->id,
+        'key' => 'brands',
+    ]);
+    $term = Term::factory()->for($taxonomy)->create();
+    $definition = PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => 'colour',
+        'semantic' => null,
+        'type' => PropertyType::Text,
+        'agent_visible' => true,
+    ]);
+    TermPropertyValue::factory()->create([
+        'term_id' => $term->id,
+        'property_definition_id' => $definition->id,
+        'value_text' => 'Green',
+    ]);
+
+    $items = BrowseAgentTaxonomiesAction::run($site, 'brands')->items();
+
+    expect((array) $items[0]['properties'])->toBe([
+        'capell:catalogue.details.colour' => 'Green',
+    ]);
+});
+
 it('projects a same-site term reference and omits a foreign reference', function (): void {
     $site = Site::factory()->create();
     $set = PropertySet::factory()->create();

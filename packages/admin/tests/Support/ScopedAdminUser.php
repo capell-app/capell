@@ -18,7 +18,7 @@ final class ScopedAdminUser
     {
         $user = new class extends Authenticatable implements FilamentUser
         {
-            /** @use HasFactory<Factory<static>> */
+            /** @use HasFactory<Factory<self>> */
             use HasFactory;
 
             /** @var Collection<int, int> */
