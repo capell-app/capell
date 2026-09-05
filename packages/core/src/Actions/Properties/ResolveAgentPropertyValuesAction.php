@@ -82,17 +82,32 @@ final class ResolveAgentPropertyValuesAction
             }
 
             if ($rows->isNotEmpty()) {
-                foreach ($rows->sortBy('position') as $row) {
+                $orderedRows = $rows->sortBy([
+                    ['position', 'asc'],
+                    ['id', 'asc'],
+                ])->values();
+
+                if (! $definition->multiple) {
+                    $orderedRows = $orderedRows->take(1);
+                }
+
+                foreach ($orderedRows as $row) {
                     $entries[] = $this->entryFromPageValue($definition, $row);
                 }
 
                 continue;
             }
 
-            $termValue = $termValuesByDefinition->get($definition->definitionId);
+            $termValues = $termValuesByDefinition->get($definition->definitionId, new Collection);
 
-            if ($termValue instanceof TermPropertyValue) {
-                $entries[] = $this->entryFromTermValue($definition, $termValue);
+            if ($termValues instanceof Collection) {
+                foreach ($termValues as $termValue) {
+                    $entries[] = $this->entryFromTermValue($definition, $termValue);
+
+                    if (! $definition->multiple) {
+                        break;
+                    }
+                }
             }
         }
 
@@ -100,11 +115,12 @@ final class ResolveAgentPropertyValuesAction
     }
 
     /**
-     * The first term-provided value per definition, in taxonomy-position then
-     * assignment-position order.
+     * The values from the first term providing each definition, in
+     * taxonomy-position then assignment-position order. Multiple values from
+     * that winning term remain ordered by their value position.
      *
      * @param  Collection<int, EffectivePropertyDefinitionData>  $definitions
-     * @return Collection<int, TermPropertyValue>
+     * @return Collection<int, Collection<int, TermPropertyValue>>
      */
     private function orderedTermPropertyValues(Page $page, Collection $definitions): Collection
     {
@@ -124,13 +140,16 @@ final class ResolveAgentPropertyValuesAction
 
         /** @var Term $term */
         foreach ($orderedTerms as $term) {
-            foreach ($term->propertyValues as $value) {
-                if (! in_array($value->property_definition_id, $definitionIds, true)) {
-                    continue;
-                }
+            $valuesByDefinition = $term->propertyValues
+                ->filter(static fn (TermPropertyValue $value): bool => in_array($value->property_definition_id, $definitionIds, true))
+                ->groupBy('property_definition_id');
 
-                if (! $resolved->has($value->property_definition_id)) {
-                    $resolved->put($value->property_definition_id, $value);
+            foreach ($valuesByDefinition as $definitionId => $values) {
+                if (! $resolved->has($definitionId)) {
+                    $resolved->put($definitionId, $values->sortBy([
+                        ['position', 'asc'],
+                        ['id', 'asc'],
+                    ])->values());
                 }
             }
         }

@@ -185,3 +185,33 @@ it('allows an override to raise requirement on a non-locked definition', functio
 
     expect($notes->requirement)->toBe(PropertyRequirement::Publish);
 });
+
+it('does not update or delete property rows recorded for another site', function (): void {
+    $page = Page::factory()->create();
+    $price = attachProductSetToPage($page);
+    $foreignPage = Page::factory()->create();
+
+    $foreignCurrent = PagePropertyValue::factory()->create([
+        'site_id' => $foreignPage->site_id,
+        'page_id' => $page->id,
+        'property_definition_id' => $price->id,
+        'position' => 0,
+        'value_number' => '10.000000',
+    ]);
+    $foreignStale = PagePropertyValue::factory()->create([
+        'site_id' => $foreignPage->site_id,
+        'page_id' => $page->id,
+        'property_definition_id' => $price->id,
+        'position' => 1,
+        'value_number' => '11.000000',
+    ]);
+
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData(propertyKey: 'price', type: PropertyType::Money, value: 49.99, currency: 'GBP'),
+    ]);
+
+    expect($foreignCurrent->fresh()->value_number)->toEqual(10)
+        ->and($foreignStale->fresh()->value_number)->toEqual(11)
+        ->and(PagePropertyValue::query()->where('site_id', $page->site_id)->where('page_id', $page->id)->where('property_definition_id', $price->id)->sole()->value_number)
+        ->toEqual(49.99);
+});

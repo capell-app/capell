@@ -299,3 +299,62 @@ it('does not expose a page property row recorded against another site', function
 
     expect(ResolveAgentPropertyValuesAction::run($page)->isEmpty())->toBeTrue();
 });
+
+it('emits only the first row for a non-multiple property', function (): void {
+    $page = Page::factory()->published()->create();
+    $definition = attachedProductDefinition($page);
+
+    PagePropertyValue::factory()->create([
+        'site_id' => $page->site_id,
+        'page_id' => $page->id,
+        'property_definition_id' => $definition->id,
+        'position' => 1,
+        'value_text' => 'Later corrupt row',
+    ]);
+    PagePropertyValue::factory()->create([
+        'site_id' => $page->site_id,
+        'page_id' => $page->id,
+        'property_definition_id' => $definition->id,
+        'position' => 0,
+        'value_text' => 'First row',
+    ]);
+
+    $entries = ResolveAgentPropertyValuesAction::run($page)->entries;
+
+    expect($entries)->toHaveCount(1)
+        ->and($entries[0]->value)->toBe('First row');
+});
+
+it('inherits every ordered value from the winning term for a multiple property', function (): void {
+    $page = Page::factory()->published()->create();
+    $definition = attachedProductDefinition($page, ['key' => 'brands', 'multiple' => true]);
+    $taxonomy = Taxonomy::factory()->create(['site_id' => $page->site_id]);
+    $winner = Term::factory()->for($taxonomy)->create();
+    $loser = Term::factory()->for($taxonomy)->create();
+
+    TermPropertyValue::factory()->create([
+        'term_id' => $winner->id,
+        'property_definition_id' => $definition->id,
+        'position' => 1,
+        'value_text' => 'Winner second',
+    ]);
+    TermPropertyValue::factory()->create([
+        'term_id' => $winner->id,
+        'property_definition_id' => $definition->id,
+        'position' => 0,
+        'value_text' => 'Winner first',
+    ]);
+    TermPropertyValue::factory()->create([
+        'term_id' => $loser->id,
+        'property_definition_id' => $definition->id,
+        'position' => 0,
+        'value_text' => 'Loser value',
+    ]);
+    $page->terms()->attach($winner->id, ['position' => 0]);
+    $page->terms()->attach($loser->id, ['position' => 1]);
+
+    $entries = ResolveAgentPropertyValuesAction::run($page)->entries;
+
+    expect($entries)->toHaveCount(2)
+        ->and(collect($entries)->pluck('value')->all())->toBe(['Winner first', 'Winner second']);
+});
