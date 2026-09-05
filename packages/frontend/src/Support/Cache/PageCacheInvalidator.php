@@ -37,6 +37,14 @@ final class PageCacheInvalidator
         $id = (int) $model->getKey();
         $rules = [];
 
+        // Callers resolve the Pageable root through different paths — some
+        // (CacheInvalidationRegistry::dependentPages()) eager-load translations,
+        // others (PageableTranslationCacheDependencyResolver::owner(), reached
+        // when a Translation itself is saved) only load the owning model via its
+        // morph relation. This method is the one with the actual requirement, so
+        // it guarantees it here rather than trusting every caller to remember.
+        $model->loadMissing('translations');
+
         // Invalidate individual model cache for every language this model lives in
         $model->translations->each(function ($translation) use (&$rules, $type, $id, $siteId): void {
             $languageId = (int) $translation->getAttribute('language_id');
