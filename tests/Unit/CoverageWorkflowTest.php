@@ -29,10 +29,10 @@ it('keeps the PHP memory limit owned solely by the phpunit configuration', funct
     // `--passthru-php`. The phpunit configuration is therefore the only place that
     // can set the limit, and any other declaration lies about the effective value.
     expect($mainConfiguration)->toContain('<ini name="memory_limit" value="1G"/>')
-        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="4G"/>');
+        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="8G"/>');
 
-    // The coverage variant exists only to raise that limit for the parallel
-    // runner's merge step. Everything else must stay in lockstep.
+    // The coverage variant owns the limit for the parallel runner's coverage
+    // workers and merge step. Everything else must stay in lockstep.
     expect($normalise($coverageConfiguration))
         ->toBe($normalise($mainConfiguration));
 
@@ -178,7 +178,7 @@ it('shards release coverage and enforces the threshold after merging Clover repo
         ->not->toContain('--coverage-php');
 });
 
-it('avoids serialized Pest coverage reports in standard Composer coverage commands', function (): void {
+it('uses direct coverage report output in standard Composer coverage commands', function (): void {
     $root = dirname(__DIR__, 2);
     $composer = json_decode(
         (string) file_get_contents($root . '/composer.json'),

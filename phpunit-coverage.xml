@@ -46,17 +46,15 @@
       prose here, never with their leading hyphens, or the whole run dies in
       Builder.php with "Double hyphen within comment".
 
-      The parent's historical peak was driven by the coverage-php report, which
-      Pest appends to its own coverage flag because that serialized dump is how
-      it computes the min gate. php-code-coverage's Serializer therefore builds one
-      `serialize()` string of the whole merged object in a single allocation,
-      while still holding that object. Both live at once, so the limit has to
-      cover roughly twice the merged set.
+      ParaTest always asks each coverage worker to write a serialized coverage
+      structure, even when the top-level command requests Clover. The worker
+      therefore holds the coverage object and the serialized representation at
+      the same time, and the parent later deserialises each worker report before
+      rendering the Clover file.
 
-      CI and the standard local Composer commands avoid that duplicate
-      serialization by requesting reports directly from PHPUnit. CI additionally
-      shards the tests, then merges the compact Clover reports and enforces the
-      line threshold separately.
+      CI and the standard local Composer commands request their final reports
+      directly from PHPUnit. CI additionally shards the tests, then merges the
+      compact Clover reports and enforces the line threshold separately.
 
       This value is not a guess, and each raise is recorded against a run that
       measured it:
@@ -66,12 +64,16 @@
                    reproduced locally at 4 processes with a 1163923456 byte
                    allocation; 12G is the first value that completed the run.
 
-      Those historical limits applied to the removed serialized report path.
-      Four gigabytes is the bounded limit for the direct-report path. Raise it
-      only against a measured allocation from a run that names the shortfall,
-      not against headroom.
+      The direct Clover workflow still uses ParaTest's serialized worker path.
+      On 2026-09-05, shard 3 of runs 33967005604 and 33968384065 completed all
+      1986 tests, then exhausted 4G while serialising worker 4's coverage,
+      trying to allocate 465621656 bytes. A PHP 8.4 local reproduction of the
+      same shard failed at 4G trying to allocate 399977720 bytes. Eight
+      gigabytes is the measured next bound for this workload. The local
+      8G run reached a separate pre-existing Octane test failure before the
+      Clover writer, so the hosted run must confirm report generation.
     -->
-    <ini name="memory_limit" value="4G"/>
+    <ini name="memory_limit" value="8G"/>
     <server name="APP_ENV" value="testing"/>
     <env name="APP_KEY" value="12345678901234567890123456789012"/>
     <env name="BCRYPT_ROUNDS" value="4"/>
