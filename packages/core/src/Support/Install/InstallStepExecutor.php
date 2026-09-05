@@ -27,6 +27,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Process\ArtisanSubprocessRunner;
@@ -34,6 +35,7 @@ use Filament\FilamentServiceProvider;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Throwable;
 
@@ -113,7 +115,8 @@ final class InstallStepExecutor
             InstallPlan::STEP_PUBLISH_PACKAGE_MIGRATIONS => $this->publishPackageMigrations($state),
             InstallPlan::STEP_RUN_MIGRATIONS_PRE => RunMigrationsAction::run($state->reporter, includeSettings: false),
             InstallPlan::STEP_PUBLISH_CAPELL_SETTINGS_MIGRATIONS => $this->publishSettingsMigrations($state),
-            InstallPlan::STEP_RUN_MIGRATIONS_MID, InstallPlan::STEP_RUN_MIGRATIONS_POST => RunMigrationsAction::run($state->reporter),
+            InstallPlan::STEP_RUN_MIGRATIONS_MID => RunMigrationsAction::run($state->reporter),
+            InstallPlan::STEP_RUN_MIGRATIONS_POST => $this->finalizeInstall($state),
             InstallPlan::STEP_RESOLVE_USER => $this->resolveInstallUser($state),
             InstallPlan::STEP_INSTALL_FILAMENT_PANEL => InstallFilamentPanelAction::run($state->reporter),
             InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING => $this->installDeveloperTooling($state),
@@ -280,9 +283,31 @@ final class InstallStepExecutor
         );
 
         GrantInstallUserAdminAccessAction::run($user, $state->reporter);
-        CreateAdditionalInstallUsersAction::run($state->inputData->additionalUsers, $state->reporter);
-
         $state->setResolvedUser($user);
+    }
+
+    private function finalizeInstall(InstallRunState $state): void
+    {
+        RunMigrationsAction::run($state->reporter);
+
+        if ($state->inputData->additionalUsers === []) {
+            return;
+        }
+
+        CreateAdditionalInstallUsersAction::run(
+            users: $state->inputData->additionalUsers,
+            reporter: $state->reporter,
+            site: $this->resolveDefaultSite(),
+        );
+    }
+
+    private function resolveDefaultSite(): ?Site
+    {
+        if (! Schema::hasTable((new Site)->getTable())) {
+            return null;
+        }
+
+        return Site::query()->where('default', true)->first() ?? Site::query()->first();
     }
 
     private function installPackage(InstallRunState $state, string $packageName): void
