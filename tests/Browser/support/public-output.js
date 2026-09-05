@@ -1,6 +1,8 @@
 const { expect } = require('@playwright/test')
 
 const ALLOWED_CAPELL_ATTRIBUTES = new Set([
+    'data-capell-agent-schema',
+    'data-capell-agent-tools',
     'data-capell-cookie',
     'data-capell-interaction',
     'data-capell-origin-cookie',

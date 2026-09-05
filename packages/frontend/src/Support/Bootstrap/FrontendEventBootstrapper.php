@@ -8,18 +8,26 @@ use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlChanged;
+use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
+use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\PropertyDefinition;
+use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Models\Taxonomy;
+use Capell\Core\Models\Term;
+use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Events\FrontendContextResolved;
 use Capell\Frontend\Listeners\OnFrontendContextResolved;
 use Capell\Frontend\Listeners\PurgeCdnCacheOnPageChangeListener;
 use Capell\Frontend\Observers\ErrorPageModelInvalidationObserver;
+use Capell\Frontend\Support\Agent\AgentPropertyCacheObserver;
 use Capell\Frontend\Support\Cache\FrontendCacheInvalidationObserver;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Illuminate\Support\Facades\Event;
@@ -40,6 +48,20 @@ final class FrontendEventBootstrapper
         Event::listen('eloquent.created: *', [ErrorPageModelInvalidationObserver::class, 'createdFromEvent']);
         Event::listen('eloquent.updated: *', [ErrorPageModelInvalidationObserver::class, 'updatedFromEvent']);
         Event::listen('eloquent.deleted: *', [ErrorPageModelInvalidationObserver::class, 'deletedFromEvent']);
+
+        foreach ([
+            Translation::class,
+            PageUrl::class,
+            PagePropertyValue::class,
+            TermPropertyValue::class,
+            PropertyDefinition::class,
+            PropertySet::class,
+            BlueprintPropertySet::class,
+            Taxonomy::class,
+            Term::class,
+        ] as $propertyModel) {
+            $propertyModel::observe(AgentPropertyCacheObserver::class);
+        }
 
         $models = array_unique([
             Language::class,

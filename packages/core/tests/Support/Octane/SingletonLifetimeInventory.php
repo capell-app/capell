@@ -11,6 +11,8 @@ use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\AdminZoneRegistry;
+use Capell\Admin\Support\Agent\AgentAdminToolInvocationService;
+use Capell\Admin\Support\Agent\AgentAdminToolRegistry;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\CapellAdminManager;
@@ -159,6 +161,8 @@ final class SingletonLifetimeInventory
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),
 
             // Admin boot registration state.
+            AgentAdminToolRegistry::class => self::boot('Admin agent tools are package boot registrations and resolve actor scope per invocation.'),
+            AgentAdminToolInvocationService::class => self::stateless('The invocation service retains only readonly registries and cache-backed confirmation collaborators.'),
             ExtensionPageRegistry::class => self::boot('Extension pages are package boot registrations.'),
             AdminNotificationGroupRegistry::class => self::boot('Notification groups are package boot registrations.'),
             ActivityResourceLinkRegistry::class => self::boot('Activity resource links are package boot registrations.'),

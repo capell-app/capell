@@ -9,6 +9,7 @@ export default defineConfig(async () => {
                 input: [
                     'resources/css/capell-frontend.css',
                     'resources/js/capell-frontend.js',
+                    'resources/js/agent-bridge.js',
                     'resources/js/stylesheet-recovery.js',
                 ],
                 publicDirectory: 'publishes',

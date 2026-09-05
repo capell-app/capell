@@ -22,6 +22,32 @@ it('grants the configured super admin role to the installer user', function (): 
     expect($user->fresh()->hasRole('super_admin'))->toBeTrue();
 });
 
+it('grants the Shield super admin role when the Capell role is not configured', function (): void {
+    $originalRoles = config('capell.roles');
+    $originalShieldRole = config('filament-shield.super_admin.name');
+    $roles = is_array($originalRoles) ? $originalRoles : [];
+    unset($roles['super_admin']);
+
+    config([
+        'capell.roles' => $roles,
+        'filament-shield.super_admin.name' => 'shield-super-admin',
+    ]);
+
+    try {
+        $user = User::factory()->createOne();
+
+        GrantInstallUserAdminAccessAction::run($user, new NullProgressReporter);
+
+        expect(Role::query()->where('name', 'shield-super-admin')->exists())->toBeTrue()
+            ->and($user->fresh()->hasRole('shield-super-admin'))->toBeTrue();
+    } finally {
+        config([
+            'capell.roles' => $originalRoles,
+            'filament-shield.super_admin.name' => $originalShieldRole,
+        ]);
+    }
+});
+
 it('grants the configured super admin role when the loaded user model does not have spatie role methods', function (): void {
     config(['capell.roles.super_admin' => 'super_admin']);
 

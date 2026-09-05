@@ -96,6 +96,38 @@ it('creates additional install users with their configured roles', function (): 
     }
 });
 
+it('creates an additional install user with the Shield super admin role when the Capell role is not configured', function (): void {
+    $originalRoles = config('capell.roles');
+    $originalShieldRole = config('filament-shield.super_admin.name');
+    $roles = is_array($originalRoles) ? $originalRoles : [];
+    unset($roles['super_admin']);
+
+    config([
+        'capell.roles' => $roles,
+        'filament-shield.super_admin.name' => 'shield-super-admin',
+    ]);
+
+    try {
+        CreateAdditionalInstallUsersAction::run([
+            new NewUserData(
+                name: 'Shield Super Admin',
+                email: 'shield-super-admin@example.test',
+                password: 'password123',
+                roleName: 'shield-super-admin',
+            ),
+        ], new NullProgressReporter);
+
+        $user = User::query()->where('email', 'shield-super-admin@example.test')->firstOrFail();
+
+        expect($user->hasRole('shield-super-admin'))->toBeTrue();
+    } finally {
+        config([
+            'capell.roles' => $originalRoles,
+            'filament-shield.super_admin.name' => $originalShieldRole,
+        ]);
+    }
+});
+
 it('throws when userId given but user does not exist', function (): void {
     $reporter = new NullProgressReporter;
 

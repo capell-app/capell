@@ -100,7 +100,7 @@ final class CreateAdditionalInstallUsersAction
 
     private function isGlobalSuperAdminRole(string $roleName): bool
     {
-        $configured = config('capell.roles.super_admin', 'super_admin');
+        $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
         $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
 
         return $roleName === $superAdminRole;

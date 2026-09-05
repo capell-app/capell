@@ -14,11 +14,14 @@ use Capell\Admin\Filament\Components\Forms\ContentStructureSelect;
 use Capell\Admin\Filament\Components\Forms\IconPicker;
 use Capell\Admin\Filament\Components\Forms\Page\UrlParamsRepeater;
 use Capell\Admin\Filament\Components\Forms\RequiredFields;
+use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
 use Capell\Core\Enums\ComponentTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PropertySet;
 use Capell\Core\Support\Media\ImageSourcePresets;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -52,9 +55,48 @@ class PageBlueprintConfigurator extends DefaultBlueprintConfigurator
                     $this->frontendTab(),
                     $this->adminTab(),
                     $this->settingsTab(),
+                    $this->propertiesTab(),
                 ]),
             ...$this->statusSchema(),
         ];
+    }
+
+    /**
+     * CAP-0460: attach Property Sets to this Page blueprint, with a raw
+     * per-property override editor. Overrides are clamped against each
+     * property's `locked` floor by {@see ResolveEffectiveDefinitionsAction}
+     * at read time — this form intentionally does not duplicate that
+     * validation client-side, only the JSON shape it expects
+     * (`{"<propertyKey>": {"requirement": "...", "agent_visible": true, "description": "..."}}`).
+     */
+    protected function propertiesTab(): Tab
+    {
+        return Tab::make(__('capell-admin::generic.properties'))
+            ->key('properties')
+            ->icon('heroicon-m-tag')
+            ->schema([
+                Repeater::make('blueprintPropertySets')
+                    ->relationship()
+                    ->label(__('capell-admin::form.property_sets'))
+                    ->addActionLabel(__('capell-admin::generic.attach_property_set'))
+                    ->reorderable(false)
+                    ->columnSpanFull()
+                    ->schema([
+                        Select::make('property_set_id')
+                            ->label(__('capell-admin::form.property_set'))
+                            ->options(fn (): array => PropertySet::query()->orderBy('name')->pluck('name', 'id')->all())
+                            ->searchable()
+                            ->required()
+                            ->distinct(),
+                        Textarea::make('overrides')
+                            ->label(__('capell-admin::form.property_overrides'))
+                            ->helperText(__('capell-admin::generic.property_overrides_info'))
+                            ->rows(3)
+                            ->rule('json')
+                            ->dehydrateStateUsing(fn (?string $state): ?array => blank($state) ? null : json_decode($state, true))
+                            ->formatStateUsing(fn (mixed $state): ?string => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT) : $state),
+                    ]),
+            ]);
     }
 
     protected function adminTab(): Tab

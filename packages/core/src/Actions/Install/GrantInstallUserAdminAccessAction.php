@@ -25,7 +25,7 @@ final class GrantInstallUserAdminAccessAction
             return;
         }
 
-        $roleName = config('capell.roles.super_admin', 'super_admin');
+        $roleName = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
         $superAdminRoleName = is_string($roleName) && $roleName !== '' ? $roleName : 'super_admin';
 
         try {

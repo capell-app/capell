@@ -19,6 +19,7 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
@@ -74,7 +75,14 @@ class GenerateStaticPageArtifactsAction
             }
 
             $file = $this->pathResolver->pathForPageUrl($pageUrl, $siteDomain);
-            $this->store->putHtml($file, (string) $response->getContent());
+            resolve(PublicRenderDataCacheDependencyRegistry::class)->writeStaticArtifact(
+                $renderData->extensionCacheDependencies,
+                $file,
+                $renderData->extensionSurrogateKeys,
+                function () use ($file, $response): void {
+                    $this->store->putHtml($file, (string) $response->getContent());
+                },
+            );
 
             $artifacts[] = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, $response, $file)->toArray();
         });

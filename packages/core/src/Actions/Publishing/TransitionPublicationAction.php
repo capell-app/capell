@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Publishing;
 
+use Capell\Core\Actions\Properties\EvaluatePropertyCompletenessAction;
 use Capell\Core\Contracts\Publishing\AuthorizesPublicationTransition;
 use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\Publishing\PublicationTransitionResultData;
+use Capell\Core\Enums\Publishing\PublicationTransition;
 use Capell\Core\Enums\Publishing\PublicationTransitionOutcome;
 use Capell\Core\Events\PublicationTransitioned;
 use Capell\Core\Events\PublicationTransitioning;
+use Capell\Core\Models\Page;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -40,6 +43,26 @@ final class TransitionPublicationAction
 
         if (! $result->changed()) {
             return $result;
+        }
+
+        // CAP-0460: a page moving into a publicly-visible window is hard-gated
+        // by `required: publish` property completeness. Pages are the only
+        // model property values attach to, and only transitions that make the
+        // record MORE visible are gated — narrowing visibility (unpublish,
+        // revert to draft, cancel schedule) always succeeds regardless of
+        // property completeness.
+        if ($request->record instanceof Page
+            && in_array($request->transition, [PublicationTransition::PublishNow, PublicationTransition::SchedulePublish], true)
+        ) {
+            $completeness = EvaluatePropertyCompletenessAction::run($request->record);
+
+            if ($completeness->blocksPublish()) {
+                return $this->evaluator->unchanged(
+                    $request,
+                    PublicationTransitionOutcome::InvalidTransition,
+                    'capell-core::properties.validation.missing_publish_required',
+                );
+            }
         }
 
         $transitionId = Str::uuid()->toString();

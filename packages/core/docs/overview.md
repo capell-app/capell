@@ -118,3 +118,4 @@ Deletion and retention:
 - [Static-site extensions](static-site-extensions.md)
 - [Authoring upgrade steps](authoring-upgrade-steps.md)
 - [Install debugging](install-debugging.md)
+- [Agent schema](agent-schema.md)

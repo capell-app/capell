@@ -22,6 +22,7 @@ const defaultOptions = {
 }
 
 const formComponents = [
+    { entry: 'agent/admin-bridge', output: 'agent/admin-bridge' },
     {
         entry: 'components/html-code-editor',
         output: 'components/html-code-editor',

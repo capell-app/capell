@@ -6,6 +6,7 @@ namespace Capell\Core\Models;
 
 use Aimeos\Nestedset\Collection;
 use Bkwld\Cloner\Cloneable;
+use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
 use Capell\Core\Concerns\HasCapellMedia;
 use Capell\Core\Contracts\Media\HasMediaContract;
 use Capell\Core\Data\PageTypeData;
@@ -255,6 +256,18 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
     public function themes(): HasMany
     {
         return $this->hasMany(Theme::class);
+    }
+
+    /**
+     * Property sets attached to this blueprint, with per-attachment overrides.
+     * See {@see ResolveEffectiveDefinitionsAction}
+     * for how overrides resolve against each definition's `locked` floor.
+     *
+     * @return HasMany<BlueprintPropertySet, $this>
+     */
+    public function blueprintPropertySets(): HasMany
+    {
+        return $this->hasMany(BlueprintPropertySet::class);
     }
 
     /**

@@ -42,6 +42,7 @@
         "check:docs-screenshots": "npm run docs:screenshots:check",
         "check:extension-surfaces": "@php scripts/build-extension-surface-catalog.php --check",
         "check:stable-extension-api": "@php scripts/check-stable-extension-api.php --check",
+        "check:agent-schema": "@php scripts/check-agent-schema-contract.php",
         "check:composer-lock": "composer validate --no-check-publish",
         "check:vendor-integrity": "@php scripts/check-vendor-integrity.php",
         "post-autoload-dump": [

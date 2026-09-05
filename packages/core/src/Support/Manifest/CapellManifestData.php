@@ -35,6 +35,7 @@ final class CapellManifestData
      * @param  list<ExtensionScreenshotData>  $marketplaceScreenshots
      * @param  list<string>  $marketplaceCategories
      * @param  list<string>  $scopes
+     * @param  list<array<string, mixed>>  $agentTools
      */
     public function __construct(
         public int $manifestVersion,
@@ -81,6 +82,8 @@ final class CapellManifestData
         public string $visibility = 'catalogue',
         public ?string $documentationUrl = null,
         public ?ExtensionContributionTraceabilityData $contributionTraceability = null,
+        public array $agentTools = [],
+        public ?string $agentToolsWaiverReason = null,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -92,6 +95,16 @@ final class CapellManifestData
 
         $product = is_array($data['product'] ?? null) ? $data['product'] : [];
         $marketplace = is_array($data['marketplace'] ?? null) ? $data['marketplace'] : [];
+        $agentToolsDeclaration = $data['agent_tools'] ?? null;
+        $agentTools = is_array($agentToolsDeclaration) && array_is_list($agentToolsDeclaration)
+            ? $agentToolsDeclaration
+            : (is_array($agentToolsDeclaration) && is_array($agentToolsDeclaration['tools'] ?? null)
+                && array_is_list($agentToolsDeclaration['tools']) ? $agentToolsDeclaration['tools'] : []);
+        $agentToolsWaiverReason = $agentToolsDeclaration === 'none'
+            ? self::stringValue($data['agent_tools_reason'] ?? null)
+            : (is_array($agentToolsDeclaration) && ($agentToolsDeclaration['none'] ?? false) === true
+                ? self::stringValue($agentToolsDeclaration['reason'] ?? null)
+                : null);
 
         return new self(
             manifestVersion: ExtensionManifestVersion::V3->value,
@@ -149,6 +162,8 @@ final class CapellManifestData
             contributionTraceability: is_array($data['contributionTraceability'] ?? null)
                 ? ExtensionContributionTraceabilityData::fromArray($data['contributionTraceability'])
                 : null,
+            agentTools: $agentTools,
+            agentToolsWaiverReason: $agentToolsWaiverReason,
         );
     }
 
@@ -254,6 +269,13 @@ final class CapellManifestData
 
         if ($this->contributionTraceability instanceof ExtensionContributionTraceabilityData) {
             $data['contributionTraceability'] = $this->contributionTraceability->toArray();
+        }
+
+        if ($this->agentToolsWaiverReason !== null) {
+            $data['agent_tools'] = 'none';
+            $data['agent_tools_reason'] = $this->agentToolsWaiverReason;
+        } elseif ($this->agentTools !== []) {
+            $data['agent_tools'] = $this->agentTools;
         }
 
         return $data;
