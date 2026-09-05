@@ -1,0 +1,44 @@
+# Ad-hoc scoped analysis: `composer analyze:diff -- <path>`. Same rules as the
+# full config, but relaxed the same way source.neon and tests.neon already are
+# (see their comments) — reportUnmatchedIgnoredErrors needs to see every file an
+# ignore's `path`/`paths` is written against, and a scoped run only supplies
+# whatever subset was passed on the CLI. An ignore whose target sits outside
+# that subset then reports as unmatched even though it is still load-bearing
+# for the full tree, which is the false positive this config exists to avoid.
+# The full `composer analyze` remains the only config that can prove a pattern
+# has actually gone stale.
+
+includes:
+    - extensions.neon
+    - common.neon
+
+parameters:
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    type_coverage:
+        param_type: 0
+        return_type: 0
+        property_type: 0
+        constant_type: 0
+    # See source.neon/tests.neon: unused-trait detection is only meaningful
+    # when the full tree is in scope, which is the full config's job.
+    ignoreErrors:
+        -
+            identifier: trait.unused
+    parallel:
+        maximumNumberOfProcesses: 4
+    # Same paths as ../phpstan.neon. A CLI path argument narrows which of these
+    # files get reported on, but leaving the full set here (rather than relying
+    # on the CLI argument alone) keeps every file scanned for symbol discovery —
+    # dropping tests/ from that scan, for example, makes root-level test helper
+    # functions used by package suites report as function.notFound.
+    paths:
+        - ../packages
+        - ../tests
+        - ../scripts/benchmark-boot.php
+        - ../scripts/benchmark-boot-child.php
+        - ../scripts/benchmark-boot-support.php
+    scanFiles:
+        - ../scripts/test-all/TestAllDatabaseService.php
+        - ../scripts/test-all/TestAllMatrix.php
+    tmpDir: %currentWorkingDirectory%/var/phpstan/diff

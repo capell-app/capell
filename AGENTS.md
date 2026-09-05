@@ -101,6 +101,8 @@ tests.
   `vendor/bin/pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
 - Changed-file formatting: `composer lint:changed`
 - Source analysis while iterating: `composer analyze:source`
+- Ad-hoc path-scoped analysis (e.g. one package): `composer analyze:diff -- <path>`.
+  Never pass a path to plain `composer analyze` — see Local Hazards.
 - Standard repository gate: `composer preflight`
 - Full repository gate before completion: `composer preflight:all`
 - Local equivalent of the hosted Test All topology:
@@ -153,6 +155,20 @@ source, and hosted failures separately rather than skipping or baselining them.
   errors. Confirm the cached path provenance before clearing only that cache.
 - Keep local Composer path repositories out of public `composer.json` and
   `composer.lock`; `composer check:composer-paths` enforces this.
+- `composer analyze -- <path>` (a raw path argument on the full config) reports
+  false "stale ignore" errors: `ignoreErrors` entries in `ignore-errors.neon`
+  whose `path`/`paths` sit outside the given argument are flagged as unmatched
+  even though the underlying error still occurs — `reportUnmatchedIgnoredErrors`
+  only sees the CLI-narrowed report set, not the full tree the pattern is
+  written against. Verified 2026-09-04: `composer analyze -- packages/core`
+  reported 4 unmatched patterns targeting `packages/admin` files; `composer
+  analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
+  errors total once the `packages/admin` call sites are back in scope). Use
+  `composer analyze:diff -- <path>` for any path-scoped run instead —
+  `phpstan/diff.neon` sets `reportUnmatchedIgnoredErrors: false`, the same
+  relaxation `source.neon`/`tests.neon` already apply for the same reason.
+  Only the full `composer analyze` can prove an ignore pattern has actually
+  gone stale.
 
 Use available Boost capabilities and reusable skills as live tooling. Do not copy
 generated Boost guideline dumps or static skill inventories into this file.
