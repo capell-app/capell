@@ -386,8 +386,8 @@ it('preserves the exact add-block action for every item regardless of contribute
     $html = renderBlockPicker(buildContentBuilder());
 
     // Filament's own dropdown-list-item template builds this exact
-    // `wire:click` string (unchanged from the original picker); CAP-0300 only
-    // changes how items are grouped and filtered around it. Js::from() embeds
+    // `wire:click` string (unchanged from the original picker); only how items
+    // are grouped and filtered around it changed. Js::from() embeds
     // the arguments as a JSON.parse() call with \u-escaped quotes, built here
     // with strtr() so the test source never has to hand-type an ambiguous
     // backslash sequence.
@@ -496,7 +496,7 @@ function buildContentBuilder(): ContentBuilder
 /**
  * Calls the protected `generateBlockPickerHtml()` override directly with the
  * builder's own registered blocks, so assertions target exactly the method
- * CAP-0300 changed without depending on a full Livewire round trip.
+ * that changed without depending on a full Livewire round trip.
  */
 function renderBlockPicker(ContentBuilder $builder, bool $decodeAttributes = true): string
 {

@@ -123,7 +123,7 @@ final class PublicHtmlSafetyInspector
      * payload) is bound to whoever's session rendered
      * the response. Baking a real one into HTML that reaches the *shared* HTML
      * cache serves every later visitor a foreign token, breaking their own
-     * submission (CAP-0216/CAP-0233). This is a cache-eligibility signal, not
+     * submission. This is a cache-eligibility signal, not
      * an authoring-surface leak, so it is deliberately not part of
      * {@see detectAuthoringSurface()}: several public views legitimately
      * render a real, non-empty token today (not only fragment sub-requests —

@@ -111,11 +111,11 @@ it('rejects unsafe public html for authenticated non admin visitors', function (
 });
 
 it('does not reject a baked csrf token, since that is a cache-eligibility signal, not a render-contract violation', function (): void {
-    // CAP-0216/CAP-0233: a baked CSRF token must never enter the *shared*
+    // A baked CSRF token must never enter the *shared*
     // HTML cache through the paired html-cache package, but a
     // live, single-visitor render — full page or fragment — legitimately
     // contains a real token for that visitor. This contract must not reject
-    // it, or the fragment sub-request that fixes CAP-0216 would 500 for
+    // it, or the fragment sub-request fix would 500 for
     // every visitor instead of the page merely staying uncached.
     $response = new Response(
         '<form method="post"><input type="hidden" name="_token" value="abc123"></form>',

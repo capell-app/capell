@@ -413,12 +413,12 @@ it('allows manageRestrictions when the user has manage_restrictions permission',
 });
 
 // ---------------------------------------------------------------------------
-// site-scoped cross-site denial (CAP-0532)
+// site-scoped cross-site denial
 //
 // config('permission.teams') is false in production today, so these checks
 // are dormant there. This section proves the direct-record behaviour once
 // the flag is enabled and model_has_roles.team_id is populated (the
-// CAP-0532 backfill target): an editor whose role is scoped to one site
+// backfill target): an editor whose role is scoped to one site
 // must be denied on a *specific record* belonging to another site, not
 // merely see an empty list. Enabling teams here is scoped to this describe
 // block only — afterEach restores the registrar and config so the rest of
