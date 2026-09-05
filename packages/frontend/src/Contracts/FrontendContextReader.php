@@ -46,8 +46,7 @@ interface FrontendContextReader
      * A typed view over the same scoped state getFrontendData() reads from
      * a raw string key — see {@see FrontendRenderPayload}. Prefer this over
      * getFrontendData(string $key) for the fields it names; the untyped
-     * accessor remains for fields it doesn't (CAP-0231 architecture review,
-     * frontend#2).
+     * accessor remains for fields it doesn't.
      */
     public function renderPayload(): FrontendRenderPayload;
 }

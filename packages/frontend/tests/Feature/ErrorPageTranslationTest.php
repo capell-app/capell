@@ -90,13 +90,13 @@ it('keeps the translated error page anonymous-cacheable', function (): void {
 });
 
 /**
- * CAP-0243(b): Core shipped two casings of the same not-found headline —
+ * Core shipped two casings of the same not-found headline —
  * `capell::generic.page_not_found` ("Page Not Found"), which names the seeded
  * error page and blueprint and becomes its translation title, and
  * `capell::generic.error_404_headline` ("Page not found"), the rendered
  * per-status headline. Both reach public output through different rungs of the
- * copy ladder, so a casing split is a visible inconsistency and, as CAP-0241
- * found, a debugging trap. They are one string by contract.
+ * copy ladder, so a casing split is a visible inconsistency and a debugging
+ * trap. They are one string by contract.
  *
  * `capell-frontend::errors.not_found_headline` is deliberately NOT part of this
  * contract: it is the framework-level minimal page shown when no CMS site or

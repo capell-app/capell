@@ -225,7 +225,7 @@ abstract class AbstractTestCase extends TestCase
             // included) already registered during the first boot, Laravel never re-runs
             // their register() method on this second pass, so package config merged
             // in the first boot (e.g. filament.default_filesystem_disk) is silently
-            // dropped and never restored. That is CAP-0501: ImageColumn::getDiskName()
+            // dropped and never restored. ImageColumn::getDiskName()
             // then reads a null default disk and throws a TypeError, but only when this
             // runtime-role bootstrap runs the app through two config-loading passes,
             // which is only wired up when CAPELL_TESTBENCH_RUNTIME_ROLE is set (the
