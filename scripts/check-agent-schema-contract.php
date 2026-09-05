@@ -99,7 +99,7 @@ if (! is_file($autoloadPath)) {
         foreach ($builtInSets as $setKey => $set) {
             if (! is_string($setKey) || ! is_array($set) || ! is_string($set['name'] ?? null)
                 || ! is_array($set['definitions'] ?? null) || ! array_is_list($set['definitions'])) {
-                $errors[] = 'Built-in property set contract is invalid for ' . (string) $setKey . '.';
+                $errors[] = 'Built-in property set contract is invalid for ' . $setKey . '.';
 
                 continue;
             }
