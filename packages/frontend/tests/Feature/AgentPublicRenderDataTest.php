@@ -99,6 +99,7 @@ it('renders the anonymous page with semantic islands and no authoring bridge', f
         ->assertSee('Curated public description')
         ->assertDontSee('private-internal-set-name')
         ->assertDontSee('internal-field-name')
+        ->assertDontSee('state":"draft', false)
         ->assertDontSee('property_definition_id')
         ->assertDontSee('blueprint_id')
         ->assertDontSee('agentAdminBridge')
