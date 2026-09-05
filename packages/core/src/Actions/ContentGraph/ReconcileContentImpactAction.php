@@ -82,6 +82,6 @@ final class ReconcileContentImpactAction
             ->performedOn($target)
             ->event('reconciled')
             ->withProperties($result->toArray())
-            ->log((string) __('capell::generic.content_impact_reconciliation'));
+            ->log((string) __('capell-core::generic.content_impact_reconciliation'));
     }
 }
