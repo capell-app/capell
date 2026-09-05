@@ -203,7 +203,7 @@ it('swallows a renderer throwable and logs a warning once', function (): void {
 });
 
 it('renders once for repeated change-driven triggers while the inputs are unchanged', function (): void {
-    // CAP-0243(a): a public 404 flood dispatches change-driven regeneration per
+    // A public 404 flood dispatches change-driven regeneration per
     // hit. Only the first may render; the rest must cost a fingerprint check.
     $store = recordingStaticErrorPageStore();
     bindRecordingRenderer();
@@ -274,7 +274,7 @@ it('regenerates when the published artefacts are gone even though nothing change
 });
 
 it('regenerates once for a flood of observed writes that do not change rendered output', function (): void {
-    // The production shape of CAP-0243(a): public traffic repeatedly writes a
+    // The production shape of the same issue: public traffic repeatedly writes a
     // row the observer accepts, but nothing the error pages render from
     // changes. Before the fingerprint gate every one of these paid for a full
     // re-render of every status page for every domain.
