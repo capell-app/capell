@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Activity;
 
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
+use Capell\Core\Enums\Database\DatabaseFamily;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\Site;
 use Carbon\CarbonImmutable;
@@ -56,10 +58,10 @@ final class RecordActivityBucketAction
             ->implode(', ');
         $countColumn = $connection->getQueryGrammar()->wrap('count');
         $updatedAtColumn = $connection->getQueryGrammar()->wrap('updated_at');
-        $driver = $connection->getDriverName();
+        $family = CapellDatabase::for($connection)->family();
 
-        $sql = match ($driver) {
-            'mysql', 'mariadb' => sprintf(
+        $sql = match ($family) {
+            DatabaseFamily::MySql, DatabaseFamily::MariaDb => sprintf(
                 'insert into %s (%s) values (%s) on duplicate key update %s = %s + 1, %s = values(%s)',
                 $table,
                 $columns,
