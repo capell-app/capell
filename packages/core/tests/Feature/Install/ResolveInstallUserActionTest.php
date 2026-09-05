@@ -53,6 +53,7 @@ it('creates additional install users with their configured roles', function (): 
     // assignRoleForSite() call actually scopes correctly once it does, the
     // same way PagePolicyTest already does for its own CAP-0532 proof.
     // Restored in finally so the rest of this suite is unaffected.
+    $originalUserModel = config('auth.providers.users.model');
     config([
         'auth.providers.users.model' => HasSitePermissionsTestUser::class,
         'permission.teams' => true,
@@ -91,6 +92,7 @@ it('creates additional install users with their configured roles', function (): 
         resolve(PermissionRegistrar::class)->teams = false;
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
         config(['permission.teams' => false]);
+        config(['auth.providers.users.model' => $originalUserModel]);
     }
 });
 
