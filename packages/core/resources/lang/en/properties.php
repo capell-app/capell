@@ -27,6 +27,8 @@ return [
 
     'validation' => [
         'type_mismatch' => 'The value given for property ":property" does not match its declared type ":type".',
+        'reference_id_required' => 'Property ":property" requires a positive integer reference.',
+        'reference_outside_site' => 'The reference for property ":property" does not belong to this site.',
         'currency_required' => 'Property ":property" requires a currency code.',
         'unit_not_allowed' => 'Unit ":unit" is not permitted for property ":property".',
         'localised_translation_required' => 'Property ":property" is localised and requires a translation.',

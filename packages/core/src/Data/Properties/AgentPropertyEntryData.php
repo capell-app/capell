@@ -22,5 +22,6 @@ final class AgentPropertyEntryData extends Data
         public ?string $currency = null,
         public ?string $unit = null,
         public int $position = 0,
+        public ?int $referenceId = null,
     ) {}
 }

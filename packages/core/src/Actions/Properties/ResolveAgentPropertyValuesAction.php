@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Properties;
 use Capell\Core\Data\Properties\AgentPropertyBagData;
 use Capell\Core\Data\Properties\AgentPropertyEntryData;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
+use Capell\Core\Enums\PropertyType;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Concerns\HasPublishDates;
 use Capell\Core\Models\Language;
@@ -14,6 +15,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -106,11 +108,13 @@ final class ResolveAgentPropertyValuesAction
     private function orderedTermPropertyValues(Page $page, Collection $definitions): Collection
     {
         $orderedTerms = $page->terms()
+            ->whereHas('taxonomy', static fn (Builder $query): Builder => $query->where('site_id', $page->site_id))
             ->with(['taxonomy', 'propertyValues'])
             ->get()
             ->sortBy([
                 ['taxonomy.position', 'asc'],
                 ['pivot.position', 'asc'],
+                ['id', 'asc'],
             ])
             ->values();
 
@@ -143,6 +147,7 @@ final class ResolveAgentPropertyValuesAction
             currency: $value->currency,
             unit: $value->unit,
             position: $value->position,
+            referenceId: $this->referenceId($definition->type, $value),
         );
     }
 
@@ -156,6 +161,7 @@ final class ResolveAgentPropertyValuesAction
             currency: $value->currency,
             unit: $value->unit,
             position: $value->position,
+            referenceId: $this->referenceId($definition->type, $value),
         );
     }
 
@@ -172,5 +178,21 @@ final class ResolveAgentPropertyValuesAction
             $definition->type->isTemporal() => $valueDatetime,
             default => $valueText,
         };
+    }
+
+    private function referenceId(PropertyType $type, PagePropertyValue|TermPropertyValue $value): ?int
+    {
+        if (! $type->isReference()) {
+            return null;
+        }
+
+        $reference = match ($type) {
+            PropertyType::TermReference => $value instanceof PagePropertyValue ? $value->term_id : $value->referenced_term_id,
+            PropertyType::EntryReference => $value->referenced_page_id,
+            PropertyType::Media => $value->media_id,
+            default => null,
+        };
+
+        return is_numeric($reference) ? (int) $reference : null;
     }
 }

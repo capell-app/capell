@@ -11,6 +11,7 @@ use Capell\Core\Enums\PropertyType;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
@@ -213,4 +214,73 @@ it('projects money and dimension entries into schema.org-shaped values', functio
     expect($properties['price'])->toBe(['@type' => 'PriceSpecification', 'price' => 49.99, 'priceCurrency' => 'GBP'])
         ->and($properties['weight'])->toBe(['@type' => 'QuantitativeValue', 'value' => 1.5, 'unitCode' => 'kg'])
         ->and($properties['capell:test.custom.note'])->toBe('unmapped');
+});
+
+it('does not inherit term values assigned from a different site', function (): void {
+    $page = Page::factory()->create(['visible_from' => now()->subDay()]);
+    $definition = attachedProductDefinition($page);
+    $otherPage = Page::factory()->create();
+    $taxonomy = Taxonomy::factory()->create(['site_id' => $otherPage->site_id]);
+    $term = Term::factory()->for($taxonomy)->create();
+    TermPropertyValue::factory()->create([
+        'term_id' => $term->id,
+        'property_definition_id' => $definition->id,
+        'value_text' => 'Other site private value',
+    ]);
+    $page->terms()->attach($term->id, ['position' => 0]);
+
+    expect(ResolveAgentPropertyValuesAction::run($page)->isEmpty())->toBeTrue();
+});
+
+it('breaks equal taxonomy and assignment positions by term identity', function (): void {
+    $page = Page::factory()->create(['visible_from' => now()->subDay()]);
+    $definition = attachedProductDefinition($page);
+    $taxonomy = Taxonomy::factory()->create(['site_id' => $page->site_id]);
+    $first = Term::factory()->for($taxonomy)->create();
+    $second = Term::factory()->for($taxonomy)->create();
+    foreach ([$first, $second] as $term) {
+        TermPropertyValue::factory()->create([
+            'term_id' => $term->id, 'property_definition_id' => $definition->id,
+            'value_text' => $term === $first ? 'First term' : 'Second term',
+        ]);
+    }
+
+    $page->terms()->attach($second->id, ['position' => 0]);
+    $page->terms()->attach($first->id, ['position' => 0]);
+
+    expect(ResolveAgentPropertyValuesAction::run($page)->entries[0]->value)->toBe('First term');
+});
+
+it('round trips reference identifiers through the typed page value writer', function (): void {
+    $page = Page::factory()->published()->create();
+    $blueprint = Blueprint::query()->findOrFail($page->blueprint_id);
+    $set = PropertySet::factory()->create(['key' => 'test.reference-round-trip']);
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $blueprint->id, 'property_set_id' => $set->id]);
+    $definitions = collect([
+        ['key' => 'termRef', 'type' => PropertyType::TermReference],
+        ['key' => 'entryRef', 'type' => PropertyType::EntryReference],
+        ['key' => 'mediaRef', 'type' => PropertyType::Media],
+    ])->map(fn (array $data): PropertyDefinition => PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => $data['key'],
+        'type' => $data['type'],
+        'agent_visible' => true,
+    ]));
+    $taxonomy = Taxonomy::factory()->create(['site_id' => $page->site_id]);
+    $term = Term::factory()->for($taxonomy)->create();
+    $target = Page::factory()->site($page->site)->published()->create();
+    $media = Media::factory()->model($page)->create();
+
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('termRef', PropertyType::TermReference, $term->id),
+        new PropertyValueData('entryRef', PropertyType::EntryReference, $target->id),
+        new PropertyValueData('mediaRef', PropertyType::Media, $media->id),
+    ]);
+
+    $entries = ResolveAgentPropertyValuesAction::run($page->fresh())->entries;
+
+    expect($entries)->toHaveCount(3)
+        ->and(collect($entries)->keyBy('qualifiedKey')['test.reference-round-trip.termRef']->referenceId)->toBe($term->id)
+        ->and(collect($entries)->keyBy('qualifiedKey')['test.reference-round-trip.entryRef']->referenceId)->toBe($target->id)
+        ->and(collect($entries)->keyBy('qualifiedKey')['test.reference-round-trip.mediaRef']->referenceId)->toBe($media->id);
 });

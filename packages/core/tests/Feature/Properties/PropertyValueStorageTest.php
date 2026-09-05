@@ -8,6 +8,9 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Taxonomy;
+use Capell\Core\Models\Term;
+use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\QueryException;
 
@@ -116,4 +119,21 @@ it('round-trips a boolean and a datetime value through PropertyValueData', funct
 
     expect($boolData->value)->toBeTrue()
         ->and($dateData->value)->toBeInstanceOf(DateTimeInterface::class);
+});
+
+it('reads a term reference target rather than the owning term', function (): void {
+    $definition = PropertyDefinition::factory()->create(['type' => PropertyType::TermReference]);
+    $taxonomy = Taxonomy::factory()->create();
+    $owner = Term::factory()->for($taxonomy)->create();
+    $target = Term::factory()->for($taxonomy)->create();
+    $value = TermPropertyValue::factory()->create([
+        'term_id' => $owner->id,
+        'property_definition_id' => $definition->id,
+        'referenced_term_id' => $target->id,
+    ]);
+
+    $data = PropertyValueData::fromTermValue($value->fresh(), $definition->key, PropertyType::TermReference);
+
+    expect($data->value)->toBe($target->id)
+        ->and($data->value)->not->toBe($owner->id);
 });
