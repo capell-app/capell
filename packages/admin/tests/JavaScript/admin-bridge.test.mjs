@@ -93,7 +93,7 @@ test('write requires a trusted confirmation, and tokens never reach the model', 
     assert.equal(calls.length, 2)
     assert.match(
         elements.find((element) => element.tag === 'pre').textContent,
-        /<script>/,
+        /<script>/i,
     )
     buttons[1].listeners.click({ isTrusted: true })
     const result = await invocation
