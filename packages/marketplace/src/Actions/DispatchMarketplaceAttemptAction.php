@@ -8,10 +8,12 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Jobs\AbstractMarketplaceOperationJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class DispatchMarketplaceAttemptAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param class-string<AbstractMarketplaceOperationJob> $jobClass */
