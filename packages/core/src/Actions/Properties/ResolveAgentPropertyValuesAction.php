@@ -64,6 +64,7 @@ final class ResolveAgentPropertyValuesAction
 
         $pageValuesByDefinition = PagePropertyValue::query()
             ->where('page_id', $page->id)
+            ->where('site_id', $page->site_id)
             ->whereIn('property_definition_id', $definitions->pluck('definitionId')->all())
             ->get()
             ->groupBy('property_definition_id');

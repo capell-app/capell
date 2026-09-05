@@ -13,6 +13,7 @@ use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Taxonomy;
@@ -283,4 +284,18 @@ it('round trips reference identifiers through the typed page value writer', func
         ->and(collect($entries)->keyBy('qualifiedKey')['test.reference-round-trip.termRef']->referenceId)->toBe($term->id)
         ->and(collect($entries)->keyBy('qualifiedKey')['test.reference-round-trip.entryRef']->referenceId)->toBe($target->id)
         ->and(collect($entries)->keyBy('qualifiedKey')['test.reference-round-trip.mediaRef']->referenceId)->toBe($media->id);
+});
+
+it('does not expose a page property row recorded against another site', function (): void {
+    $page = Page::factory()->published()->create();
+    $definition = attachedProductDefinition($page);
+    $otherPage = Page::factory()->create();
+    PagePropertyValue::factory()->create([
+        'page_id' => $page->id,
+        'site_id' => $otherPage->site_id,
+        'property_definition_id' => $definition->id,
+        'value_text' => 'Foreign site value',
+    ]);
+
+    expect(ResolveAgentPropertyValuesAction::run($page)->isEmpty())->toBeTrue();
 });
