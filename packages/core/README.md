@@ -125,18 +125,19 @@ Package development and coordinated verification happen in the [capell-app/capel
 
 ## Further Reading
 
-| Page                                                             | Covers                                                    |
-| ---------------------------------------------------------------- | --------------------------------------------------------- |
-| [Core overview](docs/overview.md)                                | Core responsibilities and the package docs index.         |
-| [Page management](docs/page-management.md)                       | Pages, URLs, types, and publishing state.                 |
-| [Content management](docs/content-management.md)                 | Shared content records and ownership boundaries.          |
-| [Extending Capell](docs/extending-capell.md)                     | Core contracts and extension surfaces.                    |
-| [Cache](docs/cache.md)                                           | Shared cache helpers and invalidation behavior.           |
-| [Multi-site and multi-lingual](docs/multi-site-multi-lingual.md) | Sites, domains, languages, and localized URLs.            |
-| [Relationship diagnostics](docs/relationship-diagnostics.md)     | Debug missing active site domains for page URL rendering. |
-| [Subscriber manager](docs/subscriber-manager.md)                 | Lifecycle subscription registration.                      |
-| [Static-site extensions](docs/static-site-extensions.md)         | Static export integration points.                         |
-| [Authoring upgrade steps](docs/authoring-upgrade-steps.md)       | Upgrading packages that integrate authoring behavior.     |
-| [Install debugging](docs/install-debugging.md)                   | Common install and setup failures.                        |
+| Page                                                             | Covers                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| [Core overview](docs/overview.md)                                | Core responsibilities and the package docs index.            |
+| [Page management](docs/page-management.md)                       | Pages, URLs, types, and publishing state.                    |
+| [Content management](docs/content-management.md)                 | Shared content records and ownership boundaries.             |
+| [Extending Capell](docs/extending-capell.md)                     | Core contracts and extension surfaces.                       |
+| [Cache](docs/cache.md)                                           | Shared cache helpers and invalidation behavior.              |
+| [Multi-site and multi-lingual](docs/multi-site-multi-lingual.md) | Sites, domains, languages, and localized URLs.               |
+| [Relationship diagnostics](docs/relationship-diagnostics.md)     | Debug missing active site domains for page URL rendering.    |
+| [Subscriber manager](docs/subscriber-manager.md)                 | Lifecycle subscription registration.                         |
+| [Static-site extensions](docs/static-site-extensions.md)         | Static export integration points.                            |
+| [Authoring upgrade steps](docs/authoring-upgrade-steps.md)       | Upgrading packages that integrate authoring behavior.        |
+| [Install debugging](docs/install-debugging.md)                   | Common install and setup failures.                           |
+| [Agent schema](docs/agent-schema.md)                             | Public agent declarations, reads, limits, and audit meaning. |
 
 The complete integration and extension guides are published at [docs.capell.app](https://docs.capell.app).

@@ -8,6 +8,12 @@
     "src": "resources/css/capell-frontend.css",
     "isEntry": true
   },
+  "resources/js/agent-bridge.js": {
+    "file": "assets/agent-bridge-Djx8n0qZ.js",
+    "name": "agent-bridge",
+    "src": "resources/js/agent-bridge.js",
+    "isEntry": true
+  },
   "resources/js/capell-frontend.js": {
     "file": "assets/capell-frontend-vtfxdPEi.js",
     "name": "capell-frontend",

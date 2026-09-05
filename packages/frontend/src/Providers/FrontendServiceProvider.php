@@ -73,7 +73,10 @@ use Capell\Frontend\Listeners\PurgeCdnCacheOnPageRollbackSubscriber;
 use Capell\Frontend\Settings\FrontendSettings;
 use Capell\Frontend\Settings\FrontendSettingsMigrationProvider;
 use Capell\Frontend\Settings\FrontendSettingsReader;
+use Capell\Frontend\Support\Agent\AgentPublicRenderDataContributor;
+use Capell\Frontend\Support\Agent\AgentSchemaRenderHook;
 use Capell\Frontend\Support\Assets\ActivityBeaconResourceContributor;
+use Capell\Frontend\Support\Assets\AgentBridgeResourceContributor;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
 use Capell\Frontend\Support\Assets\CoreFrontendRuntimeContributor;
 use Capell\Frontend\Support\Assets\DefaultFrontendResourcePlanRenderer;
@@ -170,18 +173,21 @@ use Capell\Frontend\Support\View\ThemeChainResolver;
 use Capell\Frontend\Support\View\ThemeViewRegistrar;
 use Capell\Frontend\View\Components\Layout as FrontendLayout;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Cache\Repository;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\Request;
 use Illuminate\Pipeline\Pipeline;
 use Illuminate\Routing\Router;
 use Illuminate\Routing\UrlGenerator as LaravelUrlGenerator;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Vite;
@@ -390,6 +396,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ])
             ->hasConfigFile()
             ->hasTranslations()
+            ->hasRoute('agent')
             ->hasRoute('web')
             ->hasViews('capell');
     }
@@ -399,6 +406,14 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     {
         parent::registeringPackage();
 
+        // Cache services are unavailable until all providers have registered.
+        $this->app->booted(static function (): void {
+            RateLimiter::for(
+                'capell-agent',
+                static fn (Request $request) => Limit::perMinute(max(1, (int) config('capell.agent.rate_limit', 60)))
+                    ->by($request->getHost() . '|' . $request->ip()),
+            );
+        });
         Blade::component(FrontendLayout::class, 'capell::layout');
         $this->registerMiddlewareAliases();
         $this->registerErrorViewFallbackPath();
@@ -428,8 +443,18 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerPublicViewQueryListener()
             ->registerScheduledPublicationInvalidation()
             ->registerSettingsSchemas()
+            ->registerAgentSchemaHook()
             ->registerVisitorLanguageDetection()
             ->registerViewComposers();
+    }
+
+    private function registerAgentSchemaHook(): self
+    {
+        $this->callAfterResolving(RenderHookRegistry::class, function (RenderHookRegistry $registry): void {
+            $registry->registerExtension(RenderHookLocation::BodyEnd, resolve(AgentSchemaRenderHook::class));
+        });
+
+        return $this;
     }
 
     private function registerVisitorLanguageDetection(): self
@@ -455,6 +480,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     private function registerAssetOptimizationBindings(): void
     {
         $this->app->singleton(FrontendResourceRegistry::class);
+        $this->app->tag([AgentPublicRenderDataContributor::class], PublicRenderDataContributor::TAG);
         $this->app->scoped(
             PublicRenderDataContributorRegistry::class,
             fn (Application $application): PublicRenderDataContributorRegistry => new PublicRenderDataContributorRegistry(
@@ -472,7 +498,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped('capell.frontend.page-resource-diagnostics', fn (): callable => BuildPageFrontendResourceDiagnosticsAction::run(...));
         $this->app->scoped('capell.frontend.resource-debug-overlay-payload', fn (): callable => BuildFrontendResourceDebugOverlayPayloadAction::run(...));
         $this->app->scoped(ThemeMetaAssetContributor::class);
-        $this->app->tag([ActivityBeaconResourceContributor::class, CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
+        $this->app->tag([AgentBridgeResourceContributor::class, ActivityBeaconResourceContributor::class, CoreFrontendRuntimeContributor::class, ThemeMetaAssetContributor::class], FrontendResourceContributor::TAG);
     }
 
     private function registerCacheInvalidationBindings(): void
@@ -738,7 +764,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
     {
         $registry = $this->app->make(ReservedFrontendPathRegistry::class);
 
-        foreach (['admin', 'api', 'install', 'livewire', 'storage', '_capell', '_clockwork', '_debugbar'] as $prefix) {
+        foreach (['admin', 'api', 'agent', 'install', 'livewire', 'storage', '_capell', '_clockwork', '_debugbar'] as $prefix) {
             $registry->reservePrefix($prefix);
         }
 

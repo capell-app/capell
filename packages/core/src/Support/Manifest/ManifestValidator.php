@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Manifest;
 
+use Capell\Core\Contracts\Agent\DefinesAgentTool;
 use Capell\Core\Contracts\ContentGraph\ContentGraphExtractor;
 use Capell\Core\Contracts\Extensions\ChecksExtensionHealth;
 use Capell\Core\Contracts\Extensions\ContributesWorkflowAttention;
@@ -28,6 +29,7 @@ use Capell\Core\Contracts\ManifestSectionValidator;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Enums\ExtensionManifestVersion;
 use Capell\Core\Enums\ExtensionSurface;
+use Capell\Core\Support\Agent\AgentToolDefinitionNormalizer;
 use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\Validation\CommercialSectionValidator;
 use Capell\Core\Support\Manifest\Validation\ManifestValidationRules;
@@ -36,6 +38,7 @@ use Capell\Core\Support\Manifest\Validation\PerformanceSectionValidator;
 use Capell\Core\Support\Manifest\Validation\SecuritySectionValidator;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Support\ServiceProvider;
+use InvalidArgumentException;
 
 final class ManifestValidator
 {
@@ -98,6 +101,8 @@ final class ManifestValidator
         'installPath',
         'visibility',
         'documentationUrl',
+        'agent_tools',
+        'agent_tools_reason',
     ];
 
     private readonly ManifestValidationRules $rules;
@@ -366,6 +371,8 @@ final class ManifestValidator
             throw InvalidManifestException::missingField('contributes');
         }
 
+        $this->validateAgentTools($data);
+
         $contentWidgetKeys = [];
 
         foreach ($data['contributes'] as $index => $contribution) {
@@ -386,6 +393,12 @@ final class ManifestValidator
             }
 
             $this->validateClass($class, $namespacePrefixes, $isTrustedCore, $this->expectedContributionContract($type));
+
+            if ($type === ExtensionContributionType::AgentCapability
+                && $this->isPublicAgentToolContribution($contribution)) {
+                $this->validateClass($class, $namespacePrefixes, $isTrustedCore, DefinesAgentTool::class);
+                $this->validateAgentToolDeclaration($contribution, $index);
+            }
 
             if (array_key_exists('key', $contribution)
                 && (! is_string($contribution['key']) || $contribution['key'] === '')) {
@@ -423,6 +436,87 @@ final class ManifestValidator
 
                 $contentWidgetKeys[] = $key;
             }
+        }
+    }
+
+    /** @param array<string, mixed> $data */
+    private function validateAgentTools(array $data): void
+    {
+        if (! array_key_exists('agent_tools', $data)) {
+            return;
+        }
+
+        $declaration = $data['agent_tools'];
+        if ($declaration === 'none') {
+            $this->requireAgentToolsWaiverReason($data['agent_tools_reason'] ?? null);
+
+            return;
+        }
+
+        if (! is_array($declaration)) {
+            throw InvalidManifestException::invalidField('agent_tools', 'must be a list of declarations or the value none');
+        }
+
+        if (! array_is_list($declaration) && ($declaration['none'] ?? false) === true) {
+            $this->requireAgentToolsWaiverReason($declaration['reason'] ?? null);
+
+            return;
+        }
+
+        $tools = array_is_list($declaration) ? $declaration : ($declaration['tools'] ?? null);
+        if (! is_array($tools) || ! array_is_list($tools)) {
+            throw InvalidManifestException::invalidField('agent_tools', 'must contain a list of declarations');
+        }
+
+        foreach ($tools as $index => $tool) {
+            if (! is_array($tool)) {
+                throw InvalidManifestException::invalidField('agent_tools.' . $index, 'must be an object');
+            }
+
+            try {
+                (new AgentToolDefinitionNormalizer)->normalize($tool);
+            } catch (InvalidArgumentException $exception) {
+                throw InvalidManifestException::invalidField('agent_tools.' . $index, $exception->getMessage());
+            }
+        }
+    }
+
+    private function requireAgentToolsWaiverReason(mixed $reason): void
+    {
+        if (! is_string($reason) || trim($reason) === '') {
+            throw InvalidManifestException::missingField('agent_tools waiver reason');
+        }
+    }
+
+    /** @param array<string, mixed> $contribution */
+    private function isPublicAgentToolContribution(array $contribution): bool
+    {
+        return ($contribution['context'] ?? null) === 'public'
+            || ($contribution['surface'] ?? null) === 'public'
+            || ($contribution['public'] ?? false) === true;
+    }
+
+    /** @param array<string, mixed> $contribution */
+    private function validateAgentToolDeclaration(array $contribution, int $index): void
+    {
+        $fields = ['name', 'description', 'descriptionKey', 'inputSchema', 'outputSchema', 'effect', 'binding'];
+        $declaration = array_intersect_key($contribution, array_flip($fields));
+
+        if (! array_key_exists('name', $declaration) && is_string($contribution['key'] ?? null)) {
+            $declaration['name'] = $contribution['key'];
+        }
+
+        if ($declaration === []) {
+            return;
+        }
+
+        try {
+            (new AgentToolDefinitionNormalizer)->normalize($declaration);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            throw InvalidManifestException::invalidField(
+                'contributes.' . $index,
+                $invalidArgumentException->getMessage(),
+            );
         }
     }
 
