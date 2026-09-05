@@ -28,6 +28,7 @@ $quickStages = [
     'pint' => 'cs:check',
     'prettier' => 'prettier:check',
     'eslint' => 'eslint',
+    'agent-schema' => 'check:agent-schema',
     'tests' => 'test:preflight',
 ];
 
@@ -46,6 +47,7 @@ $fullStages = [
     'docs-commands' => 'check:docs-commands',
     'docs-env' => 'check:docs-env',
     'docs-config' => 'check:docs-config',
+    'agent-schema' => 'check:agent-schema',
     'docs-screenshots' => 'check:docs-screenshots',
     'extension-surfaces' => 'check:extension-surfaces',
     'stable-extension-api' => 'check:stable-extension-api',

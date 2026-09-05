@@ -141,11 +141,18 @@ it('reports missing event sourcing and settings data after installation is recor
 });
 
 it('returns the empty snapshot for a truly uninstalled app', function (): void {
-    Schema::disableForeignKeyConstraints();
-    Schema::dropIfExists('pages');
-    Schema::dropIfExists('sites');
-    Schema::dropIfExists('capell_extensions');
-    Schema::enableForeignKeyConstraints();
+    // Schema::disableForeignKeyConstraints() cannot actually take effect here:
+    // every test runs inside LazilyRefreshDatabase's wrapping transaction, and
+    // SQLite documents `PRAGMA foreign_keys` as a no-op while a transaction is
+    // open (sqlite.org/pragma.html#pragma_foreign_keys). Enforcement silently
+    // stays on, so `DROP TABLE` performs its implicit FK-cascade pass — and if
+    // a still-existing table (e.g. `page_property_values`) holds a live
+    // foreign key into a table THIS test already dropped (e.g. `pages`),
+    // SQLite fails the next drop with "no such table" while resolving that
+    // cascade. `dropTablesWithDependents()` sidesteps this by dropping every
+    // table with a foreign key into `pages`/`sites` first, so no live FK into
+    // either survives long enough to trigger the cascade.
+    dropTablesWithDependents(['pages', 'sites', 'capell_extensions']);
     resolve(RuntimeSchemaState::class)->flush();
 
     $snapshot = BuildDemoInstallHealthReportAction::run();
@@ -185,4 +192,48 @@ function demoInstallHealthSeedInstall(): void
         'guard_name' => 'web',
     ]);
     $adminUser->assignRole($superAdminRole);
+}
+
+/**
+ * Drop $roots together with every currently-existing table that holds a live
+ * foreign key into any of them — directly or transitively — dropping the
+ * deepest dependents first so no surviving table ever references an
+ * already-dropped one.
+ *
+ * This exists because `Schema::disableForeignKeyConstraints()` cannot be
+ * trusted inside a test transaction on SQLite: see the call site for why.
+ * Introspecting the schema (rather than hardcoding a table list) means a
+ * future table with a foreign key into `pages`/`sites` is picked up
+ * automatically instead of quietly reintroducing this failure.
+ *
+ * @param  list<string>  $roots
+ */
+function dropTablesWithDependents(array $roots): void
+{
+    $dependents = [];
+    foreach (Schema::getTables() as $table) {
+        foreach (Schema::getForeignKeys($table['name']) as $foreignKey) {
+            $dependents[$foreignKey['foreign_table']][] = $table['name'];
+        }
+    }
+
+    $visited = [];
+    $drop = function (string $table) use (&$drop, &$visited, $dependents): void {
+        if (isset($visited[$table])) {
+            return;
+        }
+
+        $visited[$table] = true;
+        foreach ($dependents[$table] ?? [] as $dependent) {
+            $drop($dependent);
+        }
+
+        Schema::dropIfExists($table);
+    };
+
+    // A table can reference several roots at different depths. Reversing
+    // breadth-first discovery is not a dependency order (page_term/terms).
+    foreach ($roots as $root) {
+        $drop($root);
+    }
 }

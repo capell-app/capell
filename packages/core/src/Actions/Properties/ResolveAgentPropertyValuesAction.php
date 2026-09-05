@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Properties;
 use Capell\Core\Data\Properties\AgentPropertyBagData;
 use Capell\Core\Data\Properties\AgentPropertyEntryData;
 use Capell\Core\Data\Properties\EffectivePropertyDefinitionData;
+use Capell\Core\Enums\PropertyType;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Concerns\HasPublishDates;
 use Capell\Core\Models\Language;
@@ -14,6 +15,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -48,7 +50,7 @@ final class ResolveAgentPropertyValuesAction
             return new AgentPropertyBagData(entries: []);
         }
 
-        $definitions = ResolveEffectiveDefinitionsAction::run($page)
+        $definitions = ResolveAgentPropertyDefinitionsAction::run($page)
             ->filter(static fn (EffectivePropertyDefinitionData $definition): bool => $definition->agentVisible)
             ->values();
 
@@ -62,6 +64,7 @@ final class ResolveAgentPropertyValuesAction
 
         $pageValuesByDefinition = PagePropertyValue::query()
             ->where('page_id', $page->id)
+            ->where('site_id', $page->site_id)
             ->whereIn('property_definition_id', $definitions->pluck('definitionId')->all())
             ->get()
             ->groupBy('property_definition_id');
@@ -79,17 +82,32 @@ final class ResolveAgentPropertyValuesAction
             }
 
             if ($rows->isNotEmpty()) {
-                foreach ($rows->sortBy('position') as $row) {
+                $orderedRows = $rows->sortBy([
+                    ['position', 'asc'],
+                    ['id', 'asc'],
+                ])->values();
+
+                if (! $definition->multiple) {
+                    $orderedRows = $orderedRows->take(1);
+                }
+
+                foreach ($orderedRows as $row) {
                     $entries[] = $this->entryFromPageValue($definition, $row);
                 }
 
                 continue;
             }
 
-            $termValue = $termValuesByDefinition->get($definition->definitionId);
+            $termValues = $termValuesByDefinition->get($definition->definitionId, new Collection);
 
-            if ($termValue instanceof TermPropertyValue) {
-                $entries[] = $this->entryFromTermValue($definition, $termValue);
+            if ($termValues instanceof Collection) {
+                foreach ($termValues as $termValue) {
+                    $entries[] = $this->entryFromTermValue($definition, $termValue);
+
+                    if (! $definition->multiple) {
+                        break;
+                    }
+                }
             }
         }
 
@@ -97,20 +115,23 @@ final class ResolveAgentPropertyValuesAction
     }
 
     /**
-     * The first term-provided value per definition, in taxonomy-position then
-     * assignment-position order.
+     * The values from the first term providing each definition, in
+     * taxonomy-position then assignment-position order. Multiple values from
+     * that winning term remain ordered by their value position.
      *
      * @param  Collection<int, EffectivePropertyDefinitionData>  $definitions
-     * @return Collection<int, TermPropertyValue>
+     * @return Collection<int, Collection<int, TermPropertyValue>>
      */
     private function orderedTermPropertyValues(Page $page, Collection $definitions): Collection
     {
         $orderedTerms = $page->terms()
+            ->whereHas('taxonomy', static fn (Builder $query): Builder => $query->where('site_id', $page->site_id))
             ->with(['taxonomy', 'propertyValues'])
             ->get()
             ->sortBy([
                 ['taxonomy.position', 'asc'],
                 ['pivot.position', 'asc'],
+                ['id', 'asc'],
             ])
             ->values();
 
@@ -119,13 +140,16 @@ final class ResolveAgentPropertyValuesAction
 
         /** @var Term $term */
         foreach ($orderedTerms as $term) {
-            foreach ($term->propertyValues as $value) {
-                if (! in_array($value->property_definition_id, $definitionIds, true)) {
-                    continue;
-                }
+            $valuesByDefinition = $term->propertyValues
+                ->filter(static fn (TermPropertyValue $value): bool => in_array($value->property_definition_id, $definitionIds, true))
+                ->groupBy('property_definition_id');
 
-                if (! $resolved->has($value->property_definition_id)) {
-                    $resolved->put($value->property_definition_id, $value);
+            foreach ($valuesByDefinition as $definitionId => $values) {
+                if (! $resolved->has($definitionId)) {
+                    $resolved->put($definitionId, $values->sortBy([
+                        ['position', 'asc'],
+                        ['id', 'asc'],
+                    ])->values());
                 }
             }
         }
@@ -143,6 +167,7 @@ final class ResolveAgentPropertyValuesAction
             currency: $value->currency,
             unit: $value->unit,
             position: $value->position,
+            referenceId: $this->referenceId($definition->type, $value),
         );
     }
 
@@ -156,6 +181,7 @@ final class ResolveAgentPropertyValuesAction
             currency: $value->currency,
             unit: $value->unit,
             position: $value->position,
+            referenceId: $this->referenceId($definition->type, $value),
         );
     }
 
@@ -172,5 +198,21 @@ final class ResolveAgentPropertyValuesAction
             $definition->type->isTemporal() => $valueDatetime,
             default => $valueText,
         };
+    }
+
+    private function referenceId(PropertyType $type, PagePropertyValue|TermPropertyValue $value): ?int
+    {
+        if (! $type->isReference()) {
+            return null;
+        }
+
+        $reference = match ($type) {
+            PropertyType::TermReference => $value instanceof PagePropertyValue ? $value->term_id : $value->referenced_term_id,
+            PropertyType::EntryReference => $value->referenced_page_id,
+            PropertyType::Media => $value->media_id,
+            default => null,
+        };
+
+        return is_numeric($reference) ? (int) $reference : null;
     }
 }

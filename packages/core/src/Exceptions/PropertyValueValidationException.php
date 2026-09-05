@@ -28,6 +28,20 @@ final class PropertyValueValidationException extends RuntimeException
         ]));
     }
 
+    public static function referenceIdRequired(string $property): self
+    {
+        return new self(__('capell-core::properties.validation.reference_id_required', [
+            'property' => $property,
+        ]));
+    }
+
+    public static function referenceOutsideSite(string $property): self
+    {
+        return new self(__('capell-core::properties.validation.reference_outside_site', [
+            'property' => $property,
+        ]));
+    }
+
     public static function currencyRequired(string $property): self
     {
         return new self(__('capell-core::properties.validation.currency_required', [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Extensions;
 
+use Capell\Core\Actions\Agent\AuditAgentToolManifestAction;
 use Capell\Core\Contracts\Extensions\ExtensionContribution;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\Manifest\ExtensionContributionData;
@@ -104,6 +105,8 @@ final class AuditExtensionContractsAction
                     $this->bootedBuckets($manifest, $bootedProviderBuckets),
                 ),
             );
+
+            array_push($results, ...$this->agentToolResults($data, $manifestPath, $packageName));
         }
 
         if ($path === null || $path === '') {
@@ -111,6 +114,55 @@ final class AuditExtensionContractsAction
         }
 
         return $results;
+    }
+
+    /**
+     * Enforce the Phase 3 agent-tool declaration runway without loading a
+     * package class. Manifest audit is intentionally data-only.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
+     */
+    private function agentToolResults(array $data, string $manifestPath, string $packageName): array
+    {
+        $audit = AuditAgentToolManifestAction::run($data);
+        if ($audit->errors !== []) {
+            return array_values(array_map(fn (string $message): array => $this->result(
+                package: $packageName,
+                manifestPath: $manifestPath,
+                severity: 'error',
+                message: $message,
+                context: ['agentTools' => 'invalid'],
+            ), $audit->errors));
+        }
+
+        if (! $audit->interactive || $audit->declaredCount > 0) {
+            return [];
+        }
+
+        if ($audit->waiverReason !== null) {
+            return [$this->result(
+                package: $packageName,
+                manifestPath: $manifestPath,
+                severity: 'info',
+                message: 'Interactive surface declares an explicit agent_tools none waiver.',
+                context: ['agentTools' => 'none', 'reason' => $audit->waiverReason],
+            )];
+        }
+
+        $configuredSeverity = config('capell.agent.audit_severity', 'warning');
+        $severity = in_array($configuredSeverity, ['warning', 'error'], true) ? $configuredSeverity : 'warning';
+
+        return [$this->result(
+            package: $packageName,
+            manifestPath: $manifestPath,
+            severity: $severity,
+            message: 'Interactive surface has no declared agent tool or agent_tools none waiver.',
+            context: [
+                'interactiveSurface' => true,
+                'remediation' => 'Declare an agent-capability tool or agent_tools: none with a reason.',
+            ],
+        )];
     }
 
     /**

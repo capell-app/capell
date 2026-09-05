@@ -31,7 +31,16 @@ final class PropertyValueData extends Data
         return new self(
             propertyKey: $propertyKey,
             type: $type,
-            value: self::extractValue($value->value_text, $value->value_number, $value->value_boolean, $value->value_datetime, $type),
+            value: self::extractValue(
+                $value->value_text,
+                $value->value_number,
+                $value->value_boolean,
+                $value->value_datetime,
+                $value->term_id,
+                $value->referenced_page_id,
+                $value->media_id,
+                $type,
+            ),
             currency: $value->currency,
             unit: $value->unit,
             position: $value->position,
@@ -44,7 +53,16 @@ final class PropertyValueData extends Data
         return new self(
             propertyKey: $propertyKey,
             type: $type,
-            value: self::extractValue($value->value_text, $value->value_number, $value->value_boolean, $value->value_datetime, $type),
+            value: self::extractValue(
+                $value->value_text,
+                $value->value_number,
+                $value->value_boolean,
+                $value->value_datetime,
+                $value->referenced_term_id,
+                $value->referenced_page_id,
+                $value->media_id,
+                $type,
+            ),
             currency: $value->currency,
             unit: $value->unit,
             position: $value->position,
@@ -69,6 +87,9 @@ final class PropertyValueData extends Data
             'value_number' => $this->type->isNumeric() ? (is_numeric($this->value) ? (string) $this->value : null) : null,
             'value_boolean' => $this->type->isBoolean() ? (bool) $this->value : null,
             'value_datetime' => $this->type->isTemporal() ? $this->value : null,
+            'term_id' => $this->type === PropertyType::TermReference ? $this->referenceId() : null,
+            'referenced_page_id' => $this->type === PropertyType::EntryReference ? $this->referenceId() : null,
+            'media_id' => $this->type === PropertyType::Media ? $this->referenceId() : null,
             'currency' => $this->currency,
             'unit' => $this->unit,
             'position' => $this->position,
@@ -80,13 +101,24 @@ final class PropertyValueData extends Data
         int|float|string|null $valueNumber,
         ?bool $valueBoolean,
         mixed $valueDatetime,
+        ?int $termId,
+        ?int $referencedPageId,
+        ?int $mediaId,
         PropertyType $type,
     ): mixed {
         return match (true) {
+            $type === PropertyType::TermReference => $termId,
+            $type === PropertyType::EntryReference => $referencedPageId,
+            $type === PropertyType::Media => $mediaId,
             $type->isNumeric() => $valueNumber !== null ? (float) $valueNumber : null,
             $type->isBoolean() => $valueBoolean,
             $type->isTemporal() => $valueDatetime,
             default => $valueText,
         };
+    }
+
+    private function referenceId(): ?int
+    {
+        return is_numeric($this->value) ? (int) $this->value : null;
     }
 }

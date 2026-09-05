@@ -12,10 +12,13 @@ use Capell\Core\Exceptions\PropertyValueValidationException;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
+use Capell\Core\Models\Taxonomy;
+use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
 use Illuminate\Support\Facades\DB;
 
@@ -67,12 +70,57 @@ it('throws a typed exception when the value type does not match the definition',
     ]))->toThrow(PropertyValueValidationException::class);
 });
 
+it('rejects a null value whose declared type does not match the property', function (): void {
+    $page = Page::factory()->create();
+    attachProductSetToPage($page);
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData(propertyKey: 'price', type: PropertyType::Text, value: null),
+    ]))->toThrow(PropertyValueValidationException::class);
+});
+
 it("throws when a property is not attached to the page's blueprint", function (): void {
     $page = Page::factory()->create();
 
     expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [
         new PropertyValueData(propertyKey: 'price', type: PropertyType::Money, value: 10, currency: 'GBP'),
     ]))->toThrow(PropertyValueValidationException::class);
+});
+
+it('requires positive integer references and keeps referenced rows within the page site', function (): void {
+    $page = Page::factory()->published()->create();
+    $blueprint = Blueprint::query()->findOrFail($page->blueprint_id);
+    $set = PropertySet::factory()->create(['key' => 'test.references']);
+    foreach ([
+        ['key' => 'entry', 'type' => PropertyType::EntryReference],
+        ['key' => 'term', 'type' => PropertyType::TermReference],
+        ['key' => 'media', 'type' => PropertyType::Media],
+    ] as $definition) {
+        PropertyDefinition::factory()->create([
+            'property_set_id' => $set->id,
+            'key' => $definition['key'],
+            'type' => $definition['type'],
+        ]);
+    }
+
+    BlueprintPropertySet::factory()->create(['blueprint_id' => $blueprint->id, 'property_set_id' => $set->id]);
+    $foreignPage = Page::factory()->published()->create();
+    $foreignTaxonomy = Taxonomy::factory()->create(['site_id' => $foreignPage->site_id]);
+    $foreignTerm = Term::factory()->for($foreignTaxonomy)->create();
+    $foreignMedia = Media::factory()->model($foreignPage)->create();
+
+    expect(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData('entry', PropertyType::EntryReference, $foreignPage->id),
+    ]))->toThrow(PropertyValueValidationException::class)
+        ->and(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+            new PropertyValueData('term', PropertyType::TermReference, '1.5'),
+        ]))->toThrow(PropertyValueValidationException::class)
+        ->and(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+            new PropertyValueData('term', PropertyType::TermReference, $foreignTerm->id),
+        ]))->toThrow(PropertyValueValidationException::class)
+        ->and(fn (): mixed => SetPagePropertyValuesAction::run($page, [
+            new PropertyValueData('media', PropertyType::Media, $foreignMedia->id),
+        ]))->toThrow(PropertyValueValidationException::class);
 });
 
 it('rejects a localised value with no translation id', function (): void {
@@ -136,4 +184,34 @@ it('allows an override to raise requirement on a non-locked definition', functio
     $notes = $effective->first(fn ($d): bool => $d->key === 'notes');
 
     expect($notes->requirement)->toBe(PropertyRequirement::Publish);
+});
+
+it('does not update or delete property rows recorded for another site', function (): void {
+    $page = Page::factory()->create();
+    $price = attachProductSetToPage($page);
+    $foreignPage = Page::factory()->create();
+
+    $foreignCurrent = PagePropertyValue::factory()->create([
+        'site_id' => $foreignPage->site_id,
+        'page_id' => $page->id,
+        'property_definition_id' => $price->id,
+        'position' => 0,
+        'value_number' => '10.000000',
+    ]);
+    $foreignStale = PagePropertyValue::factory()->create([
+        'site_id' => $foreignPage->site_id,
+        'page_id' => $page->id,
+        'property_definition_id' => $price->id,
+        'position' => 1,
+        'value_number' => '11.000000',
+    ]);
+
+    SetPagePropertyValuesAction::run($page, [
+        new PropertyValueData(propertyKey: 'price', type: PropertyType::Money, value: 49.99, currency: 'GBP'),
+    ]);
+
+    expect($foreignCurrent->fresh()->value_number)->toEqual(10)
+        ->and($foreignStale->fresh()->value_number)->toEqual(11)
+        ->and(PagePropertyValue::query()->where('site_id', $page->site_id)->where('page_id', $page->id)->where('property_definition_id', $price->id)->sole()->value_number)
+        ->toEqual(49.99);
 });

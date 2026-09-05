@@ -9,6 +9,8 @@ use Capell\Core\Data\Properties\PropertyCompletenessData;
 use Capell\Core\Enums\PropertyRequirement;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\TermPropertyValue;
+use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -19,10 +21,9 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * agent-schema report. `publish` gaps are reported so
  * {@see TransitionPublicationAction} can hard-gate.
  *
- * Presence is "at least one value row exists for this definition" — a
- * deliberate simplification for Phase 1: per-translation completeness for
- * `localised` definitions (e.g. complete in English but not French) is a
- * Phase 2/3 refinement of the agent-schema report, not part of this gate.
+ * Presence is "at least one page or inherited term value row exists for this
+ * definition" — a deliberate simplification for Phase 1: per-translation
+ * completeness for `localised` definitions is a later refinement.
  */
 final class EvaluatePropertyCompletenessAction
 {
@@ -31,7 +32,7 @@ final class EvaluatePropertyCompletenessAction
 
     public function handle(Page $page): PropertyCompletenessData
     {
-        $effectiveDefinitions = ResolveEffectiveDefinitionsAction::run($page);
+        $effectiveDefinitions = ResolveAgentPropertyDefinitionsAction::run($page);
         $requiredDefinitions = $effectiveDefinitions->filter(
             static fn ($definition): bool => $definition->requirement !== PropertyRequirement::None,
         );
@@ -42,10 +43,26 @@ final class EvaluatePropertyCompletenessAction
 
         $definitionIdsWithValues = PagePropertyValue::query()
             ->where('page_id', $page->id)
+            ->where('site_id', $page->site_id)
             ->whereIn('property_definition_id', $requiredDefinitions->pluck('definitionId')->all())
             ->pluck('property_definition_id')
             ->unique()
             ->all();
+
+        $termIds = $page->terms()
+            ->whereHas('taxonomy', static fn (Builder $query): Builder => $query->where('site_id', $page->site_id))
+            ->pluck('terms.id');
+
+        if ($termIds->isNotEmpty()) {
+            $definitionIdsWithValues = array_unique([
+                ...$definitionIdsWithValues,
+                ...TermPropertyValue::query()
+                    ->whereIn('term_id', $termIds->all())
+                    ->whereIn('property_definition_id', $requiredDefinitions->pluck('definitionId')->all())
+                    ->pluck('property_definition_id')
+                    ->all(),
+            ]);
+        }
 
         $missingPublish = [];
         $missingContract = [];

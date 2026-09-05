@@ -71,6 +71,7 @@ final class SetPagePropertyValuesAction
 
                 PagePropertyValue::query()->updateOrCreate(
                     [
+                        'site_id' => $page->site_id,
                         'page_id' => $page->id,
                         'property_definition_id' => $definition->definitionId,
                         'translation_id' => $value->translationId,
@@ -86,6 +87,7 @@ final class SetPagePropertyValuesAction
                 // stray positions left over from before it was written again.
                 if (! $definition->multiple) {
                     PagePropertyValue::query()
+                        ->where('site_id', $page->site_id)
                         ->where('page_id', $page->id)
                         ->where('property_definition_id', $definition->definitionId)
                         ->where('translation_id', $value->translationId)

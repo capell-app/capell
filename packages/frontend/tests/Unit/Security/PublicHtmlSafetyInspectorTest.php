@@ -519,3 +519,12 @@ describe('baked session-bound CSRF markers', function (): void {
         expect($inspector->containsBakedCsrfToken('<input type="hidden" name="_tokenized" value="abc123">'))->toBeFalse();
     });
 });
+
+it('allows semantic agent islands but rejects authoring payloads and undeclared agent markers', function (): void {
+    $inspector = new PublicHtmlSafetyInspector;
+    expect($inspector->containsAuthoringSurface('<script type="application/ld+json" data-capell-agent-schema>{"@type":"Product","name":"Public product"}</script>'))->toBeFalse()
+        ->and($inspector->containsAuthoringSurface('<script type="application/json" data-capell-agent-tools>{"capellAgentSchema":1,"tools":[]}</script>'))->toBeFalse()
+        ->and($inspector->containsAuthoringSurface('<script type="application/json" data-capell-agent-tools>{"model_id":42}</script>'))->toBeTrue()
+        ->and($inspector->containsAuthoringSurface('<script type="application/ld+json" data-capell-agent-schema>{"field_path":"secret"}</script>'))->toBeTrue()
+        ->and($inspector->containsAuthoringSurface('<script data-capell-agent-admin>{}</script>'))->toBeTrue();
+});

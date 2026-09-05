@@ -27,10 +27,20 @@ return [
 
     'validation' => [
         'type_mismatch' => 'The value given for property ":property" does not match its declared type ":type".',
+        'reference_id_required' => 'Property ":property" requires a positive integer reference.',
+        'reference_outside_site' => 'The reference for property ":property" does not belong to this site.',
         'currency_required' => 'Property ":property" requires a currency code.',
         'unit_not_allowed' => 'Unit ":unit" is not permitted for property ":property".',
         'localised_translation_required' => 'Property ":property" is localised and requires a translation.',
         'not_attached_to_blueprint' => 'Property ":property" is not attached to this page\'s blueprint.',
         'promoted_property_direct_write' => 'Property ":property" is promoted from field ":field" and cannot be written to directly.',
+        'term_assignment_invalid' => 'The page term assignment contains an invalid term identifier.',
+        'term_assignment_out_of_scope' => "Every assigned term must belong to the page's site.",
+        'terms_invalid' => 'The page term assignment contains an invalid term identifier.',
+        'terms_out_of_scope' => "Every assigned term must belong to the page's site.",
+        'taxonomy_key_taken' => 'A taxonomy with this key already exists on the site.',
+        'property_set_key_taken' => 'A property set with this key already exists.',
+        'property_set_out_of_scope' => 'The selected property set is not available.',
+        'property_set_owned' => 'Package-owned property sets cannot be edited here.',
     ],
 ];

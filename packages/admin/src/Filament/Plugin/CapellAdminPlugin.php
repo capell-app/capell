@@ -151,6 +151,13 @@ class CapellAdminPlugin implements Plugin
                 ->synchronizeAdminSurface($panel);
         });
 
+        $panel->renderHook(
+            name: PanelsRenderHook::BODY_END,
+            hook: fn (): ?View => FilamentFacade::auth()->check()
+                ? view('capell-admin::components.agent-bridge')
+                : null,
+        );
+
         $panel
             ->brandName('Capell')
             ->brandLogo(fn (): View => view($logoView))
@@ -324,6 +331,7 @@ class CapellAdminPlugin implements Plugin
                 $publishDir . '/build/js/filament/rich-content-plugins/highlight.js',
             )
                 ->loadedOnRequest(),
+            AlpineComponent::make('capell-agent-admin', $publishDir . '/build/js/agent/admin-bridge.js'),
             AlpineComponent::make('html-code-editor', $publishDir . '/build/js/components/html-code-editor.js'),
             AlpineComponent::make('capell-keyboard-shortcuts', $publishDir . '/build/js/components/keyboard-shortcuts.js'),
             AlpineComponent::make('capell-content-lock-heartbeat', $publishDir . '/build/js/components/content-lock-heartbeat.js'),
