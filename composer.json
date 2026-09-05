@@ -64,6 +64,7 @@
         "analyze:full": "@php scripts/with-lock.php capell-static -- XDEBUG_MODE=off php -d opcache.enable_cli=1 -d pcov.enabled=0 vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan.neon",
         "analyze:source": "@php scripts/with-lock.php capell-static -- XDEBUG_MODE=off php -d opcache.enable_cli=1 -d pcov.enabled=0 vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/source.neon",
         "analyze:tests": "@php scripts/with-lock.php capell-static -- XDEBUG_MODE=off php -d opcache.enable_cli=1 -d pcov.enabled=0 vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/tests.neon",
+        "analyze:diff": "@php scripts/with-lock.php capell-static -- XDEBUG_MODE=off php -d opcache.enable_cli=1 -d pcov.enabled=0 vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/diff.neon",
         "phpstan": "@analyze",
         "phpstan:baseline-check": "bash scripts/check-phpstan-baseline-growth.sh",
         "phpstan:deprecations": "XDEBUG_MODE=off php -d opcache.enable_cli=1 -d pcov.enabled=0 vendor/bin/phpstan analyse --memory-limit=4G --configuration=phpstan/deprecations.neon",
