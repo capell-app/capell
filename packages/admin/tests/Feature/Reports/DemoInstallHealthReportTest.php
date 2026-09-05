@@ -210,33 +210,30 @@ function demoInstallHealthSeedInstall(): void
  */
 function dropTablesWithDependents(array $roots): void
 {
-    $existingTables = collect(Schema::getTables())->pluck('name')->all();
     $dependents = [];
-    $frontier = $roots;
-
-    while ($frontier !== []) {
-        $next = [];
-
-        foreach ($existingTables as $table) {
-            if (in_array($table, $roots, true) || in_array($table, $dependents, true)) {
-                continue;
-            }
-
-            $referencesFrontier = collect(Schema::getForeignKeys($table))
-                ->contains(fn (array $foreignKey): bool => in_array($foreignKey['foreign_table'], $frontier, true));
-
-            if ($referencesFrontier) {
-                $dependents[] = $table;
-                $next[] = $table;
-            }
+    foreach (Schema::getTables() as $table) {
+        foreach (Schema::getForeignKeys($table['name']) as $foreignKey) {
+            $dependents[$foreignKey['foreign_table']][] = $table['name'];
         }
-
-        $frontier = $next;
     }
 
-    // $dependents was collected breadth-first outward from $roots, so the
-    // tables found last are the deepest — reverse to drop those first.
-    foreach ([...array_reverse($dependents), ...$roots] as $table) {
+    $visited = [];
+    $drop = function (string $table) use (&$drop, &$visited, $dependents): void {
+        if (isset($visited[$table])) {
+            return;
+        }
+
+        $visited[$table] = true;
+        foreach ($dependents[$table] ?? [] as $dependent) {
+            $drop($dependent);
+        }
+
         Schema::dropIfExists($table);
+    };
+
+    // A table can reference several roots at different depths. Reversing
+    // breadth-first discovery is not a dependency order (page_term/terms).
+    foreach ($roots as $root) {
+        $drop($root);
     }
 }
