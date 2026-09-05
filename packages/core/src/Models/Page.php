@@ -8,6 +8,7 @@ use Aimeos\Nestedset\Collection;
 use Aimeos\Nestedset\NodeTrait;
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Actions\GetPageUrlPathAction;
+use Capell\Core\Actions\Properties\ResolveAgentPropertyValuesAction;
 use Capell\Core\Actions\ResolveFirstPageByTypeAction;
 use Capell\Core\Actions\ValidatePageHierarchyAction;
 use Capell\Core\Concerns\HasCapellMedia;
@@ -49,6 +50,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -508,6 +510,26 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
         $model->chaperone('pageable');
 
         return $model;
+    }
+
+    /**
+     * Taxonomy terms assigned to this page, ordered by assignment position.
+     * Term-carried structured data inherits onto the page via
+     * {@see ResolveAgentPropertyValuesAction}.
+     *
+     * @return BelongsToMany<Term, $this>
+     */
+    public function terms(): BelongsToMany
+    {
+        return $this->belongsToMany(Term::class, 'page_term')->withPivot('position')->withTimestamps()->orderByPivot('position');
+    }
+
+    /**
+     * @return HasMany<PagePropertyValue, $this>
+     */
+    public function propertyValues(): HasMany
+    {
+        return $this->hasMany(PagePropertyValue::class)->orderBy('position');
     }
 
     /** @return MorphMany<Page, $this> */

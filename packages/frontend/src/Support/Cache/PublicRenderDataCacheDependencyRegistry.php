@@ -34,6 +34,31 @@ final class PublicRenderDataCacheDependencyRegistry
         });
     }
 
+    /**
+     * @param  list<PublicRenderDataCacheDependencyData>  $dependencies
+     * @param  list<string>  $surrogateKeys
+     */
+    public function writeStaticArtifact(array $dependencies, string $file, array $surrogateKeys, Closure $write): void
+    {
+        $unique = [];
+        foreach ($dependencies as $dependency) {
+            $unique[$dependency->identity()] = $dependency;
+        }
+
+        ksort($unique);
+        $dependencies = array_values($unique);
+
+        $this->withDependencyLocks($dependencies, 0, function () use ($dependencies, $file, $surrogateKeys, $write): void {
+            foreach ($dependencies as $dependency) {
+                $this->registerDestinationUnlocked($this->staticIndexKey($dependency), $file);
+                $this->registerSurrogateKeysUnlocked($dependency, $surrogateKeys);
+            }
+
+            // Hold the same locks as invalidation until the file is on disk.
+            $write();
+        });
+    }
+
     /** @return list<CacheInvalidationRule> */
     public function rulesFor(Model $model): array
     {
@@ -97,9 +122,7 @@ final class PublicRenderDataCacheDependencyRegistry
     {
         $cacheKeys = $this->cache->getFreshFromCache($this->indexKey($dependency));
 
-        if (! is_array($cacheKeys)) {
-            return [];
-        }
+        $cacheKeys = is_array($cacheKeys) ? $cacheKeys : [];
 
         $rules = array_values(array_map(
             static fn (mixed $cacheKey): CacheInvalidationRule => CacheInvalidationRule::forgetKey((string) $cacheKey),

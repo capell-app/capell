@@ -137,6 +137,12 @@ use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\AdminSurfaceContributionCache;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Support\AdminZoneRegistry;
+use Capell\Admin\Support\Agent\AgentAdminAuthorization;
+use Capell\Admin\Support\Agent\AgentAdminConfirmationStore;
+use Capell\Admin\Support\Agent\AgentAdminPropertyValuePresenter;
+use Capell\Admin\Support\Agent\AgentAdminToolInvocationService;
+use Capell\Admin\Support\Agent\AgentAdminToolRegistry;
+use Capell\Admin\Support\Agent\AgentPageReadinessExtender;
 use Capell\Admin\Support\Backup\NullPageExporter;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
@@ -305,6 +311,15 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         parent::registeringPackage();
+
+        $this->app->singleton(AgentAdminAuthorization::class);
+        $this->app->singleton(AgentAdminConfirmationStore::class);
+        $this->app->singleton(AgentAdminPropertyValuePresenter::class);
+        $this->app->singleton(AgentAdminToolRegistry::class);
+        $this->app->singleton(AgentAdminToolInvocationService::class);
+        $this->app->singleton(AgentPageReadinessExtender::class);
+        $this->app->tag(AgentPageReadinessExtender::class, PageEditExtender::TAG);
+        $this->loadRoutesFrom(__DIR__ . '/../../routes/agent.php');
 
         $this->app->singleton(StaticSiteGenerationDispatcher::class, UnavailableStaticSiteGenerationDispatcher::class);
 

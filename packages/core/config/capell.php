@@ -150,6 +150,14 @@ return [
         'rate_limit_per_minute' => (int) env('CAPELL_ANALYTICS_RATE_LIMIT_PER_MINUTE', 30),
     ],
 
+    'agent' => [
+        'read_api' => env('CAPELL_AGENT_READ_API', true),
+        'rate_limit' => env('CAPELL_AGENT_RATE_LIMIT', 60),
+        // Phase 3 starts with an audit warning; releases can opt into the
+        // future fail-closed mandate without changing package declarations.
+        'audit_severity' => env('CAPELL_AGENT_AUDIT_SEVERITY', 'warning'),
+    ],
+
     'debug' => [
         'relationship_diagnostics' => env('CAPELL_RELATIONSHIP_DIAGNOSTICS', false),
     ],

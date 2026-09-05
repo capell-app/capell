@@ -28,11 +28,13 @@ it('builds resource-plan ownership graph diagnostics and budget data for a page'
     app()->tag('test.frontend-resource-diagnostics-contributor', FrontendResourceContributor::TAG);
 
     $diagnostics = BuildPageFrontendResourceDiagnosticsAction::run(Page::factory()->createOne());
+    $galleryAssets = collect($diagnostics['graph']['assets'])
+        ->filter(static fn (array $asset): bool => str_ends_with($asset['source'], '/vendor/gallery/gallery.css'))
+        ->values();
 
     expect($diagnostics['context']['page'])->not->toBeNull()
-        ->and($diagnostics['graph']['assets'])->toHaveCount(1)
-        ->and($diagnostics['graph']['assets'][0]['source'])->toEndWith('/vendor/gallery/gallery.css')
-        ->and($diagnostics['graph']['assets'][0]['package'])->toBe('capell-app/gallery')
+        ->and($galleryAssets)->toHaveCount(1)
+        ->and($galleryAssets[0]['package'])->toBe('capell-app/gallery')
         ->and($diagnostics['conflicts'])->toBe([])
         ->and($diagnostics['budgetResult']->passes)->toBeBool();
 });

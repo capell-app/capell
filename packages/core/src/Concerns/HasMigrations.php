@@ -67,6 +67,15 @@ trait HasMigrations
             '2026_08_13_000002_add_admin_workspace_preferences_to_users_table',
             '2026_08_14_000001_add_provider_recovery_to_capell_extensions',
             '2026_08_18_000001_create_activity_visitors_table',
+            '2026_09_04_000001_create_property_sets_table',
+            '2026_09_04_000002_create_property_definitions_table',
+            '2026_09_04_000003_create_blueprint_property_sets_table',
+            '2026_09_04_000004_create_taxonomies_table',
+            '2026_09_04_000005_create_terms_table',
+            '2026_09_04_000006_create_page_term_table',
+            '2026_09_04_000007_create_page_property_values_table',
+            '2026_09_04_000008_create_term_property_values_table',
+            '2026_09_04_000009_sync_builtin_property_sets',
         ];
     }
 

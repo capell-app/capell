@@ -1,6 +1,6 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "The Admin zone context signature is an intentional compatibility-preserving addition: the context now carries the current actor and an optional surface subject.",
-    "drift": ["changed public signature: admin.dto.admin-zone-context"]
+    "reason": "The Admin zone context signature is an intentional compatibility-preserving addition: the context now carries the current actor and an optional surface subject. CAP-0460 Phase 1 adds nine new, purely additive Core migrations (property_sets, property_definitions, blueprint_property_sets, taxonomies, terms, page_term, page_property_values, term_property_values tables, plus a data migration syncing Core's built-in property sets) — no existing migration is modified or removed.",
+    "drift": ["changed public signature: admin.dto.admin-zone-context", "migrations"]
 }

@@ -11,6 +11,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Models\Term;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
@@ -20,6 +21,7 @@ use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
+use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
 use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
@@ -525,3 +527,36 @@ function staticPageArtifactsRenderData(string $url, string $domain = 'example.te
 
     return [$page, $site, $renderData];
 }
+
+it('invalidates a static artifact when its agent term dependency changes without a render cache entry', function (): void {
+    [, $site, $renderData] = staticPageArtifactsRenderData('/agent-static-dependency');
+    $term = Term::factory()->create();
+    $renderData->extensionCacheDependencies = [PublicRenderDataCacheDependencyData::forModel($term)];
+    app()->instance(Kernel::class, new readonly class($renderData) implements Kernel
+    {
+        public function __construct(private PublicPageRenderData $renderData) {}
+
+        public function bootstrap(): void {}
+
+        public function handle($request): Response
+        {
+            resolve(FrontendContextReader::class)->setFrontendData('publicPageRenderData', $this->renderData);
+
+            return new Response('<html>Public term</html>', Response::HTTP_OK);
+        }
+
+        public function terminate($request, $response): void {}
+
+        public function getApplication(): Application
+        {
+            return app();
+        }
+    });
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $site->id, urls: ['/agent-static-dependency']);
+    $file = resolve(StaticPageArtifactStore::class)->root() . '/' . $manifest['artifacts'][0]['file'];
+    expect(File::exists($file))->toBeTrue();
+
+    $term->update(['name' => 'Changed term']);
+
+    expect(File::exists($file))->toBeFalse();
+});
