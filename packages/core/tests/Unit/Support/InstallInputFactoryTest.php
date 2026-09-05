@@ -311,3 +311,26 @@ it('supports all and custom web package selection modes', function (): void {
         ->and($customInputData->packages)->toBe(['capell-app/blog'])
         ->and($customInputData->extraPackages)->toBe(['capell-app/remote-extension']);
 });
+
+it('falls back to the configured filament-shield super-admin role name for example users', function (): void {
+    $originalRoles = config('capell.roles');
+    $originalShieldRole = config('filament-shield.super_admin.name');
+    $roles = is_array($originalRoles) ? $originalRoles : [];
+    unset($roles['super_admin']);
+
+    config([
+        'capell.roles' => $roles,
+        'filament-shield.super_admin.name' => 'shield-super-admin',
+    ]);
+
+    try {
+        $exampleUsers = new InstallInputFactory(new PackageWorkflowPlanner)->exampleRoleUsers('password123');
+
+        expect($exampleUsers[0]->roleName)->toBe('shield-super-admin');
+    } finally {
+        config([
+            'capell.roles' => $originalRoles,
+            'filament-shield.super_admin.name' => $originalShieldRole,
+        ]);
+    }
+});

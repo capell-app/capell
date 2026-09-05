@@ -31,7 +31,7 @@ final class CheckAdminPanelAccessAction
         $userModel = config('auth.providers.users.model');
         $guard = (string) config('auth.defaults.guard', 'web');
         $roleModel = config('permission.models.role');
-        $roleName = (string) config('filament-shield.super_admin.name', config('capell.roles.super_admin', 'super_admin'));
+        $roleName = (string) config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
         $panelId = (string) config('capell-admin.panel.id', 'admin');
 
         $baseEvidence = [
