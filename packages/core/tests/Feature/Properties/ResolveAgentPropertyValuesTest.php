@@ -358,3 +358,56 @@ it('inherits every ordered value from the winning term for a multiple property',
     expect($entries)->toHaveCount(2)
         ->and(collect($entries)->pluck('value')->all())->toBe(['Winner first', 'Winner second']);
 });
+
+it('resolves values from a taxonomy property set without a blueprint attachment', function (): void {
+    $page = Page::factory()->published()->create();
+    $set = PropertySet::factory()->create(['key' => 'test.taxonomy-only']);
+    $definition = PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => 'country',
+        'type' => PropertyType::Text,
+        'agent_visible' => true,
+    ]);
+    $taxonomy = Taxonomy::factory()->create([
+        'site_id' => $page->site_id,
+        'property_set_id' => $set->id,
+    ]);
+    $term = Term::factory()->for($taxonomy)->create();
+    TermPropertyValue::factory()->create([
+        'term_id' => $term->id,
+        'property_definition_id' => $definition->id,
+        'value_text' => 'United Kingdom',
+    ]);
+    $page->terms()->attach($term->id, ['position' => 0]);
+
+    $entries = ResolveAgentPropertyValuesAction::run($page->fresh())->entries;
+
+    expect($entries)->toHaveCount(1)
+        ->and($entries[0]->qualifiedKey)->toBe('test.taxonomy-only.country')
+        ->and($entries[0]->value)->toBe('United Kingdom');
+});
+
+it('does not resolve a taxonomy property set from another site', function (): void {
+    $page = Page::factory()->published()->create();
+    $set = PropertySet::factory()->create(['key' => 'test.foreign-taxonomy']);
+    $definition = PropertyDefinition::factory()->create([
+        'property_set_id' => $set->id,
+        'key' => 'country',
+        'type' => PropertyType::Text,
+        'agent_visible' => true,
+    ]);
+    $otherPage = Page::factory()->create();
+    $taxonomy = Taxonomy::factory()->create([
+        'site_id' => $otherPage->site_id,
+        'property_set_id' => $set->id,
+    ]);
+    $term = Term::factory()->for($taxonomy)->create();
+    TermPropertyValue::factory()->create([
+        'term_id' => $term->id,
+        'property_definition_id' => $definition->id,
+        'value_text' => 'Private country',
+    ]);
+    $page->terms()->attach($term->id, ['position' => 0]);
+
+    expect(ResolveAgentPropertyValuesAction::run($page)->isEmpty())->toBeTrue();
+});

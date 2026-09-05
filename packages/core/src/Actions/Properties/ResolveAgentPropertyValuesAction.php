@@ -50,7 +50,7 @@ final class ResolveAgentPropertyValuesAction
             return new AgentPropertyBagData(entries: []);
         }
 
-        $definitions = ResolveEffectiveDefinitionsAction::run($page)
+        $definitions = ResolveAgentPropertyDefinitionsAction::run($page)
             ->filter(static fn (EffectivePropertyDefinitionData $definition): bool => $definition->agentVisible)
             ->values();
 
