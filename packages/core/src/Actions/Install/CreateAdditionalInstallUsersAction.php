@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\NewUserData;
+use Capell\Core\Models\Site;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
@@ -24,7 +25,7 @@ final class CreateAdditionalInstallUsersAction
     /**
      * @param  array<NewUserData>  $users
      */
-    public function handle(array $users, ProgressReporter $reporter): void
+    public function handle(array $users, ProgressReporter $reporter, ?Site $site = null): void
     {
         if ($users === []) {
             return;
@@ -54,7 +55,7 @@ final class CreateAdditionalInstallUsersAction
             }
 
             MarkInstallUserEmailVerifiedAction::run($user);
-            $this->assignRole($user, $userData, $reporter);
+            $this->assignRole($user, $userData, $reporter, $site);
 
             $reporter->report(sprintf(
                 '✓ Prepared install user %s with role %s.',
@@ -64,7 +65,7 @@ final class CreateAdditionalInstallUsersAction
         }
     }
 
-    private function assignRole(Authenticatable $user, NewUserData $userData, ProgressReporter $reporter): void
+    private function assignRole(Authenticatable $user, NewUserData $userData, ProgressReporter $reporter, ?Site $site): void
     {
         if ($userData->roleName === null || $userData->roleName === '') {
             return;
@@ -78,9 +79,30 @@ final class CreateAdditionalInstallUsersAction
 
         try {
             $role = Role::findOrCreate($userData->roleName, 'web');
-            $user->assignRole($role);
+
+            if ($this->isGlobalSuperAdminRole($userData->roleName)) {
+                $user->assignRole($role);
+
+                return;
+            }
+
+            if (! $site instanceof Site || ! method_exists($user, 'assignRoleForSite')) {
+                $reporter->report(sprintf('→ Role %s could not be assigned to %s automatically because no site-scoped permission support is available.', $userData->roleName, $userData->email));
+
+                return;
+            }
+
+            $user->assignRoleForSite($site, $role);
         } catch (Throwable) {
             $reporter->report(sprintf('→ Role %s could not be assigned to %s automatically.', $userData->roleName, $userData->email));
         }
+    }
+
+    private function isGlobalSuperAdminRole(string $roleName): bool
+    {
+        $configured = config('capell.roles.super_admin', 'super_admin');
+        $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
+
+        return $roleName === $superAdminRole;
     }
 }

@@ -5,10 +5,13 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\CreateAdditionalInstallUsersAction;
 use Capell\Core\Actions\Install\ResolveInstallUserAction;
 use Capell\Core\Data\NewUserData;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\PermissionRegistrar;
 
 it('returns existing user by id', function (): void {
     $user = User::factory()->createOne();
@@ -45,30 +48,52 @@ it('creates a new user from NewUserData when no userId given', function (): void
 });
 
 it('creates additional install users with their configured roles', function (): void {
-    $reporter = new NullProgressReporter;
+    // permission.teams is false in production today (CAP-0532's cutover
+    // hasn't happened yet); enabling it here proves this action's site-scoped
+    // assignRoleForSite() call actually scopes correctly once it does, the
+    // same way PagePolicyTest already does for its own CAP-0532 proof.
+    // Restored in finally so the rest of this suite is unaffected.
+    $originalUserModel = config('auth.providers.users.model');
+    config([
+        'auth.providers.users.model' => HasSitePermissionsTestUser::class,
+        'permission.teams' => true,
+    ]);
+    resolve(PermissionRegistrar::class)->teams = true;
 
-    CreateAdditionalInstallUsersAction::run([
-        new NewUserData(
-            name: 'Example Super Admin',
-            email: 'super-admin@example.test',
-            password: 'password123',
-            roleName: 'super_admin',
-        ),
-        new NewUserData(
-            name: 'Example Editor',
-            email: 'editor@example.test',
-            password: 'password123',
-            roleName: 'editor',
-        ),
-    ], $reporter);
+    try {
+        $site = Site::factory()->createOne();
+        $reporter = new NullProgressReporter;
 
-    $superAdmin = User::query()->where('email', 'super-admin@example.test')->firstOrFail();
-    $editor = User::query()->where('email', 'editor@example.test')->firstOrFail();
+        CreateAdditionalInstallUsersAction::run([
+            new NewUserData(
+                name: 'Example Super Admin',
+                email: 'super-admin@example.test',
+                password: 'password123',
+                roleName: 'super_admin',
+            ),
+            new NewUserData(
+                name: 'Example Editor',
+                email: 'editor@example.test',
+                password: 'password123',
+                roleName: 'editor',
+            ),
+        ], $reporter, $site);
 
-    expect($superAdmin->hasRole('super_admin'))->toBeTrue()
-        ->and($editor->hasRole('editor'))->toBeTrue()
-        ->and(Hash::check('password123', $superAdmin->password))->toBeTrue()
-        ->and(Hash::check('password123', $editor->password))->toBeTrue();
+        $superAdmin = HasSitePermissionsTestUser::query()->where('email', 'super-admin@example.test')->firstOrFail();
+        $editor = HasSitePermissionsTestUser::query()->where('email', 'editor@example.test')->firstOrFail();
+
+        expect($superAdmin->isGlobalAdmin())->toBeTrue()
+            ->and($editor->hasRoleForSite($site, 'editor'))->toBeTrue()
+            ->and($editor->getRolesForSite($site)->pluck('name')->all())->toBe(['editor'])
+            ->and(Hash::check('password123', $superAdmin->password))->toBeTrue()
+            ->and(Hash::check('password123', $editor->password))->toBeTrue();
+    } finally {
+        resolve(PermissionRegistrar::class)->setPermissionsTeamId(null);
+        resolve(PermissionRegistrar::class)->teams = false;
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+        config(['permission.teams' => false]);
+        config(['auth.providers.users.model' => $originalUserModel]);
+    }
 });
 
 it('throws when userId given but user does not exist', function (): void {
