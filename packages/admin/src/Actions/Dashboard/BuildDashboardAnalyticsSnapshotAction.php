@@ -8,6 +8,8 @@ use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
+use Capell\Core\Enums\Database\DatabaseFamily;
+use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
 use Capell\Core\Models\MetricDailyRollup;
@@ -18,7 +20,6 @@ use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 
 final class BuildDashboardAnalyticsSnapshotAction
 {
@@ -151,9 +152,9 @@ final class BuildDashboardAnalyticsSnapshotAction
     {
         $expression = $days === 1
             ? 'bucket_started_at'
-            : match (DB::connection()->getDriverName()) {
-                'mysql', 'mariadb' => 'DATE(bucket_started_at)',
-                'pgsql' => 'CAST(bucket_started_at AS DATE)',
+            : match (CapellDatabase::for()->family()) {
+                DatabaseFamily::MySql, DatabaseFamily::MariaDb => 'DATE(bucket_started_at)',
+                DatabaseFamily::PostgreSql => 'CAST(bucket_started_at AS DATE)',
                 default => 'date(bucket_started_at)',
             };
         $raw = (clone $rawQuery)
