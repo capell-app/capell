@@ -7,6 +7,7 @@ namespace Capell\Core\EventSourcing\Serializers;
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
@@ -86,6 +87,28 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 ])
                 ->values()
                 ->all(),
+            // CAP-0460: property values are single-copy, exactly like the
+            // page's own title/content above — no separate draft/published
+            // projection exists to snapshot, so the current row set IS the
+            // state to capture. Loaded fresh (not loadMissing) for the same
+            // reason as translations/pageUrls above.
+            'propertyValues' => $page->propertyValues()->get()
+                ->map(static fn (PagePropertyValue $value): array => [
+                    'property_definition_id' => $value->property_definition_id,
+                    'translation_id' => $value->translation_id,
+                    'position' => $value->position,
+                    'value_text' => $value->value_text,
+                    'value_number' => $value->getRawOriginal('value_number'),
+                    'value_boolean' => $value->value_boolean,
+                    'value_datetime' => $value->value_datetime?->toIso8601String(),
+                    'currency' => $value->currency,
+                    'unit' => $value->unit,
+                    'term_id' => $value->term_id,
+                    'referenced_page_id' => $value->referenced_page_id,
+                    'media_id' => $value->media_id,
+                ])
+                ->values()
+                ->all(),
         ];
     }
 
@@ -101,6 +124,7 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 $this->restoreAttributes($page, $state['attributes'] ?? []);
                 $this->restoreTranslations($page, $state['translations'] ?? []);
                 $this->restorePageUrls($page, $state['pageUrls'] ?? []);
+                $this->restorePropertyValues($page, $state['propertyValues'] ?? []);
             });
 
             // The PageSaved bridge can record the initial authoring revision
@@ -217,6 +241,38 @@ final class PageStateSerializer implements EventSourcedStateSerializer
             ->whereNotIn('url', $this->withoutNull($targetUrls))
             ->get()
             ->each(static fn (PageUrl $pageUrl): mixed => $pageUrl->delete());
+    }
+
+    /**
+     * Unlike pageUrls (which preserve accumulated analytics across a
+     * rollback), property values carry no state worth preserving outside the
+     * captured snapshot itself — a straight delete-and-recreate reproduces
+     * the target state exactly, byte-identical, the same guarantee the class
+     * docblock promises for translation content.
+     *
+     * @param  list<array<string, mixed>>  $propertyValues
+     */
+    private function restorePropertyValues(Page $page, array $propertyValues): void
+    {
+        $page->propertyValues()->delete();
+
+        foreach ($propertyValues as $data) {
+            $page->propertyValues()->create([
+                'site_id' => $page->site_id,
+                'property_definition_id' => $data['property_definition_id'] ?? null,
+                'translation_id' => $data['translation_id'] ?? null,
+                'position' => $data['position'] ?? 0,
+                'value_text' => $data['value_text'] ?? null,
+                'value_number' => $data['value_number'] ?? null,
+                'value_boolean' => $data['value_boolean'] ?? null,
+                'value_datetime' => $data['value_datetime'] ?? null,
+                'currency' => $data['currency'] ?? null,
+                'unit' => $data['unit'] ?? null,
+                'term_id' => $data['term_id'] ?? null,
+                'referenced_page_id' => $data['referenced_page_id'] ?? null,
+                'media_id' => $data['media_id'] ?? null,
+            ]);
+        }
     }
 
     /**

@@ -86,6 +86,7 @@ use Capell\Core\Listeners\PageTranslationCreatingListener;
 use Capell\Core\Listeners\PageTranslationDeletedListener;
 use Capell\Core\Listeners\PageTranslationSavedListener;
 use Capell\Core\Listeners\RebuildContentGraphOnPageRollbackSubscriber;
+use Capell\Core\Listeners\SyncPromotedPropertyFieldsOnPageSaved;
 use Capell\Core\Macros\BlueprintMacros;
 use Capell\Core\Models\ActivityBucket;
 use Capell\Core\Models\ActivityVisitor;
@@ -968,6 +969,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         Event::listen(PageSaved::class, [CreateRedirectsForChangedPageUrls::class, 'handle']);
         Event::listen(PageUrlsRewritten::class, [CreateRedirectsForChangedPageUrls::class, 'handleUrlRewrite']);
+        Event::listen(PageSaved::class, [SyncPromotedPropertyFieldsOnPageSaved::class, 'handle']);
 
         return $this;
     }
