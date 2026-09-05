@@ -333,7 +333,7 @@ describe('baked session-bound CSRF markers', function (): void {
     // A CSRF token is bound to whoever's session happened to render the
     // response. If it reaches a page that can enter the shared HTML cache,
     // every later visitor is served that one visitor's token and every
-    // subsequent submission fails Laravel's CSRF check (CAP-0216/CAP-0233).
+    // subsequent submission fails Laravel's CSRF check.
     // This is a cache-eligibility signal, not an authoring-surface leak: a
     // single-visitor fragment response legitimately contains a real token,
     // so it is checked via a dedicated method, never via

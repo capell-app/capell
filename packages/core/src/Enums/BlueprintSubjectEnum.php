@@ -15,7 +15,7 @@ use Capell\Core\Support\BlueprintSubjectRegistry;
  * the subject set is open, and
  * {@see BlueprintSubjectRegistry} is the only place that
  * resolves a key to its label, model and seeder. Adding a `match` back here
- * would re-close the set that CAP-0100.2 opened.
+ * would re-close the set that was deliberately opened.
  *
  * @see CoreBlueprintSubjects The descriptors behind these keys.
  */
