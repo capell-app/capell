@@ -13,7 +13,7 @@ use Capell\Core\Support\BlueprintSubjectRegistry;
  *
  * **Why this is not a backed enum.** Admin's house rule is that Filament option
  * lists come from a backed enum implementing `HasLabel`, never an inline array.
- * That rule assumes a closed set. Since CAP-0100.2 the blueprint subject set is
+ * That rule assumes a closed set. The blueprint subject set is
  * open: any installed package can contribute a subject at boot, so the option
  * list is only known at runtime and PHP cannot generate an enum for it. The
  * spec's `BlueprintSubjectOptionEnum` bridge is not expressible for the same

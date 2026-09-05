@@ -14,8 +14,7 @@ use Capell\Frontend\Enums\FrontendRenderAudience;
  * accumulates during a render. The bag itself (a plain string-keyed array,
  * accessible via getFrontendData()) still exists and its interface is
  * unchanged — this is a read-side addition, not a replacement of the
- * storage or a breaking interface change (CAP-0231 architecture review,
- * frontend#2).
+ * storage or a breaking interface change.
  *
  * Every property here corresponds to a key some part of the frontend
  * pipeline currently sets by convention only, with no compile-time
