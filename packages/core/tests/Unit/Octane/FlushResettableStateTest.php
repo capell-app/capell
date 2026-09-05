@@ -167,13 +167,13 @@ it('flushes resettable services when an Octane operation terminates', function (
     event(new readonly class($baseApplication, $sandbox) implements OperationTerminated
     {
         public function __construct(
-            private Application $application,
-            private Application $sandbox,
+            public Application $app,
+            public Application $sandbox,
         ) {}
 
         public function app(): Application
         {
-            return $this->application;
+            return $this->app;
         }
 
         public function sandbox(): Application

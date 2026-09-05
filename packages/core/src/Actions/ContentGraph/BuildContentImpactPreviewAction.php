@@ -252,7 +252,11 @@ final class BuildContentImpactPreviewAction
 
     private function consequence(ContentGraphEdgeStrength $strength): string
     {
-        return (string) __('capell-core::generic.content_impact_consequence_' . $strength->value);
+        return (string) match ($strength) {
+            ContentGraphEdgeStrength::Strong => __('capell-core::generic.content_impact_consequence_strong'),
+            ContentGraphEdgeStrength::Weak => __('capell-core::generic.content_impact_consequence_weak'),
+            ContentGraphEdgeStrength::Informational => __('capell-core::generic.content_impact_consequence_informational'),
+        };
     }
 
     /**
