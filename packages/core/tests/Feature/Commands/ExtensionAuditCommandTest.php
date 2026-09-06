@@ -90,6 +90,44 @@ it('passes valid extension manifests without errors', function (): void {
         ->assertExitCode(Command::SUCCESS);
 });
 
+it('accepts Marketplace screenshots omitted by the package export attributes during extension audit', function (): void {
+    $directory = makeExtensionAuditPackage('vendor/export-ignored-screenshots', [
+        'marketplace' => [
+            'summary' => 'A package with screenshots published separately.',
+            'screenshots' => [[
+                'path' => 'docs/screenshots/landing.png',
+                'alt' => 'Landing page preview',
+                'caption' => 'Landing page preview.',
+            ]],
+            'categories' => ['developer-tools'],
+        ],
+    ]);
+
+    file_put_contents($directory . '/.gitattributes', "/docs/screenshots export-ignore\n");
+
+    artisanCommand('capell:extension-audit', ['path' => $directory])
+        ->expectsOutputToContain('No extension contract errors found.')
+        ->assertExitCode(Command::SUCCESS);
+});
+
+it('still fails genuinely missing Marketplace screenshots during extension audit', function (): void {
+    $directory = makeExtensionAuditPackage('vendor/missing-screenshot', [
+        'marketplace' => [
+            'summary' => 'A package with an accidentally missing screenshot.',
+            'screenshots' => [[
+                'path' => 'docs/screenshots/missing.png',
+                'alt' => 'Missing screenshot preview',
+                'caption' => 'Missing screenshot preview.',
+            ]],
+            'categories' => ['developer-tools'],
+        ],
+    ]);
+
+    artisanCommand('capell:extension-audit', ['path' => $directory])
+        ->expectsOutputToContain('existing file inside the package')
+        ->assertExitCode(Command::FAILURE);
+});
+
 it('fails the strict audit when runtime ordering diagnostics are present', function (): void {
     resolve(ExtensionOrderingAudit::class)->register('tests/runtime-ordering', static fn (): array => [
         new ExtensionOrderDiagnosticData('missing-anchor', 'test.contribution', 'missing.anchor'),
