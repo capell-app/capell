@@ -220,6 +220,12 @@ it('publishes a verified split and records atomic resumable state', function ():
         ->and(implode("\n", array_map(fn (array $command): string => implode(' ', $command), $runner->commands)))
         ->toContain('commit-tree')->toContain(':refs/heads/main')->toContain('--force-with-lease=refs/heads/main:' . str_repeat('f', 40))->toContain(':refs/tags/v1.0.0')
         ->toContain('rev-parse FETCH_HEAD')->not->toContain('capell-release-capell-')->not->toContain('refs/remotes/');
+    $commitTreeCommands = array_values(array_filter($runner->commands, static fn (array $command): bool => in_array('commit-tree', $command, true)));
+    expect($commitTreeCommands)->toHaveCount(1)
+        ->and($commitTreeCommands[0][0])->toBe('env')
+        ->and($commitTreeCommands[0])->toContain('GIT_AUTHOR_NAME=Capell Release')
+        ->and(array_filter($commitTreeCommands[0], static fn (string $argument): bool => str_starts_with($argument, 'GIT_AUTHOR_DATE=')))->toHaveCount(1)
+        ->and(array_filter($commitTreeCommands[0], static fn (string $argument): bool => str_starts_with($argument, 'GIT_COMMITTER_DATE=')))->toHaveCount(1);
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
     $sourceTagIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'refs/tags/core/v1.0.0:refs/tags/core/v1.0.0'));
@@ -959,6 +965,58 @@ it('reuses an unrecorded remote main commit when it already has the planned tree
 
     @unlink($path);
     @unlink($path . '.state.json');
+});
+
+it('synthesises identical split commits for identical inputs', function (): void {
+    $root = sys_get_temp_dir() . '/capell-deterministic-split-' . bin2hex(random_bytes(5));
+    mkdir($root, 0777, true);
+    $runner = new ProcessCommandRunner;
+    $runGit = static function (array $arguments) use ($runner, $root): string {
+        $result = $runner->run(['git', ...$arguments], $root);
+        throw_unless($result['exitCode'] === 0, RuntimeException::class, $result['error'] ?? 'Git command failed.');
+
+        return $result['output'];
+    };
+
+    $ambientDates = [
+        'GIT_AUTHOR_DATE' => '2000-01-01T00:00:00Z',
+        'GIT_COMMITTER_DATE' => '2000-01-01T00:00:00Z',
+    ];
+
+    try {
+        $runGit(['init', '--quiet']);
+        $runGit(['config', 'user.name', 'Fixture Release']);
+        $runGit(['config', 'user.email', 'fixture@example.test']);
+        file_put_contents($root . '/old.txt', "old\n");
+        $runGit(['add', 'old.txt']);
+        $parent = $runGit(['commit-tree', $runGit(['write-tree']), '-m', 'Parent']);
+        file_put_contents($root . '/planned.txt', "planned\n");
+        $runGit(['add', 'planned.txt']);
+        $tree = $runGit(['write-tree']);
+        $message = 'Release v1.0.0';
+        $engine = new ReleaseEngine($root, $runner);
+        $environment = new ReflectionMethod(ReleaseEngine::class, 'deterministicCommitEnvironment')
+            ->invoke($engine, $tree, $parent, $message);
+        $git = new ReflectionMethod(ReleaseEngine::class, 'git');
+
+        foreach ($ambientDates as $name => $value) {
+            putenv($name . '=' . $value);
+        }
+
+        $first = $git->invoke($engine, ['commit-tree', $tree, '-p', $parent, '-m', $message], $environment);
+
+        foreach (array_keys($ambientDates) as $name) {
+            putenv($name . '=2001-01-01T00:00:00Z');
+        }
+
+        $second = $git->invoke($engine, ['commit-tree', $tree, '-p', $parent, '-m', $message], $environment);
+
+        expect($first)->toBe($second);
+    } finally {
+        foreach (array_keys($ambientDates) as $name) {
+            putenv($name);
+        }
+    }
 });
 
 it('records all main pushes before a source tag push fails', function (): void {
