@@ -16,6 +16,7 @@ use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
+use Capell\Core\Support\Filesystem\ExportIgnoredPath;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\OutboundEventRegistry;
 use Composer\InstalledVersions;
@@ -29,7 +30,7 @@ use SplFileInfo;
 use Throwable;
 
 /**
- * @method static list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}> run(?string $path = null, array<string>|list<string> $bootedProviderBuckets = [])
+ * @method static list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}> run(?string $path = null, array<string>|list<string> $bootedProviderBuckets = [], bool $allowExportIgnoredScreenshots = false)
  */
 final class AuditExtensionContractsAction
 {
@@ -40,7 +41,7 @@ final class AuditExtensionContractsAction
      * @param  array<string, list<string>>|list<string>  $bootedProviderBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    public function handle(?string $path = null, array $bootedProviderBuckets = []): array
+    public function handle(?string $path = null, array $bootedProviderBuckets = [], bool $allowExportIgnoredScreenshots = false): array
     {
         $results = [];
         $manifestPaths = $this->manifestPaths($path);
@@ -103,6 +104,7 @@ final class AuditExtensionContractsAction
                     $manifestPath,
                     $composerJson ?? [],
                     $this->bootedBuckets($manifest, $bootedProviderBuckets),
+                    $allowExportIgnoredScreenshots,
                 ),
             );
 
@@ -360,10 +362,15 @@ final class AuditExtensionContractsAction
      * @param  list<string>  $bootedProviderBuckets
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    private function derivedResults(CapellManifestData $manifest, string $manifestPath, array $composerJson, array $bootedProviderBuckets = []): array
-    {
+    private function derivedResults(
+        CapellManifestData $manifest,
+        string $manifestPath,
+        array $composerJson,
+        array $bootedProviderBuckets = [],
+        bool $allowExportIgnoredScreenshots = false,
+    ): array {
         return [
-            ...$this->packageContractResults($manifest, $manifestPath, $composerJson),
+            ...$this->packageContractResults($manifest, $manifestPath, $composerJson, $allowExportIgnoredScreenshots),
             ...$this->capabilityResults($manifest, $manifestPath),
             ...$this->cacheSafetyResults($manifest, $manifestPath),
             ...$this->declarationResults($manifest, $manifestPath, $this->bootedBuckets($manifest, $bootedProviderBuckets)),
@@ -565,8 +572,12 @@ final class AuditExtensionContractsAction
      * @param  array<string, mixed>  $composerJson
      * @return list<array{package: string, manifest_path: string, severity: string, message: string, context: array<string, mixed>}>
      */
-    private function packageContractResults(CapellManifestData $manifest, string $manifestPath, array $composerJson): array
-    {
+    private function packageContractResults(
+        CapellManifestData $manifest,
+        string $manifestPath,
+        array $composerJson,
+        bool $allowExportIgnoredScreenshots = false,
+    ): array {
         $results = [];
         $composerName = is_string($composerJson['name'] ?? null) ? $composerJson['name'] : '';
         $composerSlug = str_contains($composerName, '/') ? substr($composerName, strrpos($composerName, '/') + 1) : '';
@@ -603,6 +614,14 @@ final class AuditExtensionContractsAction
             $relativePath = ltrim($screenshot->path, '/');
             $resolvedPath = realpath($packageDirectory . DIRECTORY_SEPARATOR . $relativePath);
             $packageRoot = realpath($packageDirectory);
+
+            if ($resolvedPath !== false && $packageRoot !== false && str_starts_with($resolvedPath, $packageRoot . DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            if ($resolvedPath === false && $allowExportIgnoredScreenshots && ExportIgnoredPath::matches($packageDirectory, $relativePath)) {
+                continue;
+            }
 
             if ($packageRoot === false || $resolvedPath === false || ! str_starts_with($resolvedPath, $packageRoot . DIRECTORY_SEPARATOR)) {
                 $results[] = $this->result(
