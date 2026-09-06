@@ -605,9 +605,13 @@ final class ReleaseEngine
                 $this->required(['git', 'fetch', '--no-tags', sprintf('https://github.com/%s.git', $repository), 'refs/heads/main'], $this->root);
                 $parent = $this->git(['rev-parse', 'FETCH_HEAD']);
                 $parentTree = $this->git(['rev-parse', $parent . '^{tree}']);
+                $commitMessage = 'Release ' . $tag;
                 $splitSha = hash_equals($package['subtree_hash'], $parentTree)
                     ? $parent
-                    : $this->git(['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', 'Release ' . $tag]);
+                    : $this->git(
+                        ['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', $commitMessage],
+                        $this->deterministicCommitEnvironment($package['subtree_hash'], $parent, $commitMessage),
+                    );
             } else {
                 $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit']]);
             }
@@ -862,14 +866,48 @@ final class ReleaseEngine
         }
     }
 
-    private function git(array $arguments): string
+    /**
+     * @param  list<string>  $arguments
+     * @param  array<string,string>  $environment
+     */
+    private function git(array $arguments, array $environment = []): string
     {
-        $result = $this->runner->run(['git', ...$arguments], $this->root);
+        $command = ['git', ...$arguments];
+        if ($environment !== []) {
+            $command = [
+                'env',
+                ...array_map(
+                    static fn (string $name, string $value): string => $name . '=' . $value,
+                    array_keys($environment),
+                    array_values($environment),
+                ),
+                ...$command,
+            ];
+        }
+
+        $result = $this->runner->run($command, $this->root);
         if ($result['exitCode'] !== 0) {
             throw new ReleaseException('Git command failed: ' . ($result['error'] ?? ''));
         }
 
         return $result['output'];
+    }
+
+    /** @return array<string,string> */
+    private function deterministicCommitEnvironment(string $tree, string $parent, string $message): array
+    {
+        $seed = hash('sha256', implode("\0", [$tree, $parent, $message]));
+        $secondsSinceEpoch = 946684800 + ((int) hexdec(substr($seed, 0, 8)) % 630720000);
+        $date = gmdate('Y-m-d\TH:i:s\Z', $secondsSinceEpoch);
+
+        return [
+            'GIT_AUTHOR_NAME' => 'Capell Release',
+            'GIT_AUTHOR_EMAIL' => 'releases@capell.app',
+            'GIT_AUTHOR_DATE' => $date,
+            'GIT_COMMITTER_NAME' => 'Capell Release',
+            'GIT_COMMITTER_EMAIL' => 'releases@capell.app',
+            'GIT_COMMITTER_DATE' => $date,
+        ];
     }
 
     // LOCKSTEP-END engine-helpers
