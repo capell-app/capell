@@ -17,7 +17,7 @@ final class ExtensionAuditCommand extends Command
 
     public function handle(AuditExtensionContractsAction $audit): int
     {
-        $results = AuditExtensionContractsAction::run($this->argument('path'));
+        $results = $audit->handle($this->argument('path'), allowExportIgnoredScreenshots: true);
 
         if ($results === []) {
             $this->info('No extension contract errors found.');

@@ -22,7 +22,7 @@ final class ManifestContractsCheck extends AbstractDoctorCheck
 
     protected function run(bool $installSummary): DoctorCheckResultData
     {
-        $results = AuditExtensionContractsAction::run();
+        $results = AuditExtensionContractsAction::run(allowExportIgnoredScreenshots: true);
         $errors = array_filter($results, static fn (array $result): bool => $result['severity'] === 'error');
 
         if ($errors !== []) {
