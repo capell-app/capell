@@ -1,6 +1,8 @@
 # Capell Docs
 
-Use this page to find the shortest route to your next task.
+Capell is a Laravel CMS built on Filament, for teams building applications that outlive their first release. It ships the structure every Filament CMS project ends up rebuilding — page types, layouts, URLs, redirects, previews, undo history and publishing — so the work you do is the work only your application needs.
+
+New here? Start with the [verified quickstart](getting-started/quickstart.md), or use the paths below to find your next task.
 
 ## Choose Your Path
 
