@@ -71,7 +71,7 @@ it('denies User view, update, and delete for a direct record carrying another si
     ]);
     $otherRecord->assignRoleForSite($otherSite, $otherSiteRole);
 
-    resolve(PermissionRegistrar::class)->setPermissionsTeamId($otherSite->getKey());
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId($assignedSite->getKey());
     resolve(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $policy = new UserPolicy;

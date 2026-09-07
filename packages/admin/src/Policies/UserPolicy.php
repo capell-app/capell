@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Policies;
 
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
+use Capell\Admin\Support\SiteScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
 
@@ -29,11 +30,8 @@ class UserPolicy
             return true;
         }
 
-        if ($this->hasPermission($user, 'view_any')) {
-            return true;
-        }
-
-        return $this->hasPermission($user, 'view');
+        return ($this->hasPermission($user, 'view_any') || $this->hasPermission($user, 'view'))
+            && $this->canAccessRecordSite($user, $record);
     }
 
     public function create(User $user): bool
@@ -47,13 +45,14 @@ class UserPolicy
             return true;
         }
 
-        return $this->hasPermission($user, 'update');
+        return $this->hasPermission($user, 'update') && $this->canAccessRecordSite($user, $record);
     }
 
     public function delete(User $user, Model $record): bool
     {
         return ! $this->isOwnRecord($user, $record)
-            && $this->hasPermission($user, 'delete');
+            && $this->hasPermission($user, 'delete')
+            && $this->canAccessRecordSite($user, $record);
     }
 
     public function deleteAny(User $user): bool
@@ -63,7 +62,7 @@ class UserPolicy
 
     public function restore(User $user, Model $record): bool
     {
-        return $this->hasPermission($user, 'restore');
+        return $this->hasPermission($user, 'restore') && $this->canAccessRecordSite($user, $record);
     }
 
     public function restoreAny(User $user): bool
@@ -74,7 +73,8 @@ class UserPolicy
     public function forceDelete(User $user, Model $record): bool
     {
         return ! $this->isOwnRecord($user, $record)
-            && $this->hasPermission($user, 'force_delete');
+            && $this->hasPermission($user, 'force_delete')
+            && $this->canAccessRecordSite($user, $record);
     }
 
     public function forceDeleteAny(User $user): bool
@@ -84,7 +84,7 @@ class UserPolicy
 
     public function replicate(User $user, Model $record): bool
     {
-        return $this->hasPermission($user, 'replicate');
+        return $this->hasPermission($user, 'replicate') && $this->canAccessRecordSite($user, $record);
     }
 
     public function reorder(User $user): bool
@@ -100,5 +100,18 @@ class UserPolicy
     private function isOwnRecord(User $user, Model $record): bool
     {
         return (string) $user->getKey() === (string) $record->getKey();
+    }
+
+    private function canAccessRecordSite(User $user, Model $record): bool
+    {
+        if (SiteScope::isGlobalActor($user)) {
+            return true;
+        }
+
+        if (! method_exists($record, 'getAssignedSiteIds')) {
+            return false;
+        }
+
+        return $user->getAssignedSiteIds()->intersect($record->getAssignedSiteIds())->isNotEmpty();
     }
 }
