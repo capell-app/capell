@@ -1,0 +1,45 @@
+name: Extension contract audit
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '**/.gitattributes'
+      - '**/capell.json'
+      - '**/*manifest*'
+      - '.github/workflows/extension-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fresh-install-extension-audit:
+    name: Fresh install extension audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, fileinfo, intl, json, libxml, mbstring, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Install locked dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Prepare the fresh install harness
+        run: composer prepare
+
+      - name: Audit extension manifests
+        run: php vendor/bin/testbench capell:extension-audit --no-ansi
