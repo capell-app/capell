@@ -18,7 +18,7 @@ Start at `Site`. A site has one default language and one active theme. It owns d
 
 ![One Page identity branching to language-scoped Translation and PageUrl records with SiteDomain host context](../images/capell-localisation-routing.svg)
 
-The English and French values shown by the diagram are illustrative. A single Page identity can have language-scoped `Translation` and `PageUrl` records; `SiteDomain` supplies host context and may carry a language scope without implying that every language needs a separate domain.
+How does one article have two localised URLs? The English title and `/en/coast` path, and French title and `/fr/cote` path, are illustrative records for the same Page, not automatically generated defaults. [Translations](../../packages/core/src/Models/Concerns/HasTranslations.php) and [Page URLs](../../packages/core/src/Models/PageUrl.php) carry language scope. `PageUrl::siteDomain()` joins on `site_id` and `language_id`; it does not use a standalone domain foreign key. Both language contexts belong to the same Site, and separate hosts per language are not required.
 
 [Canonical Mermaid source](../images/capell-localisation-routing.mmd) · [Public page URL lookup contract](../development/public-page-api.md)
 

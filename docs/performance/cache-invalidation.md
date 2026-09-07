@@ -165,7 +165,9 @@ public function saved(BlogPost $blogPost): void {
 
 ## Graph-based dependent-page invalidation
 
-![A changed shared Layout or Media record flowing through recorded graph edges to dependent Page cache rules while unrelated Pages remain outside the invalidation set](../images/capell-cache-invalidation-impact.svg)
+![A Layout or Media change producing graph-derived dependent-page rules that are combined with broader registered rules](../images/capell-cache-invalidation-impact.svg)
+
+Which pages are reached through recorded dependencies? A Page with no recorded dependency path is outside the **graph-derived subset**, not necessarily outside the final invalidation plan. [CacheInvalidationRegistry](../../packages/frontend/src/Support/Cache/CacheInvalidationRegistry.php) also merges registered class rules, and site-logo Media uses a broader Site/Page rule path. The declared plan does not promise automatic rebuilds of external consumers, search indexes or CDNs. This is a source-level explanation, not a cache execution test.
 
 [Canonical Mermaid source](../images/capell-cache-invalidation-impact.mmd)
 

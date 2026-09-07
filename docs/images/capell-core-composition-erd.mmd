@@ -11,68 +11,31 @@
 %% - Provider/runtime boundary is documented beside this source in
 %%   docs/reference/architecture-diagrams.md: packages/core/src/Support/PackageRegistry/RuntimeContextResolver.php,
 %%   packages/core/src/Support/Packages/PackageSurfaceRegistrar.php, and capell.json provider buckets.
+%%{init: {"theme": "neutral", "themeVariables": {"fontSize": "18px"}, "flowchart": {"wrappingWidth": 320, "nodeSpacing": 24, "rankSpacing": 32}}}%%
 flowchart TB
-    subgraph foundation["Core-owned foundation records"]
-        direction LR
-        site["sites<br/>Site"]
-        page["pages<br/>Page"]
-        blueprint["blueprints<br/>Blueprint"]
-        layout["layouts<br/>Layout"]
-        theme["themes<br/>Theme"]
-        language["languages<br/>Language"]
-        translation["translations<br/>Translation"]
-        pageUrl["page_urls<br/>PageUrl"]
-        media["media<br/>Media"]
-        attachment["asset_attachments<br/>AssetAttachment"]
-
-        site -->|"pages() / site()"| page
-        page -->|"blueprint()"| blueprint
-        page -->|"layout()"| layout
-        layout -->|"theme()"| theme
-        page -->|"pageUrls()"| pageUrl
-        translation -->|"language()"| language
-        pageUrl -->|"language()"| language
-        page -->|"HasAssets::assets()"| attachment
-        attachment -->|"asset()"| media
+    subgraph foundation["Core records and asset attachments"]
+        direction TB
+        records["Site owns Pages<br/>Page → Blueprint and Layout → Theme<br/>Page → Translation / PageUrl → Language"]
+        attachment["asset_attachments · AssetAttachment<br/>related_type + related_id identify the owner"]
+        asset["asset_type + asset_id identify the asset<br/>asset() is polymorphic: Media is one possible target"]
+        records -->|"Page.assets()"| attachment
+        attachment -->|"asset()"| asset
     end
-
-    subgraph optionalLayout["Optional Layout Builder material"]
-        direction LR
-        widgets["widgets<br/>Widget"]
-        widgetAssets["widget_assets<br/>WidgetAsset"]
-        widgets -->|"optional widget asset rows"| widgetAssets
+    subgraph optionalLayout["Optional Layout Builder"]
+        direction TB
+        widgets["widgets / Widget and widget_assets / WidgetAsset<br/>Package-owned composition for a selected Layout<br/>These are not Core tables"]
     end
-
-    layout -.->|"optional package composition"| widgets
-
-    subgraph delivery["Separate delivery and authoring paths"]
-        renderData["hydrated public render data"]
-        publicHtml["public HTML"]
-        publicCache["shared HTML/static cache"]
-        authoring["authenticated authoring path"]
-        beacon["post-load authoring beacon"]
-        controls["admin-only controls"]
-        privatePreview["private preview response"]
-
-        renderData --> publicHtml
-        publicHtml --> publicCache
-        authoring --> beacon
-        beacon --> controls
-        controls -.->|"never enters"| publicCache
-        authoring --> privatePreview
+    subgraph delivery["Separate delivery and authoring contracts"]
+        direction TB
+        publicPath["Hydrated public data → public HTML<br/>Eligible output may enter shared cache / static export"]
+        authorPath["Authenticated authoring → post-load controls<br/>Private preview is a separate response<br/>Controls must stay out of public data and cache"]
     end
-
-    subgraph lifecycle["Different lifecycle concepts"]
-        providerBuckets["capell.json manifest-v3 provider buckets<br/>metadata · install · runtime · admin · frontend"]
-        runtimeContexts["RuntimeContextResolver contexts<br/>install · runtime · admin · frontend"]
-        providerBuckets -.->|"declared buckets ≠ resolved contexts"| runtimeContexts
+    subgraph lifecycle["Provider buckets are not resolved contexts"]
+        direction TB
+        buckets["Manifest-v3 provider buckets<br/>metadata · install · runtime · admin · frontend"]
+        contexts["RuntimeContextResolver returns<br/>console · admin · auth · frontend<br/>The enum also defines shared"]
+        buckets -.-|"different concepts"| contexts
     end
-
-    classDef core fill:#f4efe3,stroke:#7f5b1c,color:#241b0d,stroke-width:1.5px;
-    classDef optional fill:#e9f4f1,stroke:#277d73,color:#123b37,stroke-width:1.5px;
-    classDef public fill:#eaf1f8,stroke:#31648c,color:#102c43,stroke-width:1.5px;
-    classDef authoring fill:#f6e8e8,stroke:#9b4c4c,color:#451f1f,stroke-width:1.5px;
-    class site,page,blueprint,layout,theme,language,translation,pageUrl,media,attachment core;
-    class widgets,widgetAssets optional;
-    class renderData,publicHtml,publicCache public;
-    class authoring,beacon,controls,privatePreview authoring;
+    foundation ~~~ optionalLayout
+    optionalLayout ~~~ delivery
+    delivery ~~~ lifecycle

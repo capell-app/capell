@@ -11,21 +11,30 @@
 %%   src/Providers/FrontendServiceProvider.php}.
 %% - Recipe explanation: capell-packages-4/docs/package-extension-platform.md and
 %%   capell-packages-4/packages/extension-cookbook/docs/extension-points.md.
-flowchart LR
-    manifest["Extension Cookbook<br/>capell.json"] --> provider["ExtensionCookbookServiceProvider"]
-    provider -->|"surface()"| coreRegistrar["PackageSurfaceRegistrar"]
-    coreRegistrar -->|"models / blueprint / events / settings"| coreSurface["Core-owned package surfaces"]
-
-    bridge["ExtensionCookbookAdminBridge"] -->|"register(...)"| adminRegistrar["AdminBridgeRegistrar"]
-    adminRegistrar -->|"page / resource / configurator"| adminSurface["Admin surface"]
-    adminRegistrar -->|"PageSchemaExtender"| schema["Page editor schema extension"]
-    schema -->|"extendSidebarComponents()"| sidebar["Translated sidebar help"]
-
-    frontend["FrontendServiceProvider"] -->|"register(...)"| resources["FrontendResourceRegistry"]
-    resources -->|"typed resource group"| publicAssets["Public CSS and JS resources"]
-    frontend -->|"contribute(...)"| hooks["FrontendHookRegistrar<br/>cache-safe render hook"]
-    frontend -->|"register(...)"| widgets["WidgetExtensionRegistrar<br/>public widget payload"]
-
-    cookbook["Extension Cookbook docs"] -.->|"source-backed recipes"| coreSurface
-    cookbook -.->|"source-backed recipes"| adminSurface
-    cookbook -.->|"source-backed recipes"| publicAssets
+%%{init: {"theme": "neutral", "themeVariables": {"fontSize": "18px"}, "flowchart": {"wrappingWidth": 320, "nodeSpacing": 24, "rankSpacing": 32}}}%%
+flowchart TB
+    manifest["Extension Cookbook · one Composer package<br/>Owns its models, migrations, routes and views<br/>capell.json selects provider buckets"]
+    runtime["runtime provider<br/>ExtensionCookbook<br/>ServiceProvider"]
+    admin["admin provider<br/>AdminServiceProvider"]
+    frontend["frontend provider<br/>FrontendServiceProvider"]
+    manifest --> runtime
+    manifest --> admin
+    manifest --> frontend
+    surface["PackageSurfaceRegistrar<br/>Models · blueprint · events<br/>settings"]
+    bridge["ExtensionCookbook<br/>AdminBridge"]
+    resources["FrontendResourceRegistry<br/>Typed public CSS / JS"]
+    runtime -->|"surface()"| surface
+    admin -->|"register bridge"| bridge
+    frontend --> resources
+    registrar["AdminBridgeRegistrar"]
+    bridge --> registrar
+    extender["PageSchemaExtender<br/>extendSidebarComponents()"]
+    registrar --> extender
+    sidebar["Translated sidebar help<br/>Composed into the editor;<br/>no copied Core resource"]
+    extender --> sidebar
+    hooks["FrontendHookRegistrar<br/>Declared cache-safe hook"]
+    resources ~~~ hooks
+    frontend --> hooks
+    widgets["WidgetExtensionRegistrar<br/>Optional Layout Builder API<br/>Cookbook declares this dependency"]
+    hooks ~~~ widgets
+    frontend --> widgets

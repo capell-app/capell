@@ -72,6 +72,8 @@ The [guided demo](https://capell.app/demo) explains its reset and read-only boun
 
 _Editing, recovery drafts, private previews and saved page content are distinct states. Public visibility determines which saved content visitors can access._
 
+The panels follow the same editor state: scratch recovery restores the form, optional Peek previews an unsaved snapshot, and explicit Save validates and checks the lock before persistence. History is recorded after the write; a save can change content already visible to visitors. Publishing Studio is a separate optional workflow. Source: [Admin save gates](packages/admin/src/Filament/Resources/Pages/Pages/EditPage.php), [revision listener](packages/core/src/EventSourcing/Listeners/RecordPageRevision.php) and [Peek snapshot renderer](https://github.com/capell-app/capell-packages/blob/main/packages/filament-peek/src/Actions/RenderPagePreviewSnapshotAction.php).
+
 [Canonical Mermaid source](docs/images/capell-page-editing-workflow.mmd) · [Page history and rollback](docs/development/page-event-history.md)
 
 ### Compact site metrics
@@ -98,6 +100,8 @@ An extension package owns its feature code and contributes through its manifest-
 ![Extension package contribution map through PackageSurfaceRegistrar, AdminBridgeRegistrar and frontend registries, with an Extension Cookbook sidebar example](docs/images/capell-extension-package-surface-map.svg)
 
 _A package contributes to the host through contracts; it does not copy a Core resource. Package-owned models, migrations, routes, and views remain package-owned._
+
+The three branches are selected by the Cookbook's [provider buckets](https://github.com/capell-app/capell-packages/blob/main/packages/extension-cookbook/capell.json). Its [Admin bridge](https://github.com/capell-app/capell-packages/blob/main/packages/extension-cookbook/src/Bridges/ExtensionCookbookAdminBridge.php) registers the [page-schema extender](https://github.com/capell-app/capell-packages/blob/main/packages/extension-cookbook/src/Filament/Extenders/ExtensionCookbookPageSchemaExtender.php), which adds translated sidebar help. Its widget contribution uses optional Layout Builder, an explicit Cookbook dependency.
 
 [Canonical Mermaid source](docs/images/capell-extension-package-surface-map.mmd) · [Package extension platform guide](https://github.com/capell-app/capell-packages/blob/main/docs/package-extension-platform.md)
 

@@ -17,6 +17,8 @@ A safe public response has these properties:
 
 The diagram is generated from the [canonical Mermaid source](../images/capell-public-authoring-cache-boundary.mmd). It is a conceptual contract: hydrated render data supports public Blade, while controls are added only by the authenticated authoring path and are not part of public/cache output.
 
+Which gate rejects a response, and which gate bypasses caching? [Public render assertions](../../packages/frontend/src/Actions/AssertPublicRenderContractAction.php) throw on a contract violation; they do not convert a violation into a private page. The separate, optional [HTML Cache middleware](https://github.com/capell-app/capell-packages/blob/main/packages/html-cache/src/Http/Middleware/HtmlCacheMiddleware.php) evaluates response eligibility and can apply private, no-store delivery. A cache hit can serve existing output without this render path. [Admin preview](../../packages/admin/src/Http/Controllers/PagePreviewController.php) and the optional [post-load authoring beacon](https://github.com/capell-app/capell-packages/blob/main/packages/frontend-authoring/src/Actions/BuildBeaconResponseAction.php) have their own access boundaries. This diagram does not prove runtime leak prevention or cache behaviour.
+
 ## Never Expose
 
 Public HTML must not contain:

@@ -4,6 +4,16 @@
 
 These diagrams are the source-of-truth architecture views for docs. Keep them exact and update them with code changes. The composition export is generated from [`capell-core-composition-erd.mmd`](../images/capell-core-composition-erd.mmd). Flux-generated companion images can sit near these diagrams, but Mermaid should remain the precise reference.
 
+Which records and lifecycle concepts belong together? The panels separate Core's [asset attachments](../../packages/core/src/Models/Concerns/HasAssets.php), optional Layout Builder tables, public delivery, and authoring. An attachment's [asset relationship](../../packages/core/src/Models/AssetAttachment.php) is polymorphic; Media is one possible target. Panels describe ownership and contracts, not runtime safety evidence.
+
+The six composition, editing, extension, localisation, public-boundary and invalidation exports use Mermaid CLI **11.15.0**, configuration embedded in each `.mmd`, a white background and an SVG ID matching the filename stem. For example, from the repository root:
+
+```bash
+mmdc -i docs/images/capell-core-composition-erd.mmd -o docs/images/capell-core-composition-erd.svg -b white -I capell-core-composition-erd
+```
+
+Keep one final newline in the generated SVG for repository formatting. To check repeatability, render the same source and options to a temporary file and compare after normalising only the final newline. Inspect the image at an 838px documentation column as well as checking that rendering succeeds.
+
 ## Package Boot Lifecycle
 
 The provider-bucket distinction is included in the canonical [Core composition
@@ -13,6 +23,8 @@ diagram](../images/capell-core-composition-erd.svg), generated from
 The manifest buckets answer which provider code is available to the lifecycle;
 `RuntimeContextResolver` answers which resolved context is active for the current
 request or command. They are related stages, not interchangeable names.
+
+The [resolver](../../packages/core/src/Support/PackageRegistry/RuntimeContextResolver.php) returns `console`, `admin`, `auth` or `frontend`. The [enum](../../packages/core/src/Enums/RuntimeContextEnum.php) also defines `shared`; it is not a value returned by that resolver. Manifest buckets remain `metadata`, `install`, `runtime`, `admin` and `frontend`.
 
 ## Admin Extender Resolution
 

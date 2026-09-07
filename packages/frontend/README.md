@@ -75,6 +75,8 @@ When changing public rendering, cache behavior, themes, or beacon integration, k
 
 _The public boundary is a conceptual contract, not a runtime screenshot. Read the [canonical Mermaid source](https://github.com/capell-app/capell/blob/main/docs/images/capell-public-authoring-cache-boundary.mmd) and [public HTML safety contract](https://github.com/capell-app/capell/blob/main/docs/frontend/public-html-safety.md) alongside the renderer code._
 
+Public assertions reject violations by throwing. Optional HTML Cache separately decides whether a response is eligible for shared caching or requires a private, no-store bypass. Admin preview and optional post-load authoring remain separate paths; the diagram is not runtime safety evidence.
+
 Editor-authored rich text must cross a `SafeHtml` boundary before Blade renders it. Build the value with `SafeHtml::sanitize($html, $sanitizer)` (or use `RenderHtmlContentAction`) and output it with normal escaped Blade braces: `{{ $safeHtml }}`. The constructor is private so an arbitrary string cannot be mislabeled as safe HTML.
 
 ## Data And Cache Behavior
