@@ -1,0 +1,23 @@
+%% Canonical source for capell-page-identity-graph.svg.
+%% Source trails:
+%% - Page relationships: packages/core/src/Models/Page.php and
+%%   packages/core/src/Models/Concerns/{HasBlueprint,HasTranslations}.php.
+%% - Site and layout relationships: packages/core/src/Models/{Site,Layout}.php.
+%% - Translation, language, URL, and domain relationships:
+%%   packages/core/src/Models/{Translation,Language,PageUrl,SiteDomain}.php.
+%% - Page parent_id is the source for the nested page hierarchy.
+%% The compatibility Type model is intentionally not a node in this identity map.
+flowchart LR
+    page["Page identity"] -->|"site()"| site["Site"]
+    page -.->|"parent_id"| hierarchy["Page hierarchy<br/>parent and child pages"]
+    page -->|"blueprint()"| blueprint["Blueprint"]
+    page -->|"layout()"| layout["Layout"]
+    layout -->|"theme()"| theme["Theme"]
+    page -->|"translations()"| translation["Translation"]
+    translation -->|"language()"| language["Language"]
+    page -->|"pageUrls()"| pageUrl["PageUrl"]
+    pageUrl -->|"language()"| language
+    pageUrl -->|"siteDomain()"| domain["SiteDomain"]
+    domain -->|"site()"| site
+    domain -.->|"language_id when set"| language
+    site -->|"theme()"| theme

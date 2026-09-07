@@ -71,6 +71,10 @@ Frontend authoring must be a post-load admin feature. The public page loads as o
 
 When changing public rendering, cache behavior, themes, or beacon integration, keep or add tests that prove anonymous and non-admin responses contain no authoring surface.
 
+![Public/cache delivery separated from authenticated post-load authoring, private preview, and unsafe-to-cache bypass](https://raw.githubusercontent.com/capell-app/capell/main/docs/images/capell-public-authoring-cache-boundary.svg)
+
+_The public boundary is a conceptual contract, not a runtime screenshot. Read the [canonical Mermaid source](https://github.com/capell-app/capell/blob/main/docs/images/capell-public-authoring-cache-boundary.mmd) and [public HTML safety contract](https://github.com/capell-app/capell/blob/main/docs/frontend/public-html-safety.md) alongside the renderer code._
+
 Editor-authored rich text must cross a `SafeHtml` boundary before Blade renders it. Build the value with `SafeHtml::sanitize($html, $sanitizer)` (or use `RenderHtmlContentAction`) and output it with normal escaped Blade braces: `{{ $safeHtml }}`. The constructor is private so an arbitrary string cannot be mislabeled as safe HTML.
 
 ## Data And Cache Behavior

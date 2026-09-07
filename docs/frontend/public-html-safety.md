@@ -13,16 +13,9 @@ A safe public response has these properties:
 - public Blade receives prepared data and does not discover editor state on its own;
 - cacheable HTML does not contain anything that would help a visitor infer the editor, schema, package, or admin URL structure.
 
-```mermaid
-flowchart LR
-    Controller["Controller/Action/View component"] --> Data["Hydrated public render data"]
-    Data --> Blade["Public Blade"]
-    Blade --> Safety["Safety inspection"]
-    Safety --> Cache["HTML/static cache/CDN"]
-    Admin["Authenticated admin"] --> Beacon["Post-load authoring beacon"]
-    Beacon --> Controls["Admin-only edit controls"]
-    Controls -. "never enters public cache" .-> Admin
-```
+![Public/cache delivery separated from authenticated post-load authoring, private preview, and unsafe-to-cache bypass](../images/capell-public-authoring-cache-boundary.svg)
+
+The diagram is generated from the [canonical Mermaid source](../images/capell-public-authoring-cache-boundary.mmd). It is a conceptual contract: hydrated render data supports public Blade, while controls are added only by the authenticated authoring path and are not part of public/cache output.
 
 ## Never Expose
 

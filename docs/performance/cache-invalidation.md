@@ -165,6 +165,10 @@ public function saved(BlogPost $blogPost): void {
 
 ## Graph-based dependent-page invalidation
 
+![A changed shared Layout or Media record flowing through recorded graph edges to dependent Page cache rules while unrelated Pages remain outside the invalidation set](../images/capell-cache-invalidation-impact.svg)
+
+[Canonical Mermaid source](../images/capell-cache-invalidation-impact.mmd)
+
 Pattern registration answers "which cache keys does this model flush." A second, finer path answers "which **pages** must re-render because this model changed": content-graph edges. Extractors (`ContentGraphExtractor` implementations in `packages/core`) record edges such as `Page —UsesLayout→ Layout` or `Page —FoundOnPage→ Page`; when a model changes, `CacheInvalidationRegistry` walks the stored edges from target to source (`dependentPages()`) and plans page-level invalidation for every dependent page it reaches.
 
 Core registers `FoundOnPage` edges for pages embedded in another page's composed block content — widget page references and curated listings. The shipped `PageEmbedContentGraphExtractor` walks every translation's block content and treats these data keys as embedded page references:

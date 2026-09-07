@@ -1,6 +1,6 @@
 # Core Relationship Map
 
-![Capell Core Relationship Map screenshot](../images/capell-core-composition-erd.svg)
+![Capell Core Page-centred relationship map](../images/capell-page-identity-graph.svg)
 
 This page maps the core Capell model relationships without listing every schema column. Use it when you need the shape of the system before reading migrations or model classes.
 
@@ -8,38 +8,19 @@ This page maps the core Capell model relationships without listing every schema 
 
 ## Page Delivery
 
-```mermaid
-flowchart LR
-    Site["Site"]
-    Language["Language"]
-    Domain["Site domain"]
-    Theme["Theme"]
-    Layout["Layout"]
-    Blueprint["Blueprint"]
-    Page["Page"]
-    PageUrl["Page URL"]
-    Translation["Translation"]
-    Snapshot["Redirect health"]
-
-    Site -->|"owns"| Page
-    Site -->|"routes through"| Domain
-    Site -->|"default locale"| Language
-    Site -->|"uses"| Theme
-    Site -->|"can override"| Layout
-    Theme -->|"provides"| Layout
-    Blueprint -->|"defines page behaviour"| Page
-    Layout -->|"renders"| Page
-    Page -->|"parent / child tree"| Page
-    Page -->|"localized path"| PageUrl
-    Page -->|"localized content"| Translation
-    Language -->|"scopes"| PageUrl
-    Language -->|"scopes"| Translation
-    PageUrl -->|"checked by"| Snapshot
-```
+The small Page-centred map above is generated from the [canonical Mermaid source](../images/capell-page-identity-graph.mmd). It keeps the README vocabulary focused on the identity records; the detailed tables and operational maps below retain the wider relationship notes.
 
 Start at `Site`. A site has one default language and one active theme. It owns domains, pages, site-specific layouts, and localized URLs.
 
 `Page` is the main content record. It belongs to a site, layout, and blueprint, and it sits inside a nested tree. Its public path lives in `PageUrl`; its translated title, content, and metadata live in `Translation`.
+
+## Language-scoped URLs and content
+
+![One Page identity branching to language-scoped Translation and PageUrl records with SiteDomain host context](../images/capell-localisation-routing.svg)
+
+The English and French values shown by the diagram are illustrative. A single Page identity can have language-scoped `Translation` and `PageUrl` records; `SiteDomain` supplies host context and may carry a language scope without implying that every language needs a separate domain.
+
+[Canonical Mermaid source](../images/capell-localisation-routing.mmd) · [Public page URL lookup contract](../development/public-page-api.md)
 
 ## Assets, Access, And Impact
 

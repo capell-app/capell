@@ -1,0 +1,22 @@
+%% Canonical source for capell-public-authoring-cache-boundary.svg.
+%% Source trails:
+%% - Public request/render data: packages/frontend/src/Http/Controllers/PageController.php,
+%%   packages/frontend/src/Actions/PrepareFrontendRenderAction.php, and
+%%   packages/frontend/src/Actions/BuildPublicPageRenderDataAction.php.
+%% - Public safety gate: packages/frontend/src/Actions/{AssertPublicRenderContractAction,
+%%   AssertPublicHtmlContainsNoAuthoringSurfaceAction}.php and
+%%   packages/frontend/src/Support/Security/PublicHtmlSafetyInspector.php.
+%% - Optional in-page authoring beacon: capell-packages-4/packages/frontend-authoring/src/Http/Controllers/BeaconController.php
+%%   and Actions/BuildBeaconResponseAction.php.
+%% - Private preview: packages/admin/src/Http/Controllers/PagePreviewController.php.
+flowchart LR
+    request["Public request"] --> render["PageController + PrepareFrontendRenderAction"]
+    render --> data["BuildPublicPageRenderDataAction<br/>hydrated public data"]
+    data --> blade["Public Blade<br/>no controls or authoring metadata"]
+    blade --> safety["AssertPublicRenderContractAction"]
+    safety -->|"safe public HTML"| shared["Shared HTML/static cache"]
+    safety -->|"unsafe-to-cache"| bypass["Private no-store response<br/>cache bypass"]
+    admin["Authenticated admin"] --> beacon["Frontend Authoring BeaconController<br/>BuildBeaconResponseAction"]
+    beacon --> controls["Admin-only controls"]
+    preview["Authenticated preview"] --> noStore["PagePreviewController<br/>private, no-cache, no-store"]
+    controls -.->|"never enters public data or cache"| shared

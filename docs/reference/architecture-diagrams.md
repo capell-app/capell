@@ -1,26 +1,18 @@
 # Architecture Diagrams
 
-![Capell Architecture Diagrams screenshot](../images/capell-core-composition-erd.svg)
+![Capell Core composition showing Core-owned records, optional Layout Builder material, separate delivery and authoring paths, and distinct manifest/runtime boundaries](../images/capell-core-composition-erd.svg)
 
-These diagrams are the source-of-truth architecture views for docs. Keep them exact and update them with code changes. Flux-generated companion images can sit near these diagrams, but Mermaid should remain the precise reference.
+These diagrams are the source-of-truth architecture views for docs. Keep them exact and update them with code changes. The composition export is generated from [`capell-core-composition-erd.mmd`](../images/capell-core-composition-erd.mmd). Flux-generated companion images can sit near these diagrams, but Mermaid should remain the precise reference.
 
 ## Package Boot Lifecycle
 
-```mermaid
-flowchart TD
-    Composer["Composer install/update"] --> ProviderDiscovery["Laravel provider discovery"]
-    Composer --> Manifest["capell.json manifest"]
-    Manifest --> PackageRegistry["CapellPackageRegistry"]
-    PackageRegistry --> RuntimeContext["RuntimeContextResolver"]
-    RuntimeContext --> Install["Install context"]
-    RuntimeContext --> Runtime["Runtime context"]
-    RuntimeContext --> Admin["Admin context"]
-    RuntimeContext --> Frontend["Frontend context"]
-    Install --> InstallWork["Migrations, setup Actions, install commands"]
-    Runtime --> RuntimeWork["Settings, package metadata, subscribers, models"]
-    Admin --> AdminWork["AdminBridge, Filament, extenders"]
-    Frontend --> FrontendWork["Routes, hooks, assets, cache invalidation"]
-```
+The provider-bucket distinction is included in the canonical [Core composition
+diagram](../images/capell-core-composition-erd.svg), generated from
+[`capell-core-composition-erd.mmd`](../images/capell-core-composition-erd.mmd).
+
+The manifest buckets answer which provider code is available to the lifecycle;
+`RuntimeContextResolver` answers which resolved context is active for the current
+request or command. They are related stages, not interchangeable names.
 
 ## Admin Extender Resolution
 
@@ -38,18 +30,9 @@ flowchart LR
 
 ## Frontend Public Render And Cache
 
-```mermaid
-flowchart TD
-    Request["Public request"] --> Site["Site/domain resolution"]
-    Site --> Language["Language resolution"]
-    Language --> Page["Page URL resolution"]
-    Page --> Hydration["Hydrated render payload"]
-    Hydration --> Components["Components, hooks, media, assets"]
-    Components --> Safety["Public HTML safety inspection"]
-    Safety --> CacheDecision{"Safe to cache?"}
-    CacheDecision -->|yes| Cache["Page/static/cache response"]
-    CacheDecision -->|no| Bypass["Uncached response with bypass reason"]
-```
+The public/cache and authenticated authoring paths are maintained as the
+canonical [public authoring/cache boundary diagram](../images/capell-public-authoring-cache-boundary.svg),
+generated from [`capell-public-authoring-cache-boundary.mmd`](../images/capell-public-authoring-cache-boundary.mmd).
 
 ## Marketplace Trust Flow
 
@@ -89,14 +72,9 @@ flowchart TD
 
 ## Public Output Safety Boundary
 
-```mermaid
-flowchart LR
-    AdminPage["Filament admin"] --> Beacon["Authenticated authoring beacon"]
-    PublicPage["Public HTML"] --> Visitor["Anonymous/non-admin visitor"]
-    PublicPage --> Cache["HTML/static cache/CDN"]
-    Beacon --> AdminOnly["Admin-only edit controls"]
-    AdminOnly -. "never cached" .-> Cache
-```
+The public and authoring paths are deliberately separate. The canonical source
+and export are [`capell-public-authoring-cache-boundary.mmd`](../images/capell-public-authoring-cache-boundary.mmd)
+and [`capell-public-authoring-cache-boundary.svg`](../images/capell-public-authoring-cache-boundary.svg).
 
 ## Flux Companion Asset Plan
 

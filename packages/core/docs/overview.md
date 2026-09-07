@@ -58,7 +58,7 @@ Docs gap: Core does not currently have a standalone screenshot that isolates eac
 Core owns schema migrations for the main Capell records:
 
 - `languages`, `sites`, `site_domains`, `blueprints`, `themes`, `layouts`, `pages`, `page_urls`, and `translations`.
-- `media`, `asset_attachments`, `asset_relations`, and content graph records.
+- `media`, `asset_attachments`, and content graph records.
 - Redirect, public render contract, and health records used by site operations.
 - Permission/team columns and page role restrictions used by admin access control.
 - `capell_extensions`, `capell_marketplace_installs`, extension health alerts, upgrade runs, upgrade events, deletion batches, and content locks.
