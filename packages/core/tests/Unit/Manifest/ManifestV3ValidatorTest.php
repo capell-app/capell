@@ -227,6 +227,49 @@ it('accepts package security contract metadata', function (): void {
     ))->not->toThrow(InvalidManifestException::class);
 });
 
+it('accepts the published form builder agent tool declaration shape', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['agent_tools'] = [[
+        'name' => 'form.submit',
+        'description' => 'Submit this public form after user confirmation.',
+        'inputSchema' => [
+            'type' => 'object',
+            'properties' => [],
+            'required' => [],
+            'additionalProperties' => false,
+        ],
+        'outputSchema' => [
+            'type' => 'object',
+            'properties' => [
+                'status' => ['type' => 'string', 'enum' => ['submitted', 'pending']],
+                'cancelled' => ['type' => 'boolean'],
+            ],
+            'required' => ['status'],
+            'additionalProperties' => false,
+        ],
+        'effect' => 'write',
+        'binding' => ['type' => 'form', 'target' => 'capell-form'],
+    ]];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->not->toThrow(InvalidManifestException::class);
+});
+
+it('rejects malformed agent tool declarations', function (): void {
+    $manifest = manifestV3Fixture('valid-premium-package');
+    $manifest['agent_tools'] = [[
+        'name' => 'form.submit',
+        'description' => 'Submit this public form after user confirmation.',
+        'inputSchema' => ['type' => 'object'],
+        'outputSchema' => ['type' => 'object'],
+        'effect' => 'execute',
+        'binding' => ['type' => 'form', 'target' => 'capell-form'],
+    ]];
+
+    expect(fn () => (new ManifestValidator)->validate($manifest, composerJson: manifestV3ComposerJson()))
+        ->toThrow(InvalidManifestException::class, 'agent_tools.0');
+});
+
 it('declares package security metadata in the manifest v3 json schema', function (): void {
     $schema = json_decode(
         (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
