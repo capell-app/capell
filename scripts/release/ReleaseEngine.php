@@ -410,7 +410,7 @@ final class PlanValidator
 // LOCKSTEP-BEGIN resume-decision
 final class ResumeDecision
 {
-    public static function forTag(?string $existingSha, string $expectedSha): string
+    public static function forTag(?string $existingSha, string $expectedSha, string $context = ''): string
     {
         if ($existingSha === null) {
             return 'publish';
@@ -420,7 +420,16 @@ final class ResumeDecision
             return 'resume';
         }
 
-        throw new ReleaseException('Existing immutable tag does not match the planned split SHA.');
+        // Without the package name this failure says only that SOMETHING in a
+        // 109-package publish conflicts, leaving the operator to rediscover
+        // which one by hand mid-release. The sibling source-tag check three
+        // lines below the caller already names its tag; match it.
+        throw new ReleaseException(sprintf(
+            'Existing immutable tag does not match the planned split SHA.%s Existing %s, planned %s.',
+            $context === '' ? '' : ' ' . $context . '.',
+            $existingSha,
+            $expectedSha,
+        ));
     }
 }
 
@@ -623,7 +632,7 @@ final class ReleaseEngine
 
             $existing = $this->optional(['gh', 'api', sprintf('repos/%s/git/ref/tags/%s', $repository, $tag), '--jq', '.object.sha']);
             $peeled = $existing === null ? null : $this->optional(['gh', 'api', sprintf('repos/%s/git/tags/%s', $repository, $existing), '--jq', '.object.sha']) ?? $existing;
-            $decision = ResumeDecision::forTag($peeled, $splitSha);
+            $decision = ResumeDecision::forTag($peeled, $splitSha, sprintf('Package %s tag %s in %s', $name, $tag, $repository));
             $sourceTag = $package['source_tag'];
             $localSourceTagSha = $this->optional(['git', 'rev-parse', '-q', '--verify', 'refs/tags/' . $sourceTag . '^{commit}']);
             $localSourceTagSha = $localSourceTagSha === '' ? null : $localSourceTagSha;
