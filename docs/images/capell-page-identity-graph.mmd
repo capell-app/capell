@@ -7,17 +7,19 @@
 %%   packages/core/src/Models/{Translation,Language,PageUrl,SiteDomain}.php.
 %% - Page parent_id is the source for the nested page hierarchy.
 %% The compatibility Type model is intentionally not a node in this identity map.
-flowchart LR
+flowchart TB
     page["Page identity"] -->|"site()"| site["Site"]
     page -.->|"parent_id"| hierarchy["Page hierarchy<br/>parent and child pages"]
     page -->|"blueprint()"| blueprint["Blueprint"]
     page -->|"layout()"| layout["Layout"]
     layout -->|"theme()"| theme["Theme"]
-    page -->|"translations()"| translation["Translation"]
+    page ==>|"translations() · polymorphic"| translation["Translation"]
     translation -->|"language()"| language["Language"]
-    page -->|"pageUrls()"| pageUrl["PageUrl"]
+    page ==>|"pageUrls() · polymorphic"| pageUrl["PageUrl"]
     pageUrl -->|"language()"| language
     pageUrl -->|"siteDomain()"| domain["SiteDomain"]
     domain -->|"site()"| site
     domain -.->|"language_id when set"| language
     site -->|"theme()"| theme
+    legend["Legend: thick arrows = polymorphic relations<br/>Translation: translatable_type + translatable_id<br/>PageUrl: pageable_type + pageable_id<br/>Solid arrows = named relations; dotted = column links<br/>Arrows do not specify FK constraints or cardinality"]
+    language ~~~ legend

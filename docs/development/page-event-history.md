@@ -76,6 +76,18 @@ both URL fields unchanged.
 
 ## Previewing and Applying Rollback
 
+### Choose the recovery scope
+
+| Mechanism | What it restores | Persistence boundary |
+| --- | --- | --- |
+| Editor undo/redo | Recent editor state, such as Layout Builder's container and widget snapshots. | Layout Builder applies a snapshot to its current editor state and marks it modified; this is not a page-event rollback. Save through the editor to persist the result. |
+| Private scratch recovery | An author's unsaved form payload, scoped by user, site, record, locale and editor context. | Scratch data is stored separately with an expiry. Admin restores it into the page form; restoring scratch does not save the page or append a rollback event. |
+| Persisted page rollback | A selected historical page state and its owned relationships. | Core compares and validates the target, validates again on apply, then restores it and appends `PageRolledBack`. Later history remains available. |
+
+For example, undo a recent widget move in the editor; recover an interrupted page edit from private scratch; use persisted rollback when already-saved page content must return to an earlier version. These mechanisms have different scopes and are not interchangeable history stores.
+
+Source: [Layout Builder editor undo/redo](https://github.com/capell-app/capell-packages/blob/main/packages/layout-builder/src/Livewire/Filament/LayoutBuilder.php), [scratch storage](../../packages/core/src/Actions/EditorScratchDrafts/SaveEditorScratchDraftAction.php), [Admin scratch restoration](../../packages/admin/src/Filament/Resources/Pages/Pages/EditPage.php), and [rollback service](../../packages/core/src/EventSourcing/Rollback/RollbackService.php).
+
 Use the Actions instead of calling `RollbackService` from UI code:
 
 ```php
