@@ -5,13 +5,14 @@
 %%   packages/core/src/EventSourcing/Rollback/{RollbackValidatorRegistry,RollbackPreviewData}.php.
 %% - Append-only marker and projected history: packages/core/src/EventSourcing/Events/PageRolledBack.php
 %%   and packages/core/src/EventSourcing/Projectors/PageProjector.php.
-flowchart LR
+%%{init: {"theme": "neutral", "themeVariables": {"fontSize": "18px"}, "flowchart": {"wrappingWidth": 320, "nodeSpacing": 24, "rankSpacing": 32}}}%%
+flowchart TB
     v1["v1<br/>PageRevisionRecorded"] -->|"next save"| v2["v2<br/>PageRevisionRecorded"]
     v2 -->|"next save"| v3["v3<br/>PageRevisionRecorded"]
-    v3 --> preview["BuildRollbackPreviewAction<br/>diff target against current"]
+    v3 --> preview["BuildRollbackPreviewAction<br/>Compare target v1 with current v3"]
     preview --> validate["RollbackValidatorRegistry<br/>validation gates"]
     validate -->|"blocking issue"| blocked["RollbackBlocked<br/>no write"]
-    validate -->|"clear"| apply["ApplyRollbackAction<br/>re-validates in transaction"]
-    apply -->|"PageAggregate::recordRollback(1, state)"| v4["v4<br/>PageRolledBack → restored v1 state"]
+    validate -->|"clear"| apply["ApplyRollbackAction<br/>Re-validates before transaction"]
+    apply -->|"recordRollback(1, state)"| v4["In one transaction:<br/>Restore the selected v1 state<br/>Append v4: PageRolledBack"]
     v4 --> head["Current stream head: v4<br/>active content version: v1"]
     v4 -.->|"history is never rewritten"| retained["v1, v2, v3 remain<br/>available for compare/roll-forward"]

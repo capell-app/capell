@@ -38,6 +38,44 @@ php artisan capell:install
 
 [Open the guided demo](https://capell.app/demo) · [Decide if Capell fits](docs/getting-started/why-capell.md) · [Follow the verified quickstart](docs/getting-started/quickstart.md)
 
+## Verified quickstart
+
+Start from a fresh supported Laravel application. The installer adds the selected foundation packages, runs each package lifecycle, creates the first site and administrator, generates frontend assets, synchronises permissions, and finishes only when its required health summary passes.
+
+```bash
+composer create-project laravel/laravel capell-site
+cd capell-site
+
+# Configure APP_URL and a supported database in .env first.
+composer require capell-app/installer
+php artisan capell:install --demo
+```
+
+The guided command asks for the site URL and first administrator. A successful run ends with `All checks passed` followed by `Installation complete`. If a required step fails, the command exits non-zero and does not print the success message.
+
+The canonical installation entry point for an existing Laravel application is `capell-app/installer`. The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line; it does not replace the guided Installer workflow.
+
+Then run the application using your normal Laravel development workflow and open:
+
+- `/admin` to sign in with the administrator created during installation;
+- `/` to inspect the seeded public page;
+- **Pages** in Admin to make and publish the first change.
+
+Do not run `filament:install --panels` before requiring Capell: the installer brings in and configures the selected Admin package. See the [Quickstart](docs/getting-started/quickstart.md) for SQLite and queue setup, expected prompts, health checks, and first-run recovery.
+
+### Capell Membership install
+
+An active Capell Membership organisation can request a short-lived private Composer command from its Capell account. Run the generated commands in the Laravel application, then use the same Installer flow:
+
+```bash
+composer config repositories.capell composer https://capell.app/composer
+composer config bearer.capell.app <short-lived-token>
+composer require capell-app/capell
+php artisan capell:install
+```
+
+`capell-app/capell` is the root aggregate for the aligned Core, Admin, Frontend, Installer, and Marketplace code line. Marketplace then authorises the Membership catalogue for the connected organisation. The token is scoped, expires within 30 minutes, and is redacted from account serialization. Do not paste it into tickets, logs, source control, or shared shell history; request a new command when it expires.
+
 Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 
 ## From the first screen to a maintained CMS
@@ -128,44 +166,6 @@ The public foundation is five packages:
 | Frontend    | `capell-app/frontend`    | Public routing, site context, themes, [typed resources](packages/frontend/docs/frontend-resources.md), render hooks, and response delivery |
 | Installer   | `capell-app/installer`   | Guided browser and CLI installation, health review, and installer cleanup                                                                  |
 | Marketplace | `capell-app/marketplace` | Extension discovery, install authorisation, and package acquisition contracts                                                              |
-
-## Verified quickstart
-
-Start from a fresh supported Laravel application. The installer adds the selected foundation packages, runs each package lifecycle, creates the first site and administrator, generates frontend assets, synchronises permissions, and finishes only when its required health summary passes.
-
-```bash
-composer create-project laravel/laravel capell-site
-cd capell-site
-
-# Configure APP_URL and a supported database in .env first.
-composer require capell-app/installer
-php artisan capell:install --demo
-```
-
-The guided command asks for the site URL and first administrator. A successful run ends with `All checks passed` followed by `Installation complete`. If a required step fails, the command exits non-zero and does not print the success message.
-
-The canonical installation entry point for an existing Laravel application is `capell-app/installer`. The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line; it does not replace the guided Installer workflow.
-
-Then run the application using your normal Laravel development workflow and open:
-
-- `/admin` to sign in with the administrator created during installation;
-- `/` to inspect the seeded public page;
-- **Pages** in Admin to make and publish the first change.
-
-Do not run `filament:install --panels` before requiring Capell: the installer brings in and configures the selected Admin package. See the [Quickstart](docs/getting-started/quickstart.md) for SQLite and queue setup, expected prompts, health checks, and first-run recovery.
-
-### Capell Membership install
-
-An active Capell Membership organisation can request a short-lived private Composer command from its Capell account. Run the generated commands in the Laravel application, then use the same Installer flow:
-
-```bash
-composer config repositories.capell composer https://capell.app/composer
-composer config bearer.capell.app <short-lived-token>
-composer require capell-app/capell
-php artisan capell:install
-```
-
-`capell-app/capell` is the root aggregate for the aligned Core, Admin, Frontend, Installer, and Marketplace code line. Marketplace then authorises the Membership catalogue for the connected organisation. The token is scoped, expires within 30 minutes, and is redacted from account serialization. Do not paste it into tickets, logs, source control, or shared shell history; request a new command when it expires.
 
 ## Theme it
 

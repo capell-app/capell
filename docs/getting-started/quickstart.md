@@ -129,6 +129,10 @@ In **Pages**, open a seeded page, change a short piece of text, and save it. Pre
 
 [![Capell page editor with content and publishing controls](../images/generated/admin/admin-page-edit-form.png)](../images/generated/admin/admin-page-edit-form.png)
 
+[![Page editor showing a scheduled page with no active URL, a publishing blocker, and the public effect Not visible now](../images/generated/admin/first-page-edit-settings-tab.png)](../images/generated/admin/first-page-edit-settings-tab.png)
+
+_Check the Publish panel before expecting a public change. This existing fixture capture deliberately shows a scheduled page with no active URL and “Not visible now”; it is not the expected result of a successful publication._
+
 Open the page's history relation after the save. Inspect the before/after change, preview a rollback, and cancel it unless you deliberately want to test page-only recovery. Page rollback restores the page and its owned content relationships; it does not restore the application database, media store, analytics counters, or infrastructure.
 
 Continue with [Create your first page](create-your-first-page.md) for the full field-by-field walkthrough.
