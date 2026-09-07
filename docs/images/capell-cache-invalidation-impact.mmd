@@ -6,11 +6,19 @@
 %% - Invalidation observer and plan: packages/frontend/src/Support/Cache/
 %%   {FrontendCacheInvalidationObserver,CacheInvalidationRegistry}.php.
 %% - Dependent-page walk: CacheInvalidationRegistry::dependentPages().
-flowchart LR
-    changed["Changed Layout or Media"] --> observed["Model observer / saved event"]
-    observed --> recorded["Recorded content-graph edge<br/>Page —UsesLayout/UsesMedia→ target"]
-    recorded --> walk["CacheInvalidationRegistry::dependentPages()<br/>walk target back to source"]
-    walk --> pages["Recorded dependent Pages"]
-    pages --> rules["PageCacheInvalidator::planForPage()<br/>declared page rules"]
-    rules --> execute["CacheInvalidationRegistry<br/>plan and executor"]
-    unrelated["Unrelated Page"] -.->|"no recorded edge"| outside["Outside this invalidation set"]
+%%{init: {"theme": "neutral", "themeVariables": {"fontSize": "18px"}, "flowchart": {"wrappingWidth": 320, "nodeSpacing": 24, "rankSpacing": 32}}}%%
+flowchart TB
+    changed["Layout or Media change<br/>Observed model event"]
+    recorded["Recorded content-graph edges<br/>Example: Page — UsesLayout → Layout"]
+    walk["CacheInvalidationRegistry.dependentPages()<br/>Walk recorded targets back to source Pages"]
+    pageRules["Recorded dependent Pages<br/>PageCacheInvalidator.planForPage()"]
+    other["Page with no dependency path<br/>Outside this graph-derived subset only"]
+    merged["Combine graph rules with registered class rules<br/>Site-logo Media has a broader Site / Page rule path"]
+    execute["Declared invalidation plan → executor<br/>No automatic rebuild promise for external consumers"]
+    changed --> recorded
+    recorded --> walk
+    walk -->|"dependent"| pageRules
+    walk -.->|"no recorded path"| other
+    pageRules --> merged
+    merged --> execute
+    other ~~~ execute

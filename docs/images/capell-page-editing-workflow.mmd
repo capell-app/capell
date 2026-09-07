@@ -12,15 +12,33 @@
 %% - Public delivery: packages/frontend/src/Http/Controllers/PageController.php.
 %% - Optional workflow extension: capell-packages-4/packages/publishing-studio/README.md
 %%   and its workspace/release actions.
-flowchart LR
-    editor["Admin EditPage"] -->|"updatedData()"| scratch["Save editor scratch draft"]
-    editor -.->|"optional CreatePagePreviewSnapshotAction"| snapshot["Peek preview snapshot"]
-    snapshot -->|"RenderPagePreviewSnapshotAction"| preview["Signed private preview<br/>through the real theme"]
-    editor -.->|"optional package lane"| studio["Publishing Studio<br/>drafts / approvals / release workspaces"]
-    editor -->|"afterValidate() + beforeSave()"| save{"Validated and locked save?"}
-    save -->|"blocked"| editor
-    save -->|"persist"| page["Page Eloquent write"]
-    page -->|"PageSaved → RecordPageRevision"| history["PageRevisionRecorded<br/>revision history"]
-    page -->|"publication fields"| visibility["Publication visibility"]
-    visibility -->|"ResolvePublicPageByUrlAction"| public["Distinct public rendering path"]
-    visibility -->|"not public"| unavailable["Unavailable to ordinary public requests"]
+%%{init: {"theme": "neutral", "themeVariables": {"fontSize": "18px"}, "flowchart": {"wrappingWidth": 320, "nodeSpacing": 24, "rankSpacing": 32}}}%%
+flowchart TB
+    subgraph unsaved["Unsaved Admin editor state"]
+        direction TB
+        editor["EditPage form"]
+        scratch["Private scratch recovery<br/>Author / record / locale scope<br/>Restore into the form"]
+        peek["Optional Peek snapshot<br/>Signed private preview<br/>Uses the real theme"]
+        editor -->|"updatedData()"| scratch
+        editor -->|"unsaved snapshot"| peek
+    end
+    subgraph saving["Explicit Save from the same editor"]
+        direction TB
+        gate{"Validation and save lock pass?"}
+        blocked["Blocked: remain in editor"]
+        page["Persist Page with Eloquent"]
+        history["PageSaved → RecordPageRevision<br/>Append PageRevisionRecorded<br/>after the write"]
+        visibility["Saved publication fields<br/>control public visibility"]
+        publicPath["Public URL resolver<br/>serves eligible saved content;<br/>otherwise unavailable to visitors"]
+        gate -->|"no"| blocked
+        gate -->|"yes"| page
+        page --> history
+        page --> visibility
+        visibility --> publicPath
+    end
+    subgraph optional["Optional Publishing Studio"]
+        direction TB
+        studio["Separate editorial workflow<br/>Drafts · approvals · release workspaces<br/>Not required for every Core save"]
+    end
+    unsaved ~~~ saving
+    saving ~~~ optional

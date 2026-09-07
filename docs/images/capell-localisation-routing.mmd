@@ -5,13 +5,17 @@
 %% - Language scope: packages/core/src/Models/{Translation,PageUrl,Language}.php.
 %% - Site/domain scope: packages/core/src/Models/{Site,SiteDomain,PageUrl}.php.
 %% - Public lookup contract: packages/core/src/Actions/ResolvePublicPageByUrlAction.php.
-flowchart LR
-    page["Page identity"] -->|"translations()"| translation["Translation<br/>content for one language"]
-    translation -->|"language()"| language["Language<br/>e.g. en or fr"]
-    page -->|"pageUrls()"| pageUrl["PageUrl<br/>language-scoped path"]
-    pageUrl -->|"language()"| language
-    pageUrl -->|"siteDomain()"| domain["SiteDomain<br/>host context"]
-    domain -->|"site()"| site["Site"]
-    domain -.->|"language_id when assigned"| language
-    pageUrl -->|"pageable identity"| page
-    translation -.->|"same Page + language key"| page
+%%{init: {"theme": "neutral", "themeVariables": {"fontSize": "18px"}, "flowchart": {"wrappingWidth": 320, "nodeSpacing": 24, "rankSpacing": 32}}}%%
+flowchart TB
+    page["One Page identity<br/>Illustrative article: A day on the coast<br/>Site: example.test"]
+    en["English · language code en<br/>Translation title: A day on the coast<br/>PageUrl path: /en/coast"]
+    fr["French · language code fr<br/>Translation title: Une journée à la mer<br/>PageUrl path: /fr/cote"]
+    page -->|"translations() + pageUrls()"| en
+    page -->|"translations() + pageUrls()"| fr
+    enScope["SiteDomain context for en<br/>site_id + language_id"]
+    frScope["SiteDomain context for fr<br/>site_id + language_id"]
+    en -->|"PageUrl.siteDomain()"| enScope
+    fr -->|"PageUrl.siteDomain()"| frScope
+    site["Both contexts belong to the same Site<br/>Languages do not require separate hosts<br/>Paths and titles are examples, not automatic defaults"]
+    enScope --> site
+    frScope --> site
