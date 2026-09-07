@@ -1,0 +1,16 @@
+%% Canonical source for capell-cache-invalidation-impact.svg.
+%% Source trails:
+%% - Layout change observation and graph rebuild: packages/core/src/Observers/LayoutObserver.php.
+%% - Page/media graph edges: packages/core/src/Support/ContentGraph/Extractors/
+%%   {PageContentGraphExtractor,LayoutContentGraphExtractor,MediaContentGraphExtractor}.php.
+%% - Invalidation observer and plan: packages/frontend/src/Support/Cache/
+%%   {FrontendCacheInvalidationObserver,CacheInvalidationRegistry}.php.
+%% - Dependent-page walk: CacheInvalidationRegistry::dependentPages().
+flowchart LR
+    changed["Changed Layout or Media"] --> observed["Model observer / saved event"]
+    observed --> recorded["Recorded content-graph edge<br/>Page —UsesLayout/UsesMedia→ target"]
+    recorded --> walk["CacheInvalidationRegistry::dependentPages()<br/>walk target back to source"]
+    walk --> pages["Recorded dependent Pages"]
+    pages --> rules["PageCacheInvalidator::planForPage()<br/>declared page rules"]
+    rules --> execute["CacheInvalidationRegistry<br/>plan and executor"]
+    unrelated["Unrelated Page"] -.->|"no recorded edge"| outside["Outside this invalidation set"]

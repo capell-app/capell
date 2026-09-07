@@ -1,0 +1,17 @@
+%% Canonical source for capell-page-history-rollback.svg.
+%% Source trails:
+%% - Revision and rollback events: packages/core/src/EventSourcing/Aggregates/PageAggregate.php.
+%% - Preview/apply gates: packages/core/src/EventSourcing/Rollback/RollbackService.php and
+%%   packages/core/src/EventSourcing/Rollback/{RollbackValidatorRegistry,RollbackPreviewData}.php.
+%% - Append-only marker and projected history: packages/core/src/EventSourcing/Events/PageRolledBack.php
+%%   and packages/core/src/EventSourcing/Projectors/PageProjector.php.
+flowchart LR
+    v1["v1<br/>PageRevisionRecorded"] -->|"next save"| v2["v2<br/>PageRevisionRecorded"]
+    v2 -->|"next save"| v3["v3<br/>PageRevisionRecorded"]
+    v3 --> preview["BuildRollbackPreviewAction<br/>diff target against current"]
+    preview --> validate["RollbackValidatorRegistry<br/>validation gates"]
+    validate -->|"blocking issue"| blocked["RollbackBlocked<br/>no write"]
+    validate -->|"clear"| apply["ApplyRollbackAction<br/>re-validates in transaction"]
+    apply -->|"PageAggregate::recordRollback(1, state)"| v4["v4<br/>PageRolledBack → restored v1 state"]
+    v4 --> head["Current stream head: v4<br/>active content version: v1"]
+    v4 -.->|"history is never rewritten"| retained["v1, v2, v3 remain<br/>available for compare/roll-forward"]

@@ -1,0 +1,26 @@
+%% Canonical source for capell-page-editing-workflow.svg.
+%% Source trails:
+%% - Admin editor and lock/validation gates: packages/admin/src/Filament/Resources/Pages/Pages/EditPage.php
+%%   (updatedData(), afterValidate(), beforeSave(), saveAsDraft()).
+%% - Scratch drafts: packages/admin/src/Actions/Pages/SavePageEditorScratchDraftAction.php.
+%% - Optional Peek snapshot/render path: capell-packages-4/packages/filament-peek/src/Actions/
+%%   {CreatePagePreviewSnapshotAction,RenderPagePreviewSnapshotAction}.php.
+%% - Revision recording: packages/core/src/Actions/PageSavedAction.php and
+%%   packages/core/src/EventSourcing/Listeners/RecordPageRevision.php.
+%% - Authenticated signed preview: packages/admin/routes/web.php and
+%%   packages/admin/src/Http/Controllers/PagePreviewController.php.
+%% - Public delivery: packages/frontend/src/Http/Controllers/PageController.php.
+%% - Optional workflow extension: capell-packages-4/packages/publishing-studio/README.md
+%%   and its workspace/release actions.
+flowchart LR
+    editor["Admin EditPage"] -->|"updatedData()"| scratch["Save editor scratch draft"]
+    editor -.->|"optional CreatePagePreviewSnapshotAction"| snapshot["Peek preview snapshot"]
+    snapshot -->|"RenderPagePreviewSnapshotAction"| preview["Signed private preview<br/>through the real theme"]
+    editor -.->|"optional package lane"| studio["Publishing Studio<br/>drafts / approvals / release workspaces"]
+    editor -->|"afterValidate() + beforeSave()"| save{"Validated and locked save?"}
+    save -->|"blocked"| editor
+    save -->|"persist"| page["Page Eloquent write"]
+    page -->|"PageSaved → RecordPageRevision"| history["PageRevisionRecorded<br/>revision history"]
+    page -->|"publication fields"| visibility["Publication visibility"]
+    visibility -->|"ResolvePublicPageByUrlAction"| public["Distinct public rendering path"]
+    visibility -->|"not public"| unavailable["Unavailable to ordinary public requests"]

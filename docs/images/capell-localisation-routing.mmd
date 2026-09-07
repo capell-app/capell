@@ -1,0 +1,17 @@
+%% Canonical source for capell-localisation-routing.svg.
+%% Source trails:
+%% - Page-to-translation and Page-to-URL relations: packages/core/src/Models/Page.php,
+%%   packages/core/src/Models/Concerns/HasTranslations.php, and packages/core/src/Models/PageUrl.php.
+%% - Language scope: packages/core/src/Models/{Translation,PageUrl,Language}.php.
+%% - Site/domain scope: packages/core/src/Models/{Site,SiteDomain,PageUrl}.php.
+%% - Public lookup contract: packages/core/src/Actions/ResolvePublicPageByUrlAction.php.
+flowchart LR
+    page["Page identity"] -->|"translations()"| translation["Translation<br/>content for one language"]
+    translation -->|"language()"| language["Language<br/>e.g. en or fr"]
+    page -->|"pageUrls()"| pageUrl["PageUrl<br/>language-scoped path"]
+    pageUrl -->|"language()"| language
+    pageUrl -->|"siteDomain()"| domain["SiteDomain<br/>host context"]
+    domain -->|"site()"| site["Site"]
+    domain -.->|"language_id when assigned"| language
+    pageUrl -->|"pageable identity"| page
+    translation -.->|"same Page + language key"| page

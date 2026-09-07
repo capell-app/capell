@@ -1,0 +1,8 @@
+{
+    "schema_version": 1,
+    "generated_by": "scripts/check-readme-engineering-standards.php",
+    "package_count": 114,
+    "package_count_source": "capell-app/tests/Feature/Marketplace/FirstPartyPackageCatalogueTest.php",
+    "test_count": 7548,
+    "test_count_source": "vendor/bin/pest --list-tests --configuration=phpunit.xml"
+}

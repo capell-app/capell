@@ -28,6 +28,12 @@ The base page editing path does not call those workflow transitions automaticall
 
 Publishing Studio owns the full editorial workflow: isolated drafts, comparison, assignments, field comments, approvals, scheduling, release checks, and editorial recovery UI. It builds on Core history and rollback rather than moving those engine contracts into the package.
 
+![Conceptual page history from v1 through v2 and v3, then a validated restore of v1 appended as a new v4 history event](../images/capell-page-history-rollback.svg)
+
+_Rollback restores the selected state after comparison and validation, then appends a new history event; it does not erase later history._
+
+[Canonical Mermaid source](../images/capell-page-history-rollback.mmd)
+
 ## Publication Transition Integration
 
 UI and package code should call
