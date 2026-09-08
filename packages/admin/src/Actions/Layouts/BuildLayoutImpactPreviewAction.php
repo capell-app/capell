@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Layouts;
 
+use Capell\Admin\Actions\EditorImpact\BuildEditorImpactConsequencesAction;
 use Capell\Admin\Support\PageUrlPresenter;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Contracts\Pageable;
@@ -27,7 +28,7 @@ final class BuildLayoutImpactPreviewAction
     use AsFake;
     use AsObject;
 
-    public function handle(Layout $layout): ?EditorImpactPreviewData
+    public function handle(Layout $layout, bool $includeConsequences = false): ?EditorImpactPreviewData
     {
         if (! $this->canUpdateLayout($layout)) {
             return null;
@@ -73,9 +74,15 @@ final class BuildLayoutImpactPreviewAction
             pages: array_values($impactPages->all()),
         );
 
-        return $preview->withFingerprint(
+        $preview = $preview->withFingerprint(
             ImpactPlanFingerprint::for($layout, $preview->planPayload()),
         );
+
+        if ($includeConsequences) {
+            $preview->consequences = BuildEditorImpactConsequencesAction::run($layout);
+        }
+
+        return $preview;
     }
 
     private function pageData(Page $page): EditorImpactPageData

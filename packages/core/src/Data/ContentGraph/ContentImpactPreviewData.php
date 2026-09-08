@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\ContentGraph;
 
+use Capell\Core\Data\EditorImpact\EditorImpactConsequenceData;
 use Capell\Core\Support\Impact\ImpactPlanFingerprint;
 use Spatie\LaravelData\Data;
 
 final class ContentImpactPreviewData extends Data
 {
     public readonly string $fingerprint;
+
+    /** @var list<EditorImpactConsequenceData> Informational; excluded from save validation fingerprints. */
+    public array $consequences = [];
 
     /**
      * @param  array<int, ContentImpactGroupData>  $groups

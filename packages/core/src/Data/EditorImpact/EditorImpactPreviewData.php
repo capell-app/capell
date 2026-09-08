@@ -11,6 +11,9 @@ final class EditorImpactPreviewData extends Data
 {
     public readonly string $fingerprint;
 
+    /** @var list<EditorImpactConsequenceData> Informational; excluded from save validation fingerprints. */
+    public array $consequences = [];
+
     /**
      * @param  list<EditorImpactPageData>  $pages
      */
