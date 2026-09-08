@@ -571,7 +571,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     public function isErrorPage(): bool
     {
-        return $this->blueprint->key === 'error';
+        return $this->blueprint?->key === 'error';
     }
 
     /**
