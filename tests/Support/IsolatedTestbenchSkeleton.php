@@ -17,7 +17,7 @@ use RuntimeException;
  * prompts InstallCommand and SetupCommand ask). When shards or Paratest workers run at the same
  * time they see each other's files, and the interactive-prompt expectations fail at random.
  *
- * Each process boots from tests/.pest/testbench-skeletons/<token>, a fresh copy of the skeleton.
+ * Each process boots from var/testbench-skeletons/<token>, outside Pest's test discovery tree.
  * Everything is copied — crucially app/ and bootstrap/cache/ — except storage/, which is recreated
  * as an empty directory tree because the shared one accumulates gigabytes of test artefacts. The
  * copy contains no symlinks: TailwindAssetsGenerator (and friends) resolve realpath() and reject
@@ -75,11 +75,16 @@ final class IsolatedTestbenchSkeleton
         // The directory name keeps the word "testbench": application code guards such as
         // ClearCachesAction::shouldSkipOptimizeClearForTestbench() recognise a Testbench skeleton
         // from the bootstrap path.
-        $targetPath = dirname(__DIR__) . '/.pest/testbench-skeletons/' . $token;
+        $targetPath = self::pathForToken($token);
 
         self::prepare($sourcePath, $targetPath);
 
         return self::$preparedPath = $targetPath;
+    }
+
+    private static function pathForToken(string $token): string
+    {
+        return dirname(__DIR__, 2) . '/var/testbench-skeletons/' . $token;
     }
 
     /**
