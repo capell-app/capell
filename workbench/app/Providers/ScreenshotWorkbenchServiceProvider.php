@@ -87,8 +87,14 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             ),
         ]);
 
-        resolve(MetricCollectorRegistry::class)
-            ->register(SiteAdminMetricsScreenshotFixture::class);
+        // Runtime-role tests also boot this provider; screenshot-only series
+        // belong to the explicitly configured screenshot workbench.
+        $database = config('screenshot.database');
+
+        if (is_string($database) && $database !== '') {
+            resolve(MetricCollectorRegistry::class)
+                ->register(SiteAdminMetricsScreenshotFixture::class);
+        }
     }
 
     /**

@@ -259,6 +259,9 @@ it('reports when no Capell packages are marked installed', function (): void {
 
 it('does not require generated frontend tailwind css when no generator is registered', function (): void {
     seedHealthyDoctorInstall();
+    // The runtime-role bootstrap loads Frontend's generator; this case models
+    // an install without it, while the following case exercises its presence.
+    app()->offsetUnset('capell.tailwind.generator');
     File::delete(resource_path('css/capell/frontend.css'));
 
     artisanCommand('capell:doctor')
