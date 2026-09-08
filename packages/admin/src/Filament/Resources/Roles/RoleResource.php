@@ -9,6 +9,7 @@ use Capell\Admin\Filament\Resources\Roles\Pages\CreateRole;
 use Capell\Admin\Filament\Resources\Roles\Pages\EditRole;
 use Capell\Admin\Filament\Resources\Roles\Pages\ListRoles;
 use Capell\Admin\Filament\Resources\Roles\Pages\ViewRole;
+use Capell\Admin\Support\SiteScope;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -16,13 +17,35 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Toggle;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Override;
 use RuntimeException;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use UnitEnum;
 
 class RoleResource extends ShieldRoleResource
 {
+    /** @return Builder<Model> */
+    #[Override]
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $actor = auth()->user();
+
+        if (! config('permission.teams') || ($actor !== null && SiteScope::isGlobalActor($actor))) {
+            return $query;
+        }
+
+        $team = resolve(PermissionRegistrar::class)->getPermissionsTeamId();
+
+        // Global role templates affect every site's grants and are managed by
+        // global administrators. Site operators can edit only their own roles.
+        return $team === null ? $query->whereRaw('1 = 0')
+            : $query->where((string) config('permission.column_names.team_foreign_key', 'team_id'), $team);
+    }
+
     #[Override]
     public static function getNavigationGroup(): string|UnitEnum|null
     {

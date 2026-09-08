@@ -216,3 +216,18 @@ it('rejects actors without manage site permissions', function (): void {
         input: SyncSitePermissionsData::fromArray(['assignments' => []]),
     );
 })->throws(AuthorizationException::class);
+
+it('rejects another sites role before replacing existing assignments', function (): void {
+    $site = Site::factory()->createOne();
+    $other = Site::factory()->createOne();
+    $admin = makeSitePermissionActionTestUser();
+    $editor = makeSitePermissionActionTestUser();
+    $admin->givePermissionTo('ManagePermissions:Site');
+    $role = Role::query()->create(['name' => 'foreign-editor', 'guard_name' => 'web', 'team_id' => $other->getKey()]);
+    $input = SyncSitePermissionsData::fromArray(['assignments' => [
+        ['user_id' => $editor->getKey(), 'role_ids' => [$role->getKey()]],
+    ]]);
+
+    expect(fn () => SyncSitePermissionsAction::run($admin, $site, $input))->toThrow(AuthorizationException::class)
+        ->and(DB::table('model_has_roles')->where('team_id', $site->getKey())->exists())->toBeFalse();
+});

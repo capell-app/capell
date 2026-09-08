@@ -6,7 +6,9 @@ namespace Capell\Admin\Policies;
 
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Illuminate\Foundation\Auth\User;
 
 /**
@@ -43,9 +45,13 @@ class SitePolicy
 
     public function view(User $user, Site $site): bool
     {
+        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+            return false;
+        }
+
         $isGlobal = $user->isGlobalAdmin();
 
-        if ($isGlobal || $user->checkPermissionTo(self::permission('view_any', self::SUBJECT))) {
+        if ($isGlobal || $this->hasPermissionOnSite($user, $site, self::permission('view_any', self::SUBJECT))) {
             return true;
         }
 
@@ -76,18 +82,26 @@ class SitePolicy
 
     public function update(User $user, Site $site): bool
     {
-        if ($user->checkPermissionTo(self::permission('update', self::SUBJECT))) {
+        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+            return false;
+        }
+
+        if ($this->hasPermissionOnSite($user, $site, self::permission('update', self::SUBJECT))) {
             return true;
         }
 
         // Site-admins can update their own site's settings (custom permission)
-        return $user->checkPermissionTo(CapellPermission::UpdateOwnSite->name())
+        return $this->hasPermissionOnSite($user, $site, CapellPermission::UpdateOwnSite->name())
             && $user->getAssignedSiteIds()->contains($site->getKey());
     }
 
     public function delete(User $user, Site $site): bool
     {
-        return $user->checkPermissionTo(self::permission('delete', self::SUBJECT));
+        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+            return false;
+        }
+
+        return $this->hasPermissionOnSite($user, $site, self::permission('delete', self::SUBJECT));
     }
 
     public function deleteAny(User $user): bool
@@ -97,18 +111,43 @@ class SitePolicy
 
     public function restore(User $user, Site $site): bool
     {
-        return $user->checkPermissionTo(self::permission('restore', self::SUBJECT));
+        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+            return false;
+        }
+
+        return $this->hasPermissionOnSite($user, $site, self::permission('restore', self::SUBJECT));
     }
 
     public function forceDelete(User $user, Site $site): bool
     {
-        return $user->checkPermissionTo(self::permission('force_delete', self::SUBJECT));
+        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+            return false;
+        }
+
+        return $this->hasPermissionOnSite($user, $site, self::permission('force_delete', self::SUBJECT));
     }
 
     /** Manage which users/roles are assigned to this site (custom permission). */
     public function managePermissions(User $user, Site $site): bool
     {
-        return $user->checkPermissionTo(CapellPermission::ManageSitePermissions->name());
+        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+            return false;
+        }
+
+        return $this->hasPermissionOnSite($user, $site, CapellPermission::ManageSitePermissions->name());
+    }
+
+    private function hasPermissionOnSite(User $user, Site $site, string $permission): bool
+    {
+        if (! config('permission.teams')) {
+            return $user->checkPermissionTo($permission);
+        }
+
+        return PermissionTeamContext::run(
+            SiteScope::isGlobalActor($user) ? null : $site->getKey(),
+            fn (): bool => $user->checkPermissionTo($permission),
+            $user,
+        );
     }
 
     private function isSuperAdmin(User $user): bool
@@ -117,6 +156,6 @@ class SitePolicy
             return true;
         }
 
-        return $user->hasRole(config('capell.roles.super_admin', 'super_admin'));
+        return SiteScope::isGlobalActor($user);
     }
 }

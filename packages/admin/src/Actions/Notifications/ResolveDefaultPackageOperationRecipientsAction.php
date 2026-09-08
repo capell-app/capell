@@ -36,12 +36,13 @@ final class ResolveDefaultPackageOperationRecipientsAction
             && method_exists($model, 'scopeGlobalAdmins')
             && method_exists($model, 'isGlobalAdmin')
         ) {
-            return $query
-                ->where(static function (Builder $query) use ($role): void {
-                    $query->getModel()->callNamedScope('globalAdmins', [$query]);
+            return $query->where(static function (Builder $query) use ($role): void {
+                $query->getModel()->callNamedScope('globalAdmins', [$query]);
+
+                if (! config('permission.teams')) {
                     $query->orWhereHas('roles', static fn (Builder $roleQuery): Builder => $roleQuery->where('name', $role));
-                })
-                ->get();
+                }
+            })->get();
         }
 
         return $query->get()
@@ -51,8 +52,8 @@ final class ResolveDefaultPackageOperationRecipientsAction
 
     private function isAdminRecipient(Model $user, mixed $role): bool
     {
-        if (method_exists($user, 'isGlobalAdmin') && $user->isGlobalAdmin()) {
-            return true;
+        if (method_exists($user, 'isGlobalAdmin')) {
+            return $user->isGlobalAdmin();
         }
 
         return method_exists($user, 'hasRole') && $user->hasRole($role);

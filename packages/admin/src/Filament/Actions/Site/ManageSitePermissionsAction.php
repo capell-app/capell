@@ -48,7 +48,7 @@ final class ManageSitePermissionsAction extends Action
                             ->distinct(),
                         Select::make('role_ids')
                             ->label(__('capell-admin::form.site_permissions_roles'))
-                            ->options(fn (): array => $this->roleOptions())
+                            ->options(fn (Site $record): array => $this->roleOptions($record))
                             ->multiple()
                             ->required(),
                     ]),
@@ -143,10 +143,12 @@ final class ManageSitePermissionsAction extends Action
     /**
      * @return array<int, string>
      */
-    private function roleOptions(): array
+    private function roleOptions(Site $site): array
     {
         return Role::query()
             ->where('name', '!=', $this->superAdminRoleName())
+            ->where('guard_name', 'web')
+            ->where(fn ($query) => $query->whereNull($this->teamColumn())->orWhere($this->teamColumn(), $site->getKey()))
             ->orderBy('name')
             ->pluck('name', 'id')
             ->mapWithKeys(fn (string $name, mixed $roleId): array => [

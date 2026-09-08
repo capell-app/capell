@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Filament\Pages;
 
 use BackedEnum;
+use Capell\Admin\Support\SiteScope;
 use Capell\Installer\Actions\InstallGuide\ApplyInstallGuidePatchesAction;
 use Capell\Installer\Data\InstallGuide\ApplyPatchesInputData;
 use Capell\Installer\Support\InstallerInstallationState;
@@ -42,9 +43,9 @@ class InstallGuidePage extends Page
             return false;
         }
 
-        $superAdminRole = config('capell.roles.super_admin', 'super_admin');
+        config('capell.roles.super_admin', 'super_admin');
 
-        return method_exists($user, 'hasRole') && $user->hasRole($superAdminRole);
+        return method_exists($user, 'hasRole') && SiteScope::isGlobalActor($user);
     }
 
     #[Override]

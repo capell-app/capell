@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Capell\Admin\Support;
 
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 final class SiteScope
 {
@@ -62,6 +64,10 @@ final class SiteScope
             return false;
         }
 
-        return $actor->hasRole($superAdminRole);
+        return PermissionTeamContext::run(
+            null,
+            fn (): bool => $actor->hasRole($superAdminRole),
+            $actor instanceof Model ? $actor : null,
+        );
     }
 }

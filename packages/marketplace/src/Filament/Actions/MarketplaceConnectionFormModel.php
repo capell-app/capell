@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Filament\Actions;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Admin\Support\SiteScope;
 use Capell\Marketplace\Actions\RunMarketplaceHeartbeatAction;
 use Capell\Marketplace\Actions\StartMarketplaceAccountConnectionAction;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
@@ -186,12 +187,11 @@ final class MarketplaceConnectionFormModel
     public function canViewConnectionDetails(): bool
     {
         $user = auth()->user();
-        $configuredRole = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
-        $superAdminRole = is_string($configuredRole) && $configuredRole !== '' ? $configuredRole : 'super_admin';
+        config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
 
         return is_object($user)
             && method_exists($user, 'hasRole')
-            && $user->hasRole($superAdminRole);
+            && SiteScope::isGlobalActor($user);
     }
 
     private function marketplaceBaseUrlConfigured(): bool

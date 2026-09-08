@@ -8,6 +8,8 @@ use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Route;
+use Illuminate\Session\ArraySessionHandler;
+use Illuminate\Session\Store;
 use Spatie\Permission\PermissionRegistrar;
 
 function runSiteScopeMiddleware(Request $request): void
@@ -67,7 +69,26 @@ it('uses the site_id of a route-bound record (record takes precedence over query
         return $route;
     });
 
-    runSiteScopeMiddleware($request);
+    (new SetSitePermissionScope)->handle($request, function () use ($recordSite): Response {
+        expect(currentTeamId())->toBe($recordSite->id);
 
-    expect(currentTeamId())->toBe($recordSite->id);
+        return new Response('ok');
+    });
+
+    expect(currentTeamId())->toBeNull();
+});
+
+it('clears stale scope during an unresolved request and restores it on exit', function (): void {
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId(987);
+    $request = Request::create('/admin/something');
+    $session = new Store('scope-test', new ArraySessionHandler(120));
+    $request->setLaravelSession($session);
+
+    (new SetSitePermissionScope)->handle($request, function (): Response {
+        expect(currentTeamId())->toBeNull();
+
+        return new Response('ok');
+    });
+
+    expect(currentTeamId())->toBe(987);
 });

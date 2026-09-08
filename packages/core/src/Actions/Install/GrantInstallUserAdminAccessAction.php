@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -29,14 +30,12 @@ final class GrantInstallUserAdminAccessAction
         $superAdminRoleName = is_string($roleName) && $roleName !== '' ? $roleName : 'super_admin';
 
         try {
-            $role = Role::findOrCreate($superAdminRoleName, 'web');
+            $role = PermissionTeamContext::run(null, fn (): \Spatie\Permission\Contracts\Role => Role::findOrCreate($superAdminRoleName, 'web'));
 
             if (method_exists($user, 'hasRole') && method_exists($user, 'assignRole')) {
-                if ($user->hasRole($role)) {
-                    return;
-                }
-
-                $user->assignRole($role);
+                PermissionTeamContext::run(null, function () use ($user, $role): void {
+                    $user->assignRole($role);
+                }, $user instanceof Model ? $user : null);
                 $reporter->report('✓ Granted admin access to install user.');
 
                 return;

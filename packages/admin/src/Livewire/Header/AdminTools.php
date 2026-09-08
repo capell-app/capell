@@ -13,6 +13,7 @@ use Capell\Admin\Support\AdminTools\AdminToolRegistry;
 use Capell\Core\Exceptions\QueueConnectionNotReadyException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Core\Support\Security\LockdownStore;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -20,6 +21,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 use Livewire\Component;
 
@@ -207,10 +209,14 @@ class AdminTools extends Component
     private function isGlobalAdmin(object $user): bool
     {
         $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
-        $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
+        $role = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
 
         if (method_exists($user, 'hasRole')) {
-            return $user->hasRole($superAdminRole);
+            return PermissionTeamContext::run(
+                null,
+                fn (): bool => $user->hasRole($role),
+                $user instanceof Model ? $user : null,
+            );
         }
 
         return method_exists($user, 'isGlobalAdmin') && $user->isGlobalAdmin();

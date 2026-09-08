@@ -6,11 +6,11 @@ namespace Capell\Admin\Http\Middleware;
 
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -39,17 +39,15 @@ class SetSitePermissionScope
 
         $this->syncSessionSite($request, $user);
 
-        if ($user instanceof Authenticatable && SiteScope::isGlobalActor($user)) {
-            return $next($request);
-        }
+        $siteId = $user instanceof Authenticatable && SiteScope::isGlobalActor($user)
+            ? null
+            : $this->resolveSiteId($request);
 
-        $siteId = $this->resolveSiteId($request);
-
-        if ($siteId !== null) {
-            resolve(PermissionRegistrar::class)->setPermissionsTeamId($siteId);
-        }
-
-        return $next($request);
+        return PermissionTeamContext::run(
+            $siteId,
+            fn (): Response => $next($request),
+            $user instanceof Model ? $user : null,
+        );
     }
 
     private function resolveSiteId(Request $request): ?int
@@ -79,7 +77,7 @@ class SetSitePermissionScope
             $user = $request->user();
             $site = Site::query()->find($requestedSiteId);
 
-            if ($site !== null && SiteScope::actorCanUseSite($user, $site)) {
+            if ($site !== null && $this->actorBelongsToSite($user, $site)) {
                 return $requestedSiteId;
             }
 
@@ -94,7 +92,7 @@ class SetSitePermissionScope
             && $user !== null) {
             $site = Site::query()->find($sessionSiteId);
 
-            if ($site !== null && SiteScope::actorCanUseSite($user, $site)) {
+            if ($site !== null && $this->actorBelongsToSite($user, $site)) {
                 return $sessionSiteId;
             }
         }
@@ -103,7 +101,9 @@ class SetSitePermissionScope
         $user = $request->user();
 
         if ($user !== null) {
-            $siteIds = $user->getAssignedSiteIds();
+            $siteIds = method_exists($user, 'getAllAssignedSiteIds')
+                ? $user->getAllAssignedSiteIds()
+                : $user->getAssignedSiteIds();
 
             if ($siteIds->count() === 1) {
                 return (int) $siteIds->first();
@@ -111,6 +111,23 @@ class SetSitePermissionScope
         }
 
         return null;
+    }
+
+    private function actorBelongsToSite(?Authenticatable $actor, Site $site): bool
+    {
+        if (! $actor instanceof Authenticatable) {
+            return false;
+        }
+
+        if (SiteScope::isGlobalActor($actor)) {
+            return true;
+        }
+
+        $siteIds = method_exists($actor, 'getAllAssignedSiteIds')
+            ? $actor->getAllAssignedSiteIds()
+            : $actor->getAssignedSiteIds();
+
+        return $siteIds->contains($site->getKey());
     }
 
     private function requestedSiteId(Request $request): ?int
@@ -130,7 +147,7 @@ class SetSitePermissionScope
 
         $site = Site::query()->find($requestedSiteId);
 
-        if ($site !== null && SiteScope::actorCanUseSite($user, $site)) {
+        if ($site !== null && $this->actorBelongsToSite($user, $site)) {
             $request->session()->put('capell.current_site_id', $requestedSiteId);
         }
     }

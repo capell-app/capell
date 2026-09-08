@@ -249,7 +249,7 @@ final class HeaderNavigationAccessResolver
             return [];
         }
 
-        return array_values($actor->getAssignedSiteIds()
+        return array_values((method_exists($actor, 'getAllAssignedSiteIds') ? $actor->getAllAssignedSiteIds() : $actor->getAssignedSiteIds())
             ->map(fn (int|string $siteId): int => (int) $siteId)
             ->filter(fn (int $siteId): bool => $siteId > 0)
             ->unique()
