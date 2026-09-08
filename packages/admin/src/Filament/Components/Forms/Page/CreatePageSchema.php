@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
-use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\Configurators\ConfiguratorResolver;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Page;
 use Filament\Forms\Components\Hidden;
 use Filament\Resources\Pages\CreateRecord;
@@ -52,7 +52,7 @@ class CreatePageSchema
                                 return false;
                             }
 
-                            return $user->hasRole(Utils::getSuperAdminName());
+                            return SiteScope::isGlobalActor($user);
                         }),
                     SiteSelect::make(),
                     static::getParentPageSelect($schema),

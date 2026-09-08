@@ -85,6 +85,37 @@ Custom abilities (e.g. `manage_restrictions` on `PagePolicy`, `import` / `export
 
 The install and upgrade permission sync grants this permission to `super_admin` by default. Assign it deliberately to editors who understand delivery/performance tradeoffs.
 
+## Teams-enabled hosts
+
+`permission.teams = true` uses the Site primary key as the permission team ID.
+A workspace selects an edition within that site; it does not supply a different
+permission team ID. Null-team role definitions are reusable templates, while
+`model_has_roles.team_id` scopes each content-role assignment to its site.
+
+`getAssignedSiteIds()` is an authorisation query restricted to the active team.
+Use `getAllAssignedSiteIds()` only for membership discovery, site selectors and
+account-level panel admission. Using the all-sites result to authorise content
+would allow one site's permissions to operate on another assigned site.
+
+`SetSitePermissionScope` validates requested membership, clears an unresolved
+scope, runs the request in the resolved team, and restores the previous team in
+`finally`. Register it as persistent middleware for Livewire requests as well.
+`PermissionTeamContext::run()` also discards the user's loaded `roles` and
+`permissions` relations at both boundaries: clearing the registrar cache alone
+does not invalidate Eloquent relations on an already-loaded user.
+
+Global administrators, panel-admission roles and host account capabilities are
+explicitly global. Create those assignments with `assignGlobalRole()`, and check
+account capabilities with `hasGlobalRole()` or `isGlobalAdmin()`. Both the role
+definition and assignment must have a null team for global-administrator access.
+Ordinary content checks keep the selected site scope. Frontend role/permission
+conditions use the resolved site; missing site context fails closed.
+
+Role catalogue screens restrict site operators to the selected team's role
+definitions. Global templates are managed by global administrators. The site
+permission action can assign global templates or that site's roles, but rejects
+foreign-site roles before replacing any assignments.
+
 ## Related files
 
 | Concern                    | File                                                            |

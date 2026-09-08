@@ -100,3 +100,12 @@ it('denies Site view for a direct record belonging to another site', function ()
 
     expect((new SitePolicy)->view($user, $otherSite))->toBeFalse();
 });
+
+it('does not borrow active site permissions for a direct Site record', function (): void {
+    $assignedSite = Site::factory()->createOne();
+    $otherSite = Site::factory()->createOne();
+    $user = cap0532CorePolicyActor($assignedSite, 'Update:Site');
+
+    expect((new SitePolicy)->update($user, $otherSite))->toBeFalse()
+        ->and((new SitePolicy)->update($user, $assignedSite))->toBeTrue();
+});

@@ -11,6 +11,7 @@ use Capell\Admin\Filament\Components\Forms\FixedWidthSidebar;
 use Capell\Admin\Filament\Components\Forms\MediaLibraryFileUpload;
 use Capell\Admin\Filament\Contracts\FormConfigurator;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -211,6 +212,6 @@ class UserForm implements FormConfigurator
             return true;
         }
 
-        return $actor->hasRole(config('capell.roles.super_admin', 'super_admin'));
+        return SiteScope::isGlobalActor($actor);
     }
 }

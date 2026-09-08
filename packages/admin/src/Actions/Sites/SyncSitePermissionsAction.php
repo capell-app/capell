@@ -28,7 +28,7 @@ final class SyncSitePermissionsAction
     {
         throw_unless($actor->can('managePermissions', $site), AuthorizationException::class);
 
-        $this->assertAssignmentsExcludeReservedRoles($input);
+        $this->assertAssignmentsExcludeReservedRoles($input, $site);
 
         $modelHasRolesTable = $this->modelHasRolesTable();
         $teamColumn = $this->teamColumn();
@@ -60,7 +60,7 @@ final class SyncSitePermissionsAction
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
-    private function assertAssignmentsExcludeReservedRoles(SyncSitePermissionsData $input): void
+    private function assertAssignmentsExcludeReservedRoles(SyncSitePermissionsData $input, Site $site): void
     {
         $roleIds = collect($input->assignments)
             ->flatMap(fn (UserSiteRoleAssignmentData $assignment): array => $assignment->roleIds)
@@ -70,6 +70,14 @@ final class SyncSitePermissionsAction
         if ($roleIds->isEmpty()) {
             return;
         }
+
+        $validRoleCount = Role::query()
+            ->whereKey($roleIds->all())
+            ->where('guard_name', 'web')
+            ->where(fn ($query) => $query->whereNull($this->teamColumn())->orWhere($this->teamColumn(), $site->getKey()))
+            ->count();
+
+        throw_unless($validRoleCount === $roleIds->count(), AuthorizationException::class);
 
         $reservedRoleSubmitted = Role::query()
             ->whereKey($roleIds->all())

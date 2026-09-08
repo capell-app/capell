@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
@@ -78,10 +79,10 @@ final class CreateAdditionalInstallUsersAction
         }
 
         try {
-            $role = Role::findOrCreate($userData->roleName, 'web');
-
             if ($this->isGlobalSuperAdminRole($userData->roleName)) {
-                $user->assignRole($role);
+                PermissionTeamContext::run(null, function () use ($user, $userData): void {
+                    $user->assignRole(Role::findOrCreate($userData->roleName, 'web'));
+                }, $user instanceof Model ? $user : null);
 
                 return;
             }
@@ -92,6 +93,7 @@ final class CreateAdditionalInstallUsersAction
                 return;
             }
 
+            $role = PermissionTeamContext::run($site->getKey(), fn (): \Spatie\Permission\Contracts\Role => Role::findOrCreate($userData->roleName, 'web'));
             $user->assignRoleForSite($site, $role);
         } catch (Throwable) {
             $reporter->report(sprintf('→ Role %s could not be assigned to %s automatically.', $userData->roleName, $userData->email));

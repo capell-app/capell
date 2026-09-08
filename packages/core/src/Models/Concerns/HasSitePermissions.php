@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Models\Concerns;
 
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,15 +31,17 @@ trait HasSitePermissions
      */
     public function assignRoleForSite(Site $site, string|Role $role): void
     {
-        $registrar = resolve(PermissionRegistrar::class);
-        $previous = $registrar->getPermissionsTeamId();
-
-        try {
-            $registrar->setPermissionsTeamId($site->getKey());
+        PermissionTeamContext::run($site->getKey(), function () use ($role): void {
             $this->assignRole($role);
-        } finally {
-            $registrar->setPermissionsTeamId($previous);
-        }
+        }, $this);
+    }
+
+    /** Assign account-wide roles without inheriting a request's site context. */
+    public function assignGlobalRole(string $role, string $guard = 'web'): void
+    {
+        PermissionTeamContext::run(null, function () use ($role, $guard): void {
+            $this->assignRole(Role::findOrCreate($role, $guard));
+        }, $this);
     }
 
     /**
@@ -46,15 +49,9 @@ trait HasSitePermissions
      */
     public function removeRoleForSite(Site $site, string|Role $role): void
     {
-        $registrar = resolve(PermissionRegistrar::class);
-        $previous = $registrar->getPermissionsTeamId();
-
-        try {
-            $registrar->setPermissionsTeamId($site->getKey());
+        PermissionTeamContext::run($site->getKey(), function () use ($role): void {
             $this->removeRole($role);
-        } finally {
-            $registrar->setPermissionsTeamId($previous);
-        }
+        }, $this);
     }
 
     /**
@@ -76,6 +73,7 @@ trait HasSitePermissions
             ->where($modelHasRolesTable . '.model_type', $this->getMorphClass())
             ->where($modelHasRolesTable . '.model_id', $this->getKey())
             ->where($modelHasRolesTable . '.' . $teamColumn, $site->getKey())
+            ->where(fn (Builder $query): Builder => $query->whereNull('roles.' . $teamColumn)->orWhere('roles.' . $teamColumn, $site->getKey()))
             ->select('roles.*')
             ->get();
     }
@@ -101,18 +99,27 @@ trait HasSitePermissions
      */
     public function hasPermissionForSite(Site $site, string $permission): bool
     {
+        return PermissionTeamContext::run(
+            $site->getKey(),
+            fn (): bool => $this->checkPermissionTo($permission),
+            $this,
+        );
+    }
+
+    /**
+     * Authorization scope for the active team. Membership selectors must use
+     * getAllAssignedSiteIds() so grants cannot bleed between assigned sites.
+     *
+     * @return Collection<int, int>
+     */
+    public function getAssignedSiteIds(): Collection
+    {
+        $siteIds = $this->getAllAssignedSiteIds();
         $registrar = resolve(PermissionRegistrar::class);
-        $previous = $registrar->getPermissionsTeamId();
 
-        try {
-            $registrar->setPermissionsTeamId($site->getKey());
-            $registrar->forgetCachedPermissions();
-
-            return $this->hasPermissionTo($permission);
-        } finally {
-            $registrar->setPermissionsTeamId($previous);
-            $registrar->forgetCachedPermissions();
-        }
+        return $registrar->teams
+            ? $siteIds->filter(fn (int $id): bool => (string) $id === (string) $registrar->getPermissionsTeamId())->values()
+            : $siteIds;
     }
 
     /**
@@ -120,18 +127,29 @@ trait HasSitePermissions
      *
      * @return Collection<int, int>
      */
-    public function getAssignedSiteIds(): Collection
+    public function getAllAssignedSiteIds(): Collection
     {
-        return $this->roles()
-            ->whereNotNull('model_has_roles.team_id')
-            ->pluck('model_has_roles.team_id')
+        // Membership discovery must see every assignment, even while another
+        // team is active. Spatie's roles() relationship filters to that team.
+        $pivot = (string) config('permission.table_names.model_has_roles', 'model_has_roles');
+        $roles = (string) config('permission.table_names.roles', 'roles');
+        $team = (string) config('permission.column_names.team_foreign_key', 'team_id');
+
+        return DB::table($pivot)
+            ->join($roles, $roles . '.id', '=', $pivot . '.role_id')
+            ->where($pivot . '.model_type', $this->getMorphClass())
+            ->where($pivot . '.model_id', $this->getKey())
+            ->whereNotNull($pivot . '.' . $team)
+            ->where(fn ($query) => $query->whereNull($roles . '.' . $team)
+                ->orWhereColumn($roles . '.' . $team, $pivot . '.' . $team))
+            ->pluck($pivot . '.' . $team)
+            ->map(fn (mixed $id): int => (int) $id)
             ->unique()
             ->values();
     }
 
     /**
-     * Returns true when this user has no site-scoped roles and no global roles.
-     * Useful for guarding super-admin-only sections.
+     * Returns true for an explicit null-team super-admin assignment.
      */
     public function isGlobalAdmin(): bool
     {
@@ -139,6 +157,37 @@ trait HasSitePermissions
         $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
 
         return $this->hasGlobalRole($superAdminRole);
+    }
+
+    /** Global account capabilities must be checked independently of the selected site. */
+    public function hasGlobalRole(string|Role $role): bool
+    {
+        $tableNames = config('permission.table_names', []);
+        $modelHasRolesTable = is_array($tableNames) && is_string($tableNames['model_has_roles'] ?? null)
+            ? $tableNames['model_has_roles']
+            : 'model_has_roles';
+        $teamColumnConfig = config('permission.column_names.team_foreign_key', 'team_id');
+        $teamColumn = is_string($teamColumnConfig) && $teamColumnConfig !== '' ? $teamColumnConfig : 'team_id';
+
+        $query = DB::table($modelHasRolesTable)
+            ->where('model_type', $this->getMorphClass())
+            ->where('model_id', $this->getKey())
+            ->whereNull($teamColumn);
+
+        if ($role instanceof Role) {
+            return $role->getAttribute($teamColumn) === null
+                && $query->where('role_id', $role->getKey())->exists();
+        }
+
+        return $query->whereIn(
+            'role_id',
+            Role::query()
+                ->where('name', $role)
+                ->where('guard_name', 'web')
+                ->whereNull($teamColumn)
+                ->select('id'),
+        )
+            ->exists();
     }
 
     /**
@@ -166,37 +215,10 @@ trait HasSitePermissions
         $teamColumnConfig = config('permission.column_names.team_foreign_key', 'team_id');
         $teamColumn = is_string($teamColumnConfig) && $teamColumnConfig !== '' ? $teamColumnConfig : 'team_id';
 
-        return $query->whereHas('roles', static fn (Builder $roleQuery): Builder => $roleQuery
-            ->where('roles.name', $role)
-            ->where('roles.guard_name', 'web')
-            ->whereNull($modelHasRolesTable . '.' . $teamColumn));
-    }
-
-    private function hasGlobalRole(string|Role $role): bool
-    {
-        $tableNames = config('permission.table_names', []);
-        $modelHasRolesTable = is_array($tableNames) && is_string($tableNames['model_has_roles'] ?? null)
-            ? $tableNames['model_has_roles']
-            : 'model_has_roles';
-        $teamColumnConfig = config('permission.column_names.team_foreign_key', 'team_id');
-        $teamColumn = is_string($teamColumnConfig) && $teamColumnConfig !== '' ? $teamColumnConfig : 'team_id';
-
-        $query = DB::table($modelHasRolesTable)
+        return $query->whereIn($this->qualifyColumn($this->getKeyName()), DB::table($modelHasRolesTable)
             ->where('model_type', $this->getMorphClass())
-            ->where('model_id', $this->getKey())
-            ->whereNull($teamColumn);
-
-        if ($role instanceof Role) {
-            return $query->where('role_id', $role->getKey())->exists();
-        }
-
-        return $query->whereIn(
-            'role_id',
-            Role::query()
-                ->where('name', $role)
-                ->where('guard_name', 'web')
-                ->select('id'),
-        )
-            ->exists();
+            ->whereNull($teamColumn)
+            ->whereIn('role_id', Role::query()->where('name', $role)->where('guard_name', 'web')->whereNull($teamColumn)->select('id'))
+            ->select('model_id'));
     }
 }
