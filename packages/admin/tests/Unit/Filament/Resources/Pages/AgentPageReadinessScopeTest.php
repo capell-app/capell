@@ -52,9 +52,16 @@ it('contributes the readiness widget exactly once for a Core Page editor', funct
 });
 
 it('does not contribute the Page-only widget to a non-Page pageable editor', function (): void {
-    $widgets = agentReadinessHeaderWidgets(new NonPageablePageForResolverTest);
+    $record = new NonPageablePageForResolverTest;
 
-    expect($widgets)->not->toContain(AgentPageReadinessWidget::class);
+    expect(AgentPageReadinessWidget::isEligibleRecord($record))->toBeFalse();
+
+    expect(agentReadinessHeaderWidgets($record))->not->toContain(AgentPageReadinessWidget::class);
+});
+
+it('limits the readiness predicate to Core Page records', function (): void {
+    expect(AgentPageReadinessWidget::isEligibleRecord(new Page))->toBeTrue()
+        ->and(AgentPageReadinessWidget::isEligibleRecord(new NonPageablePageForResolverTest))->toBeFalse();
 });
 
 it('retains readiness warnings for incomplete Core Pages', function (): void {

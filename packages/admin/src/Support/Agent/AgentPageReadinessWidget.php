@@ -15,12 +15,17 @@ final class AgentPageReadinessWidget extends ResourceAlertsFilamentWidget
 {
     public ?Page $record = null;
 
+    public static function isEligibleRecord(mixed $record): bool
+    {
+        return $record instanceof Page;
+    }
+
     /** @return Collection<string, MessageData> */
     protected function buildAlerts(): Collection
     {
         $alerts = collect();
 
-        if (! $this->record instanceof Page) {
+        if (! self::isEligibleRecord($this->record)) {
             return $alerts;
         }
 

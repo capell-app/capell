@@ -544,7 +544,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             zone: AdminZone::PageEditHeaderWidgets,
             key: 'capell-admin.pages.edit.agent-readiness',
             resolver: static fn (AdminZoneContextData $context): array => [AgentPageReadinessWidget::class],
-            visibility: static fn (AdminZoneContextData $context): bool => $context->record instanceof Page,
+            visibility: static fn (AdminZoneContextData $context): bool => AgentPageReadinessWidget::isEligibleRecord($context->record),
             owner: 'capell-app/admin',
             source: self::class,
         ));
