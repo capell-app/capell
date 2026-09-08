@@ -57,6 +57,7 @@ use Illuminate\Support\Carbon;
  * @method HasMany<Page, TDeclaringModel> siblings()
  * @method HasMany<Page, TDeclaringModel> children()
  * @method TDeclaringModel duplicateExcept(list<string> $except, array<string, mixed>|null $attr = null)
+ * @method mixed getMeta(string $key, mixed $default = null)
  */
 interface Pageable
 {
