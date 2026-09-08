@@ -34,14 +34,19 @@ use Illuminate\Support\Carbon;
  * @property int|null $blueprint_id
  * @property string $name
  * @property string|null $title
+ * @property array<string, mixed> $meta
+ * @property-read array<string, mixed>|null $url_params
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property Blueprint|null $blueprint
  * @property Layout|null $layout
  * @property Site $site
+ * @property Page|null $parent
  * @property Collection<int, Page> $ancestors
+ * @property Collection<int, Page> $children
  * @property int $children_count
+ * @property Model|null $canonicalPage
  * @property PageUrl|null $pageUrl
  * @property Collection<int, PageUrl> $pageUrls
  * @property Translation|null $translation
@@ -49,6 +54,9 @@ use Illuminate\Support\Carbon;
  *
  * @method HasMany<Page, TDeclaringModel> ancestors()
  * @method HasMany<Page, TDeclaringModel> descendants()
+ * @method HasMany<Page, TDeclaringModel> siblings()
+ * @method HasMany<Page, TDeclaringModel> children()
+ * @method TDeclaringModel duplicateExcept(list<string> $except, array<string, mixed>|null $attr = null)
  */
 interface Pageable
 {

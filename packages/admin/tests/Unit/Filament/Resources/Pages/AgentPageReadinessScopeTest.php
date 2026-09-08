@@ -25,15 +25,22 @@ beforeEach(function (): void {
 /** @return array<class-string<Widget>|WidgetConfiguration> */
 function agentReadinessHeaderWidgets(Model $record): array
 {
-    $editor = new class extends EditPage
+    $editor = new class($record) extends EditPage
     {
+        public function __construct(private readonly Model $testRecord) {}
+
         #[Override]
         public function getHeaderWidgets(): array
         {
             return parent::getHeaderWidgets();
         }
+
+        #[Override]
+        public function getRecord(): Model
+        {
+            return $this->testRecord;
+        }
     };
-    $editor->record = $record;
 
     return $editor->getHeaderWidgets();
 }

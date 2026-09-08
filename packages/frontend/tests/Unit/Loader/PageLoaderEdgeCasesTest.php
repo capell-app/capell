@@ -338,8 +338,9 @@ it('returns the previous public sibling for next and previous navigation', funct
         ->create();
 
     $result = expectPresent(PageLoader::getPreviousPage($current, $site, $language));
+    $pageUrl = expectPresent($result->pageUrl);
 
     expect($result)->toBeInstanceOf(Page::class)
         ->and($result->id)->toBe($previous->id)
-        ->and($result->pageUrl->language->is($language))->toBeTrue();
+        ->and($pageUrl->language->is($language))->toBeTrue();
 });
