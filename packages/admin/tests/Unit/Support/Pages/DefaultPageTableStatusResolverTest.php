@@ -4,11 +4,27 @@ declare(strict_types=1);
 
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Tests\Unit\Support\Pages\Fixtures\NonPageablePageForResolverTest;
+use Capell\Core\Actions\CollectDescendantPageUrlsAction;
 use Capell\Core\Models\Page;
 use Carbon\CarbonImmutable;
 
 afterEach(function (): void {
     CarbonImmutable::setTestNow();
+});
+
+it('preserves a non-Page query and its model without executing it', function (): void {
+    $query = NonPageablePageForResolverTest::query();
+
+    $result = resolve(DefaultPageTableStatusResolver::class)->modifyQuery($query);
+
+    expect($result)->toBe($query)
+        ->and($result->getModel())->toBeInstanceOf(NonPageablePageForResolverTest::class);
+});
+
+it('does not query descendants for a non-hierarchical pageable model', function (): void {
+    $page = new NonPageablePageForResolverTest;
+
+    expect(CollectDescendantPageUrlsAction::run($page))->toBe([]);
 });
 
 it('resolves published pages as live', function (): void {

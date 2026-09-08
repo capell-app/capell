@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 /**
  * @template TDeclaringModel of Model
  *
- * @phpstan-require-extends Page
+ * @phpstan-require-extends Model
  */
 interface Pageable
 {

@@ -26,10 +26,8 @@ use LogicException;
  *
  * Deliberately does not extend Page: this fixture exists to prove
  * DefaultPageTableStatusResolver::resolve() works against any Pageable
- * implementer, not just Page. Pageable's @phpstan-require-extends Page
- * constraint holds for production code but is intentionally violated here.
+ * Eloquent implementer, not just Page, as with Blog Article and Events Event.
  */
-// @phpstan-ignore class.missingExtends
 final class NonPageablePageForResolverTest extends Model implements Pageable, Publishable
 {
     use HasPublishDates;
@@ -44,7 +42,7 @@ final class NonPageablePageForResolverTest extends Model implements Pageable, Pu
 
     public static function hasPageHierarchy(): bool
     {
-        throw new LogicException('Not needed by this fixture.');
+        return false;
     }
 
     public static function getDefaultType(?string $group): ?Blueprint

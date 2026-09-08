@@ -30,6 +30,10 @@ class CollectDescendantPageUrlsAction
      */
     public function handle(Pageable $page): array
     {
+        if (! $page::hasPageHierarchy()) {
+            return [];
+        }
+
         $snapshots = [];
 
         // Query by key so the tree bounds are read fresh from the database;
