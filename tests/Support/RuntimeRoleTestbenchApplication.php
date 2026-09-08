@@ -6,6 +6,7 @@ namespace Capell\Tests\Support;
 
 use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Composer\Autoload\ClassLoader;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\Foundation\Application as TestbenchApplication;
 use Override;
@@ -50,6 +51,17 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
         // provider filter after the configuration repository exists.
         RuntimeRoleBootstrap::configureResolvedEnvironment($app);
         parent::resolveApplicationConfiguration($app);
+
+        if ($token = getenv('TEST_TOKEN')) {
+            // Settings bindings and event listeners capture their cache configuration
+            // during the inner boot, before AbstractTestCase applies this worker prefix.
+            // Configure it now so checkpoint writes and cached reads use the same key.
+            $settings = require dirname(__DIR__, 2) . '/vendor/spatie/laravel-settings/config/settings.php';
+            $app->make(Repository::class)->set('settings.cache', [
+                ...$settings['cache'],
+                'prefix' => 'settings-cache-' . $token,
+            ]);
+        }
 
         // Testbench loads configuration from its skeleton rather than Laravel's cached config
         // file. The role cache path still exists for the runtime contract, so pin this flag to
