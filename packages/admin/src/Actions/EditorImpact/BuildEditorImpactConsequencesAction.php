@@ -8,10 +8,12 @@ use Capell\Admin\Contracts\EditorImpact\EditorImpactConsequencePlanner;
 use Capell\Core\Data\EditorImpact\EditorImpactConsequenceData;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildEditorImpactConsequencesAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return list<EditorImpactConsequenceData> */

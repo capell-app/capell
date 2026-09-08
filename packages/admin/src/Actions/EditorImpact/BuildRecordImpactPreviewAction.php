@@ -8,10 +8,12 @@ use Capell\Core\Actions\ContentGraph\BuildContentImpactPreviewAction;
 use Capell\Core\Data\ContentGraph\ContentImpactPreviewData;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildRecordImpactPreviewAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $record): ?ContentImpactPreviewData
