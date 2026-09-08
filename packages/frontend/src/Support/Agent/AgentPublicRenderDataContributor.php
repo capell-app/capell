@@ -73,25 +73,26 @@ final class AgentPublicRenderDataContributor implements PublicRenderDataContribu
         $page = $context->page;
 
         $contextKey = $this->contextKey($context);
-        $hasPropertyValues = $page->propertyValues()
+        $propertyValues = $page->propertyValues()
             ->where('site_id', $page->site_id)
-            ->exists();
-        $hasTerms = $page->terms()
+            ->reorder()->selectRaw('1')->toBase();
+        $terms = $page->terms()
             ->whereHas('taxonomy', static fn (Builder $query): Builder => $query->where('site_id', $page->site_id))
-            ->exists();
+            ->reorder()->selectRaw('1')->toBase();
+        $hasPropertyValuesOrTerms = $propertyValues->unionAll($terms)->exists();
 
-        // Empty pages do not need schema resolution; the existence checks are
-        // cheaper than loading definitions and keep ordinary renders bounded.
-        $graph = ! $hasPropertyValues && ! $hasTerms
-            ? null
-            : $this->graph($context, refresh: isset($this->metadataPrepared[$contextKey]));
+        // Only combined presence matters here. Keep it fresh for every metadata
+        // call without loading definitions or making two database round trips.
+        $graph = $hasPropertyValuesOrTerms
+            ? $this->graph($context, refresh: isset($this->metadataPrepared[$contextKey]))
+            : null;
         $this->graphs[$contextKey] = $graph;
         $this->metadataPrepared[$contextKey] = true;
         $this->hasInlineData[$contextKey] = $graph instanceof SchemaGraphData;
 
         // Empty pages still depend on their page row, but do not enumerate
         // property and term relations when the schema graph is empty.
-        if (! $graph instanceof SchemaGraphData && ! $hasPropertyValues && ! $hasTerms) {
+        if (! $graph instanceof SchemaGraphData && ! $hasPropertyValuesOrTerms) {
             return new PublicRenderDataContributionMetadataData(
                 fingerprint: hash('sha256', json_encode(['manifest' => $this->toolManifest(false), 'version' => 1], JSON_THROW_ON_ERROR)),
                 surrogateKeys: ['page-' . $page->id],

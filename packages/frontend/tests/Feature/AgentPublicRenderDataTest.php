@@ -10,9 +10,11 @@ use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Enums\RenderHookLocation;
@@ -21,6 +23,61 @@ use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+it('checks empty agent presence in one query without admitting another page or site', function (): void {
+    $page = Page::factory()->create(['visible_from' => now()->subDay()]);
+    $otherPage = Page::factory()->create();
+    PagePropertyValue::factory()->create(['page_id' => $otherPage->id, 'site_id' => $page->site_id]);
+    PagePropertyValue::factory()->create(['page_id' => $page->id, 'site_id' => $otherPage->site_id]);
+    $foreignTaxonomy = Taxonomy::factory()->create(['site_id' => $otherPage->site_id]);
+    $foreignTerm = Term::factory()->create(['taxonomy_id' => $foreignTaxonomy->id]);
+    $page->terms()->attach($foreignTerm);
+    $localTaxonomy = Taxonomy::factory()->create(['site_id' => $page->site_id]);
+    $unassignedTerm = Term::factory()->create(['taxonomy_id' => $localTaxonomy->id]);
+    $otherPage->terms()->attach($unassignedTerm);
+    $context = new FrontendRenderContextData($page, $page->site, null, null, null);
+    $contributor = resolve(AgentPublicRenderDataContributor::class);
+    defer()->invoke();
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        $metadata = $contributor->metadata($context);
+        expect(DB::getQueryLog())->toHaveCount(1);
+        expect($metadata->surrogateKeys)->toBe(['page-' . $page->id]);
+    } finally {
+        DB::disableQueryLog();
+    }
+})->group('agent-presence-query');
+
+it('refreshes empty agent presence after a first value or term is added', function (string $source): void {
+    $page = Page::factory()->create(['visible_from' => now()->subDay()]);
+    $context = new FrontendRenderContextData($page, $page->site, null, null, null);
+    $contributor = resolve(AgentPublicRenderDataContributor::class);
+    $before = $contributor->metadata($context)->fingerprint;
+
+    if ($source === 'property') {
+        PagePropertyValue::factory()->create(['page_id' => $page->id, 'site_id' => $page->site_id]);
+    } else {
+        $taxonomy = Taxonomy::factory()->create(['site_id' => $page->site_id]);
+        $term = Term::factory()->create(['taxonomy_id' => $taxonomy->id]);
+        $page->terms()->attach($term);
+    }
+
+    expect($contributor->metadata($context)->fingerprint)->not->toBe($before);
+})->with(['property', 'term'])->group('agent-presence-query');
+
+it('does not prepare agent data when the optional property table is absent', function (): void {
+    $page = Page::factory()->create();
+    $context = new FrontendRenderContextData($page, $page->site, null, null, null);
+    resolve(RuntimeSchemaState::class)->forgetTable('page_property_values');
+    Schema::shouldReceive('hasTable')->once()->with('page_property_values')->andReturn(false);
+
+    $contributions = resolve(PublicRenderDataContributorRegistry::class)->prepare($context);
+
+    expect($contributions->values)->not->toHaveKey('agent');
+})->group('agent-presence-query');
 
 it('hydrates a public semantic graph through the contributor registry without leaking model metadata', function (): void {
     $page = Page::factory()->withTranslations()->create(['visible_from' => now()->subDay()]);
