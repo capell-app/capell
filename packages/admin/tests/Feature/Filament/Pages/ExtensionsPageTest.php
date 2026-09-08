@@ -37,6 +37,7 @@ use Capell\Core\Models\ExtensionHealthAlert;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -439,7 +440,7 @@ it('lists editable extension management entries from registered pages', function
 
     expect($extensionRecord['label'] ?? null)->toBe('Local Extension')
         ->and($extensionRecord['primaryUrl'] ?? null)->toBe(UpgradePage::getUrl())
-        ->and($extensionRecord['externalUrl'] ?? null)->toBe('https://capell.app/extensions/local-extension');
+        ->and($extensionRecord['externalUrl'] ?? null)->toBe(MarketplaceAssetUrl::webUrl() . '/extensions/local-extension');
 });
 
 it('renders catalogue release and Capell All metadata on installed extension cards', function (): void {
