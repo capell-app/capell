@@ -17,4 +17,6 @@ Use this section if you tune caching, response delivery, assets, or hydration on
 
 Frontend Authoring uses the model URL cache to find every cached URL touched by an edited record. The editor itself is never baked into cached HTML; admin-only edit controls are added later by the beacon.
 
+The performance layers are deliberately composable. The page cache can serve the right rendered HTML for a site's language and version before PHP runs; [lazy page hydration](lazy-page-hydration.md) keeps opted-in dynamic or expensive blocks off the critical path; and personalised sections load privately after the shared cached page. When content changes, [cache invalidation](cache-invalidation.md) follows registered model dependencies and content-graph edges to refresh affected URLs instead of requiring a site-wide flush. [Fragment caching](fragment-caching.md) handles smaller Blade regions with surrogate keys when a whole-page cache is too broad.
+
 See also: [`packages/core/docs/cache.md`](../../packages/core/docs/cache.md), [`packages/core/docs/extending-capell.md`](../../packages/core/docs/extending-capell.md).

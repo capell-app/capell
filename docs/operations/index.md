@@ -2,6 +2,8 @@
 
 Use this section if you deploy, upgrade, or respond to incidents on an installed Capell site.
 
+The operations surface brings the pre-deployment checks together: Site Health reports on sites, languages, themes, migrations, queues, and public-output readiness. Where the optional optimiser is installed, administrators can see PageSpeed status alongside page operations. Upgrade runs retain durable records and state their rollback boundary, so an operator can distinguish a reversible application step from a database or infrastructure restore.
+
 | I need to...                                | Read                                              |
 | ------------------------------------------- | ------------------------------------------------- |
 | Put a new install on a public domain        | [Going live](going-live.md)                       |

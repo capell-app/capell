@@ -2,6 +2,8 @@
 
 This guide explains the practical shape of Capell Frontend: how requests resolve, how cache behaviour works, how Tailwind inputs are aggregated, and which configuration points matter most in day-to-day site operations.
 
+You can keep using the Laravel frontend stack already in the application: Blade and Livewire are supported alongside the first-party Inertia adapters for React and Vue. Pages are server-rendered by default; HTML caching and lazy fragments are optional layers that can be enabled and tuned when the request path needs them.
+
 [![Published Capell page rendered through the public Frontend request pipeline](../images/generated/package-surfaces/frontend-published-page.png)](../images/generated/package-surfaces/frontend-published-page.png)
 
 _The published page is the output of the request, cache, theme, and asset pipeline described below; editor metadata is absent from the anonymous HTML._

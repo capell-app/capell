@@ -1,5 +1,7 @@
 # How Capell Works
 
+Capell keeps reusable page structure separate from the content editors put into it. Layouts and approved widgets compose complex pages, while translated content remains data rather than presentation code; developers can change a shared structure once and editors can continue assembling pages from the permitted pieces.
+
 Capell is built as a package-based CMS foundation for Laravel. The host packages in this repository own the main schema, admin surface, frontend surface, and plugin lifecycle support, while larger features ship as optional add-on packages.
 
 ## The Core Model
