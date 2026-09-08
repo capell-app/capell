@@ -81,6 +81,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -617,6 +618,17 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             ...$topLevelExtenderActions,
             ...$pipeline->pagePreviewActions(),
             PreviewDraftPageHeaderAction::make(),
+            Action::make('impact-preview')
+                ->label(__('capell-admin::impact.heading'))
+                ->modalDescription(__('capell-admin::impact.description'))
+                ->modalContent(function (): ViewContract {
+                    /** @var view-string $view */
+                    $view = 'capell-admin::filament.forms.record-impact-preview';
+
+                    return view($view, ['record' => $this->record]);
+                })
+                ->modalSubmitAction(false)
+                ->visible(fn (): bool => Gate::allows('update', $this->record)),
             $this->takeOverContentLockAction(),
             RestoreAction::make()
                 ->icon('heroicon-m-arrow-uturn-left'),

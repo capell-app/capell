@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Layouts\BuildLayoutImpactPreviewAction;
+use Capell\Admin\Contracts\EditorImpact\EditorImpactConsequencePlanner;
+use Capell\Admin\Filament\Resources\Layouts\Pages\EditLayout;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Data\EditorImpact\EditorImpactPreviewData;
 use Capell\Core\Enums\UrlTypeEnum;
@@ -12,6 +14,8 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Database\Eloquent\Model;
+use Livewire\Livewire;
 
 uses(CreatesAdminUser::class)
     ->group('layout');
@@ -76,4 +80,32 @@ it('limits the preview to assigned sites and fails closed without update access'
     auth()->logout();
 
     expect(BuildLayoutImpactPreviewAction::run($layout))->toBeNull();
+});
+
+it('keeps consequence planning out of save validation and reconciliation', function (): void {
+    test()->actingAsAdmin();
+    $layout = Layout::factory()->createOne();
+    $planner = new class implements EditorImpactConsequencePlanner
+    {
+        public int $calls = 0;
+
+        public function plan(Model $record): array
+        {
+            $this->calls++;
+
+            return [];
+        }
+    };
+    app()->instance($planner::class, $planner);
+    app()->tag($planner::class, EditorImpactConsequencePlanner::TAG);
+
+    $editor = Livewire::test(EditLayout::class, ['record' => $layout->getRouteKey()]);
+    $planner->calls = 0;
+    $component = $editor->instance();
+    new ReflectionMethod($component, 'beforeSave')->invoke($component);
+    new ReflectionMethod($component, 'reconcileImpactPlan')->invoke($component);
+    expect($planner->calls)->toBe(0);
+
+    BuildLayoutImpactPreviewAction::run($layout, includeConsequences: true);
+    expect($planner->calls)->toBe(1);
 });

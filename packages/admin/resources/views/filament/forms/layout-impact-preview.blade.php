@@ -3,7 +3,7 @@
     use Capell\Core\Models\Layout;
 
     /** @var Layout|null $record */
-    $impact = $record instanceof Layout ? BuildLayoutImpactPreviewAction::run($record) : null;
+    $impact = $record instanceof Layout ? BuildLayoutImpactPreviewAction::run($record, includeConsequences: true) : null;
 @endphp
 
 @if ($impact === null)
@@ -91,4 +91,8 @@
             <p>{{ __('capell-admin::generic.layout_impact_preview_reversibility') }}</p>
         </div>
     </div>
+@endif
+
+@if ($impact !== null)
+    @include('capell-admin::filament.forms.impact-consequences', ['consequences' => $impact->consequences])
 @endif

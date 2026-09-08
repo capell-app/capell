@@ -79,6 +79,23 @@ Use the documented extension points instead of extending Filament resources dire
 | Adjust tables, edit pages, exports, or relation managers | the matching tagged extender interface                       |
 | Add settings UI                                          | `SettingsSchemaRegistry::register()` from the owning package |
 
+### Read-only save consequences
+
+Implement `Capell\Admin\Contracts\EditorImpact\EditorImpactConsequencePlanner`
+and tag the implementation with its `TAG` to contribute typed
+`EditorImpactConsequenceData` to the existing Media and Layout impact previews
+and the Page editor's on-demand **Content impact before save** action.
+Core does not import optional cache or search packages. The host or package
+adapter resolves the real work and supplies translated labels, exact scoped
+counts, bounded URL examples and, when measurable, an approximate duration and
+its basis. The adapter must restrict affected surfaces to the current actor's
+accessible sites, perform no writes and dispatch no work.
+
+Consequences are informational and excluded from existing save-validation
+fingerprints and reconciliation surface keys. Opening the Page preview is the
+only action needed to compute its consequences; typing and autosave do not
+compute them. Media and Layout retain their existing render cadence.
+
 Normal extension work should use the extenders and registries above. The advanced `php artisan capell:admin-publish-resources [--type=<group>] [--resource=<label-or-class>] [--force]` command publishes registered admin resources into the host application for direct customization. Published copies become host-maintained and can drift from package updates.
 
 ## Data And Permissions

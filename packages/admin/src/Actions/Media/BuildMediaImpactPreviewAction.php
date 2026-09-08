@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Media;
 
+use Capell\Admin\Actions\EditorImpact\BuildEditorImpactConsequencesAction;
 use Capell\Core\Actions\ContentGraph\BuildContentImpactPreviewAction;
 use Capell\Core\Data\ContentGraph\ContentImpactPreviewData;
 use Capell\Core\Models\Media;
@@ -26,9 +27,13 @@ final class BuildMediaImpactPreviewAction
             return null;
         }
 
-        return BuildContentImpactPreviewAction::run(
+        $preview = BuildContentImpactPreviewAction::run(
             $media,
             fn (Model $dependency): bool => Gate::forUser($actor)->allows('view', $dependency),
         );
+
+        $preview->consequences = BuildEditorImpactConsequencesAction::run($media);
+
+        return $preview;
     }
 }
