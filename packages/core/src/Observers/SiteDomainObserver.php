@@ -54,11 +54,14 @@ class SiteDomainObserver
 
     public function saved(SiteDomain $siteDomain): void
     {
-        $siteDomain->site->translations()->createOrFirst([
-            'language_id' => $siteDomain->language_id,
-        ], [
-            'title' => $siteDomain->site->name,
-        ]);
+        $translations = $siteDomain->site->translations();
+
+        if (! $translations->where('language_id', $siteDomain->language_id)->exists()) {
+            $translations->create([
+                'language_id' => $siteDomain->language_id,
+                'title' => $siteDomain->site->name,
+            ]);
+        }
 
         $this->flushSiteCaches($siteDomain);
     }

@@ -21,6 +21,13 @@ it('flushes site-related caches when site domain changes', function (): void {
     expect($registry)->not()->toContain(CacheEnum::Site->value . '-default-fallback');
 });
 
+it('does not use a nested savepoint when creating multiple translated sites', function (): void {
+    Site::factory()->withTranslations()->createOne();
+    Site::factory()->withTranslations()->createOne();
+
+    expect(Site::query()->count())->toBe(2);
+});
+
 it('does not create missing site translations when a site domain is deleted', function (): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->createOne();
