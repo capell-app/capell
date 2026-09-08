@@ -31,6 +31,8 @@ _The list proves the site-scoped hierarchy and state; the edit form is where con
 
 Core page editing covers the page tree position, type, title, slug, publishing state, content fields, media, and settings. Optional packages can add fields, tabs, actions, and publishing rules.
 
+Moving a parent page carries its descendants with it, even when the tree is deeply nested, and Capell creates redirects for the old URLs. Each save is revisioned: editors can compare changes, undo a page change, and redo it without discarding the history. Drafts can be previewed through the real theme, edit locks prevent concurrent overwrites, and permissions keep each editor's available choices within the boundaries set by administrators and developers.
+
 The page form starts with the content context: site, parent page, internal name, title, slug, and URL preview.
 
 For a normal `/about/team` page, choose the current site, select `About` as the parent page, set the title to `Team`, and keep the generated slug as `team`. Capell uses that tree position to build the public URL and can create redirect records when a published page later moves.

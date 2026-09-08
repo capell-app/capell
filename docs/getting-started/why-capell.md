@@ -4,6 +4,8 @@ Capell is a Laravel CMS built on Filament. It lets the people who own a website'
 
 Its strongest practical difference is not another field builder. Capell makes change safer. Every page edit is kept, so a page can be compared against an earlier version and put back. Upgrades can be previewed before they run, are recorded when they do, and can be reversed where a step says that is safe.
 
+Most Filament CMS projects eventually rebuild the same surrounding foundations: page types, layouts, URLs, redirects, previews, history, and publishing. Capell provides those shared contracts so the application team can spend its time on the parts that make the product different, while still keeping the Laravel runtime, Composer packages, and public rendering under its control.
+
 ## The decision in one minute
 
 Choose Capell when:
