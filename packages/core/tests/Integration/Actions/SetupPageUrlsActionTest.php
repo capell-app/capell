@@ -79,6 +79,38 @@ it('cascades url updates to descendants when requested', function (): void {
         ->and($childUrl?->url)->toBe('/parent/child');
 });
 
+it('updates only the record urls when its page type has no hierarchy', function (): void {
+    $page = new class extends Page
+    {
+        protected $table = 'pages';
+
+        public static function hasPageHierarchy(): bool
+        {
+            return false;
+        }
+
+        public function getMorphClass(): string
+        {
+            return (new Page)->getMorphClass();
+        }
+    };
+    $page->setRawAttributes($this->parent->getAttributes(), true);
+    $page->exists = true;
+
+    $childUrl = pageUrlFor($this->child, $this->language);
+    expect($childUrl)->not->toBeNull();
+    $originalChildUrl = $childUrl?->url;
+    $translation = $page->translations()->firstOrFail();
+    $translation->forceFill([
+        'meta' => array_merge($translation->meta ?? [], ['slug' => 'flat-record']),
+    ])->saveQuietly();
+
+    SetupPageUrlsAction::run($page);
+
+    expect(pageUrlFor($this->parent, $this->language)?->url)->toBe('/flat-record')
+        ->and(pageUrlFor($this->child, $this->language)?->url)->toBe($originalChildUrl);
+});
+
 it('does not recreate descendant urls when descendant updates are disabled', function (): void {
     // Clear any url the observer created for the descendant so we can assert
     // the action leaves descendants untouched when cascading is disabled.

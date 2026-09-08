@@ -7,10 +7,12 @@ namespace Capell\Core\Contracts;
 use Capell\Core\Enums\PageOrderEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,11 +21,42 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 
 /**
  * @template TDeclaringModel of Model
  *
- * @phpstan-require-extends Page
+ * @phpstan-require-extends Model
+ *
+ * @property int $id
+ * @property int|null $parent_id
+ * @property int $site_id
+ * @property int|null $blueprint_id
+ * @property string $name
+ * @property string|null $title
+ * @property array<string, mixed> $meta
+ * @property-read array<string, mixed>|null $url_params
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at
+ * @property Blueprint|null $blueprint
+ * @property Layout|null $layout
+ * @property Site $site
+ * @property Page|null $parent
+ * @property Collection<int, Page> $ancestors
+ * @property Collection<int, Page> $children
+ * @property int $children_count
+ * @property Model|null $canonicalPage
+ * @property PageUrl|null $pageUrl
+ * @property Collection<int, PageUrl> $pageUrls
+ * @property Translation|null $translation
+ * @property Collection<int, Translation> $translations
+ *
+ * @method HasMany<Page, TDeclaringModel> ancestors()
+ * @method HasMany<Page, TDeclaringModel> descendants()
+ * @method HasMany<Page, TDeclaringModel> siblings()
+ * @method HasMany<Page, TDeclaringModel> children()
+ * @method TDeclaringModel duplicateExcept(list<string> $except, array<string, mixed>|null $attr = null)
  */
 interface Pageable
 {

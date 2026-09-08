@@ -393,7 +393,7 @@ class PageLoader
                 ->setRelation('siteDomain', $site->siteDomains->firstWhere('language_id', $pageUrl->language_id));
         });
 
-        if ($page->relationLoaded('canonicalPage') && $page->canonicalPage instanceof Model && $page->canonicalPage->relationLoaded('pageUrls')) {
+        if ($page->relationLoaded('canonicalPage') && $page->canonicalPage instanceof Model && $page->canonicalPage instanceof Pageable && $page->canonicalPage->relationLoaded('pageUrls')) {
             $page->canonicalPage->pageUrls->each(function (PageUrl $pageUrl) use ($languages, $site): void {
                 $pageUrl->setRelation('language', $languages->firstWhere('id', $pageUrl->language_id))
                     ->setRelation('siteDomain', $site->siteDomains->firstWhere('language_id', $pageUrl->language_id));

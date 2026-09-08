@@ -141,7 +141,7 @@ final class PageModelCache
             $url->setRelation('siteDomain', $site->siteDomains->firstWhere('language_id', $url->language_id));
         });
 
-        if ($model->relationLoaded('canonicalPage') && $model->canonicalPage instanceof Model && $model->canonicalPage->relationLoaded('pageUrls')) {
+        if ($model->relationLoaded('canonicalPage') && $model->canonicalPage instanceof Model && $model->canonicalPage instanceof Pageable && $model->canonicalPage->relationLoaded('pageUrls')) {
             $model->canonicalPage->pageUrls->each(function (PageUrl $url) use ($site, $language): void {
                 $url->setRelation('language', $language);
                 $url->setRelation('siteDomain', $site->siteDomains->firstWhere('language_id', $url->language_id));

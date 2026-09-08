@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Concerns;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Models\Page;
 use Filament\Pages\Page as FilamentPage;
+use Illuminate\Contracts\Support\Htmlable;
 
 /**
  * @mixin FilamentPage
@@ -37,12 +38,15 @@ trait HasAncestorBreadcrumbs
         }
 
         if ($resource::hasRecordTitle()) {
+            $recordTitle = $this->getRecordTitle();
+            $recordTitle = $recordTitle instanceof Htmlable ? $recordTitle->toHtml() : $recordTitle;
+
             if ($resource::hasPage('view') && $resource::canView($this->record)) {
-                $breadcrumbs[$resource::getUrl('view', ['record' => $this->record])] = $this->getRecordTitle();
+                $breadcrumbs[$resource::getUrl('view', ['record' => $this->record])] = $recordTitle;
             } elseif ($resource::hasPage('edit') && $resource::canEdit($this->record)) {
-                $breadcrumbs[$resource::getUrl('edit', ['record' => $this->record])] = $this->getRecordTitle();
+                $breadcrumbs[$resource::getUrl('edit', ['record' => $this->record])] = $recordTitle;
             } else {
-                $breadcrumbs[] = $this->getRecordTitle();
+                $breadcrumbs[] = $recordTitle;
             }
         }
 

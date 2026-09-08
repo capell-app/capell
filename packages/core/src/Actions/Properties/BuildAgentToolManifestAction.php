@@ -85,7 +85,14 @@ final class BuildAgentToolManifestAction
     {
         return new AgentToolDefinitionData(
             name: $name,
-            description: __('capell-core::agent.tools.' . str_replace('.', '_', $name)),
+            description: match ($name) {
+                'page.get' => __('capell-core::agent.tools.page_get'),
+                'site.pages.query' => __('capell-core::agent.tools.site_pages_query'),
+                'site.taxonomies.browse' => __('capell-core::agent.tools.site_taxonomies_browse'),
+                'site.navigation' => __('capell-core::agent.tools.site_navigation'),
+                'site.search' => __('capell-core::agent.tools.site_search'),
+                default => throw new InvalidArgumentException(sprintf('Unknown built-in agent tool [%s].', $name)),
+            },
             inputSchema: [
                 'type' => 'object', 'properties' => (object) $properties,
                 'required' => $required, 'additionalProperties' => false,

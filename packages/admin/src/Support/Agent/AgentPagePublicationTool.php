@@ -39,9 +39,9 @@ final readonly class AgentPagePublicationTool implements AgentAdminTool
 
         return new AgentToolDefinitionData(
             name: $schedule ? 'admin.page.publish.schedule' : 'admin.page.publish',
-            description: (string) __($schedule
-                ? 'capell-admin::agent.page_publish_schedule_description'
-                : 'capell-admin::agent.page_publish_description'),
+            description: $schedule
+                ? (string) __('capell-admin::agent.page_publish_schedule_description')
+                : (string) __('capell-admin::agent.page_publish_description'),
             inputSchema: [
                 'type' => 'object',
                 'properties' => [

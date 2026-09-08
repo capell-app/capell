@@ -65,7 +65,7 @@ class SiteReplicatedAction
 
     /**
      * @param  array<string, mixed>  $formData
-     * @return array<int|string, Pageable<Model>|Page>
+     * @return array<int|string, Page>
      */
     private function replicateRelations(Site $source, Site $replica, array $formData): array
     {
@@ -137,7 +137,7 @@ class SiteReplicatedAction
 
     /**
      * @param  Collection<int, Language>  $languages
-     * @return array<int|string, Pageable<Model>|Page>
+     * @return array<int|string, Page>
      */
     private function replicatePageTree(Site $source, Site $replica, Collection $languages): array
     {
@@ -176,15 +176,12 @@ class SiteReplicatedAction
     }
 
     /**
-     * @template TDeclaringModel of Model
-     *
-     * @param  Pageable<TDeclaringModel>  $page
      * @param  Collection<int, Language>  $languages
-     * @param  array<int|string, Pageable<Model>|Page>  $replacementPages
-     * @return array<int|string, Pageable<Model>|Page>
+     * @param  array<int|string, Page>  $replacementPages
+     * @return array<int|string, Page>
      */
     private function replicatePage(
-        Pageable $page,
+        Page $page,
         Site $site,
         Collection $languages,
         array $replacementPages,
@@ -195,7 +192,7 @@ class SiteReplicatedAction
 
         $replica->site()->associate($site);
 
-        if ($parentPage instanceof Pageable) {
+        if ($parentPage instanceof Page) {
             $replica->parent()->associate($parentPage);
         } else {
             $replica->parent_id = null;

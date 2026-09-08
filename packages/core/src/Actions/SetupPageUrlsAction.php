@@ -32,6 +32,8 @@ class SetupPageUrlsAction
      */
     public function handle(Pageable&Model $page, bool $updateDescendants = true, ?bool $automaticRedirectsAllowed = null): void
     {
+        $updateDescendants = $updateDescendants && $page::hasPageHierarchy();
+
         $page->load($this->getRelations());
 
         $previousUrls = $this->captureUrls($page, $updateDescendants);

@@ -22,7 +22,7 @@ class AncestorsColumn extends TextColumn
             ->wrap()
             ->html()
             ->disabledClick()
-            ->getStateUsing(fn (Model $record): ?Collection => $this->resolvePageRecord($record)->ancestors)
+            ->getStateUsing(fn (Model $record): Collection => $this->resolvePageRecord($record)->ancestors)
             ->separator('&raquo;')
             ->formatStateUsing(function (?Pageable $state): ?HtmlString {
                 if (! $state instanceof Pageable) {

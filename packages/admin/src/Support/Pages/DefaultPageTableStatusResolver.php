@@ -9,7 +9,6 @@ use Capell\Admin\Data\Pages\PageTableStatusData;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Contracts\Publishable;
-use Capell\Core\Models\Page;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
@@ -27,8 +26,10 @@ class DefaultPageTableStatusResolver implements PageTableStatusResolver
     public const DRAFT_SENTINEL_YEARS = PublishSentinel::DRAFT_BOUNDARY_YEARS;
 
     /**
-     * @param  Builder<Page>  $query
-     * @return Builder<Page>
+     * @template TModel of Model&Pageable<covariant Model>&Publishable
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public function modifyQuery(Builder $query): Builder
     {

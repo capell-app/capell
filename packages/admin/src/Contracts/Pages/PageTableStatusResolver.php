@@ -7,15 +7,16 @@ namespace Capell\Admin\Contracts\Pages;
 use Capell\Admin\Data\Pages\PageTableStatusData;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Contracts\Publishable;
-use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 interface PageTableStatusResolver
 {
     /**
-     * @param  Builder<Page>  $query
-     * @return Builder<Page>
+     * @template TModel of Model&Pageable<covariant Model>&Publishable
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
      */
     public function modifyQuery(Builder $query): Builder;
 

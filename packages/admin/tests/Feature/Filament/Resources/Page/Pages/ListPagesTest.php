@@ -522,8 +522,10 @@ it('page table status can be supplied by a package resolver', function (): void 
         public function __construct(private int $visiblePageId) {}
 
         /**
-         * @param  Builder<Page>  $query
-         * @return Builder<Page>
+         * @template TModel of Model&Pageable<covariant Model>&Publishable
+         *
+         * @param  Builder<TModel>  $query
+         * @return Builder<TModel>
          */
         public function modifyQuery(Builder $query): Builder
         {

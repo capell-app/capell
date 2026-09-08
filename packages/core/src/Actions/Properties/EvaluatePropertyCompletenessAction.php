@@ -25,7 +25,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * definition" — a deliberate simplification for Phase 1: per-translation
  * completeness for `localised` definitions is a later refinement.
  */
-final class EvaluatePropertyCompletenessAction
+class EvaluatePropertyCompletenessAction
 {
     use AsFake;
     use AsObject;
