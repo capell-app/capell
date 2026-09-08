@@ -658,7 +658,7 @@ class PagesTable implements TableConfigurator
                 'children',
                 'pageUrls',
             ])
-            ->tap(fn (Builder $query): Builder => resolve(PageTableStatusResolver::class)->modifyQuery($query));
+            ->tap(resolve(PageTableStatusResolver::class)->modifyQuery(...));
     }
 
     protected static function isTableColumnVisible(HasTable $livewire, string $column): bool

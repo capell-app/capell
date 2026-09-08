@@ -142,7 +142,7 @@ use Capell\Admin\Support\Agent\AgentAdminConfirmationStore;
 use Capell\Admin\Support\Agent\AgentAdminPropertyValuePresenter;
 use Capell\Admin\Support\Agent\AgentAdminToolInvocationService;
 use Capell\Admin\Support\Agent\AgentAdminToolRegistry;
-use Capell\Admin\Support\Agent\AgentPageReadinessExtender;
+use Capell\Admin\Support\Agent\AgentPageReadinessWidget;
 use Capell\Admin\Support\Backup\NullPageExporter;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
@@ -317,8 +317,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(AgentAdminPropertyValuePresenter::class);
         $this->app->singleton(AgentAdminToolRegistry::class);
         $this->app->singleton(AgentAdminToolInvocationService::class);
-        $this->app->singleton(AgentPageReadinessExtender::class);
-        $this->app->tag(AgentPageReadinessExtender::class, PageEditExtender::TAG);
         $this->loadRoutesFrom(__DIR__ . '/../../routes/agent.php');
 
         $this->app->singleton(StaticSiteGenerationDispatcher::class, UnavailableStaticSiteGenerationDispatcher::class);
@@ -542,6 +540,15 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerAdminZones(): self
     {
+        resolve(AdminZoneRegistry::class)->register(new AdminZoneContributionData(
+            zone: AdminZone::PageEditHeaderWidgets,
+            key: 'capell-admin.pages.edit.agent-readiness',
+            resolver: static fn (AdminZoneContextData $context): array => [AgentPageReadinessWidget::class],
+            visibility: static fn (AdminZoneContextData $context): bool => $context->record instanceof Page,
+            owner: 'capell-app/admin',
+            source: self::class,
+        ));
+
         resolve(AdminZoneRegistry::class)->register(new AdminZoneContributionData(
             zone: AdminZone::PageListTableColumns,
             key: 'capell-admin.pages.list.table.columns',
