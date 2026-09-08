@@ -173,7 +173,12 @@ class PageSelect extends Select
                             return null;
                         }
 
-                        $title = Str::title($selectedRecord->blueprint->name);
+                        $blueprint = $selectedRecord->blueprint;
+                        if ($blueprint === null) {
+                            return null;
+                        }
+
+                        $title = Str::title($blueprint->name);
 
                         return new HtmlString(__('capell-admin::heading.edit_page_record', ['name' => $title]));
                     })
