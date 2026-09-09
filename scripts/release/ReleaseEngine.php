@@ -622,7 +622,13 @@ final class ReleaseEngine
                         $this->deterministicCommitEnvironment($package['subtree_hash'], $parent, $commitMessage),
                     );
             } else {
-                $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit']]);
+                // Empty split remotes need only the release tree; replaying the
+                // monorepo history can exceed the receiver's pack-size limit.
+                $commitMessage = 'Release ' . $tag;
+                $splitSha = $this->git(
+                    ['commit-tree', $package['subtree_hash'], '-m', $commitMessage],
+                    $this->deterministicCommitEnvironment($package['subtree_hash'], '', $commitMessage),
+                );
             }
 
             $splitTree = $this->git(['rev-parse', $splitSha . '^{tree}']);
