@@ -57,15 +57,14 @@ try {
 
         public function run(array $command, ?string $workingDirectory = null): array
         {
-            $this->commands[] = $command;
+            $this->commands[] = array_values($command);
             if ($command[0] === 'gh') {
                 if ($command[1] === 'release') {
                     return ['output' => '{}', 'exitCode' => 0];
                 }
+
                 $prefix = 'repos/capell-app/core/git/ref/';
-                if (! str_starts_with($command[2], $prefix)) {
-                    throw new RuntimeException('Unexpected GitHub fixture command');
-                }
+                throw_unless(str_starts_with($command[2], $prefix), RuntimeException::class, 'Unexpected GitHub fixture command');
 
                 return $this->process->run(['git', '--git-dir=' . $this->root . '/split.git', 'rev-parse', '--verify', 'refs/' . substr($command[2], strlen($prefix))]);
             }
@@ -86,23 +85,20 @@ try {
         }
     };
     putenv('GH_TOKEN=local-fixture-token');
-    (new ReleaseEngine($root . '/source', $runner))->publish($plan, $root . '/plan.json');
+    new ReleaseEngine($root . '/source', $runner)->publish($plan, $root . '/plan.json');
     $remote = static fn (array $args): string => $run(['git', '--git-dir=' . $root . '/split.git', ...$args]);
     $split = $remote(['rev-parse', 'refs/heads/main']);
     $actualTree = $remote(['rev-parse', 'refs/heads/main^{tree}']);
     $parents = $remote(['show', '-s', '--format=%P', 'refs/heads/main']);
     $count = $remote(['rev-list', '--count', 'refs/heads/main']);
-    if ($count !== '1' || $parents !== '' || $actualTree !== $tree || $remote(['rev-parse', 'refs/tags/v1.0.0']) !== $split) {
-        throw new RuntimeException('Expected one parentless commit and matching planned/tagged tree');
-    }
+    throw_if($count !== '1' || $parents !== '' || $actualTree !== $tree || $remote(['rev-parse', 'refs/tags/v1.0.0']) !== $split, RuntimeException::class, 'Expected one parentless commit and matching planned/tagged tree');
+
     $commits = array_values(array_filter($runner->commands, static fn (array $command): bool => in_array('commit-tree', $command, true)));
-    if (count($commits) !== 1 || in_array('-p', $commits[0], true) || $run($commits[0], $root . '/source') !== $split) {
-        throw new RuntimeException('Root split must use one deterministic parentless commit-tree command');
-    }
+    throw_if(count($commits) !== 1 || in_array('-p', $commits[0], true) || $run($commits[0], $root . '/source') !== $split, RuntimeException::class, 'Root split must use one deterministic parentless commit-tree command');
+
     $state = json_decode((string) file_get_contents($root . '/plan.json.state.json'), true, 512, JSON_THROW_ON_ERROR);
-    if ($state['packages']['capell-app/core']['state'] !== 'published') {
-        throw new RuntimeException('Publication did not complete');
-    }
+    throw_if($state['packages']['capell-app/core']['state'] !== 'published', RuntimeException::class, 'Publication did not complete');
+
     echo "PASS commits={$count} parents=0 tree={$actualTree} plan_tree={$tree} split={$split} deterministic=yes main+tag=pushed receive_limit=65536\n";
 } finally {
     putenv($token === false ? 'GH_TOKEN' : 'GH_TOKEN=' . $token);
@@ -110,5 +106,6 @@ try {
     foreach ($files as $file) {
         $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname());
     }
+
     rmdir($root);
 }
