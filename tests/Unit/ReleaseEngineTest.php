@@ -197,7 +197,7 @@ it('publishes a verified split and records atomic resumable state', function ():
                 str_contains($joined, 'rev-parse HEAD') => ['output' => $this->sha, 'exitCode' => 0],
                 str_contains($joined, 'rev-parse FETCH_HEAD') => ['output' => str_repeat('f', 40), 'exitCode' => 0],
                 str_contains($joined, ':packages/core') => ['output' => $this->tree, 'exitCode' => 0],
-                str_contains($joined, 'commit-tree'), str_contains($joined, 'subtree split') => ['output' => $this->split, 'exitCode' => 0],
+                str_contains($joined, 'commit-tree') => ['output' => $this->split, 'exitCode' => 0],
                 str_contains($joined, str_repeat('f', 40) . '^{tree}') => ['output' => str_repeat('e', 40), 'exitCode' => 0],
                 str_contains($joined, '^{tree}') => ['output' => $this->tree, 'exitCode' => 0],
                 str_contains($joined, 'git/ref/tags') && count(array_filter($this->commands, fn (array $seen): bool => str_contains(implode(' ', $seen), 'git/ref/tags'))) === 1 => ['output' => '', 'exitCode' => 1],
@@ -274,7 +274,7 @@ it('publishes without retired eligibility or preflight gates', function (): void
                 str_contains($text, 'status --porcelain') => '',
                 str_contains($text, 'rev-parse HEAD') => $this->sha,
                 str_contains($text, ':packages/core') => $this->tree,
-                str_contains($text, 'subtree split') => $this->split,
+                str_contains($text, 'commit-tree') => $this->split,
                 str_contains($text, '^{tree}') => $this->tree,
                 default => '',
             }, 'exitCode' => 0];
@@ -323,7 +323,7 @@ it('aborts a mismatched remote tag before pushing', function (): void {
             return ['output' => match (true) {
                 str_contains($text, 'status --porcelain') => '', str_contains($text, 'rev-parse HEAD') => $this->sha,
                 str_contains($text, ':packages/core'), str_contains($text, '^{tree}') => $this->tree,
-                str_contains($text, 'subtree split') => $this->split, str_contains($text, 'git/ref/tags') => str_repeat('d', 40),
+                str_contains($text, 'commit-tree') => $this->split, str_contains($text, 'git/ref/tags') => str_repeat('d', 40),
                 str_contains($text, 'git/tags/') => str_repeat('e', 40), default => '',
             }, 'exitCode' => 0];
         }
@@ -711,7 +711,7 @@ it('never exposes command stderr secrets when a push fails', function (): void {
             }
 
             return ['output' => match (true) {
-                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'subtree split') => $this->split,default => ''
+                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'commit-tree') => $this->split,default => ''
             }, 'exitCode' => str_contains($text, 'git/ref/tags') ? 1 : 0];
         }
     };
@@ -748,7 +748,7 @@ it('preserves completed state while recording a later package', function (): voi
             }
 
             return ['output' => match (true) {
-                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'subtree split') => $this->split,str_contains($text, 'git/ref/tags') => $this->tag,default => ''
+                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'commit-tree') => $this->split,str_contains($text, 'git/ref/tags') => $this->tag,default => ''
             }, 'exitCode' => 0];
         }
     };
@@ -1043,7 +1043,7 @@ it('records all main pushes before a source tag push fails', function (): void {
                 return ['output' => '', 'error' => 'Bearer ' . $this->secret, 'exitCode' => 1];
             }
 
-            if (str_contains($text, 'subtree split')) {
+            if (str_contains($text, 'commit-tree')) {
                 return ['output' => ++$this->splitCalls === 1 ? str_repeat('d', 40) : str_repeat('e', 40), 'exitCode' => 0];
             }
 
@@ -1123,7 +1123,7 @@ it('checks a later mismatched tag before any main push or state write', function
         {
             $this->commands[] = $command;
             $text = implode(' ', $command);
-            if (str_contains($text, 'subtree split')) {
+            if (str_contains($text, 'commit-tree')) {
                 return ['output' => ++$this->splits === 1 ? str_repeat('d', 40) : str_repeat('e', 40), 'exitCode' => 0];
             }
 
@@ -1165,7 +1165,7 @@ it('resumes a matching tag without retired preflight state', function (): void {
             $text = implode(' ', $command);
 
             return ['output' => match (true) {
-                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'subtree split'),str_contains($text, 'git/ref/tags'),str_contains($text, 'git/tags/') => $this->split,default => ''
+                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'commit-tree'),str_contains($text, 'git/ref/tags'),str_contains($text, 'git/tags/') => $this->split,default => ''
             }, 'exitCode' => 0];
         }
     };
@@ -1221,4 +1221,15 @@ it('refuses to publish a plan whose maturity contradicts the declared inventory'
     // The refusal must land before any remote work: a tag pushed and then
     // rejected is not a refusal, it is a wrong release with an error after it.
     expect($runner->commands)->toBeEmpty();
+});
+
+it('publishes an empty split remote without transferring obsolete package history', function (): void {
+    $result = (new ProcessCommandRunner)->run([
+        PHP_BINARY,
+        dirname(__DIR__) . '/fixtures/empty-split-publication.php',
+    ]);
+
+    expect($result['exitCode'])->toBe(0, $result['error'] ?? '')
+        ->and($result['output'])->toContain('PASS commits=1 parents=0')
+        ->toContain('deterministic=yes main+tag=pushed');
 });

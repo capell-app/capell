@@ -62,12 +62,16 @@ use RuntimeException;
 // LOCKSTEP-BEGIN command-runner
 interface CommandRunner
 {
-    /** @return array{output:string,exitCode:int,error?:string} */
+    /**
+     * @param  list<string>  $command
+     * @return array{output:string,exitCode:int,error?:string}
+     */
     public function run(array $command, ?string $workingDirectory = null): array;
 }
 
 final class ProcessCommandRunner implements CommandRunner
 {
+    /** @param list<string> $command */
     public function run(array $command, ?string $workingDirectory = null): array
     {
         $outputPath = tempnam(sys_get_temp_dir(), 'capell-release-output-');
@@ -99,7 +103,10 @@ final class ReleaseException extends RuntimeException {}
 
 final class DependencyGraph
 {
-    /** @param array<string,list<string>> $dependencies @return list<string> */
+    /**
+     * @param  array<string, list<string>>  $dependencies
+     * @return list<string>
+     */
     public static function order(array $dependencies): array
     {
         $result = [];
@@ -334,7 +341,7 @@ final class PlanValidator
             }
 
             $graph[$package['name']] = array_values(array_intersect($package['direct_capell_dependencies'], $names));
-            if (($package['source_commit'] ?? null) !== $plan['source']['commit'] || ! preg_match('/^[a-f0-9]{40}$/', $package['subtree_hash'] ?? '')) {
+            if (($package['source_commit']) !== $plan['source']['commit'] || ! preg_match('/^[a-f0-9]{40}$/', $package['subtree_hash'])) {
                 throw new ReleaseException(sprintf('Package %s has a drifting source or invalid tree hash.', $package['name']));
             }
 
@@ -474,7 +481,10 @@ final class ReleaseEngine
     /**
      * DIVERGES from the sibling companion engine by design. Do not sync.
      *
-     * @return array<string,mixed>
+     * @param  array<string, mixed>|null  $previous
+     * @param  array<string, string>  $bumps
+     * @param  list<array<string, mixed>>  $externalLedger
+     * @return array<string, mixed>
      */
     public function plan(string $version, ?array $previous = null, array $bumps = [], array $externalLedger = []): array
     {
@@ -497,7 +507,7 @@ final class ReleaseEngine
         foreach ($definitions as $definition) {
             $manifest = json_decode((string) file_get_contents($this->root . '/' . $definition['path'] . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
             (new PlanValidator)->validateManifest($manifest);
-            $dependencies = array_values(array_filter(array_keys($manifest['require'] ?? []), fn (string $name): bool => str_starts_with($name, 'capell-app/')));
+            $dependencies = array_values(array_filter(array_keys($manifest['require'] ?? []), fn (int|string $name): bool => is_string($name) && str_starts_with($name, 'capell-app/')));
             foreach ($dependencies as $dependency) {
                 throw_unless(in_array($dependency, $dependencyNames, true), ReleaseException::class, sprintf('Unknown inventory dependency %s.', $dependency));
 
@@ -622,7 +632,13 @@ final class ReleaseEngine
                         $this->deterministicCommitEnvironment($package['subtree_hash'], $parent, $commitMessage),
                     );
             } else {
-                $splitSha = $this->git(['subtree', 'split', '--prefix=' . $package['path'], $plan['source']['commit']]);
+                // Empty split remotes need only the release tree; replaying the
+                // monorepo history can exceed the receiver's pack-size limit.
+                $commitMessage = 'Release ' . $tag;
+                $splitSha = $this->git(
+                    ['commit-tree', $package['subtree_hash'], '-m', $commitMessage],
+                    $this->deterministicCommitEnvironment($package['subtree_hash'], '', $commitMessage),
+                );
             }
 
             $splitTree = $this->git(['rev-parse', $splitSha . '^{tree}']);
@@ -691,6 +707,7 @@ final class ReleaseEngine
     // LOCKSTEP-END publish
 
     // LOCKSTEP-BEGIN verify
+    /** @param array<string, mixed> $plan */
     public function verify(array $plan, string $planPath): void
     {
         (new PlanValidator)->validate($plan);
@@ -728,7 +745,14 @@ final class ReleaseEngine
 
     // LOCKSTEP-END verify
 
-    /** DIVERGES from the sibling companion engine by design. Do not sync. */
+    /**
+     * DIVERGES from the sibling companion engine by design. Do not sync.
+     *
+     * @param  array<string, mixed>  $definition
+     * @param  list<string>  $dependencies
+     * @param  array<string, mixed>|false|null  $old
+     * @return array<string, mixed>
+     */
     private function packageEntry(array $definition, array $dependencies, array|false|null $old, string $tree, string $commit, string $proposed, string $reason, string $type): array
     {
         return ['name' => $definition['name'], 'path' => $definition['path'], 'split_repository' => $definition['repository'], 'current_version' => $old['version'] ?? null, 'proposed_version' => $proposed, 'source_commit' => $commit, 'source_ref' => 'refs/commits/' . $commit, 'source_tag' => basename($definition['path']) . '/v' . $proposed, 'subtree_hash' => $tree, 'direct_capell_dependencies' => $dependencies, 'resolved_minimum_versions' => [], 'reason' => $reason, 'release_type' => $type, 'publication_state' => 'pending', 'tag_sha' => null, 'maturity' => 'stable'];
@@ -757,6 +781,7 @@ final class ReleaseEngine
     }
 
     // LOCKSTEP-BEGIN push-command
+    /** @return list<string> */
     private function pushCommand(string $repository, string $refspec, ?string $lease = null): array
     {
         return ['git', 'push', ...($lease === null ? [] : ['--force-with-lease=refs/heads/main:' . $lease]), sprintf('https://github.com/%s.git', $repository), $refspec];
@@ -795,7 +820,7 @@ final class ReleaseEngine
 
             $dependencies = array_values(array_filter(
                 array_keys(is_array($manifest['require'] ?? null) ? $manifest['require'] : []),
-                static fn (string $name): bool => str_starts_with($name, 'capell-app/'),
+                static fn (int|string $name): bool => is_string($name) && str_starts_with($name, 'capell-app/'),
             ));
             $expectedDependencies = $package['direct_capell_dependencies'];
             sort($dependencies);
@@ -806,6 +831,7 @@ final class ReleaseEngine
         }
     }
 
+    /** @param array<string, mixed> $plan */
     private function assertExactSource(array $plan): void
     {
         $this->assertCleanSource();
@@ -820,6 +846,7 @@ final class ReleaseEngine
         }
     }
 
+    /** @param list<string> $command */
     private function required(array $command, ?string $cwd = null): string
     {
         $result = $this->runner->run($command, $cwd);
@@ -842,6 +869,7 @@ final class ReleaseEngine
         return trim((string) preg_replace('/(?:authorization:\s*)?bearer\s+\S+/i', '[redacted]', $error));
     }
 
+    /** @param list<string> $command */
     private function optional(array $command): ?string
     {
         $result = $this->runner->run($command, $this->root);
@@ -849,6 +877,7 @@ final class ReleaseEngine
         return $result['exitCode'] === 0 ? $result['output'] : null;
     }
 
+    /** @param array<string, mixed> $state */
     private function writeState(string $planPath, array $state): void
     {
         $path = $planPath . '.state.json';
