@@ -9,14 +9,10 @@
 # Capell\* class then loads from the primary tree — your worktree edits are
 # invisible and the suite "passes" while testing entirely different code.
 #
-# This script builds a hybrid instead:
-#
-#   vendor/composer/     real copy  -> $baseDir resolves to THIS worktree
-#   vendor/autoload.php  real copy
-#   vendor/bin/          real copy
-#   vendor/<pkg>/<name>  symlink    -> shared, read-only, third-party code
-#   REAL_PACKAGES        real copy  -> tools whose bin scripts walk __DIR__ up
-#                                      to find autoload.php
+# This script builds a complete copy-on-write clone instead. APFS shares the
+# unchanged blocks with the primary checkout, but every path has a worktree
+# realpath and writes stay isolated. The generated autoloader is then rebuilt
+# here so its base directory cannot point back to the primary checkout.
 #
 # It then verifies the result and refuses to leave a poisoned vendor/ behind.
 #
@@ -25,12 +21,11 @@
 # rather than a symlink, because npm ci deletes the directory before installing
 # and would take the primary checkout's copy with it.
 #
-# It is HOST-ONLY. The symlinks it creates are host-absolute, so the result
-# cannot resolve inside this repo's Docker container, which mounts the worktree
-# at /home/capell/current and does not mount the primary checkout. If you run
-# tooling through ./capell, run a real `./capell composer install` instead; this
-# script refuses to build a container-unusable vendor/ unless you pass
-# --host-only.
+# It is HOST-ONLY. The clone is made at the host path and is not the dependency
+# install used by this repo's Docker container, which mounts the worktree at
+# /home/capell/current. If you run tooling through ./capell, run a real
+# `./capell composer install` instead; this script refuses to initialise a
+# container worktree unless you pass --host-only.
 #
 # Usage:  bash scripts/init-worktree.sh [--force] [--host-only]
 
@@ -69,28 +64,25 @@ fi
 cd "$WORKTREE_ROOT"
 
 # ---------------------------------------------------------------------------
-# Docker. The hybrid vendor/ is built from HOST-ABSOLUTE symlinks pointing at
-# the primary checkout (/Users/... on macOS). The container bind-mounts this
-# worktree at a different path entirely (/home/capell/current), and nothing
-# mounts the primary checkout, so every one of those symlinks dangles inside
-# the container. PHP does not report a missing symlink target as a missing
-# package: it reports a fatal on the first require of a dangling path, e.g.
+# Docker tooling must use a container-local Composer install. The container
+# bind-mounts this worktree at /home/capell/current, and the host's Composer
+# cache/autoload assumptions are not the container's dependency environment.
+# A host clone may therefore be correct on macOS and still be the wrong vendor
+# tree for ./capell.
 #
 #   require(.../symfony/deprecation-contracts/function.php): Failed to open stream
 #
-# which reads like a corrupt install rather than a wrong-tree layout, and it
-# happens before a single test runs. Refuse up front, while vendor/ does not
-# exist yet, rather than build something that only works on the host.
+# which reads like a corrupt install rather than a wrong runtime environment,
+# and it happens before a single test runs. Refuse up front rather than build a
+# vendor tree that is not authoritative for the container.
 # ---------------------------------------------------------------------------
 if [ "$HOST_ONLY" -ne 1 ] && [ -f docker-compose.yml ] && grep -q '\./\?:/home/capell/current' docker-compose.yml; then
     cat >&2 <<'EOF'
 REFUSING: this repository runs its PHP tooling inside Docker.
 
-scripts/init-worktree.sh builds vendor/ from host-absolute symlinks into the
-primary checkout. The container mounts this worktree at /home/capell/current
-and does not mount the primary checkout at all, so those symlinks dangle and
-PHP fails with a "Failed to open stream" fatal on the first require — before
-any test runs.
+scripts/init-worktree.sh prepares a host-only vendor/ clone. The container
+mounts this worktree at /home/capell/current and must resolve every dependency
+from that container path.
 
 Do this instead, in this worktree:
 
@@ -101,8 +93,20 @@ That is a real, self-contained vendor/ that works in the container. With a warm
 Composer cache it takes well under two minutes.
 
 If you genuinely intend to run PHP on the HOST and never in the container,
-re-run with --host-only. The resulting vendor/ will NOT work under ./capell.
+re-run with --host-only. The resulting vendor/ is not the container install.
 EOF
+    exit 1
+fi
+
+if ! cmp -s "$PRIMARY_ROOT/composer.json" composer.json ||
+   ! cmp -s "$PRIMARY_ROOT/composer.lock" composer.lock; then
+    echo "Dependency manifests differ from the primary checkout; refusing to clone vendor/." >&2
+    echo "Run a real composer install in this worktree instead." >&2
+    exit 1
+fi
+
+if ! command -v composer >/dev/null 2>&1; then
+    echo "FAILED: 'composer' is required to regenerate the cloned autoloader." >&2
     exit 1
 fi
 
@@ -115,49 +119,25 @@ if [ -e vendor ]; then
     fi
 fi
 
-# Packages whose bin scripts resolve their own autoloader by walking __DIR__
-# upward. If these are symlinks, they find the PRIMARY autoloader and you get
-# "Cannot redeclare class ComposerAutoloaderInit..." or a silent wrong-tree run.
-REAL_PACKAGES=(
-    pestphp/pest
-    phpunit/phpunit
-    laravel/pint
-    phpstan/phpstan
-    rector/rector
-    brianium/paratest
-)
-
 echo "Primary : $PRIMARY_ROOT"
 echo "Worktree: $WORKTREE_ROOT"
 
-mkdir vendor
-cp -R "$PRIMARY_ROOT/vendor/composer" vendor/composer
-cp "$PRIMARY_ROOT/vendor/autoload.php" vendor/autoload.php
-cp -R "$PRIMARY_ROOT/vendor/bin" vendor/bin
+if cp -Rc "$PRIMARY_ROOT/vendor" vendor 2>/dev/null; then
+    echo "Cloned vendor/ with copy-on-write ($(du -sh vendor | cut -f1)); dependency writes stay in this worktree."
+else
+    echo "Copy-on-write clone unavailable; making a complete private vendor/ copy."
+    cp -R "$PRIMARY_ROOT/vendor" vendor
+fi
 
-linked=0
-for vendor_dir in "$PRIMARY_ROOT"/vendor/*/; do
-    vendor_name=$(basename "$vendor_dir")
-    case "$vendor_name" in composer | bin) continue ;; esac
+vendor_symlink=$(find vendor -type l -print -quit)
+if [ -n "$vendor_symlink" ]; then
+    echo "FAILED: the cloned vendor/ contains a symlink: $vendor_symlink" >&2
+    echo "Install a real vendor/ in the primary checkout before creating worktrees." >&2
+    rm -rf vendor
+    exit 1
+fi
 
-    mkdir -p "vendor/$vendor_name"
-    for package_dir in "$vendor_dir"*/; do
-        [ -d "$package_dir" ] || continue
-        ln -s "$package_dir" "vendor/$vendor_name/$(basename "$package_dir")"
-        linked=$((linked + 1))
-    done
-done
-
-copied=0
-for package in "${REAL_PACKAGES[@]}"; do
-    if [ -d "$PRIMARY_ROOT/vendor/$package" ]; then
-        rm -rf "vendor/$package"
-        cp -R "$PRIMARY_ROOT/vendor/$package" "vendor/$package"
-        copied=$((copied + 1))
-    fi
-done
-
-echo "Linked $linked packages, copied $copied tool packages ($(du -sh vendor | cut -f1))."
+composer dump-autoload --no-interaction --no-scripts --optimize
 
 # ---------------------------------------------------------------------------
 # Verify. A wrong answer here means the suite would test the primary checkout,
@@ -258,9 +238,9 @@ fi
 
 cat <<'EOF'
 
-Done. This vendor/ is HOST-ONLY: its package symlinks are host-absolute and do
-not resolve inside the ./capell container. Run `./capell composer install` in
-this worktree if you need to run tooling in Docker.
+Done. This vendor/ is a HOST-ONLY copy-on-write clone. It is isolated from the
+primary checkout, but it is not the dependency install used by ./capell's
+container. Run `./capell composer install` in this worktree before Docker runs.
 
 Remember that this repo's tooling needs an explicit memory limit:
 
@@ -268,19 +248,18 @@ Remember that this repo's tooling needs an explicit memory limit:
   php -d memory_limit=1G vendor/bin/pest --compact --configuration=phpunit.xml <path>
   php -d memory_limit=2G vendor/bin/phpstan analyse --no-progress <path>
 
-Parts of vendor/ are shared with the primary checkout. Composer scripts are safe,
-but never run composer install/require/update/remove from this worktree — dependency
-mutations can write through the shared package symlinks.
+The vendor/ blocks initially share storage with the primary checkout through
+APFS copy-on-write, but the paths and writes belong to this worktree. Composer
+install/require/update/remove are safe here while composer.json and
+composer.lock remain identical to the primary checkout.
 
 node_modules/ is a copy-on-write clone, not a symlink, so npm is safe here: an
 npm install or npm ci in this worktree cannot reach the primary checkout.
 
 KNOWN LIMITATION — read before trusting a full-suite run.
-Third-party packages are symlinked, so any code that walks upward from inside
-vendor/ (dirname(__DIR__, N), a re-registered Composer ClassLoader) lands in the
-PRIMARY checkout, not this worktree. Most suites are unaffected, but some — the
-core Unit/Support suite is one — end up loading Capell classes from the primary
-tree, which silently tests the wrong code.
+This clone is host-only. It is not a replacement for the container-local
+Composer install required by ./capell, and a dependency manifest change makes
+this script refuse to clone until the worktree has its own real install.
 
 Use this setup for fast, targeted runs, and confirm the classes you care about
 resolve here before believing a result:
@@ -288,5 +267,6 @@ resolve here before believing a result:
   php -r 'require "vendor/autoload.php";
     echo (new ReflectionClass("Your\\Changed\\Class"))->getFileName(), PHP_EOL;'
 
-For an authoritative full-suite run, do a real composer install in this worktree.
+For an authoritative container or full-suite run, do a real composer install
+in this worktree through ./capell.
 EOF

@@ -153,14 +153,15 @@ source, and hosted failures separately rather than skipping or baselining them.
 
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
   PHP as release evidence.
-- In a worktree, run `bash scripts/init-worktree.sh`. Never symlink `vendor/` or
-  `vendor/composer/`: Composer then resolves Capell classes from the primary
-  checkout and green tests exercise the wrong source. Verify a changed class with
-  `ReflectionClass::getFileName()`; use a real `composer install` for authoritative
-  full-suite proof when the hybrid vendor limitation is relevant.
-- Do not run dependency-mutating Composer commands in a hybrid worktree. Its
-  third-party package directories are intentionally shared with the primary
-  checkout.
+- In a worktree, run `bash scripts/init-worktree.sh`. It creates a host-only
+  APFS copy-on-write clone of `vendor/`, then regenerates Composer's autoloader
+  in the worktree. Never restore whole-vendor or package symlinks: Composer and
+  PHPStan can resolve the primary checkout or a path unavailable in Docker.
+  Verify a changed class with `ReflectionClass::getFileName()`; use
+  `./capell composer install` for authoritative container/full-suite proof.
+- The bootstrap refuses to clone when `composer.json` or `composer.lock` differs
+  from the primary checkout. Dependency changes require a real Composer install
+  in the worktree; legacy hybrid layouts must not run mutating Composer commands.
 - `composer preflight` requires the pinned `node_modules`; run `npm ci` when it is
   absent. `preflight:all` intentionally applies Rector and Pint, so review its diff.
 - `composer test:all:matrix:local` verifies the committed exact `HEAD` in isolated

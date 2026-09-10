@@ -6,12 +6,12 @@ declare(strict_types=1);
  * Refuse to run vendor-mutating commands when vendor/ resolves outside this
  * checkout.
  *
- * scripts/init-worktree.sh builds a hybrid vendor/ for git worktrees: real
- * copies of vendor/composer, vendor/autoload.php and vendor/bin, with the
- * remaining third-party packages symlinked at one level deeper into the
- * primary checkout. That makes a worktree usable in seconds, but it also means
- * anything writing into a symlinked package directory writes into the PRIMARY
- * checkout, where another session may be mid-run.
+ * Older versions of scripts/init-worktree.sh built a hybrid vendor/ for git
+ * worktrees, with third-party packages symlinked into the primary checkout.
+ * That made a worktree usable in seconds, but anything writing into a package
+ * directory could mutate the PRIMARY checkout while another session was using
+ * it. Current host-only worktrees use a complete copy-on-write clone; this
+ * guard remains fail-closed for legacy or manually-created symlink layouts.
  *
  * `composer clear` deletes vendor/orchestra/testbench-core/laravel/vendor and
  * .../database/migrations, and `composer prepare` regenerates the testbench
@@ -78,9 +78,9 @@ if ($failures !== []) {
 
     fwrite(STDERR, <<<'MESSAGE'
 
-        This checkout has a hybrid vendor/ from scripts/init-worktree.sh. Commands
-        that purge or regenerate the testbench skeleton would write through those
-        symlinks into the primary checkout and can destroy work in progress there.
+        This checkout has a shared or hybrid vendor/ layout. Commands that purge
+        or regenerate the testbench skeleton would write through those symlinks
+        into the primary checkout and can destroy work in progress there.
 
         In a worktree, run targeted suites instead:
 
