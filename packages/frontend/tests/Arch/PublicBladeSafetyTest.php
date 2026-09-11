@@ -21,6 +21,20 @@ it('keeps public frontend blade views free of query and authoring patterns', fun
     expect($violations)->toBe([]);
 });
 
+it('covers representative query and cache access forms with the public Blade guard', function (): void {
+    $forbiddenPatterns = publicFrontendBladeForbiddenPatterns();
+    $representativeForbiddenForms = [
+        'Eloquent query builder in Blade' => 'Page::query()->whereKey(1)->first();',
+        'DB facade in Blade' => 'DB::table("pages")->where("id", 1)->first();',
+        'cache facade in Blade' => 'Cache::remember("page", 60, static fn (): array => []);',
+    ];
+
+    foreach ($representativeForbiddenForms as $label => $source) {
+        expect($forbiddenPatterns)->toHaveKey($label);
+        expect(preg_match($forbiddenPatterns[$label], $source))->toBe(1);
+    }
+});
+
 it('documents the allowed public frontend runtime data attributes', function (): void {
     $allowedAttributes = publicFrontendBladeAllowedRuntimeAttributes();
 
@@ -150,6 +164,7 @@ function publicFrontendBladeForbiddenPatterns(): array
         'authored critical CSS partial in public Blade' => '/(?:@include(?:If|When|Unless|First)?\s*\([^)]*critical[-_. ]?css|@component\s*\([^)]*critical[-_. ]?css|<x-[^>\s]*critical[-_.]?css)/i',
         'Eloquent query builder in Blade' => '/::query\s*\(/',
         'DB facade in Blade' => '/\bDB::/',
+        'cache facade in Blade' => '/\bCache::/',
         'auth access in public Blade' => '/\bauth\s*\(/',
         'lazy relationship loading in Blade' => '/->load(?:Missing)?\s*\(/',
         'direct model lookup in Blade' => '/::(?:find|findOrFail|first|firstOrFail)\s*\(/',
