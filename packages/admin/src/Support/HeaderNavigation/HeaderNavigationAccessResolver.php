@@ -13,18 +13,19 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Closure;
 use Filament\Facades\Filament;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Spatie\Permission\PermissionRegistrar;
 use Throwable;
 
 final class HeaderNavigationAccessResolver
@@ -78,6 +79,7 @@ final class HeaderNavigationAccessResolver
 
         return $this->withSitePermissionScope(
             $siteId,
+            $actor,
             fn (): bool => Gate::forUser($actor)->allows('viewAny', Page::class),
         );
     }
@@ -90,7 +92,7 @@ final class HeaderNavigationAccessResolver
             return false;
         }
 
-        return $this->withSitePermissionScope($siteId, function () use ($actor, $page): bool {
+        return $this->withSitePermissionScope($siteId, $actor, function () use ($actor, $page): bool {
             if (! Gate::forUser($actor)->allows('view', $page)) {
                 return false;
             }
@@ -292,17 +294,12 @@ final class HeaderNavigationAccessResolver
      * @param  Closure(): TReturn  $callback
      * @return TReturn
      */
-    private function withSitePermissionScope(int $siteId, Closure $callback): mixed
+    private function withSitePermissionScope(int $siteId, Authenticatable $actor, Closure $callback): mixed
     {
-        $registrar = resolve(PermissionRegistrar::class);
-        $previous = $registrar->getPermissionsTeamId();
-
-        try {
-            $registrar->setPermissionsTeamId($siteId);
-
-            return $callback();
-        } finally {
-            $registrar->setPermissionsTeamId($previous);
-        }
+        return PermissionTeamContext::run(
+            $siteId,
+            $callback,
+            $actor instanceof Model ? $actor : null,
+        );
     }
 }
