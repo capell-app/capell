@@ -76,11 +76,27 @@ jobs:
           echo "DB_DATABASE=:memory:" >> .env
 
       - name: Run release coverage shard (Clover)
+        shell: bash
         run: |
+          set -o pipefail
           mkdir -p coverage
-          composer run prepare
-          php scripts/run-testbench-command.php optimize --except=routes --ansi
-          php -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --coverage-clover=coverage/clover-${{ matrix.shard }}.xml --parallel --shard=${{ matrix.shard }}/4 --colors=always --stop-on-error --stop-on-failure --configuration=phpunit-coverage.xml
+          composer run prepare 2>&1 | tee coverage/prepare-${{ matrix.shard }}.log
+          php scripts/run-testbench-command.php optimize --except=routes --ansi 2>&1 | tee coverage/optimize-${{ matrix.shard }}.log
+          php -d max_execution_time=0 -d pcov.enabled=1 -d pcov.directory=packages -d pcov.exclude='~/(tests|testbench-core)/~' vendor/bin/pest --coverage-clover=coverage/clover-${{ matrix.shard }}.xml --log-junit=coverage/junit-${{ matrix.shard }}.xml --parallel --shard=${{ matrix.shard }}/4 --colors=always --stop-on-error --stop-on-failure --configuration=phpunit-coverage.xml 2>&1 | tee coverage/pest-${{ matrix.shard }}.log
+
+      - name: Upload failed coverage shard diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pest-coverage-diagnostics-${{ matrix.shard }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            coverage/*.log
+            coverage/junit-*.xml
+            storage/logs/*.log
+            vendor/orchestra/testbench-core/laravel/storage/logs/*.log
+            var/testbench-skeletons/*/storage/logs/*.log
 
       - name: Upload Clover XML for codecov
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

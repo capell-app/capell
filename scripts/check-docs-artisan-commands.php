@@ -187,7 +187,14 @@ function registeredCapellCommandDefinitions(string $repositoryRoot): array
 
         if (! $process->isSuccessful()) {
             fwrite(STDERR, "Unable to load the registered Artisan command definitions.\n");
-            fwrite(STDERR, $process->getErrorOutput());
+            fwrite(STDERR, sprintf(
+                "Command: %s\nWorking directory: %s\nExit code: %s\n--- stdout ---\n%s\n--- stderr ---\n%s\n",
+                $process->getCommandLine(),
+                $repositoryRoot,
+                $process->getExitCode() ?? 'unavailable',
+                $process->getOutput(),
+                $process->getErrorOutput(),
+            ));
 
             exit(1);
         }
@@ -381,7 +388,7 @@ function parseDocumentedCapellCommand(string $commandLine, int $line): ?array
 }
 
 /**
- * @param  array{command: string, options: list<string>, line: int}  $example
+ * @param  array{command: string, options: list<string>, line: int, optional_package: bool}  $example
  * @return list<string>
  */
 function validateDocumentedInstallUserOptions(array $example, string $location): array

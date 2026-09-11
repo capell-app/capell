@@ -15,7 +15,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
  * @var list<string> $argv
  */
 $arguments = array_values(array_filter(
-    array_slice($argv ?? [], 1),
+    array_slice($argv, 1),
     is_string(...),
 ));
 
@@ -24,7 +24,7 @@ if ($arguments === []) {
 }
 
 $root = dirname(__DIR__);
-$command = $arguments[0] ?? null;
+$command = $arguments[0];
 
 if (in_array($command, ['list', 'optimize'], true)) {
     $runtimeRoleBootstrap = new Process(
@@ -38,8 +38,12 @@ if (in_array($command, ['list', 'optimize'], true)) {
     if ($runtimeRoleBootstrapExitCode !== 0) {
         throw new RuntimeException(
             sprintf(
-                'Unable to configure the Testbench runtime role bootstrap: %s',
-                trim($runtimeRoleBootstrap->getErrorOutput()),
+                "Unable to configure the Testbench runtime role bootstrap.\nCommand: %s\nWorking directory: %s\nExit code: %d\n--- stdout ---\n%s\n--- stderr ---\n%s",
+                $runtimeRoleBootstrap->getCommandLine(),
+                $root,
+                $runtimeRoleBootstrapExitCode,
+                $runtimeRoleBootstrap->getOutput(),
+                $runtimeRoleBootstrap->getErrorOutput(),
             ),
             $runtimeRoleBootstrapExitCode,
         );
@@ -54,9 +58,14 @@ $process = new Process(
 $process->setTimeout(null);
 
 $exitCode = $process->run(static function (string $type, string $buffer): void {
-    echo $buffer;
+    fwrite($type === Process::ERR ? STDERR : STDOUT, $buffer);
 });
 
 if ($exitCode !== 0) {
-    throw new RuntimeException(sprintf('Testbench command failed with exit code %d.', $exitCode), $exitCode);
+    throw new RuntimeException(sprintf(
+        "Testbench command failed with exit code %d.\nCommand: %s\nWorking directory: %s",
+        $exitCode,
+        $process->getCommandLine(),
+        $root,
+    ), $exitCode);
 }
