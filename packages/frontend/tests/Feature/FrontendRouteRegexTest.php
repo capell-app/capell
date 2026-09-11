@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Frontend\Http\Middleware\RejectReservedFrontendPaths;
 use Capell\Frontend\Support\Routing\ReservedFrontendPathRegistry;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 it('does not match internal livewire update urls as frontend pages', function (string $url): void {
     $config = require __DIR__ . '/../../config/capell-frontend.php';
@@ -33,10 +36,10 @@ it('still matches frontend page urls', function (string $url): void {
 it('rejects reserved frontend paths before resolving public themes', function (string $reservedPath): void {
     resolve(ReservedFrontendPathRegistry::class)->reservePrefix($reservedPath);
 
-    $this->get('/' . $reservedPath . '/extensions/marketplace')
-        ->assertNotFound()
-        ->assertDontSee('Frontend unavailable')
-        ->assertDontSee('The selected theme is not available.');
+    expect(fn () => resolve(RejectReservedFrontendPaths::class)->handle(
+        Request::create('/' . $reservedPath . '/extensions/marketplace'),
+        static fn (): never => throw new LogicException('Reserved request continued through the frontend route.'),
+    ))->toThrow(NotFoundHttpException::class);
 })->with([
     'default admin path' => 'admin',
     'custom admin path' => '123',
