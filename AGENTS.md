@@ -149,8 +149,19 @@ while static checks remain database-free. Run `preflight:all` only after focused
 gates pass and competing lanes are idle; classify setup, tooling, isolation,
 source, and hosted failures separately rather than skipping or baselining them.
 
+**`preflight:all`, `test:all:matrix:local`, and any other whole-tree gate go through
+the orchestrator agent, not an arbitrary session** — a focused/diff-scoped run is
+always fine to run yourself, but two full runs against the same checkout at once
+corrupts shared state and OOM-kills the host. Ask the orchestrator for a full-suite
+result rather than running one yourself.
+
 ## Local Hazards
 
+- This primary checkout stays on latest `main`, clean, when not actively in use
+  (canonical version and the incident behind it: capell-app's `AGENTS.md`, "Standing
+  hygiene: primary checkouts stay on main; pin worktree bases"). Return it to `main`
+  the moment any branch work here lands or pauses — a stale branch left checked out
+  gets silently inherited by the next worktree provisioned from it.
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
   PHP as release evidence.
 - In a worktree, run `bash scripts/init-worktree.sh`. Never symlink `vendor/` or
