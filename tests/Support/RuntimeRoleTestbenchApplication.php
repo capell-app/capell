@@ -52,6 +52,7 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
             // discard settings merged by LaravelSettingsServiceProvider without registering
             // that provider a second time.
             RuntimeRoleBootstrap::configureResolvedEnvironment($app);
+            $this->ensureSettingsConfiguration($app);
 
             return;
         }
@@ -61,6 +62,7 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
         // provider filter after the configuration repository exists.
         RuntimeRoleBootstrap::configureResolvedEnvironment($app);
         parent::resolveApplicationConfiguration($app);
+        $this->ensureSettingsConfiguration($app);
 
         if ($token = getenv('TEST_TOKEN')) {
             // Settings bindings and event listeners capture their cache configuration
@@ -94,5 +96,25 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
         foreach (ClassLoader::getRegisteredLoaders() as $loader) {
             $loader->addPsr4('App\\', $basePath . '/app', prepend: true);
         }
+    }
+
+    private function ensureSettingsConfiguration(Application $app): void
+    {
+        $config = $app->make(Repository::class);
+        $settingsConfigPath = dirname(__DIR__, 2) . '/vendor/spatie/laravel-settings/config/settings.php';
+
+        if (! is_file($settingsConfigPath)) {
+            throw new RuntimeException(sprintf('Spatie settings configuration is missing at [%s].', $settingsConfigPath));
+        }
+
+        $settings = require $settingsConfigPath;
+        $existingSettings = $config->get('settings', []);
+
+        throw_unless(is_array($settings), RuntimeException::class, 'Spatie settings configuration must return an array.');
+
+        $config->set('settings', array_merge(
+            $settings,
+            is_array($existingSettings) ? $existingSettings : [],
+        ));
     }
 }
