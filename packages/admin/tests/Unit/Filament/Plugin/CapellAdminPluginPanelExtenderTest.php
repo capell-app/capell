@@ -106,8 +106,11 @@ it('emits the layer prelude before the admin styles', function (): void {
     $preludePosition = strpos($html, 'data-capell-css-layer-order');
     $stylesPosition = strpos($html, ':root {');
 
-    expect(substr_count($html, 'data-capell-css-layer-order'))->toBe(1)
-        ->and($preludePosition)->toBeInt()
-        ->and($stylesPosition)->toBeInt()
-        ->and($preludePosition)->toBeLessThan($stylesPosition);
+    expect(substr_count($html, 'data-capell-css-layer-order'))->toBe(1);
+    expect($preludePosition)->toBeInt();
+    expect($stylesPosition)->toBeInt();
+    assert(is_int($preludePosition));
+    assert(is_int($stylesPosition));
+
+    expect($preludePosition)->toBeLessThan($stylesPosition);
 });
