@@ -45,6 +45,45 @@ To apply Rector, Pint, and Prettier changes before rerunning the same checks, us
 composer preflight:fix
 ```
 
+## Verifying Coverage At A Merge Head
+
+A pull request state is not a test result. Before release work, resolve the
+exact merge commit and inspect every required workflow for that SHA. A workflow
+which is still running, failed after executing steps, or was refused before a
+runner was assigned is not a green gate. For a failed Coverage run, inspect the
+individual shard jobs and retain their logs before rerunning anything:
+
+```bash
+gh run list --repo capell-app/capell --branch main --limit 20 \
+    --json databaseId,name,status,conclusion,headSha
+gh run view <coverage-run-id> --repo capell-app/capell --log-failed
+gh api 'repos/capell-app/capell/actions/runs/<coverage-run-id>/jobs?per_page=100' \
+    --jq '.jobs[] | [.id,.name,.status,.conclusion] | @tsv'
+```
+
+Use the exact hosted failure as the starting point for a focused local
+reproduction. Run `composer prepare` and the same Testbench `optimize` command
+before the affected Pest path; an already-warm vendor or cache directory can
+hide a clean-install failure. Keep the configured parallel worker count when
+checking an isolation problem, but do not rerun the whole package matrix just
+to rediscover one shard failure.
+
+Two small Testbench details are easy to miss. A route-isolation fixture that
+replaces a Laravel `RouteCollection` must leave both the router and
+`app('url')` observing the intended collection after replacement and
+restoration; refresh name lookups after fluent named-route registration. That
+lookup repair does not replace modelling an unavailable Admin resource when a
+test is intended to exercise the named-route fallback. Child `list`/`optimize`
+commands must boot from the same runtime-role configuration and cache paths as
+the parent; verify the expected runtime-role cache file exists after `optimize`,
+and make missing settings/provider configuration fail with a useful child
+command receipt.
+
+The shard timing warning for `tests/.pest/shards.json` is advisory. Refresh it
+only as an intentional, separately reviewed change; updating timings to make a
+failure disappear is not a repair. A complete Coverage gate requires every
+shard plus the merge/threshold job to finish successfully.
+
 ## Database Portability Matrix
 
 Test All owns a focused portability group for every advertised database family:

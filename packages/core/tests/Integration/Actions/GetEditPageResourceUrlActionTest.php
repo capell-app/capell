@@ -3,11 +3,19 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
+use Capell\Core\Contracts\AdminResourceResolver;
 use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
+
+beforeEach(function (): void {
+    $resolver = Mockery::mock(AdminResourceResolver::class);
+    $resolver->shouldReceive('hasPageResource')->andReturnFalse();
+
+    app()->instance(AdminResourceResolver::class, $resolver);
+});
 
 it('returns null when the resource and admin fallback route are unavailable', function (): void {
     $page = Page::factory()->createOne();
