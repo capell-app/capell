@@ -64,3 +64,18 @@ it('starts a hidden-until-opened sidebar without the collapsed navigation rail',
         ->toContain("window.localStorage.setItem('isOpenDesktop', 'false')")
         ->toContain('.fi-topbar-open-sidebar-btn');
 });
+
+it('declares the shared Tailwind layer order before package styles load', function (): void {
+    $panel = Panel::make();
+
+    CapellAdminPlugin::make()->register($panel);
+
+    $reflection = new ReflectionClass($panel);
+    $renderHooks = $reflection->getProperty('renderHooks')->getValue($panel);
+    $hooks = $renderHooks[PanelsRenderHook::STYLES_BEFORE][''];
+
+    expect($hooks)->toHaveCount(1)
+        ->and((string) $hooks[0]())->toContain(
+            '<style data-capell-css-layer-order>@layer properties, theme, base, components, utilities;</style>',
+        );
+});

@@ -128,6 +128,13 @@ class CapellAdminPlugin implements Plugin
             ProfileAdminRequest::class,
         ]);
 
+        // Package styles can declare Tailwind's shared layers before the main theme loads. Predeclare the order so the
+        // admin theme's base reset cannot override component utilities merely because an extension loaded first.
+        $panel->renderHook(
+            name: PanelsRenderHook::STYLES_BEFORE,
+            hook: fn (): string => '<style data-capell-css-layer-order>@layer properties, theme, base, components, utilities;</style>',
+        );
+
         if (! CapellCore::getPackage(AdminServiceProvider::$packageName)->isInstalled()) {
             $pages = CapellAdmin::getAdminSurfaceRegistry()->pages();
 
