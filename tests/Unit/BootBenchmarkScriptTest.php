@@ -11,6 +11,7 @@ use Capell\Benchmark\BootStatistics;
 use Capell\Benchmark\RuntimeRoleBenchmarkComparison;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
+use Symfony\Component\Filesystem\Filesystem;
 use Workbench\App\Providers\ScreenshotWorkbenchServiceProvider;
 
 require_once dirname(__DIR__, 2) . '/scripts/benchmark-boot-support.php';
@@ -102,6 +103,33 @@ it('selects the generated runtime-role config cache before normalisation reads i
             ->and(is_file($configPath))->toBeTrue();
     } finally {
         $workspace->remove();
+    }
+});
+
+it('keeps optimization and boot samples inside the benchmark workspace despite inherited cache paths', function (): void {
+    $workspace = BootBenchmarkWorkspace::create(dirname(__DIR__, 2), 'public');
+    $directory = sys_get_temp_dir() . '/capell-benchmark-parent-' . bin2hex(random_bytes(6));
+    $files = new Filesystem;
+    $files->mkdir($directory);
+    $originalEnvironment = $_ENV;
+
+    foreach (['CONFIG', 'PACKAGES', 'SERVICES', 'ROUTES', 'EVENTS'] as $cache) {
+        $_ENV['APP_' . $cache . '_CACHE'] = $directory . '/' . strtolower($cache) . '.php';
+    }
+
+    try {
+        $workspace->prepareCache('optimized');
+        $sample = $workspace->process(false)->mustRun();
+        $result = json_decode($sample->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+
+        expect(is_file($workspace->path . '/laravel/bootstrap/cache/capell-runtime/public/config.php'))->toBeTrue()
+            ->and($result['framework_ms'])->toBeGreaterThan(0)
+            ->and($result['providers_ms'])->not->toHaveKey(AdminServiceProvider::class)
+            ->and(glob($directory . '/*.php'))->toBe([]);
+    } finally {
+        $_ENV = $originalEnvironment;
+        $workspace->remove();
+        $files->remove($directory);
     }
 });
 
