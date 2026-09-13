@@ -81,6 +81,37 @@ it('registers the shared Tailwind layer order as a request-loaded Filament asset
         ->and($styles[0]->getPath())->toBeFile();
 });
 
+it('keeps the shared Tailwind layer declaration in cascade order', function (): void {
+    $styles = FilamentAsset::getStyles([AdminServiceProvider::$packageName]);
+    $path = $styles[0]->getPath();
+
+    expect($path)->toBeString();
+    assert(is_string($path));
+
+    $contents = file_get_contents($path);
+
+    // The first layer declaration controls precedence across separately
+    // loaded stylesheets; assert the layer names and their order without
+    // coupling the test to CSS formatting.
+    expect($contents)->toBeString();
+    assert(is_string($contents));
+
+    $positions = [];
+
+    foreach (['properties', 'theme', 'base', 'components', 'utilities'] as $layer) {
+        $position = strpos($contents, $layer);
+
+        expect($position)->toBeInt();
+        assert(is_int($position));
+        $positions[] = $position;
+    }
+
+    expect($positions[0])->toBeLessThan($positions[1])
+        ->and($positions[1])->toBeLessThan($positions[2])
+        ->and($positions[2])->toBeLessThan($positions[3])
+        ->and($positions[3])->toBeLessThan($positions[4]);
+});
+
 it('loads the shared Tailwind layer order through the Filament styles hook', function (): void {
     $panel = Panel::make();
 
