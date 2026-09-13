@@ -241,6 +241,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
+use Filament\Support\Assets\Css;
+use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Icons\Heroicon;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
@@ -259,6 +261,8 @@ use Spatie\LaravelPackageTools\Package;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
 {
+    public const string CSS_LAYER_ORDER_ASSET_ID = 'admin-layer-order';
+
     public static string $name = 'capell-admin';
 
     public static string $packageName = 'capell-app/admin';
@@ -470,6 +474,19 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 },
             ),
         );
+    }
+
+    #[Override]
+    protected function bootPackage(): self
+    {
+        FilamentAsset::register([
+            Css::make(
+                self::CSS_LAYER_ORDER_ASSET_ID,
+                __DIR__ . '/../../resources/css/filament/admin/layer-order.css',
+            )->loadedOnRequest(),
+        ], self::$packageName);
+
+        return $this;
     }
 
     #[Override]

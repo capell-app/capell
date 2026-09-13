@@ -117,6 +117,14 @@ Deletion and retention:
 - Testing Admin only at the login screen misses permission, navigation, and policy regressions.
 - Dashboard Filament widgets and reports should use Actions for domain work rather than embedding queries in the widget class.
 
+### Filament CSS layer order
+
+Applications with a non-trivial admin design should use Filament's custom Vite theme flow: import Filament's theme stylesheet in the application's `resources/css/filament/{panel}/theme.css`, add `@source` entries for the application's and package-provided Blade/PHP class producers, register it with the panel's `viteTheme()` call, and build it with Vite. That file owns normal admin tokens, components, utilities, and custom styles.
+
+The application theme cannot, however, repair the order of a separately registered Filament stylesheet. Filament renders registered extension stylesheets before the panel's Vite theme, and CSS layer order is fixed by the first layer declaration encountered. An extension stylesheet that starts with `@layer components` can therefore make the later theme's base reset override component utilities. Admin registers `resources/css/filament/admin/layer-order.css` as a request-loaded `Css` asset and emits it at `PanelsRenderHook::STYLES_BEFORE`, establishing Tailwind's order before any registered package styles load.
+
+Keep this prelude in the Filament asset pipeline. Do not copy it into an application's Vite theme or replace it with an inline style: both are too late when another registered stylesheet declared a layer first. The Admin install and upgrade commands run `filament:assets`, which publishes the asset; the application Vite build produces the hashed custom theme separately. After installing or upgrading Admin, verify both the published prelude and the Vite theme independently, then inspect their order in the rendered authenticated admin HTML if styling is missing.
+
 ## Quick Start
 
 1. Install the package with `composer require capell-app/admin`.

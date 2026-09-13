@@ -40,6 +40,7 @@ use Filament\Pages\SettingsPage as FilamentSettingsPage;
 use Filament\Panel;
 use Filament\Resources\Resource;
 use Filament\Support\Assets\AlpineComponent;
+use Filament\Support\Assets\Css;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Icons\Heroicon;
@@ -127,6 +128,25 @@ class CapellAdminPlugin implements Plugin
             SetAdminLocale::class,
             ProfileAdminRequest::class,
         ]);
+
+        $panel->renderHook(
+            name: PanelsRenderHook::STYLES_BEFORE,
+            hook: function (): string {
+                foreach (FilamentAsset::getStyles([AdminServiceProvider::$packageName]) as $style) {
+                    if (! $style instanceof Css) {
+                        continue;
+                    }
+
+                    if ($style->getId() !== AdminServiceProvider::CSS_LAYER_ORDER_ASSET_ID) {
+                        continue;
+                    }
+
+                    return $style->getHtml()->toHtml();
+                }
+
+                return '';
+            },
+        );
 
         if (! CapellCore::getPackage(AdminServiceProvider::$packageName)->isInstalled()) {
             $pages = CapellAdmin::getAdminSurfaceRegistry()->pages();
