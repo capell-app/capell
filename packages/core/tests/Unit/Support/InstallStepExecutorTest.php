@@ -629,6 +629,11 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
     app()->register(FilamentServiceProvider::class);
     app()->register(FilamentShieldServiceProvider::class);
 
+    $synchronizer = Mockery::mock(AdminPermissionSynchronizer::class);
+    $synchronizer->shouldReceive('hasBootedPanel')->once()->andReturnFalse();
+    $synchronizer->shouldNotReceive('syncForInstall');
+    app()->instance(AdminPermissionSynchronizer::class, $synchronizer);
+
     // Simulate a fresh skeleton install: the AdminPanelProvider was created on
     // disk during this process and never booted, so Filament has no default panel.
     resolve(PanelRegistry::class)->defaultPanel = null;
