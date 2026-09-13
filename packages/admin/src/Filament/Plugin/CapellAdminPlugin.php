@@ -40,6 +40,7 @@ use Filament\Pages\SettingsPage as FilamentSettingsPage;
 use Filament\Panel;
 use Filament\Resources\Resource;
 use Filament\Support\Assets\AlpineComponent;
+use Filament\Support\Assets\Css;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Icons\Heroicon;
@@ -128,11 +129,19 @@ class CapellAdminPlugin implements Plugin
             ProfileAdminRequest::class,
         ]);
 
-        // Package styles can declare Tailwind's shared layers before the main theme loads. Predeclare the order so the
-        // admin theme's base reset cannot override component utilities merely because an extension loaded first.
         $panel->renderHook(
             name: PanelsRenderHook::STYLES_BEFORE,
-            hook: fn (): string => '<style data-capell-css-layer-order>@layer properties, theme, base, components, utilities;</style>',
+            hook: function (): string {
+                foreach (FilamentAsset::getStyles([AdminServiceProvider::$packageName]) as $style) {
+                    if (! $style instanceof Css || $style->getId() !== AdminServiceProvider::CSS_LAYER_ORDER_ASSET_ID) {
+                        continue;
+                    }
+
+                    return $style->getHtml()->toHtml();
+                }
+
+                return '';
+            },
         );
 
         if (! CapellCore::getPackage(AdminServiceProvider::$packageName)->isInstalled()) {

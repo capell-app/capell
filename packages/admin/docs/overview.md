@@ -117,6 +117,10 @@ Deletion and retention:
 - Testing Admin only at the login screen misses permission, navigation, and policy regressions.
 - Dashboard Filament widgets and reports should use Actions for domain work rather than embedding queries in the widget class.
 
+### Filament CSS layer order
+
+Filament renders registered extension stylesheets before the panel's Vite theme. CSS layer order is fixed by the first layer declaration encountered, so an extension stylesheet that starts with `@layer components` can make the later theme's base reset override component utilities. Admin registers a small request-loaded layer-order stylesheet at `PanelsRenderHook::STYLES_BEFORE` to establish Tailwind's order before any registered package styles load. Keep this asset in the Filament asset pipeline; adding the declaration only to `resources/css/filament/{panel}/theme.css` is too late to repair an earlier stylesheet.
+
 ## Quick Start
 
 1. Install the package with `composer require capell-app/admin`.

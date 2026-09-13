@@ -10,6 +10,8 @@ use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestAdminPanelExtender;
 use Capell\Core\Facades\CapellCore;
 use Filament\Panel;
+use Filament\Support\Assets\Css;
+use Filament\Support\Facades\FilamentAsset;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\View\View;
 
@@ -69,7 +71,17 @@ it('starts a hidden-until-opened sidebar without the collapsed navigation rail',
         ->toContain('.fi-topbar-open-sidebar-btn');
 });
 
-it('declares the shared Tailwind layer order before package styles load', function (): void {
+it('registers the shared Tailwind layer order as a request-loaded Filament asset', function (): void {
+    $styles = FilamentAsset::getStyles([AdminServiceProvider::$packageName]);
+
+    expect($styles)->toHaveCount(1)
+        ->and($styles[0])->toBeInstanceOf(Css::class)
+        ->and($styles[0]->getId())->toBe(AdminServiceProvider::CSS_LAYER_ORDER_ASSET_ID)
+        ->and($styles[0]->isLoadedOnRequest())->toBeTrue()
+        ->and($styles[0]->getPath())->toBeFile();
+});
+
+it('loads the shared Tailwind layer order through the Filament styles hook', function (): void {
     $panel = Panel::make();
 
     CapellAdminPlugin::make()->register($panel);
@@ -79,9 +91,9 @@ it('declares the shared Tailwind layer order before package styles load', functi
     $hooks = $renderHooks[PanelsRenderHook::STYLES_BEFORE][''];
 
     expect($hooks)->toHaveCount(1)
-        ->and((string) $hooks[0]())->toContain(
-            '<style data-capell-css-layer-order>@layer properties, theme, base, components, utilities;</style>',
-        );
+        ->and((string) $hooks[0]())
+        ->toContain('rel="stylesheet"')
+        ->toContain('/css/capell-app/admin/admin-layer-order.css');
 });
 
 it('keeps the layer prelude on the uninstalled admin path', function (): void {
@@ -96,21 +108,25 @@ it('keeps the layer prelude on the uninstalled admin path', function (): void {
     $hooks = $renderHooks[PanelsRenderHook::STYLES_BEFORE][''];
     $renderedHooks = implode('', array_map(static fn (callable $hook): string => (string) $hook(), $hooks));
 
-    expect($renderedHooks)->toContain(
-        '<style data-capell-css-layer-order>@layer properties, theme, base, components, utilities;</style>',
-    );
+    expect($renderedHooks)
+        ->toContain('rel="stylesheet"')
+        ->toContain('/css/capell-app/admin/admin-layer-order.css');
 });
 
-it('emits the layer prelude before the admin styles', function (): void {
+it('emits the layer-order stylesheet before a registered extension stylesheet', function (): void {
+    FilamentAsset::register([
+        Css::make('layered-extension-fixture', 'https://example.test/layered-extension.css'),
+    ], 'layered-extension-fixture');
+
     $html = get('/admin/login')->assertOk()->getContent();
-    $preludePosition = strpos($html, 'data-capell-css-layer-order');
-    $stylesPosition = strpos($html, ':root {');
+    $preludePosition = strpos($html, 'admin-layer-order.css');
+    $extensionPosition = strpos($html, 'https://example.test/layered-extension.css');
 
-    expect(substr_count($html, 'data-capell-css-layer-order'))->toBe(1);
+    expect(substr_count($html, 'admin-layer-order.css'))->toBe(1);
     expect($preludePosition)->toBeInt();
-    expect($stylesPosition)->toBeInt();
+    expect($extensionPosition)->toBeInt();
     assert(is_int($preludePosition));
-    assert(is_int($stylesPosition));
+    assert(is_int($extensionPosition));
 
-    expect($preludePosition)->toBeLessThan($stylesPosition);
+    expect($preludePosition)->toBeLessThan($extensionPosition);
 });
