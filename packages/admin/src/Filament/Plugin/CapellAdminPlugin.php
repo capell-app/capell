@@ -133,7 +133,11 @@ class CapellAdminPlugin implements Plugin
             name: PanelsRenderHook::STYLES_BEFORE,
             hook: function (): string {
                 foreach (FilamentAsset::getStyles([AdminServiceProvider::$packageName]) as $style) {
-                    if (! $style instanceof Css || $style->getId() !== AdminServiceProvider::CSS_LAYER_ORDER_ASSET_ID) {
+                    if (! $style instanceof Css) {
+                        continue;
+                    }
+
+                    if ($style->getId() !== AdminServiceProvider::CSS_LAYER_ORDER_ASSET_ID) {
                         continue;
                     }
 
