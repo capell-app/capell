@@ -111,6 +111,7 @@ it('keeps optimization and boot samples inside the benchmark workspace despite i
     $directory = sys_get_temp_dir() . '/capell-benchmark-parent-' . bin2hex(random_bytes(6));
     $files = new Filesystem;
     $files->mkdir($directory);
+
     $originalEnvironment = $_ENV;
 
     foreach (['CONFIG', 'PACKAGES', 'SERVICES', 'ROUTES', 'EVENTS'] as $cache) {
