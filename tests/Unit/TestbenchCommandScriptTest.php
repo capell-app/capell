@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Symfony\Component\Process\Process;
+
 it('runs cache-sensitive Testbench Composer commands through the portable runner', function (): void {
     $root = dirname(__DIR__, 2);
     $composer = json_decode(
@@ -31,6 +33,25 @@ it('sets the array cache store in the portable Testbench runner', function (): v
     expect($script)
         ->toContain("[PHP_BINARY, \$root . '/vendor/bin/testbench', ...\$arguments]")
         ->not->toContain('CACHE_STORE=array');
+});
+
+it('boots the portable Testbench command runner with the runtime role enabled', function (): void {
+    $process = new Process([
+        PHP_BINARY,
+        'scripts/run-testbench-command.php',
+        'list',
+        '--format=json',
+    ], dirname(__DIR__, 2), [
+        'CAPELL_TESTBENCH_RUNTIME_ROLE' => 'true',
+        'CACHE_STORE' => 'array',
+    ]);
+    $process->setTimeout(120);
+    $process->mustRun();
+
+    $registry = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+    $commandNames = array_column($registry['commands'] ?? [], 'name');
+
+    expect($commandNames)->toContain('filament:install');
 });
 
 it('keeps the screenshot runtime-role helper as an explicit compatibility wrapper', function (): void {

@@ -46,6 +46,16 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
     {
         throw_unless($app instanceof Application, RuntimeException::class, 'Testbench did not resolve a Laravel application.');
 
+        if ($app->hasBeenBootstrapped()) {
+            // The generated Testbench bootstrap creates and boots this application before
+            // Testbench resolves its outer lifecycle. Reloading configuration here would
+            // discard settings merged by LaravelSettingsServiceProvider without registering
+            // that provider a second time.
+            RuntimeRoleBootstrap::configureResolvedEnvironment($app);
+
+            return;
+        }
+
         // Testbench loads configuration after resolving environment variables. Set the runtime
         // cache paths first so Laravel reads the role-specific config cache, then apply the
         // provider filter after the configuration repository exists.

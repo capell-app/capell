@@ -33,7 +33,18 @@ it('still matches frontend page urls', function (string $url): void {
 it('rejects reserved frontend paths before resolving public themes', function (string $reservedPath): void {
     resolve(ReservedFrontendPathRegistry::class)->reservePrefix($reservedPath);
 
-    $this->get('/' . $reservedPath . '/extensions/marketplace')
+    $response = $this->get('/' . $reservedPath . '/extensions/marketplace');
+
+    // The runtime-role coverage fixture registers the real Filament admin panel,
+    // whose auth middleware correctly redirects an unauthenticated admin request.
+    // The important boundary is that it never reaches the public frontend route.
+    if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true' && $reservedPath === 'admin') {
+        $response->assertRedirect();
+
+        return;
+    }
+
+    $response
         ->assertNotFound()
         ->assertDontSee('Frontend unavailable')
         ->assertDontSee('The selected theme is not available.');
@@ -48,7 +59,15 @@ it('rejects the configured admin path before resolving public themes', function 
 
     expect(resolve(ReservedFrontendPathRegistry::class)->isReserved('admin/pages/125/edit'))->toBeTrue();
 
-    $this->get('/admin/pages/125/edit')
+    $response = $this->get('/admin/pages/125/edit');
+
+    if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true') {
+        $response->assertRedirect();
+
+        return;
+    }
+
+    $response
         ->assertNotFound()
         ->assertDontSee('Page not found')
         ->assertDontSee('Privacy-friendly analytics');
