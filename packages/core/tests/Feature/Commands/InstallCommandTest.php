@@ -34,6 +34,7 @@ require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 beforeEach(function (): void {
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
+    app()->forgetInstance(ProcessFactoryInterface::class);
     acquireCapellInstallFilesystemLock();
     preserveTestbenchPackageManifestFilesDuringPackageRemoval();
 });
@@ -41,6 +42,7 @@ beforeEach(function (): void {
 afterEach(function (): void {
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
+    app()->forgetInstance(ProcessFactoryInterface::class);
     cleanupInstallTestApplicationFiles();
 });
 
@@ -269,6 +271,10 @@ PHP);
 
 function registerInstallTestFilamentInstallCommand(): void
 {
+    // Resolve the lazy Filament command map before adding the fixture command so
+    // a later Artisan::all() call cannot replace it with the real interactive command.
+    Artisan::all();
+
     Artisan::registerCommand(new class extends Illuminate\Console\Command
     {
         protected $signature = 'filament:install {--panels}';
@@ -707,13 +713,12 @@ it('can remove the installer package at the end of an interactive install', func
 it('installs filament for the admin package before completing and removing the installer', function (): void {
     setupInstallTest(['capell-app/admin', 'capell-app/installer']);
     unlink(base_path('app/Providers/Filament/AdminPanelProvider.php'));
-    registerInstallTestFilamentInstallCommand();
     createTestUser();
+    registerInstallTestFilamentInstallCommand();
     $fake = bindFakeRunInstallAction();
     bindInstallCommandRemoveInstallerProcessFactory(function () use ($fake): void {
         expect($fake->callCount)->toBe(1);
     });
-
     artisanCommand('capell:install', [
         '--packages' => 'capell-app/admin',
         '--url' => 'https://example.test',
