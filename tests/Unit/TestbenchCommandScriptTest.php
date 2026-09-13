@@ -64,7 +64,7 @@ it('restores Spatie settings defaults when a cached runtime-role config omits th
     $app->instance('config_loaded_from_cache', true);
 
     $method = new ReflectionMethod(RuntimeRoleTestbenchApplication::class, 'ensureSettingsConfiguration');
-    $method->invoke(null, $app);
+    $method->invoke(new RuntimeRoleTestbenchApplication, $app);
 
     expect($config->get('settings.default_repository'))->toBe('database')
         ->and($config->get('settings.cache'))->toBeArray()

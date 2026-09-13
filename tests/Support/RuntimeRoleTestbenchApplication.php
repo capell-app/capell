@@ -52,7 +52,7 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
             // discard settings merged by LaravelSettingsServiceProvider without registering
             // that provider a second time.
             RuntimeRoleBootstrap::configureResolvedEnvironment($app);
-            self::ensureSettingsConfiguration($app);
+            $this->ensureSettingsConfiguration($app);
 
             return;
         }
@@ -62,7 +62,7 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
         // provider filter after the configuration repository exists.
         RuntimeRoleBootstrap::configureResolvedEnvironment($app);
         parent::resolveApplicationConfiguration($app);
-        self::ensureSettingsConfiguration($app);
+        $this->ensureSettingsConfiguration($app);
 
         if ($token = getenv('TEST_TOKEN')) {
             // Settings bindings and event listeners capture their cache configuration
@@ -87,7 +87,18 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
         RuntimeRoleBootstrap::configureResolvedConfiguration($app, includeGeneratedProviders: false);
     }
 
-    private static function ensureSettingsConfiguration(Application $app): void
+    private static function registerGeneratedApplicationNamespace(?string $basePath): void
+    {
+        if (! is_string($basePath) || $basePath === '' || ! is_dir($basePath . '/app')) {
+            return;
+        }
+
+        foreach (ClassLoader::getRegisteredLoaders() as $loader) {
+            $loader->addPsr4('App\\', $basePath . '/app', prepend: true);
+        }
+    }
+
+    private function ensureSettingsConfiguration(Application $app): void
     {
         $config = $app->make(Repository::class);
         $settingsConfigPath = dirname(__DIR__, 2) . '/vendor/spatie/laravel-settings/config/settings.php';
@@ -105,16 +116,5 @@ final class RuntimeRoleTestbenchApplication extends TestbenchApplication
             $settings,
             is_array($existingSettings) ? $existingSettings : [],
         ));
-    }
-
-    private static function registerGeneratedApplicationNamespace(?string $basePath): void
-    {
-        if (! is_string($basePath) || $basePath === '' || ! is_dir($basePath . '/app')) {
-            return;
-        }
-
-        foreach (ClassLoader::getRegisteredLoaders() as $loader) {
-            $loader->addPsr4('App\\', $basePath . '/app', prepend: true);
-        }
     }
 }
