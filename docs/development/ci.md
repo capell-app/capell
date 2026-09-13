@@ -68,12 +68,16 @@ hide a clean-install failure. Keep the configured parallel worker count when
 checking an isolation problem, but do not rerun the whole package matrix just
 to rediscover one shard failure.
 
-Two small Testbench details are easy to miss. Code that replaces a Laravel
-`RouteCollection` must refresh the router's name lookups after both the
-replacement and restoration. Child `list`/`optimize` commands must boot from the
-same runtime-role configuration and cache paths as the parent; verify the
-expected runtime-role cache file exists after `optimize`, and make missing
-settings/provider configuration fail with a useful child command receipt.
+Two small Testbench details are easy to miss. A route-isolation fixture that
+replaces a Laravel `RouteCollection` must leave both the router and
+`app('url')` observing the intended collection after replacement and
+restoration; refresh name lookups after fluent named-route registration. That
+lookup repair does not replace modelling an unavailable Admin resource when a
+test is intended to exercise the named-route fallback. Child `list`/`optimize`
+commands must boot from the same runtime-role configuration and cache paths as
+the parent; verify the expected runtime-role cache file exists after `optimize`,
+and make missing settings/provider configuration fail with a useful child
+command receipt.
 
 The shard timing warning for `tests/.pest/shards.json` is advisory. Refresh it
 only as an intentional, separately reviewed change; updating timings to make a
