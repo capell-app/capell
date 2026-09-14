@@ -10,11 +10,12 @@ const appUrl = 'http://127.0.0.1:8145'
 // domain; the runner serves every request for it from appUrl and aborts rather
 // than ever contacting the real host.
 const displayUrl =
-    process.env.CAPELL_SCREENSHOT_DISPLAY_ORIGIN ?? 'http://127.0.0.1:8145'
+    process.env.CAPELL_SCREENSHOT_DISPLAY_ORIGIN ?? 'https://capell.example'
 
 export default {
     schemaVersion: 1,
-    preCapture: 'scripts/screenshots/initialize-record-state-screenshot-fixture.mjs',
+    preCapture:
+        'scripts/screenshots/initialize-record-state-screenshot-fixture.mjs',
     repoRoots: ['.'],
     outputRoots: [
         'docs/images',
@@ -53,6 +54,8 @@ export default {
         admin: `${appUrl}/admin`,
     },
     environment: {
+        APP_ENV: 'production',
+        APP_DEBUG: 'false',
         APP_URL: displayUrl,
         CAPELL_SCREENSHOT_DISPLAY_ORIGIN: displayUrl,
         APP_KEY: 'base64:/MjiNkPfjAngJBfuMDsnFBxDynZGOKk3O6P0u0MhvJE=',
@@ -69,6 +72,7 @@ export default {
         SESSION_DRIVER: 'file',
         QUEUE_CONNECTION: 'sync',
         DEBUGBAR_ENABLED: 'false',
+        BLAZE_DEBUG: 'false',
         CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED: 'false',
         CAPELL_MARKETPLACE_URL: `${appUrl}/api/v1`,
         CAPELL_MARKETPLACE_WEB_URL: appUrl,

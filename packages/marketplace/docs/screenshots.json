@@ -93,10 +93,16 @@
             "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-docs-and-access.png",
             "required": true,
             "capture": {
-                "fullPage": true
+                "fullPage": false
             },
-            "notes": "Shows the external documentation CTA beside install eligibility, licence state, Marketplace access actions, version history, and feedback controls.",
-            "sameCaptureAs": "marketplace-extension-detail-overview"
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": "[data-capell-marketplace-extension-access]",
+                    "block": "start"
+                }
+            ],
+            "notes": "Shows the external documentation CTA beside install eligibility, licence state, Marketplace access actions, version history, and feedback controls."
         }
     ]
 }

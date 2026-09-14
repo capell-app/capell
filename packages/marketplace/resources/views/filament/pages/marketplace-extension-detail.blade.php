@@ -516,6 +516,7 @@
 
             <section
                 class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                data-capell-marketplace-extension-access
             >
                 <h2
                     class="text-base font-semibold text-gray-950 dark:text-white"
