@@ -132,7 +132,7 @@ it('ThemeChainResolver uses capell-theme-chain.php when present', function (): v
     expect($paths)->toBe(['/fake/views']);
 });
 
-it('capell:package-cache:clear removes package and theme chain cache files', function (): void {
+it('capell:package-cache:clear with --only-clear removes cache files and does not rebuild', function (): void {
     $packageCachePath = base_path('bootstrap/cache/capell-package-manifests.php');
     $themeCachePath = base_path('bootstrap/cache/capell-theme-chain.php');
     $localAppThemeCachePath = base_path('bootstrap/cache/capell-local-app-themes.php');
@@ -144,12 +144,57 @@ it('capell:package-cache:clear removes package and theme chain cache files', fun
     File::ensureDirectoryExists($runtimeCachePath . '/public');
     file_put_contents($runtimeCachePath . '/public/services.php', '<?php return [];');
 
-    Artisan::call('capell:package-cache:clear');
+    Artisan::call('capell:package-cache:clear', ['--only-clear' => true]);
 
     expect(file_exists($packageCachePath))->toBeFalse()
         ->and(file_exists($themeCachePath))->toBeFalse()
         ->and(file_exists($localAppThemeCachePath))->toBeFalse()
         ->and(file_exists($runtimeCachePath))->toBeFalse();
+})->afterEach(function (): void {
+    foreach ([
+        base_path('bootstrap/cache/capell-package-manifests.php'),
+        base_path('bootstrap/cache/capell-theme-chain.php'),
+        base_path('bootstrap/cache/capell-local-app-themes.php'),
+    ] as $cachePath) {
+        if (file_exists($cachePath)) {
+            @unlink($cachePath);
+        }
+    }
+
+    File::deleteDirectory(base_path('bootstrap/cache/capell-runtime'));
+});
+
+it('capell:package-cache:clear without --only-clear rebuilds immediately, never leaving the cache missing', function (): void {
+    $packageCachePath = base_path('bootstrap/cache/capell-package-manifests.php');
+    $themeCachePath = base_path('bootstrap/cache/capell-theme-chain.php');
+    $localAppThemeCachePath = base_path('bootstrap/cache/capell-local-app-themes.php');
+    $runtimeCachePath = base_path('bootstrap/cache/capell-runtime');
+
+    file_put_contents($packageCachePath, '<?php return [];');
+    file_put_contents($themeCachePath, '<?php return [];');
+    file_put_contents($localAppThemeCachePath, '<?php return [];');
+    File::ensureDirectoryExists($runtimeCachePath . '/public');
+    file_put_contents($runtimeCachePath . '/public/services.php', '<?php return [];');
+
+    expect(Artisan::call('capell:package-cache:clear'))->toBe(0);
+
+    // Not the stale placeholder content written above — the real rebuild ran.
+    expect(file_exists($packageCachePath))->toBeTrue()
+        ->and(file_get_contents($packageCachePath))->not->toBe('<?php return [];')
+        ->and(file_exists($themeCachePath))->toBeTrue()
+        ->and(file_exists($localAppThemeCachePath))->toBeTrue();
+})->afterEach(function (): void {
+    foreach ([
+        base_path('bootstrap/cache/capell-package-manifests.php'),
+        base_path('bootstrap/cache/capell-theme-chain.php'),
+        base_path('bootstrap/cache/capell-local-app-themes.php'),
+    ] as $cachePath) {
+        if (file_exists($cachePath)) {
+            @unlink($cachePath);
+        }
+    }
+
+    File::deleteDirectory(base_path('bootstrap/cache/capell-runtime'));
 });
 
 it('capell:package-cache:clear succeeds when cache files are already absent', function (): void {

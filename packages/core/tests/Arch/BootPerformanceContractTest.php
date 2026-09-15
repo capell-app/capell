@@ -9,6 +9,8 @@ use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\Manifest\ManifestValidator;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 
 it('keeps first-party wildcard model listeners to the documented bounded set', function (): void {
@@ -101,6 +103,35 @@ it('fails once when a production web request cannot remove an invalid manifest c
             ->toThrow(RuntimeException::class, 'Run [php artisan capell:package-cache] during deployment.');
     } finally {
         rmdir($cachePath);
+    }
+});
+
+it('never leaves a production web request unable to boot after capell:package-cache:clear', function (): void {
+    // Regression for the 2026-09-15 incident: running `capell:package-cache:clear`
+    // standalone against production left the manifest cache missing, and the next
+    // web request 500'd (canDiscoverOnDemand() is false in production) until someone
+    // manually reran the rebuild command. The command now rebuilds by default.
+    Artisan::call('capell:package-cache');
+    $cachePath = base_path('bootstrap/cache/capell-package-manifests.php');
+
+    try {
+        expect(Artisan::call('capell:package-cache:clear'))->toBe(0)
+            ->and(file_exists($cachePath))->toBeTrue();
+
+        $bootstrapper = bootstrapperForWebRequest($cachePath, isProduction: true);
+
+        expect(fn () => $bootstrapper->bootstrap())->not->toThrow(Throwable::class);
+    } finally {
+        File::deleteDirectory(base_path('bootstrap/cache/capell-runtime'));
+        foreach ([
+            $cachePath,
+            base_path('bootstrap/cache/capell-theme-chain.php'),
+            base_path('bootstrap/cache/capell-local-app-themes.php'),
+        ] as $path) {
+            if (file_exists($path)) {
+                @unlink($path);
+            }
+        }
     }
 });
 
