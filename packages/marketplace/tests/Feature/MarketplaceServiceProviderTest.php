@@ -14,6 +14,7 @@ use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
 use Capell\Marketplace\Filament\Extenders\MarketplaceExtensionsPageExtender;
 use Capell\Marketplace\Filament\Extenders\ThemeMarketplaceHeaderActionExtender;
@@ -22,10 +23,12 @@ use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Pages\MarketplacePurchasesPage;
 use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
+use Capell\Marketplace\Filament\Settings\MarketplaceSettingsSchema;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Widgets\MarketplaceCommercialWarningFilamentWidget;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
+use Capell\Marketplace\Settings\MarketplaceSettings;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
@@ -61,6 +64,17 @@ it('registers marketplace pages in the admin surface', function (): void {
         ->and(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main))
         ->toContain(MarketplaceCommercialWarningFilamentWidget::class)
         ->toContain(MarketplacePackageOperationsAlertFilamentWidget::class);
+});
+
+it('registers the marketplace owner settings with the admin settings surface', function (): void {
+    $settings = resolve(SettingsSchemaRegistry::class);
+
+    expect($settings->getSettingsClass(MarketplaceSettings::group()))
+        ->toBe(MarketplaceSettings::class)
+        ->and($settings->getSchemas(MarketplaceSettings::group()))
+        ->toContain(MarketplaceSettingsSchema::class)
+        ->and($settings->getMetadata(MarketplaceSettings::group())?->packageName)
+        ->toBe(MarketplaceServiceProvider::$packageName);
 });
 
 it('registers and boots the marketplace admin bridge once', function (): void {

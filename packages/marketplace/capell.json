@@ -32,7 +32,7 @@
     "contributes": [],
     "database": {
         "migrations": true,
-        "settings": false,
+        "settings": true,
         "requiredTables": []
     },
     "commands": {
@@ -41,7 +41,7 @@
         "demo": null,
         "doctor": "capell:marketplace:doctor"
     },
-    "settings": [],
+    "settings": ["Capell\\Marketplace\\Settings\\MarketplaceSettings"],
     "permissions": ["View:ExtensionsPage", "View:MarketplacePage"],
     "capabilities": [
         "marketplace-browsing",

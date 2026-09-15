@@ -8,8 +8,10 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Marketplace\Actions\PhoneHomeAction;
 use Capell\Marketplace\Actions\RunMarketplaceHeartbeatAction;
+use Capell\Marketplace\Actions\UpdateMarketplaceSettingsAction;
 use Capell\Marketplace\Data\PhoneHomeResultData;
 use Capell\Marketplace\Models\MarketplaceInstance;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
 it('sends signed installed package telemetry during heartbeat', function (): void {
@@ -102,6 +104,7 @@ it('sends signed installed package telemetry during heartbeat', function (): voi
             && $payload['signature_algorithm'] === 'hmac-sha256'
             && is_string($payload['signature'])
             && str_starts_with($payload['signature'], 'sha256=')
+            && ! array_key_exists('owner_contact', $payload)
             && collect($payload['installed'])->contains(
                 fn (array $package): bool => $package['name'] === 'capell-app/capell'
                     && $package['version'] === 'dev-main',
@@ -143,6 +146,174 @@ it('sends local heartbeat telemetry without local eligibility context', function
 
     Http::assertSent(fn ($request): bool => $request->url() === 'https://capell.test/api/v1/instances/heartbeat'
             && ! array_key_exists('is_local', $request->data()));
+});
+
+it('sends the owner contact and every notification choice when an email is provided', function (): void {
+    config([
+        'app.url' => 'https://example.test',
+        'capell-marketplace.marketplace.base_url' => 'https://capell.test/api/v1',
+        'capell-marketplace.marketplace.webhook_url' => 'https://example.test/capell/marketplace/webhook',
+    ]);
+
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000001',
+        'signing_secret_encrypted' => 'test-signing-secret',
+        'last_heartbeat_at' => now(),
+    ]);
+
+    UpdateMarketplaceSettingsAction::run([
+        'owner_name' => 'Ben Capell',
+        'owner_email' => 'owner@example.test',
+        'owner_organisation' => 'Capell Ltd',
+        'security_notifications_enabled' => true,
+        'bug_notifications_enabled' => true,
+        'marketing_notifications_enabled' => true,
+    ]);
+
+    Http::fake([
+        'https://capell.test/api/v1/instances/heartbeat' => Http::response([
+            'data' => [
+                'instance_id' => '00000000-0000-4000-8000-000000000001',
+                'updates' => [],
+                'advisories' => [],
+            ],
+        ]),
+    ]);
+
+    expect(RunMarketplaceHeartbeatAction::run()->successful)->toBeTrue();
+
+    Http::assertSent(function ($request): bool {
+        $payload = $request->data();
+
+        return $payload['owner_contact'] === [
+            'email' => 'owner@example.test',
+            'name' => 'Ben Capell',
+            'organisation' => 'Capell Ltd',
+            'security_notifications_enabled' => true,
+            'bug_notifications_enabled' => true,
+            'marketing_notifications_enabled' => true,
+        ];
+    });
+});
+
+it('never defaults any notification choice to true when only an owner email is provided', function (): void {
+    config([
+        'app.url' => 'https://example.test',
+        'capell-marketplace.marketplace.base_url' => 'https://capell.test/api/v1',
+        'capell-marketplace.marketplace.webhook_url' => 'https://example.test/capell/marketplace/webhook',
+    ]);
+
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000001',
+        'signing_secret_encrypted' => 'test-signing-secret',
+        'last_heartbeat_at' => now(),
+    ]);
+
+    UpdateMarketplaceSettingsAction::run(['owner_email' => 'owner@example.test']);
+
+    Http::fake([
+        'https://capell.test/api/v1/instances/heartbeat' => Http::response([
+            'data' => [
+                'instance_id' => '00000000-0000-4000-8000-000000000001',
+                'updates' => [],
+                'advisories' => [],
+            ],
+        ]),
+    ]);
+
+    expect(RunMarketplaceHeartbeatAction::run()->successful)->toBeTrue();
+
+    Http::assertSent(fn ($request): bool => $request->data()['owner_contact'] === [
+        'email' => 'owner@example.test',
+        'name' => null,
+        'organisation' => null,
+        'security_notifications_enabled' => false,
+        'bug_notifications_enabled' => false,
+        'marketing_notifications_enabled' => false,
+    ]);
+});
+
+it('omits owner contact when notification choices exist without an owner email', function (): void {
+    config([
+        'app.url' => 'https://example.test',
+        'capell-marketplace.marketplace.base_url' => 'https://capell.test/api/v1',
+        'capell-marketplace.marketplace.webhook_url' => 'https://example.test/capell/marketplace/webhook',
+    ]);
+
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000001',
+        'signing_secret_encrypted' => 'test-signing-secret',
+        'last_heartbeat_at' => now(),
+    ]);
+
+    UpdateMarketplaceSettingsAction::run([
+        'owner_name' => 'Ben Capell',
+        'marketing_notifications_enabled' => true,
+    ]);
+
+    Http::fake([
+        'https://capell.test/api/v1/instances/heartbeat' => Http::response([
+            'data' => [
+                'instance_id' => '00000000-0000-4000-8000-000000000001',
+                'updates' => [],
+                'advisories' => [],
+            ],
+        ]),
+    ]);
+
+    expect(RunMarketplaceHeartbeatAction::run()->successful)->toBeTrue();
+
+    Http::assertSent(fn ($request): bool => ! array_key_exists('owner_contact', $request->data()));
+});
+
+it('transmits an explicitly unchecked marketing preference after it was enabled', function (): void {
+    config([
+        'app.url' => 'https://example.test',
+        'capell-marketplace.marketplace.base_url' => 'https://capell.test/api/v1',
+        'capell-marketplace.marketplace.webhook_url' => 'https://example.test/capell/marketplace/webhook',
+    ]);
+
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000001',
+        'signing_secret_encrypted' => 'test-signing-secret',
+        'last_heartbeat_at' => now(),
+    ]);
+
+    UpdateMarketplaceSettingsAction::run([
+        'owner_email' => 'owner@example.test',
+        'marketing_notifications_enabled' => true,
+    ]);
+
+    Http::fake([
+        'https://capell.test/api/v1/instances/heartbeat' => Http::response([
+            'data' => [
+                'instance_id' => '00000000-0000-4000-8000-000000000001',
+                'updates' => [],
+                'advisories' => [],
+            ],
+        ]),
+    ]);
+
+    expect(RunMarketplaceHeartbeatAction::run()->successful)->toBeTrue();
+
+    UpdateMarketplaceSettingsAction::run([
+        'owner_email' => 'owner@example.test',
+        'marketing_notifications_enabled' => false,
+    ]);
+
+    expect(RunMarketplaceHeartbeatAction::run()->successful)->toBeTrue();
+
+    $requests = Http::recorded();
+
+    expect($requests)->toHaveCount(2);
+
+    assert(is_array($requests[0] ?? null));
+    assert(is_array($requests[1] ?? null));
+    assert($requests[0][0] instanceof Request);
+    assert($requests[1][0] instanceof Request);
+
+    expect($requests[0][0]->data()['owner_contact']['marketing_notifications_enabled'])->toBeTrue()
+        ->and($requests[1][0]->data()['owner_contact']['marketing_notifications_enabled'])->toBeFalse();
 });
 
 it('reports a clear heartbeat failure when the marketplace webhook URL is not configured', function (): void {
