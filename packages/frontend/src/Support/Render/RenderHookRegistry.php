@@ -593,6 +593,7 @@ class RenderHookRegistry
             contributionClass: is_object($entry->extension) ? $entry->extension::class : null,
             elapsedMilliseconds: (microtime(true) - $startedAt) * 1000,
             cacheSafe: $entry->cacheSafe,
+            renderedOutput: is_string($result) ? $result : null,
         );
 
         return $result;
