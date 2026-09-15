@@ -22,6 +22,7 @@ use Capell\Marketplace\Contracts\MarketplaceSelectionRecordProvider;
 use Capell\Marketplace\Filament\Livewire\MarketplaceExtensionsBrowser;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Jobs\RecordMarketplaceWorkerHeartbeatJob;
+use Capell\Marketplace\Settings\MarketplaceSettings;
 use Capell\Marketplace\Support\ArtisanMarketplaceRuntimeRefresher;
 use Capell\Marketplace\Support\ComposerInstalledPackageVersionResolver;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
@@ -105,6 +106,13 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
                 fn (): callable => VerifyMarketplaceSignedActivationAction::run(...),
             );
         }
+    }
+
+    /** @return class-string */
+    #[Override]
+    protected function packageSettingClass(): string
+    {
+        return MarketplaceSettings::class;
     }
 
     #[Override]
