@@ -67,6 +67,8 @@ function isPublicSafeCapellAttribute(string $attribute): bool
         'data-capell-cookie',
         'data-capell-origin-cookie',
         'data-capell-page-language',
+        'data-capell-agent-schema',
+        'data-capell-agent-tools',
         'data-capell-stylesheet-recovery',
         'data-capell-stylesheet-fallback',
         'data-capell-stylesheet-recovery-runtime',
