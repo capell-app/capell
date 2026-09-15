@@ -106,10 +106,17 @@
             "colorSchemes": ["light"],
             "required": false,
             "capture": {
-                "fullPage": true
+                "fullPage": false
             },
             "notes": "Top-level docs copy of the package-owned Marketplace docs/access screenshot.",
-            "sameCaptureAs": "docs-marketplace-extension-detail-overview"
+            "sameCaptureAs": "marketplace-extension-detail-docs-and-access",
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": "[data-capell-marketplace-extension-access]",
+                    "block": "start"
+                }
+            ]
         },
         {
             "id": "admin-sites-list",

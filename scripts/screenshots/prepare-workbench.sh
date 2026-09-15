@@ -6,7 +6,7 @@ REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP_URL="${CAPELL_FRONTEND_URL:-http://127.0.0.1:8145}"
 # The runner's isolated origin is rendered into the page URL badge and slug
 # field. Direct marketing-App origins are not accepted screenshot evidence.
-DISPLAY_URL="${CAPELL_SCREENSHOT_DISPLAY_ORIGIN:-http://127.0.0.1:8145}"
+DISPLAY_URL="${CAPELL_SCREENSHOT_DISPLAY_ORIGIN:-https://capell.example}"
 DATABASE_PATH="${REPOSITORY_ROOT}/workbench/database/screenshots.sqlite"
 
 cd "${REPOSITORY_ROOT}"
@@ -57,6 +57,8 @@ touch "${DATABASE_PATH}"
 
 export PHPRC="${REPOSITORY_ROOT}/workbench/php"
 export APP_URL
+export APP_ENV=production
+export APP_DEBUG=false
 export CAPELL_SCREENSHOT_DISPLAY_ORIGIN="${DISPLAY_URL}"
 export APP_KEY='base64:/MjiNkPfjAngJBfuMDsnFBxDynZGOKk3O6P0u0MhvJE='
 export DB_CONNECTION=sqlite
@@ -65,6 +67,7 @@ export CACHE_STORE=array
 export SESSION_DRIVER=array
 export QUEUE_CONNECTION=sync
 export DEBUGBAR_ENABLED=false
+export BLAZE_DEBUG=false
 export CAPELL_FRONTEND_PUBLIC_VIEW_QUERY_GUARD_ENABLED=false
 export CAPELL_MARKETPLACE_URL="${APP_URL}/api/v1"
 export CAPELL_MARKETPLACE_WEB_URL="${APP_URL}"
