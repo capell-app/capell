@@ -31,7 +31,10 @@ final class RecordExtensionRenderContributionAction
         bool $cacheable,
         bool $sensitiveOutput,
         array $variesBy,
+        ?string $renderedOutput = null,
     ): ExtensionRenderContributionData {
+        $emptyOutput = $renderedOutput !== null && trim($renderedOutput) === '';
+
         $record = new ExtensionRenderContributionData(
             packageName: $packageName,
             surface: $surface,
@@ -40,8 +43,8 @@ final class RecordExtensionRenderContributionAction
             elapsedMilliseconds: round($elapsedMilliseconds, 3),
             frontendRenderBudgetMs: $frontendRenderBudgetMs,
             cacheTags: $cacheTags,
-            cacheable: $cacheable,
-            sensitiveOutput: $sensitiveOutput,
+            cacheable: $emptyOutput || $cacheable,
+            sensitiveOutput: ! $emptyOutput && $sensitiveOutput,
             variesBy: $variesBy,
             budgetExceeded: $frontendRenderBudgetMs > 0 && $elapsedMilliseconds > $frontendRenderBudgetMs,
         );
