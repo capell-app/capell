@@ -151,6 +151,34 @@ it('reports paired runtime role p50 and p75 regression state', function (): void
     ]);
 });
 
+it('keeps optimization and boot samples inside the benchmark workspace despite inherited cache paths', function (): void {
+    $workspace = BootBenchmarkWorkspace::create(dirname(__DIR__, 2), 'public');
+    $directory = sys_get_temp_dir() . '/capell-benchmark-parent-' . bin2hex(random_bytes(6));
+    $files = new Filesystem;
+    $files->mkdir($directory);
+
+    $originalEnvironment = $_ENV;
+
+    foreach (['CONFIG', 'PACKAGES', 'SERVICES', 'ROUTES', 'EVENTS'] as $cache) {
+        $_ENV['APP_' . $cache . '_CACHE'] = $directory . '/' . strtolower($cache) . '.php';
+    }
+
+    try {
+        $workspace->prepareCache('optimized');
+        $sample = $workspace->process(false)->mustRun();
+        $result = json_decode($sample->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+
+        expect(is_file($workspace->path . '/laravel/bootstrap/cache/capell-runtime/public/config.php'))->toBeTrue()
+            ->and($result['framework_ms'])->toBeGreaterThan(0)
+            ->and($result['providers_ms'])->not->toHaveKey(AdminServiceProvider::class)
+            ->and(glob($directory . '/*.php'))->toBe([]);
+    } finally {
+        $_ENV = $originalEnvironment;
+        $workspace->remove();
+        $files->remove($directory);
+    }
+});
+
 it('rejects incomplete paired runtime role statistics', function (): void {
     RuntimeRoleBenchmarkComparison::summarize(
         ['statistics_ms' => ['p50' => 20.0]],

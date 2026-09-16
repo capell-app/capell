@@ -99,6 +99,33 @@ it('restores Spatie settings defaults when a cached runtime-role config omits th
         ->and($config->get('settings.repositories'))->toBeArray();
 });
 
+it('does not inherit the calling applications config cache when listing commands', function (): void {
+    $directory = sys_get_temp_dir() . '/capell-command-parent-' . bin2hex(random_bytes(6));
+    $files = new Filesystem;
+    $files->dumpFile($directory . '/config.php', '<?php declare(strict_types=1); return [];');
+
+    try {
+        $process = new Process([
+            PHP_BINARY,
+            'scripts/run-testbench-command.php',
+            'list',
+            '--format=json',
+        ], dirname(__DIR__, 2), [
+            'APP_CONFIG_CACHE' => $directory . '/config.php',
+            'CAPELL_TESTBENCH_RUNTIME_ROLE' => 'true',
+        ]);
+        $process->setTimeout(120);
+        $process->mustRun();
+
+        $registry = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+
+        expect(array_column($registry['commands'], 'name'))->toContain('filament:install')
+            ->and(file_get_contents($directory . '/config.php'))->toBe('<?php declare(strict_types=1); return [];');
+    } finally {
+        $files->remove($directory);
+    }
+});
+
 it('keeps the screenshot runtime-role helper as an explicit compatibility wrapper', function (): void {
     $wrapper = (string) file_get_contents(dirname(__DIR__, 2) . '/scripts/screenshots/configure-testbench-runtime-role.php');
 
