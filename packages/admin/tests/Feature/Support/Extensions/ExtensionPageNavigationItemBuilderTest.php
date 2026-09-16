@@ -14,6 +14,8 @@ use Capell\Admin\Tests\Feature\Support\Extensions\Fixtures\BuilderPlainExtension
 use Capell\Admin\Tests\Feature\Support\Extensions\Fixtures\BuilderUnregisteredExtensionPage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Navigation\NavigationGroup;
+use Illuminate\Contracts\Support\Arrayable;
 use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
@@ -40,12 +42,20 @@ it('builds grouped extension page navigation and settings surface siblings', fun
 
     $builder = new ExtensionPageNavigationItemBuilder;
     $groups = $builder->groupedItems();
-    $items = $builder->items();
     $siblings = $builder->siblingItemsForPage(BuilderExampleExtensionPage::class);
+    $contentToolsGroup = collect($groups)
+        ->first(fn (NavigationGroup $group): bool => filamentText($group->getLabel()) === 'Content tools');
 
-    expect($groups)->toHaveCount(1)
-        ->and(filamentText($groups[0]->getLabel()))->toBe('Content tools')
-        ->and(extensionNavigationBuilderLabels($items))->toBe([
+    expect($contentToolsGroup)->toBeInstanceOf(NavigationGroup::class);
+    assert($contentToolsGroup instanceof NavigationGroup);
+
+    $contentToolsItems = $contentToolsGroup->getItems();
+    $contentToolsItems = $contentToolsItems instanceof Arrayable
+        ? $contentToolsItems->toArray()
+        : $contentToolsItems;
+    /** @var list<object> $contentToolsItems */
+    expect(filamentText($contentToolsGroup->getLabel()))->toBe('Content tools')
+        ->and(extensionNavigationBuilderLabels($contentToolsItems))->toBe([
             BuilderExampleExtensionPage::getNavigationLabel(),
             BuilderPlainExtensionPage::getNavigationLabel(),
             'Builder package settings',

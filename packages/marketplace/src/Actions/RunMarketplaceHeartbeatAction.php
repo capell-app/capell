@@ -84,6 +84,12 @@ class RunMarketplaceHeartbeatAction
                 'installed' => $installed,
             ];
 
+            $ownerContact = BuildMarketplaceOwnerContactPayloadAction::run();
+
+            if ($ownerContact !== []) {
+                $payload['owner_contact'] = $ownerContact;
+            }
+
             $signingSecret = $marketplaceInstance?->signing_secret_encrypted ?? config('capell-marketplace.marketplace.webhook_secret');
             if (is_string($signingSecret) && $signingSecret !== '') {
                 $payload = $this->signer->signedPayload($payload, $signingSecret);

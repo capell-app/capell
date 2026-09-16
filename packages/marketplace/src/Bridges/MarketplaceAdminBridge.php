@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Bridges;
 
 use Capell\Admin\Data\Bridges\AdminBridgeContextData;
+use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Support\Bridges\AbstractAdminBridge;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistrar;
+use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Marketplace\Filament\Actions\ConnectMarketplaceAccountAction;
 use Capell\Marketplace\Filament\Actions\CreateMarketplaceAccountAction;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
@@ -21,12 +23,16 @@ use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Filament\Pages\MarketplacePurchasesPage;
 use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
+use Capell\Marketplace\Filament\Settings\MarketplaceSettingsSchema;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Widgets\MarketplaceCommercialWarningFilamentWidget;
 use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamentWidget;
+use Capell\Marketplace\Providers\MarketplaceServiceProvider;
+use Capell\Marketplace\Settings\MarketplaceSettings;
 use Capell\Marketplace\Support\MarketplaceExtensionRemovalCoordinator;
 use Capell\Marketplace\Support\PendingMarketplaceThemeInstallProvider;
 use Filament\Actions\Action;
+use Filament\Support\Icons\Heroicon;
 use Override;
 
 final class MarketplaceAdminBridge extends AbstractAdminBridge
@@ -39,6 +45,23 @@ final class MarketplaceAdminBridge extends AbstractAdminBridge
 
     public function register(AdminBridgeRegistrar $registrar, AdminBridgeContextData $context): void
     {
+        $registrar->settingsClass(MarketplaceSettings::group(), MarketplaceSettings::class);
+        $registrar->settingsMetadata(new SettingsGroupMetadata(
+            group: MarketplaceSettings::group(),
+            label: 'capell-marketplace::settings.title',
+            icon: Heroicon::OutlinedCog6Tooth,
+            navigationGroup: 'capell-admin::navigation.group_system',
+            navigationSort: 93,
+            packageName: MarketplaceServiceProvider::$packageName,
+        ));
+        $registrar->settingsSchema(MarketplaceSettings::group(), MarketplaceSettingsSchema::class);
+        $registrar->extensionManagementSurface(ExtensionManagementSurfaceData::settings(
+            packageName: MarketplaceServiceProvider::$packageName,
+            label: 'capell-marketplace::settings.title',
+            settingsGroup: MarketplaceSettings::group(),
+            icon: Heroicon::OutlinedCog6Tooth,
+        ));
+
         $registrar->page(MarketplacePage::class);
         $registrar->page(MarketplaceExtensionDetailPage::class);
         $registrar->page(MarketplacePackageOperationsPage::class);
