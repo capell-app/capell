@@ -121,7 +121,7 @@ final class RecordingDoctorProcessFactory implements ProcessFactoryInterface
     /** @var list<list<string>|string> */
     public array $commands = [];
 
-    /** @var list<array<string, string>> */
+    /** @var list<array<string, string|false>> */
     public array $environments = [];
 
     public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process

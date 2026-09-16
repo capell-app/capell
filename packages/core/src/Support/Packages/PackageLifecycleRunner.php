@@ -116,10 +116,7 @@ final class PackageLifecycleRunner
         }
 
         $processCommand = $this->freshProcessCommand($command, $arguments);
-        $environment = ArtisanProcessEnvironment::prepare();
-        $process = $environment === null
-            ? $this->processFactory->make($processCommand, base_path())
-            : $this->processFactory->make($processCommand, base_path(), $environment);
+        $process = $this->processFactory->make($processCommand, base_path(), ArtisanProcessEnvironment::prepare());
         $process->setTimeout(null);
 
         $output = '';
@@ -184,10 +181,7 @@ final class PackageLifecycleRunner
     private function commandMissingFromFreshProcess(string $command): bool
     {
         $probeCommand = [...new RuntimeBinaryResolver()->php(), base_path('artisan'), 'list', '--raw', '--no-interaction'];
-        $environment = ArtisanProcessEnvironment::prepare();
-        $probeProcess = $environment === null
-            ? $this->processFactory->make($probeCommand, base_path())
-            : $this->processFactory->make($probeCommand, base_path(), $environment);
+        $probeProcess = $this->processFactory->make($probeCommand, base_path(), ArtisanProcessEnvironment::prepare());
         $probeProcess->setTimeout(null);
         $probeProcess->run();
 
