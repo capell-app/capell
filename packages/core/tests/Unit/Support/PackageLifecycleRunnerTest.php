@@ -19,17 +19,25 @@ beforeEach(function (): void {
 });
 
 /**
- * @return array<string, string>|null
+ * @return array<string, string|false>
  */
-function expectedFreshProcessEnvironment(): ?array
+function expectedFreshProcessEnvironment(): array
 {
     $basePath = str_replace('\\', '/', base_path());
     $isTestbenchApplication = str_contains($basePath, 'testbench-skeletons')
         || str_contains($basePath, '/vendor/orchestra/testbench-core/laravel');
 
+    $environment = [
+        'APP_CONFIG_CACHE' => false,
+        'APP_PACKAGES_CACHE' => false,
+        'APP_SERVICES_CACHE' => false,
+        'APP_ROUTES_CACHE' => false,
+        'APP_EVENTS_CACHE' => false,
+    ];
+
     return $isTestbenchApplication
-        ? ['TESTBENCH_WORKING_PATH' => package_path()]
-        : null;
+        ? array_merge($environment, ['TESTBENCH_WORKING_PATH' => package_path()])
+        : $environment;
 }
 
 it('runs lifecycle actions without requiring artisan command registration', function (): void {
