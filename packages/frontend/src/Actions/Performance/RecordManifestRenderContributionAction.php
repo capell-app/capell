@@ -25,6 +25,7 @@ final class RecordManifestRenderContributionAction
         float $elapsedMilliseconds,
         bool $cacheSafe = true,
         ?string $renderedOutput = null,
+        bool $fragment = false,
     ): void {
         $manifest = $this->packageRegistry->get($packageName);
 
@@ -41,6 +42,7 @@ final class RecordManifestRenderContributionAction
                 sensitiveOutput: true,
                 variesBy: [],
                 renderedOutput: $renderedOutput,
+                fragment: $fragment,
             );
 
             return;
@@ -58,6 +60,7 @@ final class RecordManifestRenderContributionAction
             sensitiveOutput: $manifest->performance->cacheSafety->sensitiveOutput,
             variesBy: $manifest->performance->cacheSafety->variesBy,
             renderedOutput: $renderedOutput,
+            fragment: $fragment,
         );
     }
 }

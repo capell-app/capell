@@ -11,12 +11,16 @@ use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\MainContentRenderHookData;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
+use Capell\Frontend\Data\RenderHookFragmentCacheData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
+use Capell\Frontend\Events\RenderHookFragmentPreparing;
 use Capell\Frontend\Support\Render\FrontendHookRegistrar;
+use Capell\Frontend\Support\Render\RenderHookFragmentRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
 
@@ -423,4 +427,128 @@ it('supports explicit replacement and frozen render hooks', function (): void {
         $registry->contribute(RenderHookContributionData::inlineBlade(RenderHookLocation::Footer, '<span>late</span>', 'vendor/b', 'late'));
     })
         ->toThrow(LogicException::class, 'frozen');
+});
+
+it('captures marked contributions as transient tokens and prepares a marker-free cache shell', function (): void {
+    $fragments = new RenderHookFragmentRegistry;
+    app()->instance(RenderHookFragmentRegistry::class, $fragments);
+    $registry = new RenderHookRegistry;
+
+    $registry->contribute(RenderHookContributionData::inlineBlade(
+        location: RenderHookLocation::Footer,
+        blade: '<aside>visitor-specific</aside>',
+        owner: 'vendor/example',
+        key: 'visitor-fragment',
+        fragment: true,
+    ));
+
+    $fragments->beginCapture();
+    $captured = '<main>shell</main>' . $registry->renderAll(RenderHookLocation::Footer);
+    $fragments->endCapture();
+
+    expect($captured)->toContain('CAPELL_FRAGMENT_')
+        ->and($fragments->references())->toHaveCount(1);
+
+    $cache = $fragments->prepareCache($captured, static fn (string $html): string => $html);
+
+    expect($cache)->toBeInstanceOf(RenderHookFragmentCacheData::class)
+        ->and($cache->shell)->toBe('<main>shell</main>')
+        ->and($cache->fragments)->toHaveCount(1)
+        ->and($cache->metadata()['shellSha256'])->toBe(hash('sha256', $cache->shell));
+
+    $rendered = $fragments->renderCached(
+        RenderHookFragmentCacheData::fromMetadata($cache->shell, $cache->metadata()),
+        $registry,
+        static fn (): string => '',
+    );
+
+    expect($rendered)->toBe('<main>shell</main><aside>visitor-specific</aside>');
+});
+
+it('dispatches the fragment preparation event only while rehydrating a cached region', function (): void {
+    Event::fake([RenderHookFragmentPreparing::class]);
+    $fragments = new RenderHookFragmentRegistry;
+    app()->instance(RenderHookFragmentRegistry::class, $fragments);
+    $registry = new RenderHookRegistry;
+
+    $registry->contribute(RenderHookContributionData::inlineBlade(
+        location: RenderHookLocation::Footer,
+        blade: '<aside>visitor-specific</aside>',
+        owner: 'vendor/example',
+        key: 'visitor-fragment',
+        fragment: true,
+    ));
+
+    $fragments->beginCapture();
+    $captured = $registry->renderAll(RenderHookLocation::Footer);
+    $fragments->endCapture();
+    $cache = $fragments->prepareCache($captured, static fn (string $html): string => $html);
+
+    $fragments->renderLive($captured, $registry, static fn (): string => '');
+    Event::assertNothingDispatched();
+
+    $fragments->renderCached($cache, $registry, static fn (): string => '');
+    Event::assertDispatched(RenderHookFragmentPreparing::class);
+});
+
+it('re-renders captured fragments and falls back safely when a fragment throws', function (): void {
+    $fragments = new RenderHookFragmentRegistry;
+    app()->instance(RenderHookFragmentRegistry::class, $fragments);
+    $registry = new RenderHookRegistry;
+
+    $registry->contribute(RenderHookContributionData::extension(
+        location: RenderHookLocation::Footer,
+        extension: new class implements RenderHookExtensionInterface
+        {
+            public function render(RenderHookContext $context): string
+            {
+                throw new RuntimeException('fragment failed');
+            }
+        },
+        owner: 'vendor/example',
+        key: 'failing-fragment',
+        fragment: true,
+    ));
+
+    $fragments->beginCapture();
+    $captured = $registry->renderAll(RenderHookLocation::Footer);
+    $fragments->endCapture();
+
+    $rendered = $fragments->renderLive(
+        $captured,
+        $registry,
+        static fn (): string => '<!-- fragment unavailable -->',
+    );
+
+    expect($rendered)
+        ->toBe('<!-- fragment unavailable -->')
+        ->not->toContain('CAPELL_FRAGMENT_');
+    expect($fragments->hasFailures())->toBeTrue();
+});
+
+it('leaves ordinary contributions on the existing render path while capturing fragments', function (): void {
+    $fragments = new RenderHookFragmentRegistry;
+    app()->instance(RenderHookFragmentRegistry::class, $fragments);
+    $registry = new RenderHookRegistry;
+
+    $registry->contribute(RenderHookContributionData::inlineBlade(
+        location: RenderHookLocation::Footer,
+        blade: '<span>ordinary</span>',
+        owner: 'vendor/example',
+        key: 'ordinary',
+    ));
+    $registry->contribute(RenderHookContributionData::inlineBlade(
+        location: RenderHookLocation::Footer,
+        blade: '<span>fragment</span>',
+        owner: 'vendor/example',
+        key: 'fragment',
+        fragment: true,
+    ));
+
+    $fragments->beginCapture();
+    $captured = $registry->renderAll(RenderHookLocation::Footer);
+    $fragments->endCapture();
+
+    expect($captured)->toStartWith('<span>ordinary</span>')
+        ->and($fragments->references())->toHaveCount(1);
 });

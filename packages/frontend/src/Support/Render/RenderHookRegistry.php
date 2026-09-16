@@ -16,12 +16,15 @@ use Capell\Frontend\Contracts\RenderHookExtensionInterface;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Data\RenderHookContributionData;
 use Capell\Frontend\Data\RenderHookEntryData;
+use Capell\Frontend\Data\RenderHookFragmentReferenceData;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderHookRegistrationType;
+use Capell\Frontend\Events\RenderHookFragmentPreparing;
 use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
 use LogicException;
 use ReflectionFunction;
 use UnitEnum;
@@ -160,6 +163,7 @@ class RenderHookRegistry
                 && $existing->scenario === $contribution->scenario
                 && $existing->target === $contribution->target
                 && $existing->cacheSafe === $contribution->cacheSafe
+                && $existing->fragment === $contribution->fragment
                 && $this->positionKey($existing->position) === $this->positionKey($contribution->position)) {
                 return;
             }
@@ -192,7 +196,7 @@ class RenderHookRegistry
     /**
      * Diagnostics metadata for every keyed contribution, grouped by location.
      *
-     * @return array<string, list<array{owner: string|null, key: string|null, priority: int, scenario: string|null, target: string|null, cacheSafe: bool, registrationType: string}>>
+     * @return array<string, list<array{owner: string|null, key: string|null, priority: int, scenario: string|null, target: string|null, cacheSafe: bool, fragment: bool, registrationType: string}>>
      */
     public function contributions(): array
     {
@@ -214,7 +218,7 @@ class RenderHookRegistry
     /**
      * Diagnostics metadata for all registered hooks, including unkeyed legacy registrations.
      *
-     * @return array<string, list<array{owner: string|null, key: string|null, priority: int, scenario: string|null, target: string|null, cacheSafe: bool, registrationType: string}>>
+     * @return array<string, list<array{owner: string|null, key: string|null, priority: int, scenario: string|null, target: string|null, cacheSafe: bool, fragment: bool, registrationType: string}>>
      */
     public function diagnostics(): array
     {
@@ -267,6 +271,35 @@ class RenderHookRegistry
         return $extensions
             ->map(fn (RenderHookEntryData $entry): mixed => $this->renderAndRecordEntry($entry, $context))
             ->implode('');
+    }
+
+    public function renderContribution(RenderHookFragmentReferenceData $reference, bool $rehydrating = false): string
+    {
+        foreach ($this->extensions[$reference->location->value] ?? [] as $entry) {
+            if ($entry->stableKey() !== $reference->stableKey
+                || $entry->scenario !== $reference->scenario
+                || $entry->target !== $reference->target) {
+                continue;
+            }
+
+            if (! $entry->fragment) {
+                throw new LogicException(sprintf('Render hook [%s] is not registered as a page fragment.', $reference->stableKey));
+            }
+
+            if ($rehydrating) {
+                Event::dispatch(new RenderHookFragmentPreparing($reference));
+            }
+
+            $result = $this->renderAndRecordEntry(
+                $entry,
+                new RenderHookContext($reference->location->value, null),
+                allowFragmentCapture: false,
+            );
+
+            return is_string($result) ? $result : (string) $result;
+        }
+
+        throw new LogicException(sprintf('Cannot render missing render hook fragment [%s].', $reference->stableKey));
     }
 
     /**
@@ -578,8 +611,15 @@ class RenderHookRegistry
         return $result;
     }
 
-    private function renderAndRecordEntry(RenderHookEntryData $entry, RenderHookContext $context): mixed
+    private function renderAndRecordEntry(RenderHookEntryData $entry, RenderHookContext $context, bool $allowFragmentCapture = true): mixed
     {
+        if ($allowFragmentCapture && $entry->fragment && app()->bound(RenderHookFragmentRegistry::class)) {
+            $fragments = resolve(RenderHookFragmentRegistry::class);
+            if ($fragments->isCapturing()) {
+                return $fragments->placeholder($entry, $context);
+            }
+        }
+
         $startedAt = microtime(true);
         $result = $this->renderEntry($entry, $context);
 
@@ -594,6 +634,7 @@ class RenderHookRegistry
             elapsedMilliseconds: (microtime(true) - $startedAt) * 1000,
             cacheSafe: $entry->cacheSafe,
             renderedOutput: is_string($result) ? $result : null,
+            fragment: $entry->fragment,
         );
 
         return $result;

@@ -35,6 +35,7 @@ final class RenderHookContributionData
         ?RenderHookRegistrationType $registrationType = null,
         public readonly ?ExtensionPosition $position = null,
         public readonly string $source = self::class,
+        public readonly bool $fragment = false,
     ) {
         $this->registrationType = $registrationType ?? $this->defaultRegistrationType($extension);
     }
@@ -50,6 +51,7 @@ final class RenderHookContributionData
         bool $cacheSafe = true,
         ?ExtensionPosition $position = null,
         string $source = self::class,
+        bool $fragment = false,
     ): self {
         return new self(
             location: $location,
@@ -63,6 +65,7 @@ final class RenderHookContributionData
             registrationType: RenderHookRegistrationType::View,
             position: $position,
             source: $source,
+            fragment: $fragment,
         );
     }
 
@@ -77,6 +80,7 @@ final class RenderHookContributionData
         bool $cacheSafe = true,
         ?ExtensionPosition $position = null,
         string $source = self::class,
+        bool $fragment = false,
     ): self {
         return new self(
             location: $location,
@@ -90,6 +94,7 @@ final class RenderHookContributionData
             registrationType: RenderHookRegistrationType::InlineBlade,
             position: $position,
             source: $source,
+            fragment: $fragment,
         );
     }
 
@@ -104,6 +109,7 @@ final class RenderHookContributionData
         bool $cacheSafe = true,
         ?ExtensionPosition $position = null,
         string $source = self::class,
+        bool $fragment = false,
     ): self {
         return new self(
             location: $location,
@@ -117,6 +123,7 @@ final class RenderHookContributionData
             registrationType: RenderHookRegistrationType::ExtensionClass,
             position: $position,
             source: $source,
+            fragment: $fragment,
         );
     }
 
@@ -129,7 +136,7 @@ final class RenderHookContributionData
     }
 
     /**
-     * @return array{owner: string, key: string, location: string, priority: int, scenario: string|null, target: string|null, cacheSafe: bool, registrationType: string}
+     * @return array{owner: string, key: string, location: string, priority: int, scenario: string|null, target: string|null, cacheSafe: bool, fragment: bool, registrationType: string}
      */
     public function toDiagnostics(): array
     {
@@ -141,6 +148,7 @@ final class RenderHookContributionData
             'scenario' => $this->scenario,
             'target' => $this->target,
             'cacheSafe' => $this->cacheSafe,
+            'fragment' => $this->fragment,
             'registrationType' => $this->registrationType->value,
         ];
     }
