@@ -407,20 +407,11 @@ it('renders safe commercial status when connection details are explicitly availa
         'connection_metadata' => [
             'commercial' => [
                 'purchases' => [[
-                    'name' => 'Capell Membership',
+                    'name' => 'Publishing Studio',
                     'status' => 'active',
                     'access_ends_at' => '2027-07-16T00:00:00+00:00',
                     'protected_updates' => true,
                 ]],
-                'membership_comparison' => [
-                    'name' => 'Capell Membership',
-                    'price_cents' => 19900,
-                    'renewal_price_cents' => 15920,
-                    'currency' => 'GBP',
-                    'included_product_count' => 38,
-                    'named_user_limit' => 5,
-                ],
-                'new_membership_product_count' => 4,
                 'renewal_url' => 'https://capell.test/customer/packages',
                 'support_url' => 'https://capell.test/support/request',
                 'priority_support_price_cents' => 4900,

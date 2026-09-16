@@ -24,10 +24,6 @@ final class BuildMarketplacePurchasesPageDataAction
      *   installed: list<array<string, mixed>>,
      *   renewal_url: string|null,
      *   support_url: string|null,
-     *   membership: array<string, mixed>|null,
-     *   membership_price: string|null,
-     *   membership_renewal_price: string|null,
-     *   new_membership_product_count: int,
      *   priority_support_price: string|null,
      *   expired_explanation: string|null,
      *   currency: string|null
@@ -38,22 +34,13 @@ final class BuildMarketplacePurchasesPageDataAction
         $commercial = resolve(MarketplaceInstanceResolver::class)->latest()?->connection_metadata['commercial'] ?? [];
         $commercial = is_array($commercial) ? $commercial : [];
 
-        $membership = is_array($commercial['membership_comparison'] ?? null)
-            ? $commercial['membership_comparison']
-            : null;
-        $currency = $this->optionalString($commercial['currency'] ?? data_get($membership, 'currency'));
+        $currency = $this->optionalString($commercial['currency'] ?? null);
 
         return [
             'purchases' => $this->purchases($commercial),
             'installed' => $this->installedPaidExtensions(),
             'renewal_url' => $this->optionalString($commercial['renewal_url'] ?? null),
             'support_url' => $this->optionalString($commercial['support_url'] ?? null),
-            'membership' => $membership,
-            'membership_price' => $this->money($membership['price_cents'] ?? null, $currency),
-            'membership_renewal_price' => $this->money($membership['renewal_price_cents'] ?? null, $currency),
-            'new_membership_product_count' => is_numeric($commercial['new_membership_product_count'] ?? null)
-                ? (int) $commercial['new_membership_product_count']
-                : 0,
             'priority_support_price' => $this->money($commercial['priority_support_price_cents'] ?? null, $currency),
             'expired_explanation' => $this->optionalString($commercial['expired_explanation'] ?? null),
             'currency' => $currency,

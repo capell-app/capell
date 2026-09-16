@@ -127,7 +127,6 @@ function marketplaceImpactPayload(array $overrides): array
         'catalogue_role' => 'extension',
         'maturity' => 'stable',
         'maturity_label' => 'Released',
-        'included_with_capell_all' => false,
         ...$overrides,
     ];
 }

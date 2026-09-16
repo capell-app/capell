@@ -20,7 +20,7 @@ Activation-required extensions ask for the server-defined licence key. Raw keys 
 
 ## Updates
 
-An installed extension can expose a one-click update when a compatible release is available. The Extensions dashboard also supports bulk updates, while configured automatic updates use the same queued operation, preflight, health-check, notification, and recovery contracts. Protected updates remain tied to current purchase or membership access.
+An installed extension can expose a one-click update when a compatible release is available. The Extensions dashboard also supports bulk updates, while configured automatic updates use the same queued operation, preflight, health-check, notification, and recovery contracts. Protected updates remain tied to current purchase or package entitlement.
 
 ## Uninstall And Delete
 

@@ -24,10 +24,6 @@ return [
         'free' => 'Free',
     ],
 
-    'capell_all' => [
-        'included' => 'Included with Capell All',
-    ],
-
     'release_status' => [
         'label' => 'Release status',
         'stable' => 'Released',

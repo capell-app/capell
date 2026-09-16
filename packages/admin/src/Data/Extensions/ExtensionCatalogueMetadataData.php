@@ -12,7 +12,6 @@ final class ExtensionCatalogueMetadataData extends Data
         public readonly string $catalogueRole = 'extension',
         public readonly string $maturity = 'labs',
         public readonly string $maturityLabel = 'Labs',
-        public readonly bool $includedWithCapellAll = false,
     ) {}
 
     /** @param array<string, mixed> $payload */
@@ -21,13 +20,10 @@ final class ExtensionCatalogueMetadataData extends Data
         $catalogueRole = $payload['catalogue_role'] ?? null;
         $maturity = $payload['maturity'] ?? null;
         $maturityLabel = $payload['maturity_label'] ?? null;
-        $includedWithCapellAll = $payload['included_with_capell_all'] ?? null;
-
         if (
             ! is_string($catalogueRole)
             || ! is_string($maturity)
             || ! is_string($maturityLabel)
-            || ! is_bool($includedWithCapellAll)
         ) {
             return new self;
         }
@@ -36,18 +32,16 @@ final class ExtensionCatalogueMetadataData extends Data
             catalogueRole: $catalogueRole,
             maturity: $maturity,
             maturityLabel: $maturityLabel,
-            includedWithCapellAll: $includedWithCapellAll,
         )->withSafeFallbacks();
     }
 
-    /** @return array{catalogueRole: string, maturity: string, maturityLabel: string, includedWithCapellAll: bool} */
+    /** @return array{catalogueRole: string, maturity: string, maturityLabel: string} */
     public function toTableRecord(): array
     {
         return [
             'catalogueRole' => $this->catalogueRole,
             'maturity' => $this->maturity,
             'maturityLabel' => $this->maturityLabel,
-            'includedWithCapellAll' => $this->includedWithCapellAll,
         ];
     }
 
@@ -63,7 +57,6 @@ final class ExtensionCatalogueMetadataData extends Data
         if (
             ! in_array($this->catalogueRole, ['core', 'extension'], true)
             || $this->maturityLabel !== $expectedMaturityLabel
-            || ($this->maturity === 'labs' && $this->includedWithCapellAll)
         ) {
             return new self;
         }

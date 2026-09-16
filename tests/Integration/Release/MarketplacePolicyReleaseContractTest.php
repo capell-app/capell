@@ -23,7 +23,7 @@ it('records a fail-closed beta policy decision through the real install entry po
                 'slug' => 'release-beta', 'name' => 'Release Beta', 'composer_name' => 'capell-app/release-beta',
                 'kind' => 'tool', 'description' => 'Release contract fixture.', 'price_cents' => 0,
                 'is_paid' => false, 'latest_version' => '1.0.0-beta.1', 'maturity' => 'beta',
-                'catalogue_role' => 'extension', 'maturity_label' => 'Beta', 'included_with_capell_all' => false,
+                'catalogue_role' => 'extension', 'maturity_label' => 'Beta',
                 'dependencies' => ['requires' => []],
             ],
         ]),

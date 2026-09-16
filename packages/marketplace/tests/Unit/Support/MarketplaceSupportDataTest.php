@@ -79,7 +79,7 @@ it('parses health alerts from heartbeat responses', function (): void {
 
 it('preserves the commercial heartbeat contract only when it is an array', function (): void {
     $commercial = [
-        'purchases' => [['name' => 'Capell Membership', 'status' => 'active']],
+        'purchases' => [['name' => 'Publishing Studio', 'status' => 'active']],
         'renewal_url' => 'https://capell.test/customer/packages',
     ];
 
@@ -146,7 +146,6 @@ it('parses the catalogue release contract for listing and detail payloads', func
         'catalogue_role' => 'core',
         'maturity' => 'stable',
         'maturity_label' => 'Released',
-        'included_with_capell_all' => true,
     ];
 
     $listing = ExtensionListingData::fromApiResponse($payload);
@@ -155,11 +154,9 @@ it('parses the catalogue release contract for listing and detail payloads', func
     expect($listing->catalogueRole)->toBe('core')
         ->and($listing->maturity)->toBe('stable')
         ->and($listing->maturityLabel)->toBe('Released')
-        ->and($listing->includedWithCapellAll)->toBeTrue()
         ->and($detail->catalogueRole)->toBe('core')
         ->and($detail->maturity)->toBe('stable')
-        ->and($detail->maturityLabel)->toBe('Released')
-        ->and($detail->includedWithCapellAll)->toBeTrue();
+        ->and($detail->maturityLabel)->toBe('Released');
 });
 
 it('preserves server-supplied bundle and trial terms for listing and detail rendering', function (): void {
@@ -199,41 +196,20 @@ it('fails closed for missing or unknown catalogue release metadata without readi
     expect($listing->catalogueRole)->toBe('extension')
         ->and($listing->maturity)->toBe('labs')
         ->and($listing->maturityLabel)->toBe('Labs')
-        ->and($listing->includedWithCapellAll)->toBeFalse()
         ->and($detail->catalogueRole)->toBe('extension')
         ->and($detail->maturity)->toBe('labs')
-        ->and($detail->maturityLabel)->toBe('Labs')
-        ->and($detail->includedWithCapellAll)->toBeFalse();
+        ->and($detail->maturityLabel)->toBe('Labs');
 })->with([
     'old server payload' => [[]],
     'unknown community values' => [[
         'catalogue_role' => 'community',
         'maturity' => 'preview',
         'maturity_label' => 'Preview',
-        'included_with_capell_all' => true,
     ]],
     'contradictory maturity label' => [[
         'catalogue_role' => 'core',
         'maturity' => 'beta',
         'maturity_label' => 'Released',
-        'included_with_capell_all' => true,
-    ]],
-    'missing Capell All inclusion flag' => [[
-        'catalogue_role' => 'core',
-        'maturity' => 'stable',
-        'maturity_label' => 'Released',
-    ]],
-    'non boolean Capell All inclusion flag' => [[
-        'catalogue_role' => 'core',
-        'maturity' => 'stable',
-        'maturity_label' => 'Released',
-        'included_with_capell_all' => 'true',
-    ]],
-    'Labs extension marked as included with Capell All' => [[
-        'catalogue_role' => 'extension',
-        'maturity' => 'labs',
-        'maturity_label' => 'Labs',
-        'included_with_capell_all' => true,
     ]],
 ]);
 

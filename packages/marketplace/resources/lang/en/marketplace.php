@@ -81,7 +81,6 @@ return [
         'installed_empty' => 'No paid marketplace extensions are installed on this site.',
         'renew' => 'Manage renewals',
         'support' => 'Get support',
-        'membership_price' => ':price for one year; renews manually at :renewal.',
         'priority_support' => 'Priority support is available for :price per request.',
         'warning' => [
             'heading' => 'Marketplace access needs attention',
@@ -661,10 +660,6 @@ return [
         'connect_account_tooltip' => 'Sign in to Capell and approve this Marketplace connection.',
         'connect_tooltip' => 'Connect a Capell account for Marketplace.',
         'connected' => 'Connected to Capell account',
-        'commercial' => [
-            'membership_heading' => 'Capell Membership',
-            'membership_includes' => ':products products, up to :users named users, with :new products not installed on this site.',
-        ],
         'create_account_button' => 'Create account',
         'create_account_tooltip' => 'Create a Capell account in a new tab.',
         'connection_failed' => 'Marketplace connection failed',

@@ -109,7 +109,6 @@ function marketplaceMaturityPayload(
         'maturity' => $maturity,
         'catalogue_role' => 'extension',
         'maturity_label' => $maturity === 'stable' ? 'Released' : ucfirst($maturity),
-        'included_with_capell_all' => false,
         'dependencies' => ['requires' => $dependencies],
     ];
 }

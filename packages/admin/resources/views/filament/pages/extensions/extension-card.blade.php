@@ -30,7 +30,6 @@
         $certification = $record['effective_certification'] ?? 'community';
         $catalogueRole = $record['catalogue_role'] ?? 'extension';
         $maturity = $record['maturity'] ?? 'labs';
-        $includedWithCapellAll = ($record['included_with_capell_all'] ?? false) === true;
         $healthState = 'ok';
         $blocked = ($record['marketplace_install_state'] ?? null) === 'blocked' || ($record['marketplace_install_state'] ?? null) === 'incompatible';
         $showBlockedTag = false;
@@ -90,7 +89,6 @@
         $certification = $record['certification'] ?? 'community';
         $catalogueRole = $record['catalogueRole'] ?? 'extension';
         $maturity = $record['maturity'] ?? 'labs';
-        $includedWithCapellAll = ($record['includedWithCapellAll'] ?? false) === true;
         $healthState = $record['healthState'] ?? 'ok';
         $blocked = ($record['blocked'] ?? false) === true;
         $showBlockedTag = $blocked;
@@ -263,7 +261,6 @@
     @if ($isMarketplaceRecord && is_string($record['product_bundle'] ?? null))
         data-capell-marketplace-product-bundle="{{ $record['product_bundle'] }}"
     @endif
-    data-included-with-capell-all="{{ $includedWithCapellAll ? 'true' : 'false' }}"
 >
     <figure class="relative h-28 overflow-hidden bg-gray-100 dark:bg-gray-950">
         @if (is_array($managementSurface))
@@ -377,16 +374,6 @@
                 </span>
                 {{ $maturityLabel }}
             </x-filament::badge>
-
-            @if ($includedWithCapellAll)
-                <x-filament::badge
-                    color="primary"
-                    icon="heroicon-m-check"
-                    data-capell-all-included
-                >
-                    {{ __('capell-admin::marketplace.capell_all.included') }}
-                </x-filament::badge>
-            @endif
 
             @if ($showBlockedTag || $updateAvailable || $healthState !== 'ok' || $installInProgress)
                 @if ($installInProgress)

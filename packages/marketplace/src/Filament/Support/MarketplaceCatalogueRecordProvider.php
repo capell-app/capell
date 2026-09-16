@@ -286,7 +286,6 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
                 catalogueRole: $extension->catalogueRole,
                 maturity: $extension->maturity,
                 maturityLabel: $extension->maturityLabel,
-                includedWithCapellAll: $extension->includedWithCapellAll,
             );
         }
 
