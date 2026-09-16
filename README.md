@@ -63,9 +63,9 @@ Then run the application using your normal Laravel development workflow and open
 
 Do not run `filament:install --panels` before requiring Capell: the installer brings in and configures the selected Admin package. See the [Quickstart](docs/getting-started/quickstart.md) for SQLite and queue setup, expected prompts, health checks, and first-run recovery.
 
-### Capell Membership install
+### Paid package install
 
-An active Capell Membership organisation can request a short-lived private Composer command from its Capell account. Run the generated commands in the Laravel application, then use the same Installer flow:
+An organisation with an active paid package entitlement can request a short-lived private Composer command from its Capell account. Run the generated commands in the Laravel application, then use the same Installer flow:
 
 ```bash
 composer config repositories.capell composer https://capell.app/composer
@@ -74,7 +74,7 @@ composer require capell-app/capell
 php artisan capell:install
 ```
 
-`capell-app/capell` is the root aggregate for the aligned Core, Admin, Frontend, Installer, and Marketplace code line. Marketplace then authorises the Membership catalogue for the connected organisation. The token is scoped, expires within 30 minutes, and is redacted from account serialization. Do not paste it into tickets, logs, source control, or shared shell history; request a new command when it expires.
+`capell-app/capell` is the root aggregate for the aligned Core, Admin, Frontend, Installer, and Marketplace code line. Marketplace authorises the connected organisation's entitled protected packages. The token is scoped, expires within 30 minutes, and is redacted from account serialization. Do not paste it into tickets, logs, source control, or shared shell history; request a new command when it expires.
 
 Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 

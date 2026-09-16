@@ -76,7 +76,7 @@ it('sends signed installed package telemetry during heartbeat', function (): voi
                 'updates' => [],
                 'advisories' => [],
                 'commercial' => [
-                    'purchases' => [['name' => 'Capell Membership', 'status' => 'active']],
+                    'purchases' => [['name' => 'Publishing Studio', 'status' => 'active']],
                     'renewal_url' => 'https://capell.test/customer/packages',
                 ],
             ],
@@ -88,7 +88,7 @@ it('sends signed installed package telemetry during heartbeat', function (): voi
     expect(MarketplaceInstance::query()->firstOrFail()->connection_metadata)->toMatchArray([
         'connection_session_id' => 'session-safe',
         'commercial' => [
-            'purchases' => [['name' => 'Capell Membership', 'status' => 'active']],
+            'purchases' => [['name' => 'Publishing Studio', 'status' => 'active']],
             'renewal_url' => 'https://capell.test/customer/packages',
         ],
     ]);

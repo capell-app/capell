@@ -154,56 +154,6 @@ it('renders author and rating information in the marketplace card', function ():
         ]), false);
 });
 
-it('renders released beta and labs badges with Capell All inclusion', function (): void {
-    grantMarketplaceBrowserViewOnlyAccess();
-
-    Http::fake([
-        'https://marketplace.test/api/extensions*' => Http::response([
-            'data' => [
-                marketplaceBrowserExtensionPayload([
-                    'slug' => 'released-suite',
-                    'name' => 'Released Suite',
-                    'composer_name' => 'capell-app/released-suite',
-                    'catalogue_role' => 'extension',
-                    'maturity' => 'stable',
-                    'maturity_label' => 'Released',
-                    'included_with_capell_all' => true,
-                ]),
-                marketplaceBrowserExtensionPayload([
-                    'slug' => 'beta-suite',
-                    'name' => 'Beta Suite',
-                    'composer_name' => 'capell-app/beta-suite',
-                    'catalogue_role' => 'extension',
-                    'maturity' => 'beta',
-                    'maturity_label' => 'Beta',
-                    'included_with_capell_all' => false,
-                ]),
-                marketplaceBrowserExtensionPayload([
-                    'slug' => 'labs-suite',
-                    'name' => 'Labs Suite',
-                    'composer_name' => 'vendor/labs-suite',
-                    'catalogue_role' => 'extension',
-                    'maturity' => 'labs',
-                    'maturity_label' => 'Labs',
-                    'included_with_capell_all' => false,
-                ]),
-            ],
-            'links' => ['next' => null],
-        ]),
-    ]);
-
-    Livewire::test(MarketplaceExtensionsBrowser::class)
-        ->call('loadMarketplaceResults')
-        ->assertSeeHtml('data-release-status="stable"')
-        ->assertSeeHtml('data-release-status="beta"')
-        ->assertSeeHtml('data-release-status="labs"')
-        ->assertSee(__('capell-admin::marketplace.release_status.stable'))
-        ->assertSee(__('capell-admin::marketplace.release_status.beta'))
-        ->assertSee(__('capell-admin::marketplace.release_status.labs'))
-        ->assertSeeHtml('data-capell-all-included')
-        ->assertSee(__('capell-admin::marketplace.capell_all.included'));
-});
-
 it('renders marketplace extension cards with instant selection buttons', function (): void {
     grantMarketplaceBrowserManagementAccess();
 
@@ -427,37 +377,6 @@ it('keeps unavailable card commands from changing selection or queueing work', f
 
     Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
     Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
-});
-
-it('allows Capell Membership extensions into the hosted install review', function (): void {
-    grantMarketplaceBrowserManagementAccess();
-
-    Http::fake([
-        'https://marketplace.test/api/extensions*' => Http::response([
-            'data' => [
-                marketplaceBrowserExtensionPayload([
-                    'slug' => 'filament-peek',
-                    'name' => 'Filament Peek',
-                    'composer_name' => 'capell-app/filament-peek',
-                    'install_state' => 'capell_all_required',
-                    'install_eligibility' => [
-                        'state' => 'capell_all_required',
-                        'can_install' => false,
-                        'reason' => 'capell_all_required',
-                    ],
-                ]),
-            ],
-            'links' => ['next' => null],
-        ]),
-    ]);
-
-    Livewire::test(MarketplaceExtensionsBrowser::class)
-        ->call('loadMarketplaceResults')
-        ->call('toggleMarketplaceSelection', 'capell-app/filament-peek')
-        ->assertSet('selectedMarketplaceComposerNames', ['capell-app/filament-peek'])
-        ->call('showMarketplaceInstallReview')
-        ->assertSet('marketplaceStep', 'review')
-        ->assertSee(__('capell-marketplace::marketplace.selection.premium_notice'));
 });
 
 it('renders the offline licence fallback in an activation-required review', function (): void {
@@ -1344,7 +1263,6 @@ it('redirects account verification required grouped installs through a hosted in
         'catalogue_role' => 'extension',
         'maturity' => 'beta',
         'maturity_label' => 'Beta',
-        'included_with_capell_all' => true,
         'install_eligibility' => [
             'state' => 'blocked',
             'block_reason' => 'email_verification_required',
@@ -1430,7 +1348,6 @@ it('detects transitive beta dependencies in install review', function (): void {
                     'catalogue_role' => 'extension',
                     'maturity' => 'stable',
                     'maturity_label' => 'Released',
-                    'included_with_capell_all' => true,
                     'dependencies' => [
                         'requires' => ['capell-app/migration-assistant'],
                     ],
@@ -1442,7 +1359,6 @@ it('detects transitive beta dependencies in install review', function (): void {
                     'catalogue_role' => 'extension',
                     'maturity' => 'beta',
                     'maturity_label' => 'Beta',
-                    'included_with_capell_all' => true,
                 ]),
             ],
             'links' => ['next' => null],
@@ -1475,7 +1391,6 @@ it('does not show beta acknowledgement for the released Foundation theme', funct
                 'catalogue_role' => 'extension',
                 'maturity' => 'stable',
                 'maturity_label' => 'Released',
-                'included_with_capell_all' => true,
             ])],
             'links' => ['next' => null],
         ]),

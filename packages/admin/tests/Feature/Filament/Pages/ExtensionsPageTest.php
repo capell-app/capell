@@ -443,7 +443,7 @@ it('lists editable extension management entries from registered pages', function
         ->and($extensionRecord['externalUrl'] ?? null)->toBe(MarketplaceAssetUrl::webUrl() . '/extensions/local-extension');
 });
 
-it('renders catalogue release and Capell All metadata on installed extension cards', function (): void {
+it('renders catalogue release metadata on installed extension cards', function (): void {
     grantExtensionsPageAccess();
 
     CapellCore::registerPackage(
@@ -460,7 +460,6 @@ it('renders catalogue release and Capell All metadata on installed extension car
             catalogueRole: 'extension',
             maturity: 'beta',
             maturityLabel: 'Beta',
-            includedWithCapellAll: true,
         ),
     ]);
     app()->instance(FakeExtensionCatalogueMetadataProvider::class, $provider);
@@ -469,10 +468,7 @@ it('renders catalogue release and Capell All metadata on installed extension car
     Livewire::test(InstalledExtensionsFilamentWidget::class)
         ->assertSuccessful()
         ->assertSeeHtml('data-release-status="beta"')
-        ->assertSeeHtml('data-included-with-capell-all="true"')
-        ->assertSeeHtml('data-capell-all-included')
-        ->assertSee(__('capell-admin::marketplace.release_status.beta'))
-        ->assertSee(__('capell-admin::marketplace.capell_all.included'));
+        ->assertSee(__('capell-admin::marketplace.release_status.beta'));
 
     $extensionRecord = collect((new InstalledExtensionsFilamentWidget)->getExtensionsData())
         ->firstWhere('id', 'capell-app/beta-suite');
@@ -481,7 +477,6 @@ it('renders catalogue release and Capell All metadata on installed extension car
         'catalogueRole' => 'extension',
         'maturity' => 'beta',
         'maturityLabel' => 'Beta',
-        'includedWithCapellAll' => true,
     ]);
 });
 

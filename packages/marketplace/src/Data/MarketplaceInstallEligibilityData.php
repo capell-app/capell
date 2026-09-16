@@ -20,7 +20,6 @@ final class MarketplaceInstallEligibilityData extends Data
         'missing_policy',
         'not_connected',
         'account_required',
-        'capell_all_required',
         'purchase_required',
     ];
 
@@ -175,7 +174,7 @@ final class MarketplaceInstallEligibilityData extends Data
                 'needs_purchase', 'purchase' => MarketplaceInstallState::PurchaseRequired,
                 'needs_activation', 'activation' => MarketplaceInstallState::ActivationRequired,
                 'blocked', 'missing_policy', 'public_verification_required', 'domain_verification_required',
-                'account_required', 'capell_all_required', 'email_verification_required', 'entitlement_required',
+                'account_required', 'email_verification_required', 'entitlement_required',
                 'verification_required' => MarketplaceInstallState::Blocked,
                 default => null,
             };

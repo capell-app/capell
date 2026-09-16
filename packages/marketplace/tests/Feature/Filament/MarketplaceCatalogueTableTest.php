@@ -101,7 +101,6 @@ it('builds marketplace table records from filtered marketplace listings', functi
                     'catalogue_role' => 'extension',
                     'maturity' => 'stable',
                     'maturity_label' => 'Released',
-                    'included_with_capell_all' => true,
                     'author_name' => 'Capell Labs',
                     'author_slug' => 'capell-labs',
                     'ratings_summary' => [
@@ -154,7 +153,6 @@ it('builds marketplace table records from filtered marketplace listings', functi
             'catalogue_role' => 'extension',
             'maturity' => 'stable',
             'maturity_label' => 'Released',
-            'included_with_capell_all' => true,
             'description' => 'Audit public pages.',
             'price_cents' => 1200,
             'price_label' => '$12.00',
@@ -1345,7 +1343,6 @@ it('keeps purchase activation free and installed presentation independent of rel
         'catalogue_role' => 'extension',
         'maturity' => 'stable',
         'maturity_label' => 'Released',
-        'included_with_capell_all' => true,
     ];
 
     expect($presenter->state([
@@ -1394,7 +1391,6 @@ it('fails closed when installed extension catalogue metadata is unavailable', fu
             'catalogueRole' => 'extension',
             'maturity' => 'labs',
             'maturityLabel' => 'Labs',
-            'includedWithCapellAll' => false,
         ]);
 })->with([
     'missing exact lookup endpoint' => [404],
@@ -1411,7 +1407,6 @@ it('maps canonical catalogue metadata back to legacy installed package names', f
                 'catalogue_role' => 'core',
                 'maturity' => 'stable',
                 'maturity_label' => 'Released',
-                'included_with_capell_all' => true,
             ]],
         ]),
     ]);
@@ -1427,7 +1422,6 @@ it('maps canonical catalogue metadata back to legacy installed package names', f
         'catalogueRole' => 'core',
         'maturity' => 'stable',
         'maturityLabel' => 'Released',
-        'includedWithCapellAll' => true,
     ]);
 });
 

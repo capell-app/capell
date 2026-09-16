@@ -11,7 +11,7 @@ use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
 
-it('renders heartbeat purchases membership pricing and renewal links', function (): void {
+it('renders heartbeat purchases and renewal links', function (): void {
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
@@ -25,15 +25,7 @@ it('renders heartbeat purchases membership pricing and renewal links', function 
                     'status' => 'active',
                     'access_ends_at' => '2027-08-05T00:00:00Z',
                 ]],
-                'membership_comparison' => [
-                    'name' => 'Capell Membership',
-                    'price_cents' => 19900,
-                    'renewal_price_cents' => 15920,
-                    'currency' => 'GBP',
-                    'included_product_count' => 38,
-                    'named_user_limit' => 5,
-                ],
-                'new_membership_product_count' => 4,
+                'currency' => 'GBP',
                 'priority_support_price_cents' => 4900,
                 'renewal_url' => 'https://marketplace.example.test/account/renew',
                 'support_url' => 'https://marketplace.example.test/support',
@@ -45,11 +37,7 @@ it('renders heartbeat purchases membership pricing and renewal links', function 
     Livewire::test(MarketplacePurchasesPage::class)
         ->assertSuccessful()
         ->assertSee('data-capell-marketplace-purchases', false)
-        ->assertSee('data-capell-marketplace-membership-comparison', false)
         ->assertSee('SEO Suite')
-        ->assertSee('Capell Membership')
-        ->assertSee('£199.00')
-        ->assertSee('£159.20')
         ->assertSee('£49.00')
         ->assertSee('https://marketplace.example.test/account/renew', false)
         ->assertSee('https://marketplace.example.test/support', false);

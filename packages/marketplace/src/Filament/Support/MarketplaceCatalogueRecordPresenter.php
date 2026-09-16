@@ -41,7 +41,6 @@ final class MarketplaceCatalogueRecordPresenter
             'catalogue_role' => $extension->catalogueRole,
             'maturity' => $extension->maturity,
             'maturity_label' => $extension->maturityLabel,
-            'included_with_capell_all' => $extension->includedWithCapellAll,
             'effective_certification' => $extension->effectiveCertification,
             'support_policy' => $extension->supportPolicy,
             'description' => $extension->description,

@@ -72,7 +72,6 @@ final class ExtensionDetailData extends Data
         public readonly string $catalogueRole = 'extension',
         public readonly string $maturity = 'labs',
         public readonly string $maturityLabel = 'Labs',
-        public readonly bool $includedWithCapellAll = false,
         public readonly string $currency = 'USD',
         /** @var array<string, mixed> */
         public readonly array $trial = [],
@@ -136,7 +135,6 @@ final class ExtensionDetailData extends Data
             catalogueRole: $catalogueReleaseMetadata->catalogueRole,
             maturity: $catalogueReleaseMetadata->maturity,
             maturityLabel: $catalogueReleaseMetadata->maturityLabel,
-            includedWithCapellAll: $catalogueReleaseMetadata->includedWithCapellAll,
             currency: self::optionalString($payload['currency'] ?? $payload['price_currency'] ?? data_get($payload, 'commercial.currency')) ?? 'USD',
             trial: self::arrayValue($payload['trial'] ?? data_get($payload, 'commercial.trial', [])),
         );
@@ -262,7 +260,7 @@ final class ExtensionDetailData extends Data
             'surfaces', 'dependencies', 'performance', 'performance_budget', 'contribution_summary',
             'contributions_summary', 'install_eligibility', 'eligibility', 'blocked_reason', 'next_action',
             'health_status', 'healthState', 'catalogue_role', 'maturity', 'maturity_label',
-            'included_with_capell_all', 'trial', 'metadata',
+            'trial', 'metadata',
         ];
 
         return [

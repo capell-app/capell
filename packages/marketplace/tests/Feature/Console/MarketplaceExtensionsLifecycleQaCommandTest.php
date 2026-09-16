@@ -346,7 +346,6 @@ it('rejects prompt-free beta lifecycle installs without explicit acknowledgement
                 'catalogue_role' => 'extension',
                 'maturity' => 'beta',
                 'maturity_label' => 'Beta',
-                'included_with_capell_all' => false,
             ]],
             'links' => ['next' => null],
         ]),

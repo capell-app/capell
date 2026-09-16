@@ -21,7 +21,6 @@ it('adds conservative catalogue metadata when no provider is installed', functio
         'catalogueRole' => 'extension',
         'maturity' => 'labs',
         'maturityLabel' => 'Labs',
-        'includedWithCapellAll' => false,
     ]]);
 });
 
@@ -31,7 +30,6 @@ it('enriches installed records through a catalogue metadata provider', function 
             catalogueRole: 'extension',
             maturity: 'stable',
             maturityLabel: 'Released',
-            includedWithCapellAll: true,
         ),
     ]);
     app()->instance(FakeExtensionCatalogueMetadataProvider::class, $provider);
@@ -48,7 +46,6 @@ it('enriches installed records through a catalogue metadata provider', function 
         'catalogueRole' => 'extension',
         'maturity' => 'stable',
         'maturityLabel' => 'Released',
-        'includedWithCapellAll' => true,
     ]);
 });
 
@@ -67,7 +64,6 @@ it('fails closed when a catalogue metadata provider is unavailable or inconsiste
         'catalogueRole' => 'extension',
         'maturity' => 'labs',
         'maturityLabel' => 'Labs',
-        'includedWithCapellAll' => false,
     ]);
 })->with([
     'provider unavailable' => fn (): FakeExtensionCatalogueMetadataProvider => new FakeExtensionCatalogueMetadataProvider(unavailable: true),
@@ -76,15 +72,6 @@ it('fails closed when a catalogue metadata provider is unavailable or inconsiste
             catalogueRole: 'community',
             maturity: 'preview',
             maturityLabel: 'Released',
-            includedWithCapellAll: true,
-        ),
-    ]),
-    'Labs extension marked as included with Capell All' => fn (): FakeExtensionCatalogueMetadataProvider => new FakeExtensionCatalogueMetadataProvider([
-        'vendor/community-suite' => new ExtensionCatalogueMetadataData(
-            catalogueRole: 'extension',
-            maturity: 'labs',
-            maturityLabel: 'Labs',
-            includedWithCapellAll: true,
         ),
     ]),
 ]);
@@ -107,6 +94,5 @@ it('fails closed when a tagged catalogue metadata provider cannot be resolved', 
         'catalogueRole' => 'extension',
         'maturity' => 'labs',
         'maturityLabel' => 'Labs',
-        'includedWithCapellAll' => false,
     ]);
 });

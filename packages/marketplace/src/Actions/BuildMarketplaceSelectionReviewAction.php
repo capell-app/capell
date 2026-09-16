@@ -34,7 +34,6 @@ final class BuildMarketplaceSelectionReviewAction
         'account_required',
         'not_connected',
         'email_verification_required',
-        'capell_all_required',
     ];
 
     public function __construct(

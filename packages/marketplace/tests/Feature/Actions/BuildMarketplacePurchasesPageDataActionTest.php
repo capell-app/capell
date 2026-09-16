@@ -17,15 +17,6 @@ it('builds purchases and installed licence data from authoritative stored state'
                 'currency' => 'GBP',
                 'renewal_url' => 'https://marketplace.example.test/account/renew',
                 'support_url' => 'https://marketplace.example.test/support',
-                'membership_comparison' => [
-                    'name' => 'Capell Membership',
-                    'price_cents' => 19900,
-                    'renewal_price_cents' => 15920,
-                    'currency' => 'GBP',
-                    'included_product_count' => 38,
-                    'named_user_limit' => 5,
-                ],
-                'new_membership_product_count' => 4,
                 'priority_support_price_cents' => 4900,
                 'purchases' => [
                     [
@@ -62,10 +53,7 @@ it('builds purchases and installed licence data from authoritative stored state'
     expect($data['currency'])->toBe('GBP')
         ->and($data['renewal_url'])->toBe('https://marketplace.example.test/account/renew')
         ->and($data['support_url'])->toBe('https://marketplace.example.test/support')
-        ->and($data['membership_price'])->toBe('£199.00')
-        ->and($data['membership_renewal_price'])->toBe('£159.20')
         ->and($data['priority_support_price'])->toBe('£49.00')
-        ->and($data['new_membership_product_count'])->toBe(4)
         ->and($data['purchases'])->toHaveCount(1)
         ->and($data['purchases'][0]['name'])->toBe('SEO Suite')
         ->and($data['installed'])->toHaveCount(1)
@@ -81,9 +69,6 @@ it('uses conservative empty defaults without commercial heartbeat data', functio
         'installed' => [],
         'renewal_url' => null,
         'support_url' => null,
-        'membership' => null,
-        'membership_price' => null,
-        'membership_renewal_price' => null,
         'priority_support_price' => null,
         'currency' => null,
     ]);

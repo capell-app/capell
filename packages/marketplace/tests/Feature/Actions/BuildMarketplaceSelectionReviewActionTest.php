@@ -131,18 +131,6 @@ it('returns stable reason codes for every Marketplace selection policy branch', 
         null,
         true,
     ],
-    'Capell All flow' => [
-        [
-            'marketplace_install_state' => 'blocked',
-            'install_eligibility_policy' => [
-                'state' => 'blocked',
-                'block_reason' => 'capell_all_required',
-            ],
-        ],
-        true,
-        null,
-        true,
-    ],
     'purchase flow' => [
         ['marketplace_install_state' => 'purchase_required'],
         true,
@@ -318,7 +306,6 @@ function marketplaceSelectionPolicyPayload(string $composerName, array $override
         'catalogue_role' => 'extension',
         'maturity' => 'stable',
         'maturity_label' => 'Released',
-        'included_with_capell_all' => false,
         ...$overrides,
     ];
 }
