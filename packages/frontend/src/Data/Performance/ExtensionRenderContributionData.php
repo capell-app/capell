@@ -24,5 +24,6 @@ final class ExtensionRenderContributionData extends Data
         public readonly bool $sensitiveOutput,
         public readonly array $variesBy,
         public readonly bool $budgetExceeded,
+        public readonly bool $fragment = false,
     ) {}
 }

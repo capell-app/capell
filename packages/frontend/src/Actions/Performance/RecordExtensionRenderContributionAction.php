@@ -32,6 +32,7 @@ final class RecordExtensionRenderContributionAction
         bool $sensitiveOutput,
         array $variesBy,
         ?string $renderedOutput = null,
+        bool $fragment = false,
     ): ExtensionRenderContributionData {
         $emptyOutput = $renderedOutput !== null && trim($renderedOutput) === '';
 
@@ -47,6 +48,7 @@ final class RecordExtensionRenderContributionAction
             sensitiveOutput: ! $emptyOutput && $sensitiveOutput,
             variesBy: $variesBy,
             budgetExceeded: $frontendRenderBudgetMs > 0 && $elapsedMilliseconds > $frontendRenderBudgetMs,
+            fragment: $fragment,
         );
 
         $records = $this->recorded();

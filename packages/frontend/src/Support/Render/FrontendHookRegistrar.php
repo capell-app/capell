@@ -42,6 +42,7 @@ final class FrontendHookRegistrar
         bool $cacheSafe = true,
         ?ExtensionPosition $position = null,
         string $source = self::class,
+        bool $fragment = false,
     ): void {
         $this->registry->contribute(new RenderHookContributionData(
             location: $location,
@@ -54,6 +55,7 @@ final class FrontendHookRegistrar
             cacheSafe: $cacheSafe,
             position: $position,
             source: $source,
+            fragment: $fragment,
         ));
         $this->receipts->recordContribution(ExtensionContributionType::RenderHook, $key, is_string($extension) ? $extension : $extension::class, self::class);
     }

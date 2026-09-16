@@ -136,6 +136,7 @@ use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
+use Capell\Frontend\Support\Render\RenderHookFragmentRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Frontend\Support\Renderables\RenderableDynamicDataRegistry;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
@@ -267,6 +268,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->scoped(PublicViewQueryGuard::class);
         $this->app->singleton(RenderHookRegistry::class);
+        $this->app->scoped(RenderHookFragmentRegistry::class);
 
         $orderingAudit = $this->app->make(ExtensionOrderingAudit::class);
         if (! $orderingAudit->hasSource(RenderHookRegistry::class)) {

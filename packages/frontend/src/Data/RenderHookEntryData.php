@@ -23,6 +23,7 @@ final class RenderHookEntryData
         public readonly bool $cacheSafe = true,
         public readonly ?ExtensionPosition $position = null,
         public readonly string $source = self::class,
+        public readonly bool $fragment = false,
     ) {}
 
     public static function legacy(
@@ -56,11 +57,24 @@ final class RenderHookEntryData
             cacheSafe: $contribution->cacheSafe,
             position: $contribution->position,
             source: $contribution->source,
+            fragment: $contribution->fragment,
         );
     }
 
     /**
-     * @return array{owner: string|null, key: string|null, priority: int, scenario: string|null, target: string|null, cacheSafe: bool, registrationType: string}
+     * Stable, location-scoped identity used to re-render captured fragments.
+     */
+    public function stableKey(): string
+    {
+        if ($this->owner === null || $this->key === null) {
+            return '';
+        }
+
+        return $this->location->value . ':' . $this->owner . ':' . $this->key;
+    }
+
+    /**
+     * @return array{owner: string|null, key: string|null, priority: int, scenario: string|null, target: string|null, cacheSafe: bool, fragment: bool, registrationType: string}
      */
     public function toDiagnostics(): array
     {
@@ -71,6 +85,7 @@ final class RenderHookEntryData
             'scenario' => $this->scenario,
             'target' => $this->target,
             'cacheSafe' => $this->cacheSafe,
+            'fragment' => $this->fragment,
             'registrationType' => $this->registrationType->value,
         ];
     }
