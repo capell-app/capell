@@ -155,7 +155,7 @@ final class RecordingBackupProcessFactory implements ProcessFactoryInterface
     /** @var list<list<string>|string> */
     public array $commands = [];
 
-    /** @var list<array<string, string>> */
+    /** @var list<array<string, string|false>> */
     public array $environments = [];
 
     public function __construct(private readonly bool $fail = false) {}

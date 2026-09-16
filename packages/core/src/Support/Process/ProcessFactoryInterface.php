@@ -12,7 +12,7 @@ interface ProcessFactoryInterface
      * Create a new Symfony Process instance.
      *
      * @param  list<string>|string  $command
-     * @param  array<string, string>|null  $environment
+     * @param  array<string, string|false>|null  $environment
      */
     public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process;
 }

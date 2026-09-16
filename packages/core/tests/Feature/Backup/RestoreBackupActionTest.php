@@ -72,6 +72,11 @@ it('restores a verified snapshot only into scratch database and media targets', 
             '--database=' . $result->database,
         )
         ->and($this->doctorProcesses->environments[0])->toBe([
+            'APP_CONFIG_CACHE' => false,
+            'APP_PACKAGES_CACHE' => false,
+            'APP_SERVICES_CACHE' => false,
+            'APP_ROUTES_CACHE' => false,
+            'APP_EVENTS_CACHE' => false,
             'TESTBENCH_WORKING_PATH' => package_path(),
         ]);
 });
@@ -116,7 +121,7 @@ final class RecordingDoctorProcessFactory implements ProcessFactoryInterface
     /** @var list<list<string>|string> */
     public array $commands = [];
 
-    /** @var list<array<string, string>> */
+    /** @var list<array<string, string|false>> */
     public array $environments = [];
 
     public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
