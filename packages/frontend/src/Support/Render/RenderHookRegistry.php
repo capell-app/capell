@@ -276,9 +276,15 @@ class RenderHookRegistry
     public function renderContribution(RenderHookFragmentReferenceData $reference, bool $rehydrating = false): string
     {
         foreach ($this->extensions[$reference->location->value] ?? [] as $entry) {
-            if ($entry->stableKey() !== $reference->stableKey
-                || $entry->scenario !== $reference->scenario
-                || $entry->target !== $reference->target) {
+            if ($entry->stableKey() !== $reference->stableKey) {
+                continue;
+            }
+
+            if ($entry->scenario !== $reference->scenario) {
+                continue;
+            }
+
+            if ($entry->target !== $reference->target) {
                 continue;
             }
 

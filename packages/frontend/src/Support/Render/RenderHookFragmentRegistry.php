@@ -47,17 +47,13 @@ final class RenderHookFragmentRegistry
 
     public function placeholder(RenderHookEntryData $entry, RenderHookContext $context): string
     {
-        if (! $this->capturing) {
-            throw new LogicException('Render hook fragment capture is not active.');
-        }
+        throw_unless($this->capturing, LogicException::class, 'Render hook fragment capture is not active.');
 
         if ($context->item !== null) {
             throw new LogicException(sprintf('Render hook fragment [%s] requires an explicit serialisable item context.', $entry->key ?? 'unknown'));
         }
 
-        if ($entry->stableKey() === '') {
-            throw new LogicException('Render hook fragments require an owner and stable key.');
-        }
+        throw_if($entry->stableKey() === '', LogicException::class, 'Render hook fragments require an owner and stable key.');
 
         $token = self::TOKEN_PREFIX . bin2hex(random_bytes(16));
         $this->references[] = new RenderHookFragmentReferenceData(
@@ -143,12 +139,12 @@ final class RenderHookFragmentRegistry
         $positions = [];
 
         foreach ($this->references as $reference) {
-            $count = substr_count($minified, $reference->token);
+            $count = substr_count($minified, (string) $reference->token);
             if ($count !== 1) {
                 throw new LogicException(sprintf('Render hook fragment token [%s] was not preserved exactly once by the HTML minifier.', $reference->stableKey));
             }
 
-            $position = strpos($minified, $reference->token);
+            $position = strpos($minified, (string) $reference->token);
             if ($position === false) {
                 throw new LogicException(sprintf('Render hook fragment token [%s] was not found after HTML minification.', $reference->stableKey));
             }
@@ -170,7 +166,7 @@ final class RenderHookFragmentRegistry
                 'target' => $reference->target,
                 'offset' => $position - $removedLength,
             ];
-            $removedLength += strlen($reference->token);
+            $removedLength += strlen((string) $reference->token);
         }
 
         return new RenderHookFragmentCacheData($shell, $fragments);
@@ -183,7 +179,7 @@ final class RenderHookFragmentRegistry
     {
         foreach ($this->references as $reference) {
             $replacement = $renderer($reference);
-            if (substr_count($html, $reference->token) !== 1) {
+            if (substr_count($html, (string) $reference->token) !== 1) {
                 throw new LogicException(sprintf('Render hook fragment token [%s] was not present exactly once.', $reference->stableKey));
             }
 

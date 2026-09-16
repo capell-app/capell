@@ -16,6 +16,7 @@ use Rector\DeadCode\Rector\If_\RemoveAlwaysTrueIfConditionRector;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
 use Rector\DeadCode\Rector\Property\RemoveUselessVarTagRector;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
+use Rector\Php71\Rector\FuncCall\RemoveExtraParametersRector;
 use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
 use Rector\Php82\Rector\Class_\ReadOnlyClassRector;
 use Rector\Php83\Rector\ClassConst\AddTypeToConstRector;
@@ -121,6 +122,15 @@ return RectorConfig::configure()
         ],
         RemoveUselessReturnTagRector::class => [
             __DIR__ . '/packages/core/src/Support/Models/ModelInterceptorRegistry.php',
+        ],
+        // False positive against a PHP 8 named argument: this rule misreads
+        // `allowFragmentCapture: false` as an extra argument beyond the
+        // method's declared parameters and proposes deleting it, but the
+        // parameter is genuinely read in the method body and its default is
+        // `true` — removing the explicit `false` here would silently enable
+        // fragment capture during rehydration instead of suppressing it.
+        RemoveExtraParametersRector::class => [
+            __DIR__ . '/packages/frontend/src/Support/Render/RenderHookRegistry.php',
         ],
         StringClassNameToClassConstantRector::class => [
             __DIR__ . '/packages/core/src/Actions/Extensions/BuildExtensionSurfaceCatalogAction.php',

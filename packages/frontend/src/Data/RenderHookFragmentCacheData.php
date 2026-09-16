@@ -24,48 +24,36 @@ final class RenderHookFragmentCacheData
      */
     public static function fromMetadata(string $shell, array $metadata): self
     {
-        if (($metadata['version'] ?? null) !== self::VERSION) {
-            throw new LogicException('Unsupported render hook fragment metadata version.');
-        }
+        throw_if(($metadata['version'] ?? null) !== self::VERSION, LogicException::class, 'Unsupported render hook fragment metadata version.');
 
         $shellHash = $metadata['shellSha256'] ?? null;
 
-        if (! is_string($shellHash) || ! hash_equals(hash('sha256', $shell), $shellHash)) {
-            throw new LogicException('Render hook fragment metadata does not match the cached shell.');
-        }
+        throw_if(! is_string($shellHash) || ! hash_equals(hash('sha256', $shell), $shellHash), LogicException::class, 'Render hook fragment metadata does not match the cached shell.');
 
         $rawFragments = $metadata['fragments'] ?? null;
 
-        if (! is_array($rawFragments) || ! array_is_list($rawFragments)) {
-            throw new LogicException('Render hook fragment metadata has an invalid fragment list.');
-        }
+        throw_if(! is_array($rawFragments) || ! array_is_list($rawFragments), LogicException::class, 'Render hook fragment metadata has an invalid fragment list.');
 
         $fragments = [];
         $previousOffset = 0;
         $hasPreviousOffset = false;
 
         foreach ($rawFragments as $rawFragment) {
-            if (! is_array($rawFragment)
+            throw_if(! is_array($rawFragment)
                 || ! is_string($rawFragment['stableKey'] ?? null)
                 || $rawFragment['stableKey'] === ''
                 || ! is_string($rawFragment['location'] ?? null)
                 || ! is_int($rawFragment['offset'] ?? null)
                 || (($rawFragment['scenario'] ?? null) !== null && ! is_string($rawFragment['scenario']))
-                || (($rawFragment['target'] ?? null) !== null && ! is_string($rawFragment['target']))) {
-                throw new LogicException('Render hook fragment metadata has an invalid descriptor.');
-            }
+                || (($rawFragment['target'] ?? null) !== null && ! is_string($rawFragment['target'])), LogicException::class, 'Render hook fragment metadata has an invalid descriptor.');
 
             $location = RenderHookLocation::tryFrom($rawFragment['location']);
 
-            if (! $location instanceof RenderHookLocation) {
-                throw new LogicException('Render hook fragment metadata has an invalid location.');
-            }
+            throw_unless($location instanceof RenderHookLocation, LogicException::class, 'Render hook fragment metadata has an invalid location.');
 
             $offset = $rawFragment['offset'];
 
-            if ($offset < 0 || $offset > strlen($shell) || ($hasPreviousOffset && $offset < $previousOffset)) {
-                throw new LogicException('Render hook fragment metadata has invalid insertion offsets.');
-            }
+            throw_if($offset < 0 || $offset > strlen($shell) || ($hasPreviousOffset && $offset < $previousOffset), LogicException::class, 'Render hook fragment metadata has invalid insertion offsets.');
 
             $fragments[] = [
                 'stableKey' => $rawFragment['stableKey'],
