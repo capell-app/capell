@@ -7,15 +7,21 @@ namespace Capell\Marketplace\Filament\Pages;
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Marketplace\Actions\UpdateMarketplaceSettingsAction;
 use Capell\Marketplace\Enums\MarketplacePermission;
 use Capell\Marketplace\Filament\Actions\ConnectMarketplaceAccountAction;
 use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
 use Capell\Marketplace\Filament\Actions\RunMarketplaceHeartbeatAction;
+use Capell\Marketplace\Filament\Settings\MarketplaceSettingsSchema;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
+use Capell\Marketplace\Settings\MarketplaceSettings;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 use Override;
@@ -97,6 +103,23 @@ final class MarketplacePage extends Page implements HasActions
         $connection = $this->marketplaceConnection();
 
         return [
+            Action::make('ownerContactSettings')
+                ->label(__('capell-marketplace::settings.title'))
+                ->icon(Heroicon::OutlinedCog6Tooth)
+                ->slideOver()
+                ->modalWidth(Width::ScreenLarge)
+                ->modalHeading(__('capell-marketplace::settings.title'))
+                ->modalDescription(__('capell-marketplace::settings.owner_contact_description'))
+                ->schema(fn (Schema $schema): array => MarketplaceSettingsSchema::make($schema))
+                ->fillForm(fn (): array => resolve(MarketplaceSettings::class)->toArray())
+                ->action(function (array $data): void {
+                    UpdateMarketplaceSettingsAction::run($data);
+
+                    Notification::make('marketplace-settings-saved')
+                        ->title(__('capell-marketplace::settings.settings_saved'))
+                        ->success()
+                        ->send();
+                }),
             Action::make('extensions')
                 ->label((string) __('capell-marketplace::marketplace.operations.extensions'))
                 ->icon(ExtensionsPage::getNavigationIcon())

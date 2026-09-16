@@ -39,6 +39,16 @@ use STS\FilamentImpersonate\FilamentImpersonateServiceProvider;
 
 abstract class MarketplaceTestCase extends AbstractTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->registerAndMigrateSettings(
+            ['2026_09_15_000001_create_marketplace_settings'],
+            dirname(__DIR__) . '/database/settings',
+        );
+    }
+
     protected function getPackageServiceName(): string
     {
         return 'capell-marketplace';
