@@ -25,11 +25,20 @@ if ($arguments === []) {
 
 $root = dirname(__DIR__);
 $command = $arguments[0];
+$environment = ['CACHE_STORE' => 'array'];
+
+// A Pest worker exports its resolved runtime-role cache paths through $_ENV.
+// They belong to that application; inheriting them makes the child treat them
+// as immutable overrides and read or overwrite the calling worker's caches.
+foreach (['APP_CONFIG_CACHE', 'APP_PACKAGES_CACHE', 'APP_SERVICES_CACHE', 'APP_ROUTES_CACHE', 'APP_EVENTS_CACHE'] as $key) {
+    $environment[$key] = false;
+}
 
 if (in_array($command, ['list', 'optimize'], true)) {
     $runtimeRoleBootstrap = new Process(
         [PHP_BINARY, $root . '/scripts/configure-testbench-runtime-role.php'],
         $root,
+        $environment,
     );
     $runtimeRoleBootstrap->setTimeout(null);
 
@@ -53,7 +62,7 @@ if (in_array($command, ['list', 'optimize'], true)) {
 $process = new Process(
     [PHP_BINARY, $root . '/vendor/bin/testbench', ...$arguments],
     $root,
-    ['CACHE_STORE' => 'array'],
+    $environment,
 );
 $process->setTimeout(null);
 

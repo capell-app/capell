@@ -327,6 +327,13 @@ final readonly class BootBenchmarkWorkspace
                 'APP_RUNNING_IN_CONSOLE' => $runningInConsole ? 'true' : 'false',
                 'CACHE_STORE' => 'array',
                 'CAPELL_RUNTIME_ROLE' => $this->runtimeRole(),
+                // Samples bypass the command runner, so they must also resolve
+                // cache paths from this workspace instead of the calling worker.
+                'APP_CONFIG_CACHE' => false,
+                'APP_PACKAGES_CACHE' => false,
+                'APP_SERVICES_CACHE' => false,
+                'APP_ROUTES_CACHE' => false,
+                'APP_EVENTS_CACHE' => false,
             ],
         );
     }
