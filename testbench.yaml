@@ -60,3 +60,14 @@ workbench:
 purge:
   directories:
     - database/migrations
+    - bootstrap/cache/capell-runtime
+    - storage/app/public/theme-previews
+    - storage/framework/testing/test-package-doctor
+    - storage/framework/testing/test-failing-package-doctor
+    - storage/framework/testing/throwing-doctor
+    - storage/framework/testing/invalid-json-doctor
+    - storage/framework/testing/invalid-shape-doctor
+  files:
+    - bootstrap/cache/capell-package-manifests.php
+    - bootstrap/cache/capell-theme-chain.php
+    - bootstrap/cache/capell-local-app-themes.php
