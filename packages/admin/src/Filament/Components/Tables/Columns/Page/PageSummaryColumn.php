@@ -185,7 +185,7 @@ class PageSummaryColumn extends TextColumn
     {
         $layoutName = $this->pageLayout($page)?->name;
 
-        if (! filled($layoutName)) {
+        if (blank($layoutName)) {
             return null;
         }
 
