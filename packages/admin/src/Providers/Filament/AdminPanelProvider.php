@@ -91,6 +91,8 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
                 SetSitePermissionScope::class,
+            ], isPersistent: true)
+            ->authMiddleware([
                 ProfileAdminRequest::class,
             ]);
     }

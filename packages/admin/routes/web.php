@@ -11,6 +11,7 @@ use Capell\Admin\Http\Controllers\PagePreviewController;
 use Capell\Admin\Http\Controllers\PageTreeController;
 use Capell\Admin\Http\Controllers\Themes\ThemePreviewController;
 use Capell\Admin\Http\Controllers\UpdateAuthenticatedAdminLanguageController;
+use Capell\Admin\Http\Middleware\SetSitePermissionScope;
 use Capell\Admin\Support\AdminPanelEntrypoint;
 use Illuminate\Support\Facades\Route;
 
@@ -29,9 +30,9 @@ $adminRoutes->group(function (): void {
         ->middleware(['web', 'signed'])
         ->name('capell.admin.preview-page');
 
-    // Internal admin API routes - CSRF-protected, requires auth + global-admin role.
+    // Internal admin API routes - CSRF-protected, with site-scoped policy authorization.
     Route::prefix('api')
-        ->middleware(['web', 'auth'])
+        ->middleware(['web', 'auth', SetSitePermissionScope::class])
         ->name('capell-admin.api.')
         ->group(function (): void {
             Route::get('page-tree', [PageTreeController::class, 'children'])

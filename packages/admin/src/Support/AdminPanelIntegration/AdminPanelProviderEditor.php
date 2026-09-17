@@ -19,6 +19,7 @@ use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ArrayItem;
 use PhpParser\Node\Expr\ClassConstFetch;
+use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
@@ -220,40 +221,28 @@ final class AdminPanelProviderEditor
 
         $return = $this->editablePanelReturn();
         if (! $return instanceof Return_) {
-            return $this->manual('site-permission-scope', 'Add SetSitePermissionScope::class to the panel authMiddleware array manually.');
+            return $this->manual('site-permission-scope', 'Add SetSitePermissionScope::class to the panel authMiddleware array manually with isPersistent: true.');
         }
 
-        $existingAuthMiddleware = $this->findMethodCall('authMiddleware');
         $siteScopeMiddleware = new ArrayItem(new ClassConstFetch(new Name('SetSitePermissionScope'), 'class'));
-
-        if ($existingAuthMiddleware instanceof MethodCall) {
-            $existingAuthMiddlewareArray = $this->firstArrayArgument($existingAuthMiddleware);
-
-            if (! $existingAuthMiddlewareArray instanceof Array_) {
-                return $this->manual('site-permission-scope', 'Add SetSitePermissionScope::class to the existing authMiddleware configuration manually.');
-            }
-
-            $this->editor->addUseStatements([SetSitePermissionScope::class]);
-            $existingAuthMiddlewareArray->items[] = $siteScopeMiddleware;
-
-            return $this->applied('site-permission-scope', 'Added site permission scope middleware.');
-        }
 
         $this->editor->addUseStatements([
             Authenticate::class,
             SetSitePermissionScope::class,
         ]);
 
+        $authMiddleware = $this->findMethodCall('authMiddleware') instanceof MethodCall
+            ? []
+            : [new ArrayItem(new ClassConstFetch(new Name('Authenticate'), 'class'))];
+
         if (! $this->appendPanelMethodCall($return, 'authMiddleware', [
-            new Arg(new Array_([
-                new ArrayItem(new ClassConstFetch(new Name('Authenticate'), 'class')),
-                $siteScopeMiddleware,
-            ])),
+            new Arg(new Array_([...$authMiddleware, $siteScopeMiddleware])),
+            new Arg(new ConstFetch(new Name('true')), false, false, [], new Identifier('isPersistent')),
         ])) {
-            return $this->manual('site-permission-scope', 'Add SetSitePermissionScope::class to the panel authMiddleware array manually.');
+            return $this->manual('site-permission-scope', 'Add SetSitePermissionScope::class to the panel authMiddleware array manually with isPersistent: true.');
         }
 
-        return $this->applied('site-permission-scope', 'Added auth middleware with site permission scope.');
+        return $this->applied('site-permission-scope', 'Added persistent site permission scope middleware.');
     }
 
     public function backup(): string
