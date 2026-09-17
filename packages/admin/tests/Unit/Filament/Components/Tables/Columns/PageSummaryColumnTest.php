@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Tables\Columns\Page\PageSummaryColumn;
 use Capell\Core\Actions\Redirects\CreateAutomaticRedirectAction;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -77,4 +78,20 @@ it('renders missing-url health when a page has no canonical page url', function 
     expect($html->toHtml())
         ->toContain(__('capell-admin::table.page_health_missing_url'))
         ->not->toContain('<a href=');
+});
+
+it('does not append a duplicate layout suffix when the layout name already ends with layout', function (): void {
+    $layout = Layout::factory()->createOne(['name' => 'Start your site Layout']);
+    $page = Page::factory()->layout($layout)->createOne();
+
+    $html = PageSummaryColumn::make('name')
+        ->record($page)
+        ->formatState($page->name);
+
+    expect($html)->toBeInstanceOf(HtmlString::class);
+    assert($html instanceof HtmlString);
+
+    expect($html->toHtml())
+        ->toContain('Start your site Layout')
+        ->not->toContain('Start your site Layout layout');
 });
