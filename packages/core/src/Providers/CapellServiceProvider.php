@@ -158,6 +158,7 @@ use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Makers\MakerSafety;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
+use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
 use Capell\Core\Support\Media\SpatieMediaUploadConfigurationFactory;
 use Capell\Core\Support\Media\SpatieMediaUploadMetadataResolver;
 use Capell\Core\Support\Metrics\DenyMetricScopeAuthorizer;
@@ -508,6 +509,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         );
 
         $this->app->singleton(BackendResolver::class);
+        $this->app->singleton(MediaCompositionGuidanceRegistry::class);
         $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
         $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
