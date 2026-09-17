@@ -37,6 +37,13 @@ repos:
         entry: .pre-commit/pint.sh
         language: script
         types: [php]
+      - id: rector
+        name: Rector
+        description: Fail when Rector would still rewrite a staged PHP file.
+        entry: .pre-commit/rector.sh
+        language: script
+        types: [php]
+        stages: [pre-commit]
       - id: prettier
         name: Format code with Prettier
         entry: .pre-commit/prettier.sh
