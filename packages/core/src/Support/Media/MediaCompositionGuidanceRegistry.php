@@ -128,6 +128,6 @@ final class MediaCompositionGuidanceRegistry
             return null;
         }
 
-        return $url . (str_contains($url, '?') ? '&' : '?') . 'v=' . rawurlencode($guidance->templateVersion);
+        return $url . (str_contains((string) $url, '?') ? '&' : '?') . 'v=' . rawurlencode($guidance->templateVersion);
     }
 }

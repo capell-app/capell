@@ -53,7 +53,7 @@ it('registers and finds guidance', function (): void {
 });
 
 it('rejects incomplete guidance and unsafe template paths', function (string $path): void {
-    (new MediaCompositionGuidanceRegistry(new MediaCropPresetRepository))->register(compositionGuidance(path: $path));
+    new MediaCompositionGuidanceRegistry(new MediaCropPresetRepository)->register(compositionGuidance(path: $path));
 })->with([
     'empty path' => [''],
     'traversal' => ['../secret.png'],
@@ -81,7 +81,7 @@ it('reports template status against the crop preset', function (string $scenario
         quietRegions: $scenario === 'quiet region outside preset' ? [new MediaCompositionQuietRegionData('Headline', 30, 0, 20, 10)] : [],
     );
 
-    expect((new MediaCompositionGuidanceRegistry(new MediaCropPresetRepository))->status($guidance)->value)->toBe($expected);
+    expect(new MediaCompositionGuidanceRegistry(new MediaCropPresetRepository)->status($guidance)->value)->toBe($expected);
 })->with([
     'available raster' => ['available raster', MediaCompositionTemplateStatus::Available->value],
     'available document' => ['available document', MediaCompositionTemplateStatus::Available->value],
@@ -94,7 +94,7 @@ it('reports template status against the crop preset', function (string $scenario
 ]);
 
 it('versions the template url', function (): void {
-    $url = (new MediaCompositionGuidanceRegistry(new MediaCropPresetRepository))->templateUrl(compositionGuidance());
+    $url = new MediaCompositionGuidanceRegistry(new MediaCropPresetRepository)->templateUrl(compositionGuidance());
 
     expect($url)->toContain('guides/hero.png')->toEndWith('v=2');
 });

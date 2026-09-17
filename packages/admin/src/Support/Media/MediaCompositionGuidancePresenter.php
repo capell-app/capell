@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Media;
 
+use Capell\Core\Data\Media\MediaCompositionGuidanceData;
+use Capell\Core\Data\Media\MediaCompositionQuietRegionData;
 use Capell\Core\Enums\Media\MediaCompositionCropBehaviour;
 use Capell\Core\Enums\Media\MediaCompositionTemplateStatus;
 use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
@@ -36,7 +38,7 @@ final class MediaCompositionGuidancePresenter
     {
         $guidance = $this->registry->find($guidanceKey);
 
-        if ($guidance === null) {
+        if (! $guidance instanceof MediaCompositionGuidanceData) {
             return new HtmlString(view('capell-admin::components.forms.media-composition-guidance', [
                 'guidance' => null,
                 'warning' => __('capell-admin::media.composition_guidance.status.unregistered'),
@@ -66,7 +68,7 @@ final class MediaCompositionGuidancePresenter
                 'variants' => implode(', ', $guidance->layoutVariants),
             ]),
             'quietRegions' => array_map(
-                fn ($region): string => __('capell-admin::media.composition_guidance.quiet_region', [
+                fn (MediaCompositionQuietRegionData $region): string => __('capell-admin::media.composition_guidance.quiet_region', [
                     'label' => __($region->label),
                     'width' => $region->width,
                     'height' => $region->height,
