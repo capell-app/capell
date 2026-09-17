@@ -164,6 +164,11 @@ result rather than running one yourself.
   gets silently inherited by the next worktree provisioned from it.
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
   PHP as release evidence.
+- Check installed host runtimes before requiring Docker. On Ben's Mac,
+  `/opt/homebrew/opt/php@8.4/bin/php` is installed while the default PATH selects
+  PHP 8.5. Put the PHP 8.4 directory first on PATH so Composer's child commands
+  use the same runtime. Use an independent vendor tree and host-native Node
+  dependencies; container paths and caches are not host verification evidence.
 - Provision a new worktree completely before the first gate, in this order:
   `./capell up -d`, `./capell composer install`, `npm ci --no-audit --no-fund`.
   `bash scripts/init-worktree.sh` refuses the Docker path and exits before its own
