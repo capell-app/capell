@@ -35,7 +35,7 @@ function cap0532CoreUserPolicyActor(Site $assignedSite): RealSiteScopedAdminReso
         'guard_name' => 'web',
     ]);
 
-    foreach (['ViewAny:User', 'View:User', 'Update:User', 'Delete:User'] as $permissionName) {
+    foreach (['ViewAny:User', 'View:User', 'Update:User', 'Delete:User', 'Restore:User', 'ForceDelete:User', 'Replicate:User'] as $permissionName) {
         $permission = Permission::findOrCreate($permissionName, 'web');
         $role->givePermissionTo($permission);
     }
@@ -78,5 +78,8 @@ it('denies User view, update, and delete for a direct record carrying another si
 
     expect((new UserPolicy)->view($user, $otherRecord))->toBeFalse()
         ->and($policy->update($user, $otherRecord))->toBeFalse()
-        ->and($policy->delete($user, $otherRecord))->toBeFalse();
+        ->and($policy->delete($user, $otherRecord))->toBeFalse()
+        ->and($policy->restore($user, $otherRecord))->toBeFalse()
+        ->and($policy->forceDelete($user, $otherRecord))->toBeFalse()
+        ->and($policy->replicate($user, $otherRecord))->toBeFalse();
 });
