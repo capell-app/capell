@@ -45,7 +45,12 @@ Use this when package data can change public output.
 1. Declare `delivery` and any public surface the package affects.
 2. Declare cache-related capabilities such as `cache-invalidation`, `cache-blocking`, `public-static`, or `frontend-assets` where accurate.
 3. Register model dependencies with `CacheInvalidationRegistry::registerDependency(...)`.
-4. Set `performance.cacheSafety` accurately in `capell.json`.
+4. Set `performance.cacheSafety` accurately in `capell.json`. For a package with a
+   frontend contribution and `cacheable: true`, `capell:extension-audit` reports
+   an error ("unsafe public cache variance") when `variesBy` lists any of `auth`,
+   `locale`, `preview-token`, `role`, `site`, `user` or `workspace`. Output that
+   genuinely varies on one of those axes is not publicly cacheable: declare
+   `cacheable: false` rather than removing the axis to pass the audit.
 5. Test both the invalidation path and the safe fallback when the package is missing or disabled.
 
 If public output varies by user, role, preview token, workspace, or other private state, mark it clearly. Cached HTML must be safe for anonymous visitors, normal signed-in users, admins, crawlers, and static exports.
