@@ -92,13 +92,16 @@ and does not mount the primary checkout at all, so those symlinks dangle and
 PHP fails with a "Failed to open stream" fatal on the first require — before
 any test runs.
 
-Do this instead, in this worktree:
+Do this instead, in this worktree — all three steps:
 
-    ./capell up
+    ./capell up -d
     ./capell composer install
+    npm ci --no-audit --no-fund
 
 That is a real, self-contained vendor/ that works in the container. With a warm
-Composer cache it takes well under two minutes.
+Composer cache it takes well under two minutes. The npm step is not optional:
+this refusal exits before the script's own node_modules/ step, and `composer preflight`
+refuses to start without node_modules/ (prettier/eslint stages).
 
 If you genuinely intend to run PHP on the HOST and never in the container,
 re-run with --host-only. The resulting vendor/ will NOT work under ./capell.

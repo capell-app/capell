@@ -164,7 +164,17 @@ result rather than running one yourself.
   gets silently inherited by the next worktree provisioned from it.
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
   PHP as release evidence.
-- In a worktree, run `bash scripts/init-worktree.sh`. Never symlink `vendor/` or
+- Provision a new worktree completely before the first gate, in this order:
+  `./capell up -d`, `./capell composer install`, `npm ci --no-audit --no-fund`.
+  `bash scripts/init-worktree.sh` refuses the Docker path and exits before its own
+  `node_modules/` step, so the npm step is never done for you; a preflight that
+  stops on "node_modules/ is missing" is an unprovisioned worktree, not a result.
+- Focused Pest inside the container must override the container's MySQL
+  environment, which otherwise wins over `phpunit.xml` and trips the package
+  database guard ("Refusing to run Capell package Pest tests against database"):
+  `./capell compose exec -T -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: -e DB_URL= app vendor/bin/pest <path> --configuration=phpunit.xml`.
+  `./capell test -- <path>` does not take a path (it runs the `clear` event first).
+- Host-only worktrees: `bash scripts/init-worktree.sh --host-only`. Never symlink `vendor/` or
   `vendor/composer/`: Composer then resolves Capell classes from the primary
   checkout and green tests exercise the wrong source. Verify a changed class with
   `ReflectionClass::getFileName()`; use a real `composer install` for authoritative
