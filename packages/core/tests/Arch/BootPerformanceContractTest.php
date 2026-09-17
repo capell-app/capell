@@ -111,10 +111,20 @@ it('never leaves a production web request unable to boot after capell:package-ca
     // standalone against production left the manifest cache missing, and the next
     // web request 500'd (canDiscoverOnDemand() is false in production) until someone
     // manually reran the rebuild command. The command now rebuilds by default.
-    Artisan::call('capell:package-cache');
-    $cachePath = base_path('bootstrap/cache/capell-package-manifests.php');
+    //
+    // The real capell:package-cache/capell:package-cache:clear commands write to
+    // the app's bootstrap path, which defaults to the shared Testbench skeleton.
+    // Redirect it to a throwaway directory so a killed run can't leak a stale
+    // capell-runtime manifest set into unrelated tests (e.g. DoctorCommandTest).
+    $originalBootstrapPath = app()->bootstrapPath();
+    $isolatedBootstrapPath = storage_path('framework/testing/boot-performance-bootstrap-' . uniqid());
+    File::ensureDirectoryExists($isolatedBootstrapPath . '/cache');
+    app()->useBootstrapPath($isolatedBootstrapPath);
 
     try {
+        Artisan::call('capell:package-cache');
+        $cachePath = app()->bootstrapPath('cache/capell-package-manifests.php');
+
         expect(Artisan::call('capell:package-cache:clear'))->toBe(0)
             ->and(file_exists($cachePath))->toBeTrue();
 
@@ -122,16 +132,8 @@ it('never leaves a production web request unable to boot after capell:package-ca
 
         expect(fn () => $bootstrapper->bootstrap())->not->toThrow(Throwable::class);
     } finally {
-        File::deleteDirectory(base_path('bootstrap/cache/capell-runtime'));
-        foreach ([
-            $cachePath,
-            base_path('bootstrap/cache/capell-theme-chain.php'),
-            base_path('bootstrap/cache/capell-local-app-themes.php'),
-        ] as $path) {
-            if (file_exists($path)) {
-                @unlink($path);
-            }
-        }
+        app()->useBootstrapPath($originalBootstrapPath);
+        File::deleteDirectory($isolatedBootstrapPath);
     }
 });
 

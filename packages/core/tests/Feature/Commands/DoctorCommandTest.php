@@ -15,6 +15,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Artisan;
@@ -27,6 +28,14 @@ use Symfony\Component\Console\Command\Command;
 function seedHealthyDoctorInstall(): void
 {
     config()->set('queue.connections.database.retry_after', 900);
+
+    // A stale capell-runtime manifest set (e.g. left behind by a killed
+    // PackageCacheCommandTest run against the shared Testbench skeleton) makes
+    // RuntimeRoleCheck fail with "runtime role does not match its generated
+    // provider contract" even though this install is otherwise healthy.
+    // Clear it the same way runtimeRoleDoctorFixture() does so this fixture is
+    // immune to leaked state from other tests.
+    File::deleteDirectory(new RuntimeRoleCachePaths(app())->directory());
 
     CapellCore::forcePackageInstalled('capell-app/core');
     CapellExtension::query()->updateOrCreate(
@@ -82,6 +91,19 @@ it('accepts complete schema while the installer has not yet marked core installe
 
 afterEach(function (): void {
     File::delete(resource_path('css/capell/frontend.css'));
+
+    // Package-doctor fixtures below write scratch packages into the shared
+    // Testbench skeleton's storage/framework/testing/; clean them up here so a
+    // failed assertion (which skips any in-test cleanup) doesn't leak them.
+    foreach ([
+        'test-package-doctor',
+        'test-failing-package-doctor',
+        'throwing-doctor',
+        'invalid-json-doctor',
+        'invalid-shape-doctor',
+    ] as $scratchDir) {
+        File::deleteDirectory(storage_path('framework/testing/' . $scratchDir));
+    }
 });
 
 it('exits successfully when all checks pass', function (): void {
