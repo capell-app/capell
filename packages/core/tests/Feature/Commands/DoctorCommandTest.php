@@ -35,7 +35,7 @@ function seedHealthyDoctorInstall(): void
     // provider contract" even though this install is otherwise healthy.
     // Clear it the same way runtimeRoleDoctorFixture() does so this fixture is
     // immune to leaked state from other tests.
-    File::deleteDirectory((new RuntimeRoleCachePaths(app()))->directory());
+    File::deleteDirectory(new RuntimeRoleCachePaths(app())->directory());
 
     CapellCore::forcePackageInstalled('capell-app/core');
     CapellExtension::query()->updateOrCreate(

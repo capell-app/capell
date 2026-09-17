@@ -95,7 +95,7 @@ it('recovers from leaked placeholder cache content during the next bootstrap', f
     }
 
     $runtimeServicesPath = $this->app->bootstrapPath('cache/capell-runtime/public/services.php');
-    File::ensureDirectoryExists(dirname($runtimeServicesPath));
+    File::ensureDirectoryExists(dirname((string) $runtimeServicesPath));
     file_put_contents($runtimeServicesPath, '<?php return [];');
 
     expect(Artisan::call('capell:package-cache'))->toBe(0);

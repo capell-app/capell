@@ -171,7 +171,7 @@ function demoInstallHealthSeedInstall(): void
     // the doctor's RuntimeRoleCheck fail, which BuildDemoInstallHealthReportAction
     // then surfaces as a critical finding even though this install is otherwise
     // healthy. Clear it so this fixture is immune to leaked state from other tests.
-    File::deleteDirectory((new RuntimeRoleCachePaths(app()))->directory());
+    File::deleteDirectory(new RuntimeRoleCachePaths(app())->directory());
 
     CapellCore::forcePackageInstalled('capell-app/core');
     CapellExtension::query()->updateOrCreate(
