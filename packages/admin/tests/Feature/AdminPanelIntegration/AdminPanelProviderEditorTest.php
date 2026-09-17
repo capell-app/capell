@@ -3,8 +3,14 @@
 declare(strict_types=1);
 
 use Capell\Admin\Enums\AdminPanelChangeStatus;
+use Capell\Admin\Http\Middleware\SetSitePermissionScope;
 use Capell\Admin\Support\AdminPanelIntegration\AdminPanelProviderEditor;
 use Capell\Admin\Tests\Support\AdminPanelProviderFixtures;
+use Livewire\Livewire;
+
+it('persists site permission scope middleware for Livewire requests', function (): void {
+    expect(Livewire::getPersistentMiddleware())->toContain(SetSitePermissionScope::class);
+});
 
 it('adds capell panel integration to a clean provider', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'capell-panel-');
@@ -30,7 +36,7 @@ it('adds capell panel integration to a clean provider', function (): void {
         ->and($contents)->toContain('use Filament\\Http\\Middleware\\Authenticate;')
         ->and($contents)->toContain('->colors(FilamentColorEnum::colors())')
         ->and($contents)->toContain('->pages([CapellDashboard::class])')
-        ->and($contents)->toContain('->authMiddleware([Authenticate::class, SetSitePermissionScope::class])')
+        ->and($contents)->toContain('->authMiddleware([Authenticate::class, SetSitePermissionScope::class], isPersistent: true)')
         ->and($contents)->toContain('->navigationItems(CapellAdmin::getNavigationItems())')
         ->and($contents)->toContain('->navigationGroups(CapellAdmin::getNavigationGroups())')
         ->and($contents)->toContain("->plugin(CapellAdminPlugin::make()\n                ->discoverConfigurators(in: app_path('Filament/Configurators')")
@@ -119,7 +125,7 @@ PHP);
 
     expect($contents)->toContain('use Capell\\Admin\\Http\\Middleware\\SetSitePermissionScope;')
         ->and($contents)->toContain('Authenticate::class,')
-        ->and($contents)->toContain('SetSitePermissionScope::class');
+        ->and($contents)->toContain('->authMiddleware([SetSitePermissionScope::class], isPersistent: true)');
 });
 
 it('reports already-applied integration changes without mutating the provider twice', function (): void {

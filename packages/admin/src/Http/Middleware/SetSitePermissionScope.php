@@ -29,7 +29,7 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Register this middleware on the Filament panel in AdminPanelProvider:
  *
- *   ->middleware([SetSitePermissionScope::class])
+ *   ->middleware([SetSitePermissionScope::class], isPersistent: true)
  */
 class SetSitePermissionScope
 {

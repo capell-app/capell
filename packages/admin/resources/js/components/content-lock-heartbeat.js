@@ -28,6 +28,7 @@ export default function capellContentLockHeartbeat(config) {
         initialDataHash: null,
         localDraft: null,
         localDraftAvailable: false,
+        heartbeatRequestId: 0,
         conflict: Boolean(config.initialConflict),
         permissionBlocked: false,
         heartbeatUnavailable: false,
@@ -58,7 +59,10 @@ export default function capellContentLockHeartbeat(config) {
                         return
                     }
 
-                    succeed(() => this.queueLocalDraft())
+                    succeed(() => {
+                        this.queueLocalDraft()
+                        this.heartbeat()
+                    })
                 })
             }
 
@@ -155,6 +159,8 @@ export default function capellContentLockHeartbeat(config) {
                 return
             }
 
+            const requestId = ++this.heartbeatRequestId
+
             window
                 .fetch(this.heartbeatUrl, {
                     method: 'POST',
@@ -165,6 +171,10 @@ export default function capellContentLockHeartbeat(config) {
                     },
                 })
                 .then((response) => {
+                    if (requestId !== this.heartbeatRequestId) {
+                        return
+                    }
+
                     if (response.ok) {
                         this.clearHeartbeatState()
 
@@ -185,7 +195,11 @@ export default function capellContentLockHeartbeat(config) {
 
                     this.setUnavailable()
                 })
-                .catch(() => this.setUnavailable())
+                .catch(() => {
+                    if (requestId === this.heartbeatRequestId) {
+                        this.setUnavailable()
+                    }
+                })
         },
 
         startHeartbeat() {
