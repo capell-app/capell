@@ -113,8 +113,8 @@ tests.
 
 ## Verification Commands
 
-- Focused Pest:
-  `vendor/bin/pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
+- Focused Pest: `./capell pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
+  (host: `vendor/bin/pest ...` with PHP 8.4)
 - Changed-file formatting: `composer lint:changed`
 - Source analysis while iterating: `composer analyze:source`
 - Ad-hoc path-scoped analysis (e.g. one package): `composer analyze:diff -- <path>`.
@@ -169,11 +169,13 @@ result rather than running one yourself.
   `bash scripts/init-worktree.sh` refuses the Docker path and exits before its own
   `node_modules/` step, so the npm step is never done for you; a preflight that
   stops on "node_modules/ is missing" is an unprovisioned worktree, not a result.
-- Focused Pest inside the container must override the container's MySQL
-  environment, which otherwise wins over `phpunit.xml` and trips the package
-  database guard ("Refusing to run Capell package Pest tests against database"):
-  `./capell compose exec -T -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: -e DB_URL= app vendor/bin/pest <path> --configuration=phpunit.xml`.
-  `./capell test -- <path>` does not take a path (it runs the `clear` event first).
+- Focused Pest in the container: `./capell pest <path> --configuration=phpunit.xml`.
+  The wrapper runs it as the `capell` user with SQLite `:memory:`. Never use raw
+  `./capell compose exec app vendor/bin/pest`: it runs as root with the container's
+  MySQL environment, so it trips the package database guard ("Refusing to run
+  Capell package Pest tests against database") and, as root, falsely fails every
+  "unwritable file" test (`PhpFileEditorTest`, `EnvFileEditorTest`,
+  `RunInstallPreflightChecksActionTest`). `./capell test` takes no path.
 - Host-only worktrees: `bash scripts/init-worktree.sh --host-only`. Never symlink `vendor/` or
   `vendor/composer/`: Composer then resolves Capell classes from the primary
   checkout and green tests exercise the wrong source. Verify a changed class with
