@@ -1,5 +1,9 @@
 @if ($guidance === null)
-    <div class="fi-sc-text text-sm text-danger-600 dark:text-danger-400" role="alert" data-media-composition-guidance-status="unregistered">
+    <div
+        class="fi-sc-text text-sm text-danger-600 dark:text-danger-400"
+        role="alert"
+        data-media-composition-guidance-status="unregistered"
+    >
         {{ $warning }}
     </div>
 @else
@@ -12,7 +16,10 @@
         <p class="font-medium text-gray-950 dark:text-white">
             {{ $heading }}
             @if ($dimensions !== null)
-                <span class="font-normal text-gray-500 dark:text-gray-400">{{ $dimensions }}</span>
+                <span
+                    class="font-normal text-gray-500 dark:text-gray-400"
+                    >{{ $dimensions }}</span
+                >
             @endif
         </p>
 
@@ -42,7 +49,8 @@
                 download="{{ $downloadName }}"
                 aria-label="{{ $downloadAccessibleName }}"
                 class="font-medium text-primary-600 underline dark:text-primary-400"
-            >{{ __('capell-admin::media.composition_guidance.download_label') }}</a>
+                >{{ __('capell-admin::media.composition_guidance.download_label') }}</a
+            >
         @endif
     </section>
 @endif

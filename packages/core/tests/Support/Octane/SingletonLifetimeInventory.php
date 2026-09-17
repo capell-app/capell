@@ -51,6 +51,7 @@ use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Manifest\ManifestLoader;
+use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
 use Capell\Core\Support\Metrics\MetricsManager;
@@ -134,6 +135,7 @@ final class SingletonLifetimeInventory
             RenderableRegistry::class => self::boot('Renderable types are package boot registrations.'),
             LinkableContentRegistry::class => self::boot('Linkable content types are package boot registrations.'),
             ContentGraphRegistry::class => self::boot('Content graph nodes and edges are package boot registrations.'),
+            MediaCompositionGuidanceRegistry::class => self::boot('Composition guidance definitions are package boot registrations.'),
             HealthCheckRegistry::class => self::boot('Operational health checks are package boot registrations; each execution is isolated in a child process.'),
             ThemeChromeRegistry::class => self::boot('Theme chrome definitions are package boot registrations.'),
             ThemeInstallDefaultsRegistry::class => self::boot('Theme install defaults are package boot registrations.'),

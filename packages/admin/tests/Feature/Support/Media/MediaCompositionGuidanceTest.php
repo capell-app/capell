@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\Storage;
 
 function guidancePng(int $width, int $height): string
 {
+    if ($width < 1 || $height < 1) {
+        throw new InvalidArgumentException('Guidance image dimensions must be positive.');
+    }
+
     $image = imagecreatetruecolor($width, $height);
     ob_start();
     imagepng($image);
