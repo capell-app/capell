@@ -15,73 +15,68 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 
 it('capell:package-cache writes package and theme chain cache files', function (): void {
-    $packageCachePath = base_path('bootstrap/cache/capell-package-manifests.php');
-    $themeCachePath = base_path('bootstrap/cache/capell-theme-chain.php');
-    $localAppThemeCachePath = base_path('bootstrap/cache/capell-local-app-themes.php');
-    $runtimePaths = resolve(RuntimeRoleCachePaths::class);
+    // Isolated bootstrap path: writing straight to the shared skeleton's
+    // bootstrap/cache leaks capell-runtime manifests into other tests
+    // (including DoctorCommandTest) whenever this process is killed before
+    // its cleanup runs. Redirect the app's bootstrap path for the duration
+    // of the test so every write lands in a throwaway directory instead.
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $isolatedBootstrapPath = storage_path('framework/testing/package-cache-bootstrap-' . uniqid());
+    File::ensureDirectoryExists($isolatedBootstrapPath . '/cache');
+    $this->app->useBootstrapPath($isolatedBootstrapPath);
 
-    File::deleteDirectory($runtimePaths->directory());
+    try {
+        $packageCachePath = $this->app->bootstrapPath('cache/capell-package-manifests.php');
+        $themeCachePath = $this->app->bootstrapPath('cache/capell-theme-chain.php');
+        $localAppThemeCachePath = $this->app->bootstrapPath('cache/capell-local-app-themes.php');
+        $runtimePaths = resolve(RuntimeRoleCachePaths::class);
 
-    foreach ([$packageCachePath, $themeCachePath, $localAppThemeCachePath] as $cachePath) {
-        if (file_exists($cachePath)) {
-            @unlink($cachePath);
+        Artisan::call('capell:package-cache');
+
+        expect(file_exists($packageCachePath))->toBeTrue()
+            ->and(file_exists($themeCachePath))->toBeTrue()
+            ->and(file_exists($localAppThemeCachePath))->toBeTrue()
+            ->and(file_exists($runtimePaths->metadata()))->toBeTrue();
+
+        foreach (RuntimeRole::deploymentRoles() as $role) {
+            expect(file_exists($runtimePaths->packages($role)))->toBeTrue()
+                ->and(file_exists($runtimePaths->providers($role)))->toBeTrue()
+                ->and(file_exists($runtimePaths->services($role)))->toBeTrue();
         }
-    }
 
-    Artisan::call('capell:package-cache');
+        $publicPackages = require $runtimePaths->packages(RuntimeRole::Public);
+        $publicServices = require $runtimePaths->services(RuntimeRole::Public);
+        $policy = new RuntimeRoleProviderPolicy;
+        $publicProviders = $publicServices['providers'];
 
-    expect(file_exists($packageCachePath))->toBeTrue()
-        ->and(file_exists($themeCachePath))->toBeTrue()
-        ->and(file_exists($localAppThemeCachePath))->toBeTrue()
-        ->and(file_exists($runtimePaths->metadata()))->toBeTrue();
+        expect(array_values(array_intersect(array_keys($publicPackages), [
+            'capell-app/admin',
+            'capell-app/installer',
+            'capell-app/marketplace',
+        ])))->toBe([])
+            ->and(array_filter(
+                $publicProviders,
+                $policy->isAuthoringProvider(...),
+            ))->toBe([]);
 
-    foreach (RuntimeRole::deploymentRoles() as $role) {
-        expect(file_exists($runtimePaths->packages($role)))->toBeTrue()
-            ->and(file_exists($runtimePaths->providers($role)))->toBeTrue()
-            ->and(file_exists($runtimePaths->services($role)))->toBeTrue();
-    }
+        $packages = require $packageCachePath;
+        $chain = require $themeCachePath;
 
-    $publicPackages = require $runtimePaths->packages(RuntimeRole::Public);
-    $publicServices = require $runtimePaths->services(RuntimeRole::Public);
-    $policy = new RuntimeRoleProviderPolicy;
-    $publicProviders = $publicServices['providers'];
+        expect($packages)->toBeArray();
 
-    expect(array_values(array_intersect(array_keys($publicPackages), [
-        'capell-app/admin',
-        'capell-app/installer',
-        'capell-app/marketplace',
-    ])))->toBe([])
-        ->and(array_filter(
-            $publicProviders,
-            $policy->isAuthoringProvider(...),
-        ))->toBe([]);
-
-    $packages = require $packageCachePath;
-    $chain = require $themeCachePath;
-
-    expect($packages)->toBeArray();
-
-    foreach ($packages as $key => $manifest) {
-        expect($key)->toBeString();
-        expect($manifest)->toBeArray();
-    }
-
-    foreach ($chain as $key => $paths) {
-        expect($key)->toBeString();
-        expect($paths)->toBeArray();
-    }
-})->afterEach(function (): void {
-    foreach ([
-        base_path('bootstrap/cache/capell-package-manifests.php'),
-        base_path('bootstrap/cache/capell-theme-chain.php'),
-        base_path('bootstrap/cache/capell-local-app-themes.php'),
-    ] as $cachePath) {
-        if (file_exists($cachePath)) {
-            @unlink($cachePath);
+        foreach ($packages as $key => $manifest) {
+            expect($key)->toBeString();
+            expect($manifest)->toBeArray();
         }
-    }
 
-    File::deleteDirectory(base_path('bootstrap/cache/capell-runtime'));
+        foreach ($chain as $key => $paths) {
+            expect($key)->toBeString();
+            expect($paths)->toBeArray();
+        }
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+        File::deleteDirectory($isolatedBootstrapPath);
+    }
 });
 
 it('PackageRegistryBootstrapper uses capell-package-manifests.php when present', function (): void {

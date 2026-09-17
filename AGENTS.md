@@ -164,6 +164,11 @@ result rather than running one yourself.
   gets silently inherited by the next worktree provisioned from it.
 - The supported runtime is PHP 8.4. Do not interpret failures from a different host
   PHP as release evidence.
+- Check installed host runtimes before requiring Docker. On Ben's Mac,
+  `/opt/homebrew/opt/php@8.4/bin/php` is installed while the default PATH selects
+  PHP 8.5. Put the PHP 8.4 directory first on PATH so Composer's child commands
+  use the same runtime. Use an independent vendor tree and host-native Node
+  dependencies; container paths and caches are not host verification evidence.
 - Provision a new worktree completely before the first gate, in this order:
   `./capell up -d`, `./capell composer install`, `npm ci --no-audit --no-fund`.
   `bash scripts/init-worktree.sh` refuses the Docker path and exits before its own
@@ -201,7 +206,7 @@ result rather than running one yourself.
   only sees the CLI-narrowed report set, not the full tree the pattern is
   written against. Verified 2026-09-04: `composer analyze -- packages/core`
   reported 4 unmatched patterns targeting `packages/admin` files; `composer
-  analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
+analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
   errors total once the `packages/admin` call sites are back in scope). Use
   `composer analyze:diff -- <path>` for any path-scoped run instead —
   `phpstan/diff.neon` sets `reportUnmatchedIgnoredErrors: false`, the same

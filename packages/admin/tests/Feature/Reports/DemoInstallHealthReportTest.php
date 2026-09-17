@@ -18,7 +18,9 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
@@ -164,6 +166,13 @@ it('returns the empty snapshot for a truly uninstalled app', function (): void {
 
 function demoInstallHealthSeedInstall(): void
 {
+    // A stale capell-runtime manifest set (e.g. left behind by a killed
+    // PackageCacheCommandTest run against the shared Testbench skeleton) makes
+    // the doctor's RuntimeRoleCheck fail, which BuildDemoInstallHealthReportAction
+    // then surfaces as a critical finding even though this install is otherwise
+    // healthy. Clear it so this fixture is immune to leaked state from other tests.
+    File::deleteDirectory(new RuntimeRoleCachePaths(app())->directory());
+
     CapellCore::forcePackageInstalled('capell-app/core');
     CapellExtension::query()->updateOrCreate(
         ['composer_name' => 'capell-app/core'],
