@@ -185,9 +185,15 @@ class PageSummaryColumn extends TextColumn
     {
         $layoutName = $this->pageLayout($page)?->name;
 
-        return filled($layoutName)
-            ? (string) __('capell-admin::table.page_meta_layout_value', ['layout' => $layoutName])
-            : null;
+        if (! filled($layoutName)) {
+            return null;
+        }
+
+        $layoutName = (string) $layoutName;
+
+        return preg_match('/(?:^|\s)layout$/i', trim($layoutName)) === 1
+            ? $layoutName
+            : (string) __('capell-admin::table.page_meta_layout_value', ['layout' => $layoutName]);
     }
 
     private function typeLabel(Page $page): ?string

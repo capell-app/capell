@@ -268,6 +268,7 @@ it('renders page summary and publish status in the pages table', function (): vo
             'updated_at' => CarbonImmutable::parse('2026-05-22 09:00:00'),
             'visible_from' => CarbonImmutable::parse('2026-05-27 10:00:00'),
         ]);
+    $page->layout()->update(['name' => 'Start your site Layout']);
     $page->pageUrls()->delete();
 
     PageUrl::factory()
@@ -288,7 +289,8 @@ it('renders page summary and publish status in the pages table', function (): vo
         ->assertSee('Parent page')
         ->assertSee('/company/scheduled-page')
         ->assertSee('1 child')
-        ->assertSee(__('capell-admin::table.page_meta_layout_value', ['layout' => $page->layout->name]))
+        ->assertSee('Start your site Layout')
+        ->assertDontSee('Start your site Layout layout')
         ->assertSee($page->blueprint->name)
         ->assertSee('4d')
         ->assertSee('1 day ago')
