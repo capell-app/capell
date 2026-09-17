@@ -11,6 +11,7 @@ use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -101,9 +102,7 @@ class SetSitePermissionScope
         $user = $request->user();
 
         if ($user !== null) {
-            $siteIds = method_exists($user, 'getAllAssignedSiteIds')
-                ? $user->getAllAssignedSiteIds()
-                : $user->getAssignedSiteIds();
+            $siteIds = $this->resolveAssignedSiteIds($user);
 
             if ($siteIds->count() === 1) {
                 return (int) $siteIds->first();
@@ -123,11 +122,21 @@ class SetSitePermissionScope
             return true;
         }
 
-        $siteIds = method_exists($actor, 'getAllAssignedSiteIds')
-            ? $actor->getAllAssignedSiteIds()
-            : $actor->getAssignedSiteIds();
+        return $this->resolveAssignedSiteIds($actor)->contains($site->getKey());
+    }
 
-        return $siteIds->contains($site->getKey());
+    /** @return Collection<int, int> */
+    private function resolveAssignedSiteIds(Authenticatable $actor): Collection
+    {
+        if (method_exists($actor, 'getAllAssignedSiteIds')) {
+            return $actor->getAllAssignedSiteIds();
+        }
+
+        if (method_exists($actor, 'getAssignedSiteIds')) {
+            return $actor->getAssignedSiteIds();
+        }
+
+        return collect();
     }
 
     private function requestedSiteId(Request $request): ?int
