@@ -90,4 +90,23 @@ return [
     'upload_files_success' => '{1} Uploaded :count file.|[2,*] Uploaded :count files.',
     'upload_site' => 'Attach to site',
     'upload_site_helper' => 'Files are added to a shared uploads collection for this site.',
+    'composition_guidance' => [
+        'heading' => 'Composition guide: :label',
+        'dimensions' => ':width × :height px (:ratio)',
+        'download' => 'Download the :label template, :width by :height pixels, :ratio aspect ratio (version :version)',
+        'download_label' => 'Download template',
+        'crop_cover' => 'The image fills the frame and edges are cropped around the :position focal point.',
+        'crop_contain' => 'The whole image stays visible inside the frame, positioned :position.',
+        'layout_variants' => 'Used by layouts: :variants.',
+        'quiet_regions' => 'Keep these areas free of important detail:',
+        'quiet_region' => ':label: :width × :height px starting :x px from the left and :y px from the top.',
+        'status' => [
+            'missing' => 'The composition template file is missing, so it cannot be downloaded.',
+            'unknown_preset' => 'This guide refers to a crop preset that is not configured.',
+            'unsupported_format' => 'The composition template uses an unsupported file format.',
+            'dimension_mismatch' => 'The composition template does not match the crop preset dimensions and may be out of date.',
+            'invalid_quiet_region' => 'A quiet region in this guide falls outside the crop preset dimensions.',
+            'unregistered' => 'No composition guide is registered for this field.',
+        ],
+    ],
 ];
