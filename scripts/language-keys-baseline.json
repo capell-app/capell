@@ -773,8 +773,8 @@
         "capell-marketplace::marketplace.marketplace.verify_button",
         "capell-marketplace::marketplace.selection.impact_reason_"
     ],
-    "dynamicSiteCount": 98,
-    "dynamicFamilyCount": 40,
+    "dynamicSiteCount": 100,
+    "dynamicFamilyCount": 41,
     "dynamicSites": [
         "packages/admin/resources/views/activity/details.blade.php::family:capell-admin::activity.skip_reasons.*",
         "packages/admin/resources/views/activity/details.blade.php::family:capell-admin::activity.statuses.*",
@@ -832,6 +832,8 @@
         "packages/admin/src/Livewire/InfoBanner.php::family:capell-admin::hints.*",
         "packages/admin/src/Providers/AdminServiceProvider.php::family:capell-admin::dashboard.*",
         "packages/admin/src/Providers/AdminServiceProvider.php::family:capell-admin::dashboard.overview_stat_*_description",
+        "packages/admin/src/Support/Media/MediaCompositionGuidancePresenter.php::choices:capell-admin::media.composition_guidance.crop_contain|capell-admin::media.composition_guidance.crop_cover",
+        "packages/admin/src/Support/Media/MediaCompositionGuidancePresenter.php::family:capell-admin::media.composition_guidance.status.*",
         "packages/admin/tests/Feature/Filament/Resources/Language/Pages/ManageLanguagesTest.php::choices:capell-admin::message.language_not_deletable",
         "packages/admin/tests/Feature/Filament/Resources/Layout/Pages/EditLayoutTest.php::choices:capell-admin::message.layout_not_deletable",
         "packages/admin/tests/Feature/Filament/Resources/Theme/Pages/ManageThemesTest.php::choices:capell-admin::message.theme_not_deletable",
@@ -885,6 +887,7 @@
         "capell-admin::generic.*",
         "capell-admin::hints.*",
         "capell-admin::marketplace.release_status.*",
+        "capell-admin::media.composition_guidance.status.*",
         "capell-admin::message.*",
         "capell-admin::reports.finding_severity.*",
         "capell-admin::theme-editor.options.*",
