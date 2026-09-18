@@ -108,7 +108,10 @@ tests.
   consuming App.
 - Validate manifests with `npm run screenshots:check`. Prepare and capture through
   `bash scripts/local-core-screenshots.sh --package <name>` (omit the filter for all
-  Core manifests). Validate documentation coverage and provenance with
+  Core manifests). Inside the Codex sandbox pass `--skip-install` and never run
+  `npm ci`/`npm install` yourself: the sandbox cannot chmod the runner-linked bin,
+  and disabling bin links to get past that empties `node_modules/.bin`. Report
+  missing dependencies instead. Validate documentation coverage and provenance with
   `npm run docs:screenshots:check` and `npm run docs:screenshot-receipts`.
 
 ## Verification Commands

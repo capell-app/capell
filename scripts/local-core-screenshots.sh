@@ -6,6 +6,7 @@ REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${REPOSITORY_ROOT}/.env.deploy.local"
 DRY_RUN=false
 REUSE_APP=false
+SKIP_INSTALL=false
 ONLY_ARGS=()
 ONLY_ARG_COUNT=0
 
@@ -19,6 +20,7 @@ Options:
   --env-file <path>    Env file. Defaults to .env.deploy.local.
   --dry-run            Validate manifests without preparing or capturing.
   --reuse-app          Reuse an already-running Testbench workbench.
+  --skip-install       Use the installed node_modules instead of running npm ci.
   -h, --help           Show this help.
 USAGE
 }
@@ -47,6 +49,10 @@ while [[ $# -gt 0 ]]; do
             REUSE_APP=true
             shift
             ;;
+        --skip-install)
+            SKIP_INSTALL=true
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -67,7 +73,19 @@ if [[ -f "${ENV_FILE}" ]]; then
 fi
 
 cd "${REPOSITORY_ROOT}"
-npm ci
+
+# A sandboxed agent cannot run npm ci: it may not chmod the linked
+# screenshot-tools bin outside its writable roots, and working around that
+# with bin links disabled leaves node_modules without any executables.
+# Skipping the install therefore requires a tree that already has them.
+if [[ "${SKIP_INSTALL}" == true ]]; then
+    if [[ -z "$(ls -A node_modules/.bin 2>/dev/null)" ]]; then
+        echo "--skip-install needs installed dependencies, but node_modules/.bin is missing or empty. Run npm ci outside the sandbox first." >&2
+        exit 1
+    fi
+else
+    npm ci
+fi
 
 if [[ "${DRY_RUN}" == true ]]; then
     if [[ "${ONLY_ARG_COUNT}" -eq 0 ]]; then
