@@ -63,4 +63,31 @@ BASH);
             'npm run screenshots',
         ],
     ],
+    'capture with installed dependencies' => [
+        ['--skip-install'],
+        [
+            'npm run screenshots -- install-browser',
+            'bash scripts/screenshots/prepare-workbench.sh',
+            'npm run screenshots',
+        ],
+    ],
 ]);
+
+it('refuses to skip the install when no dependency executables are installed', function (): void {
+    $root = sys_get_temp_dir() . '/capell-core-screenshot-skip-' . bin2hex(random_bytes(6));
+
+    mkdir($root . '/scripts', 0777, true);
+    copy(dirname(__DIR__, 2) . '/scripts/local-core-screenshots.sh', $root . '/scripts/local-core-screenshots.sh');
+
+    try {
+        $process = new Process(['/bin/bash', 'scripts/local-core-screenshots.sh', '--skip-install'], $root);
+        $process->run();
+
+        expect($process->getExitCode())->toBe(1)
+            ->and($process->getErrorOutput())->toContain('node_modules/.bin is missing or empty');
+    } finally {
+        unlink($root . '/scripts/local-core-screenshots.sh');
+        rmdir($root . '/scripts');
+        rmdir($root);
+    }
+});
