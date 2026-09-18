@@ -16,17 +16,16 @@ const declaredRunnerCli = path.join(
 
 function runnerCliPath() {
     if (process.env.CAPELL_SCREENSHOT_RUNNER_PATH) {
-        return path.resolve(process.env.CAPELL_SCREENSHOT_RUNNER_PATH, 'src/cli.mjs')
+        return path.resolve(
+            process.env.CAPELL_SCREENSHOT_RUNNER_PATH,
+            'src/cli.mjs',
+        )
     }
 
     return declaredRunnerCli
 }
 
 function coreRunnerArguments(args) {
-    if (args[0] === 'install-browser') {
-        return ['install-browser']
-    }
-
     const forwardedArguments = []
 
     for (let index = 0; index < args.length; index += 1) {
