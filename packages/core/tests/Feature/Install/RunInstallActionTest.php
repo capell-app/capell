@@ -49,9 +49,11 @@ function stubPermissionMigration(): string
     return $path;
 }
 
-function writeRunInstallTestAdminPanelProvider(): void
+// Keep this class distinct from the host bootstrap provider: PHP retains loaded
+// fixture classes after their files are removed, and later apps rediscover them.
+function writeRunInstallTestPanelProvider(): void
 {
-    $path = app_path('Providers/Filament/AdminPanelProvider.php');
+    $path = app_path('Providers/Filament/RunInstallTestPanelProvider.php');
 
     File::ensureDirectoryExists(dirname($path));
     File::put($path, <<<'PHP'
@@ -64,7 +66,7 @@ namespace App\Providers\Filament;
 use Filament\Panel;
 use Filament\PanelProvider;
 
-class AdminPanelProvider extends PanelProvider
+class RunInstallTestPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
@@ -113,7 +115,7 @@ afterEach(function (): void {
         File::delete($stub);
     }
 
-    $panelProvider = app_path('Providers/Filament/AdminPanelProvider.php');
+    $panelProvider = app_path('Providers/Filament/RunInstallTestPanelProvider.php');
     if (File::exists($panelProvider)) {
         File::delete($panelProvider);
     }
@@ -392,7 +394,7 @@ it('fails the install when admin panel integration command fails', function (): 
     stubPermissionMigration();
     $fakeFilesystem = new FakeMigrationFilesystem;
     $this->app->instance(MigrationFilesystemInterface::class, $fakeFilesystem);
-    writeRunInstallTestAdminPanelProvider();
+    writeRunInstallTestPanelProvider();
 
     expect(User::query()->count())->toBe(0);
 
