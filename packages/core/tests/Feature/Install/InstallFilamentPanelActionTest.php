@@ -39,7 +39,7 @@ function bindFilamentPanelInstallProcessFactory(bool $successful = true, string 
         ->andReturnUsing(function (?callable $callback = null) use ($successful, $output): int {
             if ($successful) {
                 File::ensureDirectoryExists(app_path('Providers/Filament'));
-                File::put(app_path('Providers/Filament/AdminPanelProvider.php'), <<<'PHP'
+                File::put(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php'), <<<'PHP'
 <?php
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ namespace App\Providers\Filament;
 use Filament\Panel;
 use Filament\PanelProvider;
 
-class AdminPanelProvider extends PanelProvider
+class FilamentInstallTestPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
@@ -91,7 +91,7 @@ PHP);
 
 it('does not run filament install when a themed panel provider already exists', function (): void {
     File::ensureDirectoryExists(app_path('Providers/Filament'));
-    File::put(app_path('Providers/Filament/AdminPanelProvider.php'), <<<'PHP'
+    File::put(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php'), <<<'PHP'
 <?php
 
 declare(strict_types=1);
@@ -101,7 +101,7 @@ namespace App\Providers\Filament;
 use Filament\Panel;
 use Filament\PanelProvider;
 
-class AdminPanelProvider extends PanelProvider
+class FilamentInstallTestPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
@@ -124,7 +124,7 @@ PHP);
 
 it('reports when an existing filament panel is missing theme configuration', function (): void {
     File::ensureDirectoryExists(app_path('Providers/Filament'));
-    File::put(app_path('Providers/Filament/AdminPanelProvider.php'), <<<'PHP'
+    File::put(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php'), <<<'PHP'
 <?php
 
 declare(strict_types=1);
@@ -134,7 +134,7 @@ namespace App\Providers\Filament;
 use Filament\Panel;
 use Filament\PanelProvider;
 
-class AdminPanelProvider extends PanelProvider
+class FilamentInstallTestPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
@@ -168,7 +168,7 @@ it('runs filament install with panel scaffolding when no panel provider exists',
         '--no-interaction' => true,
     ])->andReturnUsing(function (): int {
         File::ensureDirectoryExists(app_path('Providers/Filament'));
-        File::put(app_path('Providers/Filament/AdminPanelProvider.php'), <<<'PHP'
+        File::put(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php'), <<<'PHP'
 <?php
 
 declare(strict_types=1);
@@ -178,7 +178,7 @@ namespace App\Providers\Filament;
 use Filament\Panel;
 use Filament\PanelProvider;
 
-class AdminPanelProvider extends PanelProvider
+class FilamentInstallTestPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
@@ -201,7 +201,7 @@ PHP);
         ->toContain("@import '../../../../vendor/filament/filament/resources/css/theme.css';")
         ->toContain("@source '../../../../app/Filament/**/*';")
         ->toContain("@source '../../../../resources/views/filament/**/*';")
-        ->and(app()->getProvider('App\\Providers\\Filament\\AdminPanelProvider'))
+        ->and(app()->getProvider('App\\Providers\\Filament\\FilamentInstallTestPanelProvider'))
         ->toBeInstanceOf(PanelProvider::class)
         ->and(resolve(PanelRegistry::class)->get('admin'))
         ->not->toBeNull()
@@ -222,7 +222,7 @@ it('falls back to a fresh process when filament install is not registered in-pro
 
     InstallFilamentPanelAction::run($reporter);
 
-    expect(file_exists(app_path('Providers/Filament/AdminPanelProvider.php')))->toBeTrue()
+    expect(file_exists(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php')))->toBeTrue()
         ->and($reporter->lines)->toContain('Filament panel installed');
 });
 
@@ -238,7 +238,7 @@ it('falls back to a fresh process when in-process filament install fails', funct
 
     InstallFilamentPanelAction::run(new NullProgressReporter);
 
-    expect(file_exists(app_path('Providers/Filament/AdminPanelProvider.php')))->toBeTrue();
+    expect(file_exists(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php')))->toBeTrue();
 });
 
 it('throws when the fresh filament process fails', function (): void {

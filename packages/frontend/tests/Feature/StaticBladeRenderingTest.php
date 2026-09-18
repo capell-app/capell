@@ -43,7 +43,9 @@ it('keeps critical-eligible theme css blocking on public routes without an optim
         ->withTranslations(data: ['title' => 'Theme fallback'], slug: '/')
         ->create(['meta' => null]);
 
-    $response = $this->followingRedirects()->get('/', ['HTTP_HOST' => 'localhost']);
+    // The canonical public URL must render directly. Following redirects here
+    // hides a leaked root panel route behind an unbounded redirect loop.
+    $response = $this->get('/', ['HTTP_HOST' => 'localhost']);
 
     $response
         ->assertOk()
