@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Workbench\App\Http\Middleware\RequireScreenshotAdmin;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
@@ -20,6 +20,8 @@ Route::get('/admin/screenshot-fixtures/page-building-blocks-editor', static fn (
 Route::get('/screenshot-fixtures/page-history', static fn (): RedirectResponse => redirect()->to(PageHistoryFixture::editUrl()))
     ->middleware('web');
 
+// These list aliases exercise authenticated fixture redirects in regression tests.
+// Capture manifests use the canonical Filament list URLs after pre-capture seeding.
 Route::get('/screenshot-fixtures/record-states/pages', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::pagesUrl()))
     ->middleware(['web', RequireScreenshotAdmin::class]);
 
@@ -35,5 +37,5 @@ Route::get('/screenshot-fixtures/record-states/media', static fn (): RedirectRes
 Route::get('/screenshot-fixtures/record-states/media-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaEditUrl()))
     ->middleware(['web', RequireScreenshotAdmin::class]);
 
-Route::get('/api/v1/marketplace-fixtures/seo-suite/{image}.svg', static fn (string $image): Response => response(MarketplaceFixture::imageSvg($image), 200)
-    ->header('Content-Type', 'image/svg+xml'))->where('image', '[A-Za-z0-9_-]+');
+Route::get('/api/v1/marketplace-fixtures/seo-suite/{image}.png', static fn (string $image): BinaryFileResponse => response()->file(MarketplaceFixture::imagePath($image . '.png')))
+    ->where('image', '[0-9]+');

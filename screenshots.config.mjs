@@ -54,6 +54,10 @@ export default {
         admin: `${appUrl}/admin`,
     },
     environment: {
+        XDG_CONFIG_HOME: join(
+            repositoryRoot,
+            'storage/framework/testing/screenshot-config',
+        ),
         APP_ENV: 'production',
         APP_DEBUG: 'false',
         APP_URL: displayUrl,

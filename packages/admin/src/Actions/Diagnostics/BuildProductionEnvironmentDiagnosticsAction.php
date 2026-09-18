@@ -33,8 +33,8 @@ final class BuildProductionEnvironmentDiagnosticsAction
             $this->failedJobsTableCheck(),
             $this->sessionDriverCheck(),
             $this->trustedProxiesCheck(),
-            $this->writablePathCheck((string) __('capell-admin::diagnostics.storage_path'), storage_path()),
-            $this->writablePathCheck((string) __('capell-admin::diagnostics.bootstrap_cache_path'), base_path('bootstrap/cache')),
+            $this->writablePathCheck((string) __('capell-admin::diagnostics.storage_path'), storage_path(), 'storage'),
+            $this->writablePathCheck((string) __('capell-admin::diagnostics.bootstrap_cache_path'), base_path('bootstrap/cache'), 'bootstrap/cache'),
         ];
     }
 
@@ -275,16 +275,18 @@ final class BuildProductionEnvironmentDiagnosticsAction
         );
     }
 
-    private function writablePathCheck(string $label, string $path): DiagnosticCheckData
+    private function writablePathCheck(string $label, string $path, string $relativePath): DiagnosticCheckData
     {
+        $displayPath = config('app.debug') ? $path : $relativePath;
+
         return new DiagnosticCheckData(
             status: is_dir($path) && is_writable($path) ? 'green' : 'red',
             label: $label,
             detail: is_dir($path) && is_writable($path)
-                ? (string) __('capell-admin::diagnostics.path_writable', ['path' => $path])
-                : (string) __('capell-admin::diagnostics.path_not_writable', ['path' => $path]),
+                ? (string) __('capell-admin::diagnostics.path_writable', ['path' => $displayPath])
+                : (string) __('capell-admin::diagnostics.path_not_writable', ['path' => $displayPath]),
             remediation: is_dir($path) && is_writable($path) ? null : (string) __('capell-admin::diagnostics.path_writable_remediation'),
-            path: $path,
+            path: $displayPath,
         );
     }
 

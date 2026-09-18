@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
@@ -11,16 +12,19 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Workbench\App\Support\FrontendScreenshotSeed;
 
 beforeEach(function (): void {
+    Storage::fake('public');
     $publicPath = storage_path('framework/testing/frontend-screenshot-seed-public');
 
     app()->usePublicPath($publicPath);
     File::ensureDirectoryExists($publicPath . '/build/screenshots');
+    File::copyDirectory(dirname(__DIR__, 3) . '/publishes/build', $publicPath . '/vendor/capell-frontend');
     File::put(
         $publicPath . '/build/screenshots/default-theme.css',
-        "/* Test-owned generated frontend screenshot stylesheet. */\n",
+        file_get_contents(dirname(__DIR__, 3) . '/resources/css/base/default-theme.css'),
     );
 });
 
@@ -85,9 +89,13 @@ it('initializes an idempotent generated frontend screenshot fixture without clai
     FrontendScreenshotSeed::initialize('http://127.0.0.1:8145');
     FrontendScreenshotSeed::initialize('http://127.0.0.1:8145');
 
+    $media = Media::query()->where('uuid', '6b6f1639-95be-4cc3-a5a5-f19a0ef825dc')->sole();
+    Storage::disk('public')->assertExists($media->getKey() . '/coastal-walk.svg');
+    $translation->refresh();
+    expect($translation->content)->toContain(e($media->getUrl()));
+
     $layout->refresh();
     $theme->refresh();
-    $translation->refresh();
 
     expect($layout->containers)->toEqual([
         'main' => [
@@ -98,8 +106,8 @@ it('initializes an idempotent generated frontend screenshot fixture without clai
     ])
         ->and($page->translations()->count())->toBe(1)
         ->and($page->translations()->sole()->is($translation))->toBeTrue()
-        ->and($translation->title)->toBe('Welcome to Capell')
-        ->and($translation->content)->toBe('<p>Build and publish a clear, durable site with Capell.</p><p>This is the ordinary published homepage rendered by the local application.</p>')
+        ->and($translation->title)->toBe('A slower weekend outdoors')
+        ->and($translation->content)->toContain('A morning by the water', '<img', 'Plan your visit', '<nav ', '<footer>')
         ->and($translation->meta)->toEqual([
             'label' => 'Home',
             'slug' => '/',
@@ -170,6 +178,28 @@ it('fails clearly when the generated frontend stylesheet has not been built', fu
         expect(static fn () => FrontendScreenshotSeed::initialize('http://127.0.0.1:8145'))
             ->toThrow(RuntimeException::class, 'The generated frontend screenshot stylesheet is missing. Run the screenshot workbench preparation before seeding the fixture.');
     } finally {
-        File::put($stylesheet, "/* Test-owned generated frontend screenshot stylesheet. */\n");
+        File::put($stylesheet, file_get_contents(dirname(__DIR__, 3) . '/resources/css/base/default-theme.css'));
     }
+});
+
+it('renders the populated fixture through the anonymous frontend route', function (): void {
+    frontendScreenshotSeedModels();
+    FrontendScreenshotSeed::initialize('http://127.0.0.1:8145');
+
+    $this->get('http://127.0.0.1/')
+        ->assertOk()
+        ->assertSee('A slower weekend outdoors')
+        ->assertSee('A morning by the water')
+        ->assertSee('coastal-walk.svg', false)
+        ->assertSee('build/screenshots/default-theme.css', false)
+        ->assertDontSee('data-capell-authoring', false)
+        ->assertDontSee('data-capell-editor', false)
+        ->assertDontSee(base_path(), false);
+});
+
+it('rejects a placeholder stylesheet instead of accepting an unstyled fixture', function (): void {
+    frontendScreenshotSeedModels();
+    File::put(public_path('build/screenshots/default-theme.css'), '/* Placeholder stylesheet. */');
+    expect(fn () => FrontendScreenshotSeed::initialize('http://127.0.0.1:8145'))
+        ->toThrow(RuntimeException::class, 'compiled default-theme CSS');
 });

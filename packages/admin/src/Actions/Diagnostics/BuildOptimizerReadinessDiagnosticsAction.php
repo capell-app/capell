@@ -79,14 +79,14 @@ final class BuildOptimizerReadinessDiagnosticsAction
     private function latestProfileGenerationCheck(): DiagnosticCheckData
     {
         $paths = [
-            storage_path('app/capell/frontend-optimizer'),
-            public_path('frontend-optimizer'),
+            'storage/app/capell/frontend-optimizer' => storage_path('app/capell/frontend-optimizer'),
+            'public/frontend-optimizer' => public_path('frontend-optimizer'),
         ];
 
         $latestTimestamp = null;
         $latestPath = null;
 
-        foreach ($paths as $path) {
+        foreach ($paths as $relativeDirectory => $path) {
             if (! is_dir($path)) {
                 continue;
             }
@@ -100,7 +100,11 @@ final class BuildOptimizerReadinessDiagnosticsAction
 
                 if ($latestTimestamp === null || $timestamp > $latestTimestamp) {
                     $latestTimestamp = $timestamp;
-                    $latestPath = $file->getPathname();
+                    // Production reports remain useful without exposing the host's home directory.
+                    // Local debug sessions retain the absolute path for troubleshooting.
+                    $latestPath = config('app.debug')
+                        ? $file->getPathname()
+                        : $relativeDirectory . '/' . $file->getRelativePathname();
                 }
             }
         }

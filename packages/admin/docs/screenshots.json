@@ -279,6 +279,22 @@
             "output": "packages/admin/docs/images/screenshots/page-history-rollback-preview.png",
             "required": true,
             "notes": "Authentic validated roll-forward preview showing the target revision, reversible append-only recovery explanation, and real field-level differences before confirmation."
+        },
+        {
+            "id": "frontend-media-rendering",
+            "title": "Published editorial media on the frontend.",
+            "package": "admin",
+            "surface": "frontend",
+            "targetType": "frontend-url",
+            "target": null,
+            "scenario": "frontend-page",
+            "url": "/",
+            "waitFor": ".capell-default-theme figure img",
+            "docsPage": "packages/admin/docs/overview.md",
+            "output": "packages/admin/docs/images/screenshots/10-frontend-media-rendering.png",
+            "colorSchemes": ["light"],
+            "required": true,
+            "notes": "Uses the published editorial page and its persisted media file, shared with the frontend fixture."
         }
     ]
 }
