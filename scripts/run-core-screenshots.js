@@ -42,6 +42,13 @@ function coreRunnerArguments(args) {
         forwardedArguments.push(args[index])
     }
 
+    // Core's Testbench workbench is prepared by local-core-screenshots.sh. It
+    // is not a disposable installed App, so the shared runner must not run its
+    // Composer/npm/build preflight against this checkout.
+    if (!forwardedArguments.includes('--skip-build')) {
+        forwardedArguments.push('--skip-build')
+    }
+
     return [
         '--config',
         'screenshots.config.mjs',

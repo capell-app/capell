@@ -21,6 +21,7 @@ test('scopes screenshot discovery to the Core repository', () => {
             '--dry-run',
             '--only',
             'core',
+            '--skip-build',
         ],
     )
 })
@@ -42,4 +43,5 @@ test('always passes the config, since the runner ignores it otherwise', () => {
     // falls back to argv and env only, and screenshots.config.mjs's outputRoots
     // write allowlist is silently not enforced.
     assert.deepEqual(args.slice(0, 2), ['--config', 'screenshots.config.mjs'])
+    assert.equal(args.at(-1), '--skip-build')
 })
