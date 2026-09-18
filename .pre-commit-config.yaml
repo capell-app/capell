@@ -18,6 +18,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: index-integrity
+        name: git index integrity
+        entry: scripts/guards/index-integrity.sh
+        language: script
+        always_run: true
+        pass_filenames: false
       - id: donotcommit
         name: DO NOT COMMIT check
         entry: 'do not commit|DO NOT COMMIT'
