@@ -28,6 +28,12 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             Config::set('database.connections.sqlite.url');
         }
 
+        $displayOrigin = env('CAPELL_SCREENSHOT_DISPLAY_ORIGIN');
+
+        if (is_string($displayOrigin) && $displayOrigin !== '') {
+            Config::set('app.url', $displayOrigin);
+        }
+
         config([
             'capell-marketplace.marketplace.base_url' => 'http://127.0.0.1:8145/api/v1',
             'capell-marketplace.marketplace.web_url' => 'http://127.0.0.1:8145',

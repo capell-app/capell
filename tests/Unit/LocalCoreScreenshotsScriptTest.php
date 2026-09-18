@@ -58,7 +58,7 @@ BASH);
         [],
         [
             'npm ci',
-            'npm run screenshots -- install-browser',
+            'npx playwright install chromium',
             'bash scripts/screenshots/prepare-workbench.sh',
             'npm run screenshots',
         ],
@@ -66,7 +66,6 @@ BASH);
     'capture with installed dependencies' => [
         ['--skip-install'],
         [
-            'npm run screenshots -- install-browser',
             'bash scripts/screenshots/prepare-workbench.sh',
             'npm run screenshots',
         ],

@@ -16,17 +16,16 @@ const declaredRunnerCli = path.join(
 
 function runnerCliPath() {
     if (process.env.CAPELL_SCREENSHOT_RUNNER_PATH) {
-        return path.resolve(process.env.CAPELL_SCREENSHOT_RUNNER_PATH, 'src/cli.mjs')
+        return path.resolve(
+            process.env.CAPELL_SCREENSHOT_RUNNER_PATH,
+            'src/cli.mjs',
+        )
     }
 
     return declaredRunnerCli
 }
 
 function coreRunnerArguments(args) {
-    if (args[0] === 'install-browser') {
-        return ['install-browser']
-    }
-
     const forwardedArguments = []
 
     for (let index = 0; index < args.length; index += 1) {
@@ -41,6 +40,13 @@ function coreRunnerArguments(args) {
         }
 
         forwardedArguments.push(args[index])
+    }
+
+    // Core's Testbench workbench is prepared by local-core-screenshots.sh. It
+    // is not a disposable installed App, so the shared runner must not run its
+    // Composer/npm/build preflight against this checkout.
+    if (!forwardedArguments.includes('--skip-build')) {
+        forwardedArguments.push('--skip-build')
     }
 
     return [

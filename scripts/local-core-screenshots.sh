@@ -97,7 +97,11 @@ if [[ "${DRY_RUN}" == true ]]; then
     exit
 fi
 
-npm run screenshots -- install-browser
+# The runner has no install-browser command; Playwright installs the browser.
+# Like npm ci, this is an install, so --skip-install uses what is present.
+if [[ "${SKIP_INSTALL}" == false ]]; then
+    npx playwright install chromium
+fi
 
 if [[ "${REUSE_APP}" == false ]]; then
     bash scripts/screenshots/prepare-workbench.sh
