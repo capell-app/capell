@@ -81,7 +81,7 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
         $webUrl = rtrim((string) config('capell-marketplace.marketplace.web_url'), '/');
 
         Http::fake([
-            $baseUrl . '/extensions/seo-suite' => Http::response(
+            $baseUrl . '/extensions/seo-suite' => static fn () => Http::response(
                 MarketplaceFixture::extensionResponse($webUrl),
                 200,
             ),

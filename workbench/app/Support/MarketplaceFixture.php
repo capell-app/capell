@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Workbench\App\Support;
 
+use RuntimeException;
+
 final class MarketplaceFixture
 {
     /**
@@ -25,34 +27,8 @@ final class MarketplaceFixture
                 'purchase_url' => $baseUrl . '/extensions/seo-suite',
                 'price_cents' => 4900,
                 'is_paid' => true,
-                'image_url' => self::imageUrl($baseUrl, 'logo'),
-                'images' => [
-                    [
-                        'url' => self::imageUrl($baseUrl, 'admin-overview'),
-                        'alt' => 'SEO Suite admin overview',
-                        'caption' => 'Admin overview',
-                    ],
-                    [
-                        'url' => self::imageUrl($baseUrl, 'frontend-output'),
-                        'alt' => 'SEO Suite frontend output',
-                        'caption' => 'Frontend output',
-                    ],
-                    [
-                        'url' => self::imageUrl($baseUrl, 'settings'),
-                        'alt' => 'SEO Suite settings',
-                        'caption' => 'Settings',
-                    ],
-                    [
-                        'url' => self::imageUrl($baseUrl, 'checks'),
-                        'alt' => 'SEO Suite checks',
-                        'caption' => 'Checks',
-                    ],
-                    [
-                        'url' => self::imageUrl($baseUrl, 'reporting'),
-                        'alt' => 'SEO Suite reporting',
-                        'caption' => 'Reporting',
-                    ],
-                ],
+                'image_url' => self::galleryImages($baseUrl)[0]['url'],
+                'images' => self::galleryImages($baseUrl),
                 'product' => [
                     'group' => 'Marketing',
                     'tier' => 'premium',
@@ -104,36 +80,35 @@ final class MarketplaceFixture
         ];
     }
 
-    public static function imageSvg(string $image): string
+    public static function imagePath(string $image): string
     {
-        $titles = [
-            'admin-overview' => 'Admin overview',
-            'frontend-output' => 'Frontend output',
-            'settings' => 'Settings',
-            'checks' => 'Checks',
-            'reporting' => 'Reporting',
-            'logo' => 'SEO Suite',
-        ];
+        $directory = dirname(__DIR__, 2) . '/database/screenshot-gallery/';
+        $manifest = $directory . 'images.json';
+        abort_unless(is_file($manifest), 404);
+        $images = json_decode((string) file_get_contents($manifest), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($images as $entry) {
+            if ($entry['filename'] === $image && is_file($directory . $image)) {
+                abort_unless(hash_file('sha256', $directory . $image) === $entry['sha256'], 409);
 
-        $title = $titles[$image] ?? 'SEO Suite';
+                return $directory . $image;
+            }
+        }
 
-        return <<<SVG
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-label="{$title}">
-  <rect width="1200" height="760" fill="#0f172a"/>
-  <rect x="48" y="48" width="1104" height="664" rx="32" fill="#f8fafc"/>
-  <rect x="88" y="104" width="240" height="24" rx="12" fill="#f59e0b"/>
-  <rect x="88" y="160" width="512" height="32" rx="16" fill="#1e293b"/>
-  <rect x="88" y="232" width="360" height="320" rx="24" fill="#e2e8f0"/>
-  <rect x="488" y="232" width="584" height="56" rx="18" fill="#cbd5e1"/>
-  <rect x="488" y="320" width="472" height="56" rx="18" fill="#cbd5e1"/>
-  <rect x="488" y="408" width="520" height="56" rx="18" fill="#cbd5e1"/>
-  <text x="88" y="638" fill="#0f172a" font-family="Inter, Arial, sans-serif" font-size="52" font-weight="700">{$title}</text>
-</svg>
-SVG;
+        abort(404);
     }
 
-    private static function imageUrl(string $baseUrl, string $image): string
+    /** @return list<array{url: string, alt: string, caption: string}> */
+    private static function galleryImages(string $baseUrl): array
     {
-        return $baseUrl . '/api/v1/marketplace-fixtures/seo-suite/' . $image . '.svg';
+        $manifest = dirname(__DIR__, 2) . '/database/screenshot-gallery/images.json';
+        throw_unless(is_file($manifest), RuntimeException::class, 'Prepare genuine Marketplace gallery captures before requesting this fixture.');
+        $images = json_decode((string) file_get_contents($manifest), true, flags: JSON_THROW_ON_ERROR);
+        throw_unless(is_array($images) && count($images) >= 2, RuntimeException::class, 'The Marketplace gallery needs two genuine captures.');
+
+        return array_map(static fn (array $image): array => [
+            'url' => $baseUrl . '/api/v1/marketplace-fixtures/seo-suite/' . $image['filename'],
+            'alt' => $image['caption'],
+            'caption' => $image['caption'],
+        ], $images);
     }
 }

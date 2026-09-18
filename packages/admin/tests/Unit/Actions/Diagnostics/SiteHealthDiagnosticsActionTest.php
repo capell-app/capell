@@ -268,3 +268,30 @@ it('passes selected site ids only to site aware health report extenders', functi
     )
         ->and($extraSections->flatMap->checks->pluck('detail')->all())->toContain('Site 123');
 });
+
+it('keeps optimizer artifact paths relative outside debug mode', function (bool $debug): void {
+    config(['app.debug' => $debug]);
+    $originalStoragePath = storage_path();
+    $directory = storage_path('framework/testing/optimizer-path-disclosure');
+    app()->useStoragePath($directory);
+    File::ensureDirectoryExists(storage_path('app/capell/frontend-optimizer'));
+    $artifact = storage_path('app/capell/frontend-optimizer/profile.css');
+    File::put($artifact, 'body { color: #111; }');
+
+    try {
+        $process = Mockery::mock(Process::class);
+        $process->shouldReceive('run')->twice();
+        $process->shouldReceive('isSuccessful')->twice()->andReturnTrue();
+        $process->shouldReceive('getOutput')->twice()->andReturn('Version 1');
+        $factory = Mockery::mock(ProcessFactoryInterface::class);
+        $factory->shouldReceive('make')->twice()->andReturn($process);
+        app()->instance(ProcessFactoryInterface::class, $factory);
+        $checks = new Collection(BuildOptimizerReadinessDiagnosticsAction::run());
+        expect($checks->firstWhere('label', 'Latest optimizer profile')->path)->toBe(
+            $debug ? $artifact : 'storage/app/capell/frontend-optimizer/profile.css',
+        );
+    } finally {
+        app()->useStoragePath($originalStoragePath);
+        File::deleteDirectory($directory);
+    }
+})->with([false, true]);

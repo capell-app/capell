@@ -46,6 +46,16 @@ The Site metrics page keeps registered global metrics compact and comparable. Ea
 
 The bulk confirmation proves that reverting hides selected pages from visitors without discarding their content. The rollback preview proves the separate, append-only page-history recovery path.
 
+### Page history and layout choices
+
+The history timeline shows saved changes before an editor opens the rollback preview. The layout selector identifies disabled and unused layouts before selection.
+
+| Surface               | Light                                                                           | Dark                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Page history timeline | [Timeline](images/screenshots/page-history-timeline.png)                        | [Timeline in dark mode](images/screenshots/page-history-timeline-dark.png)                        |
+| Rollback preview      | [Preview](images/screenshots/page-history-rollback-preview.png)                 | [Preview in dark mode](images/screenshots/page-history-rollback-preview-dark.png)                 |
+| Layout selector       | [Layout choices](images/screenshots/admin-page-layout-select-record-states.png) | [Layout choices in dark mode](images/screenshots/admin-page-layout-select-record-states-dark.png) |
+
 ### Media workflow
 
 | Replace an upload                                                                                                                                    | Set a focal point                                                                                                                           |

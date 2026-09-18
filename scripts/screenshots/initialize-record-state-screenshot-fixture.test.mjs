@@ -65,3 +65,24 @@ test('passes both app and server environment to fixture initialization', () => {
         },
     )
 })
+
+test('initializes the real installer host for both guide aliases', () => {
+    for (const entry of [
+        { id: 'install-guide-page', target: 'InstallGuidePage' },
+        { id: 'docs-install-guide-page', url: '/install-guide' },
+    ]) {
+        assert.deepEqual(commandsForEntries([entry]), [
+            'Workbench\\App\\Support\\InstallerScreenshotFixture::initialize();',
+        ])
+    }
+})
+
+test('initializes published media for the formerly orphaned media capture', () => {
+    assert.equal(
+        commandsForEntries(
+            [{ id: 'frontend-media-rendering' }],
+            'http://127.0.0.1:8145',
+        ).length,
+        1,
+    )
+})

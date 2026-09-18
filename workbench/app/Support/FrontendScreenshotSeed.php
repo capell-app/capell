@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Workbench\App\Support;
 
 use Capell\Core\Models\Layout;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
@@ -44,6 +46,13 @@ final class FrontendScreenshotSeed
                 RuntimeException::class,
                 'The generated frontend screenshot stylesheet is missing. Run the screenshot workbench preparation before seeding the fixture.',
             );
+            $stylesheet = (string) file_get_contents(public_path(self::Stylesheet));
+            throw_unless(
+                preg_match('/\.capell-default-theme\s*\{/', $stylesheet) === 1,
+                RuntimeException::class,
+                'The frontend screenshot requires compiled default-theme CSS, not a placeholder stylesheet.',
+            );
+
             $layout->forceFill([
                 'containers' => [
                     'main' => [
@@ -61,8 +70,8 @@ final class FrontendScreenshotSeed
             $translationMeta['slug'] = '/';
 
             $translation->fill([
-                'title' => 'Welcome to Capell',
-                'content' => '<p>Build and publish a clear, durable site with Capell.</p><p>This is the ordinary published homepage rendered by the local application.</p>',
+                'title' => 'A slower weekend outdoors',
+                'content' => self::content($page),
                 'meta' => $translationMeta,
             ])->save();
 
@@ -100,6 +109,33 @@ final class FrontendScreenshotSeed
         });
     }
 
+    private static function content(Page $page): string
+    {
+        $source = dirname(__DIR__, 2) . '/resources/images/coastal-walk.svg';
+        $contents = file_get_contents($source);
+        throw_unless(is_string($contents), RuntimeException::class, 'The coastal walk editorial image is missing.');
+
+        $media = Media::query()->firstOrNew(['uuid' => '6b6f1639-95be-4cc3-a5a5-f19a0ef825dc']);
+        $media->fill([
+            'collection_name' => 'image',
+            'name' => 'Coastal walk at morning light',
+            'file_name' => 'coastal-walk.svg',
+            'mime_type' => 'image/svg+xml',
+            'disk' => 'public',
+            'conversions_disk' => 'public',
+            'size' => strlen($contents),
+            'manipulations' => [],
+            'custom_properties' => [],
+            'generated_conversions' => [],
+            'responsive_images' => [],
+            'model_type' => $page->getMorphClass(),
+            'model_id' => $page->getKey(),
+        ])->save();
+        Storage::disk('public')->put($media->getKey() . '/' . $media->file_name, $contents);
+
+        return view()->file(dirname(__DIR__, 2) . '/resources/views/screenshot-fixtures/frontend-content.blade.php', ['imageUrl' => $media->getUrl()])->render();
+    }
+
     /** @return array{host: string, scheme: string} */
     private static function localOrigin(string $frontendOrigin): array
     {
@@ -113,7 +149,7 @@ final class FrontendScreenshotSeed
                 && in_array($host, ['127.0.0.1', '::1', 'localhost'], true)
                 && is_string($scheme)
                 && in_array($scheme, ['http', 'https'], true)
-                && ($path === null || $path === '' || $path === '/')
+                && in_array($path, [null, '', '/'], true)
                 && ! isset($parts['query'])
                 && ! isset($parts['fragment']),
             RuntimeException::class,

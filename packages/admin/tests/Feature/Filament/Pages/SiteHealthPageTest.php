@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
 
 use function Pest\Laravel\get;
@@ -215,4 +216,25 @@ it('shows site domain context in site health site options', function (): void {
 
     expect(resolve(SiteHealthPage::class)->siteOptions()[$site->getKey()])
         ->toBe('London (https://example.test/uk)');
+});
+
+it('renders a useful optimizer artifact location without a local home directory', function (): void {
+    grantSiteHealthPageAccess();
+    fakeOptimizerRuntimeProcesses();
+    config(['app.debug' => false]);
+    $originalStorage = storage_path();
+    $directory = storage_path('framework/testing/site-health-capture-path');
+    app()->useStoragePath($directory);
+    File::ensureDirectoryExists(storage_path('app/capell/frontend-optimizer'));
+    File::put(storage_path('app/capell/frontend-optimizer/profile.css'), 'body { color: #111; }');
+
+    try {
+        Livewire::test(SiteHealthPage::class)
+            ->assertSuccessful()
+            ->assertSee('storage/app/capell/frontend-optimizer/profile.css')
+            ->assertDontSee(base_path(), false);
+    } finally {
+        app()->useStoragePath($originalStorage);
+        File::deleteDirectory($directory);
+    }
 });

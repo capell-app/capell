@@ -28,7 +28,10 @@
             "covers": [
                 "packages/installer/src/Filament/Pages/InstallGuidePage.php"
             ],
-            "sameCaptureAs": "docs-install-guide-page"
+            "sameCaptureAs": "docs-install-guide-page",
+            "scenario": "admin-index",
+            "url": "/install-guide",
+            "waitFor": "input[id='patch-env-settings-cache-patch']:disabled"
         }
     ]
 }

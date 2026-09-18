@@ -1,3 +1,4 @@
+import { prepareMarketplaceGallery } from './prepare-marketplace-gallery.mjs'
 import { spawn } from 'node:child_process'
 
 function hasRecordStateSeed(entries) {
@@ -26,8 +27,10 @@ function hasPageHistorySeed(entries) {
 }
 
 function hasFrontendPublishedPageSeed(entries) {
-    return entries.some((entry) =>
-        entry.id.startsWith('frontend-published-page'),
+    return entries.some(
+        (entry) =>
+            entry.id.startsWith('frontend-published-page') ||
+            entry.id === 'frontend-media-rendering',
     )
 }
 
@@ -50,6 +53,18 @@ function frontendSeedCommand(frontendOrigin) {
 
 export function commandsForEntries(entries, frontendOrigin = null) {
     const commands = []
+
+    if (
+        entries.some(
+            (entry) =>
+                entry.target === 'InstallGuidePage' ||
+                entry.url === '/install-guide',
+        )
+    ) {
+        commands.push(
+            'Workbench\\App\\Support\\InstallerScreenshotFixture::initialize();',
+        )
+    }
 
     if (hasRecordStateSeed(entries)) {
         commands.push(
@@ -122,11 +137,21 @@ export default async function preCaptureRecordStateFixture({
     config,
     entries,
 }) {
-    const commands = commandsForEntries(entries, config.frontendUrl)
-
-    if (commands.length === 0) {
-        return
+    if (
+        entries.some((entry) =>
+            entry.url?.includes('/extensions/marketplace/seo-suite'),
+        )
+    ) {
+        await prepareMarketplaceGallery(config)
     }
 
-    await initializeFixture(config, commands.join(' '))
+    const commands = commandsForEntries(entries, config.frontendUrl)
+
+    await initializeFixture(
+        config,
+        [
+            'Workbench\\App\\Support\\ScreenshotEnvironment::verify();',
+            ...commands,
+        ].join(' '),
+    )
 }

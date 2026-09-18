@@ -41,6 +41,7 @@ providers:
   - Capell\Core\Providers\CapellServiceProvider
   - Capell\Admin\Providers\AdminServiceProvider
   - Capell\Frontend\Providers\FrontendServiceProvider
+  - Capell\Installer\Providers\InstallerServiceProvider
   - Capell\Marketplace\Providers\MarketplaceServiceProvider
   - Workbench\App\Providers\ScreenshotWorkbenchServiceProvider
   - Capell\Admin\Providers\Filament\AdminPanelProvider
