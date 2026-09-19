@@ -28,7 +28,7 @@ it('keeps the PHP memory limit owned solely by the phpunit configuration', funct
     // the command line, so it silently overrides `-d memory_limit=` and paratest's
     // `--passthru-php`. The phpunit configuration is therefore the only place that
     // can set the limit, and any other declaration lies about the effective value.
-    expect($mainConfiguration)->toContain('<ini name="memory_limit" value="1G"/>')
+    expect($mainConfiguration)->toContain('<ini name="memory_limit" value="2G"/>')
         ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="8G"/>');
 
     // The coverage variant owns the limit for the parallel runner's coverage
