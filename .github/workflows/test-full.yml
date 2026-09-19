@@ -170,7 +170,7 @@ jobs:
         || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
       && (inputs.cell == ''
         || (!contains(inputs.cell, '-unit-') && !contains(inputs.cell, '-portability-')))
-    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package }} - DBmysql
+    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package }} - DB${{ matrix.database }}
     runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
@@ -405,7 +405,7 @@ jobs:
   engineering-metrics:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: Aggregate engineering metrics
-    needs: [test-behaviour, test-unit]
+    needs: [matrix, test-behaviour, test-unit]
     runs-on: ubuntu-latest
     steps:
       - name: Download engineering metrics artifacts
@@ -417,13 +417,31 @@ jobs:
 
       - name: Aggregate engineering metrics
         id: engineering-metrics
+        env:
+          BEHAVIOUR_MATRIX: ${{ needs.matrix.outputs.behaviour }}
+          UNIT_MATRIX: ${{ needs.matrix.outputs.unit }}
         run: |
           php <<'PHP'
           <?php
-          $files = glob('engineering-metrics/*.json');
-
-          if ($files === false || count($files) !== 11) {
-              throw new RuntimeException('Expected engineering metrics from five Feature packages, Integration, and five Unit packages.');
+          $files = glob('engineering-metrics/*.json') ?: [];
+          $expectedFiles = [];
+          foreach (['BEHAVIOUR_MATRIX', 'UNIT_MATRIX'] as $matrixName) {
+              $matrix = json_decode(getenv($matrixName), true, flags: JSON_THROW_ON_ERROR);
+              foreach ($matrix['include'] as $cell) {
+                  if ($cell['laravel'] !== '13.*') {
+                      continue;
+                  }
+                  $suite = $cell['test_suite_slug'] ?? strtolower($cell['test_suite']);
+                  $package = $cell['package_slug'] ?? $cell['package'];
+                  $expectedFiles[] = "engineering-metrics/engineering-metrics-{$suite}-{$package}.json";
+              }
+          }
+          sort($files);
+          sort($expectedFiles);
+          if ($expectedFiles === [] || $files !== $expectedFiles) {
+              throw new RuntimeException('Engineering metrics do not match Test All matrix cells. Missing: '
+                  . implode(', ', array_diff($expectedFiles, $files)) . '; unexpected: '
+                  . implode(', ', array_diff($files, $expectedFiles)));
           }
 
           $tests = 0;

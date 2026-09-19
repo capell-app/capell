@@ -14,6 +14,7 @@ use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
 use Capell\Admin\Support\Workspace\AdminWorkspaceNavigator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Admin\Support\Workspace\AdminWorkspaceRegistry;
+use Capell\Admin\Tests\Unit\Support\Fixtures\AdminWorkspaceTestUser;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,36 +26,6 @@ use Livewire\Livewire;
 beforeEach(function (): void {
     CapellAdmin::clearWorkspaces();
 });
-
-final class AdminWorkspaceTestUser extends AuthenticatableUser
-{
-    /** @use HasFactory<Factory<self>> */
-    use HasFactory;
-
-    /**
-     * @param  list<string>  $roles
-     * @param  list<string>  $permissions
-     */
-    public function __construct(private array $roles = [], private array $permissions = [], private bool $global = false)
-    {
-        parent::__construct();
-    }
-
-    public function hasRole(string $role): bool
-    {
-        return in_array($role, $this->roles, true);
-    }
-
-    public function checkPermissionTo(string $permission): bool
-    {
-        return in_array($permission, $this->permissions, true);
-    }
-
-    public function isGlobalAdmin(): bool
-    {
-        return $this->global;
-    }
-}
 
 function workspaceItem(string $key, AdminWorkspaceEnum ...$workspaces): AdminWorkspaceItemData
 {

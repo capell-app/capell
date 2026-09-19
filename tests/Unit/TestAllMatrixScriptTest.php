@@ -17,10 +17,6 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
         ->toBe(['sentinel-unit', 'sentinel-database'])
         ->and(array_column($sentinel, 'database'))
         ->toBe(['sqlite', 'mysql'])
-        ->and($behaviour)
-        ->toHaveCount(6)
-        ->and($unit)
-        ->toHaveCount(5)
         ->and($portability)
         ->toHaveCount(4)
         ->and(array_column($portability, 'id'))
@@ -53,21 +49,43 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
             static fn (array $cell): bool => $cell['laravel'] === $laravel,
         ));
 
-        expect($frameworkBehaviour)->toHaveCount(6);
-        expect(array_column($frameworkBehaviour, 'testbench'))->each->toBe($testbench);
-        expect(array_column($frameworkBehaviour, 'test_suite'))
-            ->toBe(['Feature', 'Feature', 'Feature', 'Feature', 'Feature', 'Integration'])
-            ->and(array_column($frameworkBehaviour, 'package'))
-            ->toBe(['Core', 'Admin', 'Frontend', 'Installer', 'Marketplace', 'All'])
-            ->and(array_column($frameworkBehaviour, 'database'))
-            ->each->toBe('mysql');
+        $configuration = simplexml_load_file(dirname(__DIR__, 2) . '/phpunit.xml');
+        expect($configuration)->not->toBeFalse();
+        $standardSuites = [];
+        foreach ($configuration->testsuites->testsuite as $suite) {
+            $standardSuites[] = (string) $suite['name'];
+        }
 
-        expect($frameworkUnit)->toHaveCount(5);
+        $matrixSuites = array_values(array_unique(array_column([...$frameworkBehaviour, ...$frameworkUnit], 'test_suite')));
+        sort($standardSuites);
+        sort($matrixSuites);
+        expect($matrixSuites)->toBe($standardSuites);
+        expect(array_column($frameworkBehaviour, 'testbench'))->each->toBe($testbench);
         expect(array_column($frameworkUnit, 'testbench'))->each->toBe($testbench);
-        expect(array_column($frameworkUnit, 'package'))
-            ->toBe(['Core', 'Admin', 'Frontend', 'Installer', 'Marketplace'])
-            ->and(array_column($frameworkUnit, 'database'))
-            ->each->toBe('sqlite');
+        foreach ($standardSuites as $suite) {
+            $suiteCells = array_values(array_filter(
+                [...$frameworkBehaviour, ...$frameworkUnit],
+                static fn (array $cell): bool => $cell['test_suite'] === $suite,
+            ));
+            // Unit/Feature split by owning package; other suites run unfiltered
+            // so a new architecture or integration directory cannot disappear.
+            if (in_array($suite, ['Unit', 'Feature'], true)) {
+                $directories = glob(dirname(__DIR__, 2) . '/packages/*/tests/' . $suite, GLOB_ONLYDIR) ?: [];
+                $expectedGroups = array_map(static fn (string $path): string => basename(dirname($path, 2)), $directories);
+                $actualGroups = array_column($suiteCells, 'test_group');
+                sort($expectedGroups);
+                sort($actualGroups);
+                expect($actualGroups)->toBe($expectedGroups)
+                    ->and(array_column($suiteCells, 'command'))->each->toBe('test:database:package:ci');
+            } else {
+                expect($suiteCells)->toHaveCount(1)
+                    ->and($suiteCells[0]['command'])->toBe('test:database:ci');
+            }
+
+            expect(array_column($suiteCells, 'database'))->each->toBe(
+                in_array($suite, ['Unit', 'Arch'], true) ? 'sqlite' : 'mysql',
+            );
+        }
     }
 });
 
