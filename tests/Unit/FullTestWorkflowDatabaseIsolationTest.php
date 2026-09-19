@@ -91,7 +91,7 @@ it('requires the exact metric identities emitted by the current matrix', functio
     $workflow = (string) file_get_contents(dirname(__DIR__, 2) . '/.github/workflows/test-full.yml');
     preg_match("/php <<'PHP'\\n(.*?)\\n          PHP/s", $workflow, $matches);
     expect($matches)->toHaveKey(1);
-    $script = (string) preg_replace('/^          /m', '', $matches[1]);
+    $script = (string) preg_replace('/^          /m', '', $matches[1] ?? '');
     $directory = sys_get_temp_dir() . '/capell-metric-identities-' . bin2hex(random_bytes(8));
     mkdir($directory . '/engineering-metrics', 0777, true);
     file_put_contents($directory . '/aggregate.php', $script);

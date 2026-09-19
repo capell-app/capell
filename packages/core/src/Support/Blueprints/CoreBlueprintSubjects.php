@@ -33,7 +33,7 @@ use Capell\Core\Models\Theme;
  */
 final class CoreBlueprintSubjects
 {
-    public const OWNER_PACKAGE = 'capell-app/core';
+    public const string OWNER_PACKAGE = 'capell-app/core';
 
     /**
      * @return list<BlueprintSubjectDescriptorData>

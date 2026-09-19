@@ -50,7 +50,9 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
         ));
 
         $configuration = simplexml_load_file(dirname(__DIR__, 2) . '/phpunit.xml');
-        expect($configuration)->not->toBeFalse();
+
+        throw_unless($configuration instanceof SimpleXMLElement, RuntimeException::class, 'phpunit.xml could not be parsed as XML.');
+
         $standardSuites = [];
         foreach ($configuration->testsuites->testsuite as $suite) {
             $standardSuites[] = (string) $suite['name'];

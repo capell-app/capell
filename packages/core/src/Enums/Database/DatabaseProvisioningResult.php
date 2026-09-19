@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums\Database;
 
-enum DatabaseProvisioningResult
+enum DatabaseProvisioningResult: string
 {
-    case Created;
-    case Ready;
-    case Unavailable;
+    case Created = 'created';
+    case Ready = 'ready';
+    case Unavailable = 'unavailable';
 
     public function isReady(): bool
     {

@@ -149,7 +149,7 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
      * {@see BlueprintSubjectRegistry}, and the type cast
      * routes it around subject resolution rather than failing to resolve it.
      */
-    public const NAVIGATION_TYPE = 'navigation';
+    public const string NAVIGATION_TYPE = 'navigation';
 
     /**
      * The attributes that are mass assignable.

@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Data\Widgets;
 
+use Spatie\LaravelData\Data;
+
 /**
  * A single resolved block-picker entry, ready for rendering: Filament block
  * identity plus fallback-safe presentation fields and the pre-built
  * `wire:click` action string used to add the block, unchanged from the
  * existing picker behaviour.
  */
-final class BlockPickerItemViewData
+final class BlockPickerItemViewData extends Data
 {
     public function __construct(
         public readonly string $key,

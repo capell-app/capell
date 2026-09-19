@@ -61,6 +61,7 @@ it('makes core actions data and support classes final by default', function (): 
         'Actions/RequirePackageAction.php',
         'Data/PackageData.php',
         'Support/CapellCoreManager.php',
+        'Support/Database/Platforms/MySqlDatabasePlatform.php', // Extended by MariaDbDatabasePlatform, which reuses its MySQL dialect and provisioner.
         'Support/Creator/PageCreator.php', // Extended by companion packages; see PageCreatorTest "remains extensible for companion package creators".
         'Support/Dataset/DatasetPublisher.php',
         'Support/Install/DeveloperToolingInstallationState.php',
