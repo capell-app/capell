@@ -42,12 +42,15 @@
       change it here. Workers inherit nothing else: delete this line and they drop
       to the host php.ini default.
 
-      1G is sized for a test worker. Coverage runs need far more, because the
+      2G is sized for a test worker. It was 1G until 2026-09-19, when a
+      worker tipped over that ceiling intermittently during release
+      verification - passing or failing purely on which tests the random order
+      handed it, which makes a green run luck rather than evidence. Coverage runs need far more, because the
       parallel runner deserialises every worker's coverage set in the parent to
       merge them, so they use phpunit-coverage.xml instead. Keep the two files
       identical apart from this value; CoverageWorkflowTest enforces that.
     -->
-    <ini name="memory_limit" value="1G"/>
+    <ini name="memory_limit" value="2G"/>
     <server name="APP_ENV" value="testing"/>
     <env name="APP_KEY" value="12345678901234567890123456789012"/>
     <env name="BCRYPT_ROUNDS" value="4"/>

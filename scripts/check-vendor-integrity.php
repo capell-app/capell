@@ -84,7 +84,7 @@ if ($failures !== []) {
 
         In a worktree, run targeted suites instead:
 
-            php -d memory_limit=1G vendor/bin/pest <paths>
+            php -d memory_limit=2G vendor/bin/pest <paths>
 
         For a full 'composer test' run, do a real 'composer install' in this
         worktree first, or run it from the primary checkout.
