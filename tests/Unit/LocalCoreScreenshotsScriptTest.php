@@ -5,12 +5,21 @@ declare(strict_types=1);
 use Symfony\Component\Process\Process;
 
 it('runs no-filter screenshot commands', function (array $arguments, array $expectedCommands): void {
-    $root = dirname(__DIR__, 2);
     $temporary = sys_get_temp_dir() . '/capell-core-screenshot-script-' . bin2hex(random_bytes(6));
     $binaryDirectory = $temporary . '/bin';
     $log = $temporary . '/commands.log';
 
+    // Run against a throwaway root rather than the repository. --skip-install
+    // genuinely requires a populated node_modules/.bin, so running here made the
+    // result depend on whether the host had installed dependencies: green on a
+    // developer machine, red on CI, and evidence of nothing either way.
+    $root = $temporary . '/root';
+
     mkdir($binaryDirectory, 0777, true);
+    mkdir($root . '/scripts', 0777, true);
+    mkdir($root . '/node_modules/.bin', 0777, true);
+    copy(dirname(__DIR__, 2) . '/scripts/local-core-screenshots.sh', $root . '/scripts/local-core-screenshots.sh');
+    touch($root . '/node_modules/.bin/placeholder');
 
     foreach (['bash', 'npm', 'npx'] as $binary) {
         $path = $binaryDirectory . '/' . $binary;
@@ -44,6 +53,12 @@ BASH);
         }
 
         rmdir($binaryDirectory);
+        unlink($root . '/node_modules/.bin/placeholder');
+        rmdir($root . '/node_modules/.bin');
+        rmdir($root . '/node_modules');
+        unlink($root . '/scripts/local-core-screenshots.sh');
+        rmdir($root . '/scripts');
+        rmdir($root);
         rmdir($temporary);
     }
 })->with([
