@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Data\Widgets;
 
 use Capell\Admin\Contracts\Widgets\BlockPickerMetadataProvider;
+use Spatie\LaravelData\Data;
 
 /**
  * Neutral, optional block-picker presentation metadata for a single Filament
@@ -14,7 +15,7 @@ use Capell\Admin\Contracts\Widgets\BlockPickerMetadataProvider;
  * field is presentation-only: it never changes the block's stored state,
  * key, or behaviour.
  */
-final class BlockPickerItemMetadataData
+final class BlockPickerItemMetadataData extends Data
 {
     /**
      * @param  list<string>  $searchTerms

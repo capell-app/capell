@@ -2,6 +2,7 @@
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" backupGlobals="false" backupStaticProperties="false" beStrictAboutOutputDuringTests="false" beStrictAboutTestsThatDoNotTestAnything="true" bootstrap="vendor/autoload.php" cacheDirectory=".cache/phpunit" cacheResult="true" colors="true" failOnRisky="true" failOnWarning="true" processIsolation="false" stopOnError="false" stopOnFailure="false" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.5/phpunit.xsd">
   <testsuites>
     <testsuite name="Feature">
+      <directory suffix="Test.php">./tests/Feature</directory>
       <directory suffix="Test.php">./packages/*/tests/Feature</directory>
       <directory suffix="Test.php">./tests/Integration/Feature</directory>
       <exclude>./packages/*/tests/Browser</exclude>
@@ -11,6 +12,9 @@
       <directory suffix="Test.php">./tests/Integration</directory>
       <exclude>./tests/Integration/Feature</exclude>
       <exclude>./packages/*/tests/Browser</exclude>
+    </testsuite>
+    <testsuite name="Arch">
+      <directory suffix="Test.php">./packages/*/tests/Arch</directory>
     </testsuite>
     <testsuite name="Unit">
       <directory suffix="Test.php">./packages/*/tests/Unit</directory>

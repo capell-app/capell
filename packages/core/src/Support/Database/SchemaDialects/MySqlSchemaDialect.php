@@ -15,7 +15,7 @@ use Override;
 use PDO;
 use WeakMap;
 
-class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
+final class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
 {
     /** @var WeakMap<Connection, MySqlServerCapabilities> */
     private WeakMap $serverCapabilities;
@@ -91,7 +91,7 @@ class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchema
         );
     }
 
-    public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): ?SqlFragment
+    public function jsonPathIndex(DatabaseIndexDefinition $index, string $column, string $path): SqlFragment
     {
         return new SqlFragment(sprintf(
             '%s %s ON %s ((CAST(JSON_UNQUOTE(JSON_EXTRACT(%s, %s)) AS CHAR(191))))',

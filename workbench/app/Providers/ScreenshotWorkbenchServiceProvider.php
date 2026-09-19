@@ -28,7 +28,7 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             Config::set('database.connections.sqlite.url');
         }
 
-        $displayOrigin = env('CAPELL_SCREENSHOT_DISPLAY_ORIGIN');
+        $displayOrigin = config('screenshot.display_origin');
 
         if (is_string($displayOrigin) && $displayOrigin !== '') {
             Config::set('app.url', $displayOrigin);

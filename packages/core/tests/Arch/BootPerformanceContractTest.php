@@ -14,7 +14,9 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 
 it('keeps first-party wildcard model listeners to the documented bounded set', function (): void {
-    $sourceRoot = dirname(__DIR__, 4);
+    // Only first-party source owns this contract. Walking the workspace root
+    // also traverses vendor and accumulated Testbench runtimes under tests/.pest.
+    $sourceRoot = dirname(__DIR__, 4) . '/packages';
     $listeners = [];
 
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($sourceRoot)) as $file) {

@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use Symfony\Component\Process\Process;
 
 it('gates the exact PR and dispatch topology through repository-owned Test All scripts', function (): void {
     $root = dirname(__DIR__, 2);
@@ -74,11 +75,65 @@ it('gates the exact PR and dispatch topology through repository-owned Test All s
         ->toContain('CACHE_STORE: array')
         ->toContain('PAO_DISABLE: 1')
         ->toContain('Upload Test All evidence')
-        ->toContain('count($files) !== 11')
+        ->toContain('BEHAVIOUR_MATRIX: ${{ needs.matrix.outputs.behaviour }}')
+        ->toContain('UNIT_MATRIX: ${{ needs.matrix.outputs.unit }}')
+        ->toContain('$files !== $expectedFiles')
         ->toContain('SET GLOBAL innodb_redo_log_capacity = 2147483648')
         ->toContain('SET GLOBAL innodb_flush_log_at_trx_commit = 2')
         ->toContain('SET GLOBAL sync_binlog = 0')
         ->not->toContain('composer require --no-interaction')
         ->not->toContain('matrix:' . PHP_EOL . '        include:')
         ->not->toContain('on:' . PHP_EOL . '  push:' . PHP_EOL . '    branches:' . PHP_EOL . '      - main' . PHP_EOL . PHP_EOL . 'concurrency:');
+});
+
+it('requires the exact metric identities emitted by the current matrix', function (): void {
+    require_once dirname(__DIR__, 2) . '/scripts/test-all/TestAllMatrix.php';
+    $workflow = (string) file_get_contents(dirname(__DIR__, 2) . '/.github/workflows/test-full.yml');
+    preg_match("/php <<'PHP'\\n(.*?)\\n          PHP/s", $workflow, $matches);
+    expect($matches)->toHaveKey(1);
+    $script = (string) preg_replace('/^          /m', '', $matches[1] ?? '');
+    $directory = sys_get_temp_dir() . '/capell-metric-identities-' . bin2hex(random_bytes(8));
+    mkdir($directory . '/engineering-metrics', 0777, true);
+    file_put_contents($directory . '/aggregate.php', $script);
+    $behaviour = TestAllMatrix::behaviour();
+    $unit = TestAllMatrix::unit();
+    $files = [];
+    foreach ([...$behaviour, ...$unit] as $cell) {
+        if ($cell['laravel'] !== '13.*') {
+            continue;
+        }
+
+        $suite = $cell['test_suite_slug'] ?? strtolower($cell['test_suite']);
+        $package = $cell['package_slug'] ?? $cell['package'];
+        $file = $directory . sprintf('/engineering-metrics/engineering-metrics-%s-%s.json', $suite, $package);
+        file_put_contents($file, json_encode(['tests' => 1, 'assertions' => 2, 'phpstan_level' => 10], JSON_THROW_ON_ERROR));
+        $files[] = $file;
+    }
+
+    try {
+        $process = new Process([PHP_BINARY, 'aggregate.php'], $directory, [
+            'BEHAVIOUR_MATRIX' => json_encode(['include' => $behaviour], JSON_THROW_ON_ERROR),
+            'UNIT_MATRIX' => json_encode(['include' => $unit], JSON_THROW_ON_ERROR),
+            'GITHUB_OUTPUT' => $directory . '/output',
+        ]);
+        expect($process->run())->toBe(0)
+            ->and(file_get_contents($directory . '/output'))->toContain('tests=' . count($files));
+        // Preserve the count: the old count-only guard accepted this wrong cell.
+        rename($files[0], $directory . '/engineering-metrics/unexpected.json');
+        expect($process->run())->not->toBe(0)
+            ->and($process->getErrorOutput())->toContain(basename($files[0]), 'unexpected.json');
+    } finally {
+        foreach (glob($directory . '/engineering-metrics/*') ?: [] as $file) {
+            unlink($file);
+        }
+
+        foreach (glob($directory . '/*') ?: [] as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+
+        rmdir($directory . '/engineering-metrics');
+        rmdir($directory);
+    }
 });

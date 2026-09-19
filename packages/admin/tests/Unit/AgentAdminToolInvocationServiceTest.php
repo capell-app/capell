@@ -15,7 +15,7 @@ use Capell\Core\Enums\Agent\AgentToolEffect;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 
-test('admin writes require one-use explicit confirmation and re-run authorisation', function (): void {
+it('requires one-use explicit confirmation and re-runs authorisation for admin writes', function (): void {
     $calls = new stdClass;
     $calls->authorise = 0;
     $calls->preview = 0;

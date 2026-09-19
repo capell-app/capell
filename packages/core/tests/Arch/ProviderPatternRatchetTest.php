@@ -49,6 +49,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         'packages/core/src/Support/Health/HealthCheckRegistry.php',
         'packages/core/src/Support/Install/InstallPatchRegistry.php',
         'packages/core/src/Support/Models/ModelInterceptorRegistry.php',
+        // Validates seven guidance properties and resolves template status against the crop presets; it is not a plain keyed store.
+        'packages/core/src/Support/Media/MediaCompositionGuidanceRegistry.php',
         // Lifecycle-aware manifest event definitions with install reopen/freeze and domain validation.
         'packages/core/src/Support/OutboundEventRegistry.php',
         // Aggregates publication readiness contributors and owns the readiness state machine.
@@ -72,6 +74,8 @@ it('keeps registries on the shared keyed base or an explicit distinct-shape allo
         // Persists and locks model cache destinations; it is not an in-memory keyed contribution map.
         'packages/frontend/src/Support/Cache/PublicRenderDataCacheDependencyRegistry.php',
         'packages/frontend/src/Support/Render/RenderHookRegistry.php',
+        // A per-request capture buffer of placeholder tokens and byte offsets; nothing is ever looked up by key.
+        'packages/frontend/src/Support/Render/RenderHookFragmentRegistry.php',
         // Request-context-aware public transport preparation around keyed contributors.
         'packages/frontend/src/Support/Render/PublicRenderDataContributorRegistry.php',
         'packages/frontend/src/Support/Renderables/RenderableDynamicDataRegistry.php',

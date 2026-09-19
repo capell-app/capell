@@ -6,6 +6,8 @@ use Capell\Admin\Data\AdminZoneContextData;
 use Capell\Admin\Data\AdminZoneContributionData;
 use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Support\AdminZoneRegistry;
+use Capell\Admin\Tests\Unit\Support\Fixtures\AdminZoneCyclicState;
+use Capell\Admin\Tests\Unit\Support\Fixtures\AdminZoneDynamicState;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Filament\Actions\Action;
 use Filament\Tables\Columns\ColumnGroup;
@@ -15,15 +17,6 @@ use Filament\Tables\Filters\Filter;
 use Filament\Widgets\Widget;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
-
-/** @property string $column */
-#[AllowDynamicProperties]
-final class AdminZoneDynamicState {}
-
-final class AdminZoneCyclicState
-{
-    public ?self $child = null;
-}
 
 function adminZoneContext(?Authenticatable $user = null): AdminZoneContextData
 {

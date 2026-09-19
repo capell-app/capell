@@ -76,6 +76,22 @@ final class TestAllMatrix
                 $cells[] = $cell;
             }
 
+            // One unfiltered cell runs every architecture guard, including new
+            // packages that do not yet have a package-specific matrix group.
+            $cells[] = [
+                ...$framework,
+                'id' => $framework['framework_slug'] . '-arch',
+                'test_suite' => 'Arch',
+                'test_suite_slug' => 'arch',
+                'package' => 'All',
+                'test_group' => 'unused',
+                'database' => 'sqlite',
+                'command' => 'test:database:ci',
+                'junit' => 'junit-arch-All.xml',
+                'log' => 'pest-output-arch-All.txt',
+                'artifact_slug' => $framework['framework_slug'] . '-arch',
+            ];
+
             $cells[] = [
                 ...$framework,
                 'id' => $framework['framework_slug'] . '-integration',

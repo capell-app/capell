@@ -11,6 +11,10 @@ it(
     function () use ($repositoryRoot): void {
         $allowed = [
             'src/Actions/Diagnostics/CheckAdminPanelAccessAction.php',
+            // The installer creates and registers the Filament panel itself; it cannot be Filament-neutral.
+            'src/Actions/Install/InstallFilamentPanelAction.php',
+            // Install steps resolve Filament's service provider to decide when the panel is bootable.
+            'src/Support/Install/InstallStepExecutor.php',
             'src/Contracts/Media/MediaFieldFactory.php',
             'src/Data/PageTypeData.php',
             'src/Enums/AssetEnum.php',

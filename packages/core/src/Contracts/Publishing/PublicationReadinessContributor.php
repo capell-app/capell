@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 
 interface PublicationReadinessContributor
 {
-    public const TAG = 'capell.publication-readiness-contributor';
+    public const string TAG = 'capell.publication-readiness-contributor';
 
     /** @return list<PublicationReadinessCheckData> */
     public function checks(Model&Publishable $record, PublicationReadinessContextData $context): array;

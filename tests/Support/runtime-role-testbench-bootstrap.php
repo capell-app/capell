@@ -21,8 +21,7 @@ $hasEnvironmentFile = is_file(join_paths($basePath, '.env'));
 $app = RuntimeRoleTestbenchApplication::create(
     basePath: $basePath,
     resolvingCallback: static function (Application $app) use ($config): void {
-        // Testbench exposes this internal hook for bootstrapping its application factory.
-        // @phpstan-ignore-next-line method.internal
+        // @phpstan-ignore-next-line method.internal (Testbench exposes this internal hook as the supported way to bootstrap its application factory.)
         Workbench::startWithProviders($app, $config);
         Workbench::discoverRoutes($app, $config);
     },
