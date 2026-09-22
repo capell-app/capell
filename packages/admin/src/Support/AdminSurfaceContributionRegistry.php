@@ -21,6 +21,9 @@ final class AdminSurfaceContributionRegistry
     /** @var array<string, array<string, AdminSurfaceContributionData>> */
     private array $contributions = [];
 
+    /** @var array<string, list<AdminSurfaceContributionData>> */
+    private array $orderedContributions = [];
+
     private bool $frozen = false;
 
     public function __construct(private readonly ?ExtensionOrderResolver $orderResolver = null) {}
@@ -47,6 +50,7 @@ final class AdminSurfaceContributionRegistry
         }
 
         $this->contributions[$contribution->type->value][$contribution->key] = $contribution;
+        unset($this->orderedContributions[$contribution->type->value]);
     }
 
     public function replace(AdminSurfaceContributionData $contribution): void
@@ -60,6 +64,7 @@ final class AdminSurfaceContributionRegistry
         }
 
         $this->contributions[$contribution->type->value][$contribution->key] = $contribution;
+        unset($this->orderedContributions[$contribution->type->value]);
     }
 
     public function freeze(): void
@@ -152,6 +157,7 @@ final class AdminSurfaceContributionRegistry
     public function clear(): void
     {
         $this->contributions = [];
+        $this->orderedContributions = [];
         $this->frozen = false;
     }
 
@@ -201,9 +207,13 @@ final class AdminSurfaceContributionRegistry
     /** @return list<AdminSurfaceContributionData> */
     private function ordered(AdminSurfaceContributionType $type): array
     {
+        if (isset($this->orderedContributions[$type->value])) {
+            return $this->orderedContributions[$type->value];
+        }
+
         $items = array_values($this->contributions[$type->value] ?? []);
 
-        return ($this->orderResolver ?? new ExtensionOrderResolver)->resolve(
+        return $this->orderedContributions[$type->value] = ($this->orderResolver ?? new ExtensionOrderResolver)->resolve(
             $items,
             static fn (AdminSurfaceContributionData $item, int $index): string => $item->key,
             static fn (AdminSurfaceContributionData $item): ExtensionPosition => $item->position ?? ExtensionPosition::priority(0),
