@@ -17,4 +17,8 @@ The hook validates the receipt report with the declared screenshot-tools validat
 
 The Site Health checks retain full filesystem locations when `app.debug` is enabled. Production reports use logical `storage/` and `public/` paths, including when those directories are configured outside the application root. Status, timestamp and remediation remain visible.
 
+[![Site Health showing the loopback URL, local environment and debug warnings](../packages/admin/docs/images/screenshots/site-health-page.png)](../packages/admin/docs/images/screenshots/site-health-page.png)
+
+This existing development capture illustrates the environment warnings that fixture preparation must resolve. It is not evidence that a fresh production-mode capture has passed the checks above.
+
 The record-state pages, layouts and media redirect routes are intentional test helpers: permission tests exercise them directly. Capture manifests continue to use the canonical Filament list URLs, with data initialised by the pre-capture hook. The two page-building-blocks redirect routes accommodate the runner's admin URL prefix. All fixture classes are reached by a route, the provider or the pre-capture hook.
