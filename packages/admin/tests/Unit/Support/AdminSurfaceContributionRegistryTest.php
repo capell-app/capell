@@ -123,3 +123,53 @@ it('allows explicit replacement and rejects registrations after freeze', functio
     })
         ->toThrow(LogicException::class, 'frozen');
 });
+
+it('refreshes warmed ordering when an anchor is registered or a contribution is replaced', function (): void {
+    $registry = new AdminSurfaceContributionRegistry;
+    $registry->register(new AdminSurfaceContributionData(
+        AdminSurfaceContributionType::Page,
+        SettingsPage::class,
+        'settings',
+        position: ExtensionPosition::after('sitemap'),
+    ));
+
+    expect($registry->pages())->toBe([SettingsPage::class])
+        ->and($registry->orderingDiagnostics(AdminSurfaceContributionType::Page))->toHaveCount(1);
+
+    $registry->register(new AdminSurfaceContributionData(AdminSurfaceContributionType::Page, SitemapPage::class, 'sitemap'));
+
+    expect($registry->pages())->toBe([SitemapPage::class, SettingsPage::class])
+        ->and($registry->orderingDiagnostics(AdminSurfaceContributionType::Page))->toBe([]);
+
+    $registry->replace(new AdminSurfaceContributionData(
+        AdminSurfaceContributionType::Page,
+        SettingsPage::class,
+        'settings',
+        position: ExtensionPosition::first(),
+    ));
+
+    expect($registry->pages())->toBe([SettingsPage::class, SitemapPage::class]);
+});
+
+it('clears warmed groups and keeps contribution types independent', function (): void {
+    $registry = new AdminSurfaceContributionRegistry;
+    $registry->register(AdminSurfaceContributionData::page(SettingsPage::class));
+    $registry->register(AdminSurfaceContributionData::resource(SiteResource::class, 'Site'));
+
+    expect($registry->pages())->toBe([SettingsPage::class])
+        ->and($registry->resourcesForGroup('Site'))->toBe(['default' => SiteResource::class]);
+
+    $registry->register(AdminSurfaceContributionData::page(SitemapPage::class));
+
+    expect($registry->pages())->toBe([SettingsPage::class, SitemapPage::class])
+        ->and($registry->resourcesForGroup('Site'))->toBe(['default' => SiteResource::class]);
+
+    $registry->clear();
+
+    expect($registry->pages())->toBe([])
+        ->and($registry->resourcesForGroup('Site'))->toBe([]);
+
+    $registry->register(AdminSurfaceContributionData::resource(SiteResource::class, 'Site'));
+
+    expect($registry->resourcesForGroup('Site'))->toBe(['default' => SiteResource::class]);
+});

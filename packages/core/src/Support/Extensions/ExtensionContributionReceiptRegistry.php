@@ -16,6 +16,9 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     /** @var list<ExtensionContributionReceiptData> */
     private array $receipts = [];
 
+    /** @var array<string, true> */
+    private array $receiptIdentities = [];
+
     /** @var list<ExtensionContributionReceiptContext> */
     private array $contexts = [];
 
@@ -184,6 +187,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     public function clear(): void
     {
         $this->receipts = [];
+        $this->receiptIdentities = [];
         $this->contexts = [];
         $this->providerContexts = [];
         $this->loadedContexts = [];
@@ -192,12 +196,13 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
 
     private function record(ExtensionContributionReceiptData $receipt): void
     {
-        foreach ($this->receipts as $existing) {
-            if ($existing->toArray() === $receipt->toArray()) {
-                return;
-            }
+        $identity = serialize($receipt->toArray());
+
+        if (isset($this->receiptIdentities[$identity])) {
+            return;
         }
 
+        $this->receiptIdentities[$identity] = true;
         $this->receipts[] = $receipt;
     }
 

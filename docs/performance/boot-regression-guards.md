@@ -6,6 +6,16 @@ with `php artisan optimize` or `php artisan capell:package-cache`. A missing or
 invalid cache fails a non-console boot with a remediation message; console
 commands retain discovery so installation and cache recovery remain available.
 
+Admin resource-group discovery can run repeatedly during route registration,
+including on public requests. `AdminSurfaceContributionRegistry` reuses the
+ordered contributions for each surface type until registration, replacement or
+clear changes that type. Keep class and group filtering outside this cache.
+`ExtensionContributionReceiptRegistry` indexes each receipt's seven scalar
+fields once; scanning and serialising every previous receipt on every insertion
+makes boot work quadratic in the number of contributions. Its identity index
+must clear with the receipts and preserve strict field equality and insertion
+order. The two registry unit suites cover those mutation and identity boundaries.
+
 Three `eloquent.*: *` listeners are intentionally retained for created, updated,
 and deleted events. They support third-party `Page` subclasses used as error
 pages. `ErrorPageModelInvalidationObserver` immediately rejects unrelated model

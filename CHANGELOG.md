@@ -14,6 +14,7 @@ the `Update Changelog` workflow.
 
 ### Fixed
 
+- Avoided repeated admin contribution sorting and quadratic receipt deduplication during application boot, preserving registration order and cache invalidation.
 - Emitted declared package-specific theme identity tokens while rejecting malformed names, reserved core-property collisions, and values outside their declared vocabulary.
 - Published generated theme-token CSS atomically and restored genuine database selection in the full CI matrix.
 
