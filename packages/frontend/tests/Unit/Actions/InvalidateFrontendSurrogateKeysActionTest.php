@@ -7,7 +7,6 @@ use Capell\Frontend\Jobs\FlushCdnPurgeBatchJob;
 use Capell\Frontend\Support\Cache\CdnPurgeBuffer;
 use Capell\Frontend\Support\Cache\FragmentCache;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Cache;
 
 it('invalidates local fragments and queues configured CDN purges', function (): void {
     config([
@@ -24,7 +23,7 @@ it('invalidates local fragments and queues configured CDN purges', function (): 
 
     InvalidateFrontendSurrogateKeysAction::run(['site-1']);
 
-    expect(Cache::has('fragment:shared-fragment'))->toBeFalse();
+    expect(resolve(FragmentCache::class)->remember('shared-fragment', static fn (): string => 'regenerated'))->toBe('regenerated');
 
     Bus::assertDispatched(
         FlushCdnPurgeBatchJob::class,
@@ -44,7 +43,7 @@ it('invalidates local fragments without queueing when no CDN is configured', fun
 
     InvalidateFrontendSurrogateKeysAction::run(['page-1']);
 
-    expect(Cache::has('fragment:local-fragment'))->toBeFalse();
+    expect(resolve(FragmentCache::class)->remember('local-fragment', static fn (): string => 'regenerated'))->toBe('regenerated');
     Bus::assertNotDispatched(FlushCdnPurgeBatchJob::class);
 });
 

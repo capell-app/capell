@@ -55,4 +55,19 @@ final class BackupTemporaryFiles
 
         $this->paths = [];
     }
+
+    public function release(string $path): void
+    {
+        $index = array_search($path, $this->paths, true);
+
+        if ($index === false) {
+            return;
+        }
+
+        if (is_file($path) && ! unlink($path)) {
+            throw new RuntimeException(__('capell-core::backup.temporary_release_failed'));
+        }
+
+        $this->paths = array_values(array_filter($this->paths, static fn (string $trackedPath): bool => $trackedPath !== $path));
+    }
 }

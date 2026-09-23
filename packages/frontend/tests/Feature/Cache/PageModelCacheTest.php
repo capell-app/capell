@@ -8,6 +8,7 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Cache\PageModelCache;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
@@ -113,3 +114,23 @@ it('invalidates a specific model entry by key', function (): void {
     $translation = expectPresent($result->translation);
     expect($translation->title)->toBe('After');
 });
+
+it('rejects foreign site models on cold warm and uncached paths', function (string $mode): void {
+    $language = Language::factory()->createOne();
+    $ownerSite = Site::factory()->recycle($language)->withTranslations()->create();
+    $requestedSite = Site::factory()->recycle($language)->withTranslations()->create();
+    $page = Page::factory()->site($ownerSite)->published(CarbonImmutable::now())
+        ->withTranslations($language, ['title' => 'Foreign content'])->create();
+    $cache = resolve(PageModelCache::class);
+    $key = CacheEnum::pageModel(Page::class, $page->id, $requestedSite->id, $language->id);
+
+    if ($mode === 'warm') {
+        $cache->setToCache($key, $page);
+    }
+
+    expect($cache->get(Page::class, $page->id, $requestedSite, $language, useCache: $mode !== 'uncached'))->toBeNull()
+        ->and($cache->getFromCache($key))->not->toBeInstanceOf(Page::class)
+        ->and($page->site->id)->toBe($ownerSite->id)
+        ->and($cache->get(Page::class, $page->id, $ownerSite, $language)?->id)->toBe($page->id)
+        ->and($cache->get(Page::class, $page->id, null, $language)?->id)->toBe($page->id);
+})->with(['cold', 'warm', 'uncached']);

@@ -57,6 +57,19 @@ The action is contributed by the optional Media AI package; Admin only supplies 
 
 _Replacement keeps the media record and its relationships while swapping the underlying file; the success notification confirms the upload completed._
 
+Replacement also keeps the original filename and public URLs, even if the upload
+has a different name. Choose a file with the same MIME type; a different media type
+requires a new asset so existing URLs retain their content-type contract. Bytes and
+conversions are staged in a private workspace before the original files change,
+and a failed write or metadata save restores the previous file set. If storage
+also prevents recovery, the failure report identifies the private backups and
+recovery manifest for an operator to restore before retrying.
+
+A cleanup warning after a successful replacement means the replacement is already
+live. Do not replace it again: an administrator should remove the retained private
+workspace after checking the failure report. Cleanup errors never replace the
+original exception from a failed replacement.
+
 - Deleting media removes it from the library. Check where an image is used before deleting, because pages referencing it will lose the image.
 
 ## Limits

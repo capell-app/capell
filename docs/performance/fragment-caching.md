@@ -16,18 +16,18 @@ Unlike full-page caching (which caches the entire HTML response), fragment cachi
 
 ## Public API
 
-| Method | Returns | Purpose |
-|--------|---------|---------|
+| Method                                                                                         | Returns | Purpose                                                                                                                          |
+| ---------------------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `remember(string $key, callable $callback, int $ttlSeconds = 3600, array $surrogateKeys = [])` | `mixed` | Cache the output of `$callback` under `$key` for `$ttlSeconds`, optionally tagging it with surrogate keys for bulk invalidation. |
-| `invalidateBySurrogateKey(string $surrogateKey)` | `void` | Immediately invalidate all fragments tagged with this surrogate key. |
-| `flush()` | `void` | Flush all fragment cache. |
+| `invalidateBySurrogateKey(string $surrogateKey)`                                               | `void`  | Immediately invalidate all fragments tagged with this surrogate key.                                                             |
+| `flush()`                                                                                      | `void`  | Flush all fragment cache.                                                                                                        |
 
 ## Example
 
 **Blade usage** — cache a product grid for 10 minutes, tagged with the category's surrogate key:
 
 ```blade
-@cache('product-grid:' . $category->id, 600, ['category:' . $category->id])
+@cache ('product-grid:' . $category->id, 600, ['category:' . $category->id])
     @foreach ($category->products as $product)
         <x-product-card :product="$product" />
     @endforeach
@@ -65,7 +65,8 @@ final class CategoryObserver
 - **Surrogate keys are OR logic** — any matching surrogate key invalidates the fragment. If you tag a fragment with `['post:123', 'author:456']`, invalidating either key clears it.
 - **Directive supports nesting** — `@cache` blocks can be nested; the directive uses an internal stack to manage `@endcache` pairing.
 - **Default TTL is 1 hour** — if you omit the second argument, fragments cache for 3600 seconds.
-- **Surrogate map persists for 30 days** — the internal mapping of surrogate keys to fragment cache keys has its own TTL; old surrogate relationships expire after 30 days.
+- **Fragment metadata expires after 30 days** — namespaces and surrogate maps have bounded lifetimes. Namespace expiry safely regenerates fragments, including entries with a longer requested TTL.
+- **Flush is fragment-scoped** — rotating a fragment namespace works with tagging and non-tagging stores and preserves unrelated application keys. Previously cached values expire at their original TTL; the old surrogate index is removed immediately. Invalidation also removes the fragment from every surrogate association.
 
 ## Public deferred fragments
 

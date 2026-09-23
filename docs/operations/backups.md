@@ -104,6 +104,14 @@ targets and runs `capell:doctor --json` in a child process against that scratch
 database. Passwords remain in process environments for database tools and are
 never included in command arguments or output.
 
+Single-disk snapshots retain the existing `prefix/source-path` restore layout.
+Multi-disk snapshots restore to `prefix/source-disk/source-path`, with each disk
+name URL-encoded as one directory segment. Destination collisions (including
+case-only and file/directory conflicts) and unsafe paths are rejected before
+database or media mutation. Completed transfer temporary files are released as
+soon as their write and checksum work finishes, so media scratch usage is bounded
+by the active artifact rather than the entire collection.
+
 The command deliberately cannot restore over a live database or media disk.
 If doctor verification fails, scratch data is left in place for diagnosis;
 remove it manually after investigating. A successful monthly drill should be
@@ -135,14 +143,14 @@ snapshot completed at 09:00.
    only evidence while trying to recover quickly.
 3. Verify backup health, then restore into isolated scratch targets:
 
-   ```bash
-   php artisan capell:backup:health --json
-   php artisan capell:backup:restore \
-     20260712T090000Z-a1b2c3d4e5f6 \
-     capell_restore_incident_20260712 \
-     --media-disk=restore-scratch \
-     --media-prefix=incidents/20260712
-   ```
+    ```bash
+    php artisan capell:backup:health --json
+    php artisan capell:backup:restore \
+      20260712T090000Z-a1b2c3d4e5f6 \
+      capell_restore_incident_20260712 \
+      --media-disk=restore-scratch \
+      --media-prefix=incidents/20260712
+    ```
 
 4. Review the doctor result. On the scratch copy, compare critical record
    counts, open representative pages and media, and confirm that the accepted
@@ -153,12 +161,12 @@ snapshot completed at 09:00.
 6. Deploy the matching application release, run migrations only when required,
    then clear caches and restart workers:
 
-   ```bash
-   php artisan optimize:clear
-   php artisan queue:restart
-   php artisan capell:doctor --json
-   php artisan capell:backup:health --json
-   ```
+    ```bash
+    php artisan optimize:clear
+    php artisan queue:restart
+    php artisan capell:doctor --json
+    php artisan capell:backup:health --json
+    ```
 
 7. Verify signed-out pages, admin login, publishing, media, redirects, scheduled
    work, and Marketplace connectivity before reopening traffic. Record the

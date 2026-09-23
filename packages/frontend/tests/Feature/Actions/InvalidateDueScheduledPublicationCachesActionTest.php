@@ -60,9 +60,9 @@ it('invalidates page and fragment caches when scheduled visibility becomes effec
     $invalidated = InvalidateDueScheduledPublicationCachesAction::run();
 
     expect($invalidated)->toBe(2)
-        ->and(Cache::has('fragment:scheduled-publication-' . $publishing->id))->toBeFalse()
-        ->and(Cache::has('fragment:scheduled-publication-' . $expiring->id))->toBeFalse()
-        ->and(Cache::has('fragment:scheduled-publication-' . $future->id))->toBeTrue()
+        ->and(readScheduledPublicationFragment($publishing))->toBe('regenerated')
+        ->and(readScheduledPublicationFragment($expiring))->toBe('regenerated')
+        ->and(readScheduledPublicationFragment($future))->toBe('cached')
         ->and(resolve(FrontendSettings::class)->refresh()->scheduled_publication_invalidation_checkpoint)
         ->toBe(CarbonImmutable::now()->toIso8601String());
 });
@@ -88,7 +88,7 @@ it('resumes from its checkpoint without repeatedly invalidating older transition
     CarbonImmutable::setTestNow('2026-07-23 12:05:00');
 
     expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(0)
-        ->and(Cache::has('fragment:scheduled-publication-' . $page->id))->toBeTrue();
+        ->and(readScheduledPublicationFragment($page))->toBe('cached again');
 });
 
 it('keeps its durable checkpoint across a cache flush', function (): void {
@@ -102,7 +102,7 @@ it('keeps its durable checkpoint across a cache flush', function (): void {
     cacheScheduledPublicationFragment($page);
 
     expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(1)
-        ->and(Cache::has('fragment:scheduled-publication-' . $page->id))->toBeFalse();
+        ->and(readScheduledPublicationFragment($page))->toBe('regenerated');
 });
 
 it('scans from a valid checkpoint after long scheduler downtime', function (): void {
@@ -112,7 +112,7 @@ it('scans from a valid checkpoint after long scheduler downtime', function (): v
     cacheScheduledPublicationFragment($page);
 
     expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(1)
-        ->and(Cache::has('fragment:scheduled-publication-' . $page->id))->toBeFalse();
+        ->and(readScheduledPublicationFragment($page))->toBe('regenerated');
 });
 
 it('overlaps valid checkpoint scans by five seconds', function (): void {
@@ -125,8 +125,8 @@ it('overlaps valid checkpoint scans by five seconds', function (): void {
     cacheScheduledPublicationFragment($outsideOverlap);
 
     expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(1)
-        ->and(Cache::has('fragment:scheduled-publication-' . $insideOverlap->id))->toBeFalse()
-        ->and(Cache::has('fragment:scheduled-publication-' . $outsideOverlap->id))->toBeTrue();
+        ->and(readScheduledPublicationFragment($insideOverlap))->toBe('regenerated')
+        ->and(readScheduledPublicationFragment($outsideOverlap))->toBe('cached');
 });
 
 it('normalizes a cross-offset checkpoint before scanning scheduled transitions', function (): void {
@@ -147,7 +147,7 @@ it('normalizes a cross-offset checkpoint before scanning scheduled transitions',
     );
 
     expect(InvalidateDueScheduledPublicationCachesAction::run($until))->toBe(1)
-        ->and(Cache::has('fragment:scheduled-publication-' . $page->id))->toBeFalse()
+        ->and(readScheduledPublicationFragment($page))->toBe('regenerated')
         ->and(scheduledPublicationCheckpointPayload())->toBe($until->toIso8601String());
 });
 
@@ -160,8 +160,8 @@ it('falls back to a two-minute scan for unusable checkpoints', function (?string
     cacheScheduledPublicationFragment($outsideFallback);
 
     expect(InvalidateDueScheduledPublicationCachesAction::run())->toBe(1)
-        ->and(Cache::has('fragment:scheduled-publication-' . $insideFallback->id))->toBeFalse()
-        ->and(Cache::has('fragment:scheduled-publication-' . $outsideFallback->id))->toBeTrue();
+        ->and(readScheduledPublicationFragment($insideFallback))->toBe('regenerated')
+        ->and(readScheduledPublicationFragment($outsideFallback))->toBe('cached');
 })->with([
     'missing checkpoint' => null,
     'malformed checkpoint' => 'not-a-checkpoint',
@@ -199,7 +199,7 @@ it('does not advance its durable checkpoint when the settings write fails', func
 
     expect(fn (): int => InvalidateDueScheduledPublicationCachesAction::run())
         ->toThrow(RuntimeException::class, 'Scheduled publication checkpoint write failed.')
-        ->and(Cache::has('fragment:scheduled-publication-' . $page->id))->toBeFalse()
+        ->and(readScheduledPublicationFragment($page))->toBe('regenerated')
         ->and(scheduledPublicationCheckpointPayload())->toBe($checkpoint);
 });
 
@@ -270,4 +270,12 @@ function scheduledPublicationCheckpointPayload(): mixed
     return resolve(FrontendSettings::class)
         ->getRepository()
         ->getPropertiesInGroup(FrontendSettings::group())['scheduled_publication_invalidation_checkpoint'];
+}
+
+function readScheduledPublicationFragment(Page $page): mixed
+{
+    return resolve(FragmentCache::class)->remember(
+        'scheduled-publication-' . $page->id,
+        static fn (): string => 'regenerated',
+    );
 }

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\DeletePackageMigrationsAction;
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Contracts\Extensions\DeletesExtensionData;
@@ -11,15 +12,18 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Events\PackageUninstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
@@ -81,6 +85,124 @@ it('deletes published package migrations when a package is uninstalled', functio
     UninstallPackageAction::run(CapellCore::getPackage('vendor/migration-package'));
 
     expect($filesystem->calls)->toContain(['delete', $publishedMigration]);
+});
+
+it('keeps blocked migration cleanup retryable before hooks data deletion and finalisation', function (bool $deleteData): void {
+    $packagePath = makeUninstallPackageWithMigrationFixture('vendor/blocked-cleanup');
+    $name = '2026_05_10_190832_01_create_migration_package_table.php';
+    $published = database_path('migrations/' . $name);
+    $overrides = [
+        'glob' => [$packagePath . '/database/migrations/*.php' => [$packagePath . '/database/migrations/' . $name]],
+        'fileExists' => [$published => true],
+        'isWritable' => [dirname($published) => false],
+        'delete' => [$published => false],
+    ];
+    app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem($overrides));
+    CapellCore::registerPackage('vendor/blocked-cleanup', serviceProviderClass: UninstallPackageActionDataDeleter::class, path: $packagePath);
+    CapellCore::markPackageInstalled('vendor/blocked-cleanup');
+    $package = CapellCore::getPackage('vendor/blocked-cleanup');
+    $package->uninstallAction = UninstallPackageLifecycleAction::class;
+
+    UninstallPackageLifecycleAction::$packages = [];
+    UninstallPackageActionDataDeleter::$deletedPackages = [];
+    Event::fake([PackageUninstalled::class]);
+
+    expect(fn (): null => UninstallPackageAction::run($package, deleteData: $deleteData))
+        ->toThrow(RuntimeException::class, 'database/migrations/' . $name);
+    expect(CapellCore::isPackageInstalled($package->name))->toBeTrue()
+        ->and(UninstallPackageLifecycleAction::$packages)->toBeEmpty()
+        ->and(UninstallPackageActionDataDeleter::$deletedPackages)->toBeEmpty();
+    Event::assertNotDispatched(PackageUninstalled::class);
+
+    $overrides['delete'][$published] = true;
+    $overrides['isWritable'][dirname($published)] = true;
+    app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem($overrides));
+    UninstallPackageAction::run($package, deleteData: $deleteData);
+
+    expect(CapellCore::isPackageInstalled($package->name))->toBeFalse()
+        ->and(UninstallPackageLifecycleAction::$packages)->toHaveCount(1)
+        ->and(UninstallPackageActionDataDeleter::$deletedPackages)->toBe($deleteData ? [$package->name] : []);
+    Event::assertDispatchedTimes(PackageUninstalled::class, 1);
+
+    $overrides['fileExists'][$published] = false;
+    app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem($overrides));
+    $report = DeletePackageMigrationsAction::run($package);
+    expect($report['blocked'])->toBe(0)->and($report['skipped'])->toBe(1);
+})->with([false, true]);
+
+it('keeps published migrations until uninstall hooks succeed', function (bool $hookFails, bool $deleteData): void {
+    $packagePath = makeUninstallPackageWithMigrationFixture('vendor/hook-order');
+    $originalDatabasePath = app()->databasePath();
+    $databasePath = $packagePath . '/host-database';
+    $name = '2026_05_10_190832_01_create_migration_package_table.php';
+    File::ensureDirectoryExists($databasePath . '/migrations');
+    File::copy($packagePath . '/database/migrations/' . $name, $databasePath . '/migrations/' . $name);
+    app()->useDatabasePath($databasePath);
+    app()->instance(MigrationFilesystemInterface::class, new MigrationFilesystem);
+
+    $hook = new class($databasePath . '/migrations/' . $name, $hookFails) implements PackageLifecycleAction
+    {
+        public bool $sawPublishedMigration = false;
+
+        public function __construct(private readonly string $migration, private readonly bool $fails) {}
+
+        public function handle(PackageData $package, array $arguments = [], ?ProgressReporter $reporter = null): void
+        {
+            $this->sawPublishedMigration = is_file($this->migration);
+            throw_if($this->fails, RuntimeException::class, 'injected uninstall hook failure');
+        }
+    };
+    app()->instance($hook::class, $hook);
+    CapellCore::registerPackage('vendor/hook-order', serviceProviderClass: UninstallPackageActionDataDeleter::class, path: $packagePath);
+    CapellCore::markPackageInstalled('vendor/hook-order');
+    $package = CapellCore::getPackage('vendor/hook-order');
+    $package->uninstallAction = $hook::class;
+
+    UninstallPackageActionDataDeleter::$deletedPackages = [];
+    Event::fake([PackageUninstalled::class]);
+
+    try {
+        if ($hookFails) {
+            expect(fn (): null => UninstallPackageAction::run($package, deleteData: $deleteData))
+                ->toThrow(RuntimeException::class, 'injected uninstall hook failure');
+            expect(is_file($databasePath . '/migrations/' . $name))->toBeTrue()
+                ->and(File::get($databasePath . '/migrations/' . $name))->toBe('<?php')
+                ->and(UninstallPackageActionDataDeleter::$deletedPackages)->toBeEmpty();
+            Event::assertNotDispatched(PackageUninstalled::class);
+        } else {
+            UninstallPackageAction::run($package, deleteData: $deleteData);
+            expect(is_file($databasePath . '/migrations/' . $name))->toBeFalse();
+            Event::assertDispatchedTimes(PackageUninstalled::class, 1);
+        }
+
+        expect($hook->sawPublishedMigration)->toBeTrue()
+            ->and(CapellCore::isPackageInstalled($package->name))->toBe($hookFails);
+    } finally {
+        app()->useDatabasePath($originalDatabasePath);
+        File::deleteDirectory($packagePath);
+    }
+})->with([[true, false], [true, true], [false, false], [false, true]]);
+
+it('checks all migration deletion permissions before mutating files or running hooks', function (): void {
+    $packagePath = makeUninstallPackageWithMigrationFixture('vendor/permission-preflight');
+    $name = '2026_05_10_190832_01_create_migration_package_table.php';
+    $filesystem = new FakeMigrationFilesystem([
+        'glob' => [$packagePath . '/database/migrations/*.php' => [$packagePath . '/database/migrations/' . $name]],
+        'fileExists' => [database_path('migrations/' . $name) => true],
+        'isWritable' => [database_path('migrations') => false],
+    ]);
+    app()->instance(MigrationFilesystemInterface::class, $filesystem);
+    CapellCore::registerPackage('vendor/permission-preflight', path: $packagePath);
+    CapellCore::markPackageInstalled('vendor/permission-preflight');
+    $package = CapellCore::getPackage('vendor/permission-preflight');
+    $package->uninstallAction = UninstallPackageLifecycleAction::class;
+
+    UninstallPackageLifecycleAction::$packages = [];
+
+    expect(fn (): null => UninstallPackageAction::run($package))->toThrow(RuntimeException::class, 'database/migrations/' . $name);
+    expect($filesystem->calls)->not->toContain(['delete', database_path('migrations/' . $name)])
+        ->and(UninstallPackageLifecycleAction::$packages)->toBeEmpty()
+        ->and(CapellCore::isPackageInstalled($package->name))->toBeTrue();
 });
 
 it('keeps extension data by default so reinstall can reuse it', function (): void {

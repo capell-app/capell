@@ -3,6 +3,21 @@
 declare(strict_types=1);
 
 return [
+    'replace_file_failed' => 'File replacement could not be completed',
+    'replacement_cleanup_failed' => 'Temporary replacement files could not be removed from the private workspace :paths. Check storage permissions and clean up this workspace; cleanup does not require another replacement.',
+    'replacement_workspace_failed' => 'A private workspace could not be created for the replacement. The original files have been kept.',
+    'replace_file_cleanup_warning' => 'The replacement is live. Temporary private recovery files need administrator cleanup; do not repeat the replacement.',
+    'replacement_unreadable' => 'The replacement file is empty or cannot be read.',
+    'replacement_type_mismatch' => 'Choose a file of the same media type to preserve existing URLs. Upload a new asset for a different media type.',
+    'replacement_too_large' => 'The replacement exceeds the configured maximum file size.',
+    'replacement_owner_missing' => 'The original media owner is unavailable.',
+    'replacement_not_accepted' => 'The replacement is not accepted by this media collection.',
+    'replacement_shared_path' => 'The configured media storage overlaps the private replacement workspace. The original files have been kept.',
+    'replacement_integrity_failed' => 'The staged replacement failed integrity verification. The original files have been kept.',
+    'replacement_backup_failed' => 'The original media files could not be backed up for replacement.',
+    'replacement_write_failed' => 'The replacement files could not be written. Check the failure report before retrying.',
+    'replacement_metadata_failed' => 'The replacement metadata could not be saved. Check the failure report before retrying.',
+    'replacement_recovery_required' => 'Replacement failed and storage also blocked recovery. Original file backups and their recovery manifest are retained in the private workspace :path; restore them before retrying.',
     'add_locale_metadata' => 'Add locale metadata',
     'alt_text' => 'Alt text',
     'alt_text_helper' => 'Describe the meaningful content of the image for visitors using assistive technology.',

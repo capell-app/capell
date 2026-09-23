@@ -10,7 +10,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static array{deleted: int, blocked: int, skipped: int} run(PackageData $package)
+ * @method static array{deleted: int, blocked: int, skipped: int, blockedPaths: list<string>} run(PackageData $package, bool $dryRun = false)
  */
 final class DeletePackageMigrationsAction
 {
@@ -20,9 +20,9 @@ final class DeletePackageMigrationsAction
     public function __construct(private readonly MigrationFilesystemInterface $files) {}
 
     /**
-     * @return array{deleted: int, blocked: int, skipped: int}
+     * @return array{deleted: int, blocked: int, skipped: int, blockedPaths: list<string>}
      */
-    public function handle(PackageData $package): array
+    public function handle(PackageData $package, bool $dryRun = false): array
     {
         $sourceDirectory = $package->path === null ? null : $package->path . '/database/migrations';
 
@@ -31,6 +31,7 @@ final class DeletePackageMigrationsAction
                 'deleted' => 0,
                 'blocked' => 0,
                 'skipped' => 0,
+                'blockedPaths' => [],
             ];
         }
 
@@ -38,6 +39,7 @@ final class DeletePackageMigrationsAction
             'deleted' => 0,
             'blocked' => 0,
             'skipped' => 0,
+            'blockedPaths' => [],
         ];
 
         foreach ($this->publishedMigrationPaths($sourceDirectory) as $publishedMigrationPath) {
@@ -47,13 +49,21 @@ final class DeletePackageMigrationsAction
                 continue;
             }
 
-            if ($this->files->delete($publishedMigrationPath)) {
+            if ($dryRun) {
+                // Unlink requires a writable parent directory on POSIX. Windows
+                // also refuses read-only files. Never probe by deleting a file.
+                if ($this->files->isWritable(dirname($publishedMigrationPath))
+                    && (PHP_OS_FAMILY !== 'Windows' || $this->files->isWritable($publishedMigrationPath))) {
+                    continue;
+                }
+            } elseif ($this->files->delete($publishedMigrationPath)) {
                 $report['deleted']++;
 
                 continue;
             }
 
             $report['blocked']++;
+            $report['blockedPaths'][] = 'database/migrations/' . basename($publishedMigrationPath);
         }
 
         return $report;

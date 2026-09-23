@@ -260,12 +260,23 @@ function installStepExecutorReporter(array &$lines): ProgressReporter
 }
 
 beforeEach(function (): void {
+    // Every install step discovers executable App panel providers. Keep these
+    // cases in an owned app directory so a prepared workbench cannot load PHP
+    // classes that later applications rediscover after this case is torn down.
+    $this->originalInstallStepAppPath = app_path();
+    $this->installStepAppPath = storage_path('framework/testing/install-step-app-' . bin2hex(random_bytes(8)));
+    File::ensureDirectoryExists($this->installStepAppPath);
+    app()->useAppPath($this->installStepAppPath);
+
     Facade::clearResolvedInstance(Factory::class);
     DemoPackageAction::resetProcessFactory();
     Process::spy();
 });
 
 afterEach(function (): void {
+    app()->useAppPath($this->originalInstallStepAppPath);
+    File::deleteDirectory($this->installStepAppPath);
+
     Mockery::close();
     DemoPackageAction::resetProcessFactory();
     Facade::clearResolvedInstance('artisan');
