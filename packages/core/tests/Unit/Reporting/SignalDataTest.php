@@ -109,3 +109,29 @@ it('redacts quoted assignments and personal names as well as sensitive map keys'
         expect($signal->toJson())->not->toContain($sensitive);
     }
 });
+
+it('redacts complete escaped assignments and cookie headers in every representation', function (string $text, string $secret): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['nested' => ['detail' => $text]]);
+
+    foreach ([$signal->message, $signal->operatorSummary, $signal->context['nested']['detail'], $signal->toJson(), $signal->toHuman(), json_encode($signal, JSON_THROW_ON_ERROR)] as $output) {
+        expect($output)->not->toContain($secret);
+    }
+})->with([
+    'escaped double quote' => ['{"client_secret":"before\\"LEAK_AFTER_QUOTE tail"}', 'LEAK_AFTER_QUOTE'],
+    'escaped single quote' => ["password='before\\'LEAK_AFTER_QUOTE tail'", 'LEAK_AFTER_QUOTE'],
+    'escaped backslash and quote' => ['token="before\\\\\\"LEAK_AFTER_QUOTE tail"', 'LEAK_AFTER_QUOTE'],
+    'unterminated double quote' => ['password="before LEAK_UNTERMINATED tail', 'LEAK_UNTERMINATED'],
+    'unterminated single quote' => ["secret='before LEAK_UNTERMINATED tail", 'LEAK_UNTERMINATED'],
+    'cookie header' => ['Cookie: harmless=1; sessionid=SESSION_SECRET_REVIEW', 'SESSION_SECRET_REVIEW'],
+    'unlabelled cookie' => ['Cookie: harmless=1; remember=UNLABELLED_COOKIE_SECRET; theme=dark', 'UNLABELLED_COOKIE_SECRET'],
+    'set-cookie header' => ['Set-Cookie: sessionid=SESSION_SECRET_REVIEW; Path=/; HttpOnly', 'SESSION_SECRET_REVIEW'],
+    'quoted cookie header' => ['{"Cookie":"harmless=1; sid=SESSION_SECRET_REVIEW"}', 'SESSION_SECRET_REVIEW'],
+    'session assignment' => ['sessionid=SESSION_SECRET_REVIEW', 'SESSION_SECRET_REVIEW'],
+]);
+
+it('preserves text following the real end of a quoted assignment or header', function (): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'secret="hidden\\\\" retryable=true', "Cookie: sid=hidden; theme=dark\nRetry the operation.", 'trace-1');
+
+    expect($signal->message)->toContain('retryable=true')->not->toContain('hidden')
+        ->and($signal->operatorSummary)->toContain('Retry the operation.')->not->toContain('hidden');
+});

@@ -8,13 +8,18 @@ final class SignalRedactor
 {
     private const string REDACTED = '[redacted]';
 
+    private const string LABELLED_VALUE_PATTERN = <<<'REGEX'
+        ~\b[a-z0-9_-]*(?:password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|authorization|cookie|session|credential|signature|email|phone|address)[a-z0-9_-]*["']?\s*[=:]\s*(?:"(?:\\.|[^"\\])*(?:"|\\?\z)|'(?:\\.|[^'\\])*(?:'|\\?\z)|[^\s,;]+)~is
+        REGEX;
+
     public function text(string $value): string
     {
         $value = mb_convert_encoding(substr($value, 0, 8192), 'UTF-8', 'UTF-8');
         $value = preg_replace([
             '~\b[a-z][a-z0-9+.-]*://[^\s<>]+~i',
             '/\b(?:Bearer|Basic)\s+[^\s,;]+/i',
-            '/\b[a-z0-9_-]*(?:password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|authorization|cookie|email|phone|address)[a-z0-9_-]*["\']?\s*[=:]\s*(?:"[^"]*"|\'[^\']*\'|[^\s,;]+)/i',
+            '/\b(?:set-cookie|cookie)\s*:\s*[^\r\n]*/i',
+            self::LABELLED_VALUE_PATTERN,
             '/\b(?:gh[pousr]_\w{20,}|github_pat_\w{20,}|eyJ[\w-]+\.[\w-]+\.[\w-]+)\b/',
             '/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/',
             '/\b(?:\d{1,3}\.){3}\d{1,3}\b/',

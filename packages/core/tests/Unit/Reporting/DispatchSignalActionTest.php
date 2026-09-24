@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Reporting\DispatchSignalAction;
 use Capell\Core\Contracts\Reporting\Reporter;
+use Capell\Core\Data\Reporting\DispatchResultData;
 use Capell\Core\Data\Reporting\SignalData;
 use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Enums\Reporting\FailureCategory;
@@ -18,9 +19,13 @@ use Monolog\Logger;
 beforeEach(function (): void {
     $this->initialReportingConfiguration = config('capell-reporting');
     $this->reportingRecords = new TestHandler;
-    $logger = new Logger('reporting-test', [$this->reportingRecords]);
-    $logs = Mockery::mock(LogManager::class);
-    $logs->shouldReceive('channel')->with(null)->andReturn($logger);
+    $records = $this->reportingRecords;
+    $logs = new LogManager($this->app);
+    $logs->extend('reporting-test', fn (): Logger => new Logger('reporting-test', [$records]));
+
+    config()->set('logging.default', 'reporting-test');
+    config()->set('logging.channels.reporting-test', ['driver' => 'reporting-test']);
+
     $this->app->instance(LogManager::class, $logs);
     $this->reportingLogs = $logs;
     config()->set('capell-reporting', require __DIR__ . '/../../../config/capell-reporting.php');
@@ -179,21 +184,21 @@ it('falls back when the cache is unavailable', function (): void {
 });
 
 it('uses the default logger if the selected log channel fails', function (): void {
-    config()->set('logging.channels.missing', ['driver' => 'single']);
+    config()->set('logging.channels.missing', ['driver' => 'broken']);
     config()->set('capell-reporting.log_channel', 'missing');
-    $this->reportingLogs->shouldReceive('channel')->with('missing')->andThrow(new RuntimeException('missing channel'));
+
+    $this->reportingLogs->extend('broken', fn (): never => throw new RuntimeException('missing channel'));
 
     expect(resolve(DispatchSignalAction::class)->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Fallback)
         ->and($this->reportingRecords->getRecords())->toHaveCount(1);
 });
 
 it('uses a selected valid log channel and bypasses an unknown channel before logger resolution', function (): void {
-    config()->set('logging.channels.operations', ['driver' => 'single']);
+    config()->set('logging.channels.operations', ['driver' => 'operations']);
     config()->set('capell-reporting.log_channel', 'operations');
 
     $records = new TestHandler;
-    $this->reportingLogs->shouldReceive('channel')->with('operations')->once()->andReturn(new Logger('operations', [$records]));
-    $this->reportingLogs->shouldNotReceive('channel')->with('unknown');
+    $this->reportingLogs->extend('operations', fn (): Logger => new Logger('operations', [$records]));
 
     expect(resolve(DispatchSignalAction::class)->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Reported)
         ->and($records->getRecords())->toHaveCount(1)
@@ -213,13 +218,14 @@ it('falls back when configuration resolution itself throws', function (): void {
 });
 
 it('never throws when logging also fails and releases the failed delivery claim', function (): void {
-    $logs = Mockery::mock(LogManager::class);
-    $logs->shouldReceive('channel')->with(null)->andThrow(new RuntimeException('log failure'));
-    $this->app->instance(LogManager::class, $logs);
+    $this->reportingLogs->extend('broken', fn (): never => throw new RuntimeException('log failure'));
+    config()->set('logging.channels.broken', ['driver' => 'broken']);
+    config()->set('logging.default', 'broken');
+
     $dispatcher = resolve(DispatchSignalAction::class);
 
     expect($dispatcher->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Failed);
-    $this->app->instance(LogManager::class, $this->reportingLogs);
+    config()->set('logging.default', 'reporting-test');
     expect($dispatcher->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Reported)
         ->and($this->reportingRecords->getRecords())->toHaveCount(1);
 });
@@ -231,19 +237,28 @@ it('preserves a replacement claim when an older delivery fails after cooldown', 
     config()->set('capell-reporting.reporters.slow', 'reporting.slow');
 
     $reporter = Mockery::mock(Reporter::class);
-    $reporter->shouldReceive('report')->once()->andReturnUsing(function (): never {
-        $this->travel(5)->seconds();
-        config()->set('capell-reporting.defaults.transport', 'log');
-        expect(resolve(DispatchSignalAction::class)->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Reported);
-        $logs = Mockery::mock(LogManager::class);
-        $logs->shouldReceive('channel')->andThrow(new RuntimeException('unavailable'));
-        $this->app->instance(LogManager::class, $logs);
+    $reporter->shouldReceive('report')->once()->andReturnUsing(static function (): never {
+        Fiber::suspend();
         throw new RuntimeException('expired delivery');
     });
     $this->app->instance('reporting.slow', $reporter);
     $dispatcher = resolve(DispatchSignalAction::class);
 
-    expect($dispatcher->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Failed);
-    $this->app->instance(LogManager::class, $this->reportingLogs);
+    $delivery = new Fiber(fn (): DispatchResultData => $dispatcher->handle(reportingTestSignal()));
+    $delivery->start();
+    $this->travel(5)->seconds();
+    config()->set('capell-reporting.defaults.transport', 'log');
+
+    try {
+        expect(resolve(DispatchSignalAction::class)->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Reported);
+    } finally {
+        $this->reportingLogs->extend('broken', fn (): never => throw new RuntimeException('unavailable'));
+        config()->set('logging.channels.broken', ['driver' => 'broken']);
+        config()->set('logging.default', 'broken');
+        $delivery->resume();
+    }
+
+    expect($delivery->getReturn()->status)->toBe(DispatchStatus::Failed);
+    config()->set('logging.default', 'reporting-test');
     expect($dispatcher->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Suppressed);
 });

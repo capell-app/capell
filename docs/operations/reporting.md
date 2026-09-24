@@ -115,13 +115,13 @@ traces, since those can contain credentials. Delivery is synchronous; an adapter
 must bound its own network timeouts. A timeout category does not impose a process
 or network deadline.
 
-| `DispatchStatus` | Meaning                                                                        |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `Reported`       | The selected reporter returned normally.                                       |
-| `Suppressed`     | Another dispatch owns this signal's cooldown claim.                            |
-| `Disabled`       | Configuration disabled this signal.                                            |
-| `Fallback`       | Logging accepted the signal after a configuration, cache or transport failure. |
-| `Failed`         | Logging also failed; no delivery is confirmed.                                 |
+| `DispatchStatus` | Meaning                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| `Reported`       | The selected reporter returned normally.                                             |
+| `Suppressed`     | Another dispatch owns the cooldown claim, or delivery attempted recursive reporting. |
+| `Disabled`       | Configuration disabled this signal.                                                  |
+| `Fallback`       | Logging accepted the signal after a configuration, cache or transport failure.       |
+| `Failed`         | Logging also failed; no delivery is confirmed.                                       |
 
 `DispatchResultData` contains the status, transport and a safe reason code when
 fallback occurs: `configuration_unavailable`, `deduplication_unavailable` or
@@ -129,6 +129,17 @@ fallback occurs: `configuration_unavailable`, `deduplication_unavailable` or
 The configured log channel is tried first where available, then the default
 channel. No exception detail is included in the result. The host remains
 responsible for its log handlers, shared logging context, filtering and retention.
+
+Logger construction failures, including configured drivers, taps and stack
+members, follow the same fallback path. Reporting prevents Laravel's emergency
+logger from writing their raw exceptions. Custom driver callbacks resolve nested
+channels through the same protected manager.
+
+Dispatch attempted synchronously from a reporter or log listener returns
+`Suppressed` with reason `recursive_dispatch`, including during configuration
+fallback and with zero cooldown. The guard spans dispatcher instances within the
+same application and execution fibre, and is released after every delivery
+attempt. Independent application containers and fibres remain isolated.
 
 These results are not durable receipts or incident acknowledgement. In command
 adapters, persist the command's receipt and preserve its original non-zero exit
@@ -151,7 +162,12 @@ naturally. This is duplicate suppression, not exactly-once delivery: a transport
 may accept a message and then throw, and a long delivery can outlive its cooldown.
 
 For suppression across workers, use a shared cache store that supports Laravel's
-atomic locks. The array store only coordinates within one process. Cache failure
+atomic locks. The array store only coordinates within one process. Its expired
+reporting locks are pruned before the next claim because ordinary cache flushes
+do not remove lock entries. Reporting retains at most 1000 array-store claims;
+at capacity, new fingerprints fall back to logging with
+`deduplication_unavailable`, while existing cooldowns and other features' locks
+remain intact. Cache failure
 or an unsupported store falls back to logging without reliable suppression;
 missing/malformed reporting configuration also logs without a cooldown claim.
 This prioritises diagnostic delivery during failure. Cooldown is a per-fingerprint
@@ -160,7 +176,9 @@ rate limit, not a global transport quota or durable incident store.
 ## Redaction and retention
 
 Redaction runs during signal construction, before any reporter or formatter can
-read the payload. It covers nested secret/PII keys, quoted credential assignments,
+read the payload. It covers nested secret/PII keys, quoted credential assignments
+(including escaped quotes and unterminated values), complete Cookie/Set-Cookie
+header lines, session credentials,
 URLs, bearer/basic credentials, common token patterns, email addresses, IP
 addresses, telephone patterns and filesystem paths. Objects/resources and
 non-finite numbers are replaced without invoking conversion methods. Context is

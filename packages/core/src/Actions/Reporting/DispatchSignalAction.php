@@ -10,6 +10,8 @@ use Capell\Core\Data\Reporting\ReportingOptionsData;
 use Capell\Core\Data\Reporting\SignalData;
 use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Support\Reporting\LogChannelReporter;
+use Capell\Core\Support\Reporting\SignalDispatchGuard;
+use Illuminate\Cache\ArrayStore;
 use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Cache\LockProvider;
@@ -21,9 +23,24 @@ use Throwable;
 
 final readonly class DispatchSignalAction
 {
+    private const int MAX_ARRAY_CLAIMS = 1000;
+
     public function __construct(private Container $container) {}
 
     public function handle(SignalData $signal): DispatchResultData
+    {
+        if (! SignalDispatchGuard::enter($this->container)) {
+            return new DispatchResultData(DispatchStatus::Suppressed, reason: 'recursive_dispatch');
+        }
+
+        try {
+            return $this->dispatch($signal);
+        } finally {
+            SignalDispatchGuard::leave($this->container);
+        }
+    }
+
+    private function dispatch(SignalData $signal): DispatchResultData
     {
         try {
             $options = ReportingOptionsData::fromConfiguration($this->container->make(Repository::class)->get('capell-reporting'), $signal);
@@ -41,7 +58,12 @@ final readonly class DispatchSignalAction
                 $store = $this->container->make(Factory::class)->store($options->cacheStore)->getStore();
                 throw_unless($store instanceof LockProvider, RuntimeException::class, 'Reporting requires an atomic lock provider.');
 
-                $lock = $store->lock('capell:reporting:' . $signal->fingerprint(), $options->cooldownSeconds);
+                $key = 'capell:reporting:' . $signal->fingerprint();
+                if ($store instanceof ArrayStore) {
+                    $this->pruneArrayClaims($store, $key);
+                }
+
+                $lock = $store->lock($key, $options->cooldownSeconds);
                 if (! $lock->get()) {
                     return new DispatchResultData(DispatchStatus::Suppressed, $options->transport);
                 }
@@ -113,5 +135,25 @@ final readonly class DispatchSignalAction
         } catch (Throwable) {
             // An unavailable cache must not replace the original failure. The claim expires naturally.
         }
+    }
+
+    private function pruneArrayClaims(ArrayStore $store, string $key): void
+    {
+        $active = 0;
+
+        // ArrayStore expiry and Octane's cache flush leave lock entries in worker memory.
+        foreach ($store->locks as $name => $claim) {
+            if (! str_starts_with($name, 'capell:reporting:')) {
+                continue;
+            }
+
+            if ($claim['expiresAt'] !== null && ! $claim['expiresAt']->isFuture()) {
+                unset($store->locks[$name]);
+            } else {
+                $active++;
+            }
+        }
+
+        throw_if($active >= self::MAX_ARRAY_CLAIMS && ! isset($store->locks[$key]), RuntimeException::class, 'Reporting array claim capacity is exhausted.');
     }
 }
