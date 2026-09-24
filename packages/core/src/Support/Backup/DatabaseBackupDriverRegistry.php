@@ -15,11 +15,13 @@ final class DatabaseBackupDriverRegistry extends AbstractKeyedRegistry
     /**
      * @param  iterable<DatabaseBackupDriver>  $drivers
      */
-    public function __construct(iterable $drivers = [])
+    public function __construct(iterable $drivers)
     {
         foreach ($drivers as $driver) {
             $this->register($driver);
         }
+
+        throw_if($this->allItems() === [], LogicException::class, 'DatabaseBackupDriverRegistry requires at least one registered driver. Register CapellServiceProvider or bind a populated registry explicitly.');
     }
 
     public function register(DatabaseBackupDriver $driver): self

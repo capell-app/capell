@@ -569,9 +569,9 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PresentationPresetRegistry::class);
         $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(SiteAccessPolicyRegistry::class);
-        $this->app->scoped(
+        $this->app->singleton(
             DatabasePlatformRegistry::class,
-            fn ($app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
+            fn (Application $app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
                 [
                     $app->make(MySqlDatabasePlatform::class),
                     $app->make(MariaDbDatabasePlatform::class),

@@ -23,12 +23,14 @@ final class DatabasePlatformRegistry
      * @param  iterable<DatabasePlatform>  $platforms
      */
     public function __construct(
-        iterable $platforms = [],
+        iterable $platforms,
         private readonly ?DatabaseManager $connections = null,
     ) {
         foreach ($platforms as $platform) {
             $this->register($platform);
         }
+
+        throw_if($this->platforms === [], LogicException::class, 'DatabasePlatformRegistry requires at least one registered driver. Register CapellServiceProvider or bind a populated registry explicitly.');
     }
 
     public function register(DatabasePlatform $platform): self
