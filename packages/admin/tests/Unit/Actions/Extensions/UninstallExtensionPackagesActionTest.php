@@ -6,6 +6,8 @@ use Capell\Admin\Actions\Extensions\UninstallExtensionPackagesAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Migration\MigrationFilesystemInterface;
+use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
 
 beforeEach(function (): void {
     CapellCore::clearExtensionCache();
@@ -69,4 +71,23 @@ it('returns the failed package and message after preserving completed uninstalls
             ['vendor/completed-extension', true, true, true],
             ['vendor/failing-extension', true, true, true],
         ]);
+});
+
+it('returns actionable blocked migration cleanup without marking the admin uninstall successful', function (): void {
+    $path = '/fixture/blocked-extension';
+    $name = '2026_09_23_create_example.php';
+    app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem([
+        'glob' => [$path . '/database/migrations/*.php' => [$path . '/database/migrations/' . $name]],
+        'fileExists' => [database_path('migrations/' . $name) => true],
+        'delete' => [database_path('migrations/' . $name) => false],
+    ]));
+    CapellCore::registerPackage('vendor/blocked-extension', path: $path);
+    CapellCore::markPackageInstalled('vendor/blocked-extension');
+
+    $result = UninstallExtensionPackagesAction::run(['vendor/blocked-extension'], deletePackage: false, deleteData: false);
+
+    expect($result->successful)->toBeFalse()
+        ->and($result->uninstalledPackageNames)->toBeEmpty()
+        ->and($result->failureMessage)->toContain('database/migrations/' . $name, 'php artisan capell:extension-uninstall vendor/blocked-extension')
+        ->and(CapellCore::isPackageInstalled('vendor/blocked-extension'))->toBeTrue();
 });

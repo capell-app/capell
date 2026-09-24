@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Exceptions\PackageMigrationCleanupException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
@@ -55,7 +56,7 @@ final class UninstallExtensionCommand extends Command
         $deletePackage = (bool) $this->option('delete-package');
         $deleteData = $deletePackage || (bool) $this->option('delete-data');
 
-        $packages->each(function (PackageData $package) use ($deleteData, $deletePackage): void {
+        foreach ($packages as $package) {
             if ($this->option('dry-run')) {
                 $this->line(sprintf(
                     'Would uninstall %s%s%s',
@@ -64,13 +65,19 @@ final class UninstallExtensionCommand extends Command
                     $deletePackage ? ' and remove the Composer package' : '',
                 ));
 
-                return;
+                continue;
             }
 
             $this->line(sprintf('Uninstalling extension: %s', $package->name));
 
-            UninstallPackageAction::run($package, delete: $deletePackage, deleteData: $deleteData);
-        });
+            try {
+                UninstallPackageAction::run($package, delete: $deletePackage, deleteData: $deleteData);
+            } catch (PackageMigrationCleanupException $exception) {
+                $this->error($exception->getMessage());
+
+                return CommandAlias::FAILURE;
+            }
+        }
 
         return CommandAlias::SUCCESS;
     }

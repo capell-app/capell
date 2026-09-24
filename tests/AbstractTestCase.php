@@ -188,6 +188,14 @@ abstract class AbstractTestCase extends TestCase
 
     protected function getApplicationBootstrapFile(string $filename): string|false
     {
+        // Testbench treats per-worker copies as custom applications and discovers
+        // their generated host providers. An explicit empty file also replaces a
+        // retained bootstrap path; false leaves that process-wide state untouched.
+        // Package cases continue to declare their graph through getPackageProviders().
+        if ($filename === 'providers.php') {
+            return __DIR__ . '/fixtures/bootstrap/providers.php';
+        }
+
         if ($filename === 'app.php' && getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true') {
             return dirname(__DIR__) . '/tests/Support/runtime-role-testbench-bootstrap.php';
         }

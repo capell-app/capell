@@ -20,8 +20,12 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Notifications\Notification;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -38,6 +42,56 @@ beforeEach(function (): void {
     Storage::fake('public');
     config()->set('capell.media.model', CapellMedia::class);
     config()->set('media-library.media_model', CapellMedia::class);
+});
+
+it('reports a rejected replacement without a success notification or broken media reference', function (): void {
+    $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->image('original.png'))->toMediaCollection('images');
+    $url = $original->getUrl();
+    Storage::disk('local')->put('replacement.txt', 'different media type');
+
+    Livewire::test(ListMedia::class)
+        ->callTableAction('replace-file', $original, data: ['replacement' => ['replacement.txt']])
+        ->assertHasNoTableActionErrors()
+        ->assertNotified(__('capell-admin::media.replace_file_failed'))
+        ->assertNotNotified(__('capell-admin::media.replace_file_success'));
+
+    expect(CapellMedia::query()->whereKey($original->getKey())->firstOrFail()->getUrl())->toBe($url)
+        ->and(Storage::disk('public')->exists($original->getPathRelativeToRoot()))->toBeTrue();
+});
+
+it('reports committed replacement cleanup as a warning without inviting a failed replacement retry', function (): void {
+    $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->image('original.png'))->toMediaCollection('images');
+    $replacement = UploadedFile::fake()->image('replacement.png', 48, 48);
+    $bytes = file_get_contents($replacement->getPathname());
+    throw_unless(is_string($bytes), RuntimeException::class, 'Replacement fixture is missing.');
+    Storage::disk('local')->put('replacement.png', $bytes);
+    $public = Storage::disk('public');
+    $failingPublic = Mockery::mock($public);
+    $failingPublic->shouldReceive('deleteDirectory')->andReturnFalse();
+    Storage::set('public', $failingPublic);
+    File::partialMock()->shouldReceive('deleteDirectory')
+        ->withArgs(fn (string $path): bool => str_contains($path, '/capell-media-replacement/'))
+        ->andReturnFalse();
+    Exceptions::fake();
+    $before = glob(storage_path('app/private/capell-media-replacement/*')) ?: [];
+
+    try {
+        Livewire::test(ListMedia::class)
+            ->callTableAction('replace-file', $original, data: ['replacement' => ['replacement.png']])
+            ->assertHasNoTableActionErrors()
+            ->assertNotified(Notification::make()
+                ->title(__('capell-admin::media.replace_file_success'))
+                ->body(__('capell-admin::media.replace_file_cleanup_warning'))
+                ->warning())
+            ->assertNotNotified(__('capell-admin::media.replace_file_failed'));
+
+        expect($public->get($original->getPathRelativeToRoot()))->toBe($bytes)
+            ->and(CapellMedia::query()->count())->toBe(1);
+    } finally {
+        foreach (array_diff(glob(storage_path('app/private/capell-media-replacement/*')) ?: [], $before) as $directory) {
+            new Filesystem()->deleteDirectory($directory);
+        }
+    }
 });
 
 it('lists media with owner labels filters and owner edit actions', function (): void {

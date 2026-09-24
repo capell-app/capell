@@ -36,6 +36,28 @@ final class RestoreBackupAction
         private readonly ProcessFactoryInterface $processes,
     ) {}
 
+    /**
+     * Colons are ordinary filename characters on POSIX filesystems, so backups
+     * holding names like `report 10:30.pdf` must restore. On Windows any colon
+     * in a segment addresses an NTFS alternate data stream (`file.txt:hidden`,
+     * typed or not), and a trailing dot or space is silently stripped, so both
+     * are rejected there.
+     */
+    public static function isSafeRelativePath(string $path, string $osFamily = PHP_OS_FAMILY): bool
+    {
+        $path = str_replace('\\', '/', $path);
+
+        if ($path === '' || str_starts_with($path, '/') || preg_match('/[\x00-\x1f\x7f]/', $path) === 1
+            || preg_match('/^[A-Za-z]:/', $path) === 1 || preg_match('/:[^\/]*:\$/', $path) === 1) {
+            return false;
+        }
+
+        $windows = $osFamily === 'Windows';
+
+        return array_all(explode('/', $path), static fn (string $segment): bool => ! in_array($segment, ['', '.', '..'], true)
+            && (! $windows || (! str_contains($segment, ':') && preg_match('/[. ]$/', $segment) !== 1)));
+    }
+
     public function handle(
         string $snapshotId,
         string $scratchDatabase,
@@ -50,7 +72,7 @@ final class RestoreBackupAction
         $this->assertScratchDatabase($manifest, $scratchDatabase);
         $this->assertMediaTarget($manifest, $mediaDisk, $mediaPrefix);
         $this->assertArtifacts($manifest);
-        $temporaryFiles = new BackupTemporaryFiles;
+        $temporaryFiles = resolve(BackupTemporaryFiles::class);
 
         try {
             $compressedDatabase = $temporaryFiles->create('capell-restore-gzip-');
@@ -58,11 +80,13 @@ final class RestoreBackupAction
             $this->store->download($manifest->database->path, $compressedDatabase);
             $this->assertLocalArtifact($manifest->database, $compressedDatabase);
             $this->gunzip($compressedDatabase, $databaseArtifact);
+            $temporaryFiles->release($compressedDatabase);
             $restoredDatabase = $this->drivers->for($manifest->databaseDriver)->restore(
                 $manifest->connectionName,
                 $databaseArtifact,
                 $scratchDatabase,
             );
+            $temporaryFiles->release($databaseArtifact);
             $mediaFiles = $this->restoreMedia($manifest, $mediaDisk, $mediaPrefix, $temporaryFiles);
             $doctorStatus = $this->runDoctor($manifest->connectionName, $restoredDatabase);
 
@@ -112,9 +136,45 @@ final class RestoreBackupAction
 
         throw_unless($this->safeRelativePath($mediaPrefix), InvalidArgumentException::class, 'Scratch media prefix is unsafe.');
 
+        $this->mediaTargetPaths($manifest, $mediaPrefix);
+
         $targetDisk = $this->filesystems->disk($mediaDisk);
 
         throw_if($targetDisk->exists($mediaPrefix) || $targetDisk->allFiles($mediaPrefix) !== [], InvalidArgumentException::class, 'Scratch media prefix must be empty.');
+    }
+
+    /** @return list<string> */
+    private function mediaTargetPaths(BackupManifestData $manifest, string $mediaPrefix): array
+    {
+        $sourceDisks = array_unique(array_map(static fn (BackupArtifactData $artifact): ?string => $artifact->sourceDisk, $manifest->media));
+        $multipleDisks = count($sourceDisks) > 1;
+        $targets = [];
+        $occupied = [];
+
+        foreach ($manifest->media as $artifact) {
+            throw_if($artifact->sourceDisk === null || ! $this->safeRelativePath($artifact->sourceDisk)
+                || str_contains($artifact->sourceDisk, '/') || str_contains($artifact->sourceDisk, '\\')
+                || $artifact->sourcePath === null || ! $this->safeRelativePath($artifact->sourcePath), RuntimeException::class, __('capell-core::backup.unsafe_source'));
+
+            $target = str_replace('\\', '/', $mediaPrefix) . '/'
+                . ($multipleDisks ? rawurlencode($artifact->sourceDisk) . '/' : '')
+                . str_replace('\\', '/', $artifact->sourcePath);
+            // Reject file/directory and case-only collisions before either database
+            // or media writes, including on case-insensitive scratch filesystems.
+            $portableTarget = strtolower($target);
+
+            throw_if(isset($occupied[$portableTarget]), RuntimeException::class, __('capell-core::backup.destinations_collide'));
+            $occupied[$portableTarget] = true;
+            $targets[] = $target;
+        }
+
+        foreach (array_keys($occupied) as $target) {
+            for ($parent = dirname($target); $parent !== '.'; $parent = dirname($parent)) {
+                throw_if(isset($occupied[$parent]), RuntimeException::class, __('capell-core::backup.destinations_collide'));
+            }
+        }
+
+        return $targets;
     }
 
     private function assertArtifacts(BackupManifestData $manifest): void
@@ -177,8 +237,9 @@ final class RestoreBackupAction
         throw_if($mediaDisk === null || $mediaPrefix === null, RuntimeException::class, 'Scratch media target was not validated.');
 
         $target = $this->filesystems->disk($mediaDisk);
+        $targetPaths = $this->mediaTargetPaths($manifest, $mediaPrefix);
 
-        foreach ($manifest->media as $artifact) {
+        foreach ($manifest->media as $index => $artifact) {
             throw_if($artifact->sourcePath === null || ! $this->safeRelativePath($artifact->sourcePath), RuntimeException::class, 'Backup media artifact has an unsafe source path.');
 
             $temporaryPath = $temporaryFiles->create('capell-restore-media-');
@@ -189,10 +250,12 @@ final class RestoreBackupAction
             throw_if($stream === false, RuntimeException::class, 'Unable to read a restored media artifact.');
 
             try {
-                throw_unless($target->put(rtrim($mediaPrefix, '/') . '/' . $artifact->sourcePath, $stream), RuntimeException::class, 'Unable to write a restored media artifact.');
+                throw_unless($target->put($targetPaths[$index], $stream), RuntimeException::class, 'Unable to write a restored media artifact.');
             } finally {
                 fclose($stream);
             }
+
+            $temporaryFiles->release($temporaryPath);
         }
 
         return count($manifest->media);
@@ -227,11 +290,7 @@ final class RestoreBackupAction
 
     private function safeRelativePath(string $path): bool
     {
-        if ($path === '' || str_starts_with($path, '/') || str_contains($path, "\0")) {
-            return false;
-        }
-
-        return array_all(explode('/', str_replace('\\', '/', $path)), fn ($segment): bool => ! in_array($segment, ['', '.', '..'], true));
+        return self::isSafeRelativePath($path);
     }
 
     private function samePath(string $left, string $right): bool

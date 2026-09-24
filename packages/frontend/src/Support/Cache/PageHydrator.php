@@ -8,8 +8,10 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 final class PageHydrator
 {
@@ -61,11 +63,11 @@ final class PageHydrator
         }
 
         if ($withChildrenCount) {
-            $this->loadChildrenCount($models);
+            $this->loadChildrenCount($models, $site);
         }
 
         if ($withChildren) {
-            $this->loadChildren($models);
+            $this->loadChildren($models, $site);
         }
 
         if ($withDate) {
@@ -102,29 +104,39 @@ final class PageHydrator
             );
             $model->setRelation('parent', $parent);
 
-            if ($parent instanceof Page) {
-                $model->setRelation('ancestors', new Collection([$parent]));
-            }
+            $model->setRelation('ancestors', new Collection($parent instanceof Page ? [$parent] : []));
         });
     }
 
     /**
      * @param  Collection<int, Model&Pageable<Model>>  $models
      */
-    private function loadChildrenCount(Collection $models): void
+    private function loadChildrenCount(Collection $models, ?Site $site): void
     {
         $models->loadCount([
-            'children' => fn ($query) => $query->publishedDate(),
+            'children' => function (Builder $query) use ($site): void {
+                $query->publishedDate();
+
+                if ($site instanceof Site) {
+                    $query->where('site_id', $site->id);
+                }
+            },
         ]);
     }
 
     /**
      * @param  Collection<int, Model&Pageable<Model>>  $models
      */
-    private function loadChildren(Collection $models): void
+    private function loadChildren(Collection $models, ?Site $site): void
     {
         $models->load([
-            'children' => fn ($query) => $query->publishedDate(),
+            'children' => function (Relation $query) use ($site): void {
+                $query->getQuery()->publishedDate();
+
+                if ($site instanceof Site) {
+                    $query->where('site_id', $site->id);
+                }
+            },
         ]);
     }
 

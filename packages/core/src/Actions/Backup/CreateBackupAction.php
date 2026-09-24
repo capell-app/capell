@@ -43,7 +43,7 @@ final class CreateBackupAction
 
         $now = CarbonImmutable::now('UTC');
         $snapshotId = $now->format('Ymd\THis\Z') . '-' . bin2hex(random_bytes(6));
-        $temporaryFiles = new BackupTemporaryFiles;
+        $temporaryFiles = resolve(BackupTemporaryFiles::class);
 
         try {
             $databaseArtifact = $this->createDatabaseArtifact(
@@ -92,7 +92,11 @@ final class CreateBackupAction
         $storedPath = $this->store->snapshotPath($snapshotId, 'database.sql.gz');
         $this->store->putLocalFile($storedPath, $compressedPath);
 
-        return $this->artifact('database', $storedPath, $compressedPath);
+        $artifact = $this->artifact('database', $storedPath, $compressedPath);
+        $temporaryFiles->release($databasePath);
+        $temporaryFiles->release($compressedPath);
+
+        return $artifact;
     }
 
     /**
@@ -105,7 +109,7 @@ final class CreateBackupAction
 
         foreach ($mediaDisks as $diskName) {
             $disk = $this->filesystems->disk($diskName);
-            $diskPath = preg_replace('/[^A-Za-z0-9_.-]/', '_', $diskName) ?: 'media';
+            $diskPath = rawurlencode($diskName);
 
             foreach ($disk->allFiles() as $sourcePath) {
                 $sourcePath = str_replace('\\', '/', $sourcePath);
@@ -131,6 +135,7 @@ final class CreateBackupAction
                     sourceDisk: $diskName,
                     sourcePath: $sourcePath,
                 );
+                $temporaryFiles->release($temporaryPath);
             }
         }
 

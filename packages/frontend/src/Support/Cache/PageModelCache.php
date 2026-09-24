@@ -38,15 +38,22 @@ final class PageModelCache
     ): ?Pageable {
         $key = CacheEnum::pageModel($type, $id, $site->id ?? 0, $language->id);
 
-        $loader = function () use ($type, $id, $language, $withEvents): ?Pageable {
-            /** @var class-string<Model&Pageable<Model>> $modelClass */
+        $loader = function () use ($type, $id, $site, $language, $withEvents): ?Pageable {
             $modelClass = Relation::getMorphedModel($type) ?? $type;
 
-            $callback = fn (): ?Pageable => $modelClass::query()
-                ->where('id', $id)
-                ->publishedDate()
-                ->with($this->canonicalRelations($modelClass, $language->id))
-                ->first();
+            if (! is_a($modelClass, Model::class, true) || ! is_a($modelClass, Pageable::class, true)) {
+                return null;
+            }
+
+            $callback = function () use ($modelClass, $id, $site, $language): ?Pageable {
+                $query = $modelClass::query()->where('id', $id)->publishedDate();
+
+                if ($site instanceof Site) {
+                    $query->where('site_id', $site->id);
+                }
+
+                return $query->with($this->canonicalRelations($modelClass, $language->id))->first();
+            };
 
             if ($withEvents) {
                 return $callback();
@@ -62,6 +69,16 @@ final class PageModelCache
         }
 
         if ($site instanceof Site) {
+            if ($model->site_id !== $site->id) {
+                $this->removeCacheKey($key);
+
+                return null;
+            }
+
+            if ($model->relationLoaded('parent') && $model->parent?->site_id !== $site->id) {
+                $model->setRelation('parent', null);
+            }
+
             $this->injectTransientRelations($model, $site, $language);
         } elseif ($model->translation !== null && $model->pageUrl !== null) {
             $model->translation->setRelation('language', $language);

@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ListenerEnum;
 use Capell\Core\Events\PackageUninstalled;
+use Capell\Core\Exceptions\PackageMigrationCleanupException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\ActiveThemeUninstallGuard;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
@@ -50,6 +51,12 @@ class UninstallPackageAction
 
         new ActiveThemeUninstallGuard()->assert($package);
 
+        $retryCommand = 'php artisan capell:extension-uninstall ' . $package->name
+            . ($delete ? ' --delete-package' : ($deleteData ? ' --delete-data' : ''));
+        // Reject known permission failures without changing files. Hooks still
+        // need the published migrations, and a failing hook must leave them intact.
+        self::runMigrationCleanup($package, $retryCommand, dryRun: true);
+
         resolve(PackageLifecycleRunner::class)->run(
             package: $package,
             phase: 'uninstall',
@@ -59,6 +66,9 @@ class UninstallPackageAction
             allowLegacyCommand: false,
         );
 
+        // Check the real result too: filesystem state can change after preflight.
+        self::runMigrationCleanup($package, $retryCommand, dryRun: false);
+
         if ($delete && $package->getKind() === 'bundle') {
             RemovePackageAction::run($package->name, requiresServerSideTooling: $requiresServerSideTooling);
             DeleteExtensionDataAction::run($package);
@@ -66,8 +76,6 @@ class UninstallPackageAction
 
             return;
         }
-
-        DeletePackageMigrationsAction::run($package);
 
         if ($delete || $deleteData) {
             DeleteExtensionDataAction::run($package);
@@ -77,6 +85,15 @@ class UninstallPackageAction
 
         if ($delete) {
             RemovePackageAction::run($package->name, requiresServerSideTooling: $requiresServerSideTooling);
+        }
+    }
+
+    private static function runMigrationCleanup(PackageData $package, string $retryCommand, bool $dryRun): void
+    {
+        $cleanup = DeletePackageMigrationsAction::run($package, dryRun: $dryRun);
+
+        if ($cleanup['blocked'] > 0) {
+            throw new PackageMigrationCleanupException($cleanup['blockedPaths'], $retryCommand);
         }
     }
 

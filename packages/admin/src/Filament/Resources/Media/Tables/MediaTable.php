@@ -161,12 +161,27 @@ class MediaTable implements TableConfigurator
 
                         $absolutePath = Storage::disk('local')->path($diskRelativePath);
 
-                        ReplaceMediaFileAction::run($record, $absolutePath);
+                        try {
+                            $result = ReplaceMediaFileAction::run($record, $absolutePath);
+                        } catch (Throwable $throwable) {
+                            Notification::make()
+                                ->title(__('capell-admin::media.replace_file_failed'))
+                                ->body($throwable->getMessage())
+                                ->danger()
+                                ->send();
 
-                        Notification::make()
-                            ->title(__('capell-admin::media.replace_file_success'))
-                            ->success()
-                            ->send();
+                            return;
+                        }
+
+                        $notification = Notification::make()->title(__('capell-admin::media.replace_file_success'));
+
+                        if ($result->cleanupWarning !== null) {
+                            $notification->body(__('capell-admin::media.replace_file_cleanup_warning'))->warning();
+                        } else {
+                            $notification->success();
+                        }
+
+                        $notification->send();
                     }),
             ])
             ->toolbarActions([

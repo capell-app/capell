@@ -26,7 +26,6 @@ use Capell\Frontend\Support\Rules\Conditions\CampaignParameterCondition;
 use Capell\Frontend\Support\Rules\Conditions\QueryParameterCondition;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Cache;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -145,11 +144,11 @@ it('purges CDN and fragment caches for page surrogate keys', function (): void {
         surrogateKeys: ['page-' . $page->getKey(), 'site-' . $site->getKey(), 'lang-' . $language->code],
     );
 
-    expect(Cache::has('fragment:page-fragment'))->toBeTrue();
+    expect(resolve(FragmentCache::class)->remember('page-fragment', static fn (): string => 'regenerated'))->toBe('cached fragment');
 
     PurgeCdnCacheByPageAction::run($page);
 
-    expect(Cache::has('fragment:page-fragment'))->toBeFalse();
+    expect(resolve(FragmentCache::class)->remember('page-fragment', static fn (): string => 'regenerated'))->toBe('regenerated');
 
     Bus::assertDispatched(FlushCdnPurgeBatchJob::class, fn (FlushCdnPurgeBatchJob $job): bool => $job->queue === config('capell-frontend.purge_queue', 'default'));
 });
@@ -177,11 +176,11 @@ it('skips CDN purge jobs without skipping fragment invalidation when no provider
         surrogateKeys: ['page-' . $page->getKey(), 'site-' . $site->getKey(), 'lang-' . $language->code],
     );
 
-    expect(Cache::has('fragment:page-fragment'))->toBeTrue();
+    expect(resolve(FragmentCache::class)->remember('page-fragment', static fn (): string => 'regenerated'))->toBe('cached fragment');
 
     PurgeCdnCacheByPageAction::run($page);
 
-    expect(Cache::has('fragment:page-fragment'))->toBeFalse();
+    expect(resolve(FragmentCache::class)->remember('page-fragment', static fn (): string => 'regenerated'))->toBe('regenerated');
 
     Bus::assertNotDispatched(FlushCdnPurgeBatchJob::class);
 });
