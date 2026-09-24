@@ -276,7 +276,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
     public function configurePackage(Package $package): void
     {
         $package->name(self::$name)
-            ->hasConfigFile(['backup', 'capell', 'redirects'])
+            ->hasConfigFile(['backup', 'capell', 'capell-reporting', 'redirects'])
             ->hasTranslations();
 
         if (! $this->app->runningInConsole()) {
