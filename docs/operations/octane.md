@@ -46,10 +46,26 @@ the frontend's `ThemeViewRegistrar`.
 
 **Prefer `scoped` over `singleton` for anything request-shaped.** Laravel resets
 `scoped` bindings between Octane requests for you, which is why Capell binds
-`DatabasePlatformRegistry`, `FrontendState`, `FrontendContextReader`,
-`ThemePreviewContext`, the page caches, and similar services that way. If your service
+`FrontendState`, `FrontendContextReader`, `ThemePreviewContext`, the page caches,
+and similar services that way. If your service
 holds the current site, page, theme, locale, user, or anything derived from the request,
 `scoped` is the answer and you are done.
+
+`DatabasePlatformRegistry` and `DatabaseBackupDriverRegistry` are populated
+scoped bindings. Each operation rebuilds their adapters so cached server
+capabilities and configuration do not survive into the next operation. Laravel
+can reconnect by replacing the PDO on an existing `Connection`, so retaining an
+adapter that caches capabilities by connection would retain the old server's
+capabilities. Their constructors still require explicit collections that
+register at least one driver; missing bindings and empty driver sets fail
+immediately.
+
+Register additional platforms with `DatabasePlatform::TAG` during provider
+registration or boot, using transient or scoped adapter bindings. Tags persist
+when Octane resets the registry, including tags added after an earlier provider
+resolved it. For direct registry additions, register a container `resolving`
+callback so each new registry receives the driver; calling `register()` once on
+a resolved registry only affects that operation.
 
 Reach for `Resettable` only when a service genuinely must be a singleton — a registry
 built once at boot — but accumulates request state alongside its boot state. In that

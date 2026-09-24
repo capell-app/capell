@@ -7,6 +7,76 @@ use Capell\Core\Data\Backup\BackupArtifactData;
 use Capell\Core\Data\Backup\BackupHealthReportData;
 use Capell\Core\Data\Backup\BackupManifestData;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
+use Capell\Core\Support\Backup\Drivers\MySqlDatabaseBackupDriver;
+use Capell\Core\Support\Backup\Drivers\PostgresDatabaseBackupDriver;
+use Capell\Core\Support\Backup\Drivers\SqliteDatabaseBackupDriver;
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Container\BindingResolutionException;
+
+it('refuses to autowire a database backup registry without configured drivers', function (): void {
+    expect(fn (): DatabaseBackupDriverRegistry => new Container()->make(DatabaseBackupDriverRegistry::class))
+        ->toThrow(BindingResolutionException::class, '$drivers');
+});
+
+it('rejects an empty database backup driver array during construction', function (): void {
+    expect(fn (): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([]))
+        ->toThrow(LogicException::class, 'DatabaseBackupDriverRegistry requires at least one registered driver.');
+});
+
+it('rejects an empty database backup driver iterator during construction', function (): void {
+    expect(fn (): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry(new ArrayIterator))
+        ->toThrow(LogicException::class, 'DatabaseBackupDriverRegistry requires at least one registered driver.');
+});
+
+it('rejects backup driver collections that register no drivers', function (): void {
+    $driver = Mockery::mock(DatabaseBackupDriver::class);
+    $driver->shouldReceive('supportedDrivers')->once()->andReturn([]);
+
+    expect(fn (): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([$driver]))
+        ->toThrow(LogicException::class, 'DatabaseBackupDriverRegistry requires at least one registered driver.');
+});
+
+it('accepts a populated database backup driver iterator', function (): void {
+    $driver = backupDriverForRegistryTest(['sqlite']);
+    $registry = new DatabaseBackupDriverRegistry(new ArrayIterator([$driver]));
+
+    expect($registry->for('sqlite'))->toBe($driver);
+});
+
+it('rebuilds populated backup registries and their drivers for each operation', function (): void {
+    $registry = resolve(DatabaseBackupDriverRegistry::class);
+
+    expect(resolve(DatabaseBackupDriverRegistry::class))->toBe($registry);
+
+    app()->forgetScopedInstances();
+    $resolved = resolve(DatabaseBackupDriverRegistry::class);
+
+    expect($resolved)->not->toBe($registry)
+        ->and($resolved->for('mysql'))->toBeInstanceOf(MySqlDatabaseBackupDriver::class)
+        ->and($resolved->for('mysql'))->not->toBe($registry->for('mysql'))
+        ->and($resolved->for('mariadb'))->toBe($resolved->for('mysql'))
+        ->and($resolved->for('sqlite'))->toBeInstanceOf(SqliteDatabaseBackupDriver::class)
+        ->and($resolved->for('sqlite'))->not->toBe($registry->for('sqlite'))
+        ->and($resolved->for('pgsql'))->toBeInstanceOf(PostgresDatabaseBackupDriver::class)
+        ->and($resolved->for('pgsql'))->not->toBe($registry->for('pgsql'));
+});
+
+it('reapplies backup driver registrations from resolving callbacks in each operation', function (): void {
+    $driver = backupDriverForRegistryTest(['custom']);
+    app()->resolving(DatabaseBackupDriverRegistry::class, function (DatabaseBackupDriverRegistry $registry) use ($driver): void {
+        $registry->register($driver);
+    });
+    $registry = resolve(DatabaseBackupDriverRegistry::class);
+
+    expect($registry->for('custom'))->toBe($driver);
+
+    app()->forgetScopedInstances();
+    $resolved = resolve(DatabaseBackupDriverRegistry::class);
+
+    expect($resolved->for('custom'))->toBe($driver)
+        ->and($resolved->for('sqlite'))->toBeInstanceOf(SqliteDatabaseBackupDriver::class)
+        ->and($resolved)->not->toBe($registry);
+});
 
 it('resolves registered database backup drivers by connection driver', function (): void {
     $driver = new class implements DatabaseBackupDriver
