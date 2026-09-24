@@ -43,16 +43,39 @@ it('accepts a populated database backup driver iterator', function (): void {
     expect($registry->for('sqlite'))->toBe($driver);
 });
 
-it('binds the built-in database backup drivers as a populated singleton', function (): void {
+it('rebuilds populated backup registries and their drivers for each operation', function (): void {
     $registry = resolve(DatabaseBackupDriverRegistry::class);
 
-    app()->forgetScopedInstances();
+    expect(resolve(DatabaseBackupDriverRegistry::class))->toBe($registry);
 
-    expect(resolve(DatabaseBackupDriverRegistry::class))->toBe($registry)
-        ->and($registry->for('mysql'))->toBeInstanceOf(MySqlDatabaseBackupDriver::class)
-        ->and($registry->for('mariadb'))->toBe($registry->for('mysql'))
-        ->and($registry->for('sqlite'))->toBeInstanceOf(SqliteDatabaseBackupDriver::class)
-        ->and($registry->for('pgsql'))->toBeInstanceOf(PostgresDatabaseBackupDriver::class);
+    app()->forgetScopedInstances();
+    $resolved = resolve(DatabaseBackupDriverRegistry::class);
+
+    expect($resolved)->not->toBe($registry)
+        ->and($resolved->for('mysql'))->toBeInstanceOf(MySqlDatabaseBackupDriver::class)
+        ->and($resolved->for('mysql'))->not->toBe($registry->for('mysql'))
+        ->and($resolved->for('mariadb'))->toBe($resolved->for('mysql'))
+        ->and($resolved->for('sqlite'))->toBeInstanceOf(SqliteDatabaseBackupDriver::class)
+        ->and($resolved->for('sqlite'))->not->toBe($registry->for('sqlite'))
+        ->and($resolved->for('pgsql'))->toBeInstanceOf(PostgresDatabaseBackupDriver::class)
+        ->and($resolved->for('pgsql'))->not->toBe($registry->for('pgsql'));
+});
+
+it('reapplies backup driver registrations from resolving callbacks in each operation', function (): void {
+    $driver = backupDriverForRegistryTest(['custom']);
+    app()->resolving(DatabaseBackupDriverRegistry::class, function (DatabaseBackupDriverRegistry $registry) use ($driver): void {
+        $registry->register($driver);
+    });
+    $registry = resolve(DatabaseBackupDriverRegistry::class);
+
+    expect($registry->for('custom'))->toBe($driver);
+
+    app()->forgetScopedInstances();
+    $resolved = resolve(DatabaseBackupDriverRegistry::class);
+
+    expect($resolved->for('custom'))->toBe($driver)
+        ->and($resolved->for('sqlite'))->toBeInstanceOf(SqliteDatabaseBackupDriver::class)
+        ->and($resolved)->not->toBe($registry);
 });
 
 it('resolves registered database backup drivers by connection driver', function (): void {

@@ -569,7 +569,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(PresentationPresetRegistry::class);
         $this->app->singleton(VendorAssetConditionRegistry::class);
         $this->app->singleton(SiteAccessPolicyRegistry::class);
-        $this->app->singleton(
+        $this->app->scoped(
             DatabasePlatformRegistry::class,
             fn (Application $app): DatabasePlatformRegistry => new DatabasePlatformRegistry(
                 [
@@ -582,7 +582,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 $app->make(DatabaseManager::class),
             ),
         );
-        $this->app->singleton(DatabaseBackupDriverRegistry::class, fn ($app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([
+        $this->app->scoped(DatabaseBackupDriverRegistry::class, fn (Application $app): DatabaseBackupDriverRegistry => new DatabaseBackupDriverRegistry([
             $app->make(SqliteDatabaseBackupDriver::class),
             $app->make(MySqlDatabaseBackupDriver::class),
             $app->make(PostgresDatabaseBackupDriver::class),

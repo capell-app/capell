@@ -38,13 +38,11 @@ use Capell\Core\EventSourcing\Rollback\RollbackValidatorRegistry;
 use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
 use Capell\Core\Models\Concerns\ExtensibleModel;
 use Capell\Core\Support\Assets\VendorAssetConditionRegistry;
-use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\BlueprintSubjectRegistry;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
-use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Health\HealthCheckRegistry;
@@ -219,8 +217,6 @@ final class SingletonLifetimeInventory
 
             // Core wrappers around boot registries or stateless collaborators.
             EventSourcedRegistry::class => self::boot('Event-sourced model definitions are package boot registrations.'),
-            DatabaseBackupDriverRegistry::class => self::boot('Backup driver definitions are package boot registrations.'),
-            DatabasePlatformRegistry::class => self::boot('Database platform definitions are package boot registrations; connection context is resolved for each lookup.'),
             MakerRegistry::class => self::boot('Maker definitions are package boot registrations.'),
             PackageSurfaceRegistrar::class => self::boot('The registrar delegates only to boot-lifetime package surface registries.'),
             LocalAppThemeDefinitionRepository::class => self::stateless('The repository retains filesystem collaborators but no operation-derived values.'),
