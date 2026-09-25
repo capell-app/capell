@@ -14,10 +14,9 @@ use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Filesystem\Filesystem;
-use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Filesystem\FilesystemManager;
+use Illuminate\Filesystem\LocalFilesystemAdapter;
 use InvalidArgumentException;
-use League\Flysystem\Local\LocalFilesystemAdapter;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Normalizer;
@@ -154,7 +153,7 @@ final class RestoreBackupAction
 
     private function assertLocalMediaTargetPath(Filesystem $targetDisk, string $mediaPrefix): void
     {
-        if (! $targetDisk instanceof FilesystemAdapter || ! $targetDisk->getAdapter() instanceof LocalFilesystemAdapter) {
+        if (! $targetDisk instanceof LocalFilesystemAdapter) {
             return;
         }
 
