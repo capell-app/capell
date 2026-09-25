@@ -27,7 +27,7 @@ final class CdnPurgeBuffer
         });
     }
 
-    /** @return array<string, int> */
+    /** @return array<array-key, int> */
     public function snapshot(int $limit = self::BATCH_SIZE): array
     {
         return Cache::lock(self::PENDING_KEY . ':lock', 10)->block(3, function () use ($limit): array {
@@ -35,7 +35,7 @@ final class CdnPurgeBuffer
 
             return is_array($pending)
                 ? collect($pending)
-                    ->filter(fn (mixed $count, mixed $key): bool => is_string($key) && is_numeric($count) && (int) $count > 0)
+                    ->filter(fn (mixed $count): bool => is_numeric($count) && (int) $count > 0)
                     ->map(fn (mixed $count): int => (int) $count)
                     ->take(max(1, $limit))
                     ->all()
@@ -48,7 +48,7 @@ final class CdnPurgeBuffer
         return $this->snapshot(1) !== [];
     }
 
-    /** @param array<string, int> $batch */
+    /** @param array<array-key, int> $batch */
     public function acknowledge(array $batch): void
     {
         Cache::lock(self::PENDING_KEY . ':lock', 10)->block(3, function () use ($batch): void {

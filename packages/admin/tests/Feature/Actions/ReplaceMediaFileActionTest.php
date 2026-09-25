@@ -13,6 +13,8 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\Media\CustomPathGenerator;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Events\TransactionRolledBack;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
@@ -151,6 +153,44 @@ it('retains the original identity bytes and url after a metadata failure', funct
     expect(CapellMedia::query()->whereKey($original->getKey())->firstOrFail()->getUrl())->toBe($original->getUrl())
         ->and(Storage::disk('public')->get($originalPath))->toBe('original content')
         ->and(CapellMedia::query()->count())->toBe(1);
+});
+
+it('recovers original files and retains private recovery evidence when database rollback throws', function (): void {
+    $original = addFakeMediaToOwner(User::factory()->createOne(), 'original.txt', 'original content');
+    $public = Storage::disk('public');
+    $failure = new RuntimeException('injected metadata failure');
+    $rollbackFailure = new RuntimeException('injected rollback failure');
+    CapellMedia::saving(function (CapellMedia $record) use ($failure): void {
+        throw_if($record->getCustomProperty('replaced_at') !== null, $failure);
+    });
+    Exceptions::fake();
+    $connection = $original->getConnection();
+    $dispatcher = $connection->getEventDispatcher();
+    throw_unless($dispatcher instanceof Dispatcher, RuntimeException::class, 'The database event dispatcher is missing.');
+    $failingDispatcher = clone $dispatcher;
+    $failingDispatcher->listen(TransactionRolledBack::class, static function () use ($rollbackFailure): never {
+        throw $rollbackFailure;
+    });
+    $connection->setEventDispatcher($failingDispatcher);
+
+    try {
+        expect(fn (): MediaReplacementResultData => ReplaceMediaFileAction::run($original, writeTempFile('replacement.txt', 'replacement content')))
+            ->toThrow($failure);
+    } finally {
+        $connection->setEventDispatcher($dispatcher);
+    }
+
+    expect($public->get($original->getPathRelativeToRoot()))->toBe('original content')
+        ->and(CapellMedia::query()->whereKey($original->getKey())->firstOrFail()->getUrl())->toBe($original->getUrl())
+        ->and(CapellMedia::query()->count())->toBe(1);
+    $workspaces = array_values(array_diff(glob(storage_path('app/private/capell-media-replacement/*')) ?: [], $this->originalReplacementWorkspaces));
+    expect($workspaces)->toHaveCount(1);
+    $backups = glob($workspaces[0] . '/backups/*') ?: [];
+    expect($backups)->toHaveCount(1)
+        ->and(file_get_contents($backups[0]))->toBe('original content')
+        ->and(is_file($workspaces[0] . '/recovery.json'))->toBeTrue()
+        ->and(fileperms($workspaces[0]) & 0o077)->toBe(0);
+    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getPrevious() === $rollbackFailure);
 });
 
 it('retains the original when conversion generation fails', function (): void {

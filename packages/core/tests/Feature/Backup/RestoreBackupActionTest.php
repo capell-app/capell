@@ -147,6 +147,32 @@ it('rejects colliding or unsafe media mappings before creating scratch data', fu
         ->and(Storage::disk('scratch-media')->allFiles())->toBeEmpty();
 })->with(['same.txt', 'same.txt/child.txt', '../unsafe.txt', 'same.txt\\child.txt']);
 
+it('rejects unicode-equivalent media destinations before creating scratch data', function (string $sourcePath): void {
+    Storage::disk('media')->put('café.txt', 'original');
+    $manifest = CreateBackupAction::run();
+    $duplicate = clone $manifest->media[0];
+    $duplicate->sourcePath = $sourcePath;
+    $manifest->media[] = $duplicate;
+    resolve(BackupArtifactStore::class)->putManifest($manifest->snapshotId, $manifest->toArray());
+
+    expect(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'restored'))
+        ->toThrow(RuntimeException::class, __('capell-core::backup.destinations_collide'))
+        ->and(is_dir($this->scratchDirectory))->toBeFalse()
+        ->and(Storage::disk('scratch-media')->allFiles())->toBeEmpty();
+})->with(['CAFÉ.txt', "cafe\u{0301}.txt", 'CAFÉ.txt/child.txt']);
+
+it('rejects media prefixes beneath an existing file before creating scratch data', function (): void {
+    Storage::disk('media')->put('original.txt', 'original');
+    Storage::disk('scratch-media')->put('occupied', 'keep');
+    $manifest = CreateBackupAction::run();
+
+    expect(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'occupied/nested/restored'))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(is_dir($this->scratchDirectory))->toBeFalse()
+        ->and(Storage::disk('scratch-media')->allFiles())->toBe(['occupied'])
+        ->and(Storage::disk('scratch-media')->get('occupied'))->toBe('keep');
+});
+
 it('restores ordinary colons while rejecting drive stream and traversal source paths', function (string $sourcePath, bool $safe): void {
     Storage::disk('media')->put($safe ? $sourcePath : 'original.txt', 'preserved report');
     $manifest = CreateBackupAction::run();

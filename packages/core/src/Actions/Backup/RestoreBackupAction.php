@@ -17,6 +17,7 @@ use Illuminate\Filesystem\FilesystemManager;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Normalizer;
 use RuntimeException;
 use Throwable;
 
@@ -141,6 +142,10 @@ final class RestoreBackupAction
         $targetDisk = $this->filesystems->disk($mediaDisk);
 
         throw_if($targetDisk->exists($mediaPrefix) || $targetDisk->allFiles($mediaPrefix) !== [], InvalidArgumentException::class, 'Scratch media prefix must be empty.');
+
+        for ($parent = dirname(str_replace('\\', '/', $mediaPrefix)); $parent !== '.'; $parent = dirname($parent)) {
+            throw_if($targetDisk->fileExists($parent), InvalidArgumentException::class, __('capell-core::backup.destinations_collide'));
+        }
     }
 
     /** @return list<string> */
@@ -159,9 +164,10 @@ final class RestoreBackupAction
             $target = str_replace('\\', '/', $mediaPrefix) . '/'
                 . ($multipleDisks ? rawurlencode($artifact->sourceDisk) . '/' : '')
                 . str_replace('\\', '/', $artifact->sourcePath);
-            // Reject file/directory and case-only collisions before either database
-            // or media writes, including on case-insensitive scratch filesystems.
-            $portableTarget = strtolower($target);
+            // Compare canonical Unicode spellings and case before any mutation;
+            // scratch filesystems can treat those distinct manifest paths as one.
+            $portableTarget = Normalizer::normalize(mb_strtolower($target, 'UTF-8'));
+            throw_if($portableTarget === false, RuntimeException::class, __('capell-core::backup.unsafe_source'));
 
             throw_if(isset($occupied[$portableTarget]), RuntimeException::class, __('capell-core::backup.destinations_collide'));
             $occupied[$portableTarget] = true;
