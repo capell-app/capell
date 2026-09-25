@@ -142,16 +142,19 @@ final class RestoreBackupAction
 
         throw_unless($this->safeRelativePath($mediaPrefix), InvalidArgumentException::class, 'Scratch media prefix is unsafe.');
 
-        $this->mediaTargetPaths($manifest, $mediaPrefix);
+        $targetPaths = $this->mediaTargetPaths($manifest, $mediaPrefix);
 
         $targetDisk = $this->filesystems->disk($mediaDisk);
 
         $this->assertLocalMediaTargetPath($targetDisk, $mediaPrefix);
+        foreach ($targetPaths as $targetPath) {
+            $this->assertLocalMediaTargetPath($targetDisk, $targetPath);
+        }
 
         throw_if($targetDisk->exists($mediaPrefix) || $targetDisk->allFiles($mediaPrefix) !== [], InvalidArgumentException::class, 'Scratch media prefix must be empty.');
     }
 
-    private function assertLocalMediaTargetPath(Filesystem $targetDisk, string $mediaPrefix): void
+    private function assertLocalMediaTargetPath(Filesystem $targetDisk, string $targetPath): void
     {
         if (! $targetDisk instanceof LocalFilesystemAdapter) {
             return;
@@ -164,7 +167,7 @@ final class RestoreBackupAction
 
         $candidate = rtrim($diskPath, '/\\');
 
-        foreach (explode('/', str_replace('\\', '/', $mediaPrefix)) as $segment) {
+        foreach (explode('/', str_replace('\\', '/', $targetPath)) as $segment) {
             $candidate .= DIRECTORY_SEPARATOR . $segment;
 
             if (! file_exists($candidate) && ! is_link($candidate)) {
@@ -299,6 +302,7 @@ final class RestoreBackupAction
             throw_if($stream === false, RuntimeException::class, 'Unable to read a restored media artifact.');
 
             try {
+                $this->assertLocalMediaTargetPath($target, $targetPaths[$index]);
                 throw_unless($target->put($targetPaths[$index], $stream), RuntimeException::class, 'Unable to write a restored media artifact.');
             } finally {
                 fclose($stream);

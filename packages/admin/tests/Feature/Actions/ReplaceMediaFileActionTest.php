@@ -12,9 +12,9 @@ use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Media\CustomPathGenerator;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Database\Connection;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Database\Events\TransactionRolledBack;
-use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
@@ -155,42 +155,71 @@ it('retains the original identity bytes and url after a metadata failure', funct
         ->and(CapellMedia::query()->count())->toBe(1);
 });
 
-it('recovers original files and retains private recovery evidence when database rollback throws', function (): void {
+it('quarantines the connection while recovering files when database rollback fails', function (): void {
     $original = addFakeMediaToOwner(User::factory()->createOne(), 'original.txt', 'original content');
     $public = Storage::disk('public');
     $failure = new RuntimeException('injected metadata failure');
     $rollbackFailure = new RuntimeException('injected rollback failure');
+    $sourceConnection = $original->getConnection();
+    $initialTransactionLevel = $sourceConnection->transactionLevel();
+    $connectionName = 'media_replacement_rollback_failure';
+    $connectionConfig = $sourceConnection->getConfig();
+    throw_unless(is_array($connectionConfig), RuntimeException::class, 'The source database configuration is missing.');
+    $connectionConfig['name'] = $connectionName;
+    $failingConnection = Mockery::mock($sourceConnection::class . '[performRollBack]', [
+        $sourceConnection->getRawPdo(),
+        $sourceConnection->getDatabaseName(),
+        $sourceConnection->getTablePrefix(),
+        $connectionConfig,
+    ])->shouldAllowMockingProtectedMethods();
+    throw_unless($failingConnection instanceof Connection, RuntimeException::class, 'Unable to create a failing database connection.');
+    new ReflectionProperty(Connection::class, 'transactions')->setValue($failingConnection, $initialTransactionLevel);
+    $failingConnection->shouldReceive('performRollBack')->once()->andThrow($rollbackFailure);
+    $database = resolve(DatabaseManager::class);
+    config()->set('database.connections.' . $connectionName, $connectionConfig);
+    $database->extend($connectionName, static fn (array $config, string $name): Connection => $failingConnection);
+    throw_unless($database->connection($connectionName) === $failingConnection, RuntimeException::class, 'Unable to register the failing database connection.');
+    $original->setConnection($connectionName);
     CapellMedia::saving(function (CapellMedia $record) use ($failure): void {
         throw_if($record->getCustomProperty('replaced_at') !== null, $failure);
     });
     Exceptions::fake();
-    $connection = $original->getConnection();
-    $dispatcher = $connection->getEventDispatcher();
-    throw_unless($dispatcher instanceof Dispatcher, RuntimeException::class, 'The database event dispatcher is missing.');
-    $failingDispatcher = clone $dispatcher;
-    $failingDispatcher->listen(TransactionRolledBack::class, static function () use ($rollbackFailure): never {
-        throw $rollbackFailure;
-    });
-    $connection->setEventDispatcher($failingDispatcher);
+    $thrown = null;
 
     try {
-        expect(fn (): MediaReplacementResultData => ReplaceMediaFileAction::run($original, writeTempFile('replacement.txt', 'replacement content')))
-            ->toThrow($failure);
-    } finally {
-        $connection->setEventDispatcher($dispatcher);
+        ReplaceMediaFileAction::run($original, writeTempFile('replacement.txt', 'replacement content'));
+    } catch (Throwable $throwable) {
+        $thrown = $throwable;
     }
 
-    expect($public->get($original->getPathRelativeToRoot()))->toBe('original content')
-        ->and(CapellMedia::query()->whereKey($original->getKey())->firstOrFail()->getUrl())->toBe($original->getUrl())
-        ->and(CapellMedia::query()->count())->toBe(1);
     $workspaces = array_values(array_diff(glob(storage_path('app/private/capell-media-replacement/*')) ?: [], $this->originalReplacementWorkspaces));
-    expect($workspaces)->toHaveCount(1);
-    $backups = glob($workspaces[0] . '/backups/*') ?: [];
-    expect($backups)->toHaveCount(1)
-        ->and(file_get_contents($backups[0]))->toBe('original content')
-        ->and(is_file($workspaces[0] . '/recovery.json'))->toBeTrue()
-        ->and(fileperms($workspaces[0]) & 0o077)->toBe(0);
-    Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getPrevious() === $rollbackFailure);
+
+    try {
+        expect($thrown)->toBe($failure)
+            ->and($failingConnection->transactionLevel())->toBe(0)
+            ->and($failingConnection->getRawPdo())->toBeNull()
+            ->and($public->get($original->getPathRelativeToRoot()))->toBe('original content')
+            ->and($workspaces)->toHaveCount(1);
+        $backups = glob($workspaces[0] . '/backups/*') ?: [];
+        expect($backups)->toHaveCount(1)
+            ->and(file_get_contents($backups[0]))->toBe('original content')
+            ->and(is_file($workspaces[0] . '/recovery.json'))->toBeTrue()
+            ->and(fileperms($workspaces[0]) & 0o077)->toBe(0);
+        Exceptions::assertReported(fn (RuntimeException $exception): bool => $exception->getPrevious() === $rollbackFailure);
+    } finally {
+        $pdo = $sourceConnection->getRawPdo();
+        if ($pdo instanceof PDO && $pdo->inTransaction()) {
+            if ($initialTransactionLevel === 0) {
+                $pdo->rollBack();
+            } else {
+                $sourceConnection->statement($sourceConnection->getQueryGrammar()->compileSavepointRollBack('trans' . ($initialTransactionLevel + 1)));
+            }
+        }
+
+        $database->purge($connectionName);
+        $database->forgetExtension($connectionName);
+        config()->set('database.connections.' . $connectionName);
+    }
 });
 
 it('retains the original when conversion generation fails', function (): void {
