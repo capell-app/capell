@@ -8,6 +8,7 @@ The operations surface brings the pre-deployment checks together: Site Health re
 | ------------------------------------------- | ------------------------------------------------- |
 | Put a new install on a public domain        | [Going live](going-live.md)                       |
 | Check whether the site is ready for traffic | [Site Health](site-health.md)                     |
+| Report operational failures consistently    | [Operational reporting](reporting.md)             |
 | Back up or restore data                     | [Backups and restore](backups.md)                 |
 | Block public traffic during an incident     | [Lockdown](lockdown.md)                           |
 | Upgrade packages and plan rollback          | [Upgrades](upgrading.md)                          |

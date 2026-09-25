@@ -153,6 +153,16 @@
             "contractTestId": null
         },
         {
+            "id": "core.action.reporting-dispatch",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\Reporting\\DispatchSignalAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Configured signal dispatch with cooldown and safe log fallback.",
+            "contractTestId": "core.reporting-dispatch"
+        },
+        {
             "id": "core.action.validate-project-build-bundle",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\ValidateProjectBuildManifestBundleAction",
@@ -181,6 +191,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Fail-closed Capell, PHP, and platform compatibility verification for project build targets.",
             "contractTestId": "core.project-build-manifest-install"
+        },
+        {
+            "id": "core.config.reporting",
+            "kind": "config",
+            "identifier": "capell-reporting",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Reporting defaults, category and exact signal policies, and opt-in transports.",
+            "contractTestId": "core.reporting-dispatch"
         },
         {
             "id": "core.config.roles-admin",
@@ -371,6 +391,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Package-owned publication readiness checks for publishable records.",
             "contractTestId": null
+        },
+        {
+            "id": "core.contract.reporter",
+            "kind": "contract",
+            "identifier": "Capell\\Core\\Contracts\\Reporting\\Reporter",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Vendor-neutral operational signal delivery boundary.",
+            "contractTestId": "core.reporting-dispatch"
         },
         {
             "id": "core.contract.site-spec-applier",
@@ -713,6 +743,26 @@
             "contractTestId": null
         },
         {
+            "id": "core.dto.reporting-result",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Reporting\\DispatchResultData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Reporting delivery, suppression and fallback outcome.",
+            "contractTestId": "core.reporting-dispatch"
+        },
+        {
+            "id": "core.dto.reporting-signal",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Reporting\\SignalData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Immutable redacted operational signal with human and JSON output.",
+            "contractTestId": "core.reporting-signal"
+        },
+        {
             "id": "core.dto.sql-fragment",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Database\\SqlFragment",
@@ -761,6 +811,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Database provisioning outcomes.",
             "contractTestId": null
+        },
+        {
+            "id": "core.enum.failure-category",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Reporting\\FailureCategory",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Stable operational failure category values.",
+            "contractTestId": "core.reporting-signal"
         },
         {
             "id": "core.enum.frontend-route-reservation-type",
@@ -923,6 +983,26 @@
             "contractTestId": null
         },
         {
+            "id": "core.enum.reporting-severity",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Reporting\\Severity",
+            "ownerPackage": "capell-app/core",
+            "stability": "stable",
+            "introducedVersion": "1.0.0",
+            "summary": "Stable PSR log-level severity values.",
+            "contractTestId": "core.reporting-signal"
+        },
+        {
+            "id": "core.enum.reporting-status",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Reporting\\DispatchStatus",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Signal dispatch outcomes.",
+            "contractTestId": "core.reporting-dispatch"
+        },
+        {
             "id": "core.event.outbound-event-published",
             "kind": "event",
             "identifier": "Capell\\Core\\Events\\OutboundEventPublished",
@@ -1061,6 +1141,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Closed JSON Schema for portable project build manifests.",
             "contractTestId": null
+        },
+        {
+            "id": "core.support.log-channel-reporter",
+            "kind": "support",
+            "identifier": "Capell\\Core\\Support\\Reporting\\LogChannelReporter",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Structured JSON delivery through the configured Laravel log channel.",
+            "contractTestId": "core.reporting-dispatch"
         },
         {
             "id": "core.tag.database-platform",
