@@ -135,3 +135,61 @@ it('preserves text following the real end of a quoted assignment or header', fun
     expect($signal->message)->toContain('retryable=true')->not->toContain('hidden')
         ->and($signal->operatorSummary)->toContain('Retry the operation.')->not->toContain('hidden');
 });
+
+it('redacts encoded credentials and complete authentication headers in every representation', function (string $text): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['nested' => ['detail' => $text]]);
+
+    foreach ([$signal->message, $signal->operatorSummary, $signal->context['nested']['detail'], $signal->toJson(), $signal->toHuman(), json_encode($signal, JSON_THROW_ON_ERROR)] as $output) {
+        expect($output)->not->toContain('ENCODED_CREDENTIAL_LEAK');
+    }
+})->with([
+    'unicode key' => ['{"\\u0070assword":"ENCODED_CREDENTIAL_LEAK"}'],
+    'unicode delimiter' => ['client_secret\\u003dENCODED_CREDENTIAL_LEAK'],
+    'nested JSON string' => [json_encode(['payload' => '{"client_secret":"ENCODED_CREDENTIAL_LEAK"}'], JSON_THROW_ON_ERROR)],
+    'nested unicode JSON string' => [json_encode(['payload' => '{"\\u0070assword":"ENCODED_CREDENTIAL_LEAK"}'], JSON_THROW_ON_ERROR)],
+    'twice nested JSON string' => [json_encode(['payload' => json_encode(['payload' => '{"client_secret":"ENCODED_CREDENTIAL_LEAK"}'], JSON_THROW_ON_ERROR)], JSON_THROW_ON_ERROR)],
+    'nested assignment string' => [json_encode(['payload' => 'client_secret="before ENCODED_CREDENTIAL_LEAK"'], JSON_THROW_ON_ERROR)],
+    'twice nested assignment string' => [json_encode(['payload' => json_encode(['payload' => 'client_secret="before ENCODED_CREDENTIAL_LEAK"'], JSON_THROW_ON_ERROR)], JSON_THROW_ON_ERROR)],
+    'encoded assignment' => ['client_secret%3DENCODED_CREDENTIAL_LEAK'],
+    'encoded colon and quotes' => ['%22password%22%3A%22ENCODED_CREDENTIAL_LEAK%22'],
+    'encoded key' => ['%70assword=ENCODED_CREDENTIAL_LEAK'],
+    'double encoding' => ['client_secret%253DENCODED_CREDENTIAL_LEAK'],
+    'encoded quoted value' => ['password=%22before ENCODED_CREDENTIAL_LEAK"'],
+    'unicode quoted value' => ['password=\\u0022before ENCODED_CREDENTIAL_LEAK"'],
+    'folded cookie' => ["Cookie: harmless=1;\r\n sid=ENCODED_CREDENTIAL_LEAK\r\nRetry the operation."],
+    'folded set-cookie' => ["Set-Cookie: harmless=1;\n\tsid=ENCODED_CREDENTIAL_LEAK\nRetry the operation."],
+    'digest authorization' => ['Authorization: Digest username="some-user", response="ENCODED_CREDENTIAL_LEAK"'],
+    'folded authorization' => ["Authorization: Digest username=\"some-user\",\r\n response=\"ENCODED_CREDENTIAL_LEAK\""],
+    'proxy authorization' => ['Proxy-Authorization: Digest username="some-user", response="ENCODED_CREDENTIAL_LEAK"'],
+    'encoded folded header' => ['Cookie%3A%20harmless=1%3B%0D%0A%20sid=ENCODED_CREDENTIAL_LEAK'],
+]);
+
+it('recognises encoded sensitive context keys', function (string $key): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed.', 'Inspect.', 'trace-1', context: ['nested' => [$key => 'ENCODED_CREDENTIAL_LEAK']]);
+
+    expect($signal->toJson())->not->toContain('ENCODED_CREDENTIAL_LEAK');
+})->with(['\\u0070assword', '%70assword', '%2570assword', '\\u0065mail']);
+
+it('preserves harmless encoded diagnostics and text after folded headers', function (): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Progress: 50%25; {"status":"still \\"pending\\""}', "Cookie: harmless=1;\r\n sid=hidden\r\nRetry the operation.", 'trace-1');
+
+    expect($signal->message)->toBe('Progress: 50%25; {"status":"still \\"pending\\""}')
+        ->and($signal->operatorSummary)->toBe('[redacted] Retry the operation.');
+});
+
+it('fails closed when encoded text exceeds the decoding bound', function (): void {
+    $text = 'client_secret=ENCODED_CREDENTIAL_LEAK';
+    for ($layer = 0; $layer < 12; $layer++) {
+        $text = rawurlencode($text);
+    }
+
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, 'Inspect.', 'trace-1');
+
+    expect($signal->message)->toBe('[redacted]');
+});
+
+it('still redacts filesystem paths beside harmless escaped quotes', function (string $path): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed at "' . $path . '"', 'Inspect.', 'trace-1');
+
+    expect($signal->message)->not->toContain('PRIVATE_DIRECTORY');
+})->with(['/srv/PRIVATE_DIRECTORY/file.log', 'C:\\PRIVATE_DIRECTORY\\file.log', '\\\\server\\PRIVATE_DIRECTORY\\file.log']);

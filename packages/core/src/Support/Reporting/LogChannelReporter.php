@@ -14,6 +14,6 @@ final readonly class LogChannelReporter implements Reporter
 
     public function report(SignalData $signal): void
     {
-        new ReportingLogManager($this->logs)->channel($this->channel)->log($signal->severity->value, $signal->toJson());
+        new ReportingLogManager($this->logs)->report($signal, $this->channel);
     }
 }

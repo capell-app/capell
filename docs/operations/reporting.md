@@ -133,7 +133,11 @@ responsible for its log handlers, shared logging context, filtering and retentio
 Logger construction failures, including configured drivers, taps and stack
 members, follow the same fallback path. Reporting prevents Laravel's emergency
 logger from writing their raw exceptions. Custom driver callbacks resolve nested
-channels through the same protected manager.
+channels through the same protected manager, including through the container
+passed to drivers, factories and taps. These bindings belong to a private clone;
+the host container and its ordinary logger remain unchanged during delivery.
+The private container is guarded during both channel construction and delivery,
+so a driver or handler cannot use it to start another dispatch recursively.
 
 Dispatch attempted synchronously from a reporter or log listener returns
 `Suppressed` with reason `recursive_dispatch`, including during configuration
@@ -178,13 +182,20 @@ rate limit, not a global transport quota or durable incident store.
 Redaction runs during signal construction, before any reporter or formatter can
 read the payload. It covers nested secret/PII keys, quoted credential assignments
 (including escaped quotes and unterminated values), complete Cookie/Set-Cookie
-header lines, session credentials,
+and Authorization/Proxy-Authorization headers including folded continuation
+lines, session credentials,
 URLs, bearer/basic credentials, common token patterns, email addresses, IP
 addresses, telephone patterns and filesystem paths. Objects/resources and
 non-finite numbers are replaced without invoking conversion methods. Context is
 bounded to 100 entries across the tree and seven array levels; deeper data is
 replaced. Text input is capped at 8192 bytes before processing and output at 2048
 characters per value; malformed UTF-8 is normalised.
+
+Unicode escapes, nested JSON strings and URL encoding are inspected through at
+most eight decoding steps. When decoding reveals sensitive data, the encoded field
+is withheld in full, as is data that exceeds the decoding bound. Encoded context keys receive
+the same sensitive-key checks as plain keys. Harmless encoded text retains its
+original representation.
 
 Use concise operational messages and explicit context fields. Pattern redaction
 cannot identify every person's name or an unlabelled secret in arbitrary prose;

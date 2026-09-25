@@ -33,6 +33,7 @@
         "laravel/prompts": "^0.2|^0.3",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
+        "psr/log": "^1.0|^2.0|^3.0",
         "spatie/laravel-activitylog": "^4.0",
         "spatie/laravel-data": "^4.5",
         "spatie/laravel-event-sourcing": "^7.15",
