@@ -13,8 +13,11 @@ use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Filesystem\FilesystemManager;
 use InvalidArgumentException;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Normalizer;
@@ -128,12 +131,15 @@ final class RestoreBackupAction
 
         throw_if($mediaDisk === null || $mediaDisk === '' || $mediaPrefix === null || $mediaPrefix === '', InvalidArgumentException::class, 'Media restore requires a scratch media disk and non-empty prefix.');
 
-        $liveDisks = array_values(array_unique(array_filter(array_map(
-            static fn (BackupArtifactData $artifact): ?string => $artifact->sourceDisk,
-            $manifest->media,
-        ))));
+        $configuredMediaDisks = $this->config->get('backup.media_disks', []);
+        throw_unless(is_array($configuredMediaDisks), RuntimeException::class, 'Backup media disks must be an array.');
+        $liveDisks = array_values(array_unique(array_filter([
+            $this->store->diskName(),
+            ...$configuredMediaDisks,
+            ...array_map(static fn (BackupArtifactData $artifact): ?string => $artifact->sourceDisk, $manifest->media),
+        ], static fn (mixed $disk): bool => is_string($disk) && $disk !== '')));
 
-        throw_if($mediaDisk === $this->store->diskName() || in_array($mediaDisk, $liveDisks, true), InvalidArgumentException::class, 'Scratch media disk must be different from every live media disk and the backup disk.');
+        throw_if(in_array($mediaDisk, $liveDisks, true), InvalidArgumentException::class, 'Scratch media disk must be different from every live media disk and the backup disk.');
 
         throw_unless($this->safeRelativePath($mediaPrefix), InvalidArgumentException::class, 'Scratch media prefix is unsafe.');
 
@@ -141,11 +147,49 @@ final class RestoreBackupAction
 
         $targetDisk = $this->filesystems->disk($mediaDisk);
 
-        throw_if($targetDisk->exists($mediaPrefix) || $targetDisk->allFiles($mediaPrefix) !== [], InvalidArgumentException::class, 'Scratch media prefix must be empty.');
+        $this->assertLocalMediaTargetPath($targetDisk, $mediaPrefix);
 
-        for ($parent = dirname(str_replace('\\', '/', $mediaPrefix)); $parent !== '.'; $parent = dirname($parent)) {
-            throw_if($targetDisk->fileExists($parent), InvalidArgumentException::class, __('capell-core::backup.destinations_collide'));
+        throw_if($targetDisk->exists($mediaPrefix) || $targetDisk->allFiles($mediaPrefix) !== [], InvalidArgumentException::class, 'Scratch media prefix must be empty.');
+    }
+
+    private function assertLocalMediaTargetPath(Filesystem $targetDisk, string $mediaPrefix): void
+    {
+        if (! $targetDisk instanceof FilesystemAdapter || ! $targetDisk->getAdapter() instanceof LocalFilesystemAdapter) {
+            return;
         }
+
+        $diskPath = $targetDisk->path('');
+        $resolvedDiskPath = realpath($diskPath);
+
+        throw_unless(is_string($resolvedDiskPath), InvalidArgumentException::class, __('capell-core::backup.destinations_collide'));
+
+        $candidate = rtrim($diskPath, '/\\');
+
+        foreach (explode('/', str_replace('\\', '/', $mediaPrefix)) as $segment) {
+            $candidate .= DIRECTORY_SEPARATOR . $segment;
+
+            if (! file_exists($candidate) && ! is_link($candidate)) {
+                continue;
+            }
+
+            $resolvedCandidate = realpath($candidate);
+
+            throw_if(! is_string($resolvedCandidate) || ! is_dir($resolvedCandidate)
+                || ! $this->pathIsWithin($resolvedCandidate, $resolvedDiskPath), InvalidArgumentException::class, __('capell-core::backup.destinations_collide'));
+        }
+    }
+
+    private function pathIsWithin(string $path, string $root): bool
+    {
+        $path = rtrim(str_replace('\\', '/', $path), '/');
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $path = mb_strtolower($path, 'UTF-8');
+            $root = mb_strtolower($root, 'UTF-8');
+        }
+
+        return $path === $root || str_starts_with($path, $root . '/');
     }
 
     /** @return list<string> */

@@ -104,6 +104,20 @@ it('rejects unsafe or live restore targets and non-empty media prefixes', functi
         ->toThrow(InvalidArgumentException::class, 'must be empty');
 });
 
+it('rejects a currently configured live media disk absent from an older snapshot', function (): void {
+    Storage::fake('current-media');
+    Storage::disk('media')->put('archived.txt', 'snapshot-media');
+    $manifest = CreateBackupAction::run();
+    Storage::disk('current-media')->put('live.txt', 'keep');
+    config(['backup.media_disks' => ['current-media']]);
+
+    expect(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'current-media', 'restored'))
+        ->toThrow(InvalidArgumentException::class, 'different from every live media disk')
+        ->and(is_dir($this->scratchDirectory))->toBeFalse()
+        ->and(Storage::disk('current-media')->allFiles())->toBe(['live.txt'])
+        ->and(Storage::disk('current-media')->get('live.txt'))->toBe('keep');
+});
+
 it('rejects checksum failures before creating a scratch database', function (): void {
     $manifest = CreateBackupAction::run(databaseOnly: true);
     Storage::disk('backups')->put($manifest->database->path, 'corrupt');
@@ -171,6 +185,27 @@ it('rejects media prefixes beneath an existing file before creating scratch data
         ->and(is_dir($this->scratchDirectory))->toBeFalse()
         ->and(Storage::disk('scratch-media')->allFiles())->toBe(['occupied'])
         ->and(Storage::disk('scratch-media')->get('occupied'))->toBe('keep');
+});
+
+it('rejects media prefixes through a symlink outside the scratch disk before creating scratch data', function (): void {
+    Storage::disk('media')->put('original.txt', 'original');
+    $manifest = CreateBackupAction::run();
+    $outsideDirectory = sys_get_temp_dir() . '/capell-restore-outside-' . bin2hex(random_bytes(8));
+    mkdir($outsideDirectory, 0755, true);
+    file_put_contents($outsideDirectory . '/live.txt', 'keep');
+    $link = Storage::disk('scratch-media')->path('linked');
+    symlink($outsideDirectory, $link);
+
+    try {
+        expect(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'linked/restored'))
+            ->toThrow(InvalidArgumentException::class, __('capell-core::backup.destinations_collide'))
+            ->and(is_dir($this->scratchDirectory))->toBeFalse()
+            ->and(file_exists($outsideDirectory . '/restored/original.txt'))->toBeFalse()
+            ->and(file_get_contents($outsideDirectory . '/live.txt'))->toBe('keep');
+    } finally {
+        DIRECTORY_SEPARATOR === '\\' ? rmdir($link) : unlink($link);
+        new Filesystem()->deleteDirectory($outsideDirectory);
+    }
 });
 
 it('restores ordinary colons while rejecting drive stream and traversal source paths', function (string $sourcePath, bool $safe): void {
