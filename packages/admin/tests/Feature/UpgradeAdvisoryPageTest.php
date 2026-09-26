@@ -260,6 +260,7 @@ it('summarises mixed upgrade notices and derives operator commands', function ()
             [
                 'notice_id' => 'security-high',
                 'type' => 'security',
+                'release_type' => 'feature',
                 'severity' => 'high',
                 'affected_packages' => [
                     [
@@ -272,6 +273,7 @@ it('summarises mixed upgrade notices and derives operator commands', function ()
             [
                 'notice_id' => 'bug-medium',
                 'type' => 'bug',
+                'release_type' => 'feature',
                 'severity' => 'medium',
                 'fixed_versions' => [
                     'capell-app/forms' => '3.2.0',

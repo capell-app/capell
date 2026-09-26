@@ -63,6 +63,13 @@ final class UpgradeNoticeData extends Data
      */
     private static function noticeType(array $payload): string
     {
+        // Advisory classification must not be hidden by a release's broader type.
+        $advisoryType = $payload['type'] ?? null;
+
+        if (is_string($advisoryType) && in_array($advisoryType, ['security', 'bug', 'bugfix'], true)) {
+            return $advisoryType === 'bug' ? 'bugfix' : $advisoryType;
+        }
+
         $type = $payload['update_type'] ?? $payload['release_type'] ?? $payload['type'] ?? null;
 
         if (is_string($type) && in_array($type, ['security', 'bugfix', 'bug', 'feature', 'major'], true)) {
