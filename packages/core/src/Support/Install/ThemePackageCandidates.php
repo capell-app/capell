@@ -41,7 +41,7 @@ final class ThemePackageCandidates
         self::DEFAULT_KEY => [
             'name' => 'Default',
             'description' => 'Built-in starter theme provided by Capell Frontend.',
-            'package' => null,
+            'package' => 'capell-app/theme-foundation',
             'preview' => null,
         ],
         'corporate' => [

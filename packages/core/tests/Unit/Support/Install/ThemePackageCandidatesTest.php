@@ -50,7 +50,7 @@ it('ignores installed foundation theme packages because default is built in', fu
     expect($options)->toHaveKey('default')
         ->toHaveKey('corporate')
         ->toHaveKey('saas')
-        ->and(new ThemePackageCandidates(new PackageWorkflowPlanner)->packageNameForThemeKey('default'))->toBeNull();
+        ->and(new ThemePackageCandidates(new PackageWorkflowPlanner)->packageNameForThemeKey('default'))->toBe('capell-app/theme-foundation');
 });
 
 it('keeps historical foundation package names from replacing the built-in default', function (string $name): void {
@@ -62,7 +62,7 @@ it('keeps historical foundation package names from replacing the built-in defaul
         ],
     ]));
 
-    expect(new ThemePackageCandidates(new PackageWorkflowPlanner)->packageNameForThemeKey('default'))->toBeNull();
+    expect(new ThemePackageCandidates(new PackageWorkflowPlanner)->packageNameForThemeKey('default'))->toBe('capell-app/theme-foundation');
 })->with([
     'canonical' => 'capell-app/theme-foundation',
     'previous app name' => 'capell-app/foundation-theme',
