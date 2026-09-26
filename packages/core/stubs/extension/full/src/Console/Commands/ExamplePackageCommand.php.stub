@@ -11,7 +11,7 @@ final class ExamplePackageCommand extends Command
 {
     protected $signature = '{{ slug }}:example';
 
-    protected $description = 'Run the {{ displayName }} package example command.';
+    protected $description = 'Run the ' . {{ phpDisplayName }} . ' package example command.';
 
     public function handle(): int
     {

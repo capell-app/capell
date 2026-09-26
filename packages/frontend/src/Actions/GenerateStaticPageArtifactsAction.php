@@ -31,6 +31,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class GenerateStaticPageArtifactsAction
 {
@@ -50,8 +51,9 @@ class GenerateStaticPageArtifactsAction
     public function handle(?int $siteId = null, array $urls = []): array
     {
         $artifacts = [];
+        $failures = [];
 
-        $this->pageUrls($siteId, $urls, function (PageUrl $pageUrl) use (&$artifacts): void {
+        $matchedUrls = $this->pageUrls($siteId, $urls, function (PageUrl $pageUrl) use (&$artifacts, &$failures): void {
             $siteDomain = $this->siteDomainFor($pageUrl);
 
             if (! $siteDomain instanceof SiteDomain) {
@@ -59,7 +61,24 @@ class GenerateStaticPageArtifactsAction
             }
 
             $this->clearRenderData();
-            $response = $this->render($pageUrl, $siteDomain);
+
+            try {
+                $response = $this->render($pageUrl, $siteDomain);
+            } catch (Throwable $throwable) {
+                $failures[] = $pageUrl->url . ': ' . $throwable->getMessage();
+
+                return;
+            }
+
+            if (! $response->isSuccessful()) {
+                $failures[] = __('capell-frontend::messages.static_page_response_failed', [
+                    'url' => $pageUrl->url,
+                    'status' => $response->getStatusCode(),
+                ]);
+
+                return;
+            }
+
             $renderData = resolve(FrontendContextReader::class)->renderPayload()->publicPageRenderData;
 
             if (! $this->isWritableHtmlResponse($response)) {
@@ -87,6 +106,16 @@ class GenerateStaticPageArtifactsAction
             $artifacts[] = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, $response, $file)->toArray();
         });
 
+        foreach (array_diff(array_values(array_unique($urls)), $matchedUrls) as $url) {
+            $failures[] = __('capell-frontend::messages.static_page_url_unmatched', ['url' => $url]);
+        }
+
+        // A completed manifest is the receipt for the whole requested export.
+        // Keep the last receipt when any required page could not be rendered.
+        throw_if($failures !== [], RuntimeException::class, __('capell-frontend::messages.static_generation_incomplete', [
+            'failures' => implode("\n", $failures),
+        ]));
+
         $manifest = [
             'generated_at' => Date::now()->toIso8601String(),
             'artifacts' => $artifacts,
@@ -99,9 +128,12 @@ class GenerateStaticPageArtifactsAction
 
     /**
      * @param  array<int, string>  $urls
+     * @return list<string>
      */
-    private function pageUrls(?int $siteId, array $urls, callable $callback): void
+    private function pageUrls(?int $siteId, array $urls, callable $callback): array
     {
+        $matchedUrls = [];
+
         PageUrl::query()
             ->with(['language', 'site.theme', 'pageable.layout', 'pageable.site.theme'])
             ->enabled()
@@ -119,11 +151,14 @@ class GenerateStaticPageArtifactsAction
             ->orderBy('language_id')
             ->orderBy('url')
             ->lazyById()
-            ->each(function (PageUrl $pageUrl) use ($callback): void {
+            ->each(function (PageUrl $pageUrl) use ($callback, &$matchedUrls): void {
                 if ($pageUrl->pageable instanceof Pageable) {
+                    $matchedUrls[] = $pageUrl->url;
                     $callback($pageUrl);
                 }
             });
+
+        return array_values(array_unique($matchedUrls));
     }
 
     private function siteDomainFor(PageUrl $pageUrl): ?SiteDomain
@@ -172,10 +207,6 @@ class GenerateStaticPageArtifactsAction
 
     private function isWritableHtmlResponse(Response $response): bool
     {
-        if ($response->getStatusCode() < Response::HTTP_OK || $response->getStatusCode() >= Response::HTTP_MULTIPLE_CHOICES) {
-            return false;
-        }
-
         $contentType = (string) $response->headers->get('content-type', 'text/html');
 
         if (! str_contains($contentType, 'text/html')) {

@@ -52,17 +52,29 @@ class HtmlToArrayAction
     {
         $elements = [];
         foreach ($parent->childNodes as $child) {
-            if ($child->nodeType === XML_ELEMENT_NODE) {
-                $elements[] = $this->elementToArray($child);
-            } elseif ($child->nodeType === XML_TEXT_NODE && trim((string) $child->nodeValue) !== '') {
-                $elements[] = [
-                    'text' => $this->normalizeWhitespace($child->nodeValue),
-                    'children' => [],
-                ];
+            $converted = $this->nodeToArray($child);
+
+            if (is_array($converted)) {
+                $elements[] = $converted;
             }
         }
 
         return $elements;
+    }
+
+    private function nodeToArray(DOMNode $node): ?array
+    {
+        if ($node->nodeType === XML_ELEMENT_NODE) {
+            return $this->elementToArray($node);
+        }
+
+        if ($node->nodeType !== XML_TEXT_NODE) {
+            return null;
+        }
+
+        $text = $this->normalizeWhitespace($node->nodeValue);
+
+        return $text !== null ? ['text' => $text, 'children' => []] : null;
     }
 
     private function elementToArray(DOMNode $node): array
@@ -73,26 +85,18 @@ class HtmlToArrayAction
             $result['attributes'] = $this->extractAttributes($node);
         }
 
-        $textContent = '';
         $hasElementChildren = false;
-        $children = [];
         foreach ($node->childNodes ?? [] as $child) {
-            if ($child->nodeType === XML_TEXT_NODE) {
-                $text = $child->nodeValue;
-                if (trim((string) $text) !== '') {
-                    $textContent .= $text;
-                }
-            } elseif ($child->nodeType === XML_ELEMENT_NODE) {
+            if ($child->nodeType === XML_ELEMENT_NODE) {
                 $hasElementChildren = true;
-                $children[] = $this->elementToArray($child);
             }
         }
 
         if ($hasElementChildren) {
             $result['text'] = null;
-            $result['children'] = $children;
+            $result['children'] = $node instanceof DOMElement ? $this->convertChildrenToArray($node) : [];
         } else {
-            $normalized = $this->normalizeWhitespace($textContent);
+            $normalized = $this->normalizeWhitespace($node->textContent);
             $result['text'] = $normalized !== '' ? $normalized : null;
             $result['children'] = [];
         }

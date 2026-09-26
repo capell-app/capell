@@ -43,7 +43,7 @@
             data-preview-device="{{ $device }}"
             data-preview-color-mode="{{ $colorMode }}"
             sandbox
-            srcdoc="{{ e($preview->html) }}"
+            srcdoc="{{ $preview->html }}"
             tabindex="-1"
             title="{{ __('capell-admin::theme-library.actions.preview') }}"
         ></iframe>

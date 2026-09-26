@@ -181,7 +181,12 @@
                     if (result.httpStatus === 419) {
                         if (!hasRetried)
                             return csrf.refresh().then(function (token) {
-                                return token ? submitInstallForm(true) : result
+                                if (!token) {
+                                    returnToForm(messages.sessionExpired)
+                                    return
+                                }
+
+                                return submitInstallForm(true)
                             })
                         returnToForm(messages.sessionExpired)
                         return

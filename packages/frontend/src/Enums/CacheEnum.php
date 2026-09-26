@@ -348,15 +348,16 @@ enum CacheEnum: string
 
     /**
      * Generate a canonical per-model cache key.
-     * The short class name (via class_basename) is used so that the key stays readable.
-     * Callers must pass a fully-qualified class name to avoid collisions between packages
-     * that share a short model name (e.g. Capell\Core\Models\Page vs Capell\Blog\Models\Page).
+     * Callers must pass a fully-qualified class name so packages that share a short model
+     * name retain separate entries.
      *
      * @param  class-string  $type
      */
     public static function pageModel(string $type, int $id, int $siteId, int $languageId): string
     {
-        return sprintf('page-model-%s-%d-site-%d-lang-%d', class_basename($type), $id, $siteId, $languageId);
+        $canonicalType = str_replace('\\', '.', ltrim($type, '\\'));
+
+        return sprintf('page-model-%s-%d-site-%d-lang-%d', $canonicalType, $id, $siteId, $languageId);
     }
 
     /**

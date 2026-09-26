@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Testing\ExtensionTestHarness;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Process\Process;
 
 if (! function_exists('makeExtensionWorkbenchDirectory')) {
     function makeExtensionWorkbenchDirectory(): string
@@ -129,6 +130,43 @@ it('creates a full package scaffold with live safe examples', function (): void 
         ->and($composer['extra']['laravel']['providers'])->toBe(['Vendor\\ExampleTools\\Providers\\PackageServiceProvider']);
 
 });
+
+it('escapes display names for every generated file format', function (string $profile): void {
+    $packagesDirectory = makeExtensionWorkbenchDirectory();
+    $displayName = 'Ben\'s "Quoted" Package';
+
+    artisanCommand('capell:make-extension', [
+        'package' => 'vendor/escaped-' . $profile,
+        '--name' => $displayName,
+        '--profile' => $profile,
+        '--path' => $packagesDirectory,
+    ])->assertExitCode(Command::SUCCESS);
+
+    $extensionDirectory = $packagesDirectory . '/escaped-' . $profile;
+    $manifest = json_decode(
+        (string) file_get_contents($extensionDirectory . '/capell.json'),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+    $translations = require $extensionDirectory . '/resources/lang/en/package.php';
+
+    expect($manifest['displayName'])->toBe($displayName)
+        ->and($manifest['description'])->toBe($displayName . ' for Capell.')
+        ->and($manifest['product']['group'])->toBe($displayName)
+        ->and($translations['name'])->toBe($displayName);
+
+    foreach (File::allFiles($extensionDirectory) as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $lint = new Process([PHP_BINARY, '-l', $file->getPathname()]);
+        $lint->run();
+
+        expect($lint->isSuccessful())
+            ->toBeTrue($file->getPathname() . ': ' . $lint->getErrorOutput());
+    }
+})->with(['minimal', 'full']);
 
 it('prompts for missing interactive values', function (): void {
     $packagesDirectory = makeExtensionWorkbenchDirectory();

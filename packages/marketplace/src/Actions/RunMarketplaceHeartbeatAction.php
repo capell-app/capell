@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Actions;
 
-use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Data\InstalledPackageData;
 use Capell\Marketplace\Data\PhoneHomeResultData;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Capell\Marketplace\Support\FoundationInstalledVersionResolver;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
 use Capell\Marketplace\Support\MarketplaceWebhookUrl;
 use Illuminate\Http\Client\ConnectionException;
@@ -25,6 +25,7 @@ class RunMarketplaceHeartbeatAction
     public function __construct(
         private readonly MarketplaceClient $marketplace,
         private readonly MarketplacePayloadSigner $signer,
+        private readonly FoundationInstalledVersionResolver $foundationVersion,
     ) {}
 
     public function handle(): PhoneHomeResultData
@@ -64,8 +65,7 @@ class RunMarketplaceHeartbeatAction
             );
         }
 
-        $capellVersion = CapellCore::getInstalledPrettyVersion('capell-app/capell')
-            ?? CapellCore::getInstalledPrettyVersion('capell/core');
+        $capellVersion = $this->foundationVersion->prettyVersion();
         $heartbeatUrl = $baseUrl . '/instances/heartbeat';
 
         try {

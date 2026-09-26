@@ -5,31 +5,35 @@ declare(strict_types=1);
 use Capell\Core\Actions\Reporting\DispatchSignalAction;
 use Capell\Core\Contracts\Reporting\Reporter;
 use Capell\Core\Data\Reporting\DispatchResultData;
+use Capell\Core\Data\Reporting\RedactedSignalData;
 use Capell\Core\Data\Reporting\SignalData;
 use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\Severity;
+use Capell\Core\Tests\Support\ReportingLogRecorder;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Log\LogManager;
-use Monolog\Handler\TestHandler;
-use Monolog\Logger;
 
 beforeEach(function (): void {
     $this->initialReportingConfiguration = config('capell-reporting');
-    $this->reportingRecords = new TestHandler;
-    $records = $this->reportingRecords;
+    $this->reportingRecords = new ReportingLogRecorder(storage_path('framework/testing/reporting-dispatch-' . bin2hex(random_bytes(8)) . '.log'));
     $logs = new LogManager($this->app);
-    $logs->extend('reporting-test', fn (): Logger => new Logger('reporting-test', [$records]));
 
     config()->set('logging.default', 'reporting-test');
-    config()->set('logging.channels.reporting-test', ['driver' => 'reporting-test']);
+    config()->set('logging.channels.reporting-test', ['driver' => 'single', 'path' => $this->reportingRecords->path]);
 
+    $this->app->instance('log', $logs);
     $this->app->instance(LogManager::class, $logs);
+
     $this->reportingLogs = $logs;
     config()->set('capell-reporting', require __DIR__ . '/../../../config/capell-reporting.php');
     config()->set('capell-reporting.cache_store', 'array');
+});
+
+afterEach(function (): void {
+    $this->reportingRecords->clear();
 });
 
 function reportingTestSignal(string $correlationId = 'trace-1', Severity $severity = Severity::Error, string $runId = 'run-1'): SignalData
@@ -53,7 +57,7 @@ it('emits structured JSON to the default log channel', function (): void {
         ->and($result->transport)->toBe('log')
         ->and($records)->toHaveCount(1)
         ->and($records[0]->level->getName())->toBe('ERROR')
-        ->and(json_decode((string) $records[0]->message, true, flags: JSON_THROW_ON_ERROR))->toBe($signal->toArray())
+        ->and(json_decode((string) $records[0]->message, true, flags: JSON_THROW_ON_ERROR))->toBe(RedactedSignalData::fromSignal($signal)->toArray())
         ->and($records[0]->message)->not->toContain('never-log-this');
 });
 
@@ -98,7 +102,7 @@ it('disables deduplication when the cooldown is zero', function (): void {
 
 it('applies defaults then category then exact signal policy with field inheritance', function (): void {
     $reporter = Mockery::mock(Reporter::class);
-    $reporter->shouldReceive('report')->twice()->withArgs(fn (SignalData $signal): bool => $signal->context['password'] === '[redacted]');
+    $reporter->shouldReceive('report')->twice()->withArgs(fn (RedactedSignalData $signal): bool => $signal->context['password'] === '[redacted]');
     $this->app->instance('reporting.test', $reporter);
     config()->set('capell-reporting.reporters.test', 'reporting.test');
     config()->set('capell-reporting.defaults.cooldown_seconds', 300);
@@ -194,27 +198,33 @@ it('uses the default logger if the selected log channel fails', function (): voi
 });
 
 it('uses a selected valid log channel and bypasses an unknown channel before logger resolution', function (): void {
-    config()->set('logging.channels.operations', ['driver' => 'operations']);
-    config()->set('capell-reporting.log_channel', 'operations');
+    $records = new ReportingLogRecorder(storage_path('framework/testing/reporting-operations-' . bin2hex(random_bytes(8)) . '.log'));
 
-    $records = new TestHandler;
-    $this->reportingLogs->extend('operations', fn (): Logger => new Logger('operations', [$records]));
+    try {
+        config()->set('logging.channels.operations', ['driver' => 'single', 'path' => $records->path]);
+        config()->set('capell-reporting.log_channel', 'operations');
 
-    expect(resolve(DispatchSignalAction::class)->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Reported)
-        ->and($records->getRecords())->toHaveCount(1)
-        ->and($this->reportingRecords->getRecords())->toBe([]);
-    config()->set('capell-reporting.log_channel', 'unknown');
-    expect(resolve(DispatchSignalAction::class)->handle(reportingTestSignal('trace-2'))->status)->toBe(DispatchStatus::Fallback)
-        ->and($this->reportingRecords->getRecords())->toHaveCount(1);
+        expect(resolve(DispatchSignalAction::class)->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Reported)
+            ->and($records->getRecords())->toHaveCount(1)
+            ->and($this->reportingRecords->getRecords())->toBe([]);
+        config()->set('capell-reporting.log_channel', 'unknown');
+        expect(resolve(DispatchSignalAction::class)->handle(reportingTestSignal('trace-2'))->status)->toBe(DispatchStatus::Fallback)
+            ->and($this->reportingRecords->getRecords())->toHaveCount(1);
+    } finally {
+        $records->clear();
+    }
 });
 
-it('falls back when configuration resolution itself throws', function (): void {
+it('fails closed when configuration resolution itself throws', function (): void {
     $container = new Container;
     $container->bind(Repository::class, static fn (): never => throw new RuntimeException('configuration secret'));
     $container->instance(LogManager::class, $this->reportingLogs);
 
-    expect(new DispatchSignalAction($container)->handle(reportingTestSignal())->status)->toBe(DispatchStatus::Fallback)
-        ->and($this->reportingRecords->getRecords())->toHaveCount(1);
+    $result = new DispatchSignalAction($container)->handle(reportingTestSignal());
+
+    expect($result->status)->toBe(DispatchStatus::Failed)
+        ->and($result->reason)->toBe('log_unavailable')
+        ->and($this->reportingRecords->getRecords())->toBe([]);
 });
 
 it('never throws when logging also fails and releases the failed delivery claim', function (): void {

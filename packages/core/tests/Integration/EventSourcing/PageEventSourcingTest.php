@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Enums\ContentStructure;
+use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\EventSourcing\Aggregates\PageAggregate;
 use Capell\Core\EventSourcing\Enums\PageWorkflowStatus;
@@ -83,6 +84,41 @@ it('round-trips a page with translations and urls through the serializer', funct
     $serializer->restore($page->fresh(), $captured);
 
     expect($serializer->capture($page->fresh()))->toEqual($captured);
+});
+
+it('restores same-path page urls independently for each language', function (): void {
+    $page = Page::factory()->createOne();
+    $english = Language::factory()->createOne();
+    $welsh = Language::factory()->createOne();
+
+    $englishUrl = PageUrl::factory()->createOne([
+        'pageable_type' => $page->getMorphClass(),
+        'pageable_id' => $page->getKey(),
+        'site_id' => $page->site_id,
+        'language_id' => $english->getKey(),
+        'url' => '/about',
+        'notes' => 'English snapshot',
+    ]);
+    $welshUrl = PageUrl::factory()->createOne([
+        'pageable_type' => $page->getMorphClass(),
+        'pageable_id' => $page->getKey(),
+        'site_id' => $page->site_id,
+        'language_id' => $welsh->getKey(),
+        'url' => '/about',
+        'notes' => 'Welsh snapshot',
+    ]);
+
+    $serializer = resolve(PageStateSerializer::class);
+    $captured = $serializer->capture($page);
+
+    $englishUrl->forceFill(['notes' => 'Changed English'])->save();
+    $welshUrl->forceFill(['notes' => 'Changed Welsh'])->save();
+
+    $serializer->restore($page->fresh(), $captured);
+
+    expect($englishUrl->fresh()->notes)->toBe('English snapshot')
+        ->and($welshUrl->fresh()->notes)->toBe('Welsh snapshot')
+        ->and($page->pageUrls()->count())->toBe(2);
 });
 
 it('rebuilds the canonical url when restoring a revision captured before url creation', function (): void {
@@ -325,3 +361,15 @@ it('projects a publish onto the workflow read model and visible_from', function 
     expect($state->status)->toBe(PageWorkflowStatus::Published);
     expect($page->fresh()->visible_from)->not->toBeNull();
 });
+
+it('projects unpublish and archive transitions to non-public visibility', function (string $transition): void {
+    $page = Page::factory()->createOne(['visible_from' => now()->subDay()]);
+    $aggregate = PageAggregate::retrieve($page->uuid)->publishNow();
+
+    $aggregate->{$transition}()->persist();
+
+    expect($page->fresh()->publishVisibilityState())->not->toBe(PublishVisibilityStateEnum::published);
+})->with([
+    'unpublished' => 'unpublish',
+    'archived' => 'archive',
+]);

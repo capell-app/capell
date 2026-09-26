@@ -2,14 +2,14 @@
     "manifest-version": 3,
     "name": "{{ packageName }}",
     "slug": "{{ slug }}",
-    "displayName": "{{ displayName }}",
+    "displayName": "{{ jsonDisplayName }}",
     "kind": "package",
     "capellApiVersion": "^1.0",
     "version": "1.0.0",
-    "description": "{{ displayName }} for Capell.",
+    "description": "{{ jsonDisplayName }} for Capell.",
     "demo": true,
     "product": {
-        "group": "{{ displayName }}",
+        "group": "{{ jsonDisplayName }}",
         "tier": "{{ tier }}",
         "bundle": null
     },
@@ -71,7 +71,7 @@
         "privateDocsRequested": false
     },
     "marketplace": {
-        "summary": "{{ displayName }} safe extension examples for Capell.",
+        "summary": "{{ jsonDisplayName }} safe extension examples for Capell.",
         "screenshots": [],
         "categories": ["developer-tools"]
     }

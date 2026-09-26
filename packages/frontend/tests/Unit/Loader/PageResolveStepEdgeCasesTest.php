@@ -334,10 +334,11 @@ it('sets a redirect response for frontend page resolution redirects', function (
 
         return $passedWork;
     });
+    $targetUrl = rtrim((string) config('app.url'), '/') . '/redirect-target';
 
     expect($nextWasCalled)->toBeFalse()
         ->and($result->getRedirect())->toBeInstanceOf(RedirectResponse::class)
-        ->and($result->getRedirect()?->getTargetUrl())->toBe('http://localhost/redirect-target')
+        ->and($result->getRedirect()?->getTargetUrl())->toBe($targetUrl)
         ->and($result->getRedirect()?->getStatusCode())->toBe(301)
         ->and($work->getError())->toBeNull()
         ->and($work->state->page())->toBeNull();
@@ -368,10 +369,11 @@ it('sets a redirect response when a revision page id is present', function (): v
 
         return $passedWork;
     });
+    $targetUrl = rtrim((string) config('app.url'), '/') . '/revision-redirect-target';
 
     expect($nextWasCalled)->toBeFalse()
         ->and($result->getRedirect())->toBeInstanceOf(RedirectResponse::class)
-        ->and($result->getRedirect()?->getTargetUrl())->toBe('http://localhost/revision-redirect-target')
+        ->and($result->getRedirect()?->getTargetUrl())->toBe($targetUrl)
         ->and($result->getRedirect()?->getStatusCode())->toBe(301)
         ->and($work->getError())->toBeNull()
         ->and($work->state->page())->toBeNull();

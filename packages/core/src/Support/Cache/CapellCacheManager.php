@@ -170,7 +170,10 @@ final class CapellCacheManager
             return null;
         }
 
-        $this->localCache[$normalizedKey] = $value;
+        if ($value !== null) {
+            $this->localCache[$normalizedKey] = $value;
+        }
+
         $this->recordCacheRead($key, $value !== null);
 
         return $value === $sentinel ? null : $value;
@@ -230,7 +233,10 @@ final class CapellCacheManager
             return false;
         }
 
-        $this->localCache[$normalizedKey] = $value;
+        if ($value !== null) {
+            $this->localCache[$normalizedKey] = $value;
+        }
+
         $this->recordCacheRead($key, $value !== null);
 
         return $value !== null && $value !== $sentinel;

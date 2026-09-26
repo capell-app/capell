@@ -70,15 +70,19 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 
     private function hasBeenSuperseded(): bool
     {
+        if (Cache::get($this->statusKey()) === 'cancelled') {
+            return true;
+        }
+
         $lock = Cache::get(self::LOCK_KEY);
 
         if (! is_array($lock)) {
-            return false;
+            return true;
         }
 
         $activeInstallId = $lock['installId'] ?? null;
 
-        return is_string($activeInstallId) && $activeInstallId !== $this->installId;
+        return ! is_string($activeInstallId) || $activeInstallId !== $this->installId;
     }
 
     private function clearActiveLock(): void

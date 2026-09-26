@@ -10,7 +10,6 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Events\DatabaseSchemaChanged;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Database\RuntimeSchemaState;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Event;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -34,9 +33,9 @@ final class PrepareFreshInstallAction
             ));
         }
 
-        resolve(Kernel::class)->call('db:wipe', [
+        RunArtisanCommandAction::run('db:wipe', [
             '--force' => true,
-        ]);
+        ], $reporter, true);
 
         $this->flushRuntimeSchemaState();
 

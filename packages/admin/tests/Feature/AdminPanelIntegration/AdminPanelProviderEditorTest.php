@@ -47,6 +47,41 @@ it('adds capell panel integration to a clean provider', function (): void {
         ->and($contents)->toContain('...CapellAdmin::getWidgets()');
 });
 
+it('adds the Capell plugin when its import is unused and another plugin is registered', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'capell-panel-');
+    file_put_contents($path, <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Providers\Filament;
+
+use App\Filament\Plugins\OtherPlugin;
+use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
+use Filament\Panel;
+use Filament\PanelProvider;
+
+class AdminPanelProvider extends PanelProvider
+{
+    public function panel(Panel $panel): Panel
+    {
+        return $panel
+            ->default()
+            ->id('admin')
+            ->plugin(OtherPlugin::make());
+    }
+}
+PHP);
+
+    $editor = new AdminPanelProviderEditor($path);
+    $result = $editor->addPlugin([]);
+    $contents = $editor->preview();
+
+    expect($result->status)->toBe(AdminPanelChangeStatus::Applied)
+        ->and($contents)->toContain('->plugin(OtherPlugin::make())')
+        ->and($contents)->toContain('->plugin(CapellAdminPlugin::make()');
+});
+
 it('requires manual navigation when existing navigation items are customised', function (): void {
     $path = tempnam(sys_get_temp_dir(), 'capell-panel-');
     file_put_contents($path, <<<'PHP'

@@ -16,24 +16,39 @@ final readonly class ReportingOptionsData
         public ?string $cacheStore = null,
         public ?string $logChannel = null,
         public array $reporters = [],
+        public ?OperatorRoutingData $routing = null,
     ) {}
 
-    public static function fromConfiguration(mixed $configuration, SignalData $signal): self
+    public static function fromConfiguration(mixed $configuration, RedactedSignalData $signal): self
     {
-        throw_if(! is_array($configuration) || ! is_bool($configuration['enabled'] ?? true), InvalidArgumentException::class, 'Reporting configuration is unavailable or invalid.');
+        throw_if(! is_array($configuration), InvalidArgumentException::class, 'Reporting configuration is unavailable or invalid.');
 
         if (($configuration['enabled'] ?? true) === false) {
             return new self(enabled: false);
         }
 
-        $defaults = $configuration['defaults'] ?? [];
-        $categories = $configuration['categories'] ?? [];
         $signals = $configuration['signals'] ?? [];
-        throw_if(! is_array($defaults) || ! is_array($categories) || ! is_array($signals), InvalidArgumentException::class, 'Reporting policies must be arrays.');
-
-        $category = $categories[$signal->category->value] ?? [];
+        throw_unless(is_array($signals), InvalidArgumentException::class, 'Reporting policies must be arrays.');
         $specific = $signals[$signal->name] ?? [];
-        throw_if(! is_array($category) || ! is_array($specific), InvalidArgumentException::class, 'Reporting overrides must be arrays.');
+        throw_unless(is_array($specific), InvalidArgumentException::class, 'Reporting overrides must be arrays.');
+
+        // Resolve disablement from the most specific policy before inspecting
+        // inherited fields that cannot affect that decision.
+        if (($specific['enabled'] ?? null) === false) {
+            return new self(enabled: false);
+        }
+
+        $categories = $configuration['categories'] ?? [];
+        throw_unless(is_array($categories), InvalidArgumentException::class, 'Reporting policies must be arrays.');
+        $category = $categories[$signal->category->value] ?? [];
+        throw_unless(is_array($category), InvalidArgumentException::class, 'Reporting overrides must be arrays.');
+        if (! array_key_exists('enabled', $specific) && ($category['enabled'] ?? null) === false) {
+            return new self(enabled: false);
+        }
+
+        $defaults = $configuration['defaults'] ?? [];
+        throw_unless(is_array($defaults), InvalidArgumentException::class, 'Reporting policies must be arrays.');
+        throw_unless(is_bool($configuration['enabled'] ?? true), InvalidArgumentException::class, 'Reporting enabled must be a boolean.');
 
         $policy = array_replace(['enabled' => true, 'transport' => 'log', 'cooldown_seconds' => 300], $defaults, $category, $specific);
         throw_unless(is_bool($policy['enabled']), InvalidArgumentException::class, 'Reporting enabled must be a boolean.');
@@ -49,6 +64,6 @@ final readonly class ReportingOptionsData
         $reporters = $configuration['reporters'] ?? [];
         throw_if(($cacheStore !== null && (! is_string($cacheStore) || $cacheStore === '')) || ($logChannel !== null && (! is_string($logChannel) || $logChannel === '')) || ! is_array($reporters), InvalidArgumentException::class, 'Reporting services are invalid.');
 
-        return new self($policy['enabled'], $policy['transport'], $policy['cooldown_seconds'], $cacheStore, $logChannel, $reporters);
+        return new self($policy['enabled'], $policy['transport'], $policy['cooldown_seconds'], $cacheStore, $logChannel, $reporters, $policy['transport'] === 'operator' ? OperatorRoutingData::fromPolicy($policy) : null);
     }
 }

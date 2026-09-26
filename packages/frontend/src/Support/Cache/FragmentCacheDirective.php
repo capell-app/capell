@@ -7,12 +7,14 @@ namespace Capell\Frontend\Support\Cache;
 final class FragmentCacheDirective
 {
     /**
-     * Stack of "(ttl, surrogateKeys)" parameter tuples captured by `@cache`,
-     * popped by `@endcache` so nested directives compile correctly.
+     * Stack of unique fragment identifiers captured by `@cache`, popped by
+     * `@endcache` so nested directives compile correctly.
      *
-     * @var array<int, string>
+     * @var list<int>
      */
     private array $tailStack = [];
+
+    private int $fragmentCount = 0;
 
     /**
      * Compile `@cache` directive into PHP code.
@@ -26,21 +28,36 @@ final class FragmentCacheDirective
      */
     public function compile(string $expression): string
     {
-        $parts = array_map(trim(...), str_getcsv($expression, ',', escape: '\\'));
+        $fragmentId = ++$this->fragmentCount;
+        $arguments = sprintf('$__capellFragmentArguments%d', $fragmentId);
+        $scope = sprintf('$__capellFragmentScope%d', $fragmentId);
 
-        $key = $parts[0] ?? "''";
-        $ttl = $parts[1] ?? '3600';
-        $surrogateKeys = $parts[2] ?? '[]';
+        $this->tailStack[] = $fragmentId;
 
-        $this->tailStack[] = sprintf(', (int) %s, %s', $ttl, $surrogateKeys);
-
-        return sprintf("<?php echo app('capell-frontend.fragment-cache')->remember(%s, function() { ob_start(); ?>", $key);
+        return sprintf(
+            "<?php %s = [%s]; %s = get_defined_vars(); echo app('capell-frontend.fragment-cache')->remember((string) (%s[0] ?? ''), function() use (%s) { extract(%s, EXTR_SKIP); ob_start(); ?>",
+            $arguments,
+            $expression,
+            $scope,
+            $arguments,
+            $scope,
+            $scope,
+        );
     }
 
     public function compileEnd(): string
     {
-        $tail = array_pop($this->tailStack) ?? ', 3600, []';
+        $fragmentId = array_pop($this->tailStack);
 
-        return sprintf('<?php return ob_get_clean(); }%s); ?>', $tail);
+        if (! is_int($fragmentId)) {
+            return '<?php return ob_get_clean(); }, 3600, []); ?>';
+        }
+
+        $arguments = sprintf('$__capellFragmentArguments%d', $fragmentId);
+
+        return sprintf(
+            '<?php return ob_get_clean(); }, (int) (%1$s[1] ?? 3600), (%1$s[2] ?? [])); ?>',
+            $arguments,
+        );
     }
 }

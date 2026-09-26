@@ -7,12 +7,15 @@ use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
+use Capell\Core\Models\Translation;
 use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Frontend\Data\FrontendRenderContextData;
@@ -199,6 +202,29 @@ it('invalidates a referring page when a referenced page is withdrawn', function 
     $target->update(['visible_from' => now()->addDay()]);
 
     expect($cache->getFreshFromCache($key))->toBeNull();
+});
+
+it('validates metadata for every model emitted by a typed page reference', function (): void {
+    $page = Page::factory()->createOne(['visible_from' => now()->subDay()]);
+    $target = Page::factory()
+        ->site($page->site)
+        ->withTranslations()
+        ->createOne(['visible_from' => now()->subDay()]);
+    PagePropertyValue::factory()->createOne([
+        'page_id' => $page->id,
+        'site_id' => $page->site_id,
+        'referenced_page_id' => $target->id,
+    ]);
+
+    $metadata = resolve(PublicRenderDataContributorRegistry::class)->metadata(
+        new FrontendRenderContextData($page, $page->site, null, null, null),
+    );
+    $dependencyTypes = collect($metadata->cacheDependencies)->pluck('modelType');
+
+    expect($dependencyTypes)
+        ->toContain(Translation::class)
+        ->toContain(PageUrl::class)
+        ->toContain(SiteDomain::class);
 });
 
 it('invalidates an omitted reference when its first public representation is created', function (string $child): void {

@@ -18,6 +18,7 @@ use Capell\Core\EventSourcing\Events\PageUnpublished;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageRevision;
 use Capell\Core\Models\PageWorkflowState;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Carbon\CarbonImmutable;
 use Spatie\EventSourcing\EventHandlers\Projectors\Projector;
 use Spatie\EventSourcing\StoredEvents\ShouldBeStored;
@@ -106,7 +107,7 @@ final class PageProjector extends Projector
             'scheduled_for' => null,
         ]);
 
-        $this->syncVisibility($event, visibleFrom: null, visibleUntil: null);
+        $this->expireVisibility($event);
     }
 
     public function onPageArchived(PageArchived $event): void
@@ -116,7 +117,11 @@ final class PageProjector extends Projector
             'scheduled_for' => null,
         ]);
 
-        $this->syncVisibility($event, visibleFrom: null, visibleUntil: null);
+        $this->syncVisibility(
+            $event,
+            visibleFrom: PublishSentinel::draftValue($event->createdAt()),
+            visibleUntil: null,
+        );
     }
 
     private function indexRevision(ShouldBeStored $event, bool $isRollback, string $summary): void
@@ -162,6 +167,13 @@ final class PageProjector extends Projector
                 'visible_from' => $visibleFrom,
                 'visible_until' => $visibleUntil,
             ]);
+    }
+
+    private function expireVisibility(ShouldBeStored $event): void
+    {
+        Page::query()
+            ->where('uuid', $event->aggregateRootUuid())
+            ->update(['visible_until' => $event->createdAt() ?? CarbonImmutable::now()]);
     }
 
     private function actorId(ShouldBeStored $event): ?int

@@ -21,6 +21,7 @@ use Capell\Core\Actions\CreateDefaultLanguageAction;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\CreateSiteAction;
 use Capell\Core\Actions\CreateThemeAction;
+use Capell\Core\Console\Commands\Concerns\CallsRequiredCommands;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Console\Commands\Concerns\HasFrontendAssetsOption;
 use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
@@ -44,6 +45,7 @@ use RuntimeException;
 
 class SetupCommand extends Command
 {
+    use CallsRequiredCommands;
     use DescribesCommandOptions;
     use HasFrontendAssetsOption;
     use PromptsWithOptionFallback;
@@ -77,7 +79,9 @@ class SetupCommand extends Command
 
         if (! $this->option('integration-only')) {
             try {
-                $this->runContentSetup();
+                if (! $this->runContentSetup()) {
+                    return Command::FAILURE;
+                }
             } catch (InvalidArgumentException $invalidArgumentException) {
                 $this->error($invalidArgumentException->getMessage());
 
@@ -156,7 +160,7 @@ class SetupCommand extends Command
         return $details;
     }
 
-    private function runContentSetup(): void
+    private function runContentSetup(): bool
     {
         $this->setupStep('resolving install inputs');
         $siteUrl = $this->resolveSiteUrl();
@@ -166,20 +170,26 @@ class SetupCommand extends Command
         $assets = $this->getFrontendAssets();
 
         $this->setupStep('publishing settings migrations');
-        $this->call('capell:publish-migrations', [
+        if (! $this->callRequired('capell:publish-migrations', [
             '--type' => 'settings',
             '--items' => CapellAdmin::getSettingMigrations(),
             '--path' => __DIR__ . '/../../../database/settings',
-        ]);
+        ])) {
+            return false;
+        }
 
         $this->setupStep('running settings migrations');
-        $this->call('migrate', [
+        if (! $this->callRequired('migrate', [
             '--path' => 'database/settings',
             '--force' => true,
-        ]);
+        ])) {
+            return false;
+        }
 
         if (! $this->option('skip-shield') && ! $this->option('skip-permission-sync')) {
-            $this->setupAuthentication($user);
+            if (! $this->setupAuthentication($user)) {
+                return false;
+            }
         }
 
         $this->setupStep('creating core content types');
@@ -209,6 +219,8 @@ class SetupCommand extends Command
 
         $this->setupStep('syncing dashboard Filament widget settings');
         SyncDashboardFilamentWidgetSettingsAction::run(forceEnableDefaults: true);
+
+        return true;
     }
 
     private function setupStep(string $message): void
@@ -493,7 +505,7 @@ class SetupCommand extends Command
     /**
      * Setup authentication for the user.
      */
-    private function setupAuthentication(Authenticatable $user): void
+    private function setupAuthentication(Authenticatable $user): bool
     {
         $this->newLine();
         $this->info('Setting up filament shield authentication');
@@ -509,30 +521,36 @@ class SetupCommand extends Command
 
         $fileCacheStoreDirectory = resolve(FileCacheStoreDirectory::class);
 
-        $fileCacheStoreDirectory->retryAfterMissingDirectoryFailure(
-            fn (): int => $this->call('shield:super-admin', [
+        if (! $fileCacheStoreDirectory->retryAfterMissingDirectoryFailure(
+            fn (): bool => $this->callRequired('shield:super-admin', [
                 '--user' => $user->getKey(),
                 '--panel' => Filament::getCurrentOrDefaultPanel()?->getId(),
             ]),
-        );
+        )) {
+            return false;
+        }
 
-        $fileCacheStoreDirectory->retryAfterMissingDirectoryFailure(
-            fn (): int => $this->call('shield:generate', [
+        if (! $fileCacheStoreDirectory->retryAfterMissingDirectoryFailure(
+            fn (): bool => $this->callRequired('shield:generate', [
                 '--all' => true,
                 '--ignore-existing-policies' => true,
                 '--exclude' => [],
                 '--option' => 'permissions',
                 '--panel' => Filament::getCurrentOrDefaultPanel()?->getId(),
             ]),
-        );
+        )) {
+            return false;
+        }
 
         if ($this->option('skip-permission-sync')) {
-            return;
+            return true;
         }
 
         $fileCacheStoreDirectory->retryAfterMissingDirectoryFailure(
             fn (): mixed => SyncCapellPermissionsAction::run(PermissionSyncMode::Install),
         );
+
+        return true;
     }
 
     private function registerTailwindSources(): void

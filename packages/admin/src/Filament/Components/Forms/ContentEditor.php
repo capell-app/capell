@@ -133,10 +133,15 @@ class ContentEditor
             return null;
         }
 
-        if (strip_tags($state) === '') {
-            return null;
-        }
+        return self::hasMeaningfulContent($state) ? $state : null;
+    }
 
-        return $state;
+    private static function hasMeaningfulContent(string $state): bool
+    {
+        $text = html_entity_decode(strip_tags($state), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/[\s\x{00A0}\x{200B}\x{FEFF}]+/u', '', $text);
+
+        return $text !== ''
+            || preg_match('/<(?:audio|canvas|embed|hr|iframe|img|math|object|picture|svg|table|video)\b/i', $state) === 1;
     }
 }

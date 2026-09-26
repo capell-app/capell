@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Events\UrlVisitFailed;
+use Capell\Core\Exceptions\UrlVisitFailedException;
 use Capell\Core\Models\SiteDomain;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Http;
@@ -29,27 +30,28 @@ class VisitUrlAction implements ShouldBeUnique
         return 'visit_url_' . hash('sha256', $url . '|' . $pageId);
     }
 
+    /** @throws UrlVisitFailedException A rejected or unsuccessful visit must fail generation and queue callers. */
     public function handle(string $url, ?int $pageId = null): void
     {
         $scheme = parse_url($url, PHP_URL_SCHEME);
         if (! in_array($scheme, ['http', 'https'], true)) {
             Log::warning('VisitUrlAction: rejected non-http(s) url', ['url' => $url, 'scheme' => $scheme]);
 
-            return;
+            throw UrlVisitFailedException::forUrl($url, __('capell::message.visit_requires_http'));
         }
 
         $host = parse_url($url, PHP_URL_HOST);
         if (! is_string($host) || $host === '' || ! $this->isAllowedHost($host)) {
             Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host]);
 
-            return;
+            throw UrlVisitFailedException::forUrl($url, __('capell::message.visit_requires_registered_host'));
         }
 
         $safeAddress = $this->safeResolvedAddress($host);
         if ($safeAddress === null) {
             Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host]);
 
-            return;
+            throw UrlVisitFailedException::forUrl($url, __('capell::message.visit_requires_public_address'));
         }
 
         $response = Http::withOptions($this->pinnedDnsOptions($url, $host, $safeAddress))
@@ -61,6 +63,8 @@ class VisitUrlAction implements ShouldBeUnique
         if (! $response->ok()) {
             Log::info('Problem accessing url', ['url' => $url, 'status' => $response->status()]);
             event(new UrlVisitFailed($url, $response->status(), $pageId));
+
+            throw UrlVisitFailedException::forUrl($url, __('capell::message.visit_http_failed', ['status' => $response->status()]));
         }
     }
 

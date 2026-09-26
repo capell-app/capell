@@ -11,7 +11,7 @@ it('gracefully handles missing resource', function (): void {
 
     $url = GetEditPageResourceUrlAction::run($page);
 
-    expect($url)->toBe('http://localhost/admin/pages/' . $page->id . '/edit');
+    expect($url)->toBe(rtrim((string) config('app.url'), '/') . '/admin/pages/' . $page->id . '/edit');
 });
 
 it('loads the page blueprint before resolving its admin resource', function (): void {
@@ -27,6 +27,6 @@ it('loads the page blueprint before resolving its admin resource', function (): 
         Model::preventLazyLoading(false);
     }
 
-    expect($url)->toBe('http://localhost/admin/pages/' . $page->id . '/edit')
+    expect($url)->toBe(rtrim((string) config('app.url'), '/') . '/admin/pages/' . $page->id . '/edit')
         ->and($page->relationLoaded('blueprint'))->toBeTrue();
 });

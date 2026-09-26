@@ -18,7 +18,7 @@ final class ExampleWidget implements FilamentWidget
     public static function make(): Block
     {
         return Block::make(self::getWidgetName())
-            ->label('{{ displayName }} example')
+            ->label({{ phpDisplayName }} . ' example')
             ->schema([
                 TextInput::make('heading')->required()->maxLength(120),
                 TextInput::make('body')->required()->maxLength(280),

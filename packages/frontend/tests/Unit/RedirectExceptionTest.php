@@ -11,15 +11,16 @@ it('creates a RedirectException with correct headers and errors', function (): v
     $exception = new RedirectException($response);
 
     $laravelResponse = $exception->toResponse(request());
+    $targetUrl = rtrim((string) config('app.url'), '/') . '/target';
 
-    expect($exception->redirectUrl)->toBe('http://localhost/target')
+    expect($exception->redirectUrl)->toBe($targetUrl)
         ->and($exception->error)->toBe('Something went wrong')
         ->and($exception->errors)->toBeInstanceOf(ViewErrorBag::class);
 
     // The response should be a RedirectResponse
     expect($laravelResponse)->toBeInstanceOf(RedirectResponse::class);
     assert($laravelResponse instanceof RedirectResponse);
-    expect($laravelResponse->getTargetUrl())->toBe('http://localhost/target');
+    expect($laravelResponse->getTargetUrl())->toBe($targetUrl);
 
     // Check session data directly on the response
     $session = expectPresent($laravelResponse->getSession());
@@ -29,5 +30,5 @@ it('creates a RedirectException with correct headers and errors', function (): v
     expect($errors->first('foo'))->toBe('bar');
 
     // The response should have the correct Location header
-    expect($laravelResponse->headers->get('Location'))->toBe('http://localhost/target');
+    expect($laravelResponse->headers->get('Location'))->toBe($targetUrl);
 });

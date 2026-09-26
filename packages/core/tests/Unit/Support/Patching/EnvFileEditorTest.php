@@ -37,6 +37,23 @@ it('reads writes and backs up env files', function (): void {
     }
 });
 
+it('preserves replacement-like characters when updating an existing value', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'capell_env_literal_value_');
+    file_put_contents($path, "APP_KEY=old\n");
+
+    try {
+        new EnvFileEditor($path)
+            ->set('APP_KEY', 'abc$1\\path')
+            ->save();
+
+        expect(file_get_contents($path))->toBe("APP_KEY=abc$1\\path\n");
+    } finally {
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
+});
+
 it('uses a distinct directory for backups created in the same second', function (): void {
     Date::setTestNow('2026-06-12 10:11:12');
     $path = tempnam(sys_get_temp_dir(), 'capell_env_concurrent_backup_');

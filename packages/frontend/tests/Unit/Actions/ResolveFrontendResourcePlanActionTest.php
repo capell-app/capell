@@ -252,15 +252,16 @@ it('expands production vite entries with imported css and module preloads', func
         $plan = ResolveFrontendResourcePlanAction::run([
             new FrontendResourceContributionData($resource),
         ]);
+        $appUrl = rtrim((string) config('app.url'), '/');
 
         expect(array_map(static fn (ResolvedFrontendResourceData $resolved): string => (string) $resolved->url, $plan->headResources))
             ->toBe([
-                'http://localhost/' . $buildDirectory . '/assets/app-123.css',
-                'http://localhost/' . $buildDirectory . '/assets/vendor-456.css',
-                'http://localhost/' . $buildDirectory . '/assets/app-123.js',
+                $appUrl . '/' . $buildDirectory . '/assets/app-123.css',
+                $appUrl . '/' . $buildDirectory . '/assets/vendor-456.css',
+                $appUrl . '/' . $buildDirectory . '/assets/app-123.js',
             ])
             ->and($plan->hints)->toHaveCount(1)
-            ->and($plan->hints[0]->href)->toBe('http://localhost/' . $buildDirectory . '/assets/vendor-456.js')
+            ->and($plan->hints[0]->href)->toBe($appUrl . '/' . $buildDirectory . '/assets/vendor-456.js')
             ->and($plan->hints[0]->kind)->toBe(FrontendResourceHintKind::ModulePreload);
     } finally {
         File::deleteDirectory(public_path($buildDirectory));
