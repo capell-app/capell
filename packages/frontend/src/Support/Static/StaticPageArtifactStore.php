@@ -65,10 +65,9 @@ final class StaticPageArtifactStore
 
     private function writeAtomically(string $path, string $contents): void
     {
-        $temporaryPath = tempnam(dirname($path), '.static-');
+        // Keep temporary writes beside the destination so the rename stays on the same filesystem.
+        $temporaryPath = dirname($path) . '/.static-' . bin2hex(random_bytes(16));
         $message = __('capell-frontend::messages.static_artifact_write_failed', ['path' => $path]);
-
-        throw_if($temporaryPath === false, RuntimeException::class, $message);
 
         try {
             throw_if(File::put($temporaryPath, $contents) !== strlen($contents), RuntimeException::class, $message);

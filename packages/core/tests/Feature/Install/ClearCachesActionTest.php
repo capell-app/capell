@@ -206,6 +206,27 @@ it('runs optimize:clear outside testbench and reports success', function (): voi
         ->toContain('✓ All caches cleared');
 });
 
+it('does not report all caches cleared after optimize clear fails', function (): void {
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $this->app->useBootstrapPath(__DIR__);
+    $reporter = new RecordingClearCachesProgressReporter;
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->twice()->andReturn([]);
+    $kernel->shouldReceive('call')->with('optimize:clear')->once()->andReturn(12);
+    $kernel->shouldReceive('output')->andReturn('');
+    $this->app->instance(ConsoleKernel::class, $kernel);
+
+    try {
+        ClearCachesAction::run(['all'], $reporter);
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+    }
+
+    expect($reporter->reports)
+        ->toContain('Unable to clear optimize:clear; command exited with status 12')
+        ->not->toContain('✓ All caches cleared');
+});
+
 it('reports optimize:clear exceptions outside testbench', function (): void {
     $originalBootstrapPath = $this->app->bootstrapPath();
     $this->app->useBootstrapPath(__DIR__);
@@ -224,7 +245,7 @@ it('reports optimize:clear exceptions outside testbench', function (): void {
     }
 
     expect($reporter->reports)
-        ->toContain('Skipped optimize:clear; manifest cache is locked');
+        ->toContain('Unable to clear optimize:clear; manifest cache is locked');
 });
 
 it('reports cache commands that return a failing exit code', function (): void {

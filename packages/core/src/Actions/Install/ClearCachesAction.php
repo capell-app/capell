@@ -83,12 +83,11 @@ class ClearCachesAction
             if ($this->shouldSkipOptimizeClearForTestbench()) {
                 $reporter->report('Skipped optimize:clear; Testbench package manifests are shared across parallel tests');
             } else {
-                try {
-                    Artisan::call('optimize:clear');
-                    $reporter->report('✓ All caches cleared');
-                } catch (Throwable $exception) {
-                    $reporter->report(sprintf('Skipped optimize:clear; %s', $exception->getMessage()));
-                }
+                $this->callCacheCommand([
+                    'command' => 'optimize:clear',
+                    'message' => '✓ All caches cleared',
+                    'optional' => false,
+                ], $reporter);
             }
 
             $this->clearOptionalCache('page', $reporter);

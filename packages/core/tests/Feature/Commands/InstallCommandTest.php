@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Traits\HasRoles;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process as SymfonyProcess;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
@@ -543,6 +544,47 @@ it('renders install failures once and exits cleanly', function (): void {
         ->assertExitCode(Command::FAILURE);
 
     expect($fake->callCount)->toBe(1);
+});
+
+it('stops installation before cache clearing and handoff when filament upgrade fails', function (): void {
+    setupInstallTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+    ClearCachesAction::shouldRun()->never();
+    $upgradeCalls = 0;
+    Artisan::registerCommand(Artisan::command('filament:upgrade', function () use (&$upgradeCalls): int {
+        $upgradeCalls++;
+        $this->error('Filament assets could not be published.');
+
+        return 23;
+    }));
+    $handoffPath = storage_path('framework/testing/failed-filament-handoff.json');
+    $output = new BufferedOutput;
+
+    try {
+        $exitCode = Artisan::call('capell:install', [
+            '--packages' => 'test',
+            '--url' => 'https://example.test',
+            '--user' => 'test@example.com',
+            '--clear-cache' => true,
+            '--theme' => 'foundation',
+            '--no-interaction' => true,
+            '--handoff-json' => $handoffPath,
+        ], $output);
+
+        $renderedOutput = $output->fetch();
+        expect($upgradeCalls)->toBe(1)
+            ->and($exitCode)->toBe(Command::FAILURE)
+            ->and($renderedOutput)->toContain('Capell installation failed.')
+            ->toContain("Artisan command 'filament:upgrade' failed with exit code 23.")
+            ->toContain('Filament assets could not be published.')
+            ->and($fake->callCount)->toBe(1)
+            ->and(file_exists($handoffPath))->toBeFalse();
+    } finally {
+        if (is_file($handoffPath)) {
+            unlink($handoffPath);
+        }
+    }
 });
 
 it('returns FAILURE when the specified user email does not exist', function (): void {
