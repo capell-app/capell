@@ -9,6 +9,7 @@ use Capell\Core\Data\Reporting\SignalData;
 use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\Severity;
+use Capell\Core\Models\ReportingIncident;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Container\Container;
@@ -23,6 +24,11 @@ use Monolog\Handler\TestHandler;
 use Monolog\Logger;
 use Monolog\LogRecord;
 use Psr\Log\LoggerInterface;
+
+final readonly class ReportingLoggerDependency
+{
+    public function __construct(public LogManager $logs) {}
+}
 
 beforeEach(function (): void {
     $this->reportingRecords = new TestHandler;
@@ -257,6 +263,86 @@ it('rebuilds warmed logger callbacks without leaking through the original manage
         ->and($application->make('reporting.warmed-callback'))->toBe($warmed)
         ->and($application->make(LogManager::class))->toBe($logs);
 })->with(['factory', 'tap'])->with(['singleton', 'alias', 'instance'])->with(['log', 'operator', 'operator fallback']);
+
+it('isolates warmed dependencies beneath logger factories and taps', function (string $callback, string $binding, string $route, bool $broken): void {
+    $application = $this->app;
+    $logs = $this->reportingLogs;
+    $logs->extend('broken', fn (): never => throw new RuntimeException('password=NESTED_LOGGER_SECRET'));
+
+    config()->set('logging.channels.broken', ['driver' => 'broken']);
+
+    $application->singleton('reporting.warmed-dependency', static fn (Application $app): ReportingLoggerDependency => new ReportingLoggerDependency($app->make(LogManager::class)));
+    $dependency = $application->make('reporting.warmed-dependency');
+    if ($binding === 'instance') {
+        unset($application['reporting.warmed-dependency']);
+        $application->instance('reporting.warmed-dependency', $dependency);
+    }
+
+    $application->alias('reporting.warmed-dependency', 'reporting.dependency-alias');
+    $name = $binding === 'alias' ? 'reporting.dependency-alias' : 'reporting.warmed-dependency';
+    $channel = $broken ? 'broken' : 'reporting-test';
+    $application->singleton('reporting.nested-callback', static fn (Application $app): object => new readonly class($app->make($name), $channel)
+    {
+        public function __construct(private ReportingLoggerDependency $dependency, private string $channel) {}
+
+        public function __invoke(): LoggerInterface
+        {
+            return $this->dependency->logs->channel($this->channel);
+        }
+    });
+    $warmed = $application->make('reporting.nested-callback');
+    config()->set('logging.channels.selected', $callback === 'factory'
+        ? ['driver' => 'custom', 'via' => 'reporting.nested-callback']
+        : ['driver' => 'reporting-test', 'tap' => ['reporting.nested-callback:argument']]);
+    config()->set('capell-reporting.log_channel', 'selected');
+    if ($route !== 'log') {
+        config()->set('capell-reporting.defaults.transport', 'operator');
+        config()->set('capell-reporting.defaults.channels', $route === 'operator' ? ['log', 'health'] : ['email']);
+        config()->set('capell-reporting.defaults.owner', 'primary');
+    }
+
+    $signal = failureSafetySignal();
+    $result = resolve(DispatchSignalAction::class)->handle($signal);
+    $unavailable = $broken || $binding === 'instance';
+    expect($this->emergencyRecords->getRecords())->toBe([])
+        ->and($result->status)->toBe($unavailable || $route === 'operator fallback' ? DispatchStatus::Fallback : DispatchStatus::Reported)
+        ->and($this->reportingRecords->getRecords())->toHaveCount(1)
+        ->and($this->reportingRecords->getRecords()[0]->message)->not->toContain('NESTED_LOGGER_SECRET')
+        ->and($application->make('reporting.nested-callback'))->toBe($warmed)
+        ->and($application->make('reporting.warmed-dependency'))->toBe($dependency)
+        ->and($dependency->logs)->toBe($logs);
+
+    if ($route !== 'log') {
+        $deliveries = ReportingIncident::query()->findOrFail($signal->fingerprint())->deliveries;
+        expect($deliveries)->toMatchArray($route === 'operator fallback'
+            ? ['email' => 'disabled', 'fallback_log' => 'delivered']
+            : ['log' => $unavailable ? 'unavailable' : 'delivered', 'health' => 'delivered']);
+        if ($unavailable) {
+            expect($deliveries['fallback_log'])->toBe('delivered');
+        }
+    }
+})->with(['factory', 'tap'])->with(['singleton', 'alias', 'instance'])->with(['log', 'operator', 'operator fallback'])->with([false, true]);
+
+it('contains malformed tap configuration within the affected channel', function (bool $selected, string $route): void {
+    config()->set('logging.channels.selected', ['driver' => 'reporting-test']);
+    config()->set('logging.channels.' . ($selected ? 'selected' : 'unrelated') . '.tap', 'invalid');
+    config()->set('capell-reporting.log_channel', 'selected');
+    if ($route !== 'log') {
+        config()->set('capell-reporting.defaults.transport', 'operator');
+        config()->set('capell-reporting.defaults.channels', $route === 'operator' ? ['log', 'health'] : ['email']);
+        config()->set('capell-reporting.defaults.owner', 'primary');
+    }
+
+    $signal = failureSafetySignal();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe($selected || $route === 'operator fallback' ? DispatchStatus::Fallback : DispatchStatus::Reported)
+        ->and($this->emergencyRecords->getRecords())->toBe([])
+        ->and($this->reportingRecords->getRecords())->toHaveCount(1);
+    if ($route !== 'log') {
+        expect(ReportingIncident::query()->findOrFail($signal->fingerprint())->deliveries)->toMatchArray($route === 'operator fallback'
+            ? ['email' => 'disabled', 'fallback_log' => 'delivered']
+            : ['log' => $selected ? 'unavailable' : 'delivered', 'health' => 'delivered']);
+    }
+})->with([false, true])->with(['log', 'operator', 'operator fallback']);
 
 it('isolates container logger resolution while a custom driver is suspended', function (): void {
     $originalApplication = $this->app;

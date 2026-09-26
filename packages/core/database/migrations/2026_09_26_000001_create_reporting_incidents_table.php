@@ -20,7 +20,8 @@ return new class extends Migration
             $table->json('deliveries');
             $table->boolean('delivery_failed')->default(false);
             $table->timestamp('checked_at')->nullable()->index();
-            $table->timestamp('opened_at');
+            // Older MariaDB assigns an invalid zero default to later required TIMESTAMP columns.
+            $table->dateTime('opened_at');
             $table->timestamp('last_attempt_at')->nullable();
             $table->timestamp('acknowledged_at')->nullable();
             $table->timestamp('escalated_at')->nullable();

@@ -156,10 +156,13 @@ logger from writing their raw exceptions. Custom driver callbacks resolve nested
 channels through the same protected manager, including through the container
 passed to drivers, factories and taps. These bindings belong to a private clone;
 the host container and its ordinary logger remain unchanged during delivery.
-Previously resolved factories and taps, including aliases and stack members,
-are rebuilt inside that clone so they receive its protected manager. Register
-callbacks with reconstructable container bindings; an instance-only callback
-that cannot be rebuilt is treated as unavailable and follows safe fallback.
+Previously resolved factories, taps and their dependencies, including aliases and
+stack members, are rebuilt inside that clone so they receive its protected
+manager. Register callbacks and their dependencies with reconstructable container
+bindings; an instance-only dependency that cannot be rebuilt is treated as
+unavailable and follows safe fallback. Channel configuration is resolved only
+when used: malformed taps disable that channel while a healthy fallback remains
+available, and unrelated channels cannot prevent delivery.
 The private container is guarded during both channel construction and delivery,
 so a driver or handler cannot use it to start another dispatch recursively.
 

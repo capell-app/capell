@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Reporting;
 use Capell\Core\Data\Reporting\SignalData;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Log\LogManager;
 use Override;
 use Psr\Log\LoggerInterface;
@@ -20,33 +21,27 @@ final class ReportingLogManager extends LogManager
         throw_unless($application instanceof Container, RuntimeException::class, 'Reporting requires an isolatable application container.');
         parent::__construct($application);
 
+        $configuration = $application->make(Repository::class);
+        $events = $application->make(Dispatcher::class);
+        $environment = $application->bound('env') ? $application->make('env') : null;
+
+        // Rebuild the entire callback dependency graph: a warmed dependency can
+        // retain the host logger even when its factory or tap is reconstructed.
+        // Instance-only dependencies cannot be rebuilt and safely fail delivery.
+        $application->forgetInstances();
+
         // Custom drivers and factories receive this isolated container. Replacing
         // its roots without rebinding callbacks leaves ordinary logging untouched.
-        unset($application['app'], $application['log']);
+        unset($application['app'], $application['log'], $application['config'], $application['events'], $application['env']);
         $application->instance('app', $application);
         $application->alias('app', Container::class);
         $application->instance('log', $this);
         $application->alias('log', LogManager::class);
         $application->alias('log', LoggerInterface::class);
-
-        // A warmed factory or tap may retain the host manager even after rebinding
-        // the container. Rebuild callbacks inside the clone, including stack members.
-        foreach ($application->make(Repository::class)->get('logging.channels', []) as $configuration) {
-            if (! is_array($configuration)) {
-                continue;
-            }
-
-            $factory = $configuration['via'] ?? null;
-            if (is_string($factory)) {
-                $application->forgetInstance($application->getAlias($factory));
-            }
-
-            foreach ($configuration['tap'] ?? [] as $tap) {
-                if (is_string($tap)) {
-                    [$callback] = $this->parseTap($tap);
-                    $application->forgetInstance($application->getAlias($callback));
-                }
-            }
+        $application->instance('config', $configuration);
+        $application->instance('events', $events);
+        if (is_string($environment)) {
+            $application->instance('env', $environment);
         }
 
         // A cached stack can already contain an emergency logger from a failed member.
