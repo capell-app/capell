@@ -1,6 +1,7 @@
 @php
     use Capell\Core\Models\Language;
     use Capell\Core\Support\Locale\HtmlLanguageAttribute;
+    use Capell\Frontend\Data\Assets\RenderedFrontendResourcesData;
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Support\Render\RenderHookRegistry;

@@ -1,4 +1,6 @@
 @php
+    use Capell\Core\Models\UpgradeRun;
+
     $latestAdvisorySnapshot = $this->latestAdvisorySnapshot();
     $securityAdvisories = $this->securityAdvisories();
     $bugAdvisories = $this->bugAdvisories();

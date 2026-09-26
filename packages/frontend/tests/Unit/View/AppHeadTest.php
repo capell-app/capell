@@ -25,6 +25,7 @@ use Capell\Frontend\Facades\Frontend;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Compilers\BladeCompiler;
 use Illuminate\View\Engines\CompilerEngine;
 use Livewire\Blaze\BladeService;
@@ -198,6 +199,34 @@ it('delegates public resource rendering through the resource plan renderer contr
     expect($html)
         ->toContain('<meta name="asset-renderer-contract" content="used">')
         ->not->toContain('vendor/capell/themes/saas.css');
+});
+
+it('renders body-end resources supplied by the public resource renderer', function (): void {
+    $renderedResources = new RenderedFrontendResourcesData(
+        headHtml: '',
+        bodyEndHtml: '<script src="/assets/gallery.js"></script>',
+        lazyRuntimePayload: [['id' => 'gallery']],
+    );
+    bindAppHeadTestContext(['renderedFrontendResources' => $renderedResources]);
+
+    $params = Frontend::params();
+    $html = View::file(
+        dirname(__DIR__, 3) . '/resources/views/app.blade.php',
+        [
+            'language' => Frontend::language(),
+            'layout' => Frontend::layout(),
+            'pageRecord' => Frontend::page(),
+            'theme' => Frontend::theme(),
+            'resourcePlan' => $params['resourcePlan'],
+            'runtimeManifest' => $params['runtimeManifest'],
+            'slot' => new HtmlString('<main>Rendered page</main>'),
+        ],
+    )->render();
+
+    expect($html)
+        ->toContain('<script src="/assets/gallery.js"></script>')
+        ->toContain('data-capell-widget-assets')
+        ->toContain('{"id":"gallery"}');
 });
 
 it('renders responsive lcp preload attributes', function (): void {
