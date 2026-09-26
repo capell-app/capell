@@ -176,7 +176,7 @@ final class ExtensionListingData extends Data
                 ->toString();
 
             if ($themeSlug === 'foundation') {
-                return 'capell-app/foundation-theme';
+                return 'capell-app/theme-foundation';
             }
 
             if ($themeSlug !== '') {
@@ -199,7 +199,7 @@ final class ExtensionListingData extends Data
             }
         }
 
-        if ($normalizedComposerName === 'capell-app/foundation-theme') {
+        if ($normalizedComposerName === 'capell-app/theme-foundation') {
             $candidates[] = 'capell-theme/foundation';
         } elseif (str_starts_with($normalizedComposerName, 'capell-app/theme-')) {
             $themeSlug = str($normalizedComposerName)
@@ -338,6 +338,7 @@ final class ExtensionListingData extends Data
             'capell-app/authentication-log' => 'capell-app/login-audit',
             'capell-app/campaigns' => 'capell-app/campaign-studio',
             'capell-app/forms' => 'capell-app/form-builder',
+            'capell-app/foundation-theme' => 'capell-app/theme-foundation',
             'capell-app/media-assistant' => 'capell-app/media-ai',
             'capell-app/migrator' => 'capell-app/migration-assistant',
             'capell-app/mosaic' => 'capell-app/layout-builder',

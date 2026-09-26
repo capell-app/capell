@@ -34,9 +34,9 @@ it('returns static offline theme choices', function (): void {
 });
 
 it('ignores installed foundation theme packages because default is built in', function (): void {
-    CapellCore::registerPackage('capell-app/foundation-theme', type: PackageTypeEnum::Theme);
-    CapellCore::getPackage('capell-app/foundation-theme')->themeKey = 'default';
-    CapellCore::forcePackageInstalled('capell-app/foundation-theme');
+    CapellCore::registerPackage('capell-app/theme-foundation', type: PackageTypeEnum::Theme);
+    CapellCore::getPackage('capell-app/theme-foundation')->themeKey = 'default';
+    CapellCore::forcePackageInstalled('capell-app/theme-foundation');
 
     CapellCore::registerPackage('capell-app/theme-corporate', type: PackageTypeEnum::Theme);
     CapellCore::getPackage('capell-app/theme-corporate')->themeKey = 'corporate';
@@ -59,9 +59,9 @@ it('includes downloadable theme packages from the install catalogue', function (
         'capell.marketplace_web_url' => 'https://capell-test.app',
     ]);
 
-    CapellCore::registerPackage('capell-app/foundation-theme', type: PackageTypeEnum::Theme);
-    CapellCore::getPackage('capell-app/foundation-theme')->themeKey = 'default';
-    CapellCore::forcePackageInstalled('capell-app/foundation-theme');
+    CapellCore::registerPackage('capell-app/theme-foundation', type: PackageTypeEnum::Theme);
+    CapellCore::getPackage('capell-app/theme-foundation')->themeKey = 'default';
+    CapellCore::forcePackageInstalled('capell-app/theme-foundation');
 
     bindThemePackageCandidatesRemotePackages(Collection::make([
         [

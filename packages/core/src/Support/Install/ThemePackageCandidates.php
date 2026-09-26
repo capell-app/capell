@@ -24,7 +24,7 @@ final class ThemePackageCandidates
 
     public const string LEGACY_FOUNDATION_KEY = 'foundation';
 
-    private const string FOUNDATION_PACKAGE = 'capell-app/foundation-theme';
+    private const string FOUNDATION_PACKAGE = 'capell-app/theme-foundation';
 
     /** @var array<string, array{name: string, description: string, package: string|null, preview: string|null}> */
     private const array STATIC_OPTIONS = [
