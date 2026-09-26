@@ -64,6 +64,9 @@ conversions are staged in a private workspace before the original files change,
 and a failed write or metadata save restores the previous file set. If storage
 also prevents recovery, the failure report identifies the private backups and
 recovery manifest for an operator to restore before retrying.
+If database rollback fails, file recovery still runs and the private backups are
+retained so an operator can check the database outcome before retrying. The
+original replacement failure and the rollback failure are both reported.
 
 A cleanup warning after a successful replacement means the replacement is already
 live. Do not replace it again: an administrator should remove the retained private

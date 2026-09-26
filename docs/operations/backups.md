@@ -107,8 +107,10 @@ never included in command arguments or output.
 Single-disk snapshots retain the existing `prefix/source-path` restore layout.
 Multi-disk snapshots restore to `prefix/source-disk/source-path`, with each disk
 name URL-encoded as one directory segment. Destination collisions (including
-case-only and file/directory conflicts) and unsafe paths are rejected before
-database or media mutation. Completed transfer temporary files are released as
+case-only, equivalent Unicode spellings, and file/directory conflicts) and unsafe
+paths are rejected before database or media mutation. A scratch prefix beneath
+an existing file is also rejected before the database restore starts.
+Completed transfer temporary files are released as
 soon as their write and checksum work finishes, so media scratch usage is bounded
 by the active artifact rather than the entire collection.
 

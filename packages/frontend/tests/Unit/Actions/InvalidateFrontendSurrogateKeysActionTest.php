@@ -6,7 +6,11 @@ use Capell\Frontend\Actions\InvalidateFrontendSurrogateKeysAction;
 use Capell\Frontend\Jobs\FlushCdnPurgeBatchJob;
 use Capell\Frontend\Support\Cache\CdnPurgeBuffer;
 use Capell\Frontend\Support\Cache\FragmentCache;
+use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Bus\UniqueLock;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
 
 it('invalidates local fragments and queues configured CDN purges', function (): void {
     config([
@@ -69,4 +73,33 @@ it('limits CDN purge snapshots and retains the remainder', function (): void {
 
     expect($batch)->toHaveCount(CdnPurgeBuffer::BATCH_SIZE)
         ->and($buffer->snapshot())->toHaveCount(5);
+});
+
+it('purges numeric surrogate keys as strings and retains concurrent invalidations', function (): void {
+    config([
+        'capell-frontend.cdn_provider' => 'fastly',
+        'capell-frontend.fastly_api_key' => 'test-key',
+        'capell-frontend.fastly_service_id' => 'test-service',
+    ]);
+    Bus::fake([FlushCdnPurgeBatchJob::class]);
+    $buffer = resolve(CdnPurgeBuffer::class);
+    Http::fake(function () use ($buffer): PromiseInterface {
+        $buffer->record(['42']);
+
+        return Http::response('', 200);
+    });
+    resolve(FragmentCache::class)->remember('numeric', static fn (): string => 'old', surrogateKeys: ['42']);
+
+    InvalidateFrontendSurrogateKeysAction::run(['42', '0', 'page-1']);
+    $job = Bus::dispatched(FlushCdnPurgeBatchJob::class)->sole();
+    throw_unless($job instanceof FlushCdnPurgeBatchJob, LogicException::class, 'The purge batch was not dispatched.');
+    // A real queue worker releases this lock before running the batch.
+    resolve(UniqueLock::class)->release($job);
+    $job->handle($buffer);
+
+    Http::assertSentCount(1);
+    Http::assertSent(fn (Request $request): bool => $request['surrogate_keys'] === ['42', '0', 'page-1']);
+    expect(resolve(FragmentCache::class)->remember('numeric', static fn (): string => 'new'))->toBe('new')
+        ->and($buffer->snapshot())->toBe(['42' => 1]);
+    Bus::assertDispatched(FlushCdnPurgeBatchJob::class, 2);
 });
