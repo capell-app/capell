@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Capell\Core\Console\Commands;
 
 use Capell\Core\Actions\GetComponentViewPathAction;
-use Capell\Core\Exceptions\ComponentNotFoundException;
 use Capell\Core\Facades\CapellCore;
 use Exception;
 use Illuminate\Console\Command;
+use Throwable;
 
 class PublishComponentsCommand extends Command
 {
@@ -19,6 +19,7 @@ class PublishComponentsCommand extends Command
     public function handle(): int
     {
         $this->comment('Publishing component files...');
+        $totals = ['published' => 0, 'skipped' => 0, 'failed' => 0];
 
         foreach (CapellCore::getCoreComponents() as $groupType => $components) {
             if (! is_string($groupType)) {
@@ -29,10 +30,20 @@ class PublishComponentsCommand extends Command
                 continue;
             }
 
-            $this->publishComponents($groupType, $this->stringComponents($components));
+            foreach ($this->publishComponents($groupType, $this->stringComponents($components)) as $outcome => $count) {
+                $totals[$outcome] += $count;
+            }
         }
 
         $this->newLine();
+        $this->line(__('capell::message.component_publication_summary', $totals));
+
+        if ($totals['failed'] > 0) {
+            $this->error(__('capell::message.component_publication_failed'));
+
+            return Command::FAILURE;
+        }
+
         $this->info('Finished publishing components.');
 
         return Command::SUCCESS;
@@ -40,33 +51,36 @@ class PublishComponentsCommand extends Command
 
     /**
      * @param  array<string, string>  $components
+     * @return array{published: int, skipped: int, failed: int}
      */
-    private function publishComponents(string $groupType, array $components): void
+    private function publishComponents(string $groupType, array $components): array
     {
+        $totals = ['published' => 0, 'skipped' => 0, 'failed' => 0];
         $this->newLine();
         $this->comment(sprintf('Publishing %s components...', $groupType));
 
         foreach ($components as $componentLabel => $component) {
             try {
-                $this->publishComponent($component);
+                $published = $this->publishComponent($component);
+                $totals[$published ? 'published' : 'skipped']++;
 
                 $this->line($component);
-            } catch (ComponentNotFoundException) {
-                continue;
-            } catch (Exception $exception) {
+            } catch (Throwable $exception) {
+                $totals['failed']++;
                 $this->error(sprintf('%s: %s', $componentLabel, $exception->getMessage()));
             }
         }
+
+        return $totals;
     }
 
-    /*
-     * @throws ComponentNotFoundException
-     */
-    private function publishComponent(string $component): void
+    private function publishComponent(string $component): bool
     {
         $viewFile = GetComponentViewPathAction::run($component);
 
-        throw_if(str_starts_with($viewFile, resource_path()), Exception::class, $component . ' is already published.');
+        if (str_starts_with($viewFile, resource_path() . DIRECTORY_SEPARATOR)) {
+            return false;
+        }
 
         $destPath = $this->getDestinationFilePath($viewFile);
 
@@ -75,6 +89,8 @@ class PublishComponentsCommand extends Command
         throw_if($content === false, Exception::class, sprintf('Failed to read component file "%s".', $viewFile));
 
         $this->writeToFile($destPath, $content);
+
+        return true;
     }
 
     /**
@@ -109,7 +125,7 @@ class PublishComponentsCommand extends Command
         $destPath = resource_path(sprintf('views/vendor/%s/%s', $namespace, $filePath));
 
         if (! is_dir(dirname($destPath))) {
-            mkdir(dirname($destPath), 0755, true);
+            throw_unless(mkdir(dirname($destPath), 0755, true), Exception::class, __('capell::message.component_directory_failed', ['path' => dirname($destPath)]));
         }
 
         return $destPath;
@@ -128,6 +144,6 @@ class PublishComponentsCommand extends Command
 
     private function writeToFile(string $destPath, string $content): void
     {
-        throw_if(file_put_contents($destPath, $content) === false, Exception::class, sprintf('Failed to publish component to "%s". Check folder permissions or create it manually.', $destPath));
+        throw_if(file_put_contents($destPath, $content) !== strlen($content), Exception::class, sprintf('Failed to publish component to "%s". Check folder permissions or create it manually.', $destPath));
     }
 }

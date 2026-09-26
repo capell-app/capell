@@ -31,6 +31,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class GenerateStaticPageArtifactsAction
 {
@@ -50,8 +51,9 @@ class GenerateStaticPageArtifactsAction
     public function handle(?int $siteId = null, array $urls = []): array
     {
         $artifacts = [];
+        $failures = [];
 
-        $this->pageUrls($siteId, $urls, function (PageUrl $pageUrl) use (&$artifacts): void {
+        $this->pageUrls($siteId, $urls, function (PageUrl $pageUrl) use (&$artifacts, &$failures): void {
             $siteDomain = $this->siteDomainFor($pageUrl);
 
             if (! $siteDomain instanceof SiteDomain) {
@@ -59,7 +61,24 @@ class GenerateStaticPageArtifactsAction
             }
 
             $this->clearRenderData();
-            $response = $this->render($pageUrl, $siteDomain);
+
+            try {
+                $response = $this->render($pageUrl, $siteDomain);
+            } catch (Throwable $throwable) {
+                $failures[] = $pageUrl->url . ': ' . $throwable->getMessage();
+
+                return;
+            }
+
+            if (! $response->isSuccessful()) {
+                $failures[] = __('capell-frontend::messages.static_page_response_failed', [
+                    'url' => $pageUrl->url,
+                    'status' => $response->getStatusCode(),
+                ]);
+
+                return;
+            }
+
             $renderData = resolve(FrontendContextReader::class)->renderPayload()->publicPageRenderData;
 
             if (! $this->isWritableHtmlResponse($response)) {
@@ -86,6 +105,12 @@ class GenerateStaticPageArtifactsAction
 
             $artifacts[] = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, $response, $file)->toArray();
         });
+
+        // A completed manifest is the receipt for the whole requested export.
+        // Keep the last receipt when any required page could not be rendered.
+        throw_if($failures !== [], RuntimeException::class, __('capell-frontend::messages.static_generation_incomplete', [
+            'failures' => implode("\n", $failures),
+        ]));
 
         $manifest = [
             'generated_at' => Date::now()->toIso8601String(),
@@ -172,10 +197,6 @@ class GenerateStaticPageArtifactsAction
 
     private function isWritableHtmlResponse(Response $response): bool
     {
-        if ($response->getStatusCode() < Response::HTTP_OK || $response->getStatusCode() >= Response::HTTP_MULTIPLE_CHOICES) {
-            return false;
-        }
-
         $contentType = (string) $response->headers->get('content-type', 'text/html');
 
         if (! str_contains($contentType, 'text/html')) {

@@ -29,7 +29,9 @@ use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response as IlluminateResponse;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -39,6 +41,78 @@ afterEach(function (): void {
     File::deleteDirectory(resolve(StaticPageArtifactStore::class)->root());
     app()->forgetInstance(SiteAccessPolicyRegistry::class);
 });
+
+it('fails incomplete static exports without replacing the previous manifest', function (bool $includeSuccessfulPage): void {
+    [, $site] = staticPageArtifactsRenderData('/failed-static-test');
+    $urls = ['/failed-static-test'];
+
+    if ($includeSuccessfulPage) {
+        staticPageArtifactsRenderData('/successful-static-test', 'successful.example.test');
+        $urls[] = '/successful-static-test';
+    }
+
+    $store = resolve(StaticPageArtifactStore::class);
+    $previousManifest = ['generated_at' => 'previous-generation', 'artifacts' => [['file' => 'previous/index.html']]];
+    $store->putHtml('previous/index.html', '<html>Previous valid export</html>');
+    $store->writeManifest($previousManifest);
+
+    $previousBytes = File::get($store->manifestPath());
+
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('handle')->andReturnUsing(fn (Request $request): Response => new Response(
+        '<html>Rendered page</html>',
+        $request->getPathInfo() === '/failed-static-test' ? 500 : 200,
+    ));
+    $kernel->shouldReceive('terminate');
+    app()->instance(Kernel::class, $kernel);
+
+    expect(Artisan::call('capell:generate-html', ['--url' => $urls]))->toBe(1)
+        ->and(Artisan::output())->toContain('/failed-static-test', 'HTTP 500')
+        ->not->toContain('Generated ');
+
+    expect(File::get($store->manifestPath()))->toBe($previousBytes)
+        ->and($store->readManifest())->toBe($previousManifest)
+        ->and(File::get($store->root() . '/previous/index.html'))->toBe('<html>Previous valid export</html>');
+})->with([false, true]);
+
+it('reports each required URL whose static response failed', function (int $status): void {
+    staticPageArtifactsRenderData('/first-failed-static-test');
+    staticPageArtifactsRenderData('/second-failed-static-test', 'second.example.test');
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('handle')->twice()->andReturn(new Response('', $status));
+    $kernel->shouldReceive('terminate')->twice();
+    app()->instance(Kernel::class, $kernel);
+
+    try {
+        GenerateStaticPageArtifactsAction::run(urls: ['/first-failed-static-test', '/second-failed-static-test']);
+        test()->fail('An incomplete export must fail its caller.');
+    } catch (RuntimeException $runtimeException) {
+        expect($runtimeException->getMessage())->toContain('/first-failed-static-test', '/second-failed-static-test', 'HTTP ' . $status);
+    }
+
+    expect(File::exists(resolve(StaticPageArtifactStore::class)->manifestPath()))->toBeFalse();
+})->with([302, 404, 500]);
+
+it('retains the previous manifest when its atomic publication fails', function (): void {
+    $store = resolve(StaticPageArtifactStore::class);
+    $store->writeManifest(['artifacts' => [['file' => 'previous/index.html']]]);
+
+    $previousBytes = File::get($store->manifestPath());
+    File::partialMock()->shouldReceive('move')->once()->andReturn(false);
+
+    expect(fn () => $store->writeManifest(['artifacts' => []]))->toThrow(RuntimeException::class, 'manifest.json');
+    expect(File::get($store->manifestPath()))->toBe($previousBytes);
+});
+
+it('rejects failed and partial artifact writes', function (int|false $bytesWritten): void {
+    $store = resolve(StaticPageArtifactStore::class);
+    File::partialMock()->shouldReceive('put')->once()->andReturn($bytesWritten);
+
+    expect(fn () => $store->putHtml('failed/index.html', '<html>Required content</html>'))
+        ->toThrow(RuntimeException::class, 'failed/index.html');
+
+    expect(File::exists($store->root() . '/failed/index.html'))->toBeFalse();
+})->with([false, 3]);
 
 it('prohibits static generation when a site access provider protects the host', function (): void {
     [, $site] = staticPageArtifactsRenderData('/protected-static-test');

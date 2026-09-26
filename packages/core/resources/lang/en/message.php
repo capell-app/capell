@@ -3,6 +3,16 @@
 declare(strict_types=1);
 
 return [
+    'component_directory_failed' => 'Could not create component directory [:path]. Check directory permissions and retry.',
+    'component_publication_summary' => 'Components: :published published, :skipped skipped, :failed failed.',
+    'component_publication_failed' => 'Component publication failed. Resolve the errors above and rerun this command.',
+    'required_command_failed' => 'Required command [:command] failed with exit code :exit_code. Resolve its error and rerun this command.',
+    'invalid_visit_destination' => 'invalid destination',
+    'url_visit_failed' => 'URL visit failed for [:url]: :reason',
+    'visit_requires_http' => 'Use an HTTP or HTTPS URL.',
+    'visit_requires_registered_host' => 'Register and enable the destination site domain before retrying.',
+    'visit_requires_public_address' => 'The destination must resolve to a public IP address. Check its DNS and network configuration.',
+    'visit_http_failed' => 'HTTP :status received; expected HTTP 200. Fix the page response before retrying.',
     'composer_package_recovery_failed' => 'Composer files were restored after package removal failed, but the installed package graph could not be recovered. Composer output was withheld because it may contain credentials. Installed dependencies may not match composer.lock. Run "composer install --no-interaction --no-scripts" from the application root in a trusted terminal.',
     'composer_package_removal_failed' => 'Composer could not complete the package removal. Composer output was withheld because it may contain credentials. Run the removal from the application root in a trusted terminal, resolve the reported Composer error, then retry.',
     'redirect_auto_conflict' => 'An automatic redirect already exists for this source URL.',
