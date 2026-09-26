@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Concerns\HasModelInterceptors;
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Tests\Integration\Fixtures\IntegrationTestInterceptor;
 use Capell\Core\Tests\Integration\Fixtures\IntegrationTestModel;
 use Capell\Tests\Fixtures\Models\InMemoryUserModel;
@@ -147,6 +148,37 @@ it('creates models through ordered interceptors and keeps the registry maintaina
         ReplacementCreateModelInterceptor::class,
     ]);
 });
+
+it('keeps global and specific interceptor registrations independent of registration order', function (bool $globalFirst): void {
+    $registry = new ModelInterceptorRegistry;
+    $specific = function () use ($registry): void {
+        $registry->registerModelInterceptor(
+            InMemoryUserModel::class,
+            FirstCreateModelInterceptor::class,
+            ['key' => 'page'],
+        );
+    };
+    $global = function () use ($registry): void {
+        $registry->registerModelInterceptor(
+            InMemoryUserModel::class,
+            FirstCreateModelInterceptor::class,
+        );
+    };
+
+    if ($globalFirst) {
+        $global();
+        $specific();
+    } else {
+        $specific();
+        $global();
+    }
+
+    expect($registry->getInterceptorsForModelAndKey(InMemoryUserModel::class, ['key' => 'article']))
+        ->toBe([FirstCreateModelInterceptor::class]);
+})->with([
+    'specific then global' => false,
+    'global then specific' => true,
+]);
 
 it('merges nested interceptor payloads and fails fast on invalid lifecycle contracts', function (): void {
     $trait = new class

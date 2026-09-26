@@ -29,13 +29,14 @@ class UrlParamsRepeater extends Repeater
             ->afterStateHydrated(function (Repeater $component, ?array $state): void {
                 $component->state(
                     collect($state)
-                        ->mapWithKeys(fn (array $item): array => [$item['key'] => $item['value']])
+                        ->map(fn (string $value, string $name): array => ['key' => $name, 'value' => $value])
+                        ->values()
                         ->all(),
                 );
             })
             ->mutateDehydratedStateUsing(
                 fn (array $state): array => collect($state)
-                    ->map(fn (string $value, string $name): array => ['key' => $name, 'value' => $value])
+                    ->mapWithKeys(fn (array $item): array => [$item['key'] => $item['value']])
                     ->all(),
             )
             ->schema([

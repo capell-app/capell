@@ -27,6 +27,8 @@ final readonly class PackageScaffoldInputData
             '{{ packageName }}' => $this->packageName,
             '{{ slug }}' => $this->slug,
             '{{ displayName }}' => $this->displayName,
+            '{{ jsonDisplayName }}' => $this->jsonStringValue($this->displayName),
+            '{{ phpDisplayName }}' => $this->phpStringValue($this->displayName),
             '{{ tier }}' => $this->tier,
             '{{ namespace }}' => $this->namespace,
             '{{ escapedNamespace }}' => str_replace('\\', '\\\\', $this->namespace),
@@ -39,5 +41,17 @@ final readonly class PackageScaffoldInputData
             '{{ settingsGroup }}' => str_replace('-', '_', $this->slug),
             '{{ widgetKey }}' => str_replace('/', '.', $this->packageName),
         ];
+    }
+
+    private function jsonStringValue(string $value): string
+    {
+        $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+        return substr($encoded, 1, -1);
+    }
+
+    private function phpStringValue(string $value): string
+    {
+        return var_export($value, true);
     }
 }

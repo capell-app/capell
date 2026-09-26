@@ -328,14 +328,39 @@
             errorsList.innerHTML = ''
         }
 
+        function errorMessage(error, useSummary) {
+            if (typeof error !== 'object' || error === null) {
+                return error || ''
+            }
+
+            return (useSummary && error.summary) || error.field || ''
+        }
+
+        function showGlobalErrors(messages) {
+            errorsList.innerHTML = ''
+            messages.forEach(function (message) {
+                var item = document.createElement('li')
+                item.textContent = message
+                errorsList.appendChild(item)
+            })
+            errorsBox.hidden = messages.length === 0
+        }
+
         function showFieldErrors(errors) {
             clearFieldErrors()
+            var firstInvalidStep = null
+            var unmatchedMessages = []
+
             Object.keys(errors).forEach(function (name) {
                 var fieldNode = findFieldNode(name)
                 var error = errors[name][0] || ''
-                var message = typeof error === 'object' ? error.field : error
+                var message = errorMessage(error, false)
                 if (fieldNode) {
                     fieldNode.classList.add('has-error')
+                    var fieldStep = fieldNode.closest('[data-installer-step]')
+                    if (!firstInvalidStep && fieldStep) {
+                        firstInvalidStep = fieldStep.dataset.installerStep
+                    }
                     var input = fieldNode.querySelector(
                         'input, select, textarea',
                     )
@@ -346,13 +371,21 @@
                     if (msgEl) {
                         msgEl.textContent = message
                     }
+                    return
                 }
+
+                unmatchedMessages.push(errorMessage(error, true))
             })
+
+            if (firstInvalidStep) {
+                setInstallerStep(firstInvalidStep, 'none')
+            }
+
+            showGlobalErrors(unmatchedMessages)
         }
 
         function showGlobalError(message) {
-            errorsList.innerHTML = '<li>' + message + '</li>'
-            errorsBox.hidden = false
+            showGlobalErrors([message])
         }
 
         stepTriggers.forEach(function (trigger) {

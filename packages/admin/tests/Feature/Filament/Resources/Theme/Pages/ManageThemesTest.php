@@ -899,7 +899,8 @@ it('theme editor preview view passes theme context to package extensions', funct
         ->and($html)->toContain('srcdoc')
         ->and($html)->toContain('data-preview-device="desktop"')
         ->and($html)->toContain('Context-aware package preview')
-        ->and($html)->toContain('data-package-preview=&amp;quot;package-preview&amp;quot;')
+        ->and($html)->toContain('data-package-preview=&quot;package-preview&quot;')
+        ->and($html)->not->toContain('data-package-preview=&amp;quot;package-preview&amp;quot;')
         ->and($html)->toContain('--package-preview-token:#123456;');
 });
 

@@ -251,6 +251,27 @@ it('returns exact elapsed seconds for SQLite timestamps', function (
     'one second' => ['2026-07-26 12:00:00', '2026-07-26 12:00:01', 1],
 ]);
 
+it('repeats bound SQLite date-expression bindings in placeholder order', function (
+    DatabaseDateOperation $operation,
+    string $expected,
+): void {
+    $connection = new SQLiteConnection(new PDO('sqlite::memory:'), ':memory:', '', ['driver' => 'sqlite']);
+    $fragment = (new SqliteDatabasePlatform)->queryDialect()->date(
+        $operation,
+        SqlFragment::value('2026-09-26 12:34:56'),
+    );
+
+    $label = $connection->query()
+        ->selectRaw($fragment->sql . ' AS date_label', $fragment->bindings)
+        ->value('date_label');
+
+    expect($fragment->bindings)->toHaveCount(2)
+        ->and($label)->toBe($expected);
+})->with([
+    'day and month' => [DatabaseDateOperation::DayMonthLabel, '26 Sep'],
+    'month and year' => [DatabaseDateOperation::MonthYearLabel, 'Sep 26'],
+]);
+
 it('treats equivalent integer and decimal JSON values as equal', function (): void {
     $connection = DB::connection();
     $family = CapellDatabase::for($connection)->family();

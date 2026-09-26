@@ -25,6 +25,7 @@ use Capell\Marketplace\Enums\MarketplaceExtensionCapability;
 use Capell\Marketplace\Enums\MarketplaceExtensionCategory;
 use Capell\Marketplace\Enums\MarketplaceSort;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Capell\Marketplace\Support\FoundationInstalledVersionResolver;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Composer\InstalledVersions;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -58,6 +59,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     public function __construct(
         private readonly MarketplaceCatalogueRecordPresenter $recordPresenter,
         private readonly MarketplaceInstanceResolver $instances,
+        private readonly FoundationInstalledVersionResolver $foundationVersion,
     ) {}
 
     /**
@@ -425,8 +427,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     public function detectedCompatibilityVersions(): array
     {
         return [
-            'capell' => CapellCore::getInstalledPrettyVersion('capell-app/capell')
-                ?? CapellCore::getInstalledPrettyVersion('capell/core'),
+            'capell' => $this->foundationVersion->prettyVersion(),
             'laravel' => $this->installedPackagePrettyVersion('laravel/framework') ?? app()->version(),
             'livewire' => $this->installedPackagePrettyVersion('livewire/livewire'),
             'filament' => $this->installedPackagePrettyVersion('filament/filament'),

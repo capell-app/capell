@@ -25,6 +25,17 @@ it('marks installed platform constraints as compatible or incompatible', functio
         ]);
 });
 
+it('checks Capell constraints against the canonical installed Foundation version', function (): void {
+    $listing = marketplaceCompatibilityListing([
+        'capell_version_constraint' => '>=999999.0.0',
+    ]);
+
+    $checker = resolve(VersionCompatibilityChecker::class);
+
+    expect($checker->isCompatible($listing))->toBeFalse()
+        ->and($checker->compatibilityDetails($listing)['capell'])->toBe('incompatible');
+});
+
 it('treats missing constraints and unavailable package versions as non-blocking', function (): void {
     $listing = marketplaceCompatibilityListing([
         'capell_version_constraint' => '^4.0',

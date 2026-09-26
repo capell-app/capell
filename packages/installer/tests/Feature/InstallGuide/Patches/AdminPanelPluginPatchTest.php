@@ -229,6 +229,43 @@ PHP);
         ->and($contents)->toContain('->plugin(CapellAdminPlugin::make()->discoverSchemas(');
 });
 
+it('adds the Capell plugin when an unrelated plugin is already registered', function (): void {
+    $path = writeAdminPanelPluginPatchProvider(<<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Providers\Filament;
+
+use App\Filament\Plugins\OtherPlugin;
+use Filament\Panel;
+use Filament\PanelProvider;
+
+class AdminPanelProvider extends PanelProvider
+{
+    public function panel(Panel $panel): Panel
+    {
+        return $panel
+            ->default()
+            ->id('admin')
+            ->plugin(OtherPlugin::make());
+    }
+}
+PHP);
+
+    $patch = new AdminPanelPluginPatch;
+
+    expect($patch->probe())->toBe(PatchStatus::Applicable);
+
+    $patch->apply();
+
+    $contents = File::get($path);
+
+    expect($contents)->toContain('->plugin(OtherPlugin::make())')
+        ->and($contents)->toContain('->plugin(CapellAdminPlugin::make()->discoverSchemas(')
+        ->and(substr_count($contents, '->plugin('))->toBe(2);
+});
+
 it('probe_returns_customised_when_panel_has_multiple_statements', function (): void {
     $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
     $originalPath = base_path('app/Providers/Filament/AdminPanelProvider.php');

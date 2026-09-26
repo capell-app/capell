@@ -10,7 +10,7 @@ use Spatie\LaravelPackageTools\Package;
 
 final class PackageServiceProvider extends AbstractPackageServiceProvider
 {
-    public static string $name = '{{ displayName }}';
+    public static string $name = {{ phpDisplayName }};
 
     public static string $packageName = '{{ packageName }}';
 

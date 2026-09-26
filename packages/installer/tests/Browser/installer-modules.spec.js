@@ -188,6 +188,33 @@ test('wizard blocks invalid input and Enter advances without submitting', async 
     await expect(page.locator('#progress-view')).not.toHaveClass(/active/)
 })
 
+test('wizard reveals matched fields and presents unmatched validation errors globally', async ({
+    page,
+}) => {
+    await setInstallerHarness(page)
+
+    await page.evaluate(() => {
+        const wizard = window.CapellInstaller.createWizard({
+            form: document.getElementById('install-form'),
+        })
+
+        wizard.showFieldErrors({
+            site_name: ['The site name is invalid.'],
+            cache_store: ['The configured cache store is unavailable.'],
+        })
+    })
+
+    await expect(page.locator('[data-installer-step="site"]')).toBeVisible()
+    await expect(page.locator('input[name="site_name"]')).toHaveAttribute(
+        'aria-invalid',
+        'true',
+    )
+    await expect(page.locator('#errors')).toBeVisible()
+    await expect(page.locator('#errors-list')).toContainText(
+        'The configured cache store is unavailable.',
+    )
+})
+
 async function setRunnerHarness(page) {
     await page.setContent(`
         <meta name="csrf-token" content="initial-token">
@@ -455,6 +482,52 @@ test('submit refreshes a 419 token and retries exactly once', async ({
     ])
     expect(requests.filter((request) => request.method === 'GET')).toHaveLength(
         1,
+    )
+})
+
+test('submit restores the form when csrf refresh returns no token', async ({
+    page,
+}) => {
+    await setRunnerHarness(page)
+
+    const result = await page.evaluate(async () => {
+        const events = []
+        window.fetch = async () => new Response('{}', { status: 419 })
+        const runner = window.CapellInstaller.createInstallRunner({
+            form: document.getElementById('install-form'),
+            wizard: {
+                currentStep: () => 'options',
+                setFlowStep: (step) => events.push(['step', step]),
+                showGlobalError: (message) => events.push(['error', message]),
+            },
+            packages: { updateSubmitButtonLabel: () => {} },
+            progress: {
+                showFormView: () => events.push(['view', 'form']),
+            },
+            csrf: {
+                token: () => 'expired-token',
+                setToken: () => {},
+                refresh: async () => '',
+            },
+            messages: { sessionExpired: 'Session expired' },
+        })
+
+        runner.setSubmitting(true)
+        await runner.submitInstallForm(false)
+
+        return {
+            disabled: document.getElementById('submit-button').disabled,
+            events,
+        }
+    })
+
+    expect(result.disabled).toBe(false)
+    expect(result.events).toEqual(
+        expect.arrayContaining([
+            ['view', 'form'],
+            ['step', 'options'],
+            ['error', 'Session expired'],
+        ]),
     )
 })
 

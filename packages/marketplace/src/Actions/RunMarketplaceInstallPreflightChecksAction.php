@@ -8,6 +8,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Capell\Marketplace\Data\MarketplaceReadinessCheckData;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
+use Capell\Marketplace\Enums\MarketplaceInstallCapability;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
@@ -40,16 +41,21 @@ final class RunMarketplaceInstallPreflightChecksAction
     public function handle(MarketplaceInstallAttempt $attempt): array
     {
         $readiness = EvaluateMarketplaceEnvironmentReadinessAction::run();
+        $localExecutionChecks = $readiness->capability === MarketplaceInstallCapability::Automated
+            ? [
+                $this->check('php_cli', new RuntimeBinaryResolver()->phpOrNull() !== null),
+                $this->check('composer_binary', new RuntimeBinaryResolver()->composerOrNull() !== null),
+                $this->check('composer_json', is_file(base_path('composer.json')) && is_writable(base_path('composer.json'))),
+                $this->check('composer_lock', ! is_file(base_path('composer.lock')) || is_writable(base_path('composer.lock'))),
+            ]
+            : [];
 
         $checks = [
             ...array_values(array_map(
-                $this->readinessCheck(...),
+                fn (MarketplaceReadinessCheckData $check): array => $this->readinessCheck($check, $readiness->capability),
                 $readiness->checks,
             )),
-            $this->check('php_cli', new RuntimeBinaryResolver()->phpOrNull() !== null),
-            $this->check('composer_binary', new RuntimeBinaryResolver()->composerOrNull() !== null),
-            $this->check('composer_json', is_file(base_path('composer.json')) && is_writable(base_path('composer.json'))),
-            $this->check('composer_lock', ! is_file(base_path('composer.lock')) || is_writable(base_path('composer.lock'))),
+            ...$localExecutionChecks,
             $this->packagePresenceCheck($attempt),
             $this->check('no_duplicate_active_install', ! $this->hasDuplicateActiveInstall($attempt)),
             $this->check('queue_ready', config('queue.default') !== null),
@@ -77,12 +83,13 @@ final class RunMarketplaceInstallPreflightChecksAction
     }
 
     /** @return array{name: string, passed: bool, message: string, remediation: string|null, docs_anchor: string|null} */
-    private function readinessCheck(MarketplaceReadinessCheckData $check): array
+    private function readinessCheck(MarketplaceReadinessCheckData $check, MarketplaceInstallCapability $capability): array
     {
         // A warning is honest reporting, not a reason to refuse the attempt.
         return [
             'name' => self::READINESS_PREFIX . $check->key,
-            'passed' => ! $check->failed(),
+            'passed' => ! $check->failed()
+                || ($capability === MarketplaceInstallCapability::AutomatedViaDeployPublisher && $check->byDesign),
             'message' => $check->message,
             'remediation' => $check->remediation,
             'docs_anchor' => $check->docsAnchor,

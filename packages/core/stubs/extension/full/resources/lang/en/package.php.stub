@@ -3,17 +3,17 @@
 declare(strict_types=1);
 
 return [
-    'name' => '{{ displayName }}',
+    'name' => {{ phpDisplayName }},
     'command' => [
-        'completed' => '{{ displayName }} example command completed.',
+        'completed' => {{ phpDisplayName }} . ' example command completed.',
     ],
     'public' => [
-        'label' => '{{ displayName }}',
+        'label' => {{ phpDisplayName }},
         'message' => 'This is safe public package output.',
     ],
     'settings' => [
-        'label' => '{{ displayName }}',
-        'description' => 'Configure {{ displayName }}.',
+        'label' => {{ phpDisplayName }},
+        'description' => 'Configure ' . {{ phpDisplayName }} . '.',
         'navigation_group' => 'Packages',
         'public_label' => 'Public label',
     ],
