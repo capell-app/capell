@@ -43,13 +43,15 @@ it('keeps critical-eligible theme css blocking on public routes without an optim
         ->withTranslations(data: ['title' => 'Theme fallback'], slug: '/')
         ->create(['meta' => null]);
 
+    $domain = $site->siteDomains->firstOrFail();
+
     // The canonical public URL must render directly. Following redirects here
     // hides a leaked root panel route behind an unbounded redirect loop.
-    $response = $this->get('/', ['HTTP_HOST' => 'localhost']);
+    $response = $this->get($domain->full_url);
 
     $response
         ->assertOk()
-        ->assertSee('href="http://localhost/vendor/theme/theme.css"', false)
+        ->assertSee('href="' . $domain->full_url . '/vendor/theme/theme.css"', false)
         ->assertSee('data-capell-stylesheet-recovery', false)
         ->assertDontSee('data-deferred-stylesheet', false)
         ->assertDontSee('data-capell-authoring', false);

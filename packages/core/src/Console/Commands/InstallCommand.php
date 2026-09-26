@@ -9,6 +9,7 @@ use Capell\Core\Actions\Install\BuildAndAnnounceInstallSpecAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
 use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
+use Capell\Core\Actions\Install\RunArtisanCommandAction;
 use Capell\Core\Actions\Install\WriteInstallHandoffAction;
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\RunNpmBuildAction;
@@ -473,7 +474,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->logInstallDebug('running filament upgrade');
-        $this->callSilent('filament:upgrade');
+        RunArtisanCommandAction::run('filament:upgrade', reporter: new ConsoleProgressReporter($this), silent: true);
         $this->logInstallDebug('filament upgrade finished');
     }
 
