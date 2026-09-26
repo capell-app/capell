@@ -24,7 +24,7 @@ final class CoreSchemaMaker extends AbstractFileMaker
             $input,
             collect([$this->fileData(app_path('Schemas/' . $name . 'Schema.php'), $this->renderStub(__DIR__ . '/../../../../stubs/makers/schema.stub', ['class' => $name]), $input->force)]),
             collect(['php artisan capell:make-schema ' . $name]),
-            collect(['Register the schema through CapellCore::registerSchema().']),
+            collect(['Pass the generated component array to the Filament schema that consumes it.']),
         );
     }
 }

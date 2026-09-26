@@ -9,6 +9,7 @@ use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
+use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
@@ -86,7 +87,7 @@ class AdminPanelPluginPatch implements Patch
 
     private function decide(Node $stmt): PatchStatus
     {
-        if ($this->patcher->hasMethodCall($stmt, 'plugin') && $this->patcher->hasMethodCall($stmt, 'default')) {
+        if ($this->hasCapellAdminPluginCall($stmt) && $this->patcher->hasMethodCall($stmt, 'default')) {
             return PatchStatus::AlreadyApplied;
         }
 
@@ -98,7 +99,7 @@ class AdminPanelPluginPatch implements Patch
      */
     private function injectPluginCall(Node $stmt): void
     {
-        if ($this->patcher->hasMethodCall($stmt, 'plugin')) {
+        if ($this->hasCapellAdminPluginCall($stmt)) {
             return;
         }
 
@@ -142,6 +143,43 @@ class AdminPanelPluginPatch implements Patch
                 new Arg($discoverSchemasCall),
             ],
         );
+    }
+
+    private function hasCapellAdminPluginCall(Node $stmt): bool
+    {
+        if (! property_exists($stmt, 'expr') || ! $stmt->expr instanceof MethodCall) {
+            return false;
+        }
+
+        $methodCall = $stmt->expr;
+
+        while ($methodCall instanceof MethodCall) {
+            $argument = $methodCall->args[0] ?? null;
+
+            if ($methodCall->name instanceof Identifier
+                && $methodCall->name->name === 'plugin'
+                && $argument instanceof Arg
+                && $this->usesCapellAdminPluginFactory($argument->value)) {
+                return true;
+            }
+
+            $methodCall = $methodCall->var;
+        }
+
+        return false;
+    }
+
+    private function usesCapellAdminPluginFactory(Expr $expression): bool
+    {
+        while ($expression instanceof MethodCall) {
+            $expression = $expression->var;
+        }
+
+        return $expression instanceof StaticCall
+            && $expression->class instanceof Name
+            && in_array($expression->class->toString(), ['CapellAdminPlugin', CapellAdminPlugin::class], true)
+            && $expression->name instanceof Identifier
+            && $expression->name->name === 'make';
     }
 
     private function injectDefaultCall(Node $stmt): void

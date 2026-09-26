@@ -38,7 +38,7 @@ final class ModelInterceptorRegistry
 
         // If interceptor with same class and conditions exists, update its priority; otherwise append.
         foreach ($this->modelInterceptors[$model] as $index => $entry) {
-            if ($entry['class'] === $interceptorClass && $this->conditionsEqual($entry['conditions'], $conditions)) {
+            if ($entry['class'] === $interceptorClass && $this->conditionsExactlyEqual($entry['conditions'], $conditions)) {
                 $this->modelInterceptors[$model][$index]['priority'] = $priority;
                 $this->sortInterceptors($model);
 
@@ -345,6 +345,19 @@ final class ModelInterceptorRegistry
         }
 
         return array_all($a, fn (string|int|float|bool $value, string $column): bool => array_key_exists($column, $b) && $b[$column] === $value);
+    }
+
+    /**
+     * Registration identity is exact; an empty condition set is a distinct
+     * global registration rather than a wildcard match.
+     *
+     * @param  array<string, string|int|float|bool>  $a
+     * @param  array<string, string|int|float|bool>  $b
+     */
+    private function conditionsExactlyEqual(array $a, array $b): bool
+    {
+        return count($a) === count($b)
+            && array_all($a, fn (string|int|float|bool $value, string $column): bool => array_key_exists($column, $b) && $b[$column] === $value);
     }
 
     /**

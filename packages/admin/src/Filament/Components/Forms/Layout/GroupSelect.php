@@ -46,8 +46,9 @@ class GroupSelect extends Select
                     ->autofocus()
                     ->rules(['required', 'lowercase', 'alpha_dash:ascii'])
                     ->unique(table: Layout::class, modifyRuleUsing: fn (Unique $rule): Unique => $rule->withoutTrashed())
-                    ->extraAlpineAttributes(fn (TextInput $component): array => [
-                        'x-on:keyup' => <<<'JS'
+                    ->extraAlpineAttributes(function (TextInput $component): array {
+                        $statePath = json_encode($component->getStatePath(true), JSON_THROW_ON_ERROR);
+                        $handler = <<<'JS'
                             $event.target.value = String($event.target.value.toLowerCase())
                                 .normalize('NFKD')
                                 .replace(/[\u0300-\u036f]/g, '')
@@ -56,9 +57,13 @@ class GroupSelect extends Select
                                 .replace(/[^a-z0-9 -]/g, '')
                                 .replace(/\s+/g, '-')
                                 .replace(/-+/g, '-');
-                            $wire.$set('{$component->getStatePath(true)}', $event.target.value)
-                        JS
-                    ]),
+                            $wire.$set(__STATE_PATH__, $event.target.value)
+                        JS;
+
+                        return [
+                            'x-on:keyup' => str_replace('__STATE_PATH__', $statePath, $handler),
+                        ];
+                    }),
             ])
             ->createOptionAction(
                 fn (Action $action): Action => $action

@@ -47,9 +47,7 @@ final class AdminPanelProviderEditor
      */
     public function addPlugin(array $discoverConfigurators): AdminPanelChangeResultData
     {
-        $hasCapellPlugin = str_contains($this->editor->originalContent(), 'CapellAdminPlugin');
-
-        if ($this->hasMethodCall('plugin') && $hasCapellPlugin) {
+        if ($this->hasCapellAdminPluginCall()) {
             return $this->alreadyApplied('plugin', 'CapellAdminPlugin is already registered.');
         }
 
@@ -60,19 +58,17 @@ final class AdminPanelProviderEditor
 
         $this->editor->addUseStatements([CapellAdminPlugin::class]);
 
-        if (! $hasCapellPlugin) {
-            $plugin = new StaticCall(new Name('CapellAdminPlugin'), 'make');
+        $plugin = new StaticCall(new Name('CapellAdminPlugin'), 'make');
 
-            foreach ($discoverConfigurators === [] ? $this->defaultDiscoverConfigurators() : $discoverConfigurators as $configurator) {
-                $plugin = new MethodCall($plugin, 'discoverConfigurators', [
-                    new Arg(new FuncCall(new Name('app_path'), [new Arg(new String_($configurator['in']))]), false, false, [], new Identifier('in')),
-                    new Arg(new String_($configurator['for']), false, false, [], new Identifier('for')),
-                ]);
-            }
+        foreach ($discoverConfigurators === [] ? $this->defaultDiscoverConfigurators() : $discoverConfigurators as $configurator) {
+            $plugin = new MethodCall($plugin, 'discoverConfigurators', [
+                new Arg(new FuncCall(new Name('app_path'), [new Arg(new String_($configurator['in']))]), false, false, [], new Identifier('in')),
+                new Arg(new String_($configurator['for']), false, false, [], new Identifier('for')),
+            ]);
+        }
 
-            if (! $this->appendPanelMethodCall($return, 'plugin', [new Arg($plugin)])) {
-                return $this->manual('plugin', 'Add CapellAdminPlugin::make()->discoverConfigurators(...) manually.');
-            }
+        if (! $this->appendPanelMethodCall($return, 'plugin', [new Arg($plugin)])) {
+            return $this->manual('plugin', 'Add CapellAdminPlugin::make()->discoverConfigurators(...) manually.');
         }
 
         return $this->applied('plugin', 'Added Capell admin plugin.');
@@ -348,6 +344,39 @@ final class AdminPanelProviderEditor
         }
 
         return null;
+    }
+
+    private function hasCapellAdminPluginCall(): bool
+    {
+        $methodCall = $this->editablePanelReturn()?->expr;
+
+        while ($methodCall instanceof MethodCall) {
+            $argument = $methodCall->args[0] ?? null;
+
+            if ($methodCall->name instanceof Identifier
+                && $methodCall->name->name === 'plugin'
+                && $argument instanceof Arg
+                && $this->usesCapellAdminPluginFactory($argument->value)) {
+                return true;
+            }
+
+            $methodCall = $methodCall->var;
+        }
+
+        return false;
+    }
+
+    private function usesCapellAdminPluginFactory(Expr $expression): bool
+    {
+        while ($expression instanceof MethodCall) {
+            $expression = $expression->var;
+        }
+
+        return $expression instanceof StaticCall
+            && $expression->class instanceof Name
+            && in_array($expression->class->toString(), ['CapellAdminPlugin', CapellAdminPlugin::class], true)
+            && $expression->name instanceof Identifier
+            && $expression->name->name === 'make';
     }
 
     private function firstArrayArgument(MethodCall $methodCall): ?Array_

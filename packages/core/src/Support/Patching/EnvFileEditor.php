@@ -28,7 +28,8 @@ final class EnvFileEditor
         $pattern = sprintf('/^%s=.*$/m', $escapedKey);
 
         if (preg_match($pattern, $this->content)) {
-            $this->content = preg_replace($pattern, sprintf('%s=%s', $key, $value), $this->content) ?? $this->content;
+            $replacement = sprintf('%s=%s', $key, $value);
+            $this->content = preg_replace_callback($pattern, fn (): string => $replacement, $this->content) ?? $this->content;
         } else {
             $this->content .= sprintf('%s%s=%s%s', PHP_EOL, $key, $value, PHP_EOL);
         }

@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Schemas;
 
-use Capell\Core\Schemas\AbstractSchema;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Schema;
 
-class {{ class }}Schema extends AbstractSchema
+final class {{ class }}Schema
 {
-    public function fields(): array
+    /**
+     * @return array<int, Component>
+     */
+    public static function make(Schema $schema): array
     {
         return [
             // Define your Filament schema fields here.
