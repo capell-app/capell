@@ -587,6 +587,44 @@ it('stops installation before cache clearing and handoff when filament upgrade f
     }
 });
 
+it('stops installation before finalisation when a required cache command fails', function (): void {
+    setupInstallTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+    Artisan::all();
+    Artisan::registerCommand(Artisan::command('capell:package-cache', function (): int {
+        $this->error('Package cache could not be rebuilt.');
+
+        return 19;
+    }));
+    $handoffPath = storage_path('framework/testing/failed-cache-handoff.json');
+    $output = new BufferedOutput;
+
+    try {
+        $exitCode = Artisan::call('capell:install', [
+            '--packages' => 'test',
+            '--url' => 'https://example.test',
+            '--user' => 'test@example.com',
+            '--clear-cache' => true,
+            '--theme' => 'foundation',
+            '--no-interaction' => true,
+            '--handoff-json' => $handoffPath,
+        ], $output);
+
+        $renderedOutput = $output->fetch();
+        expect($exitCode)->toBe(Command::FAILURE)
+            ->and($renderedOutput)->toContain('Capell installation failed.')
+            ->toContain('Unable to clear capell:package-cache; Package cache could not be rebuilt.')
+            ->not->toContain('Machine-readable install handoff written.')
+            ->and($fake->callCount)->toBe(1)
+            ->and(file_exists($handoffPath))->toBeFalse();
+    } finally {
+        if (is_file($handoffPath)) {
+            unlink($handoffPath);
+        }
+    }
+});
+
 it('returns FAILURE when the specified user email does not exist', function (): void {
     setupInstallTest();
     $fake = bindFakeRunInstallAction();

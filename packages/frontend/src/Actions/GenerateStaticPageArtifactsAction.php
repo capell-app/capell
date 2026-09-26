@@ -53,7 +53,7 @@ class GenerateStaticPageArtifactsAction
         $artifacts = [];
         $failures = [];
 
-        $this->pageUrls($siteId, $urls, function (PageUrl $pageUrl) use (&$artifacts, &$failures): void {
+        $matchedUrls = $this->pageUrls($siteId, $urls, function (PageUrl $pageUrl) use (&$artifacts, &$failures): void {
             $siteDomain = $this->siteDomainFor($pageUrl);
 
             if (! $siteDomain instanceof SiteDomain) {
@@ -106,6 +106,10 @@ class GenerateStaticPageArtifactsAction
             $artifacts[] = BuildStaticPageArtifactMetadataAction::run($pageUrl, $renderData, $response, $file)->toArray();
         });
 
+        foreach (array_diff(array_values(array_unique($urls)), $matchedUrls) as $url) {
+            $failures[] = __('capell-frontend::messages.static_page_url_unmatched', ['url' => $url]);
+        }
+
         // A completed manifest is the receipt for the whole requested export.
         // Keep the last receipt when any required page could not be rendered.
         throw_if($failures !== [], RuntimeException::class, __('capell-frontend::messages.static_generation_incomplete', [
@@ -124,9 +128,12 @@ class GenerateStaticPageArtifactsAction
 
     /**
      * @param  array<int, string>  $urls
+     * @return list<string>
      */
-    private function pageUrls(?int $siteId, array $urls, callable $callback): void
+    private function pageUrls(?int $siteId, array $urls, callable $callback): array
     {
+        $matchedUrls = [];
+
         PageUrl::query()
             ->with(['language', 'site.theme', 'pageable.layout', 'pageable.site.theme'])
             ->enabled()
@@ -144,11 +151,14 @@ class GenerateStaticPageArtifactsAction
             ->orderBy('language_id')
             ->orderBy('url')
             ->lazyById()
-            ->each(function (PageUrl $pageUrl) use ($callback): void {
+            ->each(function (PageUrl $pageUrl) use ($callback, &$matchedUrls): void {
                 if ($pageUrl->pageable instanceof Pageable) {
+                    $matchedUrls[] = $pageUrl->url;
                     $callback($pageUrl);
                 }
             });
+
+        return array_values(array_unique($matchedUrls));
     }
 
     private function siteDomainFor(PageUrl $pageUrl): ?SiteDomain

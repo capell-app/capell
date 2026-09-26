@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Contracts\SiteAccessPolicyProvider;
 use Capell\Core\Data\SiteAccessContextData;
 use Capell\Core\Data\SiteAccessPolicyData;
+use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -33,6 +34,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response as IlluminateResponse;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
@@ -92,6 +94,58 @@ it('reports each required URL whose static response failed', function (int $stat
 
     expect(File::exists(resolve(StaticPageArtifactStore::class)->manifestPath()))->toBeFalse();
 })->with([302, 404, 500]);
+
+it('fails explicit exports when requested URLs are missing or ineligible', function (): void {
+    [$disabledPage] = staticPageArtifactsRenderData('/disabled-static-test', 'disabled.example.test');
+    [$unpublishedPage] = staticPageArtifactsRenderData('/unpublished-static-test', 'unpublished.example.test');
+    [$redirectPage] = staticPageArtifactsRenderData('/redirect-static-test', 'redirect.example.test');
+
+    PageUrl::query()
+        ->where('pageable_type', $disabledPage->getMorphClass())
+        ->where('pageable_id', $disabledPage->getKey())
+        ->update(['status' => false]);
+    $unpublishedPage->update(['visible_from' => Date::now()->addDay()]);
+    PageUrl::query()
+        ->where('pageable_type', $redirectPage->getMorphClass())
+        ->where('pageable_id', $redirectPage->getKey())
+        ->update(['type' => UrlTypeEnum::Redirect]);
+
+    $requestedUrls = [
+        '/missing-static-test',
+        '/disabled-static-test',
+        '/unpublished-static-test',
+        '/redirect-static-test',
+    ];
+    $store = resolve(StaticPageArtifactStore::class);
+    $previousManifest = ['generated_at' => 'previous-generation', 'artifacts' => [['file' => 'previous/index.html']]];
+    $store->writeManifest($previousManifest);
+    $previousBytes = File::get($store->manifestPath());
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('handle')->never();
+    app()->instance(Kernel::class, $kernel);
+
+    expect(Artisan::call('capell:generate-html', ['--url' => $requestedUrls]))->toBe(1)
+        ->and(Artisan::output())->toContain(...$requestedUrls)
+        ->not->toContain('Generated ')
+        ->and(File::get($store->manifestPath()))->toBe($previousBytes)
+        ->and($store->readManifest())->toBe($previousManifest);
+});
+
+it('fails an explicit export when the requested URL belongs to another site', function (): void {
+    [, $selectedSite] = staticPageArtifactsRenderData('/selected-site-static-test', 'selected.example.test');
+    staticPageArtifactsRenderData('/other-site-static-test', 'other.example.test');
+    $kernel = Mockery::mock(Kernel::class);
+    $kernel->shouldReceive('handle')->never();
+    app()->instance(Kernel::class, $kernel);
+
+    expect(Artisan::call('capell:generate-html', [
+        '--site' => $selectedSite->getKey(),
+        '--url' => ['/other-site-static-test'],
+    ]))->toBe(1)
+        ->and(Artisan::output())->toContain('/other-site-static-test')
+        ->not->toContain('Generated ')
+        ->and(File::exists(resolve(StaticPageArtifactStore::class)->manifestPath()))->toBeFalse();
+});
 
 it('retains the previous manifest when its atomic publication fails', function (): void {
     $store = resolve(StaticPageArtifactStore::class);
