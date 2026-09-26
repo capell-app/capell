@@ -71,3 +71,26 @@ it('ignores retired packages that remain only in the upgrade ledger', function (
 
     expect($audit->ledgerOnly)->toBe(['capell-app/ordinary-retired-drift']);
 });
+
+it('uses the newest id when version snapshots share a timestamp', function (): void {
+    $ranAt = now()->startOfSecond();
+
+    UpgradeLogEntry::query()->create([
+        'type' => 'version_snapshot', 'key' => 'capell-app/capell', 'package' => 'capell-app/capell',
+        'status' => 'recorded', 'ran_at' => $ranAt,
+        'meta' => ['to_version' => '4.0.0'],
+    ]);
+    UpgradeLogEntry::query()->create([
+        'type' => 'version_snapshot', 'key' => 'capell-app/capell', 'package' => 'capell-app/capell',
+        'status' => 'recorded', 'ran_at' => $ranAt,
+        'meta' => ['to_version' => '5.0.0'],
+    ]);
+
+    $audit = AuditInstalledVersionsAction::run([
+        'capell-app/capell' => '4.5.0',
+    ]);
+
+    expect($audit->downgrades)->toBe([
+        'capell-app/capell' => ['from' => '5.0.0', 'to' => '4.5.0'],
+    ]);
+});

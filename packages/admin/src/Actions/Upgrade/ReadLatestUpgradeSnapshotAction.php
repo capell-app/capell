@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Upgrade;
 
+use Capell\Admin\Data\Upgrade\UpgradeAdvisorySnapshotData;
 use Capell\Core\Support\Json\JsonCodec;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -18,10 +20,7 @@ final class ReadLatestUpgradeSnapshotAction
 
     private const string UPDATE_ADVISORY_SNAPSHOTS_TABLE = 'marketplace_update_advisory_snapshots';
 
-    /**
-     * @return object{updates: array<int, array<string, mixed>>, advisories: array<int, array<string, mixed>>, checked_at: mixed, capell_version: string|null}|null
-     */
-    public function handle(): ?object
+    public function handle(): ?UpgradeAdvisorySnapshotData
     {
         if (! Schema::hasTable(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)) {
             return null;
@@ -39,19 +38,16 @@ final class ReadLatestUpgradeSnapshotAction
             return null;
         }
 
-        return new class(updates: $this->decodeNoticeList($snapshot->updates ?? null), advisories: $this->decodeNoticeList($snapshot->advisories ?? null), checked_at: $snapshot->checked_at ?? null, capell_version: is_string($snapshot->capell_version ?? null) ? $snapshot->capell_version : null)
-        {
-            /**
-             * @param  array<int, array<string, mixed>>  $updates
-             * @param  array<int, array<string, mixed>>  $advisories
-             */
-            public function __construct(
-                public array $updates,
-                public array $advisories,
-                public mixed $checked_at,
-                public ?string $capell_version,
-            ) {}
-        };
+        return new UpgradeAdvisorySnapshotData(
+            updates: $this->decodeNoticeList($snapshot->updates ?? null),
+            advisories: $this->decodeNoticeList($snapshot->advisories ?? null),
+            checked_at: filled($snapshot->checked_at ?? null)
+                ? CarbonImmutable::parse($snapshot->checked_at)
+                : null,
+            capell_version: is_string($snapshot->capell_version ?? null)
+                ? $snapshot->capell_version
+                : null,
+        );
     }
 
     /**
