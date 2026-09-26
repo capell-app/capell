@@ -74,6 +74,7 @@ use Capell\Core\Data\Publishing\PublicationLocaleStatusData;
 use Capell\Core\Data\Publishing\PublicationReadinessCheckData;
 use Capell\Core\Data\Publishing\PublicationReadinessContextData;
 use Capell\Core\Data\Reporting\DispatchResultData;
+use Capell\Core\Data\Reporting\RedactedSignalData;
 use Capell\Core\Data\Reporting\ReportingHealthData;
 use Capell\Core\Data\Reporting\ReportingIncidentData;
 use Capell\Core\Data\Reporting\SignalData;
@@ -169,7 +170,8 @@ final class BuildExtensionSurfaceCatalogAction
             $this->entry('core.dto.outbound-event-definition', 'dto', OutboundEventDefinitionData::class, ExtensionSurfaceStability::Experimental, 'Typed outbound event definition.'),
             $this->entry('core.dto.health-check-result', 'dto', HealthCheckResultData::class, ExtensionSurfaceStability::Experimental, 'Safe typed operational health check result.'),
             $this->entry('core.dto.health-report', 'dto', HealthReportData::class, ExtensionSurfaceStability::Experimental, 'Deterministic operational health report.'),
-            $this->entry('core.dto.reporting-signal', 'dto', SignalData::class, ExtensionSurfaceStability::Experimental, 'Immutable redacted operational signal with human and JSON output.', 'core.reporting-signal'),
+            $this->entry('core.dto.reporting-signal', 'dto', SignalData::class, ExtensionSurfaceStability::Experimental, 'Immutable raw operational signal input.', 'core.reporting-signal'),
+            $this->entry('core.dto.reporting-redacted-signal', 'dto', RedactedSignalData::class, ExtensionSurfaceStability::Experimental, 'Immutable redacted payload accepted by reporting transports.', 'core.reporting-signal'),
             $this->entry('core.dto.reporting-result', 'dto', DispatchResultData::class, ExtensionSurfaceStability::Experimental, 'Reporting delivery, suppression and fallback outcome.', 'core.reporting-dispatch'),
             $this->entry('core.action.reporting-dispatch', 'action', DispatchSignalAction::class, ExtensionSurfaceStability::Experimental, 'Configured signal dispatch with cooldown and safe log fallback.', 'core.reporting-dispatch'),
             $this->entry('core.action.reporting-incident', 'action', GetReportingIncidentAction::class, ExtensionSurfaceStability::Experimental, 'Private redacted incident state and delivery receipts.', 'core.reporting-operator-routing'),

@@ -15,6 +15,7 @@ use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\IncidentStatus;
 use Capell\Core\Enums\Reporting\Severity;
 use Capell\Core\Models\ReportingIncident;
+use Capell\Core\Tests\Support\ReportingLogRecorder;
 use Capell\Core\Tests\Support\ReportingSensitiveCorpus;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Contracts\Cache\Factory;
@@ -24,19 +25,17 @@ use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Transport\ArrayTransport;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
-use Monolog\Handler\TestHandler;
-use Monolog\Logger;
 
 beforeEach(function (): void {
-    $this->routingRecords = new TestHandler;
-    $records = $this->routingRecords;
+    $this->routingRecords = new ReportingLogRecorder(storage_path('framework/testing/operator-routing-' . bin2hex(random_bytes(8)) . '.log'));
     $logs = new LogManager($this->app);
-    $logs->extend('routing-test', fn (): Logger => new Logger('routing-test', [$records]));
 
     config()->set('logging.default', 'routing-test');
-    config()->set('logging.channels.routing-test', ['driver' => 'routing-test']);
+    config()->set('logging.channels.routing-test', ['driver' => 'single', 'path' => $this->routingRecords->path]);
 
+    $this->app->instance('log', $logs);
     $this->app->instance(LogManager::class, $logs);
+
     config()->set('capell-reporting', require __DIR__ . '/../../../config/capell-reporting.php');
     config()->set('capell-reporting.cache_store', 'array');
     config()->set('capell-reporting.defaults.transport', 'operator');
@@ -45,6 +44,10 @@ beforeEach(function (): void {
     config()->set('capell-reporting.defaults.backup', 'backup');
     config()->set('capell-reporting.defaults.escalate_after_seconds', 60);
     config()->set('capell-reporting.operators', ['primary' => 'operator@example.test', 'backup' => 'backup@example.test']);
+});
+
+afterEach(function (): void {
+    $this->routingRecords->clear();
 });
 
 function operatorSignal(string $correlation = 'trace-1'): SignalData
@@ -158,7 +161,8 @@ it('withholds structured credentials from operator mail logs and stored snapshot
         ->and($transport->messages())->toHaveCount($fallback ? 0 : 1);
 
     $snapshot = ReportingIncident::query()->findOrFail($signal->fingerprint())->getRawOriginal('signal');
-    foreach ([$signal->toJson(), $signal->toHuman(), $snapshot, $this->routingRecords->getRecords()[0]->message] as $output) {
+    $payload = operatorIncident($signal)->signal;
+    foreach ([$payload->toJson(), $payload->toHuman(), $snapshot, $this->routingRecords->getRecords()[0]->message] as $output) {
         expect($output)->not->toContain('OPERATOR_CREDENTIAL_LEAK');
     }
 
@@ -187,11 +191,13 @@ it('uses the shared redaction corpus for every operator output channel', functio
         ->and($transport->messages())->toHaveCount(1)
         ->and($this->routingRecords->getRecords())->toHaveCount(2);
 
+    $deliveredPayload = operatorIncident($delivered)->signal;
+    $fallbackPayload = operatorIncident($fallback)->signal;
     foreach ([
-        $delivered->toJson(),
-        $delivered->toHuman(),
-        $fallback->toJson(),
-        $fallback->toHuman(),
+        $deliveredPayload->toJson(),
+        $deliveredPayload->toHuman(),
+        $fallbackPayload->toJson(),
+        $fallbackPayload->toHuman(),
         ReportingIncident::query()->findOrFail($delivered->fingerprint())->getRawOriginal('signal'),
         ReportingIncident::query()->findOrFail($fallback->fingerprint())->getRawOriginal('signal'),
         $transport->messages()->first()->getOriginalMessage()->getTextBody(),

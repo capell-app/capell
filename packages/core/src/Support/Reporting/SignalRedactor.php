@@ -15,11 +15,11 @@ final class SignalRedactor
     private const string SENSITIVE_LABEL_KEY_PATTERN = '(?:ip|[a-z0-9_-]*(?:' . self::SENSITIVE_KEY_FRAGMENT . ')[a-z0-9_-]*)';
 
     private const string LABELLED_VALUE_PATTERN = <<<'REGEX'
-        ~(?<![a-z0-9_-])(?<key>%s)(?:\\?["'])?\s*[=:]\s*(?:[\[{].*|"(?:\\.|[^"\\])*(?:"|\\?\z)|'(?:\\.|[^'\\])*(?:'|\\?\z)|[^\r\n,;]*)~is
+        ~(?<![a-z0-9_-])(?<key>%s)(?:\\?["'])?\s*[=:]\s*(?:[\[{].*|"(?:\\.|[^"\\])*(?:"|\\?\z)|'(?:\\.|[^'\\])*(?:'|\\?\z)|.*\z)~is
         REGEX;
 
     private const string ENCODED_DELIMITER_PATTERN = <<<'REGEX'
-        ~\+|%[a-f0-9]{2}|\\u[a-f0-9]{4}|[=:]\s*\\+["']~i
+        ~\+|%[a-f0-9]{2}|\\u[a-f0-9]{4}|&(?:#(?:x[a-f0-9]+|\d+)|equals);|[=:]\s*\\+["']~i
         REGEX;
 
     public function text(string $value): string
@@ -90,7 +90,7 @@ final class SignalRedactor
 
                     return is_string($character) ? $character : self::REDACTED;
                 },
-                urldecode($value),
+                html_entity_decode(urldecode($value), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
             );
 
             if ($decoded === null || $decoded === $value) {

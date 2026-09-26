@@ -19,7 +19,7 @@ final readonly class ReportingOptionsData
         public ?OperatorRoutingData $routing = null,
     ) {}
 
-    public static function fromConfiguration(mixed $configuration, SignalData $signal): self
+    public static function fromConfiguration(mixed $configuration, RedactedSignalData $signal): self
     {
         throw_if(! is_array($configuration), InvalidArgumentException::class, 'Reporting configuration is unavailable or invalid.');
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Reporting;
 
-use Capell\Core\Data\Reporting\SignalData;
+use Capell\Core\Data\Reporting\RedactedSignalData;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\LockProvider;
@@ -19,7 +19,7 @@ final readonly class OperatorEmailChannel
 {
     public function __construct(private Container $container) {}
 
-    public function report(SignalData $signal, ?string $operator, bool $escalated, ?string $cacheStore): string
+    public function report(RedactedSignalData $signal, ?string $operator, bool $escalated, ?string $cacheStore): string
     {
         $configuration = $this->container->make(Repository::class)->get('capell-reporting');
         throw_unless(is_array($configuration), InvalidArgumentException::class, 'Reporting configuration is unavailable.');

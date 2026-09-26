@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Reporting;
 
-use Capell\Core\Data\Reporting\SignalData;
+use Capell\Core\Data\Reporting\RedactedSignalData;
 use Capell\Core\Enums\Reporting\IncidentStatus;
 use Capell\Core\Models\ReportingIncident;
 use InvalidArgumentException;
@@ -35,7 +35,7 @@ final readonly class ProcessReportingIncidentsAction
             // Rotate even disabled or corrupt records so a bounded batch cannot starve later incidents.
             $incident->update(['checked_at' => now()]);
             try {
-                $status = $this->dispatch->handle(SignalData::fromArray($incident->signal))->status->value;
+                $status = $this->dispatch->handle(RedactedSignalData::fromStoredArray($incident->signal))->status->value;
             } catch (Throwable) {
                 $status = 'failed';
             }

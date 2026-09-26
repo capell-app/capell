@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Core\Contracts\Reporting;
 
-use Capell\Core\Data\Reporting\SignalData;
+use Capell\Core\Data\Reporting\RedactedSignalData;
 
 interface Reporter
 {
-    public function report(SignalData $signal): void;
+    public function report(RedactedSignalData $signal): void;
 }

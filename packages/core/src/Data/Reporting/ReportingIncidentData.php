@@ -13,7 +13,7 @@ final readonly class ReportingIncidentData
     /** @param array<string, string> $deliveries */
     public function __construct(
         public string $id,
-        public SignalData $signal,
+        public RedactedSignalData $signal,
         public IncidentStatus $status,
         public ?string $owner,
         public ?string $backup,
@@ -29,7 +29,7 @@ final readonly class ReportingIncidentData
     {
         return new self(
             id: $incident->fingerprint,
-            signal: SignalData::fromArray($incident->signal),
+            signal: RedactedSignalData::fromStoredArray($incident->signal),
             status: $incident->status,
             owner: $incident->owner,
             backup: $incident->backup,

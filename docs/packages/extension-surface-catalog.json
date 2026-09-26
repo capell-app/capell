@@ -813,6 +813,16 @@
             "contractTestId": "core.reporting-operator-routing"
         },
         {
+            "id": "core.dto.reporting-redacted-signal",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Reporting\\RedactedSignalData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Immutable redacted payload accepted by reporting transports.",
+            "contractTestId": "core.reporting-signal"
+        },
+        {
             "id": "core.dto.reporting-result",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Reporting\\DispatchResultData",
@@ -829,7 +839,7 @@
             "ownerPackage": "capell-app/core",
             "stability": "experimental",
             "introducedVersion": "1.0.0",
-            "summary": "Immutable redacted operational signal with human and JSON output.",
+            "summary": "Immutable raw operational signal input.",
             "contractTestId": "core.reporting-signal"
         },
         {

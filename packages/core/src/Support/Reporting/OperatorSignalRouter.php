@@ -6,22 +6,26 @@ namespace Capell\Core\Support\Reporting;
 
 use Capell\Core\Data\Reporting\DispatchResultData;
 use Capell\Core\Data\Reporting\OperatorRoutingData;
+use Capell\Core\Data\Reporting\RedactedSignalData;
 use Capell\Core\Data\Reporting\ReportingOptionsData;
-use Capell\Core\Data\Reporting\SignalData;
+use Capell\Core\Data\Reporting\TransportResultData;
 use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Enums\Reporting\IncidentStatus;
 use Capell\Core\Models\ReportingIncident;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Log\LogManager;
 use RuntimeException;
-use Throwable;
 
 final readonly class OperatorSignalRouter
 {
-    public function __construct(private LogManager $logs, private Container $container) {}
+    private ReportingTransportBoundary $transports;
 
-    public function report(SignalData $signal, ReportingOptionsData $options): DispatchResultData
+    public function __construct(Container $container, ?ReportingTransportBoundary $transports = null)
+    {
+        $this->transports = $transports ?? new ReportingTransportBoundary($container);
+    }
+
+    public function report(RedactedSignalData $signal, ReportingOptionsData $options): DispatchResultData
     {
         $routing = $options->routing;
         throw_if(! $routing instanceof OperatorRoutingData, RuntimeException::class, 'Operator routing is unavailable.');
@@ -42,23 +46,15 @@ final readonly class OperatorSignalRouter
                 continue;
             }
 
-            try {
-                if ($channel === 'log') {
-                    new LogChannelReporter($this->logs, $options->logChannel)->report($signal);
-                } elseif ($channel === 'email') {
-                    $deliveries[$key] = $this->container->make(OperatorEmailChannel::class)->report($signal, $incident->status === IncidentStatus::Escalated ? $incident->backup : $incident->owner, $incident->status === IncidentStatus::Escalated, $options->cacheStore);
-                    $failed = $failed || $deliveries[$key] !== 'delivered';
-                    $accepted = $accepted || $deliveries[$key] === 'delivered';
-
-                    continue;
-                }
-
-                $deliveries[$key] = 'delivered';
-                $accepted = true;
-            } catch (Throwable) {
-                $deliveries[$key] = 'unavailable';
-                $failed = true;
-            }
+            $delivery = match ($channel) {
+                'log' => $this->transports->log($signal, $options->logChannel),
+                'email' => $this->transports->email($signal, $incident->status === IncidentStatus::Escalated ? $incident->backup : $incident->owner, $incident->status === IncidentStatus::Escalated, $options->cacheStore),
+                'health' => TransportResultData::delivered(),
+                default => TransportResultData::unavailable(),
+            };
+            $deliveries[$key] = $delivery->receipt;
+            $failed = $failed || ! $delivery->accepted;
+            $accepted = $accepted || $delivery->accepted;
         }
 
         $fallback = false;
@@ -85,7 +81,7 @@ final readonly class OperatorSignalRouter
         return new DispatchResultData($status, $fallback ? 'log' : 'operator', $failed ? 'transport_unavailable' : null);
     }
 
-    private function claim(SignalData $signal, ReportingOptionsData $options): ReportingIncident|DispatchResultData
+    private function claim(RedactedSignalData $signal, ReportingOptionsData $options): ReportingIncident|DispatchResultData
     {
         $routing = $options->routing;
         throw_if(! $routing instanceof OperatorRoutingData, RuntimeException::class, 'Operator routing is unavailable.');
@@ -144,18 +140,8 @@ final readonly class OperatorSignalRouter
         });
     }
 
-    private function fallback(SignalData $signal, ?string $channel): bool
+    private function fallback(RedactedSignalData $signal, ?string $channel): bool
     {
-        foreach ($channel === null ? [null] : [$channel, null] as $candidate) {
-            try {
-                new LogChannelReporter($this->logs, $candidate)->report($signal);
-
-                return true;
-            } catch (Throwable) {
-                // Transport exceptions are never diagnostic payloads.
-            }
-        }
-
-        return false;
+        return array_any($channel === null ? [null] : [$channel, null], fn (?string $candidate): bool => $this->transports->log($signal, $candidate)->accepted);
     }
 }

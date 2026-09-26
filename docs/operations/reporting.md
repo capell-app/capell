@@ -1,11 +1,12 @@
 # Operational reporting
 
 Core supplies a vendor-neutral contract for reporting operational failures. A
-`SignalData` holds a signal name, failure category, severity, diagnostic message,
-operator summary, correlation identifier, optional run identifier and redacted
-context. `DispatchSignalAction` applies configuration and cooldown before sending
-the signal through a `Reporter`. The built-in reporter writes structured JSON to
-a Laravel log channel.
+`SignalData` holds the raw signal name, failure category, severity, diagnostic
+message, operator summary, correlation identifier, optional run identifier and
+context. `DispatchSignalAction` immediately converts it to an immutable
+`RedactedSignalData`, then applies configuration and cooldown before sending only
+that payload through a `Reporter`. The built-in reporter writes structured JSON
+to a Laravel log channel.
 
 This contract does not automatically report existing failures. App, deployment
 and companion-package adoption are separate changes. The opt-in `operator`
@@ -33,8 +34,6 @@ $signal = new SignalData(
 );
 
 $result = app(DispatchSignalAction::class)->handle($signal);
-$human = $signal->toHuman();
-$json = $signal->toJson();
 ```
 
 Names use lower-case letters, digits and `.`, `_` or `-` separators, starting with
@@ -44,7 +43,8 @@ using letters, digits, `.`, `_`, `:` and `-`; the first character is alphanumeri
 Reuse the correlation identifier across related work. Never use email addresses,
 customer identifiers or credentials as identifiers. Invalid identities are
 rejected when constructing the data object; delivery failures do not throw from
-`handle()`.
+`handle()`. Treat the input object as sensitive and dispatch it directly: only the
+payload created inside `handle()` is safe for storage or transport.
 
 Failure categories have stable wire values:
 `configuration`, `validation`, `authentication`, `authorization`, `dependency`,
@@ -53,10 +53,11 @@ PSR log levels `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert
 and `emergency`. Unknown categories/severities cannot enter the typed contract.
 Choose a category by failure cause; use the signal name to distinguish operations.
 
-Human output is one line containing severity, signal/category, correlation/run,
-message and operator summary. `toArray()`, `toJson()` and `json_encode($signal)`
-share the same safe fields. The default reporter logs that JSON string at the
-signal's severity; the host's log formatter may add its normal envelope.
+The redacted payload's human output is one line containing severity,
+signal/category, correlation/run, message and operator summary. Its `toArray()`,
+`toJson()` and `json_encode()` representations share the same safe fields. The
+default reporter logs that JSON string at the signal's severity; the selected
+built-in log driver may add its normal envelope.
 
 ## Configuration and precedence
 
@@ -120,9 +121,9 @@ log nor claim cooldown. Unrelated category/signal entries are not selected.
 ## Transports and results
 
 An adapter implements `Capell\Core\Contracts\Reporting\Reporter::report()` and
-receives only an immutable, already-redacted `SignalData`. Register its dependencies
-in the owning package's appropriate provider bucket, then explicitly map a name in
-`reporters` to its class or container binding and select that name in a policy.
+receives only an immutable, already-redacted `RedactedSignalData`. Register its
+dependencies in the owning package's appropriate provider bucket, then explicitly
+map a name in `reporters` to its class or container binding and select that name in a policy.
 Core includes no notification vendor dependency. The `log` and `operator` names
 are reserved. The built-in operator channel uses the host Laravel mail service.
 
@@ -148,23 +149,18 @@ Single-reporter fallback returns `log_unavailable` when logging also fails. Oper
 channel failures retain `transport_unavailable` and their per-channel receipts.
 The configured log channel is tried first where available, then the default
 channel. No exception detail is included in the result. The host remains
-responsible for its log handlers, shared logging context, filtering and retention.
+responsible for channel destinations, levels and retention.
 
-Logger construction failures, including configured drivers, taps and stack
-members, follow the same fallback path. Reporting prevents Laravel's emergency
-logger from writing their raw exceptions. Custom driver callbacks resolve nested
-channels through the same protected manager, including through the container
-passed to drivers, factories and taps. These bindings belong to a private clone;
-the host container and its ordinary logger remain unchanged during delivery.
-Previously resolved factories, taps and their dependencies, including aliases and
-stack members, are rebuilt inside that clone so they receive its protected
-manager. Register callbacks and their dependencies with reconstructable container
-bindings; an instance-only dependency that cannot be rebuilt is treated as
-unavailable and follows safe fallback. Channel configuration is resolved only
-when used: malformed taps disable that channel while a healthy fallback remains
-available, and unrelated channels cannot prevent delivery.
-The private container is guarded during both channel construction and delivery,
-so a driver or handler cannot use it to start another dispatch recursively.
+Logger construction and delivery failures follow the same guarded fallback path,
+without invoking Laravel's emergency logger or exposing the original exception.
+Reporting accepts only the built-in `stack`, `single`, `daily`, `monthly`, `slack`,
+`syslog` and `errorlog` drivers. Stack members are validated recursively. Taps,
+custom formatters, custom/`via` factories, extended drivers and arbitrary Monolog
+handlers are rejected before resolution because callback code can retain global,
+facade, static or closure-captured logger dependencies. The isolated manager does
+not copy host logger instances, shared context, event listeners or callbacks.
+Malformed selected channels follow safe fallback, and unrelated channels cannot
+prevent delivery.
 
 Dispatch attempted synchronously from a reporter or log listener returns
 `Suppressed` with reason `recursive_dispatch`, including during configuration
@@ -207,9 +203,11 @@ rate limit, not a global transport quota or durable incident store.
 
 ## Redaction and retention
 
-Redaction runs during signal construction, before any reporter or formatter can
-read the payload. It covers nested secret/PII keys, quoted credential assignments
-(including escaped quotes and unterminated values), complete Cookie/Set-Cookie
+Redaction runs exactly once at the dispatch entry point, before configuration,
+channel, reporter, logger, formatter or transport resolution can read the payload.
+It covers nested secret/PII keys, labelled multiline values, quoted credential
+assignments (including embedded delimiters, escaped quotes and unterminated
+values), complete Cookie/Set-Cookie
 and Authorization/Proxy-Authorization headers including folded continuation
 lines, session credentials,
 URLs, bearer/basic credentials, common token patterns, email addresses, IP
@@ -219,11 +217,12 @@ bounded to 100 entries across the tree and seven array levels; deeper data is
 replaced. Text input is capped at 8192 bytes before processing and output at 2048
 characters per value; malformed UTF-8 is normalised.
 
-Unicode escapes, nested JSON strings and URL/form encoding (including `+` spacing) are inspected through at
-most eight decoding steps. When decoding reveals sensitive data, the encoded field
-is withheld in full, as is data that exceeds the decoding bound. Encoded context keys receive
-the same sensitive-key checks as plain keys. Harmless encoded text retains its
-original representation.
+Unicode escapes, HTML entities, nested JSON strings and URL/form encoding
+(including `+` spacing) are inspected through at most eight decoding steps. When
+decoding reveals sensitive data, the encoded field is withheld in full, as is data
+that exceeds the decoding bound. Encoded context keys receive the same
+sensitive-key checks as plain keys. Harmless encoded text retains its original
+representation.
 For a sensitive object or array embedded in text, redaction withholds the
 remainder of that text. This also protects incomplete JSON whose closing boundary
 cannot be established safely.
