@@ -1,7 +1,7 @@
 {
     "schemaVersion": 1,
     "decision": "accepted",
-    "reason": "The Admin zone context signature is an intentional compatibility-preserving addition: the context now carries the current actor and an optional surface subject. CAP-0460 Phase 1 adds nine new, purely additive Core migrations (property_sets, property_definitions, blueprint_property_sets, taxonomies, terms, page_term, page_property_values, term_property_values tables, plus a data migration syncing Core's built-in property sets) — no existing migration is modified or removed. Core explicitly declares psr/log for its protected reporting logger, retaining the same supported major versions as Laravel (^1.0|^2.0|^3.0).",
+    "reason": "The Admin zone context signature is an intentional compatibility-preserving addition: the context now carries the current actor and an optional surface subject. CAP-0460 Phase 1 adds nine new, purely additive Core migrations (property_sets, property_definitions, blueprint_property_sets, taxonomies, terms, page_term, page_property_values, term_property_values tables, plus a data migration syncing Core's built-in property sets) — no existing migration is modified or removed. Core explicitly declares psr/log for its protected reporting logger, retaining the same supported major versions as Laravel (^1.0|^2.0|^3.0). Operator routing adds one isolated reporting-incidents table with durable redacted delivery state. Existing migrations and stable signatures remain unchanged.",
     "drift": [
         "changed public signature: admin.dto.admin-zone-context",
         "packageConstraints",

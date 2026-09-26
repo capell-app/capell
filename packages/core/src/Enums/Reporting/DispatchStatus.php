@@ -11,4 +11,5 @@ enum DispatchStatus: string
     case Disabled = 'disabled';
     case Fallback = 'fallback';
     case Failed = 'failed';
+    case Partial = 'partial';
 }

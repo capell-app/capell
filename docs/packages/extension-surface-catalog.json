@@ -163,6 +163,56 @@
             "contractTestId": "core.reporting-dispatch"
         },
         {
+            "id": "core.action.reporting-health",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\Reporting\\GetReportingHealthAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Aggregate health status without incident payloads.",
+            "contractTestId": "core.reporting-operator-routing"
+        },
+        {
+            "id": "core.action.reporting-incident",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\Reporting\\GetReportingIncidentAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Private redacted incident state and delivery receipts.",
+            "contractTestId": "core.reporting-operator-routing"
+        },
+        {
+            "id": "core.action.reporting-process",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\Reporting\\ProcessReportingIncidentsAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Bounded retry and backup escalation processing.",
+            "contractTestId": "core.reporting-operator-routing"
+        },
+        {
+            "id": "core.action.reporting-prune",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\Reporting\\PruneReportingIncidentsAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Bounded retention of resolved incidents.",
+            "contractTestId": "core.reporting-operator-routing"
+        },
+        {
+            "id": "core.action.reporting-transition",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\Reporting\\UpdateReportingIncidentAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Assigned-operator acknowledgement and resolution.",
+            "contractTestId": "core.reporting-operator-routing"
+        },
+        {
             "id": "core.action.validate-project-build-bundle",
             "kind": "action",
             "identifier": "Capell\\Core\\Actions\\ProjectBuild\\ValidateProjectBuildManifestBundleAction",
@@ -743,6 +793,36 @@
             "contractTestId": null
         },
         {
+            "id": "core.dto.reporting-health",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Reporting\\ReportingHealthData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Aggregate non-cacheable health endpoint payload.",
+            "contractTestId": "core.reporting-operator-routing"
+        },
+        {
+            "id": "core.dto.reporting-incident",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Reporting\\ReportingIncidentData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Immutable operational incident snapshot.",
+            "contractTestId": "core.reporting-operator-routing"
+        },
+        {
+            "id": "core.dto.reporting-redacted-signal",
+            "kind": "dto",
+            "identifier": "Capell\\Core\\Data\\Reporting\\RedactedSignalData",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Immutable redacted payload accepted by reporting transports.",
+            "contractTestId": "core.reporting-signal"
+        },
+        {
             "id": "core.dto.reporting-result",
             "kind": "dto",
             "identifier": "Capell\\Core\\Data\\Reporting\\DispatchResultData",
@@ -759,7 +839,7 @@
             "ownerPackage": "capell-app/core",
             "stability": "experimental",
             "introducedVersion": "1.0.0",
-            "summary": "Immutable redacted operational signal with human and JSON output.",
+            "summary": "Immutable raw operational signal input.",
             "contractTestId": "core.reporting-signal"
         },
         {
@@ -981,6 +1061,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Metric visibility boundaries.",
             "contractTestId": null
+        },
+        {
+            "id": "core.enum.reporting-incident-status",
+            "kind": "enum",
+            "identifier": "Capell\\Core\\Enums\\Reporting\\IncidentStatus",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Open, acknowledged, escalated and resolved incident states.",
+            "contractTestId": "core.reporting-operator-routing"
         },
         {
             "id": "core.enum.reporting-severity",

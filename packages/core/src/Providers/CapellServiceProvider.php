@@ -263,6 +263,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     public function bootingPackage(): void
     {
+        $this->loadRoutesFrom(__DIR__ . '/../../routes/reporting.php');
+
         $this
             ->registerPublishCommands()
             ->registerAboutInfo('capell-app/core')
