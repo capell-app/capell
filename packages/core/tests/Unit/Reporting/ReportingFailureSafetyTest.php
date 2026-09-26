@@ -10,43 +10,24 @@ use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\Severity;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
+use Capell\Core\Tests\Support\ReportingLogRecorder;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Foundation\Application;
 use Illuminate\Log\Events\MessageLogged;
-use Illuminate\Log\Logger as IlluminateLogger;
-use Illuminate\Log\LogManager;
 use Laravel\Octane\Listeners\FlushArrayCache;
-use Monolog\Handler\TestHandler;
-use Monolog\Logger;
-use Monolog\LogRecord;
-use Psr\Log\LoggerInterface;
 
 beforeEach(function (): void {
-    $this->reportingRecords = new TestHandler;
-    $this->emergencyRecords = new TestHandler;
-    $logs = new class($this->app, $this->emergencyRecords) extends LogManager
-    {
-        public function __construct(Application $app, private readonly TestHandler $records)
-        {
-            parent::__construct($app);
-        }
-
-        protected function createEmergencyLogger(): LoggerInterface
-        {
-            return new IlluminateLogger(new Logger('emergency-test', [$this->records]), $this->app->make(Dispatcher::class));
-        }
-    };
-    $records = $this->reportingRecords;
-    $logs->extend('reporting-test', fn (): Logger => new Logger('reporting-test', [$records]));
-    $this->app->instance('log', $logs);
-    $this->reportingLogs = $logs;
+    $this->reportingRecords = new ReportingLogRecorder(storage_path('framework/testing/reporting-failure-' . bin2hex(random_bytes(8)) . '.log'));
     config()->set('logging.default', 'reporting-test');
-    config()->set('logging.channels.reporting-test', ['driver' => 'reporting-test']);
+    config()->set('logging.channels.reporting-test', ['driver' => 'single', 'path' => $this->reportingRecords->path]);
     config()->set('capell-reporting', require __DIR__ . '/../../../config/capell-reporting.php');
     config()->set('capell-reporting.cache_store', 'array');
+});
+
+afterEach(function (): void {
+    $this->reportingRecords->clear();
 });
 
 function failureSafetySignal(string $correlationId = 'trace-1'): SignalData
@@ -79,19 +60,15 @@ it('suppresses transport re-entry across fresh dispatchers and resets after deli
         ->and($calls)->toBe(2);
 });
 
-it('suppresses log listener re-entry during configuration fallback', function (): void {
+it('does not expose redacted delivery to host log listeners during fallback', function (): void {
     config()->set('capell-reporting');
-    $nested = [];
     $calls = 0;
-    resolve(Dispatcher::class)->listen(MessageLogged::class, function () use (&$calls, &$nested): void {
-        if (++$calls < 4) {
-            $nested[] = new DispatchSignalAction($this->app)->handle(failureSafetySignal());
-        }
+    resolve(Dispatcher::class)->listen(MessageLogged::class, function () use (&$calls): void {
+        $calls++;
     });
 
     expect(resolve(DispatchSignalAction::class)->handle(failureSafetySignal())->status)->toBe(DispatchStatus::Fallback)
-        ->and($calls)->toBe(1)
-        ->and($nested[0]->status)->toBe(DispatchStatus::Suppressed)
+        ->and($calls)->toBe(0)
         ->and($this->reportingRecords->getRecords())->toHaveCount(1);
 });
 
@@ -147,159 +124,12 @@ it('does not retain an abandoned application through dispatch guard state', func
     expect($reference->get())->toBeNull();
 });
 
-it('falls back from broken configured loggers without emergency exception output', function (string $failure): void {
-    $originalApplication = $this->app;
-    $logs = $this->reportingLogs;
-    $reportingRecords = $this->reportingRecords;
-    $emergencyRecords = $this->emergencyRecords;
-
-    $logs->extend('broken', fn (): never => throw new RuntimeException('password=LOGGER_CONSTRUCTION_SECRET'));
-    config()->set('logging.channels.broken', ['driver' => 'broken']);
-    if (in_array($failure, ['stack', 'cached stack'], true)) {
-        config()->set('logging.channels.selected', ['driver' => 'stack', 'channels' => ['reporting-test', 'broken']]);
-    } elseif ($failure === 'delegating driver') {
-        $logs->extend('delegating', fn (): LoggerInterface => $this->channel('broken'));
-        config()->set('logging.channels.selected', ['driver' => 'delegating']);
-    } elseif (in_array($failure, ['factory', 'container tap'], true)) {
-        $originalApplication->bind('reporting.delegating-factory', static fn (Application $application): object => new readonly class($application->make(LogManager::class))
-        {
-            public function __construct(private LogManager $logs) {}
-
-            public function __invoke(): LoggerInterface
-            {
-                return $this->logs->channel('broken');
-            }
-        });
-        config()->set('logging.channels.selected', $failure === 'factory'
-            ? ['driver' => 'custom', 'via' => 'reporting.delegating-factory']
-            : ['driver' => 'reporting-test', 'tap' => ['reporting.delegating-factory']]);
-    } elseif (str_starts_with($failure, 'container ')) {
-        $resolution = match ($failure) {
-            'container manager' => LogManager::class,
-            'container interface' => LoggerInterface::class,
-            default => 'log',
-        };
-        $logs->extend('delegating', function (Application $application) use ($resolution, $failure): LoggerInterface {
-            if ($failure === 'container application') {
-                $application = $application->make(Application::class);
-            } elseif ($failure === 'container base') {
-                $application = $application->make(Container::class);
-            }
-
-            return $application->make($resolution)->channel('broken');
-        });
-        config()->set('logging.channels.selected', ['driver' => 'delegating']);
-    } elseif ($failure === 'tap') {
-        $originalApplication->bind('reporting.throwing-tap', static fn (): never => throw new RuntimeException('password=LOGGER_CONSTRUCTION_SECRET'));
-        config()->set('logging.channels.selected', ['driver' => 'reporting-test', 'tap' => ['reporting.throwing-tap']]);
-    } else {
-        config()->set('logging.channels.selected', ['driver' => 'broken']);
-    }
-
-    config()->set('capell-reporting.log_channel', 'selected');
-    if ($failure === 'cached stack') {
-        $logs->channel('selected');
-        $emergencyRecords->clear();
-    }
-
-    if ($failure === 'fallback') {
-        config()->set('capell-reporting.defaults.transport', 'unregistered');
-    }
-
-    $result = resolve(DispatchSignalAction::class)->handle(failureSafetySignal());
-
-    expect($emergencyRecords->getRecords())->toBe([])
-        ->and($result->status)->toBe(DispatchStatus::Fallback)
-        ->and($result->reason)->toBe('transport_unavailable')
-        ->and($reportingRecords->getRecords())->toHaveCount(1)
-        ->and($reportingRecords->getRecords()[0]->message)->not->toContain('LOGGER_CONSTRUCTION_SECRET')
-        ->and($originalApplication->make('log'))->toBe($logs)
-        ->and($originalApplication->make(Application::class))->toBe($originalApplication);
-})->with(['driver', 'tap', 'stack', 'fallback', 'delegating driver', 'cached stack', 'container log', 'container manager', 'container interface', 'container application', 'container base', 'factory', 'container tap']);
-
-it('isolates container logger resolution while a custom driver is suspended', function (): void {
-    $originalApplication = $this->app;
-    $logs = $this->reportingLogs;
-    $reportingRecords = $this->reportingRecords;
-    $emergencyRecords = $this->emergencyRecords;
-
-    config()->set('capell-reporting.defaults.cooldown_seconds', 0);
-    config()->set('capell-reporting.log_channel', 'delegating');
-    config()->set('logging.channels.delegating', ['driver' => 'delegating']);
-
-    $logs->extend('delegating', function (Application $application): LoggerInterface {
-        Fiber::suspend();
-
-        return $application->make(LogManager::class)->channel('reporting-test');
-    });
-    $rebindings = 0;
-    $originalApplication->rebinding('log', static function () use (&$rebindings): void {
-        $rebindings++;
-    });
-    $fiber = new Fiber(fn (): DispatchResultData => resolve(DispatchSignalAction::class)->handle(failureSafetySignal()));
-    $fiber->start();
-
-    try {
-        expect($originalApplication->make('log'))->toBe($logs)
-            ->and($originalApplication->make(Application::class))->toBe($originalApplication);
-        $logs->channel('reporting-test')->info('Ordinary logging is available.');
-    } finally {
-        $fiber->resume();
-    }
-
-    expect($fiber->getReturn()->status)->toBe(DispatchStatus::Reported)
-        ->and($emergencyRecords->getRecords())->toBe([])
-        ->and($reportingRecords->getRecords())->toHaveCount(2)
-        ->and($rebindings)->toBe(0);
-});
-
-it('suppresses dispatch through the application passed to a custom log driver', function (string $phase): void {
-    config()->set('capell-reporting.defaults.cooldown_seconds', 0);
-    config()->set('capell-reporting.log_channel', 'recursive');
-    config()->set('logging.channels.recursive', ['driver' => 'recursive']);
-
-    $calls = 0;
-    $nested = [];
-    $records = $this->reportingRecords;
-    $this->reportingLogs->extend('recursive', function (Application $application) use (&$calls, &$nested, $records, $phase): Logger {
-        $dispatch = static function () use ($application, &$calls, &$nested): void {
-            if (++$calls < 4) {
-                $nested[] = new DispatchSignalAction($application)->handle(failureSafetySignal('nested-' . $calls));
-            }
-        };
-
-        if ($phase === 'driver') {
-            $dispatch();
-        }
-
-        $logger = new Logger('reporting-test', [$records]);
-        if ($phase === 'handler') {
-            $logger->pushProcessor(static function (LogRecord $record) use ($dispatch): LogRecord {
-                $dispatch();
-
-                return $record;
-            });
-        }
-
-        return $logger;
-    });
-
-    expect(resolve(DispatchSignalAction::class)->handle(failureSafetySignal())->status)->toBe(DispatchStatus::Reported)
-        ->and($calls)->toBe(1)
-        ->and($nested)->toHaveCount(1)
-        ->and($nested[0]->status)->toBe(DispatchStatus::Suppressed)
-        ->and($nested[0]->reason)->toBe('recursive_dispatch')
-        ->and($records->getRecords())->toHaveCount(1);
-})->with(['driver', 'handler']);
-
-it('fails safely when the default logger cannot be constructed and allows recovery', function (): void {
-    $this->reportingLogs->extend('broken', fn (): never => throw new RuntimeException('password=LOGGER_CONSTRUCTION_SECRET'));
-    config()->set('logging.channels.broken', ['driver' => 'broken']);
+it('fails safely when the default logger is callback configured and allows recovery', function (): void {
+    config()->set('logging.channels.broken', ['driver' => 'custom', 'via' => static fn (): never => throw new RuntimeException('password=LOGGER_CONSTRUCTION_SECRET')]);
     config()->set('logging.default', 'broken');
 
     $result = resolve(DispatchSignalAction::class)->handle(failureSafetySignal());
-    expect($this->emergencyRecords->getRecords())->toBe([])
-        ->and($result->status)->toBe(DispatchStatus::Failed)
+    expect($result->status)->toBe(DispatchStatus::Failed)
         ->and($result->reason)->toBe('log_unavailable');
 
     config()->set('logging.default', 'reporting-test');

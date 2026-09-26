@@ -76,6 +76,7 @@ trait HasMigrations
             '2026_09_04_000007_create_page_property_values_table',
             '2026_09_04_000008_create_term_property_values_table',
             '2026_09_04_000009_sync_builtin_property_sets',
+            '2026_09_26_000001_create_reporting_incidents_table',
         ];
     }
 

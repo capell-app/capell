@@ -2,12 +2,49 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Reporting\RedactedSignalData;
 use Capell\Core\Data\Reporting\SignalData;
 use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\Severity;
+use Capell\Core\Tests\Support\ReportingSensitiveCorpus;
 
-it('redacts secrets and personal context before exposing a signal', function (): void {
-    $signal = new SignalData(
+/** @param array<string, mixed> $context */
+function redactedSignalData(
+    string $name,
+    FailureCategory $category,
+    Severity $severity,
+    string $message,
+    string $operatorSummary,
+    string $correlationId,
+    ?string $runId = null,
+    array $context = [],
+): RedactedSignalData {
+    return RedactedSignalData::fromSignal(new SignalData($name, $category, $severity, $message, $operatorSummary, $correlationId, $runId, $context));
+}
+
+it('keeps raw input separate from the immutable delivery payload', function (): void {
+    $input = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'password=RAW_INPUT_SECRET', 'Inspect.', 'trace-1');
+    $payload = RedactedSignalData::fromSignal($input);
+
+    expect($input->message)->toContain('RAW_INPUT_SECRET')
+        ->and($payload->message)->not->toContain('RAW_INPUT_SECRET');
+});
+
+it('accepts only already redacted payloads when rehydrating incident storage', function (): void {
+    $payload = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'password=STORED_SECRET', 'Inspect.', 'trace-1', context: ['api_key' => 'STORED_CONTEXT_SECRET']);
+
+    expect(RedactedSignalData::fromStoredArray($payload->toArray())->toArray())->toBe($payload->toArray());
+
+    $unsafe = $payload->toArray();
+    $unsafe['message'] = 'password=STORED_SECRET';
+    $unsafe['context'] = ['api_key' => 'STORED_CONTEXT_SECRET'];
+
+    expect(fn (): RedactedSignalData => RedactedSignalData::fromStoredArray($unsafe))
+        ->toThrow(InvalidArgumentException::class, 'Stored reporting signal is not redacted.');
+});
+
+it('redacts secrets and personal context before exposing a delivery payload', function (): void {
+    $signal = redactedSignalData(
         name: 'import.failed',
         category: FailureCategory::Dependency,
         severity: Severity::Error,
@@ -52,7 +89,7 @@ it('redacts secrets and personal context before exposing a signal', function ():
 });
 
 it('provides stable human and JSON representations with correlation and run identifiers', function (): void {
-    $signal = new SignalData('queue.failed', FailureCategory::Runtime, Severity::Critical, "Worker failed.\n", 'Restart the worker.', 'trace-1', 'run-2', ['attempt' => 3]);
+    $signal = redactedSignalData('queue.failed', FailureCategory::Runtime, Severity::Critical, "Worker failed.\n", 'Restart the worker.', 'trace-1', 'run-2', ['attempt' => 3]);
 
     expect(json_decode($signal->toJson(), true, flags: JSON_THROW_ON_ERROR))->toBe([
         'name' => 'queue.failed',
@@ -70,7 +107,7 @@ it('bounds recursive context and produces valid JSON for unsupported values', fu
     $context = ['invalid' => "bad\xB1", 'number' => INF];
     $context['cycle'] = &$context;
 
-    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failure', 'Inspect the service.', 'trace-1', context: $context);
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failure', 'Inspect the service.', 'trace-1', context: $context);
 
     expect(strlen($signal->toJson()))->toBeLessThan(10000)
         ->and(json_decode($signal->toJson(), true, flags: JSON_THROW_ON_ERROR)['context']['number'])->toBe('[redacted]');
@@ -95,7 +132,7 @@ it('keeps failure category and severity wire values stable', function (): void {
 });
 
 it('redacts quoted assignments and personal names as well as sensitive map keys', function (): void {
-    $signal = new SignalData(
+    $signal = redactedSignalData(
         'runtime.failed',
         FailureCategory::Runtime,
         Severity::Error,
@@ -111,7 +148,7 @@ it('redacts quoted assignments and personal names as well as sensitive map keys'
 });
 
 it('redacts complete escaped assignments and cookie headers in every representation', function (string $text, string $secret): void {
-    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['nested' => ['detail' => $text]]);
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['nested' => ['detail' => $text]]);
 
     foreach ([$signal->message, $signal->operatorSummary, $signal->context['nested']['detail'], $signal->toJson(), $signal->toHuman(), json_encode($signal, JSON_THROW_ON_ERROR)] as $output) {
         expect($output)->not->toContain($secret);
@@ -130,14 +167,14 @@ it('redacts complete escaped assignments and cookie headers in every representat
 ]);
 
 it('preserves text following the real end of a quoted assignment or header', function (): void {
-    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'secret="hidden\\\\" retryable=true', "Cookie: sid=hidden; theme=dark\nRetry the operation.", 'trace-1');
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'secret="hidden\\\\" retryable=true', "Cookie: sid=hidden; theme=dark\nRetry the operation.", 'trace-1');
 
     expect($signal->message)->toContain('retryable=true')->not->toContain('hidden')
         ->and($signal->operatorSummary)->toContain('Retry the operation.')->not->toContain('hidden');
 });
 
 it('redacts encoded credentials and complete authentication headers in every representation', function (string $text): void {
-    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['nested' => ['detail' => $text]]);
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['nested' => ['detail' => $text]]);
 
     foreach ([$signal->message, $signal->operatorSummary, $signal->context['nested']['detail'], $signal->toJson(), $signal->toHuman(), json_encode($signal, JSON_THROW_ON_ERROR)] as $output) {
         expect($output)->not->toContain('ENCODED_CREDENTIAL_LEAK');
@@ -165,13 +202,46 @@ it('redacts encoded credentials and complete authentication headers in every rep
 ]);
 
 it('recognises encoded sensitive context keys', function (string $key): void {
-    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed.', 'Inspect.', 'trace-1', context: ['nested' => [$key => 'ENCODED_CREDENTIAL_LEAK']]);
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed.', 'Inspect.', 'trace-1', context: ['nested' => [$key => 'ENCODED_CREDENTIAL_LEAK']]);
 
     expect($signal->toJson())->not->toContain('ENCODED_CREDENTIAL_LEAK');
 })->with(['\\u0070assword', '%70assword', '%2570assword', '\\u0065mail']);
 
+it('preserves harmless context keys containing non-sensitive letter sequences', function (): void {
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed.', 'Inspect.', 'trace-1', context: ['shipping_method' => 'ground']);
+
+    expect($signal->context)->toMatchArray(['shipping_method' => 'ground']);
+});
+
+it('withholds form encoded and structured credentials in every signal representation', function (string $text): void {
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['detail' => $text]);
+
+    foreach ([$signal->message, $signal->operatorSummary, $signal->context['detail'], $signal->toJson(), $signal->toHuman(), json_encode($signal, JSON_THROW_ON_ERROR)] as $output) {
+        expect($output)->not->toContain('STRUCTURED_CREDENTIAL_LEAK');
+    }
+})->with([
+    'form assignment' => ['password+%3D+STRUCTURED_CREDENTIAL_LEAK'],
+    'double form assignment' => ['client_secret%2B%253D%2BSTRUCTURED_CREDENTIAL_LEAK'],
+    'form spacing' => ['password+=+STRUCTURED_CREDENTIAL_LEAK'],
+    'nested object' => ['{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}'],
+    'nested array' => ['{"password": [ "STRUCTURED_CREDENTIAL_LEAK", { "value": "second" } ]}'],
+    'prefixed object' => ['Failure: {"client_secret": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}'],
+    'truncated object' => ['{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK"'],
+    'nested JSON string' => [json_encode(['payload' => '{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}'], JSON_THROW_ON_ERROR)],
+    'encoded object' => [urlencode('{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}')],
+    'double encoded array' => [urlencode(urlencode('{"password": [ "STRUCTURED_CREDENTIAL_LEAK" ]}'))],
+]);
+
+it('withholds the shared labelled secret and personal data corpus from every signal representation', function (string $text, string $sensitive): void {
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['detail' => $text]);
+
+    foreach ([$signal->message, $signal->operatorSummary, $signal->context['detail'], $signal->toJson(), $signal->toHuman(), json_encode($signal, JSON_THROW_ON_ERROR)] as $output) {
+        expect($output)->not->toContain($sensitive);
+    }
+})->with(ReportingSensitiveCorpus::cases());
+
 it('preserves harmless encoded diagnostics and text after folded headers', function (): void {
-    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Progress: 50%25; {"status":"still \\"pending\\""}', "Cookie: harmless=1;\r\n sid=hidden\r\nRetry the operation.", 'trace-1');
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Progress: 50%25; {"status":"still \\"pending\\""}', "Cookie: harmless=1;\r\n sid=hidden\r\nRetry the operation.", 'trace-1');
 
     expect($signal->message)->toBe('Progress: 50%25; {"status":"still \\"pending\\""}')
         ->and($signal->operatorSummary)->toBe('[redacted] Retry the operation.');
@@ -183,13 +253,13 @@ it('fails closed when encoded text exceeds the decoding bound', function (): voi
         $text = rawurlencode($text);
     }
 
-    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, 'Inspect.', 'trace-1');
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, 'Inspect.', 'trace-1');
 
     expect($signal->message)->toBe('[redacted]');
 });
 
 it('still redacts filesystem paths beside harmless escaped quotes', function (string $path): void {
-    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed at "' . $path . '"', 'Inspect.', 'trace-1');
+    $signal = redactedSignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed at "' . $path . '"', 'Inspect.', 'trace-1');
 
     expect($signal->message)->not->toContain('PRIVATE_DIRECTORY');
 })->with(['/srv/PRIVATE_DIRECTORY/file.log', 'C:\\PRIVATE_DIRECTORY\\file.log', '\\\\server\\PRIVATE_DIRECTORY\\file.log']);
