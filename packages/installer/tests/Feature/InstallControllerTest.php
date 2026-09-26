@@ -2815,7 +2815,7 @@ it('includes a csrfToken in every run-step response', function (): void {
     expect($response->json('csrfToken'))->toBeString()->not->toBeEmpty();
 });
 
-it('cancel clears all cache keys and the lock', function (): void {
+it('cancel preserves the cancelled status and clears other cache keys and the lock', function (): void {
     $installId = 'cccccc00-cccc-4ccc-cccc-cccccccccccc';
 
     Cache::put('capell.install.lock', ['installId' => $installId]);
@@ -2828,8 +2828,9 @@ it('cancel clears all cache keys and the lock', function (): void {
         ->assertRedirect(route('capell-installer.show'));
 
     expect(Cache::get('capell.install.lock'))->toBeNull();
+    expect(Cache::get(sprintf('capell.install.%s.status', $installId)))->toBe('cancelled');
 
-    foreach (installerSessionSuffixes() as $suffix) {
+    foreach (array_diff(installerSessionSuffixes(), ['status']) as $suffix) {
         expect(Cache::get(sprintf('capell.install.%s.%s', $installId, $suffix)))->toBeNull();
     }
 });
