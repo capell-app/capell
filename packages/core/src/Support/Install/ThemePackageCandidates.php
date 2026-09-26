@@ -24,7 +24,11 @@ final class ThemePackageCandidates
 
     public const string LEGACY_FOUNDATION_KEY = 'foundation';
 
-    private const string FOUNDATION_PACKAGE = 'capell-app/theme-foundation';
+    private const array FOUNDATION_PACKAGE_NAMES = [
+        'capell-app/theme-foundation',
+        'capell-app/foundation-theme',
+        'capell-theme/foundation',
+    ];
 
     /** @var array<string, array{name: string, description: string, package: string|null, preview: string|null}> */
     private const array STATIC_OPTIONS = [
@@ -205,7 +209,7 @@ final class ThemePackageCandidates
     {
         return $packages
             ->filter(fn (PackageData $package): bool => $package->getThemeKey() !== null)
-            ->reject(fn (PackageData $package): bool => $package->name === self::FOUNDATION_PACKAGE)
+            ->reject(fn (PackageData $package): bool => in_array($package->name, self::FOUNDATION_PACKAGE_NAMES, true))
             ->mapWithKeys(fn (PackageData $package): array => [
                 (string) $package->getThemeKey() => new ThemeInstallOptionData(
                     key: (string) $package->getThemeKey(),
@@ -335,7 +339,7 @@ final class ThemePackageCandidates
             return null;
         }
 
-        if ($packageName === self::FOUNDATION_PACKAGE) {
+        if (in_array($packageName, self::FOUNDATION_PACKAGE_NAMES, true)) {
             return null;
         }
 

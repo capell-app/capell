@@ -53,6 +53,22 @@ it('ignores installed foundation theme packages because default is built in', fu
         ->and(new ThemePackageCandidates(new PackageWorkflowPlanner)->packageNameForThemeKey('default'))->toBeNull();
 });
 
+it('keeps historical foundation package names from replacing the built-in default', function (string $name): void {
+    bindThemePackageCandidatesRemotePackages(Collection::make([
+        [
+            'name' => $name,
+            'type' => PackageTypeEnum::Theme->value,
+            'themeKey' => 'default',
+        ],
+    ]));
+
+    expect(new ThemePackageCandidates(new PackageWorkflowPlanner)->packageNameForThemeKey('default'))->toBeNull();
+})->with([
+    'canonical' => 'capell-app/theme-foundation',
+    'previous app name' => 'capell-app/foundation-theme',
+    'previous vendor name' => 'capell-theme/foundation',
+]);
+
 it('includes downloadable theme packages from the install catalogue', function (): void {
     config([
         'capell-marketplace.marketplace.web_url' => null,
