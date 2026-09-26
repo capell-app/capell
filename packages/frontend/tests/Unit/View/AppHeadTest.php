@@ -133,8 +133,9 @@ it('renders static theme css assets without requiring a vite manifest entry', fu
         '<x-capell::app.head :livewire-enabled="false" :resource-plan="$resourcePlan" />',
         ['resourcePlan' => $resourcePlan],
     );
+    $appUrl = rtrim((string) config('app.url'), '/');
 
-    expect($html)->toContain('href="http://localhost/vendor/capell/themes/saas.css"')
+    expect($html)->toContain('href="' . $appUrl . '/vendor/capell/themes/saas.css"')
         ->and($html)->not->toContain('@vite');
 });
 

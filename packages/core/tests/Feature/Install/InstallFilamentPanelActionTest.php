@@ -209,6 +209,33 @@ PHP);
         ->toBe('admin');
 });
 
+it('rejects a failed filament install even when it leaves a partial panel provider', function (): void {
+    bindFilamentPanelInstallProcessFactory(false, '', 'Panel scaffolding failed.');
+
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->once()->andReturn(['filament:install' => true]);
+    $kernel->shouldReceive('call')->once()->with('filament:install', [
+        '--panels' => true,
+        '--no-interaction' => true,
+    ])->andReturnUsing(function (): int {
+        File::ensureDirectoryExists(app_path('Providers/Filament'));
+        File::put(app_path('Providers/Filament/PartialPanelProvider.php'), '<?php');
+
+        return 19;
+    });
+    $kernel->shouldReceive('output')->andReturn('Panel scaffolding stopped before completion.');
+    app()->instance(ConsoleKernel::class, $kernel);
+    Artisan::clearResolvedInstances();
+    $reporter = new RecordingInstallProgressReporter;
+
+    expect(fn (): mixed => InstallFilamentPanelAction::run($reporter))
+        ->toThrow(RuntimeException::class, 'Failed to scaffold Filament panel: Panel scaffolding failed.');
+
+    expect(implode("\n", $reporter->lines))
+        ->toContain("Artisan command 'filament:install' failed with exit code 19.")
+        ->and(file_exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
+});
+
 it('falls back to a fresh process when filament install is not registered in-process', function (): void {
     bindFilamentPanelInstallProcessFactory();
 

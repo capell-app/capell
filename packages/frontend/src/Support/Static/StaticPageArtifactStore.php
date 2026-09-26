@@ -6,6 +6,7 @@ namespace Capell\Frontend\Support\Static;
 
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
+use RuntimeException;
 
 final class StaticPageArtifactStore
 {
@@ -27,8 +28,7 @@ final class StaticPageArtifactStore
     {
         $path = $this->pathWithinRoot($file);
 
-        File::ensureDirectoryExists(dirname($path));
-        File::put($path, $contents);
+        $this->writeAtomically($path, $contents);
     }
 
     public function forgetHtml(string $file): void
@@ -46,7 +46,7 @@ final class StaticPageArtifactStore
     public function writeManifest(array $manifest): void
     {
         File::ensureDirectoryExists($this->root());
-        File::put($this->manifestPath(), json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->writeAtomically($this->manifestPath(), json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -61,6 +61,23 @@ final class StaticPageArtifactStore
         $decoded = json_decode(File::get($this->manifestPath()), true);
 
         return is_array($decoded) ? $decoded : ['generated_at' => null, 'artifacts' => []];
+    }
+
+    private function writeAtomically(string $path, string $contents): void
+    {
+        // Keep temporary writes beside the destination so the rename stays on the same filesystem.
+        $temporaryPath = dirname($path) . '/.static-' . bin2hex(random_bytes(16));
+        $message = __('capell-frontend::messages.static_artifact_write_failed', ['path' => $path]);
+
+        try {
+            throw_if(File::put($temporaryPath, $contents) !== strlen($contents), RuntimeException::class, $message);
+            throw_unless(File::chmod($temporaryPath, 0666 & ~umask()), RuntimeException::class, $message);
+            throw_unless(File::move($temporaryPath, $path), RuntimeException::class, $message);
+        } finally {
+            if (File::exists($temporaryPath)) {
+                File::delete($temporaryPath);
+            }
+        }
     }
 
     private function pathWithinRoot(string $file): string

@@ -27,7 +27,7 @@ it('serves only the resolved sites taxonomy names with public contract headers',
     Taxonomy::factory()->create(['site_id' => $domain->site_id, 'key' => 'public-brands']);
     Taxonomy::factory()->create(['key' => 'other-site-secret']);
 
-    $this->getJson('/agent/v1/taxonomies')->assertOk()
+    $this->getJson($domain->full_url . '/agent/v1/taxonomies')->assertOk()
         ->assertHeader('X-Capell-Agent-Schema', '1')
         ->assertHeader('Cache-Control', 'max-age=60, public')
         ->assertJsonCount(1, 'data')
@@ -37,10 +37,10 @@ it('serves only the resolved sites taxonomy names with public contract headers',
 
 it('rate limits public reads without making the limit response cacheable', function (): void {
     config(['capell.agent.rate_limit' => 1]);
-    SiteDomain::factory()->default()->create();
+    $domain = SiteDomain::factory()->default()->create();
 
-    $this->getJson('/agent/v1/taxonomies')->assertOk();
-    $this->getJson('/agent/v1/taxonomies')->assertStatus(429)->assertHeader('Cache-Control', 'no-store, private');
+    $this->getJson($domain->full_url . '/agent/v1/taxonomies')->assertOk();
+    $this->getJson($domain->full_url . '/agent/v1/taxonomies')->assertStatus(429)->assertHeader('Cache-Control', 'no-store, private');
 });
 
 it('serves navigation from the resolved site and publication window', function (): void {
@@ -50,7 +50,7 @@ it('serves navigation from the resolved site and publication window', function (
     $scheduled = Page::factory()->site($domain->site)->create(['visible_from' => now()->addDay()]);
     Translation::factory()->translatable($scheduled)->language($domain->language)->create(['title' => 'Scheduled private page']);
 
-    $this->getJson('/agent/v1/navigation')->assertOk()
+    $this->getJson($domain->full_url . '/agent/v1/navigation')->assertOk()
         ->assertJsonPath('capellAgentSchema', 1)
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.title', 'Visible navigation page')
@@ -74,7 +74,7 @@ it('returns agent-visible unmapped properties without requiring a schema graph',
         ]);
     }
 
-    $response = $this->getJson('/agent/v1/pages?set=catalogue.details')->assertOk()
+    $response = $this->getJson($domain->full_url . '/agent/v1/pages?set=catalogue.details')->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.title', 'Public catalogue item')
         ->assertDontSee('Private marker')->assertDontSee('internal_note')

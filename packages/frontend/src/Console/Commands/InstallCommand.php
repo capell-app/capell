@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Console\Commands;
 
 use Capell\Core\Actions\PublishMigrationsAction;
+use Capell\Core\Console\Commands\Concerns\CallsRequiredCommands;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Frontend\Actions\GenerateTailwindAssetsAction;
@@ -15,6 +16,7 @@ use Illuminate\Console\Command;
 
 class InstallCommand extends Command
 {
+    use CallsRequiredCommands;
     use DescribesCommandOptions;
 
     protected $signature = 'capell:frontend-install {--dev : Run the Vite dev build instead of production build}';
@@ -61,9 +63,13 @@ class InstallCommand extends Command
             $this->line($line);
         }
 
-        $this->call('vendor:publish', ['--tag' => 'capell-frontend-assets', '--force' => true]);
+        if (! $this->callRequired('vendor:publish', ['--tag' => 'capell-frontend-assets', '--force' => true])) {
+            return self::FAILURE;
+        }
 
-        $this->call('vendor:publish', ['--tag' => 'capell-frontend-publish', '--force' => true]);
+        if (! $this->callRequired('vendor:publish', ['--tag' => 'capell-frontend-publish', '--force' => true])) {
+            return self::FAILURE;
+        }
 
         $generatedAssets = GenerateTailwindAssetsAction::run();
 

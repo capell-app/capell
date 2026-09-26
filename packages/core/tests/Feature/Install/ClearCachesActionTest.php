@@ -206,6 +206,28 @@ it('runs optimize:clear outside testbench and reports success', function (): voi
         ->toContain('✓ All caches cleared');
 });
 
+it('does not report all caches cleared after optimize clear fails', function (): void {
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $this->app->useBootstrapPath(__DIR__);
+    $reporter = new RecordingClearCachesProgressReporter;
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->never();
+    $kernel->shouldReceive('call')->with('optimize:clear')->once()->andReturn(12);
+    $kernel->shouldReceive('output')->andReturn('');
+    $this->app->instance(ConsoleKernel::class, $kernel);
+
+    try {
+        expect(fn (): mixed => ClearCachesAction::run(['all'], $reporter))
+            ->toThrow(RuntimeException::class, 'Unable to clear optimize:clear; command exited with status 12');
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+    }
+
+    expect($reporter->reports)
+        ->toContain('Unable to clear optimize:clear; command exited with status 12')
+        ->not->toContain('✓ All caches cleared');
+});
+
 it('reports optimize:clear exceptions outside testbench', function (): void {
     $originalBootstrapPath = $this->app->bootstrapPath();
     $this->app->useBootstrapPath(__DIR__);
@@ -213,21 +235,22 @@ it('reports optimize:clear exceptions outside testbench', function (): void {
     $reporter = new RecordingClearCachesProgressReporter;
 
     $kernel = Mockery::mock(ConsoleKernel::class);
-    $kernel->shouldReceive('all')->twice()->andReturn([]);
+    $kernel->shouldReceive('all')->never();
     $kernel->shouldReceive('call')->with('optimize:clear')->once()->andThrow(new RuntimeException('manifest cache is locked'));
     $this->app->instance(ConsoleKernel::class, $kernel);
 
     try {
-        ClearCachesAction::run(['all'], $reporter);
+        expect(fn (): mixed => ClearCachesAction::run(['all'], $reporter))
+            ->toThrow(RuntimeException::class, 'Unable to clear optimize:clear; manifest cache is locked');
     } finally {
         $this->app->useBootstrapPath($originalBootstrapPath);
     }
 
     expect($reporter->reports)
-        ->toContain('Skipped optimize:clear; manifest cache is locked');
+        ->toContain('Unable to clear optimize:clear; manifest cache is locked');
 });
 
-it('reports cache commands that return a failing exit code', function (): void {
+it('reports and propagates cache commands that return a failing exit code', function (): void {
     $reporter = new RecordingClearCachesProgressReporter;
 
     $kernel = Mockery::mock(ConsoleKernel::class);
@@ -235,13 +258,14 @@ it('reports cache commands that return a failing exit code', function (): void {
     $kernel->shouldReceive('output')->once()->andReturn('Unable to delete bootstrap/cache/config.php');
     $this->app->instance(ConsoleKernel::class, $kernel);
 
-    ClearCachesAction::run(['config'], $reporter);
+    expect(fn (): mixed => ClearCachesAction::run(['config'], $reporter))
+        ->toThrow(RuntimeException::class, 'Unable to clear config:clear; Unable to delete bootstrap/cache/config.php');
 
     expect($reporter->reports)
         ->toContain('Unable to clear config:clear; Unable to delete bootstrap/cache/config.php');
 });
 
-it('reports failing cache command status when command output is blank', function (): void {
+it('reports and propagates failing cache command status when command output is blank', function (): void {
     $reporter = new RecordingClearCachesProgressReporter;
 
     $kernel = Mockery::mock(ConsoleKernel::class);
@@ -249,20 +273,22 @@ it('reports failing cache command status when command output is blank', function
     $kernel->shouldReceive('output')->once()->andReturn("  \n\t");
     $this->app->instance(ConsoleKernel::class, $kernel);
 
-    ClearCachesAction::run(['config'], $reporter);
+    expect(fn (): mixed => ClearCachesAction::run(['config'], $reporter))
+        ->toThrow(RuntimeException::class, 'Unable to clear config:clear; command exited with status 12');
 
     expect($reporter->reports)
         ->toContain('Unable to clear config:clear; command exited with status 12');
 });
 
-it('reports cache commands that throw exceptions', function (): void {
+it('reports and propagates cache commands that throw exceptions', function (): void {
     $reporter = new RecordingClearCachesProgressReporter;
 
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('call')->with('config:clear')->once()->andThrow(new RuntimeException('cache store is offline'));
     $this->app->instance(ConsoleKernel::class, $kernel);
 
-    ClearCachesAction::run(['config'], $reporter);
+    expect(fn (): mixed => ClearCachesAction::run(['config'], $reporter))
+        ->toThrow(RuntimeException::class, 'Unable to clear config:clear; cache store is offline');
 
     expect($reporter->reports)
         ->toContain('Unable to clear config:clear; cache store is offline');
