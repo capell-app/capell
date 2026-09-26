@@ -95,6 +95,10 @@ lists. Routing fields apply only to the `operator` transport. The top-level
 `enabled=false` always disables reporting, including when other configuration is
 invalid. An exact signal policy may re-enable a category-disabled signal only
 while the global switch is on. Boolean policy values must be actual booleans.
+An exact `enabled=false` is honoured before validating inherited policy fields.
+A category disable likewise ignores malformed defaults when the exact policy
+does not override `enabled`; unrelated configuration cannot turn either disable
+into fallback logging.
 
 For example:
 
@@ -152,6 +156,10 @@ logger from writing their raw exceptions. Custom driver callbacks resolve nested
 channels through the same protected manager, including through the container
 passed to drivers, factories and taps. These bindings belong to a private clone;
 the host container and its ordinary logger remain unchanged during delivery.
+Previously resolved factories and taps, including aliases and stack members,
+are rebuilt inside that clone so they receive its protected manager. Register
+callbacks with reconstructable container bindings; an instance-only callback
+that cannot be rebuilt is treated as unavailable and follows safe fallback.
 The private container is guarded during both channel construction and delivery,
 so a driver or handler cannot use it to start another dispatch recursively.
 
@@ -208,11 +216,14 @@ bounded to 100 entries across the tree and seven array levels; deeper data is
 replaced. Text input is capped at 8192 bytes before processing and output at 2048
 characters per value; malformed UTF-8 is normalised.
 
-Unicode escapes, nested JSON strings and URL encoding are inspected through at
+Unicode escapes, nested JSON strings and URL/form encoding (including `+` spacing) are inspected through at
 most eight decoding steps. When decoding reveals sensitive data, the encoded field
 is withheld in full, as is data that exceeds the decoding bound. Encoded context keys receive
 the same sensitive-key checks as plain keys. Harmless encoded text retains its
 original representation.
+For a sensitive object or array embedded in text, redaction withholds the
+remainder of that text. This also protects incomplete JSON whose closing boundary
+cannot be established safely.
 
 Use concise operational messages and explicit context fields. Pattern redaction
 cannot identify every person's name or an unlabelled secret in arbitrary prose;
@@ -338,6 +349,10 @@ health state remain available. Explicitly disabled email does not consume quota.
 
 Incident `deliveries` contains `delivered`, `unavailable`, `disabled` or
 `rate_limited` per channel. Escalation uses `escalation_`-prefixed channel keys.
+Fallback logging has its own `fallback_log` receipt (`escalation_fallback_log`
+for the backup stage), even when `log` is not selected. Successful fallback logs
+are not repeated during later email retries; failed fallback attempts remain
+retryable. The email receipt stays pending independently until delivery succeeds.
 `Fallback` can therefore mean that logs succeeded while email remains pending;
 inspect the incident or aggregate health rather than assuming every channel sent.
 `Partial` means some selected channels accepted delivery while another channel and

@@ -63,7 +63,12 @@ final readonly class OperatorSignalRouter
 
         $fallback = false;
         if ($failed) {
-            $fallback = ($deliveries[$prefix . 'log'] ?? null) === 'delivered' || $this->fallback($signal, $options->logChannel);
+            $fallbackKey = $prefix . 'fallback_log';
+            $fallback = ($deliveries[$prefix . 'log'] ?? null) === 'delivered' || ($deliveries[$fallbackKey] ?? null) === 'delivered';
+            if (! $fallback) {
+                $fallback = $this->fallback($signal, $options->logChannel);
+                $deliveries[$fallbackKey] = $fallback ? 'delivered' : 'unavailable';
+            }
         }
 
         // A late transport response must not replace the receipt of a newer claim.
@@ -120,7 +125,7 @@ final readonly class OperatorSignalRouter
                 return new DispatchResultData(DispatchStatus::Suppressed, 'operator', 'cooldown');
             }
 
-            $incident->fill([
+            $incident->forceFill([
                 'owner' => $routing->owner,
                 'backup' => $routing->backup,
                 'health' => $incident->health || in_array('health', $routing->channels, true),

@@ -170,6 +170,25 @@ it('recognises encoded sensitive context keys', function (string $key): void {
     expect($signal->toJson())->not->toContain('ENCODED_CREDENTIAL_LEAK');
 })->with(['\\u0070assword', '%70assword', '%2570assword', '\\u0065mail']);
 
+it('withholds form encoded and structured credentials in every signal representation', function (string $text): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['detail' => $text]);
+
+    foreach ([$signal->message, $signal->operatorSummary, $signal->context['detail'], $signal->toJson(), $signal->toHuman(), json_encode($signal, JSON_THROW_ON_ERROR)] as $output) {
+        expect($output)->not->toContain('STRUCTURED_CREDENTIAL_LEAK');
+    }
+})->with([
+    'form assignment' => ['password+%3D+STRUCTURED_CREDENTIAL_LEAK'],
+    'double form assignment' => ['client_secret%2B%253D%2BSTRUCTURED_CREDENTIAL_LEAK'],
+    'form spacing' => ['password+=+STRUCTURED_CREDENTIAL_LEAK'],
+    'nested object' => ['{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}'],
+    'nested array' => ['{"password": [ "STRUCTURED_CREDENTIAL_LEAK", { "value": "second" } ]}'],
+    'prefixed object' => ['Failure: {"client_secret": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}'],
+    'truncated object' => ['{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK"'],
+    'nested JSON string' => [json_encode(['payload' => '{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}'], JSON_THROW_ON_ERROR)],
+    'encoded object' => [urlencode('{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}')],
+    'double encoded array' => [urlencode(urlencode('{"password": [ "STRUCTURED_CREDENTIAL_LEAK" ]}'))],
+]);
+
 it('preserves harmless encoded diagnostics and text after folded headers', function (): void {
     $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Progress: 50%25; {"status":"still \\"pending\\""}', "Cookie: harmless=1;\r\n sid=hidden\r\nRetry the operation.", 'trace-1');
 

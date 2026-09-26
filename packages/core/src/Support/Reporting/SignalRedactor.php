@@ -9,11 +9,11 @@ final class SignalRedactor
     private const string REDACTED = '[redacted]';
 
     private const string LABELLED_VALUE_PATTERN = <<<'REGEX'
-        ~\b[a-z0-9_-]*(?:password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|authorization|cookie|session|credential|signature|email|phone|address)[a-z0-9_-]*["']?\s*[=:]\s*(?:"(?:\\.|[^"\\])*(?:"|\\?\z)|'(?:\\.|[^'\\])*(?:'|\\?\z)|[^\s,;]+)~is
+        ~\b[a-z0-9_-]*(?:password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|authorization|cookie|session|credential|signature|email|phone|address)[a-z0-9_-]*["']?\s*[=:]\s*(?:[\[{].*|"(?:\\.|[^"\\])*(?:"|\\?\z)|'(?:\\.|[^'\\])*(?:'|\\?\z)|[^\s,;]+)~is
         REGEX;
 
     private const string ENCODED_DELIMITER_PATTERN = <<<'REGEX'
-        ~%[a-f0-9]{2}|\\u[a-f0-9]{4}|[=:]\s*\\+["']~i
+        ~\+|%[a-f0-9]{2}|\\u[a-f0-9]{4}|[=:]\s*\\+["']~i
         REGEX;
 
     public function text(string $value): string
@@ -44,6 +44,8 @@ final class SignalRedactor
 
     private function redactPlainText(string $value): string
     {
+        // Structured credentials consume the remaining text: a partial or embedded
+        // JSON fragment cannot safely establish where its sensitive descendants end.
         return preg_replace([
             '~\b[a-z][a-z0-9+.-]*://[^\s<>]+~i',
             '/\b(?:Bearer|Basic)\s+[^\s,;]+/i',
@@ -79,7 +81,7 @@ final class SignalRedactor
 
                     return is_string($character) ? $character : self::REDACTED;
                 },
-                rawurldecode($value),
+                urldecode($value),
             );
 
             if ($decoded === null || $decoded === $value) {

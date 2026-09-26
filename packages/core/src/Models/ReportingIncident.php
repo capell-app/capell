@@ -44,7 +44,17 @@ final class ReportingIncident extends Model
     protected $table = 'capell_reporting_incidents';
 
     /** @var list<string> */
-    protected $guarded = [];
+    protected $fillable = [
+        'fingerprint',
+        'signal',
+        'status',
+        'owner',
+        'backup',
+        'health',
+        'deliveries',
+        'opened_at',
+        'checked_at',
+    ];
 
     /** @return array<string, string> */
     #[Override]

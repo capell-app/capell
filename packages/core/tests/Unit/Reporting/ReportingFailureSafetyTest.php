@@ -217,6 +217,47 @@ it('falls back from broken configured loggers without emergency exception output
         ->and($originalApplication->make(Application::class))->toBe($originalApplication);
 })->with(['driver', 'tap', 'stack', 'fallback', 'delegating driver', 'cached stack', 'container log', 'container manager', 'container interface', 'container application', 'container base', 'factory', 'container tap']);
 
+it('rebuilds warmed logger callbacks without leaking through the original manager', function (string $callback, string $binding, string $route): void {
+    $application = $this->app;
+    $logs = $this->reportingLogs;
+    $logs->extend('broken', fn (): never => throw new RuntimeException('password=WARM_LOGGER_SECRET'));
+
+    config()->set('logging.channels.broken', ['driver' => 'broken']);
+    $application->singleton('reporting.warmed-callback', static fn (Application $app): object => new readonly class($app->make(LogManager::class))
+    {
+        public function __construct(private LogManager $logs) {}
+
+        public function __invoke(): LoggerInterface
+        {
+            return $this->logs->channel('broken');
+        }
+    });
+    $warmed = $application->make('reporting.warmed-callback');
+    if ($binding === 'instance') {
+        unset($application['reporting.warmed-callback']);
+        $application->instance('reporting.warmed-callback', $warmed);
+    }
+
+    $application->alias('reporting.warmed-callback', 'reporting.callback-alias');
+    $name = $binding === 'alias' ? 'reporting.callback-alias' : 'reporting.warmed-callback';
+    config()->set('logging.channels.selected', $callback === 'factory'
+        ? ['driver' => 'custom', 'via' => $name]
+        : ['driver' => 'reporting-test', 'tap' => [$name . ':argument']]);
+    config()->set('capell-reporting.log_channel', 'selected');
+    if ($route !== 'log') {
+        config()->set('capell-reporting.defaults.transport', 'operator');
+        config()->set('capell-reporting.defaults.channels', $route === 'operator' ? ['log'] : ['email']);
+        config()->set('capell-reporting.defaults.owner', 'primary');
+    }
+
+    expect(resolve(DispatchSignalAction::class)->handle(failureSafetySignal())->status)->toBe(DispatchStatus::Fallback)
+        ->and($this->emergencyRecords->getRecords())->toBe([])
+        ->and($this->reportingRecords->getRecords())->toHaveCount(1)
+        ->and($this->reportingRecords->getRecords()[0]->message)->not->toContain('WARM_LOGGER_SECRET')
+        ->and($application->make('reporting.warmed-callback'))->toBe($warmed)
+        ->and($application->make(LogManager::class))->toBe($logs);
+})->with(['factory', 'tap'])->with(['singleton', 'alias', 'instance'])->with(['log', 'operator', 'operator fallback']);
+
 it('isolates container logger resolution while a custom driver is suspended', function (): void {
     $originalApplication = $this->app;
     $logs = $this->reportingLogs;

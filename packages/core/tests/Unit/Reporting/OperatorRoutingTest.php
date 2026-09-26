@@ -14,6 +14,8 @@ use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\IncidentStatus;
 use Capell\Core\Enums\Reporting\Severity;
+use Capell\Core\Models\ReportingIncident;
+use Illuminate\Cache\ArrayStore;
 use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Log\LogManager;
@@ -121,6 +123,32 @@ it('emails only the configured owner with a redacted payload and durable receipt
         ->and(operatorIncident($signal)->deliveries['email'])->toBe('delivered');
 });
 
+it('withholds structured credentials from operator mail logs and stored snapshots', function (string $text, bool $fallback): void {
+    $transport = routingMailTransport();
+    config()->set('capell-reporting.defaults.channels', $fallback ? ['email'] : ['log', 'health', 'email']);
+    config()->set('capell-reporting.email.enabled', ! $fallback);
+
+    $signal = new SignalData('import.failed', FailureCategory::Dependency, Severity::Error, $text, $text, 'trace-1', context: ['detail' => $text]);
+
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe($fallback ? DispatchStatus::Fallback : DispatchStatus::Reported)
+        ->and($this->routingRecords->getRecords())->toHaveCount(1)
+        ->and($transport->messages())->toHaveCount($fallback ? 0 : 1);
+
+    $snapshot = ReportingIncident::query()->findOrFail($signal->fingerprint())->getRawOriginal('signal');
+    foreach ([$signal->toJson(), $signal->toHuman(), $snapshot, $this->routingRecords->getRecords()[0]->message] as $output) {
+        expect($output)->not->toContain('OPERATOR_CREDENTIAL_LEAK');
+    }
+
+    if (! $fallback) {
+        expect($transport->messages()->first()->getOriginalMessage()->getTextBody())->not->toContain('OPERATOR_CREDENTIAL_LEAK');
+    }
+})->with([
+    'form assignment' => ['password+%3D+OPERATOR_CREDENTIAL_LEAK'],
+    'double form assignment' => ['client_secret%2B%253D%2BOPERATOR_CREDENTIAL_LEAK'],
+    'nested object' => ['{"password": { "value": "OPERATOR_CREDENTIAL_LEAK" }}'],
+    'nested array' => ['{"password": [ "OPERATOR_CREDENTIAL_LEAK" ]}'],
+])->with([false, true]);
+
 it('limits email attempts across unrelated incidents until the exact window boundary', function (): void {
     $this->freezeTime();
     $transport = routingMailTransport();
@@ -221,7 +249,7 @@ it('reports partial delivery when email succeeds but both log attempts fail', fu
     $result = resolve(DispatchSignalAction::class)->handle(operatorSignal());
     expect($result->status->value)->toBe('partial')
         ->and($transport->messages())->toHaveCount(1)
-        ->and(operatorIncident(operatorSignal())->deliveries)->toBe(['log' => 'unavailable', 'health' => 'delivered', 'email' => 'delivered']);
+        ->and(operatorIncident(operatorSignal())->deliveries)->toBe(['log' => 'unavailable', 'health' => 'delivered', 'email' => 'delivered', 'fallback_log' => 'unavailable']);
 });
 
 it('keeps failed email retryable after cooldown without repeating accepted log delivery', function (): void {
@@ -256,6 +284,88 @@ it('counts failed and cancelled mail attempts against the shared quota', functio
     expect(resolve(DispatchSignalAction::class)->handle(operatorSignal('next'))->status)->toBe(DispatchStatus::Fallback)
         ->and(operatorIncident(operatorSignal('next'))->deliveries['email'])->toBe('rate_limited')
         ->and($transport->messages())->toHaveCount(0);
+});
+
+it('records fallback logs once while email only incidents remain retryable', function (string $failure): void {
+    $this->freezeTime();
+    $transport = routingMailTransport();
+    config()->set('capell-reporting.defaults.channels', ['email']);
+    config()->set('capell-reporting.defaults.backup');
+    config()->set('capell-reporting.defaults.cooldown_seconds', 10);
+    if ($failure === 'disabled') {
+        config()->set('capell-reporting.email.enabled', false);
+    } elseif ($failure === 'unavailable') {
+        config()->set('capell-reporting.email.mailer', 'missing');
+    } else {
+        resolve(Factory::class)->store('array')->put('capell:reporting:email-quota', ['attempts' => 2, 'expires_at' => now()->addMinutes(10)->getTimestamp()], 600);
+    }
+
+    $signal = operatorSignal();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback);
+    $this->travel(10)->seconds();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback)
+        ->and($this->routingRecords->getRecords())->toHaveCount(1)
+        ->and(operatorIncident($signal)->deliveries)->toBe(['email' => $failure, 'fallback_log' => 'delivered']);
+
+    config()->set('capell-reporting.email.enabled', true);
+    config()->set('capell-reporting.email.mailer', 'reporting-test');
+    resolve(Factory::class)->store('array')->forget('capell:reporting:email-quota');
+    $this->travel(10)->seconds();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Reported)
+        ->and($transport->messages())->toHaveCount(1)
+        ->and(operatorIncident($signal)->deliveries)->toBe(['email' => 'delivered', 'fallback_log' => 'delivered'])
+        ->and($this->routingRecords->getRecords())->toHaveCount(1);
+})->with(['disabled', 'unavailable', 'rate_limited']);
+
+it('deduplicates fallback logs separately for owner and backup delivery stages', function (): void {
+    $this->freezeTime();
+    $transport = routingMailTransport();
+    config()->set('capell-reporting.defaults.channels', ['email']);
+    config()->set('capell-reporting.defaults.cooldown_seconds', 10);
+    config()->set('capell-reporting.email.enabled', false);
+
+    $signal = operatorSignal();
+
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback);
+    $this->travel(60)->seconds();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback)
+        ->and($this->routingRecords->getRecords())->toHaveCount(2);
+    resolve(Factory::class)->store('array')->flush();
+    $this->travel(10)->seconds();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback)
+        ->and($this->routingRecords->getRecords())->toHaveCount(2)
+        ->and(operatorIncident($signal)->deliveries)->toBe([
+            'email' => 'disabled', 'fallback_log' => 'delivered',
+            'escalation_email' => 'disabled', 'escalation_fallback_log' => 'delivered',
+        ]);
+
+    config()->set('capell-reporting.email.enabled', true);
+    $this->travel(10)->seconds();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Reported)
+        ->and($transport->messages())->toHaveCount(1)
+        ->and($transport->messages()->first()->getOriginalMessage()->getTo()[0]->getAddress())->toBe('backup@example.test')
+        ->and($this->routingRecords->getRecords())->toHaveCount(2);
+});
+
+it('retries unavailable fallback logging and then retains its accepted receipt', function (): void {
+    $this->freezeTime();
+    config()->set('capell-reporting.defaults.channels', ['email']);
+    config()->set('capell-reporting.defaults.backup');
+    config()->set('capell-reporting.defaults.cooldown_seconds', 10);
+    config()->set('logging.default', 'broken-fallback');
+    config()->set('logging.channels.broken-fallback', ['driver' => 'broken-fallback']);
+    $this->app->make(LogManager::class)->extend('broken-fallback', fn (): never => throw new RuntimeException('Fallback is unavailable.'));
+    $signal = operatorSignal();
+
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Failed)
+        ->and(operatorIncident($signal)->deliveries)->toBe(['email' => 'disabled', 'fallback_log' => 'unavailable']);
+    config()->set('logging.default', 'routing-test');
+    $this->travel(10)->seconds();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback)
+        ->and(operatorIncident($signal)->deliveries)->toBe(['email' => 'disabled', 'fallback_log' => 'delivered']);
+    $this->travel(10)->seconds();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback)
+        ->and($this->routingRecords->getRecords())->toHaveCount(1);
 });
 
 it('retains health and safe logs when the mail quota store is unavailable', function (): void {
@@ -326,6 +436,44 @@ it('rejects unknown channels and malformed routing before sending email', functi
     [['owner' => "operator\r\nBcc: foreign@example.test"]],
     [['escalate_after_seconds' => -1]],
 ]);
+
+it('honours an exact disable before validating malformed inherited policies', function (string $key, mixed $value): void {
+    $transport = routingMailTransport();
+    config()->set('capell-reporting.' . $key, $value);
+    config()->set('capell-reporting.signals', ['import.failed' => ['enabled' => false]]);
+
+    $signal = operatorSignal();
+    $store = resolve(Factory::class)->store('array')->getStore();
+    $this->assertInstanceOf(ArrayStore::class, $store);
+
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Disabled)
+        ->and(GetReportingIncidentAction::run($signal->fingerprint()))->toBeNull()
+        ->and($transport->messages())->toHaveCount(0)
+        ->and($this->routingRecords->getRecords())->toHaveCount(0)
+        ->and($store->locks)->toBe([]);
+})->with([
+    'defaults' => ['defaults', 'invalid'],
+    'categories' => ['categories', 'invalid'],
+    'selected category' => ['categories.dependency', 'invalid'],
+    'global flag' => ['enabled', 'invalid'],
+    'default flag' => ['defaults.enabled', 'invalid'],
+    'category flag' => ['categories.dependency.enabled', 'invalid'],
+    'services' => ['reporters', 'invalid'],
+]);
+
+it('honours a category disable over malformed defaults unless the exact policy overrides it', function (bool $reenable): void {
+    $transport = routingMailTransport();
+    config()->set('capell-reporting.defaults', 'invalid');
+    config()->set('capell-reporting.categories', ['dependency' => ['enabled' => false]]);
+    config()->set('capell-reporting.signals', ['import.failed' => $reenable ? ['enabled' => true] : ['owner' => 'primary']]);
+
+    $signal = operatorSignal();
+
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe($reenable ? DispatchStatus::Fallback : DispatchStatus::Disabled)
+        ->and(GetReportingIncidentAction::run($signal->fingerprint()))->toBeNull()
+        ->and($transport->messages())->toHaveCount(0)
+        ->and($this->routingRecords->getRecords())->toHaveCount($reenable ? 1 : 0);
+})->with([false, true]);
 
 it('stops disabled email without using its quota and can deliver after explicit enablement', function (): void {
     $this->freezeTime();

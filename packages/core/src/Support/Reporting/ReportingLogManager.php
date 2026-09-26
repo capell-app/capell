@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Reporting;
 
 use Capell\Core\Data\Reporting\SignalData;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Log\LogManager;
 use Override;
 use Psr\Log\LoggerInterface;
@@ -27,6 +28,26 @@ final class ReportingLogManager extends LogManager
         $application->instance('log', $this);
         $application->alias('log', LogManager::class);
         $application->alias('log', LoggerInterface::class);
+
+        // A warmed factory or tap may retain the host manager even after rebinding
+        // the container. Rebuild callbacks inside the clone, including stack members.
+        foreach ($application->make(Repository::class)->get('logging.channels', []) as $configuration) {
+            if (! is_array($configuration)) {
+                continue;
+            }
+
+            $factory = $configuration['via'] ?? null;
+            if (is_string($factory)) {
+                $application->forgetInstance($application->getAlias($factory));
+            }
+
+            foreach ($configuration['tap'] ?? [] as $tap) {
+                if (is_string($tap)) {
+                    [$callback] = $this->parseTap($tap);
+                    $application->forgetInstance($application->getAlias($callback));
+                }
+            }
+        }
 
         // A cached stack can already contain an emergency logger from a failed member.
         // Rebuild from configuration so every member uses the protected resolution path.
