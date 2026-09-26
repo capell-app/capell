@@ -8,6 +8,8 @@ use Capell\Core\Data\Reporting\SignalData;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Contracts\Log\ContextLogProcessor;
+use Illuminate\Log\Logger;
 use Illuminate\Log\LogManager;
 use Override;
 use Psr\Log\LoggerInterface;
@@ -15,6 +17,8 @@ use RuntimeException;
 
 final class ReportingLogManager extends LogManager
 {
+    private readonly ReportingLoggerBoundary $boundary;
+
     public function __construct(LogManager $logs)
     {
         $application = clone $logs->app;
@@ -44,6 +48,9 @@ final class ReportingLogManager extends LogManager
             $application->instance('env', $environment);
         }
 
+        $this->boundary = new ReportingLoggerBoundary($this, $application);
+        $this->boundary->guardContainer();
+
         // A cached stack can already contain an emergency logger from a failed member.
         // Rebuild from configuration so every member uses the protected resolution path.
         $this->sharedContext = $logs->sharedContext;
@@ -55,14 +62,64 @@ final class ReportingLogManager extends LogManager
 
     public function report(SignalData $signal, ?string $channel): void
     {
-        // The private container must not become a new dispatch origin inside a driver or handler.
-        throw_unless(SignalDispatchGuard::enter($this->app), RuntimeException::class, 'Reporting log delivery is already active.');
+        $this->boundary->guard(function () use ($signal, $channel): void {
+            // The private container must not become a new dispatch origin inside a driver or handler.
+            throw_unless(SignalDispatchGuard::enter($this->app), RuntimeException::class, 'Reporting log delivery is already active.');
 
-        try {
-            $this->channel($channel)->log($signal->severity->value, $signal->toJson());
-        } finally {
-            SignalDispatchGuard::leave($this->app);
+            try {
+                $this->channel($channel)->log($signal->severity->value, $signal->toJson());
+            } finally {
+                SignalDispatchGuard::leave($this->app);
+            }
+        });
+    }
+
+    /** @param array<string, mixed>|null $config */
+    #[Override]
+    protected function get($name, ?array $config = null)
+    {
+        return $this->boundary->guard(fn (): LoggerInterface => $this->channels[$name] ?? with($this->resolve($name, $config), function (LoggerInterface $logger) use ($name): LoggerInterface {
+            $loggerWithContext = $this->tap(
+                $name,
+                new Logger($logger, $this->app->make(Dispatcher::class)),
+            )->withContext($this->sharedContext);
+
+            if (method_exists($loggerWithContext->getLogger(), 'pushProcessor')) {
+                $loggerWithContext->pushProcessor($this->app->make(ContextLogProcessor::class));
+            }
+
+            return $this->channels[$name] = $loggerWithContext;
+        }));
+    }
+
+    /** @param array<string, mixed> $config */
+    #[Override]
+    protected function callCustomCreator(array $config)
+    {
+        $creator = $this->customCreators[$config['driver']];
+
+        return $this->boundary->guardCallback($creator, fn (): mixed => $creator($this->app, $config));
+    }
+
+    /** @param array<string, mixed> $config */
+    #[Override]
+    protected function createCustomDriver(array $config)
+    {
+        $factory = is_callable($via = $config['via']) ? $via : $this->app->make($via);
+
+        return $this->boundary->guardCallback($factory, static fn (): mixed => $factory($config));
+    }
+
+    #[Override]
+    protected function tap($name, Logger $logger)
+    {
+        foreach ($this->configurationFor($name)['tap'] ?? [] as $tap) {
+            [$class, $arguments] = $this->parseTap($tap);
+            $callback = $this->app->make($class);
+            $this->boundary->guardCallback($callback, static fn (): mixed => $callback->__invoke($logger, ...explode(',', $arguments)));
         }
+
+        return $logger;
     }
 
     #[Override]

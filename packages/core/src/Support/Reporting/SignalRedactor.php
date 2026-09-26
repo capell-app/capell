@@ -8,8 +8,14 @@ final class SignalRedactor
 {
     private const string REDACTED = '[redacted]';
 
+    private const string SENSITIVE_KEY_FRAGMENT = 'password|passwd|pwd|token|secret|key|auth|cookie|session|credential|signature|licen[cs]e|email|phone|mobile|address|name|user|customer|contact|person|birth|ssn|card|iban|latitude|longitude';
+
+    private const string SENSITIVE_KEY_PATTERN = '~(?:' . self::SENSITIVE_KEY_FRAGMENT . '|^ip$)~';
+
+    private const string SENSITIVE_LABEL_KEY_PATTERN = '(?:ip|[a-z0-9_-]*(?:' . self::SENSITIVE_KEY_FRAGMENT . ')[a-z0-9_-]*)';
+
     private const string LABELLED_VALUE_PATTERN = <<<'REGEX'
-        ~\b[a-z0-9_-]*(?:password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key|authorization|cookie|session|credential|signature|email|phone|address)[a-z0-9_-]*["']?\s*[=:]\s*(?:[\[{].*|"(?:\\.|[^"\\])*(?:"|\\?\z)|'(?:\\.|[^'\\])*(?:'|\\?\z)|[^\s,;]+)~is
+        ~(?<![a-z0-9_-])(?<key>%s)(?:\\?["'])?\s*[=:]\s*(?:[\[{].*|"(?:\\.|[^"\\])*(?:"|\\?\z)|'(?:\\.|[^'\\])*(?:'|\\?\z)|[^\r\n,;]*)~is
         REGEX;
 
     private const string ENCODED_DELIMITER_PATTERN = <<<'REGEX'
@@ -46,11 +52,14 @@ final class SignalRedactor
     {
         // Structured credentials consume the remaining text: a partial or embedded
         // JSON fragment cannot safely establish where its sensitive descendants end.
-        return preg_replace([
+        $value = preg_replace([
             '~\b[a-z][a-z0-9+.-]*://[^\s<>]+~i',
             '/\b(?:Bearer|Basic)\s+[^\s,;]+/i',
             '/\b(?:(?:set-)?cookie|(?:proxy-)?authorization)[\t ]*:[\t ]*[^\r\n]*(?:(?:\r\n|[\r\n])[\t ]+[^\r\n]*)*/i',
-            self::LABELLED_VALUE_PATTERN,
+        ], self::REDACTED, $value) ?? self::REDACTED;
+        $value = preg_replace_callback(sprintf(self::LABELLED_VALUE_PATTERN, self::SENSITIVE_LABEL_KEY_PATTERN), fn (array $match): string => $this->isSensitiveKey($match['key']) ? self::REDACTED : $match[0], $value) ?? self::REDACTED;
+
+        return preg_replace([
             '/\b(?:gh[pousr]_\w{20,}|github_pat_\w{20,}|eyJ[\w-]+\.[\w-]+\.[\w-]+)\b/',
             '/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/',
             '/\b(?:\d{1,3}\.){3}\d{1,3}\b/',
@@ -112,8 +121,7 @@ final class SignalRedactor
 
             $safeKey = is_string($key) && $this->text($key) !== $key ? '[redacted-key-' . $remaining . ']' : $key;
             $decodedKey = $this->decodeText((string) $key);
-            $normalisedKey = strtolower(preg_replace('/[^a-z0-9]/i', '', $decodedKey ?? '') ?? '');
-            if ($decodedKey === null || preg_match('/password|passwd|pwd|token|secret|key|auth|cookie|session|credential|signature|licen[cs]e|email|phone|mobile|address|name|user|customer|contact|person|birth|ssn|card|iban|^ip$|latitude|longitude/', $normalisedKey) === 1) {
+            if ($decodedKey === null || $this->isSensitiveKey($decodedKey)) {
                 $redacted[$safeKey] = self::REDACTED;
             } elseif (is_array($value)) {
                 $redacted[$safeKey] = $depth >= 6 ? '[truncated]' : $this->redactArray($value, $depth + 1, $remaining);
@@ -127,5 +135,12 @@ final class SignalRedactor
         }
 
         return $redacted;
+    }
+
+    private function isSensitiveKey(string $key): bool
+    {
+        $normalised = strtolower(preg_replace('/[^a-z0-9]/i', '', $key) ?? '');
+
+        return preg_match(self::SENSITIVE_KEY_PATTERN, $normalised) === 1;
     }
 }

@@ -15,6 +15,7 @@ use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\IncidentStatus;
 use Capell\Core\Enums\Reporting\Severity;
 use Capell\Core\Models\ReportingIncident;
+use Capell\Core\Tests\Support\ReportingSensitiveCorpus;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Contracts\Config\Repository;
@@ -98,6 +99,28 @@ it('acknowledges only assigned operators and keeps acknowledgement durable', fun
         ->and($incident->acknowledgedAt)->not->toBeNull();
 });
 
+it('refuses an ownerless operator policy before creating a durable incident', function (): void {
+    config()->set('capell-reporting.defaults.owner');
+    config()->set('capell-reporting.defaults.backup');
+
+    $signal = operatorSignal();
+
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback)
+        ->and(GetReportingIncidentAction::run($signal->fingerprint()))->toBeNull()
+        ->and($this->routingRecords->getRecords())->toHaveCount(1);
+});
+
+it('assigns a corrected policy before deduplicating a legacy ownerless incident', function (): void {
+    $signal = operatorSignal();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Reported);
+
+    ReportingIncident::query()->whereKey($signal->fingerprint())->update(['owner' => null, 'backup' => null]);
+
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->reason)->toBe('already_delivered')
+        ->and(operatorIncident($signal)->owner)->toBe('primary')
+        ->and(UpdateReportingIncidentAction::run($signal->fingerprint(), IncidentStatus::Resolved, 'primary'))->toBeTrue();
+});
+
 function routingMailTransport(): ArrayTransport
 {
     config()->set('mail.mailers.reporting-test', ['transport' => 'array']);
@@ -148,6 +171,35 @@ it('withholds structured credentials from operator mail logs and stored snapshot
     'nested object' => ['{"password": { "value": "OPERATOR_CREDENTIAL_LEAK" }}'],
     'nested array' => ['{"password": [ "OPERATOR_CREDENTIAL_LEAK" ]}'],
 ])->with([false, true]);
+
+it('uses the shared redaction corpus for every operator output channel', function (string $text, string $sensitive): void {
+    $transport = routingMailTransport();
+    $delivered = new SignalData('import.failed', FailureCategory::Dependency, Severity::Error, $text, $text, 'delivered', context: ['detail' => $text]);
+
+    expect(resolve(DispatchSignalAction::class)->handle($delivered)->status)->toBe(DispatchStatus::Reported);
+
+    config()->set('capell-reporting.defaults.channels', ['email']);
+    config()->set('capell-reporting.email.enabled', false);
+
+    $fallback = new SignalData('import.failed', FailureCategory::Dependency, Severity::Error, $text, $text, 'fallback', context: ['detail' => $text]);
+
+    expect(resolve(DispatchSignalAction::class)->handle($fallback)->status)->toBe(DispatchStatus::Fallback)
+        ->and($transport->messages())->toHaveCount(1)
+        ->and($this->routingRecords->getRecords())->toHaveCount(2);
+
+    foreach ([
+        $delivered->toJson(),
+        $delivered->toHuman(),
+        $fallback->toJson(),
+        $fallback->toHuman(),
+        ReportingIncident::query()->findOrFail($delivered->fingerprint())->getRawOriginal('signal'),
+        ReportingIncident::query()->findOrFail($fallback->fingerprint())->getRawOriginal('signal'),
+        $transport->messages()->first()->getOriginalMessage()->getTextBody(),
+        ...array_column($this->routingRecords->getRecords(), 'message'),
+    ] as $output) {
+        expect($output)->not->toContain($sensitive);
+    }
+})->with(ReportingSensitiveCorpus::cases());
 
 it('limits email attempts across unrelated incidents until the exact window boundary', function (): void {
     $this->freezeTime();

@@ -32,6 +32,8 @@ final readonly class OperatorRoutingData
             throw_if($operator !== null && (! is_string($operator) || preg_match('/\A[a-z][a-z0-9_-]{0,63}\z/', $operator) !== 1), InvalidArgumentException::class, 'Operator aliases must be opaque identifiers.');
         }
 
+        throw_if($owner === null && $backup === null, InvalidArgumentException::class, 'Operator routing requires an owner or backup alias.');
+
         throw_if(! is_int($seconds) || $seconds < 1 || $seconds > 86400, InvalidArgumentException::class, 'Escalation delay must be between 1 and 86400 seconds.');
 
         return new self(array_values(array_unique($channels)), $owner, $backup, $seconds);

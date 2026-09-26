@@ -77,8 +77,8 @@ not service instances or closures, and is suitable for Laravel's config cache.
 | `capell-reporting.log_channel`                     | `null`    | Laravel's default channel, or `CAPELL_REPORTING_LOG_CHANNEL`.                           |
 | `capell-reporting.reporters`                       | `[]`      | Opt-in transport names mapped to container bindings or classes implementing `Reporter`. |
 | `capell-reporting.defaults.channels`               | `['log']` | Channels selected by the `operator` transport: `log`, `health`, `email`.                |
-| `capell-reporting.defaults.owner`                  | `null`    | Primary operator alias.                                                                 |
-| `capell-reporting.defaults.backup`                 | `null`    | Backup operator alias, or no backup escalation.                                         |
+| `capell-reporting.defaults.owner`                  | `null`    | Primary operator alias; operator transport requires this or a backup alias.             |
+| `capell-reporting.defaults.backup`                 | `null`    | Backup operator alias, or no backup escalation; may be the sole assigned alias.         |
 | `capell-reporting.defaults.escalate_after_seconds` | `900`     | Unacknowledged incident age before backup escalation; integer 1–86400.                  |
 | `capell-reporting.operators`                       | `[]`      | Private alias-to-email mapping; addresses never enter signal payloads or receipts.      |
 | `capell-reporting.email.enabled`                   | `false`   | Independent email opt-in switch.                                                        |
@@ -317,6 +317,9 @@ $counts = ProcessReportingIncidentsAction::run(limit: 100);
 $removed = PruneReportingIncidentsAction::run(retentionDays: 30, limit: 1000);
 ```
 
+Operator routing requires at least one owner or backup alias, so every durable
+incident has an authorised terminal transition. Corrected aliases are applied to
+existing open or escalated incidents before accepted deliveries are deduplicated.
 Acknowledgement is restricted to the incident's assigned owner or backup alias and
 records its time and alias. The host must authenticate the operator and derive the
 alias; never accept it directly from an unauthorised request. Only open/escalated

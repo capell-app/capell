@@ -7,7 +7,7 @@ return [
     'enabled' => env('CAPELL_REPORTING_ENABLED', true),
 
     // Merge defaults, then category, then the exact (including dots) signal name.
-    // Zero disables cooldown. The operator transport opts into the listed channels.
+    // Zero disables cooldown. Operator transport requires an owner or backup alias.
     'defaults' => [
         'enabled' => true,
         'transport' => 'log',

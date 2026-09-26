@@ -115,6 +115,15 @@ final readonly class OperatorSignalRouter
                 $incident->last_attempt_at = null;
             }
 
+            $health = $incident->health || in_array('health', $routing->channels, true);
+            if ($incident->owner !== $routing->owner || $incident->backup !== $routing->backup || $incident->health !== $health) {
+                $incident->forceFill([
+                    'owner' => $routing->owner,
+                    'backup' => $routing->backup,
+                    'health' => $health,
+                ])->save();
+            }
+
             $prefix = $incident->status === IncidentStatus::Escalated ? 'escalation_' : '';
             $pending = array_filter($routing->channels, fn (string $channel): bool => ($incident->deliveries[$prefix . $channel] ?? null) !== 'delivered');
             if ($pending === []) {
@@ -126,9 +135,6 @@ final readonly class OperatorSignalRouter
             }
 
             $incident->forceFill([
-                'owner' => $routing->owner,
-                'backup' => $routing->backup,
-                'health' => $incident->health || in_array('health', $routing->channels, true),
                 'claim_token' => bin2hex(random_bytes(32)),
                 'claim_until' => now()->getTimestamp() + 60,
                 'last_attempt_at' => now(),

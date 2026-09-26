@@ -10,6 +10,7 @@ use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\Severity;
 use Capell\Core\Models\ReportingIncident;
+use Capell\Core\Support\Reporting\ReportingLoggerBoundary;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Container\Container;
@@ -28,6 +29,24 @@ use Psr\Log\LoggerInterface;
 final readonly class ReportingLoggerDependency
 {
     public function __construct(public LogManager $logs) {}
+}
+
+abstract readonly class ReportingLoggerCallback
+{
+    public function __construct(private ReportingLoggerDependency $dependency) {}
+
+    protected function logs(): LogManager
+    {
+        return $this->dependency->logs;
+    }
+}
+
+final readonly class ReportingInheritedLoggerCallback extends ReportingLoggerCallback
+{
+    public function __invoke(): LoggerInterface
+    {
+        return $this->logs()->channel('captured-target');
+    }
 }
 
 beforeEach(function (): void {
@@ -59,6 +78,33 @@ function failureSafetySignal(string $correlationId = 'trace-1'): SignalData
 {
     return new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed.', 'Inspect.', $correlationId);
 }
+
+it('inspects dependency graph shapes hidden by callback language features', function (string $shape): void {
+    $application = $this->app;
+    throw_unless($application instanceof Application, RuntimeException::class, 'Expected an application container.');
+    $container = clone $application;
+    $manager = new LogManager($container);
+    $boundary = new ReportingLoggerBoundary($manager, $container);
+    $hostLogs = $this->reportingLogs;
+
+    if ($shape === 'inherited private property') {
+        $callback = new ReportingInheritedLoggerCallback(new ReportingLoggerDependency($hostLogs));
+    } else {
+        $callback = static function (?LogManager $store = null): ?LogManager {
+            static $logs;
+
+            if ($store instanceof LogManager) {
+                $logs = $store;
+            }
+
+            return $logs;
+        };
+        $callback($hostLogs);
+    }
+
+    expect(fn (): mixed => $boundary->guardCallback($callback, static fn (): null => null))
+        ->toThrow(RuntimeException::class, 'Reporting log transport is unavailable.');
+})->with(['inherited private property', 'static closure storage']);
 
 it('suppresses transport re-entry across fresh dispatchers and resets after delivery', function (): void {
     config()->set('capell-reporting.defaults.cooldown_seconds', 0);
@@ -322,6 +368,53 @@ it('isolates warmed dependencies beneath logger factories and taps', function (s
         }
     }
 })->with(['factory', 'tap'])->with(['singleton', 'alias', 'instance'])->with(['log', 'operator', 'operator fallback'])->with([false, true]);
+
+it('guards every logger resolution route from closure-captured host managers', function (string $resolution, string $route): void {
+    $application = $this->app;
+    $logs = $this->reportingLogs;
+    $logs->extend('captured-target', fn (): never => throw new RuntimeException('password=CAPTURED_BINDING_SECRET'));
+
+    config()->set('logging.channels.captured-target', ['driver' => 'captured-target']);
+
+    $application->singleton('reporting.captured-dependency', static fn (): ReportingLoggerDependency => new ReportingLoggerDependency($logs));
+    $dependency = $application->make('reporting.captured-dependency');
+    $application->singleton('reporting.captured-callback', static fn (Application $app): object => new ReportingInheritedLoggerCallback($app->make('reporting.captured-dependency')));
+    $callback = $application->make('reporting.captured-callback');
+
+    if ($resolution === 'channel') {
+        $logs->extend('captured-channel', fn (): LoggerInterface => $logs->channel('captured-target'));
+        config()->set('logging.channels.selected', ['driver' => 'captured-channel']);
+    } elseif ($resolution === 'driver') {
+        $logs->extend('captured-driver', fn (Application $app): LoggerInterface => $app->make('reporting.captured-dependency')->logs->channel('captured-target'));
+        config()->set('logging.channels.selected', ['driver' => 'captured-driver']);
+    } elseif ($resolution === 'factory') {
+        config()->set('logging.channels.selected', ['driver' => 'custom', 'via' => 'reporting.captured-callback']);
+    } else {
+        config()->set('logging.channels.selected', ['driver' => 'reporting-test', 'tap' => ['reporting.captured-callback']]);
+    }
+
+    config()->set('capell-reporting.log_channel', 'selected');
+    if ($route !== 'log') {
+        config()->set('capell-reporting.defaults.transport', 'operator');
+        config()->set('capell-reporting.defaults.channels', $route === 'operator' ? ['log', 'health'] : ['email']);
+        config()->set('capell-reporting.defaults.owner', 'primary');
+    }
+
+    $signal = failureSafetySignal();
+    expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Fallback)
+        ->and($this->emergencyRecords->getRecords())->toBe([])
+        ->and($this->reportingRecords->getRecords())->toHaveCount(1)
+        ->and($this->reportingRecords->getRecords()[0]->message)->not->toContain('CAPTURED_BINDING_SECRET')
+        ->and($application->make('reporting.captured-dependency'))->toBe($dependency)
+        ->and($application->make('reporting.captured-callback'))->toBe($callback)
+        ->and($application->make(LogManager::class))->toBe($logs);
+
+    if ($route !== 'log') {
+        expect(ReportingIncident::query()->findOrFail($signal->fingerprint())->deliveries)->toMatchArray($route === 'operator'
+            ? ['log' => 'unavailable', 'health' => 'delivered', 'fallback_log' => 'delivered']
+            : ['email' => 'disabled', 'fallback_log' => 'delivered']);
+    }
+})->with(['channel', 'driver', 'factory', 'tap'])->with(['log', 'operator', 'operator fallback']);
 
 it('contains malformed tap configuration within the affected channel', function (bool $selected, string $route): void {
     config()->set('logging.channels.selected', ['driver' => 'reporting-test']);

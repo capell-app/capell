@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Data\Reporting\SignalData;
 use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\Severity;
+use Capell\Core\Tests\Support\ReportingSensitiveCorpus;
 
 it('redacts secrets and personal context before exposing a signal', function (): void {
     $signal = new SignalData(
@@ -170,6 +171,12 @@ it('recognises encoded sensitive context keys', function (string $key): void {
     expect($signal->toJson())->not->toContain('ENCODED_CREDENTIAL_LEAK');
 })->with(['\\u0070assword', '%70assword', '%2570assword', '\\u0065mail']);
 
+it('preserves harmless context keys containing non-sensitive letter sequences', function (): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Failed.', 'Inspect.', 'trace-1', context: ['shipping_method' => 'ground']);
+
+    expect($signal->context)->toMatchArray(['shipping_method' => 'ground']);
+});
+
 it('withholds form encoded and structured credentials in every signal representation', function (string $text): void {
     $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['detail' => $text]);
 
@@ -188,6 +195,14 @@ it('withholds form encoded and structured credentials in every signal representa
     'encoded object' => [urlencode('{"password": { "value": "STRUCTURED_CREDENTIAL_LEAK" }}')],
     'double encoded array' => [urlencode(urlencode('{"password": [ "STRUCTURED_CREDENTIAL_LEAK" ]}'))],
 ]);
+
+it('withholds the shared labelled secret and personal data corpus from every signal representation', function (string $text, string $sensitive): void {
+    $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, $text, $text, 'trace-1', context: ['detail' => $text]);
+
+    foreach ([$signal->message, $signal->operatorSummary, $signal->context['detail'], $signal->toJson(), $signal->toHuman(), json_encode($signal, JSON_THROW_ON_ERROR)] as $output) {
+        expect($output)->not->toContain($sensitive);
+    }
+})->with(ReportingSensitiveCorpus::cases());
 
 it('preserves harmless encoded diagnostics and text after folded headers', function (): void {
     $signal = new SignalData('runtime.failed', FailureCategory::Runtime, Severity::Error, 'Progress: 50%25; {"status":"still \\"pending\\""}', "Cookie: harmless=1;\r\n sid=hidden\r\nRetry the operation.", 'trace-1');
