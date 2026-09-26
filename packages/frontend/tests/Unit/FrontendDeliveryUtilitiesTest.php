@@ -83,7 +83,7 @@ it('builds stable frontend cache keys for page, site, navigation, and render dat
         ->and(CacheEnum::navigationById(5))->toBe('navigation-5')
         ->and(CacheEnum::media(7))->toBe('media-7')
         ->and(CacheEnum::pageIds('listing-key', 4))->toBe('listing-key-gen-4')
-        ->and(CacheEnum::pageModel(Page::class, 99, 10, 2))->toBe('page-model-Page-99-site-10-lang-2')
+        ->and(CacheEnum::pageModel(Page::class, 99, 10, 2))->toBe('page-model-Capell.Core.Models.Page-99-site-10-lang-2')
         ->and(CacheEnum::listingGeneration(10, 2))->toBe('listing-gen-10-2');
 });
 

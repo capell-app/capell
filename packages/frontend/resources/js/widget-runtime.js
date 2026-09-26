@@ -320,7 +320,6 @@ const loadResource = (candidate, retry = false) => {
 const knownAssetsForIds = (resourceIds, allAssets = assetsById()) => {
     const knownIds = []
     const resources = []
-    const seen = new Set()
 
     resourceIds.forEach((resourceId) => {
         const activation = allAssets[resourceId]
@@ -328,6 +327,7 @@ const knownAssetsForIds = (resourceIds, allAssets = assetsById()) => {
             return
         }
 
+        const seen = new Set()
         knownIds.push(resourceId)
         resources.push(
             activation.layers.map((layer) =>

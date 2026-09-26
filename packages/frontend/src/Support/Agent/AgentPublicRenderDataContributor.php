@@ -13,12 +13,14 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
+use Capell\Core\Models\Translation;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Media\MediaModel;
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
@@ -171,7 +173,7 @@ final class AgentPublicRenderDataContributor implements PublicRenderDataContribu
     /** @return list<class-string<Model>> */
     public function cacheDependencyModelTypes(): array
     {
-        return [Blueprint::class, Page::class, BlueprintPropertySet::class, PropertySet::class, PropertyDefinition::class, PagePropertyValue::class, Taxonomy::class, Term::class, TermPropertyValue::class, MediaModel::class()];
+        return [Blueprint::class, Page::class, PageUrl::class, Translation::class, SiteDomain::class, BlueprintPropertySet::class, PropertySet::class, PropertyDefinition::class, PagePropertyValue::class, Taxonomy::class, Term::class, TermPropertyValue::class, MediaModel::class()];
     }
 
     /**

@@ -532,6 +532,25 @@ it('cancels one run without clearing another run lock', function (): void {
 
     CancelInstallerRunAction::run($cancelledInstallId);
 
-    expect($sessions->hasInstallSessionState($cancelledInstallId))->toBeFalse()
+    expect($sessions->status($cancelledInstallId))->toBe('cancelled')
         ->and($sessions->activeInstallId())->toBe($activeInstallId);
+});
+
+it('prevents a cancelled queued run from executing when its job is delivered', function (): void {
+    config(['cache.default' => 'array']);
+
+    $installId = '57575757-5757-4757-a757-575757575757';
+    $sessions = resolve(InstallerSessionRepository::class);
+    $sessions->putStatus($installId, 'queued');
+    $sessions->lock($installId, queued: true);
+
+    RunInstallAction::mock()
+        ->shouldReceive('handle')
+        ->never();
+
+    CancelInstallerRunAction::run($installId);
+    new RunCapellInstallJob(installerRunInput(), $installId)->handle();
+
+    expect($sessions->status($installId))->toBe('cancelled')
+        ->and($sessions->activeInstallId())->toBeNull();
 });

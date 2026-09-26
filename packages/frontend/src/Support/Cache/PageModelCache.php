@@ -36,15 +36,15 @@ final class PageModelCache
         bool $withEvents = true,
         bool $useCache = true,
     ): ?Pageable {
-        $key = CacheEnum::pageModel($type, $id, $site->id ?? 0, $language->id);
+        $modelClass = Relation::getMorphedModel($type) ?? $type;
 
-        $loader = function () use ($type, $id, $site, $language, $withEvents): ?Pageable {
-            $modelClass = Relation::getMorphedModel($type) ?? $type;
+        if (! is_a($modelClass, Model::class, true) || ! is_a($modelClass, Pageable::class, true)) {
+            return null;
+        }
 
-            if (! is_a($modelClass, Model::class, true) || ! is_a($modelClass, Pageable::class, true)) {
-                return null;
-            }
+        $key = CacheEnum::pageModel($modelClass, $id, $site->id ?? 0, $language->id);
 
+        $loader = function () use ($modelClass, $id, $site, $language, $withEvents): ?Pageable {
             $callback = function () use ($modelClass, $id, $site, $language): ?Pageable {
                 $query = $modelClass::query()->where('id', $id)->publishedDate();
 
@@ -64,7 +64,12 @@ final class PageModelCache
 
         $model = $useCache ? $this->rememberCache($key, $loader) : $loader();
 
-        if (! $model instanceof Pageable || ! $model instanceof Model) {
+        if ($useCache && $model !== null && ! $model instanceof $modelClass) {
+            $this->removeCacheKey($key);
+            $model = $this->rememberCache($key, $loader);
+        }
+
+        if (! $model instanceof Pageable || ! $model instanceof Model || ! $model instanceof $modelClass) {
             return null;
         }
 

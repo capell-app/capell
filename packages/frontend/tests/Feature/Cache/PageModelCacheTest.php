@@ -10,6 +10,8 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Cache\PageModelCache;
+use Capell\Frontend\Tests\Fixtures\Cache\First\Page as FirstExtensionPage;
+use Capell\Frontend\Tests\Fixtures\Cache\Second\Page as SecondExtensionPage;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +90,29 @@ it('does not hit the database on a warm cache call', function (): void {
     $cache->get(Page::class, $page->id, $site, $language);
 
     expect(DB::getQueryLog())->toBeEmpty();
+});
+
+it('partitions cached models by their canonical class name', function (): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->recycle($language)->withTranslations()->create();
+    $page = Page::factory()
+        ->site($site)
+        ->published(CarbonImmutable::now())
+        ->withTranslations($language, [], slug: 'extension-page')
+        ->createOne();
+    $site->load('siteDomains');
+
+    $cache = resolve(PageModelCache::class);
+    $firstKey = CacheEnum::pageModel(FirstExtensionPage::class, $page->id, $site->id, $language->id);
+    $secondKey = CacheEnum::pageModel(SecondExtensionPage::class, $page->id, $site->id, $language->id);
+    $first = $cache->get(FirstExtensionPage::class, $page->id, $site, $language);
+    $cache->setToCache($secondKey, $first);
+    $second = $cache->get(SecondExtensionPage::class, $page->id, $site, $language);
+
+    expect($firstKey)
+        ->not->toBe($secondKey)
+        ->and($first)->toBeInstanceOf(FirstExtensionPage::class)
+        ->and($second)->toBeInstanceOf(SecondExtensionPage::class);
 });
 
 it('invalidates a specific model entry by key', function (): void {

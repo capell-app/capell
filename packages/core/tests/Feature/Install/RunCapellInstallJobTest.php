@@ -98,6 +98,7 @@ it('does not run when another install owns the lock', function (): void {
 
 it('sets failed status in cache when an exception is thrown', function (): void {
     $installId = 'test-failed-uuid';
+    Cache::put('capell.install.lock', ['installId' => $installId]);
 
     // RunInstallAction is final — use an anonymous fake instead of Mockery
     $throwingFake = new class
