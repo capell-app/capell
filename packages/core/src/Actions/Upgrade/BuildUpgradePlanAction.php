@@ -9,7 +9,6 @@ use Capell\Core\Data\UpgradeContext;
 use Capell\Core\Data\UpgradePlanData;
 use Capell\Core\Enums\Upgrade\UpgradeStepStatus;
 use Capell\Core\Models\UpgradeLogEntry;
-use Illuminate\Database\Query\JoinClause;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -22,7 +21,7 @@ class BuildUpgradePlanAction
     {
         $composerVersions = ResolveInstalledComposerVersionsAction::run();
 
-        $ledgerVersions = $this->lastKnownVersions();
+        $ledgerVersions = ReadLatestInstalledVersionsAction::run();
 
         $appliedStepIds = UpgradeLogEntry::query()
             ->steps()
@@ -53,49 +52,5 @@ class BuildUpgradePlanAction
             context: $context,
             versionAudit: AuditInstalledVersionsAction::run($composerVersions),
         );
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function lastKnownVersions(): array
-    {
-        $latestRanAtByKey = UpgradeLogEntry::query()
-            ->versionSnapshots()
-            ->select('key')
-            ->selectRaw('MAX(ran_at) as latest_ran_at')
-            ->groupBy('key');
-
-        $latestSnapshotIds = UpgradeLogEntry::query()
-            ->versionSnapshots()
-            ->joinSub($latestRanAtByKey, 'latest_version_snapshots', function (JoinClause $join): void {
-                $join
-                    ->on('capell_upgrade_log.key', '=', 'latest_version_snapshots.key')
-                    ->on('capell_upgrade_log.ran_at', '=', 'latest_version_snapshots.latest_ran_at');
-            })
-            ->selectRaw('MAX(capell_upgrade_log.id) as id')
-            ->groupBy('capell_upgrade_log.key')
-            ->pluck('id')
-            ->all();
-
-        $rows = UpgradeLogEntry::query()
-            ->whereIn('id', $latestSnapshotIds)
-            ->orderBy('key')
-            ->get(['key', 'meta']);
-
-        $latest = [];
-
-        foreach ($rows as $row) {
-            if (array_key_exists($row->key, $latest)) {
-                continue;
-            }
-
-            $version = $row->metaGet('to_version');
-            if (is_string($version)) {
-                $latest[$row->key] = $version;
-            }
-        }
-
-        return $latest;
     }
 }

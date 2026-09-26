@@ -9,6 +9,9 @@ use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Actions\CheckForUpdatesAction;
 use Capell\Admin\Actions\Upgrade\BuildUpgradeSummaryAction;
 use Capell\Admin\Actions\Upgrade\QueueCapellUpgradeAction;
+use Capell\Admin\Actions\Upgrade\ReadLatestUpgradeSnapshotAction;
+use Capell\Admin\Data\Upgrade\UpgradeAdvisorySnapshotData;
+use Capell\Admin\Data\Upgrade\UpgradeNoticeData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Core\Actions\Upgrade\BuildUpgradeReadinessReportAction;
 use Capell\Core\Data\Upgrade\UpgradeReadinessReportData;
@@ -18,8 +21,6 @@ use Capell\Core\Enums\Upgrade\UpgradeStage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\UpgradeRun;
 use Capell\Core\Models\UpgradeRunEvent;
-use Capell\Core\Support\Json\JsonCodec;
-use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -30,7 +31,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Override;
-use stdClass;
 use Throwable;
 
 /**
@@ -39,8 +39,6 @@ use Throwable;
 class UpgradePage extends Page
 {
     use HasPageShield;
-
-    private const string UPDATE_ADVISORY_SNAPSHOTS_TABLE = 'marketplace_update_advisory_snapshots';
 
     private const string UPDATE_NOTICE_DISMISSALS_TABLE = 'marketplace_update_notice_dismissals';
 
@@ -106,40 +104,9 @@ class UpgradePage extends Page
         return __('capell-admin::generic.upgrade_info');
     }
 
-    /**
-     * @return (stdClass&object{advisories: array<int, array<string, mixed>>, updates: array<int, array<string, mixed>>, checked_at: CarbonImmutable|null, capell_version: string|null})|null
-     */
-    public function latestAdvisorySnapshot(): ?object
+    public function latestAdvisorySnapshot(): ?UpgradeAdvisorySnapshotData
     {
-        if (! Schema::hasTable(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)) {
-            return null;
-        }
-
-        try {
-            $snapshot = DB::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)
-                ->latest('checked_at')
-                ->first();
-        } catch (Throwable) {
-            return null;
-        }
-
-        if ($snapshot === null) {
-            return null;
-        }
-
-        /** @var stdClass&object{advisories: array<int, array<string, mixed>>, updates: array<int, array<string, mixed>>, checked_at: CarbonImmutable|null, capell_version: string|null} $advisorySnapshot */
-        $advisorySnapshot = (object) [
-            'advisories' => $this->decodeNoticeList($snapshot->advisories ?? null),
-            'updates' => $this->decodeNoticeList($snapshot->updates ?? null),
-            'checked_at' => filled($snapshot->checked_at ?? null)
-                ? CarbonImmutable::parse($snapshot->checked_at)
-                : null,
-            'capell_version' => is_string($snapshot->capell_version ?? null)
-                ? $snapshot->capell_version
-                : null,
-        ];
-
-        return $advisorySnapshot;
+        return ReadLatestUpgradeSnapshotAction::run();
     }
 
     public function installedCapellVersion(): string
@@ -147,7 +114,7 @@ class UpgradePage extends Page
         $snapshot = $this->latestAdvisorySnapshot();
 
         return CapellCore::getInstalledPrettyVersion('capell-app/capell')
-            ?? ($snapshot !== null ? $snapshot->capell_version : null)
+            ?? ($snapshot instanceof UpgradeAdvisorySnapshotData ? $snapshot->capell_version : null)
             ?? (string) __('capell-admin::generic.unknown');
     }
 
@@ -168,7 +135,7 @@ class UpgradePage extends Page
     public function updateDistanceLabel(): string
     {
         $versionsBehind = collect($this->updateNotices())
-            ->map(fn (array $notice): ?int => $this->noticeVersionsBehind($notice))
+            ->map(fn (array $notice): ?int => $this->noticeData($notice)->versionsBehind)
             ->filter(fn (?int $versionsBehind): bool => $versionsBehind !== null)
             ->max();
 
@@ -217,22 +184,7 @@ class UpgradePage extends Page
      */
     public function noticeUpdateType(array $notice): string
     {
-        $type = $notice['update_type'] ?? $notice['release_type'] ?? $notice['type'] ?? null;
-
-        if (is_string($type) && in_array($type, ['security', 'bugfix', 'bug', 'feature', 'major'], true)) {
-            return $type === 'bug' ? 'bugfix' : $type;
-        }
-
-        $installedVersion = $this->noticeInstalledVersion($notice);
-        $recommendedVersion = $this->noticeRecommendedVersion($notice);
-
-        if ($this->majorVersion($installedVersion) !== null
-            && $this->majorVersion($recommendedVersion) !== null
-            && $this->majorVersion($installedVersion) !== $this->majorVersion($recommendedVersion)) {
-            return 'major';
-        }
-
-        return 'feature';
+        return $this->noticeData($notice)->type;
     }
 
     /**
@@ -240,8 +192,9 @@ class UpgradePage extends Page
      */
     public function noticeImpactLabel(array $notice): string
     {
-        $type = $this->noticeUpdateType($notice);
-        $severity = (string) ($notice['severity'] ?? 'low');
+        $noticeData = $this->noticeData($notice);
+        $type = $noticeData->type;
+        $severity = $noticeData->severity;
 
         if ($type === 'major' || in_array($severity, ['critical', 'high'], true)) {
             return (string) __('capell-admin::generic.impact_high');
@@ -272,13 +225,13 @@ class UpgradePage extends Page
     {
         $snapshot = $this->latestAdvisorySnapshot();
 
-        if ($snapshot === null) {
+        if (! $snapshot instanceof UpgradeAdvisorySnapshotData) {
             return [];
         }
 
         $notices = collect($snapshot->advisories)
-            ->where('type', 'security')
-            ->sortByDesc(fn (array $notice): int => $this->severityWeight((string) ($notice['severity'] ?? 'low')))
+            ->filter(fn (array $notice): bool => $this->noticeData($notice)->type === 'security')
+            ->sortByDesc(fn (array $notice): int => $this->severityWeight($this->noticeData($notice)->severity))
             ->values()
             ->all();
 
@@ -292,13 +245,13 @@ class UpgradePage extends Page
     {
         $snapshot = $this->latestAdvisorySnapshot();
 
-        if ($snapshot === null) {
+        if (! $snapshot instanceof UpgradeAdvisorySnapshotData) {
             return [];
         }
 
         $notices = collect($snapshot->advisories)
-            ->where('type', 'bug')
-            ->sortByDesc(fn (array $notice): int => $this->severityWeight((string) ($notice['severity'] ?? 'low')))
+            ->filter(fn (array $notice): bool => $this->noticeData($notice)->type === 'bugfix')
+            ->sortByDesc(fn (array $notice): int => $this->severityWeight($this->noticeData($notice)->severity))
             ->values()
             ->all();
 
@@ -312,7 +265,7 @@ class UpgradePage extends Page
     {
         $snapshot = $this->latestAdvisorySnapshot();
 
-        if ($snapshot === null) {
+        if (! $snapshot instanceof UpgradeAdvisorySnapshotData) {
             return [];
         }
 
@@ -402,21 +355,7 @@ class UpgradePage extends Page
      */
     public function noticeComposerNames(array $notice): array
     {
-        $names = collect([
-            $notice['composer_name'] ?? null,
-            $notice['package'] ?? null,
-        ]);
-
-        $composerNames = $names
-            ->merge(collect(is_array($notice['affected_packages'] ?? null) ? $notice['affected_packages'] : [])
-                ->filter(fn (mixed $package): bool => is_array($package))
-                ->map(fn (array $package): mixed => $package['composer_name'] ?? null))
-            ->filter(fn (mixed $name): bool => is_string($name) && $name !== '')
-            ->unique()
-            ->values()
-            ->all();
-
-        return array_values($composerNames);
+        return $this->noticeData($notice)->composerNames;
     }
 
     /**
@@ -438,15 +377,8 @@ class UpgradePage extends Page
      */
     public function noticeInstalledVersion(array $notice): string
     {
-        $installedVersion = $notice['installed_version'] ?? $notice['current_version'] ?? null;
-
-        if (is_string($installedVersion) && $installedVersion !== '') {
-            return $installedVersion;
-        }
-
-        $affectedVersion = $this->noticeAffectedPackageVersion($notice, 'installed_version');
-
-        return $affectedVersion ?? (string) __('capell-admin::generic.unknown');
+        return $this->noticeData($notice)->installedVersion
+            ?: (string) __('capell-admin::generic.unknown');
     }
 
     /**
@@ -454,16 +386,10 @@ class UpgradePage extends Page
      */
     public function noticeRecommendedVersion(array $notice): string
     {
-        $recommendedVersion = $notice['recommended_version'] ?? $notice['latest_version'] ?? null;
+        $recommendedVersion = $this->noticeData($notice)->recommendedVersion;
 
-        if (is_string($recommendedVersion) && $recommendedVersion !== '') {
+        if ($recommendedVersion !== '') {
             return $recommendedVersion;
-        }
-
-        $affectedVersion = $this->noticeAffectedPackageVersion($notice, 'fixed_version');
-
-        if ($affectedVersion !== null) {
-            return $affectedVersion;
         }
 
         return $this->noticeFixedVersionsLabel($notice);
@@ -609,26 +535,6 @@ class UpgradePage extends Page
         ];
     }
 
-    /**
-     * @param  Notice  $notice
-     */
-    private function noticeAffectedPackageVersion(array $notice, string $versionKey): ?string
-    {
-        if (! is_array($notice['affected_packages'] ?? null)) {
-            return null;
-        }
-
-        foreach ($notice['affected_packages'] as $package) {
-            $version = is_array($package) ? ($package[$versionKey] ?? null) : null;
-
-            if (is_string($version) && $version !== '') {
-                return $version;
-            }
-        }
-
-        return null;
-    }
-
     private function runUpgrade(bool $dryRun): null
     {
         abort_unless($this->canRunUpgrades(), 403);
@@ -749,7 +655,7 @@ class UpgradePage extends Page
     {
         $snapshot = $this->latestAdvisorySnapshot();
 
-        if ($snapshot === null) {
+        if (! $snapshot instanceof UpgradeAdvisorySnapshotData) {
             return null;
         }
 
@@ -766,8 +672,7 @@ class UpgradePage extends Page
      */
     private function isPersistentSecurityNotice(array $notice): bool
     {
-        return ($notice['type'] ?? null) === 'security'
-            && in_array((string) ($notice['severity'] ?? ''), ['critical', 'high'], true);
+        return $this->noticeData($notice)->isHighRiskSecurity();
     }
 
     /**
@@ -775,82 +680,14 @@ class UpgradePage extends Page
      */
     private function noticeId(array $notice): string
     {
-        $noticeId = $notice['notice_id'] ?? $notice['id'] ?? null;
-
-        return is_string($noticeId) ? $noticeId : '';
+        return $this->noticeData($notice)->noticeId;
     }
 
     /**
      * @param  Notice  $notice
      */
-    private function noticeVersionsBehind(array $notice): ?int
+    private function noticeData(array $notice): UpgradeNoticeData
     {
-        $installedVersion = $this->comparableVersion($this->noticeInstalledVersion($notice));
-        $recommendedVersion = $this->comparableVersion($this->noticeRecommendedVersion($notice));
-
-        if ($installedVersion === null || $recommendedVersion === null) {
-            return null;
-        }
-
-        if (version_compare($recommendedVersion, $installedVersion) <= 0) {
-            return 0;
-        }
-
-        $installedParts = array_map(intval(...), explode('.', $installedVersion));
-        $recommendedParts = array_map(intval(...), explode('.', $recommendedVersion));
-
-        if ($installedParts[0] !== $recommendedParts[0]) {
-            return max(1, ($recommendedParts[0] - $installedParts[0]) * 10);
-        }
-
-        if (($installedParts[1] ?? 0) !== ($recommendedParts[1] ?? 0)) {
-            return max(1, ($recommendedParts[1] ?? 0) - ($installedParts[1] ?? 0));
-        }
-
-        return max(1, ($recommendedParts[2] ?? 0) - ($installedParts[2] ?? 0));
-    }
-
-    private function majorVersion(string $version): ?int
-    {
-        $comparableVersion = $this->comparableVersion($version);
-
-        if ($comparableVersion === null) {
-            return null;
-        }
-
-        return (int) explode('.', $comparableVersion)[0];
-    }
-
-    private function comparableVersion(string $version): ?string
-    {
-        if (preg_match('/v?(\d+(?:\.\d+){0,2})/i', $version, $matches) !== 1) {
-            return null;
-        }
-
-        $parts = explode('.', $matches[1]);
-
-        while (count($parts) < 3) {
-            $parts[] = '0';
-        }
-
-        return implode('.', array_slice($parts, 0, 3));
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function decodeNoticeList(mixed $value): array
-    {
-        if (is_array($value)) {
-            return array_values(array_filter($value, is_array(...)));
-        }
-
-        if (! is_string($value) || $value === '') {
-            return [];
-        }
-
-        $decoded = JsonCodec::decodeArray($value);
-
-        return array_values(array_filter($decoded, is_array(...)));
+        return UpgradeNoticeData::fromPayload($notice);
     }
 }

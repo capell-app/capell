@@ -47,18 +47,75 @@ count_baseline_debt() {
                 return 2;
             }
 
-            preg_match_all("/^\s*count:\s*(\d+)\s*$/m", $contents, $counts);
+            $lines = preg_split("/\R/", $contents) ?: [];
+            $lineCount = count($lines);
 
-            if ($counts[1] !== []) {
-                foreach ($counts[1] as $count) {
-                    $total += (int) $count;
+            for ($lineIndex = 0; $lineIndex < $lineCount; $lineIndex++) {
+                if (preg_match("/^(\s*)ignoreErrors:\s*(?:#.*)?$/", $lines[$lineIndex], $section) !== 1) {
+                    continue;
                 }
 
-                continue;
-            }
+                $sectionIndent = strlen(str_replace("\t", "    ", $section[1]));
+                $entries = [];
 
-            preg_match_all("/^\s*message:/m", $contents, $messages);
-            $total += count($messages[0]);
+                for ($lineIndex++; $lineIndex < $lineCount; $lineIndex++) {
+                    $line = $lines[$lineIndex];
+
+                    if (trim($line) === "" || str_starts_with(ltrim($line), "#")) {
+                        continue;
+                    }
+
+                    preg_match("/^(\s*)/", $line, $indentation);
+                    $indent = strlen(str_replace("\t", "    ", $indentation[1]));
+
+                    if ($indent <= $sectionIndent) {
+                        $lineIndex--;
+                        break;
+                    }
+
+                    $entries[] = [$line, $indent];
+                }
+
+                $entryIndent = null;
+
+                foreach ($entries as [$line, $indent]) {
+                    if (preg_match("/^\s*-\s*/", $line) === 1) {
+                        $entryIndent = $entryIndent === null ? $indent : min($entryIndent, $indent);
+                    }
+                }
+
+                if ($entryIndent === null) {
+                    continue;
+                }
+
+                $entryStarted = false;
+                $entryCount = null;
+
+                foreach ($entries as [$line, $indent]) {
+                    if ($indent === $entryIndent && preg_match("/^\s*-\s*/", $line) === 1) {
+                        if ($entryStarted) {
+                            $total += $entryCount ?? 1;
+                        }
+
+                        $entryStarted = true;
+                        $entryCount = preg_match("/\bcount:\s*(\d+)\b/", $line, $inlineCount) === 1
+                            ? (int) $inlineCount[1]
+                            : null;
+
+                        continue;
+                    }
+
+                    if ($entryStarted
+                        && $indent > $entryIndent
+                        && preg_match("/^\s*count:\s*(\d+)\s*(?:#.*)?$/", $line, $count) === 1) {
+                        $entryCount = (int) $count[1];
+                    }
+                }
+
+                if ($entryStarted) {
+                    $total += $entryCount ?? 1;
+                }
+            }
         }
 
         echo $total;

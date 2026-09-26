@@ -9,7 +9,7 @@ use Spatie\LaravelData\Data;
 final class UpgradeNoticeData extends Data
 {
     /**
-     * @param  array<int, string>  $composerNames
+     * @param  list<string>  $composerNames
      * @param  array<string, mixed>  $payload
      */
     public function __construct(
@@ -63,13 +63,29 @@ final class UpgradeNoticeData extends Data
      */
     private static function noticeType(array $payload): string
     {
-        $type = $payload['update_type'] ?? $payload['release_type'] ?? $payload['type'] ?? 'feature';
+        // Advisory classification must not be hidden by a release's broader type.
+        $advisoryType = $payload['type'] ?? null;
 
-        if (! is_string($type)) {
-            return 'feature';
+        if (is_string($advisoryType) && in_array($advisoryType, ['security', 'bug', 'bugfix'], true)) {
+            return $advisoryType === 'bug' ? 'bugfix' : $advisoryType;
         }
 
-        return $type === 'bug' ? 'bugfix' : $type;
+        $type = $payload['update_type'] ?? $payload['release_type'] ?? $payload['type'] ?? null;
+
+        if (is_string($type) && in_array($type, ['security', 'bugfix', 'bug', 'feature', 'major'], true)) {
+            return $type === 'bug' ? 'bugfix' : $type;
+        }
+
+        $installedVersion = self::comparableVersion(self::installedVersion($payload));
+        $recommendedVersion = self::comparableVersion(self::recommendedVersion($payload));
+
+        if ($installedVersion !== null
+            && $recommendedVersion !== null
+            && explode('.', $installedVersion)[0] !== explode('.', $recommendedVersion)[0]) {
+            return 'major';
+        }
+
+        return 'feature';
     }
 
     /**
@@ -84,11 +100,11 @@ final class UpgradeNoticeData extends Data
 
     /**
      * @param  array<string, mixed>  $payload
-     * @return array<int, string>
+     * @return list<string>
      */
     private static function composerNames(array $payload): array
     {
-        return collect([
+        return array_values(collect([
             $payload['composer_name'] ?? null,
             $payload['package'] ?? null,
         ])
@@ -97,7 +113,7 @@ final class UpgradeNoticeData extends Data
             ->filter(fn (mixed $composerName): bool => is_string($composerName) && $composerName !== '')
             ->unique()
             ->values()
-            ->all();
+            ->all());
     }
 
     /**

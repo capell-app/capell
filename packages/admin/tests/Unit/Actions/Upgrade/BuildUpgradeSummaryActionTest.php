@@ -95,3 +95,29 @@ it('uses danger colour for high security advisories even below threshold', funct
         ->and($summary->navigationBadgeColor)->toBe('danger')
         ->and($summary->securityCount)->toBe(1);
 });
+
+it('infers a major update when the payload omits its release type', function (): void {
+    DB::table('marketplace_update_advisory_snapshots')->insert([
+        'source' => 'capell-api',
+        'checked_at' => now(),
+        'capell_version' => '4.2.0',
+        'updates' => json_encode([
+            [
+                'notice_id' => 'capell-5-0-0',
+                'composer_name' => 'capell-app/capell',
+                'installed_version' => '4.2.0',
+                'recommended_version' => '5.0.0',
+                'severity' => 'low',
+            ],
+        ], JSON_THROW_ON_ERROR),
+        'advisories' => json_encode([], JSON_THROW_ON_ERROR),
+        'metadata' => json_encode([], JSON_THROW_ON_ERROR),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $summary = BuildUpgradeSummaryAction::run();
+
+    expect($summary->majorCount)->toBe(1)
+        ->and($summary->featureCount)->toBe(0);
+});
