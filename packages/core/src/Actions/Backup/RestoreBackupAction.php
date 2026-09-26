@@ -13,10 +13,13 @@ use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemManager;
+use Illuminate\Filesystem\LocalFilesystemAdapter;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Normalizer;
 use RuntimeException;
 use Throwable;
 
@@ -127,20 +130,68 @@ final class RestoreBackupAction
 
         throw_if($mediaDisk === null || $mediaDisk === '' || $mediaPrefix === null || $mediaPrefix === '', InvalidArgumentException::class, 'Media restore requires a scratch media disk and non-empty prefix.');
 
-        $liveDisks = array_values(array_unique(array_filter(array_map(
-            static fn (BackupArtifactData $artifact): ?string => $artifact->sourceDisk,
-            $manifest->media,
-        ))));
+        $configuredMediaDisks = $this->config->get('backup.media_disks', []);
+        throw_unless(is_array($configuredMediaDisks), RuntimeException::class, 'Backup media disks must be an array.');
+        $liveDisks = array_values(array_unique(array_filter([
+            $this->store->diskName(),
+            ...$configuredMediaDisks,
+            ...array_map(static fn (BackupArtifactData $artifact): ?string => $artifact->sourceDisk, $manifest->media),
+        ], static fn (mixed $disk): bool => is_string($disk) && $disk !== '')));
 
-        throw_if($mediaDisk === $this->store->diskName() || in_array($mediaDisk, $liveDisks, true), InvalidArgumentException::class, 'Scratch media disk must be different from every live media disk and the backup disk.');
+        throw_if(in_array($mediaDisk, $liveDisks, true), InvalidArgumentException::class, 'Scratch media disk must be different from every live media disk and the backup disk.');
 
         throw_unless($this->safeRelativePath($mediaPrefix), InvalidArgumentException::class, 'Scratch media prefix is unsafe.');
 
-        $this->mediaTargetPaths($manifest, $mediaPrefix);
+        $targetPaths = $this->mediaTargetPaths($manifest, $mediaPrefix);
 
         $targetDisk = $this->filesystems->disk($mediaDisk);
 
+        $this->assertLocalMediaTargetPath($targetDisk, $mediaPrefix);
+        foreach ($targetPaths as $targetPath) {
+            $this->assertLocalMediaTargetPath($targetDisk, $targetPath);
+        }
+
         throw_if($targetDisk->exists($mediaPrefix) || $targetDisk->allFiles($mediaPrefix) !== [], InvalidArgumentException::class, 'Scratch media prefix must be empty.');
+    }
+
+    private function assertLocalMediaTargetPath(Filesystem $targetDisk, string $targetPath): void
+    {
+        if (! $targetDisk instanceof LocalFilesystemAdapter) {
+            return;
+        }
+
+        $diskPath = $targetDisk->path('');
+        $resolvedDiskPath = realpath($diskPath);
+
+        throw_unless(is_string($resolvedDiskPath), InvalidArgumentException::class, __('capell-core::backup.destinations_collide'));
+
+        $candidate = rtrim($diskPath, '/\\');
+
+        foreach (explode('/', str_replace('\\', '/', $targetPath)) as $segment) {
+            $candidate .= DIRECTORY_SEPARATOR . $segment;
+
+            if (! file_exists($candidate) && ! is_link($candidate)) {
+                continue;
+            }
+
+            $resolvedCandidate = realpath($candidate);
+
+            throw_if(! is_string($resolvedCandidate) || ! is_dir($resolvedCandidate)
+                || ! $this->pathIsWithin($resolvedCandidate, $resolvedDiskPath), InvalidArgumentException::class, __('capell-core::backup.destinations_collide'));
+        }
+    }
+
+    private function pathIsWithin(string $path, string $root): bool
+    {
+        $path = rtrim(str_replace('\\', '/', $path), '/');
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $path = mb_strtolower($path, 'UTF-8');
+            $root = mb_strtolower($root, 'UTF-8');
+        }
+
+        return $path === $root || str_starts_with($path, $root . '/');
     }
 
     /** @return list<string> */
@@ -159,9 +210,10 @@ final class RestoreBackupAction
             $target = str_replace('\\', '/', $mediaPrefix) . '/'
                 . ($multipleDisks ? rawurlencode($artifact->sourceDisk) . '/' : '')
                 . str_replace('\\', '/', $artifact->sourcePath);
-            // Reject file/directory and case-only collisions before either database
-            // or media writes, including on case-insensitive scratch filesystems.
-            $portableTarget = strtolower($target);
+            // Compare canonical Unicode spellings and case before any mutation;
+            // scratch filesystems can treat those distinct manifest paths as one.
+            $portableTarget = Normalizer::normalize(mb_strtolower($target, 'UTF-8'));
+            throw_if($portableTarget === false, RuntimeException::class, __('capell-core::backup.unsafe_source'));
 
             throw_if(isset($occupied[$portableTarget]), RuntimeException::class, __('capell-core::backup.destinations_collide'));
             $occupied[$portableTarget] = true;
@@ -250,6 +302,7 @@ final class RestoreBackupAction
             throw_if($stream === false, RuntimeException::class, 'Unable to read a restored media artifact.');
 
             try {
+                $this->assertLocalMediaTargetPath($target, $targetPaths[$index]);
                 throw_unless($target->put($targetPaths[$index], $stream), RuntimeException::class, 'Unable to write a restored media artifact.');
             } finally {
                 fclose($stream);

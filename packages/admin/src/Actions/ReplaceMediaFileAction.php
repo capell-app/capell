@@ -139,7 +139,23 @@ class ReplaceMediaFileAction
             $failure = $throwable;
 
             if ($transactionStarted) {
-                $connection->rollBack();
+                try {
+                    $connection->rollBack();
+                } catch (Throwable $rollbackFailure) {
+                    // Database recovery must not prevent file recovery or discard
+                    // the private backups when the database outcome is uncertain.
+                    $retainRecoveryFiles = true;
+                    try {
+                        // A non-lost PDO failure leaves Laravel's transaction level
+                        // unchanged, so the uncertain connection must not be reused.
+                        $connection->disconnect();
+                    } catch (Throwable $disconnectFailure) {
+                        $connection->setPdo(null)->setReadPdo(null)->setDirectPdo(null);
+                        $this->reportFailure(__('capell-admin::media.replacement_recovery_required', ['path' => $workspacePath]), $disconnectFailure);
+                    }
+
+                    $this->reportFailure(__('capell-admin::media.replacement_recovery_required', ['path' => $workspacePath]), $rollbackFailure);
+                }
             }
 
             foreach (array_reverse($files) as $file) {
@@ -151,9 +167,8 @@ class ReplaceMediaFileAction
                     continue;
                 }
 
-                $disk = Storage::disk($file->disk);
-
                 try {
+                    $disk = Storage::disk($file->disk);
                     $restored = $file->backupPath === null ? $disk->delete($file->path) : $this->transfer($privateDisk, $file->backupPath, $disk, $file->path);
                 } catch (Throwable) {
                     $restored = false;
