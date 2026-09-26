@@ -9,6 +9,7 @@ use Capell\Core\Facades\CapellCore;
 use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 use Throwable;
 
 class ClearCachesAction
@@ -83,12 +84,11 @@ class ClearCachesAction
             if ($this->shouldSkipOptimizeClearForTestbench()) {
                 $reporter->report('Skipped optimize:clear; Testbench package manifests are shared across parallel tests');
             } else {
-                try {
-                    Artisan::call('optimize:clear');
-                    $reporter->report('✓ All caches cleared');
-                } catch (Throwable $exception) {
-                    $reporter->report(sprintf('Skipped optimize:clear; %s', $exception->getMessage()));
-                }
+                $this->callCacheCommand([
+                    'command' => 'optimize:clear',
+                    'message' => '✓ All caches cleared',
+                    'optional' => false,
+                ], $reporter);
             }
 
             $this->clearOptionalCache('page', $reporter);
@@ -146,18 +146,20 @@ class ClearCachesAction
         try {
             $exitCode = Artisan::call($cacheCommand['command']);
         } catch (Throwable $throwable) {
-            $reporter->report(sprintf('Unable to clear %s; %s', $cacheCommand['command'], $throwable->getMessage()));
+            $message = sprintf('Unable to clear %s; %s', $cacheCommand['command'], $throwable->getMessage());
+            $reporter->report($message);
 
-            return;
+            throw new RuntimeException($message, $throwable->getCode(), previous: $throwable);
         }
 
         if ($exitCode !== 0) {
             $output = trim(Artisan::output());
-            $reporter->report($output === ''
+            $message = $output === ''
                 ? sprintf('Unable to clear %s; command exited with status %d', $cacheCommand['command'], $exitCode)
-                : sprintf('Unable to clear %s; %s', $cacheCommand['command'], $output));
+                : sprintf('Unable to clear %s; %s', $cacheCommand['command'], $output);
+            $reporter->report($message);
 
-            return;
+            throw new RuntimeException($message);
         }
 
         $reporter->report($cacheCommand['message']);

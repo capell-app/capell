@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\VisitUrlAction;
+use Capell\Core\Exceptions\UrlVisitFailedException;
 use Capell\Core\Models\SiteDomain;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -31,18 +32,18 @@ it('logs when visiting a url returns a non-OK response', function (): void {
     ]);
     Log::spy();
 
-    VisitUrlAction::run('https://93.184.216.35');
+    expect(fn () => VisitUrlAction::run('https://93.184.216.35'))->toThrow(UrlVisitFailedException::class, 'HTTP 404');
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://93.184.216.35');
 
     Log::shouldHaveReceived('info')->once()->with('Problem accessing url', ['url' => 'https://93.184.216.35', 'status' => 404]);
 });
 
-it('does not throw for invalid url, but does not log info', function (): void {
+it('fails invalid urls without logging an HTTP response', function (): void {
     Http::fake();
     Log::spy();
 
-    VisitUrlAction::run('not-a-domain');
+    expect(fn () => VisitUrlAction::run('not-a-domain'))->toThrow(UrlVisitFailedException::class);
 
     Http::assertNothingSent();
     Log::shouldNotHaveReceived('info');
@@ -52,7 +53,7 @@ it('rejects urls with disallowed schemes', function (): void {
     Http::fake();
     Log::spy();
 
-    VisitUrlAction::run('file:///etc/passwd');
+    expect(fn () => VisitUrlAction::run('file:///etc/passwd'))->toThrow(UrlVisitFailedException::class);
 
     Http::assertNothingSent();
     Log::shouldHaveReceived('warning')->once()->with('VisitUrlAction: rejected non-http(s) url', ['url' => 'file:///etc/passwd', 'scheme' => 'file']);
@@ -62,7 +63,7 @@ it('rejects urls with no scheme', function (): void {
     Http::fake();
     Log::spy();
 
-    VisitUrlAction::run('not-a-url');
+    expect(fn () => VisitUrlAction::run('not-a-url'))->toThrow(UrlVisitFailedException::class);
 
     Http::assertNothingSent();
     Log::shouldHaveReceived('warning')->once();

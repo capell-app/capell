@@ -7,6 +7,7 @@ namespace Capell\Frontend\Console\Commands;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
 use Illuminate\Console\Command;
+use Throwable;
 
 final class GenerateHtmlCommand extends Command
 {
@@ -32,10 +33,16 @@ final class GenerateHtmlCommand extends Command
         }
 
         $siteId = $this->option('site');
-        $manifest = GenerateStaticPageArtifactsAction::run(
-            siteId: is_numeric($siteId) ? (int) $siteId : null,
-            urls: array_values(array_filter((array) $this->option('url'), is_string(...))),
-        );
+        try {
+            $manifest = GenerateStaticPageArtifactsAction::run(
+                siteId: is_numeric($siteId) ? (int) $siteId : null,
+                urls: array_values(array_filter((array) $this->option('url'), is_string(...))),
+            );
+        } catch (Throwable $throwable) {
+            $this->error($throwable->getMessage());
+
+            return self::FAILURE;
+        }
 
         $this->info(sprintf('Generated %d static page artifact(s).', count($manifest['artifacts'] ?? [])));
 

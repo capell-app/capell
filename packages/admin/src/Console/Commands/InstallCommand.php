@@ -14,6 +14,7 @@ use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Support\AdminRuntimeActivator;
+use Capell\Core\Console\Commands\Concerns\CallsRequiredCommands;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Filament\Facades\Filament;
@@ -21,6 +22,7 @@ use Illuminate\Console\Command;
 
 class InstallCommand extends Command
 {
+    use CallsRequiredCommands;
     use DescribesCommandOptions;
 
     protected $signature = 'capell:admin-install
@@ -48,16 +50,20 @@ class InstallCommand extends Command
             return Command::FAILURE;
         }
 
-        $this->call('capell:publish-migrations', [
+        if (! $this->callRequired('capell:publish-migrations', [
             '--type' => 'settings',
             '--items' => CapellAdmin::getSettingMigrations(),
             '--path' => $settings,
-        ]);
+        ])) {
+            return self::FAILURE;
+        }
 
-        $this->call('migrate', [
+        if (! $this->callRequired('migrate', [
             '--path' => 'database/settings',
             '--force' => true,
-        ]);
+        ])) {
+            return self::FAILURE;
+        }
 
         $this->info('Assigning permissions to roles...');
 
@@ -65,11 +71,17 @@ class InstallCommand extends Command
 
         SyncDashboardFilamentWidgetSettingsAction::run(forceEnableDefaults: true);
 
-        $this->call('filament:clear-cached-components');
+        if (! $this->callRequired('filament:clear-cached-components')) {
+            return self::FAILURE;
+        }
 
-        $this->call('filament:cache-components');
+        if (! $this->callRequired('filament:cache-components')) {
+            return self::FAILURE;
+        }
 
-        $this->callSilent('filament:assets');
+        if (! $this->callRequired('filament:assets')) {
+            return self::FAILURE;
+        }
 
         if (! $this->handleAdminPanelChanges()) {
             return Command::FAILURE;

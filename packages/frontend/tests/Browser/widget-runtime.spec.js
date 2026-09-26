@@ -341,6 +341,93 @@ test('loads cross-origin dependency layers sequentially and independent peers co
     })
 })
 
+test('waits for a shared dependency before starting every dependent widget graph', async ({
+    page,
+}) => {
+    let dependencyRequests = 0
+
+    await page.route(
+        'https://capell.test/assets/shared-dependency.js',
+        async (route) => {
+            dependencyRequests += 1
+            await new Promise((resolve) => setTimeout(resolve, 75))
+            await route.fulfill({
+                contentType: 'application/javascript',
+                body: 'window.sharedDependencyReady = true',
+            })
+        },
+    )
+
+    for (const widget of ['first', 'second']) {
+        await page.route(
+            `https://capell.test/assets/${widget}-widget.js`,
+            (route) =>
+                route.fulfill({
+                    contentType: 'application/javascript',
+                    body: `
+                    window.widgetStarts ??= []
+                    window.widgetStarts.push({
+                        widget: '${widget}',
+                        dependencyReady: window.sharedDependencyReady === true,
+                    })
+                `,
+                }),
+        )
+    }
+
+    const sharedDependency = {
+        token: tokenFor('shared-dependency'),
+        kind: 'classic-script',
+        url: 'https://capell.test/assets/shared-dependency.js',
+    }
+
+    await boot(
+        page,
+        `<button id="activate-both" data-capell-widget-runtime data-capell-widget-resources='["first-widget","second-widget"]' data-capell-widget-settings='{"loading_strategy":"interaction"}'>Activate</button>`,
+        [
+            {
+                target: 'first-widget',
+                loading: 'interaction',
+                layers: [
+                    [sharedDependency],
+                    [
+                        {
+                            token: tokenFor('first-widget'),
+                            kind: 'classic-script',
+                            url: 'https://capell.test/assets/first-widget.js',
+                        },
+                    ],
+                ],
+            },
+            {
+                target: 'second-widget',
+                loading: 'interaction',
+                layers: [
+                    [sharedDependency],
+                    [
+                        {
+                            token: tokenFor('second-widget'),
+                            kind: 'classic-script',
+                            url: 'https://capell.test/assets/second-widget.js',
+                        },
+                    ],
+                ],
+            },
+        ],
+    )
+
+    await page.locator('#activate-both').click()
+    await expect
+        .poll(() => page.evaluate(() => window.widgetStarts?.length ?? 0))
+        .toBe(2)
+
+    const starts = await page.evaluate(() => window.widgetStarts)
+
+    expect(starts).toHaveLength(2)
+    expect(starts.every(({ dependencyReady }) => dependencyReady)).toBe(true)
+    expect(dependencyRequests).toBe(1)
+})
+
 test('initialises later interaction content when its shared script is already ready', async ({
     page,
 }) => {

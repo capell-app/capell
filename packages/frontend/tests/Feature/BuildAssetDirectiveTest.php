@@ -6,18 +6,18 @@ use Illuminate\Support\Facades\Blade;
 
 it('compiles build assets from the frontend package', function (): void {
     $html = Blade::render('@buildAssets(["app.css", "app.js"], "build", "asset")');
+    $appUrl = rtrim((string) config('app.url'), '/');
 
     expect($html)
         ->not->toContain('@buildAssets')
-        ->toContain('<link rel="stylesheet" href="http://localhost/build/app.css">')
-        ->toContain('<script src="http://localhost/build/app.js"></script>');
+        ->toContain('<link rel="stylesheet" href="' . $appUrl . '/build/app.css">')
+        ->toContain('<script src="' . $appUrl . '/build/app.js"></script>');
 });
 
 it('defaults build assets to vite', function (): void {
-    config()->set('app.url', 'http://localhost');
-
     $buildDirectory = 'vendor/capell-test-assets';
     $publicBuildDirectory = public_path($buildDirectory);
+    $appUrl = rtrim((string) config('app.url'), '/');
 
     if (! is_dir($publicBuildDirectory)) {
         mkdir($publicBuildDirectory, 0777, true);
@@ -38,7 +38,7 @@ it('defaults build assets to vite', function (): void {
 
         expect($html)
             ->not->toContain('resources/js/example.js')
-            ->toContain('http://localhost/vendor/capell-test-assets/assets/example-123.js');
+            ->toContain($appUrl . '/vendor/capell-test-assets/assets/example-123.js');
     } finally {
         @unlink($publicBuildDirectory . '/manifest.json');
         @rmdir($publicBuildDirectory);
