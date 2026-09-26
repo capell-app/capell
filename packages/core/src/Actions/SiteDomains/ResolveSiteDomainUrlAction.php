@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\SiteDomains;
 
 use Capell\Core\Models\SiteDomain;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -12,6 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ResolveSiteDomainUrlAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(SiteDomain $siteDomain, string $url): string
