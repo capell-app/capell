@@ -16,6 +16,7 @@ final readonly class ReportingOptionsData
         public ?string $cacheStore = null,
         public ?string $logChannel = null,
         public array $reporters = [],
+        public ?OperatorRoutingData $routing = null,
     ) {}
 
     public static function fromConfiguration(mixed $configuration, SignalData $signal): self
@@ -49,6 +50,6 @@ final readonly class ReportingOptionsData
         $reporters = $configuration['reporters'] ?? [];
         throw_if(($cacheStore !== null && (! is_string($cacheStore) || $cacheStore === '')) || ($logChannel !== null && (! is_string($logChannel) || $logChannel === '')) || ! is_array($reporters), InvalidArgumentException::class, 'Reporting services are invalid.');
 
-        return new self($policy['enabled'], $policy['transport'], $policy['cooldown_seconds'], $cacheStore, $logChannel, $reporters);
+        return new self($policy['enabled'], $policy['transport'], $policy['cooldown_seconds'], $cacheStore, $logChannel, $reporters, $policy['transport'] === 'operator' ? OperatorRoutingData::fromPolicy($policy) : null);
     }
 }

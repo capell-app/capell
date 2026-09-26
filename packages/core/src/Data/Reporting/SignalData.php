@@ -42,6 +42,20 @@ final readonly class SignalData implements JsonSerializable
         $this->context = $redactor->context($context);
     }
 
+    /** @param array<string, mixed> $payload */
+    public static function fromArray(array $payload): self
+    {
+        foreach (['name', 'category', 'severity', 'message', 'operator_summary', 'correlation_id'] as $key) {
+            throw_unless(is_string($payload[$key] ?? null), InvalidArgumentException::class, 'Stored reporting signal is invalid.');
+        }
+
+        $runId = $payload['run_id'] ?? null;
+        $context = $payload['context'] ?? [];
+        throw_if(($runId !== null && ! is_string($runId)) || ! is_array($context), InvalidArgumentException::class, 'Stored reporting signal context is invalid.');
+
+        return new self($payload['name'], FailureCategory::from($payload['category']), Severity::from($payload['severity']), $payload['message'], $payload['operator_summary'], $payload['correlation_id'], $runId, $context);
+    }
+
     public function fingerprint(): string
     {
         return hash('sha256', json_encode([$this->name, $this->category->value, $this->severity->value, $this->correlationId, $this->runId], JSON_THROW_ON_ERROR));

@@ -10,6 +10,7 @@ use Capell\Core\Data\Reporting\ReportingOptionsData;
 use Capell\Core\Data\Reporting\SignalData;
 use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Support\Reporting\LogChannelReporter;
+use Capell\Core\Support\Reporting\OperatorSignalRouter;
 use Capell\Core\Support\Reporting\SignalDispatchGuard;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Contracts\Cache\Factory;
@@ -50,6 +51,14 @@ final readonly class DispatchSignalAction
 
         if (! $options->enabled) {
             return new DispatchResultData(DispatchStatus::Disabled);
+        }
+
+        if ($options->transport === 'operator') {
+            try {
+                return $this->container->make(OperatorSignalRouter::class)->report($signal, $options);
+            } catch (Throwable) {
+                return $this->fallback($signal, 'routing_unavailable', $options->logChannel);
+            }
         }
 
         $lock = null;
