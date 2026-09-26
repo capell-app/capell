@@ -35,6 +35,27 @@ describe('RenderContentAction', function (): void {
         expect($result[0]['children'][0]['children'][0]['text'])->toBe('Deep');
     });
 
+    it('preserves text and inline elements in their original order', function (): void {
+        $result = RenderContentAction::run(
+            '<p>Hello <strong>world</strong> !</p>',
+            null,
+            [],
+            false,
+            false,
+            true,
+        );
+
+        expect($result[0])->toMatchArray([
+            'tag' => 'p',
+            'text' => null,
+            'children' => [
+                ['text' => 'Hello', 'children' => []],
+                ['tag' => 'strong', 'attributes' => [], 'text' => 'world', 'children' => []],
+                ['text' => '!', 'children' => []],
+            ],
+        ]);
+    });
+
     it('handles only text nodes', function (): void {
         $html = 'Just text';
         $result = RenderContentAction::run($html, null, [], false, false, true);

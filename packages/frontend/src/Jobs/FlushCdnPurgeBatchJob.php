@@ -38,7 +38,8 @@ final class FlushCdnPurgeBatchJob implements ShouldBeUniqueUntilProcessing, Shou
         $batch = $buffer->snapshot();
 
         if ($batch !== []) {
-            new PurgeCdnCacheJob(array_keys($batch))->handle();
+            // Restore numeric surrogate keys to strings at the transport boundary.
+            new PurgeCdnCacheJob(array_map(strval(...), array_keys($batch)))->handle();
             $buffer->acknowledge($batch);
 
             if ($buffer->hasPending()) {

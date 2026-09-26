@@ -106,7 +106,7 @@ final class FragmentCache
         return 'fragment:' . $namespace . ':surrogate:map';
     }
 
-    /** @return array<string, list<string>> */
+    /** @return array<array-key, list<string>> */
     private function surrogateMap(string $mapKey): array
     {
         $surrogateMap = $this->cache->get($mapKey, []);
@@ -118,7 +118,8 @@ final class FragmentCache
         $validated = [];
 
         foreach ($surrogateMap as $surrogate => $keys) {
-            if (is_string($surrogate) && is_array($keys)) {
+            // PHP stores numeric string keys as integers, including "0".
+            if (is_array($keys)) {
                 $validated[$surrogate] = array_values(array_filter($keys, is_string(...)));
             }
         }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -21,19 +20,19 @@ final class PrepareEnvironmentAction
 
         EnsureDatabaseExistsAction::run($reporter);
 
-        Artisan::call('storage:link');
+        RunArtisanCommandAction::run('storage:link', reporter: $reporter, silent: true);
         $reporter->report('✓ Storage linked');
 
         // Migration files first: that signal comes from registered migration
         // paths, which are set up by service providers and are therefore stable,
         // whereas hasTable() depends on whatever state the database is in.
         if (! $this->sessionsMigrationExists() && ! Schema::hasTable('sessions')) {
-            Artisan::call('session:table');
+            RunArtisanCommandAction::run('session:table', reporter: $reporter, silent: true);
             $reporter->report('✓ Session table created');
         }
 
         if (! Schema::hasTable('notifications') && ! $this->notificationsMigrationExists()) {
-            Artisan::call('notifications:table');
+            RunArtisanCommandAction::run('notifications:table', reporter: $reporter, silent: true);
             $reporter->report('✓ Notifications table created');
         }
     }

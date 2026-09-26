@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Capell\Frontend\Console\Commands;
 
 use Capell\Core\Actions\PublishMigrationsAction;
+use Capell\Core\Console\Commands\Concerns\CallsRequiredCommands;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Illuminate\Console\Command;
 
 class UpgradeCommand extends Command
 {
+    use CallsRequiredCommands;
+
     /**
      * The console command description.
      *
@@ -79,9 +82,13 @@ class UpgradeCommand extends Command
             return self::FAILURE;
         }
 
-        $this->call('vendor:publish', ['--tag' => 'capell-frontend-assets', '--force' => true]);
+        if (! $this->callRequired('vendor:publish', ['--tag' => 'capell-frontend-assets', '--force' => true])) {
+            return self::FAILURE;
+        }
 
-        $this->call('vendor:publish', ['--tag' => 'capell-frontend-publish', '--force' => true]);
+        if (! $this->callRequired('vendor:publish', ['--tag' => 'capell-frontend-publish', '--force' => true])) {
+            return self::FAILURE;
+        }
 
         $this->newLine();
         $this->info('Capell Frontend upgraded successfully.');

@@ -83,6 +83,18 @@ it('can be reached from the admin with view permission', function (): void {
         ->assertSee(__('capell-admin::generic.no_update_advisories_first_check_description'));
 });
 
+it('shows the current upgrade run timeline', function (): void {
+    $run = queuedUpgradeRun();
+
+    Permission::create(['name' => 'View:UpgradePage', 'guard_name' => 'web']);
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo('View:UpgradePage');
+
+    Livewire::test(UpgradePage::class)
+        ->assertSee(__('capell-admin::generic.upgrade_run_timeline'))
+        ->assertSee('#' . $run->getKey());
+});
+
 it('queues a dry-run upgrade from the page action', function (): void {
     Queue::fake();
     config(['queue.default' => 'database']);

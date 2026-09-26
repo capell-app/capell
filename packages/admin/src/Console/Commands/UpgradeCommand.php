@@ -8,11 +8,14 @@ use Capell\Admin\Actions\SyncCapellPermissionsAction;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
+use Capell\Core\Console\Commands\Concerns\CallsRequiredCommands;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
 
 class UpgradeCommand extends Command
 {
+    use CallsRequiredCommands;
+
     protected $description = 'Upgrade capell-admin';
 
     protected $signature = 'capell:admin-upgrade';
@@ -21,9 +24,21 @@ class UpgradeCommand extends Command
     {
         resolve(AdminRuntimeActivator::class)->activate();
 
-        $this->call('vendor:publish', ['--tag' => 'capell-migrations']);
+        if (! $this->callRequired('vendor:publish', ['--tag' => 'capell-migrations'])) {
+            return self::FAILURE;
+        }
 
-        RunDatabaseMigrationsAction::run();
+        $migrationResult = RunDatabaseMigrationsAction::run();
+
+        if ($migrationResult->exitCode !== self::SUCCESS) {
+            $this->error($migrationResult->output);
+            $this->error(__('capell::message.required_command_failed', [
+                'command' => 'database migrations',
+                'exit_code' => $migrationResult->exitCode,
+            ]));
+
+            return self::FAILURE;
+        }
 
         $this->info('Refreshing permissions...');
 
@@ -31,19 +46,29 @@ class UpgradeCommand extends Command
         // — never let shield scaffold policy stubs into app/Policies on upgrade.
         config()->set('filament-shield.policies.generate', false);
 
-        $this->call('shield:generate', [
+        if (! $this->callRequired('shield:generate', [
             '--all' => true,
             '--ignore-existing-policies' => true,
             '--exclude' => [],
             '--option' => 'permissions',
             '--panel' => Filament::getCurrentOrDefaultPanel()?->getId(),
-        ]);
+        ])) {
+            return self::FAILURE;
+        }
 
         SyncCapellPermissionsAction::run(PermissionSyncMode::Upgrade);
 
-        $this->call('filament:clear-cached-components');
-        $this->callSilent('filament:cache-components');
-        $this->callSilent('filament:assets');
+        if (! $this->callRequired('filament:clear-cached-components')) {
+            return self::FAILURE;
+        }
+
+        if (! $this->callRequired('filament:cache-components')) {
+            return self::FAILURE;
+        }
+
+        if (! $this->callRequired('filament:assets')) {
+            return self::FAILURE;
+        }
 
         $this->newLine();
         $this->info('Admin package upgraded successfully.');

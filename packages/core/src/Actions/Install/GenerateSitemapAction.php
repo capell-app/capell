@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
-use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -17,7 +16,7 @@ final class GenerateSitemapAction
     public function handle(ProgressReporter $reporter): void
     {
         $reporter->step('Generating XML sitemaps…');
-        Artisan::call('capell:xml-sitemap');
+        RunArtisanCommandAction::run('capell:xml-sitemap', reporter: $reporter, silent: true);
         $reporter->report('✓ Sitemaps generated');
     }
 }

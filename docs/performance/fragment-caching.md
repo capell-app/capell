@@ -63,6 +63,7 @@ final class CategoryObserver
 
 - **Cache key must be deterministic** — if your key contains a loop counter or request ID, each render creates a new cache entry. Use stable identifiers (model IDs, slugs).
 - **Surrogate keys are OR logic** — any matching surrogate key invalidates the fragment. If you tag a fragment with `['post:123', 'author:456']`, invalidating either key clears it.
+- **Numeric surrogate keys work too** — string keys such as `'42'` and `'0'` retain their associations when the cache stores them as integer array keys.
 - **Directive supports nesting** — `@cache` blocks can be nested; the directive uses an internal stack to manage `@endcache` pairing.
 - **Default TTL is 1 hour** — if you omit the second argument, fragments cache for 3600 seconds.
 - **Fragment metadata expires after 30 days** — namespaces and surrogate maps have bounded lifetimes. Namespace expiry safely regenerates fragments, including entries with a longer requested TTL.

@@ -41,6 +41,20 @@ it('fails preflight when the host cannot run an automated install', function ():
         ->and($processExecution['docs_anchor'])->toBe('process-execution');
 });
 
+it('accepts by-design local limitations when a deploy publisher owns the Composer change', function (): void {
+    fakeMarketplaceEnvironmentReadiness(
+        capability: MarketplaceInstallCapability::AutomatedViaDeployPublisher,
+        processExecutionStatus: MarketplaceReadinessStatus::Fail,
+    );
+
+    $result = RunMarketplaceInstallPreflightChecksAction::run(preflightAttempt());
+    $checks = collect($result['checks']);
+
+    expect($result['passed'])->toBeTrue()
+        ->and($checks->firstWhere('name', 'environment_process_execution')['passed'])->toBeTrue()
+        ->and($checks->pluck('name'))->not->toContain('php_cli', 'composer_binary', 'composer_json', 'composer_lock');
+});
+
 it('resolves a translation for every preflight message rather than emitting a raw key', function (): void {
     fakeMarketplaceEnvironmentReadiness();
 

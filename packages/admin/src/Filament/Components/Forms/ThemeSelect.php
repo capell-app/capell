@@ -58,7 +58,7 @@ class ThemeSelect extends Select
 
     public function withCreateForm(): self
     {
-        return $this->editOptionForm(fn (Schema $schema): Schema => ThemeForm::configure($schema))
+        return $this->createOptionForm(fn (Schema $schema): Schema => ThemeForm::configure($schema))
             ->createOptionAction(
                 fn (Action $action): Action => $action
                     ->modalHeading(__('capell-admin::form.theme'))

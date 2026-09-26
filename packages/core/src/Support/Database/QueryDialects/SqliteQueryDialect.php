@@ -51,8 +51,13 @@ final class SqliteQueryDialect extends AbstractQueryDialect
             DatabaseDateOperation::DayMonthLabel => "strftime('%%d', %1\$s) || ' ' || " . $month,
             DatabaseDateOperation::MonthYearLabel => $month . " || ' ' || substr(strftime('%%Y', %1\$s), 3, 2)",
         };
+        $bindings = match ($operation) {
+            DatabaseDateOperation::DayMonthLabel,
+            DatabaseDateOperation::MonthYearLabel => $this->bindings([$expression, $expression]),
+            default => $expression->bindings,
+        };
 
-        return new SqlFragment(sprintf($sql, $expression->sql), $expression->bindings);
+        return new SqlFragment(sprintf($sql, $expression->sql), $bindings);
     }
 
     public function elapsedSeconds(SqlFragment $start, SqlFragment $end): SqlFragment

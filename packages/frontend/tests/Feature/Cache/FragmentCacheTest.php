@@ -44,3 +44,30 @@ it('removes surrogate ownership when fragments are invalidated or flushed', func
 
     expect($fragments->remember('shared', static fn (): string => 'unexpected'))->toBe('after flush');
 });
+
+it('invalidates numeric surrogate keys without losing other fragment ownership', function (bool $supportsTags): void {
+    $directory = sys_get_temp_dir() . '/capell-fragment-test-' . bin2hex(random_bytes(8));
+    $files = new Filesystem;
+    $repository = new Repository($supportsTags ? new ArrayStore : new FileStore($files, $directory));
+    $fragments = new FragmentCache($repository);
+
+    try {
+        $repository->put('application-sentinel', 'keep', 3600);
+        $fragments->remember('numeric', static fn (): string => 'old', surrogateKeys: ['42', 'page:42']);
+        $fragments->remember('zero', static fn (): string => 'old zero', surrogateKeys: ['0']);
+        $fragments->remember('other', static fn (): string => 'keep fragment', surrogateKeys: ['page:43']);
+
+        $fragments->invalidateBySurrogateKey('42');
+        $fragments->invalidateBySurrogateKey('0');
+
+        expect($fragments->remember('numeric', static fn (): string => 'new'))->toBe('new')
+            ->and($fragments->remember('zero', static fn (): string => 'new zero'))->toBe('new zero')
+            ->and($fragments->remember('other', static fn (): string => 'unexpected'))->toBe('keep fragment')
+            ->and($repository->get('application-sentinel'))->toBe('keep');
+
+        $fragments->invalidateBySurrogateKey('page:42');
+        expect($fragments->remember('numeric', static fn (): string => 'unexpected'))->toBe('new');
+    } finally {
+        $files->deleteDirectory($directory);
+    }
+})->with(['taggable' => true, 'non-tagging' => false]);

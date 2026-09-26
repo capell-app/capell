@@ -388,8 +388,10 @@ it('redirects to the Laravel maintenance redirect target before serving static h
         app()->maintenanceMode()->deactivate();
     }
 
+    $redirectUrl = rtrim((string) config('app.url'), '/') . '/maintenance';
+
     expect($response->isRedirect())->toBeTrue()
-        ->and($response->headers->get('Location'))->toBe('http://localhost/maintenance');
+        ->and($response->headers->get('Location'))->toBe($redirectUrl);
 });
 
 it('throws Laravel maintenance fallback when there is no template or static html', function (): void {

@@ -58,6 +58,25 @@ it('reuses a persisted cache value after the request cache is flushed', function
         ->and($callbackRuns)->toBe(1);
 });
 
+it('can fill a cache key after a read-only miss probe', function (string $probe): void {
+    config(['cache.default' => 'array', 'capell.disable_cache' => false]);
+
+    $manager = resolve(CapellCacheManager::class);
+    $manager->{$probe}('missing-then-filled');
+
+    $callbackRuns = 0;
+
+    $value = $manager->rememberCache('missing-then-filled', function () use (&$callbackRuns): string {
+        $callbackRuns++;
+
+        return 'filled';
+    });
+
+    expect($value)->toBe('filled')
+        ->and($callbackRuns)->toBe(1)
+        ->and($manager->getFromCache('missing-then-filled'))->toBe('filled');
+})->with(['getFromCache', 'cacheExists']);
+
 it('uses an atomic lock for a cold cache fill', function (): void {
     config([
         'cache.default' => 'array',

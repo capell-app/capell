@@ -94,7 +94,7 @@ class InstallFilamentPanelAction
         $reporter->step('Setting up Filament admin panel…');
 
         try {
-            Artisan::call('filament:install', [
+            RunArtisanCommandAction::run('filament:install', [
                 '--panels' => true,
                 '--no-interaction' => true,
             ]);

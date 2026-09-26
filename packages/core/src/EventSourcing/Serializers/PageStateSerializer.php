@@ -87,7 +87,7 @@ final class PageStateSerializer implements EventSourcedStateSerializer
                 ])
                 ->values()
                 ->all(),
-            // CAP-0460: property values are single-copy, exactly like the
+            // Property values are single-copy, exactly like the
             // page's own title/content above — no separate draft/published
             // projection exists to snapshot, so the current row set IS the
             // state to capture. Loaded fresh (not loadMissing) for the same
@@ -197,15 +197,27 @@ final class PageStateSerializer implements EventSourcedStateSerializer
      */
     private function restorePageUrls(Page $page, array $pageUrls): void
     {
-        /** @var Collection<int, PageUrl> $existing */
-        $existing = $page->pageUrls()->withTrashed()->get()->keyBy('url');
-        $targetUrls = [];
+        /** @var Collection<string, PageUrl> $existing */
+        $existing = $page->pageUrls()
+            ->withTrashed()
+            ->get()
+            ->keyBy(fn (PageUrl $pageUrl): string => $this->pageUrlIdentity([
+                'site_id' => $pageUrl->site_id,
+                'language_id' => $pageUrl->language_id,
+                'url' => $pageUrl->url,
+            ]));
+        $targetIdentities = [];
 
         foreach ($pageUrls as $data) {
             $url = $data['url'] ?? null;
-            $targetUrls[] = $url;
+            $identity = $this->pageUrlIdentity([
+                'site_id' => $data['site_id'] ?? $page->site_id,
+                'language_id' => $data['language_id'] ?? null,
+                'url' => $url,
+            ]);
+            $targetIdentities[] = $identity;
 
-            $existingUrl = $existing->get($url);
+            $existingUrl = $existing->get($identity);
             $pageUrl = $existingUrl ?? $page->pageUrls()->make();
 
             if ($pageUrl->trashed()) {
@@ -238,9 +250,29 @@ final class PageStateSerializer implements EventSourcedStateSerializer
         }
 
         $page->pageUrls()
-            ->whereNotIn('url', $this->withoutNull($targetUrls))
             ->get()
+            ->reject(fn (PageUrl $pageUrl): bool => in_array(
+                $this->pageUrlIdentity([
+                    'site_id' => $pageUrl->site_id,
+                    'language_id' => $pageUrl->language_id,
+                    'url' => $pageUrl->url,
+                ]),
+                $targetIdentities,
+                true,
+            ))
             ->each(static fn (PageUrl $pageUrl): mixed => $pageUrl->delete());
+    }
+
+    /**
+     * @param  array{site_id: mixed, language_id: mixed, url: mixed}  $attributes
+     */
+    private function pageUrlIdentity(array $attributes): string
+    {
+        return json_encode([
+            $attributes['site_id'],
+            $attributes['language_id'],
+            $attributes['url'],
+        ], JSON_THROW_ON_ERROR);
     }
 
     /**
