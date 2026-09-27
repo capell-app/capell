@@ -41,7 +41,7 @@ it('defaults web package selection to all core packages', function (): void {
     ]);
 
     expect($inputData->packages)->toBe(['capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace'])
-        ->and($inputData->extraPackages)->toBe(['capell-app/remote-extension']);
+        ->and($inputData->extraPackages)->toBe(['capell-app/remote-extension', 'capell-app/theme-foundation']);
 });
 
 it('allows custom web package selection to install no packages', function (): void {
@@ -140,9 +140,9 @@ it('does not include package default selected optional packages in the all core 
     ]);
 
     expect($inputData->packages)->toBe(['capell-app/admin'])
-        ->and($inputData->extraPackages)->toBe([])
+        ->and($inputData->extraPackages)->toBe(['capell-app/theme-foundation'])
         ->and($customInputData->packages)->toBe(['capell-app/blog'])
-        ->and($customInputData->extraPackages)->toBe([]);
+        ->and($customInputData->extraPackages)->toBe(['capell-app/theme-foundation']);
 });
 
 it('includes configured default package names in the default web package selection', function (): void {
@@ -161,7 +161,7 @@ it('includes configured default package names in the default web package selecti
     ], defaultPackageNames: ['capell-app/filamentors']);
 
     expect($inputData->packages)->toBe(['capell-app/admin', 'capell-app/filamentors'])
-        ->and($inputData->extraPackages)->toBe([]);
+        ->and($inputData->extraPackages)->toBe(['capell-app/theme-foundation']);
 });
 
 it('matches console demo defaults for web installer input', function (): void {
@@ -307,9 +307,9 @@ it('supports all and custom web package selection modes', function (): void {
     ]));
 
     expect($allInputData->packages)->toBe(['capell-app/admin', 'capell-app/blog'])
-        ->and($allInputData->extraPackages)->toBe(['capell-app/remote-extension'])
+        ->and($allInputData->extraPackages)->toBe(['capell-app/remote-extension', 'capell-app/theme-foundation'])
         ->and($customInputData->packages)->toBe(['capell-app/blog'])
-        ->and($customInputData->extraPackages)->toBe(['capell-app/remote-extension']);
+        ->and($customInputData->extraPackages)->toBe(['capell-app/remote-extension', 'capell-app/theme-foundation']);
 });
 
 it('falls back to the configured filament-shield super-admin role name for example users', function (): void {

@@ -242,9 +242,21 @@ it('normalizes stale Capell App marketplace composer names to local package name
     'forms' => ['capell-app/forms', 'capell-app/form-builder'],
     'media assistant' => ['capell-app/media-assistant', 'capell-app/media-ai'],
     'migrator' => ['capell-app/migrator', 'capell-app/migration-assistant'],
-    'foundation theme' => ['capell-theme/foundation', 'capell-app/foundation-theme'],
+    'foundation theme' => ['capell-theme/foundation', 'capell-app/theme-foundation'],
+    'legacy foundation theme' => ['capell-app/foundation-theme', 'capell-app/theme-foundation'],
     'app theme' => ['capell-theme/agency', 'capell-app/theme-agency'],
 ]);
+
+it('retains both legacy foundation identities as candidates for the canonical package', function (): void {
+    $expected = [
+        'capell-app/theme-foundation',
+        'capell-app/foundation-theme',
+        'capell-theme/foundation',
+    ];
+
+    expect(ExtensionListingData::localPackageComposerNameCandidates('capell-app/theme-foundation'))->toBe($expected)
+        ->and(ExtensionListingData::localPackageComposerNameCandidates('capell-theme/foundation'))->toBe($expected);
+});
 
 it('prefers listing logo artwork before screenshot images', function (): void {
     $listing = ExtensionListingData::fromApiResponse([

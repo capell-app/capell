@@ -152,6 +152,17 @@ it('returns downloadable theme packages as extra install packages', function ():
         ->and($extraPackages)->toBe(['capell-app/theme-remote']);
 });
 
+it('includes the foundation provider when installing the default theme', function (): void {
+    [$packages, $extraPackages] = installPackageSetComposer()->includeSelectedThemePackage(
+        collect(),
+        selectedThemeKey: ThemePackageCandidates::DEFAULT_KEY,
+        includeInstalledRequirements: false,
+    );
+
+    expect($packages)->toBeEmpty()
+        ->and($extraPackages)->toBe(['capell-app/theme-foundation']);
+});
+
 function installPackageSetComposer(): InstallPackageSetComposer
 {
     $planner = new PackageWorkflowPlanner;
