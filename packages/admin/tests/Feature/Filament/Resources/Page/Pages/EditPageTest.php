@@ -606,16 +606,18 @@ it('warns and blocks saves while another editor has an active page lock', functi
 
     test()->actingAs($otherEditor);
 
-    Livewire::test(EditPage::class, [
+    $component = Livewire::test(EditPage::class, [
         'record' => $page->getRouteKey(),
     ])
         ->assertSuccessful()
         ->assertNotified(__('capell-admin::message.content_lock_active', ['name' => 'Ben']))
         ->assertSee(__('capell-admin::message.content_lock_read_only'))
-        ->assertSee(__('capell-admin::button.request_content_lock_takeover'))
-        ->fillForm([
-            'name' => 'Blocked Name',
-        ])
+        ->assertSee(__('capell-admin::button.request_content_lock_takeover'));
+
+    session()->forget('filament.notifications');
+
+    $component
+        ->set('data', [])
         ->call('save')
         ->assertNotified(__('capell-admin::message.content_lock_active', ['name' => 'Ben']));
 
@@ -1872,6 +1874,31 @@ it('warns editors when the page type content structure changes', function (): vo
 
     expect($component->instance()->record->refresh()->content_structure)
         ->toBe(ContentStructure::Blocks);
+});
+
+it('does not persist a content structure change for a locked-out editor', function (): void {
+    $type = Blueprint::factory()->page()->contentStructure(ContentStructure::Html)->create();
+    $page = Page::factory()->type($type)->create();
+    $owner = test()->createUser(['name' => 'Ben']);
+    $otherEditor = test()->createUserWithRole('super_admin', ['name' => 'Other Editor']);
+
+    ContentLock::query()->create([
+        'user_id' => $owner->getKey(),
+        'model_type' => $page->getMorphClass(),
+        'model_id' => $page->getKey(),
+        'expires_at' => Date::now()->addMinutes(15),
+    ]);
+
+    test()->actingAs($otherEditor);
+
+    Livewire::test(EditPage::class, [
+        'record' => $page->getRouteKey(),
+    ])
+        ->call('pageTypeContentStructureUpdated', ContentStructure::Blocks)
+        ->assertNotified(__('capell-admin::message.content_lock_active', ['name' => 'Ben']));
+
+    expect($page->refresh()->content_structure_override)->toBeNull()
+        ->and($page->content_structure)->toBe(ContentStructure::Html);
 });
 
 it('adds a view-page notification action for the current page URL', function (): void {
