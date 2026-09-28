@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Tests\Support;
 
+use Carbon\CarbonImmutable;
+
 use function Orchestra\Testbench\default_skeleton_path;
 
 use RuntimeException;
@@ -77,9 +79,64 @@ final class IsolatedTestbenchSkeleton
         // from the bootstrap path.
         $targetPath = self::pathForToken($token);
 
+        // UNIQUE_TEST_TOKEN differs per run, so skeletons are never reused: without this
+        // they accumulated (81 GB observed) and Larastan's Testbench boot walked them all.
+        self::removeStaleSkeletons(dirname($targetPath), $targetPath);
         self::prepare($sourcePath, $targetPath);
+        register_shutdown_function(static fn () => self::delete($targetPath));
 
         return self::$preparedPath = $targetPath;
+    }
+
+    /**
+     * Remove skeletons left by processes that exited without their shutdown cleanup
+     * (killed or crashed). Only directories untouched for longer than any plausible
+     * run are removed, so a concurrent suite's live skeletons survive.
+     */
+    public static function removeStaleSkeletons(string $directory, ?string $keep = null, int $staleAfterSeconds = 21600): int
+    {
+        $entries = is_dir($directory) ? scandir($directory) : false;
+
+        if ($entries === false) {
+            return 0;
+        }
+
+        $removed = 0;
+        // Plain Carbon, not the Date facade: this runs before the application exists.
+        $cutoff = CarbonImmutable::now()->getTimestamp() - $staleAfterSeconds;
+
+        foreach ($entries as $entry) {
+            if ($entry === '.') {
+                continue;
+            }
+
+            if ($entry === '..') {
+                continue;
+            }
+
+            $path = $directory . '/' . $entry;
+
+            if ($path === $keep) {
+                continue;
+            }
+
+            if (is_link($path)) {
+                continue;
+            }
+
+            if (! is_dir($path)) {
+                continue;
+            }
+
+            $modifiedAt = filemtime($path);
+
+            if ($modifiedAt !== false && $modifiedAt < $cutoff) {
+                self::delete($path);
+                $removed++;
+            }
+        }
+
+        return $removed;
     }
 
     private static function pathForToken(string $token): string
