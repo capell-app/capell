@@ -13,6 +13,7 @@ use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Stubs\RecordingBackupFilesystem;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\UnableToCreateDirectory;
 
 use function Orchestra\Testbench\package_path;
 
@@ -327,6 +328,47 @@ it('bounds restore media scratch usage and cleans completed transfers on failure
         ->and(glob($this->temporaryFilesDirectory . '/*'))->toBe([])
         ->and(array_filter($destination->temporaryPaths, is_file(...)))->toBeEmpty();
 })->with([null, 'read', 'write', 'checksum']);
+
+it('cleans real local scratch files after a restore write failure and succeeds on retry', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $this->markTestSkipped('Root ignores the directory permissions used to induce the real filesystem failure.');
+    }
+
+    $root = sys_get_temp_dir() . '/capell-restore-local-' . bin2hex(random_bytes(8));
+    $scratchMediaRoot = $root . '/scratch-media';
+    mkdir($scratchMediaRoot, 0700, true);
+    config(['filesystems.disks.scratch-media' => ['driver' => 'local', 'root' => $scratchMediaRoot]]);
+    Storage::forgetDisk('scratch-media');
+    Storage::disk('media')->put('images/example.txt', 'real-media');
+    $manifest = CreateBackupAction::run();
+
+    try {
+        chmod($scratchMediaRoot, 0500);
+
+        expect(fn (): BackupRestoreResultData => RestoreBackupAction::run(
+            $manifest->snapshotId,
+            'capell_restore_failed',
+            'scratch-media',
+            'restored',
+        ))->toThrow(UnableToCreateDirectory::class)
+            ->and(glob($this->temporaryFilesDirectory . '/*'))->toBe([]);
+
+        chmod($scratchMediaRoot, 0700);
+        $result = RestoreBackupAction::run(
+            $manifest->snapshotId,
+            'capell_restore_retry',
+            'scratch-media',
+            'restored',
+        );
+
+        expect($result->mediaFiles)->toBe(1)
+            ->and(Storage::disk('scratch-media')->get('restored/images/example.txt'))->toBe('real-media')
+            ->and(glob($this->temporaryFilesDirectory . '/*'))->toBe([]);
+    } finally {
+        chmod($scratchMediaRoot, 0700);
+        new Filesystem()->deleteDirectory($root);
+    }
+});
 
 function backupRestoredValue(string $databasePath): string
 {
