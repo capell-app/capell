@@ -354,6 +354,12 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
     public function saveAsDraft(): void
     {
+        $this->authorizeAccess();
+
+        if ($this->isSaveBlockedByContentLock()) {
+            return;
+        }
+
         $handler = $this->draftHandler();
 
         if ($handler !== null) {
@@ -378,6 +384,12 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
      */
     public function saveAsDraftWithLocation(array $data): void
     {
+        $this->authorizeAccess();
+
+        if ($this->isSaveBlockedByContentLock()) {
+            return;
+        }
+
         $handler = $this->draftHandler();
 
         if ($handler !== null) {
@@ -471,6 +483,18 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     }
 
     #[Override]
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        $this->authorizeAccess();
+
+        if ($this->isSaveBlockedByContentLock()) {
+            return;
+        }
+
+        parent::save($shouldRedirect, $shouldSendSavedNotification);
+    }
+
+    #[Override]
     protected function getSavedNotification(): ?Notification
     {
         $notification = parent::getSavedNotification();
@@ -552,22 +576,6 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         }
 
         return $data;
-    }
-
-    protected function beforeSave(): void
-    {
-        $lock = ResolvePageEditorLockAction::run(new PageEditorLockRequestData(
-            record: $this->record,
-            user: $this->currentUser(),
-            operation: PageEditorLockOperation::Save,
-        ));
-
-        if ($lock->isBlocked()) {
-            $this->notifyContentLockConflict($lock->owner(), saveBlocked: true);
-            $this->halt();
-
-            return;
-        }
     }
 
     protected function afterValidate(): void
@@ -780,6 +788,21 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         }
 
         return new HtmlString($label . e($model->name));
+    }
+
+    private function isSaveBlockedByContentLock(): bool
+    {
+        $lock = ResolvePageEditorLockAction::run(new PageEditorLockRequestData(
+            record: $this->record,
+            user: $this->currentUser(),
+            operation: PageEditorLockOperation::Save,
+        ));
+
+        if ($lock->isBlocked()) {
+            $this->notifyContentLockConflict($lock->owner(), saveBlocked: true);
+        }
+
+        return $lock->isBlocked();
     }
 
     /** @return list<RecordStateData> */

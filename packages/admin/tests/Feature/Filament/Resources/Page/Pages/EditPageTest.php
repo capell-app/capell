@@ -606,16 +606,18 @@ it('warns and blocks saves while another editor has an active page lock', functi
 
     test()->actingAs($otherEditor);
 
-    Livewire::test(EditPage::class, [
+    $component = Livewire::test(EditPage::class, [
         'record' => $page->getRouteKey(),
     ])
         ->assertSuccessful()
         ->assertNotified(__('capell-admin::message.content_lock_active', ['name' => 'Ben']))
         ->assertSee(__('capell-admin::message.content_lock_read_only'))
-        ->assertSee(__('capell-admin::button.request_content_lock_takeover'))
-        ->fillForm([
-            'name' => 'Blocked Name',
-        ])
+        ->assertSee(__('capell-admin::button.request_content_lock_takeover'));
+
+    session()->forget('filament.notifications');
+
+    $component
+        ->set('data', [])
         ->call('save')
         ->assertNotified(__('capell-admin::message.content_lock_active', ['name' => 'Ben']));
 
