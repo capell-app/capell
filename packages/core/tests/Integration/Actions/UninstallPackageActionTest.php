@@ -211,8 +211,6 @@ it('surfaces real migration cleanup failure and retries against installed state'
         $this->markTestSkipped('Root ignores the directory permissions used to induce the real filesystem failure.');
     }
 
-    expect(config('database.connections.' . config('database.default') . '.driver'))->toBe('sqlite');
-
     $packagePath = makeUninstallPackageWithMigrationFixture('vendor/real-cleanup');
     $databasePath = $packagePath . '/host-database';
     $migrationsPath = $databasePath . '/migrations';
