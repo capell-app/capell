@@ -27,6 +27,8 @@ use RuntimeException;
  */
 final class IsolatedTestbenchSkeleton
 {
+    private const string OwnerMarker = '.capell-skeleton-owner';
+
     /**
      * Directories recreated empty rather than copied, relative to the skeleton root.
      *
@@ -83,7 +85,13 @@ final class IsolatedTestbenchSkeleton
         // they accumulated (81 GB observed) and Larastan's Testbench boot walked them all.
         self::removeStaleSkeletons(dirname($targetPath), $targetPath);
         self::prepare($sourcePath, $targetPath);
-        register_shutdown_function(static fn () => self::delete($targetPath));
+        // A pcntl_fork child inherits shutdown functions; only the creating process may delete.
+        $ownerPid = getmypid();
+        register_shutdown_function(static function () use ($targetPath, $ownerPid): void {
+            if (getmypid() === $ownerPid) {
+                self::delete($targetPath);
+            }
+        });
 
         return self::$preparedPath = $targetPath;
     }
@@ -128,15 +136,40 @@ final class IsolatedTestbenchSkeleton
                 continue;
             }
 
-            $modifiedAt = filemtime($path);
-
-            if ($modifiedAt !== false && $modifiedAt < $cutoff) {
+            if (self::isStale($path, $cutoff)) {
                 self::delete($path);
                 $removed++;
             }
         }
 
         return $removed;
+    }
+
+    /**
+     * A skeleton records its owning PID. Its top-level mtime freezes once it is
+     * prepared, so age alone would delete a long run's live skeleton; age only
+     * decides for legacy skeletons that have no owner marker.
+     */
+    private static function isStale(string $path, int $cutoff): bool
+    {
+        $owner = @file_get_contents($path . '/' . self::OwnerMarker);
+
+        if (is_string($owner) && preg_match('/\A[1-9]\d*\z/', trim($owner)) === 1) {
+            return ! self::processIsAlive((int) trim($owner));
+        }
+
+        $modifiedAt = filemtime($path);
+
+        return $modifiedAt !== false && $modifiedAt < $cutoff;
+    }
+
+    private static function processIsAlive(int $pid): bool
+    {
+        if (function_exists('posix_kill')) {
+            return posix_kill($pid, 0) || posix_get_last_error() === 1;
+        }
+
+        return true;
     }
 
     private static function pathForToken(string $token): string
@@ -173,6 +206,8 @@ final class IsolatedTestbenchSkeleton
         self::delete($targetPath);
 
         throw_if(! is_dir($targetPath) && ! mkdir($targetPath, 0o777, true) && ! is_dir($targetPath), RuntimeException::class, sprintf('Unable to create the isolated Testbench skeleton at [%s].', $targetPath));
+
+        file_put_contents($targetPath . '/' . self::OwnerMarker, (string) getmypid());
 
         $entries = scandir($sourcePath);
 

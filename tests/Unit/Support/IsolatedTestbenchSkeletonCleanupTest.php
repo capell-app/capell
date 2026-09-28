@@ -41,3 +41,25 @@ it('removes only stale skeletons and keeps the current and recent ones', functio
 it('ignores a missing skeleton directory', function (): void {
     expect(IsolatedTestbenchSkeleton::removeStaleSkeletons(sys_get_temp_dir() . '/capell-skeleton-gc-missing-' . bin2hex(random_bytes(8))))->toBe(0);
 });
+
+it('keeps a live owner skeleton however old and removes a dead owner skeleton however recent', function (): void {
+    $directory = sys_get_temp_dir() . '/capell-skeleton-owner-' . bin2hex(random_bytes(8));
+    $filesystem = new Filesystem;
+
+    $filesystem->ensureDirectoryExists($directory . '/live');
+    file_put_contents($directory . '/live/.capell-skeleton-owner', (string) getmypid());
+    touch($directory . '/live', Date::now()->subDays(2)->getTimestamp());
+
+    $filesystem->ensureDirectoryExists($directory . '/dead');
+    file_put_contents($directory . '/dead/.capell-skeleton-owner', '2147483646');
+
+    try {
+        $removed = IsolatedTestbenchSkeleton::removeStaleSkeletons($directory);
+
+        expect($removed)->toBe(1)
+            ->and(is_dir($directory . '/live'))->toBeTrue()
+            ->and(is_dir($directory . '/dead'))->toBeFalse();
+    } finally {
+        $filesystem->deleteDirectory($directory);
+    }
+});
