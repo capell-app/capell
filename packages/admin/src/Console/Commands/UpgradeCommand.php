@@ -32,7 +32,7 @@ class UpgradeCommand extends Command
 
         if ($migrationResult->exitCode !== self::SUCCESS) {
             $this->error($migrationResult->output);
-            $this->error(__('capell::message.required_command_failed', [
+            $this->error(__('capell-core::message.required_command_failed', [
                 'command' => 'database migrations',
                 'exit_code' => $migrationResult->exitCode,
             ]));

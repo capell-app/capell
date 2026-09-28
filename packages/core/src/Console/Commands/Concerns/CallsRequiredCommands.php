@@ -18,7 +18,7 @@ trait CallsRequiredCommands
             return true;
         }
 
-        $this->error(__('capell::message.required_command_failed', [
+        $this->error(__('capell-core::message.required_command_failed', [
             'command' => $command . (isset($arguments['--tag']) && is_string($arguments['--tag']) ? ' --tag=' . $arguments['--tag'] : ''),
             'exit_code' => $exitCode,
         ]));

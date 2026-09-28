@@ -45,7 +45,10 @@ final readonly class OperatorEmailChannel
         $sent = $this->container->make(MailFactory::class)->mailer($mailer)->raw(
             $signal->toHuman() . "\n\n" . $signal->toJson(),
             function (Message $message) use ($signal, $address, $escalated): void {
-                $message->to($address)->subject(__('capell::reporting.' . ($escalated ? 'escalation_subject' : 'failure_subject'), ['severity' => $signal->severity->value, 'signal' => $signal->name]));
+                $replacements = ['severity' => $signal->severity->value, 'signal' => $signal->name];
+                $message->to($address)->subject($escalated
+                    ? __('capell-core::reporting.escalation_subject', $replacements)
+                    : __('capell-core::reporting.failure_subject', $replacements));
             },
         );
 
