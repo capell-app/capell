@@ -263,6 +263,11 @@ beforeEach(function (): void {
     // Every install step discovers executable App panel providers. Keep these
     // cases in an owned app directory so a prepared workbench cannot load PHP
     // classes that later applications rediscover after this case is torn down.
+    // Filament's lazy console commands resolve the application namespace when
+    // Artisan enumerates them. Cache the real Testbench namespace before this
+    // file deliberately moves app_path() outside its Composer PSR-4 directory.
+    app()->getNamespace();
+
     $this->originalInstallStepAppPath = app_path();
     $this->installStepAppPath = storage_path('framework/testing/install-step-app-' . bin2hex(random_bytes(8)));
     File::ensureDirectoryExists($this->installStepAppPath);

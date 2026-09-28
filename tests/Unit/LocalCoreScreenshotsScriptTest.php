@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 use Symfony\Component\Process\Process;
 
+it('prepares the Core workbench without mutating the shared Testbench vendor tree', function (): void {
+    $script = file_get_contents(dirname(__DIR__, 2) . '/scripts/screenshots/prepare-workbench.sh');
+
+    expect($script)->toBeString()
+        ->toContain('--package-mode=core')
+        ->toContain('--theme=none');
+});
+
 it('runs no-filter screenshot commands', function (array $arguments, array $expectedCommands): void {
     $temporary = sys_get_temp_dir() . '/capell-core-screenshot-script-' . bin2hex(random_bytes(6));
     $binaryDirectory = $temporary . '/bin';
