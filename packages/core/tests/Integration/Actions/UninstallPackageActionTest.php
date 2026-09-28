@@ -25,6 +25,7 @@ use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
@@ -203,6 +204,59 @@ it('checks all migration deletion permissions before mutating files or running h
     expect($filesystem->calls)->not->toContain(['delete', database_path('migrations/' . $name)])
         ->and(UninstallPackageLifecycleAction::$packages)->toBeEmpty()
         ->and(CapellCore::isPackageInstalled($package->name))->toBeTrue();
+});
+
+it('surfaces real migration cleanup failure and retries against installed state', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $this->markTestSkipped('Root ignores the directory permissions used to induce the real filesystem failure.');
+    }
+
+    $packagePath = makeUninstallPackageWithMigrationFixture('vendor/real-cleanup');
+    $databasePath = $packagePath . '/host-database';
+    $migrationsPath = $databasePath . '/migrations';
+    $name = '2026_05_10_190832_01_create_migration_package_table.php';
+    $published = $migrationsPath . '/' . $name;
+    $originalDatabasePath = app()->databasePath();
+    File::ensureDirectoryExists($migrationsPath);
+    File::copy($packagePath . '/database/migrations/' . $name, $published);
+    app()->useDatabasePath($databasePath);
+    app()->instance(MigrationFilesystemInterface::class, new MigrationFilesystem);
+    Schema::create('real_cleanup_examples', fn ($table) => $table->id());
+
+    $hook = new class implements PackageLifecycleAction
+    {
+        public function handle(PackageData $package, array $arguments = [], ?ProgressReporter $reporter = null): void
+        {
+            Schema::drop('real_cleanup_examples');
+        }
+    };
+    app()->instance($hook::class, $hook);
+    CapellCore::registerPackage('vendor/real-cleanup', path: $packagePath);
+    CapellCore::markPackageInstalled('vendor/real-cleanup');
+    $package = CapellCore::getPackage('vendor/real-cleanup');
+    $package->uninstallAction = $hook::class;
+
+    try {
+        chmod($migrationsPath, 0500);
+
+        expect(fn (): null => UninstallPackageAction::run($package))
+            ->toThrow(RuntimeException::class, 'database/migrations/' . $name);
+        expect(is_file($published))->toBeTrue()
+            ->and(Schema::hasTable('real_cleanup_examples'))->toBeTrue()
+            ->and(CapellCore::isPackageInstalled($package->name))->toBeTrue();
+
+        chmod($migrationsPath, 0700);
+        UninstallPackageAction::run($package);
+
+        expect(is_file($published))->toBeFalse()
+            ->and(Schema::hasTable('real_cleanup_examples'))->toBeFalse()
+            ->and(CapellCore::isPackageInstalled($package->name))->toBeFalse();
+    } finally {
+        chmod($migrationsPath, 0700);
+        Schema::dropIfExists('real_cleanup_examples');
+        app()->useDatabasePath($originalDatabasePath);
+        File::deleteDirectory($packagePath);
+    }
 });
 
 it('keeps extension data by default so reinstall can reuse it', function (): void {

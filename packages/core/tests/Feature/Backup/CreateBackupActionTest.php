@@ -8,6 +8,7 @@ use Capell\Core\Support\Backup\BackupTemporaryFiles;
 use Capell\Core\Tests\Support\Stubs\RecordingBackupFilesystem;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\UnableToCreateDirectory;
 
 beforeEach(function (): void {
     Storage::fake('backups');
@@ -125,6 +126,41 @@ it('bounds backup media scratch usage by the active artifact and cleans up on fa
         ->and(glob($this->temporaryFilesDirectory . '/*'))->toBe([])
         ->and(array_filter($destination->temporaryPaths, is_file(...)))->toBeEmpty();
 })->with([null, 'read', 'write']);
+
+it('cleans real local scratch files after a backup write failure and succeeds on retry', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $this->markTestSkipped('Root ignores the directory permissions used to induce the real filesystem failure.');
+    }
+
+    $root = sys_get_temp_dir() . '/capell-create-local-' . bin2hex(random_bytes(8));
+    $backupRoot = $root . '/backups';
+    $mediaRoot = $root . '/media';
+    mkdir($backupRoot, 0700, true);
+    mkdir($mediaRoot, 0700, true);
+    config([
+        'filesystems.disks.backups' => ['driver' => 'local', 'root' => $backupRoot],
+        'filesystems.disks.media' => ['driver' => 'local', 'root' => $mediaRoot],
+    ]);
+    Storage::forgetDisk('backups');
+    Storage::forgetDisk('media');
+    Storage::disk('media')->put('images/example.txt', 'real-media');
+
+    try {
+        chmod($backupRoot, 0500);
+
+        expect(fn (): BackupManifestData => CreateBackupAction::run())->toThrow(UnableToCreateDirectory::class)
+            ->and(glob($this->temporaryFilesDirectory . '/*'))->toBe([]);
+
+        chmod($backupRoot, 0700);
+        $manifest = CreateBackupAction::run();
+
+        expect(Storage::disk('backups')->get($manifest->media[0]->path))->toBe('real-media')
+            ->and(glob($this->temporaryFilesDirectory . '/*'))->toBe([]);
+    } finally {
+        chmod($backupRoot, 0700);
+        new Filesystem()->deleteDirectory($root);
+    }
+});
 
 function backupCreatedValue(string $databasePath): string
 {

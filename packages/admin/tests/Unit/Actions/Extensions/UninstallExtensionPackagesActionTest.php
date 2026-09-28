@@ -6,8 +6,10 @@ use Capell\Admin\Actions\Extensions\UninstallExtensionPackagesAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
+use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
     CapellCore::clearExtensionCache();
@@ -90,4 +92,47 @@ it('returns actionable blocked migration cleanup without marking the admin unins
         ->and($result->uninstalledPackageNames)->toBeEmpty()
         ->and($result->failureMessage)->toContain('database/migrations/' . $name, 'php artisan capell:extension-uninstall vendor/blocked-extension')
         ->and(CapellCore::isPackageInstalled('vendor/blocked-extension'))->toBeTrue();
+});
+
+it('surfaces a real migration cleanup failure and allows the admin uninstall to retry', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $this->markTestSkipped('Root ignores the directory permissions used to induce the real filesystem failure.');
+    }
+
+    $root = sys_get_temp_dir() . '/capell-admin-uninstall-' . bin2hex(random_bytes(8));
+    $packagePath = $root . '/package';
+    $databasePath = $root . '/database';
+    $source = $packagePath . '/database/migrations/2026_09_28_create_real_cleanup.php';
+    $published = $databasePath . '/migrations/' . basename($source);
+    $originalDatabasePath = app()->databasePath();
+    File::ensureDirectoryExists(dirname($source));
+    File::ensureDirectoryExists(dirname($published));
+    File::put($source, '<?php');
+    File::copy($source, $published);
+    app()->useDatabasePath($databasePath);
+    app()->instance(MigrationFilesystemInterface::class, new MigrationFilesystem);
+    CapellCore::registerPackage('vendor/real-admin-cleanup', path: $packagePath);
+    CapellCore::markPackageInstalled('vendor/real-admin-cleanup');
+
+    try {
+        chmod(dirname($published), 0500);
+        $failed = UninstallExtensionPackagesAction::run(['vendor/real-admin-cleanup'], false, false);
+
+        expect($failed->successful)->toBeFalse()
+            ->and($failed->failureMessage)->toContain('database/migrations/' . basename($published))
+            ->and(is_file($published))->toBeTrue()
+            ->and(CapellCore::isPackageInstalled('vendor/real-admin-cleanup'))->toBeTrue();
+
+        chmod(dirname($published), 0700);
+        $retried = UninstallExtensionPackagesAction::run(['vendor/real-admin-cleanup'], false, false);
+
+        expect($retried->successful)->toBeTrue()
+            ->and($retried->uninstalledPackageNames)->toBe(['vendor/real-admin-cleanup'])
+            ->and(is_file($published))->toBeFalse()
+            ->and(CapellCore::isPackageInstalled('vendor/real-admin-cleanup'))->toBeFalse();
+    } finally {
+        chmod(dirname($published), 0700);
+        app()->useDatabasePath($originalDatabasePath);
+        File::deleteDirectory($root);
+    }
 });
