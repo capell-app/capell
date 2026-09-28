@@ -14,6 +14,9 @@ final class MarketplaceFixture
     public static function extensionResponse(string $webUrl): array
     {
         $baseUrl = rtrim($webUrl, '/');
+        $galleryImages = is_file(self::galleryManifest())
+            ? self::galleryImages($baseUrl)
+            : [];
 
         return [
             'data' => [
@@ -27,8 +30,10 @@ final class MarketplaceFixture
                 'purchase_url' => $baseUrl . '/extensions/seo-suite',
                 'price_cents' => 4900,
                 'is_paid' => true,
-                'image_url' => self::galleryImages($baseUrl)[0]['url'],
-                'images' => self::galleryImages($baseUrl),
+                ...($galleryImages === [] ? [] : [
+                    'image_url' => $galleryImages[0]['url'],
+                    'images' => $galleryImages,
+                ]),
                 'product' => [
                     'group' => 'Marketing',
                     'tier' => 'premium',
@@ -100,15 +105,37 @@ final class MarketplaceFixture
     /** @return list<array{url: string, alt: string, caption: string}> */
     private static function galleryImages(string $baseUrl): array
     {
-        $manifest = dirname(__DIR__, 2) . '/database/screenshot-gallery/images.json';
+        $manifest = self::galleryManifest();
         throw_unless(is_file($manifest), RuntimeException::class, 'Prepare genuine Marketplace gallery captures before requesting this fixture.');
         $images = json_decode((string) file_get_contents($manifest), true, flags: JSON_THROW_ON_ERROR);
         throw_unless(is_array($images) && count($images) >= 2, RuntimeException::class, 'The Marketplace gallery needs two genuine captures.');
 
-        return array_map(static fn (array $image): array => [
-            'url' => $baseUrl . '/api/v1/marketplace-fixtures/seo-suite/' . $image['filename'],
-            'alt' => $image['caption'],
-            'caption' => $image['caption'],
-        ], $images);
+        $galleryImages = [];
+
+        foreach ($images as $image) {
+            throw_unless(is_array($image), RuntimeException::class, 'The Marketplace gallery manifest contains an invalid entry.');
+
+            $filename = $image['filename'] ?? null;
+            $caption = $image['caption'] ?? null;
+
+            throw_unless(
+                is_string($filename) && $filename !== '' && is_string($caption) && $caption !== '',
+                RuntimeException::class,
+                'The Marketplace gallery manifest contains an invalid entry.',
+            );
+
+            $galleryImages[] = [
+                'url' => $baseUrl . '/api/v1/marketplace-fixtures/seo-suite/' . $filename,
+                'alt' => $caption,
+                'caption' => $caption,
+            ];
+        }
+
+        return $galleryImages;
+    }
+
+    private static function galleryManifest(): string
+    {
+        return dirname(__DIR__, 2) . '/database/screenshot-gallery/images.json';
     }
 }
