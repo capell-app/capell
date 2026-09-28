@@ -319,6 +319,12 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     #[On('page-type-content-structure-updated')]
     public function pageTypeContentStructureUpdated(ContentStructure $contentStructure): void
     {
+        // This listener persists the page directly, so it needs the same lock
+        // guard as save(): a locked-out editor must not change the structure.
+        if ($this->isSaveBlockedByContentLock()) {
+            return;
+        }
+
         // The content_structure_override save below records an event-sourced
         // revision (via the recording bridge) before the destructive translation
         // mutation, so the editor can roll back from the page history timeline.
