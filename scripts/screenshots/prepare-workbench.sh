@@ -78,6 +78,7 @@ php vendor/bin/testbench capell:install \
     --fresh=force \
     --demo \
     --package-mode=core \
+    --theme=none \
     --url="${DISPLAY_URL}" \
     --name=Admin \
     --email=admin@example.com \
