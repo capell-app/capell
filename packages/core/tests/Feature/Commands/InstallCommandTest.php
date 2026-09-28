@@ -55,6 +55,7 @@ afterEach(function (): void {
 function setupInstallTest(array $packageNames = ['test'], bool $foundationThemeAvailable = false): array
 {
     Storage::fake();
+    bindInstallCommandHermeticProcessFactory();
     CapellCore::clearPackages();
     bindDeveloperToolingInstallationState(false);
     $fakeFileManager = new FakeMigrationFilesystem;
@@ -379,6 +380,37 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
 }
 
 /** @param array<int, string> $packages */
+/**
+ * Install tests must never reach real Composer or npm. Selecting the Foundation
+ * theme without registering it makes the install run a Composer dry-run
+ * preflight; answer that as successful here, and let any other command fail
+ * loudly through Mockery rather than resolving packages over the network. A
+ * test that needs different process behaviour binds its own fake afterwards.
+ */
+function bindInstallCommandHermeticProcessFactory(): void
+{
+    $process = Mockery::mock(SymfonyProcess::class);
+    $process->shouldReceive('setTimeout')->andReturnSelf();
+    $process->shouldReceive('run')->andReturn(0);
+    $process->shouldReceive('isSuccessful')->andReturn(true);
+    $process->shouldReceive('getErrorOutput')->andReturn('');
+    $process->shouldReceive('getOutput')->andReturn('Dry run ok');
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory
+        ->shouldReceive('make')
+        ->zeroOrMoreTimes()
+        ->with(
+            Mockery::on(fn (array|string $command): bool => is_array($command)
+                && array_slice($command, 0, 3) === ['composer', 'require', '--dry-run']),
+            Mockery::any(),
+            Mockery::any(),
+        )
+        ->andReturn($process);
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
+}
+
 function bindInstallCommandPreflightProcessFactory(
     bool $successful = true,
     string $output = 'Dry run ok',
