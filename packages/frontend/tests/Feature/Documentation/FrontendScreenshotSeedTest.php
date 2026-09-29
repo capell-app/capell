@@ -123,6 +123,7 @@ it('initializes an idempotent generated frontend screenshot fixture without clai
             'language_id' => $page->site->language_id,
             'domain' => '127.0.0.1',
             'scheme' => 'http',
+            'port' => 8145,
             'path' => null,
             'default' => true,
             'status' => true,
@@ -147,6 +148,7 @@ it('keeps an installed site domain as the default', function (): void {
             'language_id' => $page->site->language_id,
             'domain' => '127.0.0.1',
             'scheme' => 'http',
+            'port' => 8145,
             'path' => null,
             'default' => false,
             'status' => true,
@@ -186,7 +188,9 @@ it('renders the populated fixture through the anonymous frontend route', functio
     frontendScreenshotSeedModels();
     FrontendScreenshotSeed::initialize('http://127.0.0.1:8145');
 
-    $this->get('http://127.0.0.1/')
+    // The runner requests the port-qualified origin; a portless domain would
+    // redirect this to the default domain instead of rendering it.
+    $this->get('http://127.0.0.1:8145/')
         ->assertOk()
         ->assertSee('A slower weekend outdoors')
         ->assertSee('A morning by the water')
