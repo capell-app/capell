@@ -87,8 +87,10 @@ final class FrontendScreenshotSeed
             // Fresh fixture databases can have no default domain at all; in
             // that case the local domain must become the default so preview
             // renderers can resolve the site's canonical origin.
-            // Site domains intentionally omit ports; screenshot-tools maps
-            // portless local asset URLs back to the configured local server.
+            // The domain must carry the server's port: a portless domain only
+            // matches the scheme's default port, so http://127.0.0.1:8145/
+            // would match nothing and the frontend would redirect the browser
+            // to the default (display) domain, which the runner must refuse.
             $site = $page->site;
             $hasDefaultDomain = $site->siteDomain()->exists();
 
@@ -96,6 +98,7 @@ final class FrontendScreenshotSeed
                 'language_id' => $page->site->language_id,
                 'domain' => $origin['host'],
                 'scheme' => $origin['scheme'],
+                'port' => $origin['port'],
                 'path' => null,
             ], [
                 'status' => true,
@@ -136,7 +139,7 @@ final class FrontendScreenshotSeed
         return view()->file(dirname(__DIR__, 2) . '/resources/views/screenshot-fixtures/frontend-content.blade.php', ['imageUrl' => $media->getUrl()])->render();
     }
 
-    /** @return array{host: string, scheme: string} */
+    /** @return array{host: string, scheme: string, port: int|null} */
     private static function localOrigin(string $frontendOrigin): array
     {
         $parts = parse_url($frontendOrigin);
@@ -156,6 +159,8 @@ final class FrontendScreenshotSeed
             'The frontend screenshot fixture requires a root local HTTP origin.',
         );
 
-        return ['host' => $host, 'scheme' => $scheme];
+        $port = is_array($parts) ? ($parts['port'] ?? null) : null;
+
+        return ['host' => $host, 'scheme' => $scheme, 'port' => is_int($port) ? $port : null];
     }
 }
