@@ -1,5 +1,6 @@
 exclude: ^(node_modules|vendor|\.pre-commit-config\.yaml)$
-# Hooks without an explicit stage run at commit time only.
+# Hooks whose manifest declares no stages run at commit time only; the few
+# pre-commit-hooks entries that declare push stages are pinned below.
 default_stages: [pre-commit]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -11,11 +12,14 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
         exclude: ^tests/\.pest/snapshots/
+        stages: [pre-commit]
       - id: trailing-whitespace
+        stages: [pre-commit]
       - id: mixed-line-ending
       - id: check-added-large-files
         args: ['--maxkb=1024']
         exclude: packages/admin/publishes/build/js/components/html-code-editor.js
+        stages: [pre-commit]
       - id: detect-private-key
 
   - repo: local

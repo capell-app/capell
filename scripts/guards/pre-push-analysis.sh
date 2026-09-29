@@ -2,7 +2,9 @@
 # Static analysis before a push. Hosted CI is the only other PHPStan gate and is
 # often billing-blocked, and the pre-commit hooks only format, so type errors
 # otherwise first surface in the release's core.preflight. Analyses the PHP
-# files the pushed commits change, with the scoped diff configuration.
+# files the pushed commits change, with the scoped diff configuration. Callers
+# of deleted or renamed files are not re-checked here; the full analysis in
+# core.preflight still covers them.
 set -eu
 cd "$(git rev-parse --show-toplevel)"
 
@@ -23,7 +25,7 @@ git rev-parse --verify --quiet "$base" > /dev/null || {
 files=()
 while IFS= read -r file; do
     [ -f "$file" ] && files+=("$file")
-done < <(git diff --name-only --diff-filter=ACMR "$base...HEAD" | grep -E '^(packages|tests)/.+\.php$' || true)
+done < <(git diff --name-only --diff-filter=ACMR "$base...HEAD" | grep -E '^(packages|tests)/.+\.php$|^scripts/benchmark-boot.*\.php$' || true)
 if [ "${#files[@]}" -eq 0 ]; then
     exit 0
 fi
