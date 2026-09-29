@@ -12,8 +12,8 @@ cd "$(git rev-parse --show-toplevel)"
 # push of the checked-out commit can be analysed faithfully.
 to_ref="${PRE_COMMIT_TO_REF:-HEAD}"
 if [ "$(git rev-parse "$to_ref")" != "$(git rev-parse HEAD)" ]; then
-    echo "pre-push analysis: skipped; the pushed commit is not checked out. Check it out and push again to analyse it." >&2
-    exit 0
+    echo "Refused push: the pushed commit is not checked out, so it cannot be analysed. Check it out and push it from there." >&2
+    exit 1
 fi
 
 base="${CAPELL_PRE_PUSH_ANALYSIS_BASE:-origin/main}"
