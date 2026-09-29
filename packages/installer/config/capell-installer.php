@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 return [
+    // Both values are required; a bootstrap grant is valid for at most 30 minutes.
+    'bootstrap' => [
+        'secret' => env('CAPELL_INSTALLER_BOOTSTRAP_SECRET'),
+        'expires_at' => env('CAPELL_INSTALLER_BOOTSTRAP_EXPIRES_AT'),
+    ],
+
     'installation_state_cache' => [
         'key' => 'capell-installer.installation-state',
         'host' => null,

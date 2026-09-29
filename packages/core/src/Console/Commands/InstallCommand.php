@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\Install\BuildAndAnnounceInstallSpecAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
+use Capell\Core\Actions\Install\CanCreateInstallAdministratorAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
 use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Actions\Install\RunArtisanCommandAction;
@@ -73,6 +74,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     /** @var string */
     protected $signature = 'capell:install
         {--demo}
+        {--allow-demo-credentials : Explicitly allow the known demo administrator credentials in production}
         {--plan : Print the exact install plan and exit without mutation}
         {--fresh= : Refresh the database before installing; pass force to skip the confirmation}
         {--profile= : Install profile key from config/capell-install-profiles.php or capell-install-profiles.json}
@@ -302,6 +304,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             ]);
 
             return $exitCode;
+        }
+
+        if (! $this->administratorCredentialsAreSafe($resolvedNewUser)) {
+            return CommandAlias::FAILURE;
         }
 
         $this->logInstallDebug('resolved admin user', [
@@ -669,7 +675,17 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->installProfile = $installProfile;
         $this->applyInstallProfileDefaults();
 
-        return $this->applyInstallRecommendationDefaults();
+        $recommendationExitCode = $this->applyInstallRecommendationDefaults();
+        if ($recommendationExitCode !== null) {
+            return $recommendationExitCode;
+        }
+
+        $newUser = $this->userPrompter()->newUserFromOptions($this->option('name'), $this->option('email'), $this->option('password'));
+        if (! $newUser instanceof NewUserData && $this->shouldUseFreshDemoDefaults()) {
+            $newUser = FreshInstallDefaults::adminUser();
+        }
+
+        return $this->administratorCredentialsAreSafe($newUser) ? null : CommandAlias::FAILURE;
     }
 
     private function resolveSiteUrl(): string
@@ -792,6 +808,17 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->warn('Fresh install cancelled.');
+
+        return false;
+    }
+
+    private function administratorCredentialsAreSafe(?NewUserData $user): bool
+    {
+        if (CanCreateInstallAdministratorAction::run($user, (bool) $this->option('allow-demo-credentials'))) {
+            return true;
+        }
+
+        $this->error(__('capell-core::install.demo.production_credentials_refused'));
 
         return false;
     }

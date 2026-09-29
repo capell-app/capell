@@ -185,6 +185,13 @@
                     novalidate
                 >
                     @csrf
+                    <input
+                        id="bootstrap-secret"
+                        type="password"
+                        name="bootstrap_secret"
+                        autocomplete="off"
+                    />
+                    <p>{{ __('capell-installer::installer.bootstrap_secret_help') }}</p>
 
                     <input
                         type="hidden"
@@ -317,6 +324,30 @@
                                 <p class="section-help">{{ __('capell-installer::installer.section_setup_help') }}</p>
 
                                 <div class="site-setup-grid">
+                                    <div
+                                        class="field"
+                                        data-field="bootstrap_secret"
+                                    >
+                                        <label
+                                            class="field-label"
+                                            for="bootstrap-secret"
+                                            >{{ __('capell-installer::installer.bootstrap_secret') }}</label
+                                        >
+                                        <input
+                                            id="bootstrap-secret"
+                                            type="password"
+                                            name="bootstrap_secret"
+                                            autocomplete="off"
+                                            aria-describedby="bootstrap-help"
+                                        />
+                                        <span
+                                            id="bootstrap-help"
+                                            class="section-help"
+                                            >{{ __('capell-installer::installer.bootstrap_secret_help') }}</span
+                                        >
+                                        <span class="field-error"></span>
+                                    </div>
+
                                     <div
                                         class="field"
                                         data-field="site_url"
@@ -1038,25 +1069,6 @@
                                             </span>
                                         </span>
                                     </label>
-
-                                    @if (($capellAlreadyInstalled ?? false) && ($canReinstall ?? false))
-                                        <label class="checkbox-row">
-                                            <input
-                                                type="checkbox"
-                                                name="fresh_install"
-                                                value="1"
-                                                @checked(old('fresh_install') === '1')
-                                            />
-                                            <span class="text">
-                                                <strong>
-                                                    {{ __('capell-installer::installer.option_fresh_install') }}
-                                                </strong>
-                                                <span>
-                                                    {{ __('capell-installer::installer.option_fresh_install_help') }}
-                                                </span>
-                                            </span>
-                                        </label>
-                                    @endif
 
                                     @if ($showFilamentPanelToggle)
                                         <label class="checkbox-row">

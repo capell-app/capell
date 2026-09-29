@@ -501,3 +501,19 @@ function developerToolingChoiceForOptions(InstallCommand $command): DeveloperToo
         developerToolingInstalled: resolve(DeveloperToolingInstallationState::class)->isInstalled(),
     );
 }
+
+it('refuses known fresh demo credentials in production before install work', function (): void {
+    app()->instance('env', 'production');
+    $command = installCommandForOptions(['--fresh' => 'force', '--demo' => true]);
+    expect(callInstallCommandMethod($command, 'bootInstallCommand'))->toBe(SymfonyCommand::FAILURE);
+});
+
+it('allows an explicit production demo credential grant and unique passwords', function (): void {
+    app()->instance('env', 'production');
+    $command = installCommandForOptions(['--fresh' => 'force', '--demo' => true, '--allow-demo-credentials' => true]);
+    expect(callInstallCommandMethod($command, 'bootInstallCommand'))->toBeNull();
+    $safe = new NewUserData(name: 'Operator', email: 'admin@example.test', password: 'unique-password');
+    expect(callInstallCommandMethod(installCommandForOptions([]), 'administratorCredentialsAreSafe', $safe))->toBeTrue();
+    $known = new NewUserData(name: 'Operator', email: 'ADMIN@example.test', password: 'password');
+    expect(callInstallCommandMethod(installCommandForOptions([]), 'administratorCredentialsAreSafe', $known))->toBeFalse();
+});

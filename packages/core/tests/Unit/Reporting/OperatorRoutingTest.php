@@ -613,3 +613,14 @@ it('does not count owner delivery as successful backup delivery when every escal
         ->and(operatorIncident($signal)->deliveries['email'])->toBe('delivered')
         ->and(operatorIncident($signal)->deliveries['escalation_email'])->toBe('unavailable');
 });
+
+it('throttles public reporting health queries and recovers after the window', function (): void {
+    config()->set('capell-reporting.health.enabled', true);
+    for ($request = 0; $request < 30; $request++) {
+        $this->getJson('/_capell/reporting/health')->assertOk();
+    }
+
+    $this->getJson('/_capell/reporting/health')->assertTooManyRequests();
+    $this->travel(61)->seconds();
+    $this->getJson('/_capell/reporting/health')->assertOk();
+});

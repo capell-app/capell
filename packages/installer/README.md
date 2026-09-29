@@ -66,6 +66,16 @@ CAPELL_SETUP_ADMIN_PASSWORD=password123
 
 Do not pass an encrypted or already-hashed value to `CAPELL_SETUP_ADMIN_PASSWORD`. Use the password you want to type on the login form; Laravel stores the hashed password in the `users.password` column during setup.
 
+Before using the browser installer, generate an operator secret on the server:
+
+```bash
+php -r 'echo bin2hex(random_bytes(32)), PHP_EOL; echo time() + 1800, PHP_EOL;'
+```
+
+Set the first line as `CAPELL_INSTALLER_BOOTSTRAP_SECRET` and the second line as `CAPELL_INSTALLER_BOOTSTRAP_EXPIRES_AT` in the host environment or `.env`, and rebuild any cached configuration. Open `/install` over HTTPS and enter the secret in the operator bootstrap field. Each state-changing request requires the proof; the browser session retains its hash, and the server checks expiry and rotation on every request. A missing grant, a secret shorter than 32 characters, an expired grant, or an expiry more than 30 minutes away is refused. Renew both values to resume after expiry, and clear them after setup. Removing the installer from the browser is also a state-changing request, so renew the grant first if it has expired. Keep the secret out of URLs, logs, reports and source control.
+
+Browser setup preserves existing database data. A destructive refresh is available only through `php artisan capell:install --fresh` with explicit confirmation (or `--fresh=force` for a deliberate disposable CLI install).
+
 ## Runtime Surfaces
 
 - Provider: `Capell\Installer\Providers\InstallerServiceProvider`

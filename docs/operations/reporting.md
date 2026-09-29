@@ -370,7 +370,7 @@ delivery.
 
 ## Aggregate health endpoint
 
-`GET /_capell/reporting/health` is named `capell.reporting.health`. It returns 404
+`GET /_capell/reporting/health` is named `capell.reporting.health`. It is limited to 30 requests per minute per client IP; excess requests return 429 with a retry window. It returns 404
 unless reporting and `health.enabled` are both enabled. The response is explicitly
 non-cacheable and contains only `status` plus aggregate unresolved, acknowledged,
 escalated and delivery-failure counts. It includes no messages, identifiers,

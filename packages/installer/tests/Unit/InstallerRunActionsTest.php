@@ -24,6 +24,7 @@ use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 
 function installerRunInput(): InstallInputData
 {
@@ -553,4 +554,31 @@ it('prevents a cancelled queued run from executing when its job is delivered', f
 
     expect($sessions->status($installId))->toBe('cancelled')
         ->and($sessions->activeInstallId())->toBeNull();
+});
+
+it('refuses destructive browser plans including persisted plans from older versions', function (): void {
+    config(['cache.default' => 'array']);
+    $installId = '83838383-8383-4838-a838-838383838383';
+    $input = InstallInputData::from([...installerRunInput()->toArray(), 'freshInstall' => true]);
+    $sessions = resolve(InstallerSessionRepository::class);
+    $sessions->startStepInstallSession(
+        installId: $installId,
+        inputData: $input,
+        plan: [['key' => InstallPlan::STEP_PREFLIGHT_CHECKS, 'label' => 'Preflight']],
+        installStatus: 'pending',
+        firstStepKey: InstallPlan::STEP_PREFLIGHT_CHECKS,
+        preflight: [],
+    );
+    bindInstallerRunPreflight(installerPreflightReport());
+    expect(fn (): InstallerRunStepData => AdvanceInstallerRunAction::run($installId, InstallPlan::STEP_PREFLIGHT_CHECKS))
+        ->toThrow(ValidationException::class);
+});
+
+it('refuses starting a destructive browser install before it queues work', function (): void {
+    Queue::fake();
+    config(['cache.default' => 'array', 'queue.default' => 'database']);
+    $input = InstallInputData::from([...installerRunInput()->toArray(), 'freshInstall' => true]);
+    expect(fn (): InstallerRunStartData => StartInstallerRunAction::run('84848484-8484-4848-a848-848484848484', $input, InstallerRunMode::Queued))
+        ->toThrow(ValidationException::class);
+    Queue::assertNothingPushed();
 });

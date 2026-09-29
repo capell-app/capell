@@ -15,6 +15,7 @@ use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerRemediation;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -42,6 +43,10 @@ final class AdvanceInstallerRunAction
         }
 
         $inputData = InstallInputData::from($inputArray);
+        if ($inputData->freshInstall) {
+            throw ValidationException::withMessages(['fresh_install' => __('capell-installer::installer.fresh_install_cli_only')]);
+        }
+
         /** @var array<int, array{key: string, label: string}> $plan */
         $plan = $this->sessions->plan($installId);
         $reporter = $this->reporter($installId);

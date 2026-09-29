@@ -77,7 +77,7 @@ final class StoreInstallRequest extends FormRequest
             'admin_add_navigation' => ['nullable', 'boolean'],
             'generate_sitemap' => ['nullable', 'boolean'],
             'rebuild_resources' => ['nullable', 'boolean'],
-            'fresh_install' => ['nullable', 'boolean'],
+            'fresh_install' => ['prohibited'],
             'run_as_job' => ['nullable', 'boolean'],
             'install_id' => ['nullable', 'uuid'],
         ];

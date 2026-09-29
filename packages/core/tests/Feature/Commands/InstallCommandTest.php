@@ -2703,3 +2703,12 @@ it('uses install profile defaults when explicit install options are omitted', fu
         ->and($fake->capturedInput->demoLanguages)->toBe(['en'])
         ->and($fake->capturedInput->demoSites)->toBe(['Equidynamics']);
 });
+
+it('refuses the production fresh demo shortcut before executing installation', function (): void {
+    app()->instance('env', 'production');
+    $spy = RunInstallAction::spy();
+    artisanCommand('capell:install', ['--fresh' => 'force', '--demo' => true, '--no-interaction' => true])
+        ->expectsOutputToContain(__('capell-core::install.demo.production_credentials_refused'))
+        ->assertExitCode(Command::FAILURE);
+    $spy->shouldNotHaveReceived('handle');
+});

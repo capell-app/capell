@@ -195,7 +195,7 @@ it('matches console demo defaults for web installer input', function (): void {
         ->and($inputData->packages)->toContain('vendor/demo-package');
 });
 
-it('keeps demo package requirements selected for fresh web installs even when already installed', function (): void {
+it('preserves installed demo requirements when web input requests a fresh install', function (): void {
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/core');
     CapellCore::registerPackage('capell-app/admin');
@@ -219,8 +219,9 @@ it('keeps demo package requirements selected for fresh web installs even when al
         'theme' => 'none',
     ]);
 
-    expect($inputData->packages)->toContain('capell-app/content-sections')
-        ->and($inputData->packages)->toContain('capell-app/navigation')
+    expect($inputData->freshInstall)->toBeFalse()
+        ->and($inputData->packages)->not->toContain('capell-app/content-sections')
+        ->and($inputData->packages)->not->toContain('capell-app/navigation')
         ->and($inputData->packages)->toContain('vendor/demo-package');
 });
 
