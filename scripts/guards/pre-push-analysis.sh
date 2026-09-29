@@ -10,6 +10,13 @@ cd "$(git rev-parse --show-toplevel)"
 
 # pre-commit supplies the pushed range; PHPStan reads files on disk, so only a
 # push of the checked-out commit can be analysed faithfully.
+# Release tooling pushes split commits and tags to other repositories; only a
+# push to this repository's own origin is a developer push to analyse.
+normalise() { printf '%s\n' "$1" | sed -e 's#^git@github.com:#https://github.com/#' -e 's#\.git$##' -e 's#/$##'; }
+if [ "$(normalise "${PRE_COMMIT_REMOTE_URL:-$(git remote get-url origin)}")" != "$(normalise "$(git remote get-url origin)")" ]; then
+    exit 0
+fi
+
 # Only branch pushes carry code to analyse; tags and other refs pass through.
 case "${PRE_COMMIT_REMOTE_BRANCH:-refs/heads/}" in
     refs/heads/*) ;;
