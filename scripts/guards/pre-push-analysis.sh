@@ -10,10 +10,22 @@ cd "$(git rev-parse --show-toplevel)"
 
 # pre-commit supplies the pushed range; PHPStan reads files on disk, so only a
 # push of the checked-out commit can be analysed faithfully.
-to_ref="${PRE_COMMIT_TO_REF:-HEAD}"
-if [ "$(git rev-parse "$to_ref")" != "$(git rev-parse HEAD)" ]; then
-    echo "pre-push analysis: skipped; the pushed commit is not checked out. Check it out and push again to analyse it." >&2
+# Release tooling pushes split commits and tags to other repositories; only a
+# push to this repository's own origin is a developer push to analyse.
+normalise() { printf '%s\n' "$1" | sed -e 's#^git@github.com:#https://github.com/#' -e 's#\.git$##' -e 's#/$##'; }
+if [ "$(normalise "${PRE_COMMIT_REMOTE_URL:-$(git remote get-url origin)}")" != "$(normalise "$(git remote get-url origin)")" ]; then
     exit 0
+fi
+
+# Only branch pushes carry code to analyse; tags and other refs pass through.
+case "${PRE_COMMIT_REMOTE_BRANCH:-refs/heads/}" in
+    refs/heads/*) ;;
+    *) exit 0 ;;
+esac
+to_ref="${PRE_COMMIT_TO_REF:-HEAD}"
+if [ "$(git rev-parse "$to_ref^{commit}")" != "$(git rev-parse HEAD)" ]; then
+    echo "Refused push: the pushed commit is not checked out, so it cannot be analysed. Check it out and push it from there." >&2
+    exit 1
 fi
 
 base="${CAPELL_PRE_PUSH_ANALYSIS_BASE:-origin/main}"
