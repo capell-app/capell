@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install\Cli;
 
+use Capell\Core\Data\NewUserData;
+
 final class FreshInstallDefaults
 {
     /** @var list<string> */
@@ -15,6 +17,11 @@ final class FreshInstallDefaults
         'password',
         'theme',
     ];
+
+    public static function adminUser(): NewUserData
+    {
+        return new NewUserData(name: 'Capell Admin', email: 'admin@example.test', password: 'password');
+    }
 
     /**
      * @param  array<string, mixed>  $optionValues

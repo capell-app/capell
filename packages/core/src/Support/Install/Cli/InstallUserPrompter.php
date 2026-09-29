@@ -238,11 +238,7 @@ final class InstallUserPrompter
             'email' => 'admin@example.test',
         ]);
 
-        return new NewUserData(
-            name: 'Capell Admin',
-            email: 'admin@example.test',
-            password: 'password',
-        );
+        return FreshInstallDefaults::adminUser();
     }
 
     private function requireInteractiveOrFail(string $requirement, string $hint): void

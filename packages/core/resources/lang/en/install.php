@@ -21,6 +21,7 @@ return [
         'boost_installation_hint' => 'Runs boost:install --guidelines --skills --mcp without interaction.',
     ],
     'demo' => [
+        'production_credentials_refused' => 'Refusing the known demo administrator credentials in production. Supply a unique administrator password or explicitly pass --allow-demo-credentials for an intentional demo.',
         'knowledge_site' => 'Capell Knowledge',
         'services_site' => 'Capell Services',
     ],

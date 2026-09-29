@@ -122,6 +122,8 @@ php artisan capell:rollback --step=2026_05_01_example --force
 
 Use `--dry-run` before a real rollback. Use `--force` only when the impact is already understood.
 
+The fresh-demo shortcut supplies a known administrator (`admin@example.test` / `password`). With `APP_ENV=production`, installation refuses those credentials unless `--allow-demo-credentials` is explicitly supplied. Prefer a unique administrator password; this flag is for an intentional demo only and does not bypass destructive-install confirmation.
+
 ## Backup And Recovery
 
 ### `capell:backup:create`

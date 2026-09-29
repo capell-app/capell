@@ -16,6 +16,7 @@ use Capell\Installer\Enums\InstallerRunMode;
 use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -35,6 +36,10 @@ final class StartInstallerRunAction
         InstallInputData $inputData,
         InstallerRunMode $mode,
     ): InstallerRunStartData {
+        if ($inputData->freshInstall) {
+            throw ValidationException::withMessages(['fresh_install' => __('capell-installer::installer.fresh_install_cli_only')]);
+        }
+
         return match ($mode) {
             InstallerRunMode::BrowserSteps => $this->startBrowserSteps($installId, $inputData),
             InstallerRunMode::Queued => $this->startQueued($installId, $inputData),

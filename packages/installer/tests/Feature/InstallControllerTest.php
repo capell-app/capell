@@ -103,6 +103,11 @@ function bindInstallerDeveloperToolingInstallationState(bool $installed): void
 }
 
 beforeEach(function (): void {
+    config([
+        'capell-installer.bootstrap.secret' => str_repeat('a', 64),
+        'capell-installer.bootstrap.expires_at' => now()->addMinutes(30)->timestamp,
+    ]);
+    $this->withHeader('X-Capell-Installer-Secret', str_repeat('a', 64));
     bindInstallerDeveloperToolingInstallationState(false);
     config(['queue.default' => 'database']);
 });
@@ -1093,24 +1098,18 @@ it('shows the installer after installation when reinstall access is enabled', fu
     get(route('capell-installer.show'))
         ->assertOk()
         ->assertSee(__('capell-installer::installer.heading'))
-        ->assertSee(__('capell-installer::installer.option_fresh_install'))
+        ->assertDontSee('name="fresh_install"', false)
         ->assertSee(__('capell-installer::installer.submit'));
 });
 
-it('passes freshInstall through when reinstalling an installed site', function (): void {
+it('refuses destructive reinstall input even when reinstall access is enabled', function (): void {
     config(['capell-installer.allow_reinstall' => true]);
     Site::factory()->createOne();
-
-    Queue::fake();
     $spy = RunInstallAction::spy();
 
-    post(route('capell-installer.store'), installPostPayload([
-        'fresh_install' => '1',
-    ]));
-
-    $spy->shouldHaveReceived('handle')->once()->withArgs(
-        fn (InstallInputData $input, ProgressReporter $reporter): bool => $input->freshInstall,
-    );
+    $this->postJson(route('capell-installer.store'), installPostPayload(['fresh_install' => '1']))
+        ->assertUnprocessable()->assertJsonValidationErrors('fresh_install');
+    $spy->shouldNotHaveReceived('handle');
 });
 
 it('still allows install routes while an install lock is active', function (): void {

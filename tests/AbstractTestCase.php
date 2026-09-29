@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
+use Livewire\Livewire;
 use Lorisleiva\Actions\ActionServiceProvider;
 use Mockery\MockInterface;
 use Orchestra\Testbench\Concerns\WithWorkbench;
@@ -94,6 +95,9 @@ abstract class AbstractTestCase extends TestCase
 
         $this->clearTestbenchConfigCacheFile();
         $this->setUpTestbenchApplication();
+
+        // Direct mounts leave back-button cache state alive across Testbench application refreshes.
+        Livewire::flushState();
 
         $configuredCacheStore = Env::get('CACHE_STORE');
 

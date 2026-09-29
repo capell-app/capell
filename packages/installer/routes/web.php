@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Installer\Http\Controllers\InstallController;
 use Capell\Installer\Http\Middleware\EnsureNotInstalled;
+use Capell\Installer\Http\Middleware\RequireInstallerBootstrap;
 use Illuminate\Support\Facades\Route;
 
 Route::name('capell-installer.')
@@ -11,12 +12,12 @@ Route::name('capell-installer.')
     ->group(function (): void {
         Route::middleware(EnsureNotInstalled::class)->group(function (): void {
             Route::get('install', [InstallController::class, 'show'])->name('show');
-            Route::post('install', [InstallController::class, 'store'])->name('store');
-            Route::post('install/run-step', [InstallController::class, 'runStep'])->name('run-step');
-            Route::post('install/{installId}/cancel', [InstallController::class, 'cancel'])->name('cancel');
+            Route::post('install', [InstallController::class, 'store'])->middleware(RequireInstallerBootstrap::class)->name('store');
+            Route::post('install/run-step', [InstallController::class, 'runStep'])->middleware(RequireInstallerBootstrap::class)->name('run-step');
+            Route::post('install/{installId}/cancel', [InstallController::class, 'cancel'])->middleware(RequireInstallerBootstrap::class)->name('cancel');
         });
 
-        Route::post('install/delete-installer', [InstallController::class, 'destroy'])->name('destroy');
+        Route::post('install/delete-installer', [InstallController::class, 'destroy'])->middleware(RequireInstallerBootstrap::class)->name('destroy');
         Route::get('install/success/{installId}', [InstallController::class, 'success'])->name('success');
         Route::get('install/progress/{installId}', [InstallController::class, 'progress'])->name('progress');
         Route::get('install/progress/{installId}/data', [InstallController::class, 'progressData'])->name('progress.data');

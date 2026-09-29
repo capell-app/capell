@@ -38,7 +38,7 @@ final class InstallInputFactory
             ->expandAndOrder(
                 $availablePackages,
                 $this->selectedPackageNames($availablePackages, $validated, $packageSelectionMode, $defaultPackageNames),
-                (bool) ($validated['fresh_install'] ?? false),
+                false,
             )
             ->keys()
             ->all();
@@ -46,7 +46,7 @@ final class InstallInputFactory
             $selectedPackages = $this->includeDemoPackages(
                 $availablePackages,
                 $selectedPackages,
-                (bool) ($validated['fresh_install'] ?? false),
+                false,
             );
         }
 
@@ -93,7 +93,7 @@ final class InstallInputFactory
             adminAddWidgets: $this->shouldApplyAdminPanelChange($hasAdminPackage, $adminPanelChangesMode, $autoApplyAdminPanelChanges, $validated, 'admin_add_widgets'),
             adminAddNavigation: $this->shouldApplyAdminPanelChange($hasAdminPackage, $adminPanelChangesMode, $autoApplyAdminPanelChanges, $validated, 'admin_add_navigation'),
             rebuildResources: (bool) ($validated['rebuild_resources'] ?? false),
-            freshInstall: (bool) ($validated['fresh_install'] ?? false),
+            freshInstall: false,
             installWelcomeRoute: $allowWelcomeRoute && $this->shouldInstallWelcomeRoute($hasFrontend, $validated),
             installDeveloperTooling: $installDeveloperTooling,
             configureBoostDeveloperTooling: $installDeveloperTooling && (bool) ($validated['configure_boost_developer_tooling'] ?? false),

@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 return [
+    'bootstrap_secret' => 'Operator bootstrap secret',
+    'bootstrap_secret_help' => 'Enter the short-lived secret configured by the server operator. It expires after at most 30 minutes.',
+    'bootstrap_required' => 'A valid, unexpired operator bootstrap secret is required. Ask the server operator to configure a new grant.',
+    'fresh_install_cli_only' => 'Database refresh is available only through the CLI installer.',
     'admin_access_panel_body' => 'The installer creates the first privileged account, then optionally seeds role-specific users for permission testing.',
     'admin_access_panel_title' => 'Access model',
     'admin_access_primary_body' => 'Receives access to the admin panel and can manage Capell configuration after installation.',
@@ -73,8 +77,6 @@ return [
     'option_create_role_users_help' => 'Creates default Super Admin and Editor roles',
     'option_demo_content' => 'Install demo content',
     'option_demo_content_help' => 'Seeds example pages, menus, and media for local development and demos.',
-    'option_fresh_install' => 'Fresh install',
-    'option_fresh_install_help' => 'Refreshes the database with Laravel before installing again. Existing application data is removed.',
     'option_install_developer_tooling' => 'Install Laravel Boost and Capell Agent Bridge',
     'option_install_developer_tooling_help' => 'Adds laravel/boost as a dev dependency and capell-app/agent-bridge so Capell Agent Bridge tools are available locally.',
     'option_install_filament_panel' => 'Set up Filament admin panel',

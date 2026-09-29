@@ -18,6 +18,18 @@ $package
 
 For dynamic discovery, packages can scan migration filenames and pass them to Package Tools.
 
+## Production Timestamp Defaults
+
+MariaDB 10.5 with `explicit_defaults_for_timestamp=0` gives the first required TIMESTAMP an implicit `ON UPDATE CURRENT_TIMESTAMP` and can reject later required TIMESTAMP columns because of zero defaults. For migrations dated 2026-09-29 onwards, use `dateTime()`, `nullable()`, `useCurrent()` or an explicit `default()`; the Foundation migration guard rejects unspecified required TIMESTAMP columns. Event and expiry values must remain unchanged when unrelated fields are updated.
+
+The forward Core migration `2026_09_29_000001_remove_implicit_timestamp_updates` inspects only columns in Core-created tables and removes automatic updates where MariaDB actually added them. It preserves NOT NULL, precision, indexes and existing values with an explicit current-timestamp insert default. Other drivers and already-safe columns are unchanged, and rollback deliberately does not restore the unsafe behaviour. Applying the migration cannot reconstruct timestamps that were already rewritten; audit those rows separately against reliable event or expiry records.
+
+The database regression uses a new disposable database on the checkout's MariaDB 10.5 service and cleans up only that database:
+
+```bash
+./capell pest packages/core/tests/Database/ImplicitTimestampRepairTest.php --configuration=phpunit.xml
+```
+
 ## Extension Lifecycle Ledger
 
 Composer presence makes a package available. The `capell_extensions` row controls whether it can affect runtime.
