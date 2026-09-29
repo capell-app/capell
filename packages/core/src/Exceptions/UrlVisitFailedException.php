@@ -15,9 +15,9 @@ final class UrlVisitFailedException extends RuntimeException
             && in_array($parts['scheme'] ?? null, ['http', 'https'], true)
             && isset($parts['host'])
                 ? $parts['scheme'] . '://' . $parts['host'] . ($parts['path'] ?? '/')
-                : __('capell::message.invalid_visit_destination');
+                : __('capell-core::message.invalid_visit_destination');
 
-        return new self(__('capell::message.url_visit_failed', [
+        return new self(__('capell-core::message.url_visit_failed', [
             'url' => $destination,
             'reason' => $reason,
         ]));

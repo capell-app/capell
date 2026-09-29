@@ -36,10 +36,10 @@ class PublishComponentsCommand extends Command
         }
 
         $this->newLine();
-        $this->line(__('capell::message.component_publication_summary', $totals));
+        $this->line(__('capell-core::message.component_publication_summary', $totals));
 
         if ($totals['failed'] > 0) {
-            $this->error(__('capell::message.component_publication_failed'));
+            $this->error(__('capell-core::message.component_publication_failed'));
 
             return Command::FAILURE;
         }
@@ -125,7 +125,7 @@ class PublishComponentsCommand extends Command
         $destPath = resource_path(sprintf('views/vendor/%s/%s', $namespace, $filePath));
 
         if (! is_dir(dirname($destPath))) {
-            throw_unless(mkdir(dirname($destPath), 0755, true), Exception::class, __('capell::message.component_directory_failed', ['path' => dirname($destPath)]));
+            throw_unless(mkdir(dirname($destPath), 0755, true), Exception::class, __('capell-core::message.component_directory_failed', ['path' => dirname($destPath)]));
         }
 
         return $destPath;

@@ -37,21 +37,21 @@ class VisitUrlAction implements ShouldBeUnique
         if (! in_array($scheme, ['http', 'https'], true)) {
             Log::warning('VisitUrlAction: rejected non-http(s) url', ['url' => $url, 'scheme' => $scheme]);
 
-            throw UrlVisitFailedException::forUrl($url, __('capell::message.visit_requires_http'));
+            throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_requires_http'));
         }
 
         $host = parse_url($url, PHP_URL_HOST);
         if (! is_string($host) || $host === '' || ! $this->isAllowedHost($host)) {
             Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host]);
 
-            throw UrlVisitFailedException::forUrl($url, __('capell::message.visit_requires_registered_host'));
+            throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_requires_registered_host'));
         }
 
         $safeAddress = $this->safeResolvedAddress($host);
         if ($safeAddress === null) {
             Log::warning('VisitUrlAction: rejected unsafe url', ['url' => $url, 'host' => $host]);
 
-            throw UrlVisitFailedException::forUrl($url, __('capell::message.visit_requires_public_address'));
+            throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_requires_public_address'));
         }
 
         $response = Http::withOptions($this->pinnedDnsOptions($url, $host, $safeAddress))
@@ -64,7 +64,7 @@ class VisitUrlAction implements ShouldBeUnique
             Log::info('Problem accessing url', ['url' => $url, 'status' => $response->status()]);
             event(new UrlVisitFailed($url, $response->status(), $pageId));
 
-            throw UrlVisitFailedException::forUrl($url, __('capell::message.visit_http_failed', ['status' => $response->status()]));
+            throw UrlVisitFailedException::forUrl($url, __('capell-core::message.visit_http_failed', ['status' => $response->status()]));
         }
     }
 
