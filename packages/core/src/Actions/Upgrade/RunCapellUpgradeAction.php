@@ -182,6 +182,13 @@ final class RunCapellUpgradeAction
         ));
 
         $schema = RunDatabaseMigrationsAction::run(dryRun: $dryRun);
+
+        // Core's source migrations do not include the host copies just published
+        // for installed packages. Run those before settings and upgrade steps.
+        if ($schema->exitCode === Command::SUCCESS) {
+            $schema = RunPublishedDatabaseMigrationsAction::run(dryRun: $dryRun);
+        }
+
         $io->line(sprintf('  migrate exit=%d', $schema->exitCode));
 
         $settings = RunSettingsMigrationsAction::run(dryRun: $dryRun);
