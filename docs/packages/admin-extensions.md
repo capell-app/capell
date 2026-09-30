@@ -27,7 +27,7 @@ $registrar->zone(new AdminZoneContributionData(
 ```
 
 The contribution key is scoped to its zone and must be unique. Contributions
-are resolved through the shared CAP-0468 ordering policy, then filtered by
+are resolved through the shared extension ordering policy, then filtered by
 permission and visibility before their typed values are rendered. Existing
 `PageTableExtender` implementations remain compatible, but their columns are
 appended after this stable pipeline and cannot participate in stable-key

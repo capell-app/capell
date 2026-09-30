@@ -43,4 +43,4 @@ They are preparation artefacts only: no 2.x package line exists yet, and the
 wording is pinned in
 [`fixtures/core-2x-old-package-failure.txt`](fixtures/core-2x-old-package-failure.txt)
 so the eventual solver/discovery error, upgrade guide, and changelog can land
-together after CAP-0270 adoption evidence is available.
+together once package adoption of the neutral seams is proven.
