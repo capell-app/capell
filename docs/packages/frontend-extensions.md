@@ -309,7 +309,7 @@ URLs, and authoring state fail closed. Public Blade reads
 resolve the source model. Every model named by `cacheDependencyModelTypes()`
 must be an Eloquent model class, and every metadata dependency must use one of
 those declared classes; invalid or mismatched declarations fail closed during
-frontend bootstrap. CAP-0461 JSON-LD/property projections should use this
+frontend bootstrap. JSON-LD and property projections should use this
 same hydrated seam rather than introducing another public-data transport.
 
 If a package model affects public output, register model-to-cache dependencies during provider boot:

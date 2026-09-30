@@ -18,6 +18,8 @@ if ($repositoryRoot === false) {
 $allowedOrphans = [
     'docs/packages.md', // redirect stub kept alive for published docs-site URLs
     'docs/superpowers/', // internal plans and specs are not part of the public docs navigation
+    'docs/github-repo-surface.md', // maintainer-only GitHub repository setup commands
+    'docs/org-profile-README.md', // maintainer draft for the capell-app organisation profile
 ];
 
 $entryPoints = [

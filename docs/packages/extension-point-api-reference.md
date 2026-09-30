@@ -11,7 +11,7 @@ Admin surface and Frontend render-hook contributions use the shared [extension o
 ## Stable Admin zones
 
 Register a typed `AdminZoneContributionData` through
-`AdminBridgeRegistrar::zone()` and position it with the CAP-0468
+`AdminBridgeRegistrar::zone()` and position it with the
 `ExtensionPosition` value object. Stable zones cover Page edit content, form
 actions, and header widgets; Page list table columns; and the Extensions
 dashboard's content before/after the table, header actions/widgets, and table
