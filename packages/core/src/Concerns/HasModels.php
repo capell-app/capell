@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Capell\Core\Concerns;
 
 use BackedEnum;
+use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Enums\ExtensionContributionType;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
 
 trait HasModels
@@ -55,7 +55,7 @@ trait HasModels
         }
 
         if ($morphMap !== []) {
-            Relation::morphMap($morphMap, merge: true);
+            RegisterModelMorphMapAction::run($morphMap);
         }
 
         return $this;

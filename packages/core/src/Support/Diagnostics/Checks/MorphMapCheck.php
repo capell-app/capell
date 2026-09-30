@@ -25,7 +25,7 @@ final class MorphMapCheck extends AbstractDoctorCheck
     protected function run(bool $installSummary): DoctorCheckResultData
     {
         $current = Relation::morphMap();
-        $expected = collect(CapellCore::getModels())->mapWithKeys(fn (string $class, string $name): array => [Str::snake($name) => $class])->all();
+        $expected = collect(CapellCore::getModels())->mapWithKeys(fn (string $class, string $name): array => [Str::snake($name) => $class, $class => $class])->all();
         $missing = array_filter($expected, fn (string $class, string $alias): bool => ! array_key_exists($alias, $current), ARRAY_FILTER_USE_BOTH);
 
         return $missing !== []

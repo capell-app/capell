@@ -21,6 +21,7 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\Notification;
+use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,16 @@ beforeEach(function (): void {
     Storage::fake('public');
     config()->set('capell.media.model', CapellMedia::class);
     config()->set('media-library.media_model', CapellMedia::class);
+});
+
+it('lists each media owner type once using its canonical alias', function (): void {
+    $component = Livewire::test(ListMedia::class)->assertSuccessful();
+    $filter = $component->instance()->getTable()->getFilter('model_type');
+    assert($filter instanceof SelectFilter);
+
+    expect($filter->getOptions())
+        ->toHaveKey('page', 'Page')
+        ->not->toHaveKey(Page::class);
 });
 
 it('reports a rejected replacement without a success notification or broken media reference', function (): void {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Upgrade;
 
+use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Data\UpgradeContext;
 use Capell\Core\Facades\CapellCore;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -25,14 +26,17 @@ final class EnsureMorphMapUpgradeStep extends AbstractUpgradeStep
     {
         $currentMorphMap = Relation::morphMap();
 
-        $expectedEntries = collect(CapellCore::getModels())
-            ->mapWithKeys(fn (string $modelClass, string $name): array => [Str::snake($name) => $modelClass])
-            ->all();
+        $expectedEntries = [];
+
+        foreach (CapellCore::getModels() as $name => $modelClass) {
+            $expectedEntries[Str::snake($name)] = $modelClass;
+            $expectedEntries[$modelClass] = $modelClass;
+        }
 
         $missing = array_diff_key($expectedEntries, $currentMorphMap);
 
         if ($missing !== []) {
-            Relation::morphMap($missing);
+            RegisterModelMorphMapAction::run($missing);
         }
 
         return true;

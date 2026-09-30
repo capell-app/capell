@@ -72,6 +72,7 @@ CapellCore::registerModels([ExampleModel::class]);
 ```
 
 Use morph maps for polymorphic package models.
+Capell model and page-type registration retains explicit legacy class-name keys for existing rows, while keeping short aliases first for new writes. Laravel versions that enforce morph maps on reads require these legacy keys.
 
 ## Protected Tables
 
