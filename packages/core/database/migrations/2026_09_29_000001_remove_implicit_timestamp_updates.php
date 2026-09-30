@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Database\RepairsImplicitTimestampUpdates;
 use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,10 @@ return new class extends Migration
     {
         $connection = DB::connection($this->getConnection());
         $dialect = CapellDatabase::for($connection)->schemaDialect();
+
+        if (! $dialect instanceof RepairsImplicitTimestampUpdates) {
+            return;
+        }
 
         foreach (self::COLUMNS as $table => $column) {
             $dialect->dropImplicitTimestampUpdate($table, $column, $connection);

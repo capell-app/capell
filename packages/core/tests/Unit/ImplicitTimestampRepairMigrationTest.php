@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Contracts\Database\DatabasePlatform;
+use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
+use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Migrations\Migration;
 
@@ -41,6 +45,26 @@ it('is a no-op on SQLite and does not reverse the timestamp safety repair', func
 
     $migration->up();
     $migration->down();
+
+    expect($connection->getQueryLog())->toBe([]);
+});
+
+it('does not require timestamp repair from third-party schema dialects', function (): void {
+    expect(new ReflectionClass(DatabaseSchemaDialect::class)->hasMethod('dropImplicitTimestampUpdate'))->toBeFalse();
+});
+
+it('does not call a timestamp repair method on dialects without that capability', function (): void {
+    $migration = require dirname(__DIR__, 2) . '/database/migrations/2026_09_29_000001_remove_implicit_timestamp_updates.php';
+    $connection = resolve(ConnectionResolverInterface::class)->connection();
+    $dialect = Mockery::mock(DatabaseSchemaDialect::class);
+    $platform = Mockery::mock(DatabasePlatform::class);
+    $platform->shouldReceive('drivers')->once()->andReturn(['sqlite']);
+    $platform->shouldReceive('schemaDialect')->once()->andReturn($dialect);
+    CapellDatabase::swap(new DatabasePlatformRegistry([$platform]));
+    $connection->enableQueryLog();
+    $connection->flushQueryLog();
+
+    $migration->up();
 
     expect($connection->getQueryLog())->toBe([]);
 });

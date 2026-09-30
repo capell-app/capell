@@ -73,6 +73,38 @@ final class StandardSuiteDiscoveryTest extends TestCase
         $this->assertSame([], $uncovered, "Runnable tests outside standard suites:\n" . implode("\n", $uncovered));
     }
 
+    public function test_the_timestamp_mariadb_proof_is_declared_only_in_its_opt_in_suite(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $proof = 'packages/core/tests/MariaDB/ImplicitTimestampRepairTest.php';
+        $standard = simplexml_load_file($root . '/phpunit.xml');
+        $optIn = simplexml_load_file($root . '/phpunit.mariadb.xml');
+        $this->assertNotFalse($standard);
+        $this->assertNotFalse($optIn);
+        $this->assertTrue($this->isExplicitException($proof));
+
+        foreach ($standard->testsuites->testsuite as $suite) {
+            foreach ($suite->directory as $directory) {
+                $this->assertFalse($this->matchesPath($proof, (string) $directory));
+            }
+
+            foreach ($suite->file as $file) {
+                $this->assertNotSame($proof, preg_replace('~^\./~', '', (string) $file));
+            }
+        }
+
+        $declaredFiles = [];
+        foreach ($optIn->testsuites->testsuite as $suite) {
+            foreach ($suite->file as $file) {
+                // Pest's explicit-file lookup must match the canonical source path.
+                $this->assertSame($proof, (string) $file);
+                $declaredFiles[] = (string) $file;
+            }
+        }
+
+        $this->assertSame([$proof], $declaredFiles);
+    }
+
     private function matchesPath(string $path, string $pattern): bool
     {
         $pattern = preg_replace('~^\./~', '', rtrim($pattern, '/'));
@@ -89,6 +121,7 @@ final class StandardSuiteDiscoveryTest extends TestCase
         $exceptions = [
             '~(?:^|/)Browser/~' => 'Separate browser runner and services',
             '~^tests/MariaDB/MariaDbMigrationCompatibilityTest\.php$~' => 'Separate MariaDB compatibility harness',
+            '~^packages/core/tests/MariaDB/ImplicitTimestampRepairTest\.php$~' => 'Opt-in MariaDB 10.5 timestamp proof in phpunit.mariadb.xml',
             '~(?:^|/)[Ff]ixtures/~' => 'Autoloaded fixture classes, not test cases',
         ];
 

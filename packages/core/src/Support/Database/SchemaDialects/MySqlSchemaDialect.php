@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\SchemaDialects;
 
 use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
+use Capell\Core\Contracts\Database\RepairsImplicitTimestampUpdates;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\MySqlServerCapabilities;
 use Capell\Core\Data\Database\SqlFragment;
@@ -13,9 +14,10 @@ use Capell\Core\Enums\Database\DatabaseFamily;
 use Illuminate\Database\Connection;
 use Override;
 use PDO;
+use RuntimeException;
 use WeakMap;
 
-final class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
+final class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect, RepairsImplicitTimestampUpdates
 {
     /** @var WeakMap<Connection, MySqlServerCapabilities> */
     private WeakMap $serverCapabilities;
@@ -200,6 +202,13 @@ final class MySqlSchemaDialect extends AbstractSchemaDialect implements Database
                 if (str_starts_with($default, "'") && str_ends_with($default, "'")) {
                     $default = str_replace("''", "'", substr($default, 1, -1));
                 }
+
+                // Expressions must never be rewritten as quoted string literals.
+                throw_unless(
+                    preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?)?$/', $default) === 1,
+                    RuntimeException::class,
+                    sprintf('Cannot remove implicit timestamp updates from [%s.%s]: unsupported TIMESTAMP default [%s].', $table, $column, $default),
+                );
 
                 $defaultClause = ' DEFAULT ' . $connection->getPdo()->quote($default);
             }

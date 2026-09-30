@@ -22,13 +22,21 @@ For dynamic discovery, packages can scan migration filenames and pass them to Pa
 
 MariaDB 10.5 with `explicit_defaults_for_timestamp=0` gives the first required TIMESTAMP an implicit `ON UPDATE CURRENT_TIMESTAMP` and can reject later required TIMESTAMP columns because of zero defaults. For migrations dated 2026-09-29 onwards, use `dateTime()`, `nullable()`, `useCurrent()` or an explicit `default()`; the Foundation migration guard rejects unspecified required TIMESTAMP columns. Event and expiry values must remain unchanged when unrelated fields are updated.
 
-The forward Core migration `2026_09_29_000001_remove_implicit_timestamp_updates` delegates to the database schema dialect to inspect only columns in Core-created tables and remove automatic updates where MySQL or MariaDB actually added them. It preserves nullability, precision, insert defaults, comments, indexes and existing values. Other drivers and already-safe columns are unchanged, and rollback deliberately does not restore the unsafe behaviour. Applying the migration cannot reconstruct timestamps that were already rewritten; audit those rows separately against reliable event or expiry records.
+The forward Core migration `2026_09_29_000001_remove_implicit_timestamp_updates` uses the optional `RepairsImplicitTimestampUpdates` capability to inspect only columns in Core-created tables and remove automatic updates where MySQL or MariaDB actually added them. It preserves nullability, precision, supported insert defaults, comments, indexes and existing values. NULL, CURRENT_TIMESTAMP and literal timestamp defaults are supported; other expressions raise a clear error before altering the column, so they cannot become quoted literals. Dialects without the capability and already-safe columns are unchanged, and rollback deliberately does not restore the unsafe behaviour. Applying the migration cannot reconstruct timestamps that were already rewritten; audit those rows separately against reliable event or expiry records.
 
-The database regression belongs to the standard Integration suite. Without `DB_HOST`, it asserts the SQLite no-op and timestamp preservation; service-backed runs retain the MariaDB 10.5 proof with implicit defaults disabled, using a new disposable database and cleaning up only that database. No environment skip is needed:
+The standard Integration regression always uses its own in-memory SQLite connection, independently of the suite's default driver and inherited service environment:
 
 ```bash
 ./capell pest packages/core/tests/Database/ImplicitTimestampRepairTest.php --configuration=phpunit.xml
 ```
+
+The MariaDB 10.5 proof is declared separately in `phpunit.mariadb.xml` and the standard-suite discovery exceptions. Set `DB_HOST`, `DB_PORT`, `DB_USERNAME` and `DB_PASSWORD` to a disposable MariaDB 10.5 server started with `explicit_defaults_for_timestamp=0`, then explicitly name its Laravel connection:
+
+```bash
+CAPELL_MARIADB_10_5_CONNECTION=mariadb vendor/bin/pest --configuration=phpunit.mariadb.xml
+```
+
+The proof fails if the connection name is absent, the server version differs or `explicit_defaults_for_timestamp` is non-zero. It creates and removes only its own database. `DB_HOST` alone never selects this proof, and no environment skip is used.
 
 ## Extension Lifecycle Ledger
 
