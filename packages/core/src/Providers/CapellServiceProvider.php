@@ -476,7 +476,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerMorphMap(): self
     {
-        $morphMap = ['capell_role' => Role::class];
+        // Role activity already stores FQCNs; subject queries must use that same type.
+        $morphMap = [Role::class => Role::class];
 
         foreach (CapellCore::getModels() as $name => $modelClass) {
             $morphMap[Str::snake($name)] = $modelClass;
