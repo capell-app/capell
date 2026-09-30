@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
+use Capell\Core\Data\MigrationRunResult;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
 use Capell\Frontend\Console\Commands\UpgradeCommand;
@@ -21,9 +23,9 @@ it('runs frontend upgrade command successfully', function (): void {
         ->and($calls)->toContain([
             'vendor:publish', ['--tag' => 'capell-migrations'],
         ])
-        ->and($calls)->toContain([
-            'migrate', ['--force' => true],
-        ])
+        ->and(collect($calls)->contains(
+            fn (array $call): bool => $call[0] === 'migrate' && ! array_key_exists('--path', $call[1]),
+        ))->toBeFalse()
         ->and($calls)->toContain([
             'migrate', ['--path' => 'database/settings', '--force' => true],
         ])
@@ -84,7 +86,6 @@ it('fails before settings publication when core schema migrations fail', functio
     )->handle())->toBe(Command::FAILURE)
         ->and($calls)->toBe([
             ['vendor:publish', ['--tag' => 'capell-migrations']],
-            ['migrate', ['--force' => true]],
         ])
         ->and($filesystem->calls)->toBe([]);
 });
@@ -95,12 +96,15 @@ function makeFrontendUpgradeCommand(
     int $schemaMigrationExitCode = Command::SUCCESS,
     int $settingsMigrationExitCode = Command::SUCCESS,
 ): UpgradeCommand {
-    $command = new class($calls, $migrationPublishExitCode, $schemaMigrationExitCode, $settingsMigrationExitCode) extends UpgradeCommand
+    RunPublishedDatabaseMigrationsAction::mock()
+        ->shouldReceive('handle')
+        ->andReturn(new MigrationRunResult($schemaMigrationExitCode, ''));
+
+    $command = new class($calls, $migrationPublishExitCode, $settingsMigrationExitCode) extends UpgradeCommand
     {
         public function __construct(
             public array &$calls,
             private readonly int $migrationPublishExitCode,
-            private readonly int $schemaMigrationExitCode,
             private readonly int $settingsMigrationExitCode,
         ) {
             parent::__construct();
@@ -112,10 +116,6 @@ function makeFrontendUpgradeCommand(
 
             if ($command === 'vendor:publish' && $arguments === ['--tag' => 'capell-migrations']) {
                 return $this->migrationPublishExitCode;
-            }
-
-            if ($command === 'migrate' && $arguments === ['--force' => true]) {
-                return $this->schemaMigrationExitCode;
             }
 
             if ($command === 'migrate' && $arguments === [
