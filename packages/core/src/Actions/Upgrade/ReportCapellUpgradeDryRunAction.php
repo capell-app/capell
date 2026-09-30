@@ -35,7 +35,7 @@ final class ReportCapellUpgradeDryRunAction
 
         $reporter->warn('=== DRY RUN REPORT — no changes will be made ===');
         $this->reportInstalledVersions($composerVersions, $reporter);
-        $this->reportPendingSchemaMigrations('Pending core schema migrations', $this->coreMigrationNames(), $reporter);
+        $this->reportPendingSchemaMigrations($reporter);
         $this->reportUnknownSettingsMigrations('Pending core settings migrations', $reporter);
         $this->reportPackageMigrations($reporter);
         $this->reportRegisteredStepBindings($reporter);
@@ -62,10 +62,9 @@ final class ReportCapellUpgradeDryRunAction
         $reporter->newLine();
     }
 
-    /** @param list<string> $migrations */
-    private function reportPendingSchemaMigrations(string $heading, array $migrations, UpgradeReporter $reporter): void
+    private function reportPendingSchemaMigrations(UpgradeReporter $reporter): void
     {
-        $reporter->line(sprintf('<fg=blue;options=bold>%s</>', $heading));
+        $reporter->line('<fg=blue;options=bold>Pending core schema migrations</>');
 
         try {
             /** @var Migrator $migrator */
@@ -79,8 +78,7 @@ final class ReportCapellUpgradeDryRunAction
                 return;
             }
 
-            $ran = array_fill_keys($repository->getRan(), true);
-            $pending = array_values(array_filter($migrations, static fn (string $migration): bool => ! isset($ran[$migration])));
+            $pending = ResolvePendingUpgradeMigrationsAction::run();
         } catch (Throwable) {
             $reporter->error('  Pending migrations are unknown because the migration repository could not be read.');
             $reporter->newLine();
@@ -88,11 +86,19 @@ final class ReportCapellUpgradeDryRunAction
             return;
         }
 
-        if ($pending === []) {
+        $this->reportMigrationNames($pending->core, $reporter);
+        $reporter->line('<fg=blue;options=bold>Pending published host/application and package schema migrations</>');
+        $this->reportMigrationNames($pending->published, $reporter);
+    }
+
+    /** @param array<string, string> $migrations */
+    private function reportMigrationNames(array $migrations, UpgradeReporter $reporter): void
+    {
+        if ($migrations === []) {
             $reporter->line('  None.');
         }
 
-        foreach ($pending as $migration) {
+        foreach (array_keys($migrations) as $migration) {
             $reporter->line('  ' . $migration);
         }
 
@@ -297,12 +303,6 @@ final class ReportCapellUpgradeDryRunAction
         }
 
         return array_values(array_filter($tags['capell.upgrade-steps'], is_string(...)));
-    }
-
-    /** @return list<string> */
-    private function coreMigrationNames(): array
-    {
-        return MigrationFileScanner::names(dirname(__DIR__, 3) . '/database/migrations', includeStubs: false);
     }
 
     /** @return list<string> */
