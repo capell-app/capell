@@ -9,6 +9,14 @@ use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Migrations\Migration;
 
+it('keeps the published timestamp repair independent of movable code and config', function (): void {
+    $source = (string) file_get_contents(dirname(__DIR__, 2) . '/database/migrations/2026_09_29_000001_remove_implicit_timestamp_updates.php');
+
+    // Match the consuming application's post N-1 migration hygiene rules.
+    expect(preg_match('/(?:^use\s+|\\\\|\b)(?:App|Capell)\\\\/m', $source))->toBe(0)
+        ->and(preg_match('/\b(?:app|config|resolve)\s*\(/', $source))->toBe(0);
+});
+
 it('repairs the complete implicit first timestamp shape in Core-created tables', function (): void {
     $implicitColumns = [];
     foreach (glob(dirname(__DIR__, 2) . '/database/migrations/*create*.php') ?: [] as $path) {
@@ -53,13 +61,12 @@ it('does not require timestamp repair from third-party schema dialects', functio
     expect(new ReflectionClass(DatabaseSchemaDialect::class)->hasMethod('dropImplicitTimestampUpdate'))->toBeFalse();
 });
 
-it('does not call a timestamp repair method on dialects without that capability', function (): void {
+it('does not consult package schema dialects when running the published repair', function (): void {
     $migration = require dirname(__DIR__, 2) . '/database/migrations/2026_09_29_000001_remove_implicit_timestamp_updates.php';
     $connection = resolve(ConnectionResolverInterface::class)->connection();
-    $dialect = Mockery::mock(DatabaseSchemaDialect::class);
     $platform = Mockery::mock(DatabasePlatform::class);
     $platform->shouldReceive('drivers')->once()->andReturn(['sqlite']);
-    $platform->shouldReceive('schemaDialect')->once()->andReturn($dialect);
+    $platform->shouldNotReceive('schemaDialect');
     CapellDatabase::swap(new DatabasePlatformRegistry([$platform]));
     $connection->enableQueryLog();
     $connection->flushQueryLog();

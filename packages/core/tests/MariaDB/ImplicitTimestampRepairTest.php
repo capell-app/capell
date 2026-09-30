@@ -79,6 +79,42 @@ it('repairs legacy MariaDB 10.5 implicit timestamp updates through an explicitly
                 ->and($metadata->COLUMN_DEFAULT)->not->toBeNull();
         }
 
+        // Exercise attribute preservation through the published migration itself.
+        $connection->statement("ALTER TABLE proof_content_locks MODIFY expires_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6) COMMENT 'Nullable expiry'");
+        $connection->statement("ALTER TABLE proof_page_revisions MODIFY occurred_at TIMESTAMP(3) NOT NULL DEFAULT '2020-02-03 04:05:06.123' ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'Event''s original time'");
+        $connection->statement('ALTER TABLE proof_page_revisions ADD INDEX original_event_time (occurred_at)');
+        $connection->statement('ALTER TABLE proof_stored_events MODIFY created_at TIMESTAMP(4) NOT NULL DEFAULT CURRENT_TIMESTAMP(4) ON UPDATE CURRENT_TIMESTAMP(4)');
+        $connection->statement("ALTER TABLE proof_activity_visitors MODIFY first_seen_at DATETIME NOT NULL DEFAULT '2020-01-01 00:00:00' ON UPDATE CURRENT_TIMESTAMP");
+        $connection->statement('ALTER TABLE proof_capell_upgrade_run_events MODIFY occurred_at TIMESTAMP(6) NOT NULL DEFAULT (CURRENT_TIMESTAMP(6) + INTERVAL 1 DAY)');
+        $metadataQuery = 'SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, COLUMN_DEFAULT, IS_NULLABLE, COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION';
+        $attributesBefore = $connection->select($metadataQuery, [$database]);
+        $indexesBefore = $connection->getSchemaBuilder()->getIndexes('page_revisions');
+        $safeBefore = $connection->selectOne('SHOW CREATE TABLE proof_capell_upgrade_run_events');
+        $nonTimestampBefore = $connection->selectOne('SHOW CREATE TABLE proof_activity_visitors');
+
+        $migration->up();
+        $migration->up();
+        $migration->down();
+
+        expect($connection->select($metadataQuery, [$database]))->toEqual($attributesBefore)
+            ->and($connection->getSchemaBuilder()->getIndexes('page_revisions'))->toEqual($indexesBefore)
+            ->and($connection->selectOne('SHOW CREATE TABLE proof_capell_upgrade_run_events'))->toEqual($safeBefore)
+            ->and($connection->selectOne('SHOW CREATE TABLE proof_activity_visitors'))->toEqual($nonTimestampBefore);
+        foreach (['content_locks' => 'expires_at', 'page_revisions' => 'occurred_at', 'stored_events' => 'created_at'] as $table => $column) {
+            expect($connection->table($table)->where('id', 1)->value($column))->toStartWith('2020-01-01 00:00:00');
+            $connection->table($table)->insert(['id' => 2, 'value' => 0]);
+            $timestampBefore = $connection->table($table)->where('id', 2)->value($column);
+            match ($table) {
+                'content_locks' => expect($timestampBefore)->toBeNull(),
+                'page_revisions' => expect($timestampBefore)->toBe('2020-02-03 04:05:06.123'),
+                'stored_events' => expect($timestampBefore)->not->toBeNull(),
+            };
+            $connection->table($table)->where('id', 2)->update(['value' => 1]);
+            expect($connection->table($table)->where('id', 2)->value($column))->toBe($timestampBefore);
+            $metadata = $connection->selectOne('SELECT EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?', [$database, 'proof_' . $table, $column]);
+            expect(strtolower((string) $metadata->EXTRA))->not->toContain('on update');
+        }
+
         expect(strtolower((string) $connection->selectOne('SELECT EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?', [$database, 'proof_foreign_events', 'occurred_at'])->EXTRA))->toContain('on update');
         expect(strtolower((string) $connection->selectOne('SELECT EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?', [$database, 'proof_page_revisions', 'updated_at'])->EXTRA))->toContain('on update');
 
@@ -121,6 +157,11 @@ it('repairs legacy MariaDB 10.5 implicit timestamp updates through an explicitly
         expect(fn () => $dialect->dropImplicitTimestampUpdate('expression_default', 'occurred_at', $connection))
             ->toThrow(RuntimeException::class, 'unsupported TIMESTAMP default');
         expect($connection->selectOne('SHOW CREATE TABLE proof_expression_default'))->toEqual($expressionBefore);
+
+        $connection->statement('ALTER TABLE proof_capell_upgrade_log MODIFY ran_at TIMESTAMP(6) NOT NULL DEFAULT (CURRENT_TIMESTAMP(6) + INTERVAL 1 DAY) ON UPDATE CURRENT_TIMESTAMP(6)');
+        $expressionBefore = $connection->selectOne('SHOW CREATE TABLE proof_capell_upgrade_log');
+        expect(fn () => $migration->up())->toThrow(RuntimeException::class, 'unsupported TIMESTAMP default');
+        expect($connection->selectOne('SHOW CREATE TABLE proof_capell_upgrade_log'))->toEqual($expressionBefore);
         expect(CapellCore::getMigrations())->toContain('2026_09_29_000001_remove_implicit_timestamp_updates');
     } finally {
         DB::purge('timestamp_proof');
