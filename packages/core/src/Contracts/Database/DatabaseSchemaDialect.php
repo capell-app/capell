@@ -34,4 +34,6 @@ interface DatabaseSchemaDialect
     ): bool;
 
     public function inspectGeneratedColumn(string $table, string $column, ?Connection $connection = null): SqlFragment;
+
+    public function dropImplicitTimestampUpdate(string $table, string $column, Connection $connection): void;
 }

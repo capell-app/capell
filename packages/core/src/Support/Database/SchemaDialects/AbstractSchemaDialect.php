@@ -10,6 +10,11 @@ use InvalidArgumentException;
 
 abstract class AbstractSchemaDialect
 {
+    public function dropImplicitTimestampUpdate(string $table, string $column, Connection $connection): void
+    {
+        // Automatic TIMESTAMP updates are specific to MySQL and MariaDB.
+    }
+
     public function hasForeignKeyReference(
         string $table,
         string $column,

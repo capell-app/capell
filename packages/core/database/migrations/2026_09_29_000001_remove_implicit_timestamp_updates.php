@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -25,39 +26,10 @@ return new class extends Migration
     public function up(): void
     {
         $connection = DB::connection($this->getConnection());
-        if (! in_array($connection->getDriverName(), ['mysql', 'mariadb'], true)) {
-            return;
-        }
+        $dialect = CapellDatabase::for($connection)->schemaDialect();
 
-        $grammar = $connection->getQueryGrammar();
         foreach (self::COLUMNS as $table => $column) {
-            /** @var object{COLUMN_TYPE: string, EXTRA: string}|null $metadata */
-            $metadata = $connection->selectOne(
-                'SELECT COLUMN_TYPE, EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
-                [$connection->getDatabaseName(), $connection->getTablePrefix() . $table, $column],
-            );
-            if ($metadata === null) {
-                continue;
-            }
-
-            if (! str_contains(strtolower($metadata->EXTRA), 'on update current_timestamp')) {
-                continue;
-            }
-
-            if (preg_match('/^timestamp(?:\(([0-6])\))?$/i', $metadata->COLUMN_TYPE, $type) !== 1) {
-                continue;
-            }
-
-            $precision = isset($type[1]) ? '(' . $type[1] . ')' : '';
-            // Legacy MariaDB adds ON UPDATE to the first required TIMESTAMP.
-            // An explicit default preserves insert behaviour without rewriting history.
-            $connection->statement(sprintf(
-                'ALTER TABLE %s MODIFY COLUMN %s TIMESTAMP%s NOT NULL DEFAULT CURRENT_TIMESTAMP%s',
-                $grammar->wrapTable($table),
-                $grammar->wrap($column),
-                $precision,
-                $precision,
-            ));
+            $dialect->dropImplicitTimestampUpdate($table, $column, $connection);
         }
     }
 

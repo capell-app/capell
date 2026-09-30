@@ -6,10 +6,12 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Support\Install\Cli\FreshInstallDefaults;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class CanCreateInstallAdministratorAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(?NewUserData $user, bool $allowDemoCredentials = false): bool

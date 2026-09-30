@@ -171,4 +171,51 @@ final class MySqlSchemaDialect extends AbstractSchemaDialect implements Database
             functionalIndexes: $family === DatabaseFamily::MySql && version_compare($numericVersion, '8.0.13', '>='),
         );
     }
+
+    #[Override]
+    public function dropImplicitTimestampUpdate(string $table, string $column, Connection $connection): void
+    {
+        /** @var object{COLUMN_TYPE: string, IS_NULLABLE: string, COLUMN_DEFAULT: ?string, COLUMN_COMMENT: string, EXTRA: string}|null $metadata */
+        $metadata = $connection->selectOne(
+            'SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT, EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+            [$connection->getDatabaseName(), $this->physicalTableName($table, $connection), $column],
+        );
+
+        if ($metadata === null
+            || ! str_contains(strtolower($metadata->EXTRA), 'on update current_timestamp')
+            || preg_match('/^timestamp(?:\([0-6]\))?$/i', $metadata->COLUMN_TYPE) !== 1) {
+            return;
+        }
+
+        $nullable = $metadata->IS_NULLABLE === 'YES';
+        $default = $metadata->COLUMN_DEFAULT;
+        $defaultClause = $nullable ? ' DEFAULT NULL' : '';
+
+        // MariaDB represents SQL NULL as the unquoted string "NULL".
+        if ($default !== null && strtoupper($default) !== 'NULL') {
+            if (preg_match('/^current_timestamp(?:\([0-6]?\))?$/i', $default) === 1) {
+                $defaultClause = ' DEFAULT ' . $default;
+            } else {
+                // MariaDB quotes literal defaults in its catalogue; MySQL does not.
+                if (str_starts_with($default, "'") && str_ends_with($default, "'")) {
+                    $default = str_replace("''", "'", substr($default, 1, -1));
+                }
+
+                $defaultClause = ' DEFAULT ' . $connection->getPdo()->quote($default);
+            }
+        }
+
+        $grammar = $connection->getQueryGrammar();
+        // Preserve the insert default explicitly so legacy MariaDB cannot add
+        // ON UPDATE back when explicit_defaults_for_timestamp is disabled.
+        $connection->statement(sprintf(
+            'ALTER TABLE %s MODIFY COLUMN %s %s %s%s COMMENT %s',
+            $grammar->wrapTable($table),
+            $grammar->wrap($column),
+            strtoupper($metadata->COLUMN_TYPE),
+            $nullable ? 'NULL' : 'NOT NULL',
+            $defaultClause,
+            $connection->getPdo()->quote($metadata->COLUMN_COMMENT),
+        ));
+    }
 }
