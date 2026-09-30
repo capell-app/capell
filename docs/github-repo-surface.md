@@ -250,8 +250,32 @@ the templates in `.github/split-repository/`, or a package's ecosystem manifests
 `composer check:split-repository-health` rejects missing or stale generated files
 in preflight and the PHP Quality workflow. Each split keeps its policy and update
 configuration in Git while `.gitattributes` excludes development files from dist.
-Composer and GitHub Actions receive a three-day update cooldown, with npm coverage
-where the split has a `package.json`.
+The splits are read-only mirrors whose PRs forward to the monorepo. Their
+Dependabot entries cover Composer and GitHub Actions, plus npm where a
+`package.json` exists, with `open-pull-requests-limit: 0` to prevent duplicate
+version-update PRs. Security updates are grouped per ecosystem and remain
+available when enabled in repository settings; this file does not enable that
+setting. Routine version updates belong in the monorepo.
+[Plumb's updater check](https://plumbphp.dev/checks/security/dependabot-or-renovate-configured)
+inspects ecosystem entries, and its
+[cooldown check](https://plumbphp.dev/checks/security/dependency-update-cooldown)
+requires at least three days. Retaining both satisfies those documented checks
+without generating routine PRs in the mirrors.
+[GitHub documents the zero limit](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/customizing-dependabot-security-prs)
+as disabling version updates while retaining security updates.
+
+The generator derives documentation exclusions from manifest assets and local
+runtime source paths. Referenced asset directories ship in full; documentation
+without a runtime reference is excluded selectively, without ignoring an
+ancestor of a required file. `SplitRepositoryHealthTest` builds real aggregate
+and split archives from `HEAD` with the working attributes, then checks runtime
+inputs and the absence of development tooling. This previews attribute edits
+without staging them; other file contents still come from `HEAD`.
+
+Fork forwarding keeps checkout v4.4.0 pinned and opts in to fork checkout only
+on the source step, with credentials disabled. The trusted workflow copies the
+fork's files into the monorepo PR; it must never execute those files or install
+their dependencies in this privileged job.
 
 [Plumb's checks](https://plumbphp.dev/checks) assess repository security settings
 separately from the latest stable release archive. The API exposes each scan's

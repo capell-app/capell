@@ -11,7 +11,6 @@
 /CLAUDE.md export-ignore
 /CHANGELOG.md export-ignore
 /CONTRIBUTING.md export-ignore
-/docs export-ignore
 /tests export-ignore
 /testbench.yaml export-ignore
 /phpunit*.xml* export-ignore
@@ -24,3 +23,21 @@
 /tailwind.config.* export-ignore
 /vite.config.* export-ignore
 /scripts export-ignore
+
+# Generated documentation exclusions: runtime paths come from manifests/source.
+/docs/agent-schema.md export-ignore
+/docs/assets/readme export-ignore
+/docs/authoring-upgrade-steps.md export-ignore
+/docs/cache.md export-ignore
+/docs/content-management.md export-ignore
+/docs/extending-capell.md export-ignore
+/docs/extension-development.md export-ignore
+/docs/images export-ignore
+/docs/install-debugging.md export-ignore
+/docs/multi-site-multi-lingual.md export-ignore
+/docs/overview.md export-ignore
+/docs/page-management.md export-ignore
+/docs/relationship-diagnostics.md export-ignore
+/docs/screenshots.json export-ignore
+/docs/static-site-extensions.md export-ignore
+/docs/subscriber-manager.md export-ignore

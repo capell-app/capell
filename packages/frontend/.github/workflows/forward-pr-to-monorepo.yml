@@ -45,16 +45,18 @@ jobs:
 
       - name: Checkout split PR contents
         if: github.event.action != 'closed'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           path: split
           persist-credentials: false
+          # Forwarding only copies these files; never run fork code in this job.
+          allow-unsafe-pr-checkout: true
 
       - name: Checkout Capell monorepo
         if: github.event.action != 'closed'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: capell-app/capell
           ref: 1.x

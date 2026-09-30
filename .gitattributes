@@ -5,7 +5,6 @@
 /.github            export-ignore
 /.gitattributes     export-ignore
 /.gitignore         export-ignore
-/docs               export-ignore
 /tests              export-ignore
 /.editorconfig      export-ignore
 
@@ -35,6 +34,7 @@
 /phpstan export-ignore
 /phpstan.neon export-ignore
 /phpunit*.xml export-ignore
+/testbench.yaml export-ignore
 /pint.json export-ignore
 /rector.php export-ignore
 /ray.php export-ignore
@@ -59,7 +59,6 @@
 /packages/*/.gitattributes export-ignore
 /packages/*/AGENTS.md export-ignore
 /packages/*/CLAUDE.md export-ignore
-/packages/*/docs export-ignore
 /packages/*/tests export-ignore
 /packages/*/rector.php export-ignore
 /packages/*/phpunit*.xml* export-ignore
@@ -71,3 +70,37 @@
 /packages/*/tailwind.config.* export-ignore
 /packages/*/vite.config.* export-ignore
 /packages/*/scripts export-ignore
+
+# Generated documentation exclusions: runtime paths come from manifests/source.
+/docs/README.md export-ignore
+/docs/admin export-ignore
+/docs/architecture export-ignore
+/docs/development export-ignore
+/docs/examples export-ignore
+/docs/frontend export-ignore
+/docs/getting-started export-ignore
+/docs/github-repo-surface.md export-ignore
+/docs/images export-ignore
+/docs/operations/backups.md export-ignore
+/docs/operations/debugging-marketplace.md export-ignore
+/docs/operations/export-and-exit.md export-ignore
+/docs/operations/going-live.md export-ignore
+/docs/operations/index.md export-ignore
+/docs/operations/lockdown.md export-ignore
+/docs/operations/making-capell-fast.md export-ignore
+/docs/operations/octane.md export-ignore
+/docs/operations/reporting.md export-ignore
+/docs/operations/runtime-roles.md export-ignore
+/docs/operations/site-health.md export-ignore
+/docs/operations/troubleshooting.md export-ignore
+/docs/operations/upgrading.md export-ignore
+/docs/operations/web-server.md export-ignore
+/docs/org-profile-README.md export-ignore
+/docs/packages export-ignore
+/docs/packages.md export-ignore
+/docs/performance export-ignore
+/docs/platform export-ignore
+/docs/reference export-ignore
+/docs/screenshot-receipts export-ignore
+/docs/screenshots.json export-ignore
+/docs/standards export-ignore
