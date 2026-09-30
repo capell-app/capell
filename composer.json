@@ -37,6 +37,8 @@
         "check:docs-commands": "@php scripts/check-docs-artisan-commands.php",
         "check:docs-env": "@php scripts/check-docs-env-vars.php",
         "check:docs-config": "@php scripts/check-docs-config-keys.php",
+        "check:split-repository-health": "@php scripts/sync-split-repository-health.php --check",
+        "sync:split-repository-health": "@php scripts/sync-split-repository-health.php",
         "check:root-docs": "@php scripts/check-root-docs.php",
         "check:readme-engineering-standards": "@php scripts/check-readme-engineering-standards.php",
         "check:docs-screenshots": "npm run docs:screenshots:check",

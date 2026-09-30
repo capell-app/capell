@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/**'
       - '.github/actions/**'
+      - '.github/split-repository/**'
+      - 'packages/*/.github/workflows/**'
   # Deliberately NOT paths-filtered. This job is a required status check, and a
   # required check that is skipped by a paths filter leaves every unrelated PR
   # blocked on "Expected - waiting for status" forever. The job is ~15s.
@@ -42,4 +44,4 @@ jobs:
           ./actionlint --version
 
       - name: Lint workflows
-        run: ./actionlint -color
+        run: ./actionlint -color .github/workflows/*.yml packages/*/.github/workflows/*.yml .github/split-repository/*.yml
