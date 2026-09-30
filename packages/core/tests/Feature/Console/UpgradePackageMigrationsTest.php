@@ -116,6 +116,8 @@ it('previews the same pending host and package migrations that apply runs', func
         DB::table('migrations')->insert(['migration' => $alreadyRan, 'batch' => 1]);
         writeUpgradePackageMigration($root . '/uninstalled/database/migrations/2099_01_01_000005_uninstalled_preview.php', 'uninstalled');
         CapellCore::registerPackage('vendor/upgrade-uninstalled-preview', path: $root . '/uninstalled');
+        // Record the state explicitly: an unrecorded package falls back to shared lifecycle state.
+        CapellCore::forcePackageInstalled('vendor/upgrade-uninstalled-preview', false);
         resolve('migrator')->path($root . '/uninstalled/database/migrations');
 
         $pendingCore = '2026_07_22_000003_create_metric_events_table';
