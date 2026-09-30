@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Database\SchemaDialects;
 
 use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
+use Capell\Core\Contracts\Database\RepairsImplicitTimestampUpdates;
 use Capell\Core\Data\Database\DatabaseIndexDefinition;
 use Capell\Core\Data\Database\MySqlServerCapabilities;
 use Capell\Core\Data\Database\SqlFragment;
@@ -13,9 +14,10 @@ use Capell\Core\Enums\Database\DatabaseFamily;
 use Illuminate\Database\Connection;
 use Override;
 use PDO;
+use RuntimeException;
 use WeakMap;
 
-final class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect
+final class MySqlSchemaDialect extends AbstractSchemaDialect implements DatabaseSchemaDialect, RepairsImplicitTimestampUpdates
 {
     /** @var WeakMap<Connection, MySqlServerCapabilities> */
     private WeakMap $serverCapabilities;
@@ -170,5 +172,59 @@ final class MySqlSchemaDialect extends AbstractSchemaDialect implements Database
             storedGeneratedColumns: version_compare($numericVersion, $family === DatabaseFamily::MariaDb ? '10.2.0' : '5.7.0', '>='),
             functionalIndexes: $family === DatabaseFamily::MySql && version_compare($numericVersion, '8.0.13', '>='),
         );
+    }
+
+    #[Override]
+    public function dropImplicitTimestampUpdate(string $table, string $column, Connection $connection): void
+    {
+        /** @var object{COLUMN_TYPE: string, IS_NULLABLE: string, COLUMN_DEFAULT: ?string, COLUMN_COMMENT: string, EXTRA: string}|null $metadata */
+        $metadata = $connection->selectOne(
+            'SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT, EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+            [$connection->getDatabaseName(), $this->physicalTableName($table, $connection), $column],
+        );
+
+        if ($metadata === null
+            || ! str_contains(strtolower($metadata->EXTRA), 'on update current_timestamp')
+            || preg_match('/^timestamp(?:\([0-6]\))?$/i', $metadata->COLUMN_TYPE) !== 1) {
+            return;
+        }
+
+        $nullable = $metadata->IS_NULLABLE === 'YES';
+        $default = $metadata->COLUMN_DEFAULT;
+        $defaultClause = $nullable ? ' DEFAULT NULL' : '';
+
+        // MariaDB represents SQL NULL as the unquoted string "NULL".
+        if ($default !== null && strtoupper($default) !== 'NULL') {
+            if (preg_match('/^current_timestamp(?:\([0-6]?\))?$/i', $default) === 1) {
+                $defaultClause = ' DEFAULT ' . $default;
+            } else {
+                // MariaDB quotes literal defaults in its catalogue; MySQL does not.
+                if (str_starts_with($default, "'") && str_ends_with($default, "'")) {
+                    $default = str_replace("''", "'", substr($default, 1, -1));
+                }
+
+                // Expressions must never be rewritten as quoted string literals.
+                throw_unless(
+                    preg_match('/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?)?$/', $default) === 1,
+                    RuntimeException::class,
+                    sprintf('Cannot remove implicit timestamp updates from [%s.%s]: unsupported TIMESTAMP default [%s].', $table, $column, $default),
+                );
+
+                $defaultClause = ' DEFAULT ' . $connection->getPdo()->quote($default);
+            }
+        }
+
+        $grammar = $connection->getQueryGrammar();
+        // Preserve the insert default explicitly so legacy MariaDB cannot add
+        // ON UPDATE back when explicit_defaults_for_timestamp is disabled.
+        $connection->statement(sprintf(
+            'ALTER TABLE %s MODIFY COLUMN %s %s %s%s COMMENT %s',
+            $grammar->wrapTable($table),
+            $grammar->wrap($column),
+            strtoupper($metadata->COLUMN_TYPE),
+            $nullable ? 'NULL' : 'NOT NULL',
+            $defaultClause,
+            $connection->getPdo()->quote($metadata->COLUMN_COMMENT),
+        ));
     }
 }
