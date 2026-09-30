@@ -96,6 +96,7 @@ class MediaTable implements TableConfigurator
                     ->label(__('capell-admin::table.record_type'))
                     ->options(fn (): array => collect(Relation::morphMap())
                         ->filter(fn (string $class, string $alias): bool => class_exists($class))
+                        ->unique()
                         ->mapWithKeys(fn (string $class, string $alias): array => [$alias => Str::headline(class_basename($class))])
                         ->sort()
                         ->all())

@@ -132,6 +132,7 @@ abstract class AbstractTestCase extends TestCase
 
         Relation::morphMap([
             'user' => User::class,
+            User::class => User::class,
         ]);
 
         Model::shouldBeStrict();

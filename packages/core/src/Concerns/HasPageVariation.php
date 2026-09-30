@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Concerns;
 
+use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Exceptions\InvalidPageModelException;
 use Illuminate\Database\Eloquent\Model;
@@ -109,14 +110,18 @@ trait HasPageVariation
     {
         $morphMap = Relation::morphMap() ?? [];
 
-        if (in_array($model, $morphMap, true)) {
-            return;
+        foreach ($morphMap as $alias => $registeredModel) {
+            if ($registeredModel === $model && $alias !== $model) {
+                RegisterModelMorphMapAction::run([$alias => $model]);
+
+                return;
+            }
         }
 
         $preferredAlias = Str::snake(class_basename($model));
 
         if (! array_key_exists($preferredAlias, $morphMap)) {
-            Relation::morphMap([$preferredAlias => $model], merge: true);
+            RegisterModelMorphMapAction::run([$preferredAlias => $model]);
 
             return;
         }
@@ -128,6 +133,6 @@ trait HasPageVariation
             return;
         }
 
-        Relation::morphMap([$qualifiedAlias => $model], merge: true);
+        RegisterModelMorphMapAction::run([$qualifiedAlias => $model]);
     }
 }

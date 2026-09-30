@@ -8,6 +8,7 @@ use BackedEnum;
 use Capell\Core\Actions\BladeComponentFacadeResolver;
 use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
+use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Console\Commands\AgentSchemaVerifyCommand;
 use Capell\Core\Console\Commands\AuditSiteDomainOriginsCommand;
 use Capell\Core\Console\Commands\BackupHealthCommand;
@@ -211,6 +212,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
 use Illuminate\Routing\Router;
@@ -221,6 +223,7 @@ use Laravel\Octane\Contracts\OperationTerminated;
 use Override;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Spatie\Permission\Models\Role;
 
 class CapellServiceProvider extends AbstractPackageServiceProvider
 {
@@ -473,15 +476,23 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
     private function registerMorphMap(): self
     {
-        $morphMap = collect(CapellCore::getModels())
-            ->mapWithKeys(fn (string $modelClass, string $name): array => [Str::snake($name) => $modelClass])
-            ->all();
+        $morphMap = ['capell_role' => Role::class];
 
-        if (! array_key_exists('User', Relation::morphMap())) {
-            $morphMap['User'] = config('auth.providers.users.model');
+        foreach (CapellCore::getModels() as $name => $modelClass) {
+            $morphMap[Str::snake($name)] = $modelClass;
         }
 
-        Relation::morphMap($morphMap);
+        $userModel = config('auth.providers.users.model');
+
+        if (is_string($userModel) && is_subclass_of($userModel, Model::class)) {
+            if (! array_key_exists('User', Relation::morphMap())) {
+                $morphMap['User'] = $userModel;
+            }
+
+            $morphMap[$userModel] = $userModel;
+        }
+
+        RegisterModelMorphMapAction::run($morphMap);
         Relation::requireMorphMap();
 
         return $this;
