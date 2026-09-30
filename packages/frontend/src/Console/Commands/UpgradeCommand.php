@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Console\Commands;
 
 use Capell\Core\Actions\PublishMigrationsAction;
+use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
 use Capell\Core\Console\Commands\Concerns\CallsRequiredCommands;
 use Capell\Frontend\Contracts\SettingsMigrationProviderInterface;
 use Illuminate\Console\Command;
@@ -40,9 +41,12 @@ class UpgradeCommand extends Command
             return self::FAILURE;
         }
 
-        $schemaMigrationExitCode = $this->call('migrate', ['--force' => true]);
+        // A bare migrate would run every registered migrator path, including sources of
+        // packages that are not installed; run only the resolved pending host migrations.
+        $schemaMigration = RunPublishedDatabaseMigrationsAction::run();
+        $this->line($schemaMigration->output);
 
-        if ($schemaMigrationExitCode !== self::SUCCESS) {
+        if ($schemaMigration->exitCode !== self::SUCCESS) {
             $this->error(__('capell-frontend::messages.frontend_schema_migrations_failed'));
 
             return self::FAILURE;
