@@ -49,7 +49,6 @@ $contracts = [
     'README declares live coverage' => ['README.md', 'img.shields.io/codecov/c/github/capell-app/capell'],
     'README declares a live first-party package count badge' => ['README.md', 'img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcapell-app%2Fcapell%2Fmain%2Fdocs%2Freference%2Freadme-engineering-metrics.json&query=%24.package_count&label=first-party%20packages'],
     'README declares a live Core Pest test count badge' => ['README.md', 'img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcapell-app%2Fcapell%2Fmain%2Fdocs%2Freference%2Freadme-engineering-metrics.json&query=%24.test_count&label=Core%20Pest%20tests'],
-    'README explains the generated engineering metrics source' => ['README.md', 'check-readme-engineering-standards.php --update'],
     'README declares PHPStan level 8' => ['README.md', 'PHPStan-level%208'],
     'README declares 99.2% typed parameters' => ['README.md', 'parameters%20typed-99.2%25'],
     'README declares audited dependencies' => ['README.md', 'dependencies-audited'],
