@@ -9,10 +9,12 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Migration\CoreSchemaMigrations;
 use Capell\Core\Support\Migration\MigrationFileScanner;
 use Illuminate\Database\Migrations\Migrator;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolvePendingUpgradeMigrationsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): PendingUpgradeMigrations
