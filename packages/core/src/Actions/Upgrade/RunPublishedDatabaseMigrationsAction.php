@@ -20,9 +20,16 @@ class RunPublishedDatabaseMigrationsAction
             return new MigrationRunResult(0, '[dry-run] would run: php artisan migrate --force --path=database/migrations --realpath');
         }
 
+        $paths = array_values(ResolvePendingUpgradeMigrationsAction::run()->published);
+
+        // An empty --path falls back to every registered Laravel migration path.
+        if ($paths === []) {
+            return new MigrationRunResult(0, 'No pending published schema migrations.');
+        }
+
         $exit = Artisan::call('migrate', [
             '--force' => true,
-            '--path' => database_path('migrations'),
+            '--path' => $paths,
             '--realpath' => true,
         ]);
 

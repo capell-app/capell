@@ -17,11 +17,13 @@ use Capell\Core\Support\Upgrade\AggregateUpgradeReporter;
 use Capell\Core\Support\Upgrade\ConsoleUpgradeReporter;
 use Capell\Core\Support\Upgrade\DatabaseUpgradeReporter;
 use Illuminate\Console\Command;
+use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class UpgradeCommand extends Command
 {
+    use ConfirmableTrait;
     use DescribesCommandOptions;
 
     protected $description = 'Upgrade Capell: publish+run migrations, execute pending steps, record versions.';
@@ -47,6 +49,10 @@ class UpgradeCommand extends Command
 
         if ($options->dryRun) {
             return ReportCapellUpgradeDryRunAction::run($consoleReporter);
+        }
+
+        if (! $this->confirmToProceed()) {
+            return self::FAILURE;
         }
 
         $run = $this->createDurableRun($options);

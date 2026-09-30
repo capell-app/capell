@@ -191,6 +191,13 @@ final class RunCapellUpgradeAction
 
         $io->line(sprintf('  migrate exit=%d', $schema->exitCode));
 
+        if (! $dryRun && (! $published->schemaPublished || ! $published->settingsPublished
+            || $schema->exitCode !== Command::SUCCESS)) {
+            $io->newLine();
+
+            return false;
+        }
+
         $settings = RunSettingsMigrationsAction::run(dryRun: $dryRun);
         $io->line(sprintf('  settings:migrate exit=%d', $settings->exitCode));
         $io->newLine();
