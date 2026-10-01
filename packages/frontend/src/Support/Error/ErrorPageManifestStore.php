@@ -11,7 +11,7 @@ final class ErrorPageManifestStore
 {
     public function path(): string
     {
-        return storage_path('framework/capell-error-pages.json');
+        return ErrorPageManifestLocation::manifest();
     }
 
     /** @return array<string, mixed> */

@@ -14,11 +14,6 @@ namespace Capell\Frontend\Support\Error;
 final class ErrorPageFallbackManifest
 {
     /**
-     * Path to the manifest, relative to the storage directory.
-     */
-    private const string MANIFEST_RELATIVE_PATH = 'framework/capell-error-pages-fallback.json';
-
-    /**
      * Retained for consumers which cleared the former process-static cache.
      * Reads are now always fresh, so there is no state to flush.
      */
@@ -96,7 +91,7 @@ final class ErrorPageFallbackManifest
      */
     private static function read(): ?array
     {
-        $path = storage_path(self::MANIFEST_RELATIVE_PATH);
+        $path = ErrorPageManifestLocation::fallback();
 
         if (! is_file($path) || ! is_readable($path)) {
             return null;

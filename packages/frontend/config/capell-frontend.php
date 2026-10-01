@@ -150,4 +150,10 @@ return [
         'validate_sources' => false,
         'output_css' => env('CAPELL_FRONTEND_TAILWIND_OUTPUT_CSS', 'resources/css/capell/frontend.css'),
     ],
+
+    // Directory holding the generated error-page manifests. Unset keeps them in
+    // storage/framework; parallel test processes point this at their own path.
+    'error_pages' => [
+        'manifest_directory' => env('CAPELL_ERROR_PAGE_MANIFEST_DIRECTORY'),
+    ],
 ];
