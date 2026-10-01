@@ -15,8 +15,9 @@ use Throwable;
  * process at its own directory, because a fixed shared path lets one process
  * delete or rewrite the manifest another process is rendering from.
  *
- * Resolution never throws: the DB-free fallback reader uses it while
- * rendering an error page, possibly before configuration is usable.
+ * An unreadable configuration falls back to the default directory rather
+ * than throwing: the DB-free fallback reader uses this while rendering an
+ * error page, possibly before configuration is usable.
  */
 final class ErrorPageManifestLocation
 {
