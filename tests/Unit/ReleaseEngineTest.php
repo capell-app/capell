@@ -238,6 +238,65 @@ it('publishes a verified split and records atomic resumable state', function ():
     @unlink($path . '.state.json');
 });
 
+it('disables git hooks on every push it issues', function (): void {
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $split = str_repeat('c', 40);
+    $tagSha = str_repeat('d', 40);
+    $runner = new class($sha, $tree, $split, $tagSha) implements CommandRunner
+    {
+        /** @var list<list<string>> */
+        public array $commands = [];
+
+        public function __construct(private readonly string $sha, private readonly string $tree, private readonly string $split, private readonly string $tagSha) {}
+
+        /** @param list<string> $command */
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+            $joined = implode(' ', $command);
+
+            if (str_contains($joined, 'git/ref/heads/main')) {
+                return ['output' => str_repeat('f', 40), 'exitCode' => 0];
+            }
+
+            return match (true) {
+                str_contains($joined, 'rev-parse HEAD') => ['output' => $this->sha, 'exitCode' => 0],
+                str_contains($joined, 'rev-parse FETCH_HEAD') => ['output' => str_repeat('f', 40), 'exitCode' => 0],
+                str_contains($joined, ':packages/core') => ['output' => $this->tree, 'exitCode' => 0],
+                str_contains($joined, 'commit-tree') => ['output' => $this->split, 'exitCode' => 0],
+                str_contains($joined, str_repeat('f', 40) . '^{tree}') => ['output' => str_repeat('e', 40), 'exitCode' => 0],
+                str_contains($joined, '^{tree}') => ['output' => $this->tree, 'exitCode' => 0],
+                str_contains($joined, 'git/ref/tags') && count(array_filter($this->commands, fn (array $seen): bool => str_contains(implode(' ', $seen), 'git/ref/tags'))) === 1 => ['output' => '', 'exitCode' => 1],
+                str_contains($joined, 'git/ref/tags') => ['output' => $this->tagSha, 'exitCode' => 0],
+                default => ['output' => '', 'exitCode' => 0],
+            };
+        }
+    };
+    $plan = releaseEnginePlan($sha, $tree);
+    $path = tempnam(sys_get_temp_dir(), 'release-plan-');
+    putenv('GH_TOKEN=test-token');
+    try {
+        new ReleaseEngine(releaseEngineRootForPlan($plan), $runner)->publish($plan, $path);
+    } finally {
+        @unlink($path);
+        @unlink($path . '.state.json');
+    }
+
+    // The sealed release worktrees lack the shared pre-push hook's
+    // configuration, so a push that lets hooks run fails with only
+    // "failed to push some refs". Every push - split main, source tag and
+    // split tag - must therefore disable hooks for that invocation.
+    $pushes = array_values(array_filter($runner->commands, static fn (array $command): bool => in_array('push', $command, true)));
+    $refspecs = array_map(static fn (array $command): string => end($command), $pushes);
+    expect($refspecs)->toContain($split . ':refs/heads/main')
+        ->toContain('refs/tags/core/v1.0.0:refs/tags/core/v1.0.0')
+        ->toContain($split . ':refs/tags/v1.0.0');
+    foreach ($pushes as $push) {
+        expect(array_slice($push, 0, 4))->toBe(['git', '-c', 'core.hooksPath=/dev/null', 'push']);
+    }
+});
+
 it('publishes without retired eligibility or preflight gates', function (): void {
     $sha = str_repeat('a', 40);
     $tree = str_repeat('b', 40);
