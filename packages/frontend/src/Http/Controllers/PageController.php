@@ -20,6 +20,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Throwable;
@@ -92,10 +93,17 @@ class PageController extends BaseController
     {
         try {
             $request = request();
+            $host = mb_strtolower($request->getHost());
+
+            // Every 404 on a broken site takes this path, bots included, so each
+            // reason is reported at most once a minute per host.
+            if (! Cache::add('capell:not-found-unavailable:' . $reason . ':' . $host, true, 60)) {
+                return;
+            }
 
             Log::log($reason === 'not_found_page_unresolved' ? 'warning' : 'debug', 'capell: public not-found page unavailable', [
                 'reason' => $reason,
-                'host' => mb_strtolower($request->getHost()),
+                'host' => $host,
                 'path' => mb_substr($request->getPathInfo(), 0, 255),
             ]);
         } catch (Throwable) {

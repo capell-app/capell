@@ -715,6 +715,8 @@ it('records why a public not-found request falls back to a plain view', function
     });
 
     resolve(PageController::class)();
+    // Every 404 on a broken site takes this path, so repeats stay quiet.
+    resolve(PageController::class)();
 
     expect($logged)->toHaveCount(1)
         ->and($logged[0]->level)->toBe($expectedLevel)
