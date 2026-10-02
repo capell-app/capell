@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Data\ExtensionRuntimeGateData;
 use Capell\Core\Enums\ExtensionProviderRecoveryStateEnum;
 use Capell\Core\Models\CapellExtension;
@@ -15,6 +16,8 @@ final class ResolveExtensionRuntimeGateAction
 {
     use AsFake;
     use AsObject;
+
+    public function __construct(private readonly ExtensionEntitlements $entitlements) {}
 
     public function handle(CapellExtension $extension): ExtensionRuntimeGateData
     {
@@ -50,54 +53,15 @@ final class ResolveExtensionRuntimeGateAction
 
         $installedReceipt = $signedActivation['installed_receipt'] ?? null;
 
-        if (! is_array($installedReceipt) || ! $this->hasRequiredReceiptShape($extension, $installedReceipt)) {
-            return false;
-        }
-
-        $verifier = app()->bound('capell.marketplace.activation-verifier')
-            ? resolve('capell.marketplace.activation-verifier')
-            : null;
-
-        if (! is_callable($verifier)) {
+        if (! is_array($installedReceipt)) {
             return false;
         }
 
         try {
-            return (bool) app()->call($verifier, [
-                'extension' => $extension,
-                'activation' => $installedReceipt,
-            ]);
+            /** @var array<string, mixed> $installedReceipt */
+            return $this->entitlements->verifyActivation($extension, $installedReceipt);
         } catch (Throwable) {
             return false;
         }
-    }
-
-    /**
-     * @param  array<string, mixed>  $signedReceipt
-     */
-    private function hasRequiredReceiptShape(CapellExtension $extension, array $signedReceipt): bool
-    {
-        foreach (['receipt_id', 'composer_name', 'package_version', 'package_identity', 'instance_id', 'domain', 'issued_at', 'signature'] as $key) {
-            if (! $this->hasNonEmptyString($signedReceipt, $key)) {
-                return false;
-            }
-        }
-
-        if (($signedReceipt['receipt_version'] ?? null) !== 1
-            || $signedReceipt['composer_name'] !== $extension->composer_name
-            || ($signedReceipt['perpetual_installed_runtime'] ?? null) !== true
-            || ($signedReceipt['runtime_revoked'] ?? null) !== false) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function hasNonEmptyString(array $payload, string $key): bool
-    {
-        return is_string($payload[$key] ?? null) && $payload[$key] !== '';
     }
 }

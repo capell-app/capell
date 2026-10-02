@@ -60,7 +60,7 @@ Only override `CAPELL_MARKETPLACE_URL` for staging or self-hosted Marketplace AP
 - Admin extenders: `MarketplaceExtensionsPageExtender` tagged as `ExtensionsPageExtender::TAG`; `ThemeMarketplaceHeaderActionExtender` tagged as `ResourceHeaderActionExtender::TAG`
 - Header action registry keys: `capell-marketplace.open-marketplace`, `capell-marketplace.connect-account`
 - Livewire aliases: `capell-marketplace.marketplace-extensions-browser` and `capell-marketplace::marketplace-extensions-browser`
-- Activation binding: `capell.marketplace.activation-verifier`
+- Entitlements binding: `MarketplaceExtensionEntitlements` implements Core's `Capell\Core\Contracts\Marketplace\ExtensionEntitlements` for signed licence decisions and installed-receipt verification
 - Main actions/jobs: `StartMarketplaceAccountConnectionAction`, `CompleteMarketplaceAccountConnectionAction`, `PhoneHomeAction`, `CheckForUpdatesAction`, `InstallMarketplaceExtensionAction`, `CreateExtensionAcquisitionAction`, `CreateMarketplaceInstallAttemptAction`, `TransitionMarketplaceInstallAttemptAction`, `QueueMarketplaceInstallAttemptAction`, `RunMarketplaceInstallAttemptJob`, `CancelMarketplaceInstallAttemptAction`, `RecordThemeInstallIntentAction`, `ResolvePendingThemeInstallsAction`, `VerifyMarketplaceSignedActivationAction`. `RecordMarketplaceInstallAttemptAction` remains a deprecated 1.x compatibility adapter.
 
 The account connection callback is authenticated under the configured admin path.
