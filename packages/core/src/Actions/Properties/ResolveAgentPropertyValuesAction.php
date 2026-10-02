@@ -136,6 +136,7 @@ final class ResolveAgentPropertyValuesAction
             ->values();
 
         $definitionIds = $definitions->pluck('definitionId')->all();
+        /** @var Collection<int, Collection<int, TermPropertyValue>> $resolved */
         $resolved = new Collection;
 
         /** @var Term $term */
