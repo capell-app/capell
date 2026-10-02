@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Filament\Pages;
 
 use BackedEnum;
+use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -15,7 +16,7 @@ class InstallProgressPage extends Page
 {
     public string $installId;
 
-    public string $installStatus = 'running';
+    public string $installStatus = InstallerRunStatus::Running->value;
 
     protected static BackedEnum|string|null $navigationIcon = Heroicon::OutlinedArrowPath;
 
@@ -44,7 +45,7 @@ class InstallProgressPage extends Page
     public function mount(string $installId): void
     {
         $this->installId = $installId;
-        $this->installStatus = $this->sessions()->status($installId, 'running');
+        $this->installStatus = $this->sessions()->status($installId, InstallerRunStatus::Running->value);
     }
 
     /** @return list<string> */

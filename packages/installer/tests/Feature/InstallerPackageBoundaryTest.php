@@ -6,6 +6,7 @@ use Capell\Installer\Actions\GetActiveInstallAction;
 use Capell\Installer\Bridges\InstallerAdminBridge;
 use Capell\Installer\Providers\InstallerAdminServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
+use Capell\Installer\Support\InstallerSessionRepository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 
@@ -94,11 +95,9 @@ it('discovers the general installer provider without autoloading admin-only clas
 });
 
 it('uses standalone web installer routes for active install progress', function (): void {
-    Cache::put('capell.install.lock', [
-        'installId' => 'external-installer-route-test',
-        'queued' => true,
-    ]);
-    Cache::put('capell.install.external-installer-route-test.status', 'running');
+    $run = resolve(InstallerSessionRepository::class)->run('external-installer-route-test');
+    $run->startQueued();
+    $run->markRunning();
 
     $activeInstall = GetActiveInstallAction::run();
 
@@ -110,11 +109,9 @@ it('uses standalone web installer routes for active install progress', function 
 });
 
 it('clears terminal active install locks before reporting installer progress', function (): void {
-    Cache::put('capell.install.lock', [
-        'installId' => 'finished-installer-route-test',
-        'queued' => true,
-    ]);
-    Cache::put('capell.install.finished-installer-route-test.status', 'complete');
+    $run = resolve(InstallerSessionRepository::class)->run('finished-installer-route-test');
+    $run->startQueued();
+    $run->markComplete();
 
     expect(GetActiveInstallAction::run())->toBeNull()
         ->and(Cache::has('capell.install.lock'))->toBeFalse();

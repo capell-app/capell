@@ -19,8 +19,6 @@ final class CancelInstallerRunAction
 
     public function handle(string $installId): void
     {
-        $this->sessions->clearInstallSession($installId);
-        $this->sessions->putStatus($installId, 'cancelled');
-        $this->sessions->clearActiveLock($installId);
+        $this->sessions->run($installId)->cancel();
     }
 }

@@ -13,6 +13,7 @@ use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Installer\Data\InstallerRunStartData;
 use Capell\Installer\Enums\InstallerRunMode;
+use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
@@ -54,9 +55,7 @@ final class StartInstallerRunAction
         $reporter = $this->reporter($installId);
         $this->ensureAdminUserModelIsReady($inputData, $reporter);
 
-        $this->sessions->cancelActiveInstallBeforeStarting($installId);
-        $this->sessions->lock($installId, queued: true);
-        $this->sessions->putStatus($installId, 'queued');
+        $this->sessions->run($installId)->startQueued();
 
         CacheInstallerSuccessSummaryAction::run($installId, $inputData);
 
@@ -65,7 +64,7 @@ final class StartInstallerRunAction
         return new InstallerRunStartData(
             installId: $installId,
             mode: InstallerRunMode::Queued,
-            status: 'queued',
+            status: InstallerRunStatus::Queued->value,
             plan: [],
             nextStep: null,
             logPath: $reporter->logPath(),
@@ -77,17 +76,14 @@ final class StartInstallerRunAction
     {
         $plan = InstallPlan::build($inputData);
         $firstStepKey = $plan[0]['key'] ?? null;
-        $installStatus = is_string($firstStepKey) ? 'pending' : 'complete';
+        $installStatus = is_string($firstStepKey) ? InstallerRunStatus::Pending : InstallerRunStatus::Complete;
         $reporter = $this->reporter($installId);
         $preflight = resolve(InstallerPreflight::class)->run($inputData);
 
         $this->ensureAdminUserModelIsReady($inputData, $reporter);
-        $this->sessions->cancelActiveInstallBeforeStarting($installId);
-        $this->sessions->startStepInstallSession(
-            installId: $installId,
+        $this->sessions->run($installId)->startBrowserSteps(
             inputData: $inputData,
             plan: $plan,
-            installStatus: $installStatus,
             firstStepKey: is_string($firstStepKey) ? $firstStepKey : null,
             preflight: $preflight,
         );
@@ -95,42 +91,40 @@ final class StartInstallerRunAction
         return new InstallerRunStartData(
             installId: $installId,
             mode: InstallerRunMode::BrowserSteps,
-            status: $installStatus,
+            status: $installStatus->value,
             plan: $plan,
             nextStep: is_string($firstStepKey) ? $firstStepKey : null,
             logPath: $reporter->logPath(),
-            completed: $installStatus === 'complete',
+            completed: $installStatus === InstallerRunStatus::Complete,
             preflight: $preflight,
         );
     }
 
     private function startSynchronous(string $installId, InstallInputData $inputData): InstallerRunStartData
     {
-        $this->sessions->cancelActiveInstallBeforeStarting($installId);
-        $this->sessions->lock($installId);
-        $this->sessions->putStatus($installId, 'running');
+        $run = $this->sessions->run($installId);
+        $run->startSynchronous();
 
         $reporter = $this->reporter($installId);
-        $reporter->markRunning();
+        $run->markRunning($reporter);
 
         $completed = false;
 
         try {
             $this->ensureAdminUserModelIsReady($inputData, $reporter);
             RunInstallAction::run($inputData, $reporter);
-            $reporter->markComplete();
+            $run->markComplete($reporter);
             CacheInstallerSuccessSummaryAction::run($installId, $inputData);
             $completed = true;
         } catch (Throwable $throwable) {
             $reporter->error('✗ ' . $throwable->getMessage());
-            $reporter->markFailed();
-            $this->sessions->clearActiveLock($installId);
+            $run->markFailed($reporter);
         }
 
         return new InstallerRunStartData(
             installId: $installId,
             mode: InstallerRunMode::Synchronous,
-            status: $completed ? 'complete' : 'failed',
+            status: ($completed ? InstallerRunStatus::Complete : InstallerRunStatus::Failed)->value,
             plan: [],
             nextStep: null,
             logPath: $reporter->logPath(),
