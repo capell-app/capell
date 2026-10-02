@@ -39,7 +39,10 @@ jobs:
             echo "relevant=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # The glob magic gives these entries GitHub's own path-filter meaning,
+          # where ** also matches zero directories (a file directly under tests/).
           mapfile -t pathspecs < .github/ci/php-quality-paths.txt
+          pathspecs=("${pathspecs[@]/#/:(glob)}")
           if [ -n "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- "${pathspecs[@]}")" ]; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
@@ -53,7 +56,9 @@ jobs:
     # skipped (passing) result instead of never reporting.
     name: PHP Quality (8.4)
     needs: scope
-    if: needs.scope.outputs.relevant == 'true'
+    # A failed scope job must not turn the required check into a skipped pass,
+    # so the gate also runs whenever the scope could not be decided.
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.relevant == 'true') }}
     runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
