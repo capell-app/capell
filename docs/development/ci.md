@@ -45,6 +45,31 @@ To apply Rector, Pint, and Prettier changes before rerunning the same checks, us
 composer preflight:fix
 ```
 
+### Configuration keys need documentation
+
+A new leaf in any `packages/*/config/*.php` must be documented in `docs/development/configuration.md` or classified in `scripts/docs-config-key-classifications.php`. Otherwise `php scripts/check-docs-config-keys.php` (`composer check:docs-config`) fails, and so do the PHP Quality workflow and `DocumentationConfigKeysScriptTest`. Run the script before pushing. The `main` ruleset does not currently require status checks, so `gh pr merge --auto` can merge while these checks are red; read CI before enabling auto-merge.
+
+### Language key audit
+
+`scripts/audit-language-keys.sh` decides a translation key is used as follows:
+
+- Static: a full literal key closed by its quote, `__('capell-x::group.a.b')`.
+- Family (credits every matching defined key): `sprintf('capell-x::group.a.%s', $value)` with any prefix or suffix around `%s`, or dot-terminated concatenation, `__('capell-x::group.a.' . $value)`.
+- Not matched as a family, so the keys are reported as unused: interpolation, `__("...a.{$value}")`, and underscore-suffix concatenation, `__('...outcome_' . $value)`. Convert such sites to the `sprintf` form.
+
+`scripts/check-language-key-drift.php` gates new drift against a baseline, so a call-site refactor that legitimately changes the dynamic sites needs a baseline `--update`.
+
+## Pest memory limit and parallel flags
+
+- `phpunit.xml` sets `<ini name="memory_limit" value="2G"/>`. PHPUnit applies it in every process, parent and workers, and it overrides `-d memory_limit` on the command line, so no Pest command should pass `-d memory_limit`. Delete the line and workers drop to the host `php.ini` default, so workers dying with `Allowed memory size of 134217728 bytes exhausted` while static stages pass is the 128M default reaching a worker, not a crash.
+- `phpunit-coverage.xml` is the second configuration, at 8G, used by the `coverage`, `coverage:blade` and mutation scripts. A second file is needed because the parent and the workers cannot differ, and under `--parallel` the parent deserialises every worker's coverage set. `CoverageWorkflowTest` requires the two files to be identical apart from comments and the `<ini>` line, so edit both together.
+- XML comments cannot contain a double hyphen. A flag name such as `--parallel` in a comment makes the file malformed and every Pest run fails to load its configuration. Run `xmllint --noout phpunit.xml` after editing a comment.
+- PHPStan is not a Pest process and gets no limit from these files: pass its own memory limit (the `analyze` scripts use `--memory-limit=4G`).
+
+## Check the main runs after every merge
+
+Some workflows run only on push to `main`. "Core Screenshots" (`.github/workflows/screenshots.yml`) selects manifests from the changed package paths (`scripts/changed-screenshot-packages.js`), so a PR that touches `packages/admin` can be green at PR level and leave `main` red. After each merge run `gh run list --repo capell-app/capell --branch main --limit 5` and read the result.
+
 ## Verifying Coverage At A Merge Head
 
 A pull request state is not a test result. Before release work, resolve the
