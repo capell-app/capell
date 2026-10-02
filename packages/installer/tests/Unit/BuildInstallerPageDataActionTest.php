@@ -13,8 +13,9 @@ use Illuminate\Support\Facades\File;
 use Spatie\Permission\Models\Role;
 
 it('clears stale installer locks before rendering web installer data', function (): void {
-    Cache::put(InstallerSessionRepository::LOCK_KEY, ['installId' => 'stale-install']);
-    Cache::put('capell.install.stale-install.status', 'complete');
+    $run = resolve(InstallerSessionRepository::class)->run('stale-install');
+    $run->startSynchronous();
+    $run->markComplete();
 
     $data = BuildInstallerPageDataAction::run(capellAlreadyInstalled: false, canReinstall: true)->toViewData();
 
