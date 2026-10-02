@@ -47,7 +47,7 @@ composer preflight:fix
 
 ### Configuration keys need documentation
 
-A new leaf in any `packages/*/config/*.php` must be documented in `docs/development/configuration.md` or classified in `scripts/docs-config-key-classifications.php`. Otherwise `php scripts/check-docs-config-keys.php` (`composer check:docs-config`) fails, and so do the PHP Quality workflow and `DocumentationConfigKeysScriptTest`. Run the script before pushing. The `main` branch ruleset requires no status checks, so `gh pr merge --auto` merges with these checks red; read CI before enabling auto-merge.
+A new leaf in any `packages/*/config/*.php` must be documented in `docs/development/configuration.md` or classified in `scripts/docs-config-key-classifications.php`. Otherwise `php scripts/check-docs-config-keys.php` (`composer check:docs-config`) fails, and so do the PHP Quality workflow and `DocumentationConfigKeysScriptTest`. Run the script before pushing. The `main` ruleset does not currently require status checks, so `gh pr merge --auto` can merge while these checks are red; read CI before enabling auto-merge.
 
 ### Language key audit
 
@@ -68,7 +68,7 @@ A new leaf in any `packages/*/config/*.php` must be documented in `docs/developm
 
 ## Check the main runs after every merge
 
-Some workflows run only on push to `main`. "Core Screenshots" (`.github/workflows/screenshots.yml`) selects manifests from the changed package paths (`scripts/changed-screenshot-packages.js`), so a PR that touches `packages/admin` can be green at PR level and leave `main` red. After each merge run `gh run list --repo capell-app/capell --branch main --limit 5` and read the result. The CI capture tooling is the separate `capell-app/capell-screenshot-tools` repository that the workflow checks out, not `capell-screenshot-runner`.
+Some workflows run only on push to `main`. "Core Screenshots" (`.github/workflows/screenshots.yml`) selects manifests from the changed package paths (`scripts/changed-screenshot-packages.js`), so a PR that touches `packages/admin` can be green at PR level and leave `main` red. After each merge run `gh run list --repo capell-app/capell --branch main --limit 5` and read the result.
 
 ## Verifying Coverage At A Merge Head
 

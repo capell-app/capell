@@ -244,8 +244,7 @@ uncommitted edits, so:
 Remove scratch worktrees when they have served their purpose, and delete a merged branch
 locally and on the remote in the same pass. Only remove what you created: a worktree
 whose HEAD matches no remote branch (`git branch -r --contains <sha>`) holds unpushed
-work, and uncommitted files count too. `~/Sites/.capell-release-worktrees/` belongs to
-the release tooling in the application repository.
+work, and uncommitted files count too.
 
 ### Auditing branches in a squash-merge repository
 
