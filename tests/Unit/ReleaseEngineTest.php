@@ -197,6 +197,7 @@ it('publishes a verified split and records atomic resumable state', function ():
                 str_contains($joined, 'rev-parse HEAD') => ['output' => $this->sha, 'exitCode' => 0],
                 str_contains($joined, 'rev-parse FETCH_HEAD') => ['output' => str_repeat('f', 40), 'exitCode' => 0],
                 str_contains($joined, ':packages/core') => ['output' => $this->tree, 'exitCode' => 0],
+                str_contains($joined, '--format=%ct') => ['output' => '1790000000', 'exitCode' => 0],
                 str_contains($joined, 'commit-tree') => ['output' => $this->split, 'exitCode' => 0],
                 str_contains($joined, str_repeat('f', 40) . '^{tree}') => ['output' => str_repeat('e', 40), 'exitCode' => 0],
                 str_contains($joined, '^{tree}') => ['output' => $this->tree, 'exitCode' => 0],
@@ -224,8 +225,8 @@ it('publishes a verified split and records atomic resumable state', function ():
     expect($commitTreeCommands)->toHaveCount(1)
         ->and($commitTreeCommands[0][0])->toBe('env')
         ->and($commitTreeCommands[0])->toContain('GIT_AUTHOR_NAME=Capell Release')
-        ->and(array_filter($commitTreeCommands[0], static fn (string $argument): bool => str_starts_with($argument, 'GIT_AUTHOR_DATE=')))->toHaveCount(1)
-        ->and(array_filter($commitTreeCommands[0], static fn (string $argument): bool => str_starts_with($argument, 'GIT_COMMITTER_DATE=')))->toHaveCount(1);
+        ->and($commitTreeCommands[0])->toContain('GIT_AUTHOR_DATE=2026-09-21T14:13:20Z')
+        ->and($commitTreeCommands[0])->toContain('GIT_COMMITTER_DATE=2026-09-21T14:13:20Z');
     $commands = array_map(fn (array $command): string => implode(' ', $command), $runner->commands);
     $mainIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, ':refs/heads/main'));
     $sourceTagIndex = array_find_key($commands, fn (string $command): bool => str_contains($command, 'refs/tags/core/v1.0.0:refs/tags/core/v1.0.0'));
@@ -264,6 +265,7 @@ it('disables git hooks on every push it issues', function (): void {
                 str_contains($joined, 'rev-parse HEAD') => ['output' => $this->sha, 'exitCode' => 0],
                 str_contains($joined, 'rev-parse FETCH_HEAD') => ['output' => str_repeat('f', 40), 'exitCode' => 0],
                 str_contains($joined, ':packages/core') => ['output' => $this->tree, 'exitCode' => 0],
+                str_contains($joined, '--format=%ct') => ['output' => '1790000000', 'exitCode' => 0],
                 str_contains($joined, 'commit-tree') => ['output' => $this->split, 'exitCode' => 0],
                 str_contains($joined, str_repeat('f', 40) . '^{tree}') => ['output' => str_repeat('e', 40), 'exitCode' => 0],
                 str_contains($joined, '^{tree}') => ['output' => $this->tree, 'exitCode' => 0],
@@ -333,6 +335,7 @@ it('publishes without retired eligibility or preflight gates', function (): void
                 str_contains($text, 'status --porcelain') => '',
                 str_contains($text, 'rev-parse HEAD') => $this->sha,
                 str_contains($text, ':packages/core') => $this->tree,
+                str_contains($text, '--format=%ct') => '1790000000',
                 str_contains($text, 'commit-tree') => $this->split,
                 str_contains($text, '^{tree}') => $this->tree,
                 default => '',
@@ -382,6 +385,7 @@ it('aborts a mismatched remote tag before pushing', function (): void {
             return ['output' => match (true) {
                 str_contains($text, 'status --porcelain') => '', str_contains($text, 'rev-parse HEAD') => $this->sha,
                 str_contains($text, ':packages/core'), str_contains($text, '^{tree}') => $this->tree,
+                str_contains($text, '--format=%ct') => '1790000000',
                 str_contains($text, 'commit-tree') => $this->split, str_contains($text, 'git/ref/tags') => str_repeat('d', 40),
                 str_contains($text, 'git/tags/') => str_repeat('e', 40), default => '',
             }, 'exitCode' => 0];
@@ -770,7 +774,7 @@ it('never exposes command stderr secrets when a push fails', function (): void {
             }
 
             return ['output' => match (true) {
-                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'commit-tree') => $this->split,default => ''
+                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, '--format=%ct') => '1790000000',str_contains($text, 'commit-tree') => $this->split,default => ''
             }, 'exitCode' => str_contains($text, 'git/ref/tags') ? 1 : 0];
         }
     };
@@ -807,7 +811,7 @@ it('preserves completed state while recording a later package', function (): voi
             }
 
             return ['output' => match (true) {
-                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'commit-tree') => $this->split,str_contains($text, 'git/ref/tags') => $this->tag,default => ''
+                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, '--format=%ct') => '1790000000',str_contains($text, 'commit-tree') => $this->split,str_contains($text, 'git/ref/tags') => $this->tag,default => ''
             }, 'exitCode' => 0];
         }
     };
@@ -1030,8 +1034,22 @@ it('synthesises identical split commits for identical inputs', function (): void
     $root = sys_get_temp_dir() . '/capell-deterministic-split-' . bin2hex(random_bytes(5));
     mkdir($root, 0777, true);
     $runner = new ProcessCommandRunner;
-    $runGit = static function (array $arguments) use ($runner, $root): string {
-        $result = $runner->run(['git', ...$arguments], $root);
+    /**
+     * @param  list<string>  $arguments
+     * @param  array<string, string>  $environment
+     */
+    $runGit = static function (array $arguments, array $environment = []) use ($runner, $root): string {
+        $command = ['git', ...$arguments];
+        if ($environment !== []) {
+            $command = ['env'];
+            foreach ($environment as $name => $value) {
+                $command[] = $name . '=' . $value;
+            }
+
+            $command = [...$command, 'git', ...$arguments];
+        }
+
+        $result = $runner->run($command, $root);
         throw_unless($result['exitCode'] === 0, RuntimeException::class, $result['error'] ?? 'Git command failed.');
 
         return $result['output'];
@@ -1053,9 +1071,16 @@ it('synthesises identical split commits for identical inputs', function (): void
         $runGit(['add', 'planned.txt']);
         $tree = $runGit(['write-tree']);
         $message = 'Release v1.0.0';
+        $sourceCommit = $runGit(['commit-tree', $tree, '-p', $parent, '-m', 'Source'], [
+            'GIT_AUTHOR_DATE' => '2026-03-04T05:06:07Z',
+            'GIT_COMMITTER_DATE' => '2026-03-04T05:06:07Z',
+        ]);
         $engine = new ReleaseEngine($root, $runner);
         $environment = new ReflectionMethod(ReleaseEngine::class, 'deterministicCommitEnvironment')
-            ->invoke($engine, $tree, $parent, $message);
+            ->invoke($engine, $sourceCommit);
+        throw_unless(is_array($environment), RuntimeException::class, 'Commit environment must be an array.');
+        expect($environment['GIT_AUTHOR_DATE'] ?? null)->toBe('2026-03-04T05:06:07Z')
+            ->and($environment['GIT_COMMITTER_DATE'] ?? null)->toBe('2026-03-04T05:06:07Z');
         $git = new ReflectionMethod(ReleaseEngine::class, 'git');
 
         foreach ($ambientDates as $name => $value) {
@@ -1100,6 +1125,10 @@ it('records all main pushes before a source tag push fails', function (): void {
             $text = implode(' ', $command);
             if (str_contains($text, 'refs/tags/core/v1.0.0:refs/tags/core/v1.0.0')) {
                 return ['output' => '', 'error' => 'Bearer ' . $this->secret, 'exitCode' => 1];
+            }
+
+            if (str_contains($text, '--format=%ct')) {
+                return ['output' => '1790000000', 'exitCode' => 0];
             }
 
             if (str_contains($text, 'commit-tree')) {
@@ -1182,6 +1211,10 @@ it('checks a later mismatched tag before any main push or state write', function
         {
             $this->commands[] = $command;
             $text = implode(' ', $command);
+            if (str_contains($text, '--format=%ct')) {
+                return ['output' => '1790000000', 'exitCode' => 0];
+            }
+
             if (str_contains($text, 'commit-tree')) {
                 return ['output' => ++$this->splits === 1 ? str_repeat('d', 40) : str_repeat('e', 40), 'exitCode' => 0];
             }
@@ -1224,7 +1257,7 @@ it('resumes a matching tag without retired preflight state', function (): void {
             $text = implode(' ', $command);
 
             return ['output' => match (true) {
-                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, 'commit-tree'),str_contains($text, 'git/ref/tags'),str_contains($text, 'git/tags/') => $this->split,default => ''
+                str_contains($text, 'status') => '',str_contains($text, 'rev-parse HEAD') => $this->sha,str_contains($text, ':packages/core'),str_contains($text, '^{tree}') => $this->tree,str_contains($text, '--format=%ct') => '1790000000',str_contains($text, 'commit-tree'),str_contains($text, 'git/ref/tags'),str_contains($text, 'git/tags/') => $this->split,default => ''
             }, 'exitCode' => 0];
         }
     };
