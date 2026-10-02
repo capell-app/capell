@@ -629,7 +629,7 @@ final class ReleaseEngine
                     ? $parent
                     : $this->git(
                         ['commit-tree', $package['subtree_hash'], '-p', $parent, '-m', $commitMessage],
-                        $this->deterministicCommitEnvironment($package['subtree_hash'], $parent, $commitMessage),
+                        $this->deterministicCommitEnvironment($plan['source']['commit']),
                     );
             } else {
                 // Empty split remotes need only the release tree; replaying the
@@ -637,7 +637,7 @@ final class ReleaseEngine
                 $commitMessage = 'Release ' . $tag;
                 $splitSha = $this->git(
                     ['commit-tree', $package['subtree_hash'], '-m', $commitMessage],
-                    $this->deterministicCommitEnvironment($package['subtree_hash'], '', $commitMessage),
+                    $this->deterministicCommitEnvironment($plan['source']['commit']),
                 );
             }
 
@@ -944,12 +944,22 @@ final class ReleaseEngine
         return $result['output'];
     }
 
-    /** @return array<string,string> */
-    private function deterministicCommitEnvironment(string $tree, string $parent, string $message): array
+    /**
+     * Split commits carry the date of the monorepo release commit they were cut
+     * from. The date is a pure function of that commit, so a retried or resumed
+     * release re-derives the identical split SHA, and the split repository's
+     * history shows when the release really happened.
+     *
+     * @return array<string,string>
+     */
+    private function deterministicCommitEnvironment(string $sourceCommit): array
     {
-        $seed = hash('sha256', implode("\0", [$tree, $parent, $message]));
-        $secondsSinceEpoch = 946684800 + ((int) hexdec(substr($seed, 0, 8)) % 630720000);
-        $date = gmdate('Y-m-d\TH:i:s\Z', $secondsSinceEpoch);
+        $timestamp = $this->git(['show', '-s', '--format=%ct', $sourceCommit . '^{commit}']);
+        if (preg_match('/^\d{1,12}$/', $timestamp) !== 1 || (int) $timestamp <= 0) {
+            throw new ReleaseException(sprintf('Cannot read the commit date of source commit %s.', $sourceCommit));
+        }
+
+        $date = gmdate('Y-m-d\TH:i:s\Z', (int) $timestamp);
 
         return [
             'GIT_AUTHOR_NAME' => 'Capell Release',
