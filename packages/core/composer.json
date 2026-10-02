@@ -25,7 +25,7 @@
         "php": "^8.4",
         "ext-intl": "*",
         "aimeos/laravel-nestedset": "^7.0",
-        "awobaz/compoships": "^2.3",
+        "awobaz/compoships": "^2.3 || ^3.0",
         "bkwld/cloner": "^3.10",
         "filament/support": "^5.7.6",
         "illuminate/database": "^13.0",
