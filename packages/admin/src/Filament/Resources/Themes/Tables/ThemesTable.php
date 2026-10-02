@@ -224,7 +224,9 @@ class ThemesTable implements TableConfigurator
                 ->hidden(),
             TextColumn::make('sites_count')
                 ->label(__('capell-admin::theme-library.labels.sites'))
-                ->counts('sites')
+                ->counts([
+                    'sites' => fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'sites.id', denyWhenMissingActor: true),
+                ])
                 ->numeric()
                 ->sortable()
                 ->hidden(),

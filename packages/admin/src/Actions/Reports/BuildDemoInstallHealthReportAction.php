@@ -9,6 +9,7 @@ use Capell\Admin\Data\Reports\ReportFindingData;
 use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Actions\Diagnostics\ResolveCapellInstallationStateAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
@@ -18,6 +19,7 @@ use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
@@ -115,7 +117,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             metrics: [
                 new ReportMetricData(
                     label: __('capell-admin::reports.demo_install_health_metric_sites'),
-                    value: Site::query()->count(),
+                    value: SiteScope::applyForCurrentActor(Site::query(), 'id', denyWhenMissingActor: true)->count(),
                     description: __('capell-admin::reports.demo_install_health_metric_sites_description'),
                 ),
                 new ReportMetricData(
@@ -125,7 +127,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
                 ),
                 new ReportMetricData(
                     label: __('capell-admin::reports.demo_install_health_metric_pages'),
-                    value: $this->tableRowCount('pages'),
+                    value: $this->visiblePageCount(),
                     description: __('capell-admin::reports.demo_install_health_metric_pages_description'),
                 ),
                 new ReportMetricData(
@@ -346,9 +348,9 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
         return $this->connections->connection()->table('settings')->count();
     }
 
-    private function tableRowCount(string $table): int|string
+    private function visiblePageCount(): int|string
     {
-        $tableResult = $this->schemaState->tableResult($table);
+        $tableResult = $this->schemaState->tableResult('pages');
 
         if ($tableResult === SchemaProbeResult::Failed) {
             return 'Unavailable';
@@ -358,7 +360,9 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             return 0;
         }
 
-        return $this->connections->connection()->table($table)->count();
+        // Every page row the actor's sites own, including soft-deleted rows,
+        // matching the raw table count a global actor has always seen.
+        return SiteScope::applyForCurrentActor(Page::query()->withoutGlobalScopes(), denyWhenMissingActor: true)->count();
     }
 
     private function installedPackagesCount(): int

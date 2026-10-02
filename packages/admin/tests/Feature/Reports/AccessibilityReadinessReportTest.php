@@ -11,6 +11,14 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
+
+uses(CreatesAdminUser::class);
+
+beforeEach(function (): void {
+    // Reports only cover the sites the acting user may see; a global admin sees every site.
+    test()->actingAsAdmin();
+});
 
 it('reports required translations localized urls media metadata and decorative intent', function (): void {
     [$site, $english, $french] = accessibilitySiteFixture();
