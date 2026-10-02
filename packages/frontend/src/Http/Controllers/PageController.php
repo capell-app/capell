@@ -20,7 +20,10 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Throwable;
 
 class PageController extends BaseController
 {
@@ -70,6 +73,8 @@ class PageController extends BaseController
             }
         }
 
+        $this->recordMissingNotFoundPage($site === null ? 'site_unresolved' : ($language === null ? 'language_unresolved' : 'not_found_page_unresolved'));
+
         $fallbackResponse = RenderFallbackPublicViewAction::run(request());
 
         if ($fallbackResponse instanceof SymfonyResponse) {
@@ -77,6 +82,33 @@ class PageController extends BaseController
         }
 
         return response()->noContent(404);
+    }
+
+    /**
+     * Falling back to a plain view hides why the site's own not-found page was
+     * not used, so the reason is recorded. A request without a site is routine
+     * for unknown hosts; a resolved site without a not-found page is a defect.
+     */
+    private function recordMissingNotFoundPage(string $reason): void
+    {
+        try {
+            $request = request();
+            $host = mb_strtolower($request->getHost());
+
+            // Every 404 on a broken site takes this path, bots included, so each
+            // reason is reported at most once a minute per host.
+            if (! Cache::add('capell:not-found-unavailable:' . $reason . ':' . $host, true, 60)) {
+                return;
+            }
+
+            Log::log($reason === 'not_found_page_unresolved' ? 'warning' : 'debug', 'capell: public not-found page unavailable', [
+                'reason' => $reason,
+                'host' => $host,
+                'path' => mb_substr($request->getPathInfo(), 0, 255),
+            ]);
+        } catch (Throwable) {
+            // Diagnostics must never replace the response being rendered.
+        }
     }
 
     private function renderFrontendResponse(

@@ -26,7 +26,7 @@ declare(strict_types=1);
  *   verify                      ReleaseEngine::verify()
  *   bump                        ReleaseEngine::bump()
  *   release-definitions         ReleaseEngine::releaseDefinitions()
- *   push-command                ReleaseEngine::pushCommand()
+ *   push-command                ReleaseEngine::pushCommand(), pushTo()
  *   engine-helpers              assertExactSource(), required(),
  *                               sanitiseError(), optional(), writeState(),
  *                               assertCleanSource(), git()
@@ -687,7 +687,7 @@ final class ReleaseEngine
                     $this->required(['git', 'tag', $sourceTag, $plan['source']['commit']], $this->root);
                 }
 
-                $this->required(['git', 'push', 'origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag], $this->root);
+                $this->required($this->pushTo('origin', 'refs/tags/' . $sourceTag . ':refs/tags/' . $sourceTag), $this->root);
             }
 
             if ($decision === 'publish') {
@@ -784,7 +784,20 @@ final class ReleaseEngine
     /** @return list<string> */
     private function pushCommand(string $repository, string $refspec, ?string $lease = null): array
     {
-        return ['git', 'push', ...($lease === null ? [] : ['--force-with-lease=refs/heads/main:' . $lease]), sprintf('https://github.com/%s.git', $repository), $refspec];
+        return $this->pushTo(sprintf('https://github.com/%s.git', $repository), $refspec, $lease);
+    }
+
+    /**
+     * Every push the engine issues disables git hooks for that invocation only.
+     * The sealed release worktrees carry none of the hook configuration the
+     * shared pre-push hook expects, so with hooks enabled it exits 1 and git
+     * reports nothing more useful than "failed to push some refs".
+     *
+     * @return list<string>
+     */
+    private function pushTo(string $remote, string $refspec, ?string $lease = null): array
+    {
+        return ['git', '-c', 'core.hooksPath=/dev/null', 'push', ...($lease === null ? [] : ['--force-with-lease=refs/heads/main:' . $lease]), $remote, $refspec];
     }
 
     // LOCKSTEP-END push-command

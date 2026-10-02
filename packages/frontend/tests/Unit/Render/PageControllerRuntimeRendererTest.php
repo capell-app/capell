@@ -20,7 +20,9 @@ use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Illuminate\Http\Request;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
@@ -693,3 +695,105 @@ it('guards named route fallback blade views before returning public html', funct
     expect($thrown)->toBeInstanceOf(RuntimeException::class)
         ->and($thrown?->getMessage())->toContain('Public HTML contains a signed admin URL.');
 });
+
+it('records why a public not-found request falls back to a plain view', function (?string $siteState, string $expectedReason, string $expectedLevel): void {
+    $language = Language::factory()->make(['id' => 789]);
+    $site = Site::factory()->make(['id' => 456]);
+
+    app()->instance(FrontendContextReader::class, unresolvedPageContext(
+        $siteState === null ? null : $site,
+        $siteState === 'site-and-language' ? $language : null,
+    ));
+    config()->set('capell-frontend.system_pages.auto_create_missing', false);
+
+    /** @var list<MessageLogged> $logged */
+    $logged = [];
+    Event::listen(MessageLogged::class, static function (MessageLogged $message) use (&$logged): void {
+        if ($message->message === 'capell: public not-found page unavailable') {
+            $logged[] = $message;
+        }
+    });
+
+    resolve(PageController::class)();
+    // Every 404 on a broken site takes this path, so repeats stay quiet.
+    resolve(PageController::class)();
+
+    expect($logged)->toHaveCount(1)
+        ->and($logged[0]->level)->toBe($expectedLevel)
+        ->and($logged[0]->context['reason'])->toBe($expectedReason);
+})->with([
+    'no site' => [null, 'site_unresolved', 'debug'],
+    'no language' => ['site-only', 'language_unresolved', 'debug'],
+    'no not-found page' => ['site-and-language', 'not_found_page_unresolved', 'warning'],
+]);
+
+function unresolvedPageContext(?Site $site, ?Language $language): FrontendContextReader
+{
+    return new class($site, $language) implements FrontendContextReader
+    {
+        /** @var array<string, mixed> */
+        public array $data = [];
+
+        public function __construct(
+            private readonly ?Site $site,
+            private readonly ?Language $language,
+        ) {}
+
+        public function site(): ?Site
+        {
+            return $this->site;
+        }
+
+        public function language(): ?Language
+        {
+            return $this->language;
+        }
+
+        public function page(): ?Pageable
+        {
+            return null;
+        }
+
+        public function layout(): ?Layout
+        {
+            return null;
+        }
+
+        public function theme(): ?Theme
+        {
+            return null;
+        }
+
+        public function params(): array
+        {
+            return [];
+        }
+
+        public function slug(): ?string
+        {
+            return null;
+        }
+
+        public function isError(): bool
+        {
+            return false;
+        }
+
+        public function setFrontendData(string $key, mixed $value): self
+        {
+            $this->data[$key] = $value;
+
+            return $this;
+        }
+
+        public function getFrontendData(?string $key = null): mixed
+        {
+            return $key === null ? $this->data : ($this->data[$key] ?? null);
+        }
+
+        public function renderPayload(): FrontendRenderPayload
+        {
+            return FrontendRenderPayload::fromBag($this->data);
+        }
+    };
+}

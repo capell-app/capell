@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifest;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
+use Capell\Frontend\Support\Error\ErrorPageManifestLocation;
+use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -100,3 +102,20 @@ function fallbackBranding(string $name): array
         ],
     ];
 }
+
+it('reads and writes both manifests in the configured directory', function (): void {
+    $directory = storage_path('framework/testing/error-page-manifest-location');
+    config()->set(ErrorPageManifestLocation::CONFIG_KEY, $directory . '/');
+
+    try {
+        $store = resolve(ErrorPageFallbackManifestStore::class);
+        $store->write(['default' => fallbackBranding('Relocated')]);
+
+        expect($store->path())->toBe($directory . DIRECTORY_SEPARATOR . 'capell-error-pages-fallback.json')
+            ->and(resolve(ErrorPageManifestStore::class)->path())->toBe($directory . DIRECTORY_SEPARATOR . 'capell-error-pages.json')
+            ->and(File::exists(storage_path('framework/capell-error-pages-fallback.json')))->toBeFalse()
+            ->and(ErrorPageFallbackManifest::forHost('any.test', '500')['logo_url'])->toBe('https://cdn.test/Relocated.svg');
+    } finally {
+        File::deleteDirectory($directory);
+    }
+});
