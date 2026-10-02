@@ -13,6 +13,7 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\PackageDemoLifecycle;
+use Capell\Core\Support\Install\PackageLifecycleSteps;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -121,7 +122,7 @@ final class InstallPackagesAction
     ): void {
         $package = $this->selectedPackage($packageName);
 
-        if (! $package instanceof PackageData || ! $this->packageHasAfterInstallLifecycle($package)) {
+        if (! $package instanceof PackageData || ! PackageLifecycleSteps::hasAfterInstall($package)) {
             return;
         }
 
@@ -199,7 +200,7 @@ final class InstallPackagesAction
         PackageData $package,
         ProgressReporter $reporter,
     ): void {
-        if (! $this->packageHasAfterInstallLifecycle($package)) {
+        if (! PackageLifecycleSteps::hasAfterInstall($package)) {
             return;
         }
 
@@ -236,15 +237,6 @@ final class InstallPackagesAction
         }
 
         return $package->getSetupAction() !== null && $package->getSetupAction() !== '';
-    }
-
-    private function packageHasAfterInstallLifecycle(PackageData $package): bool
-    {
-        if ($package->getAfterInstallCommand() !== null && $package->getAfterInstallCommand() !== '') {
-            return true;
-        }
-
-        return $package->getAfterInstallAction() !== null && $package->getAfterInstallAction() !== '';
     }
 
     private function selectedPackage(string $packageName): ?PackageData
