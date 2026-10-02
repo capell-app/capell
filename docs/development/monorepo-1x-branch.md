@@ -113,6 +113,12 @@ composer show capell-app/content-sections -P
 
 Both commands should resolve to your local `capell-4` or `capell-packages-4` checkout rather than a Composer cache path.
 
+## Release history and split automation
+
+On 2026-07-11 the `capell-app/capell` monorepo and its split repositories (`core`, `admin`, `frontend`, `installer`, `marketplace`) were reset to a single history-free root commit ("Capell 1.0.0"). The previous repositories were renamed with an `-old` suffix (private, full history retained). A checkout's `origin` points at the new repository, so do not push old local history to it, and treat any SHA from before the reset as unverified until it is found in an `-old` repository.
+
+`.github/workflows/split-monorepo.yml` ("Independent package release") is run manually with the path of an approved release plan committed in the repository. It mints a scoped token with `actions/create-github-app-token` from the split GitHub App (`contents: write` on the five split repositories) using the `SPLIT_APP_ID` and `SPLIT_APP_PRIVATE_KEY` secrets on `capell-app/capell`, and runs on GitHub-hosted runners, so no production host is involved.
+
 ## Next
 
 - [Development](index.md)

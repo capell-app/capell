@@ -116,6 +116,13 @@ Practical rule: use the script for fast, targeted runs, and check that the class
 changed resolve inside the worktree before believing a result. If you need an
 authoritative full-suite run, do a real `composer install` in the worktree.
 
+Do not run `composer test` in a hybrid worktree. Its `clear` step runs
+`testbench package:purge-skeleton` and removes
+`vendor/orchestra/testbench-core/laravel/{vendor,database/migrations}`;
+`testbench-core` is a symlink there, so the removal mutates the primary checkout's
+skeleton. Run `vendor/bin/pest <paths>` instead. `scripts/check-vendor-integrity.php`
+(run first by `clear`) refuses a full suite on a hybrid vendor for the same reason.
+
 ### Verifying
 
 Verify before trusting a test result:
@@ -192,8 +199,12 @@ composer test:unit
 For a narrower run:
 
 ```bash
-php -d memory_limit=1G vendor/bin/pest --compact --configuration=phpunit.xml packages/core/tests/Unit
+vendor/bin/pest --compact --configuration=phpunit.xml packages/core/tests/Unit
 ```
+
+Do not pass `-d memory_limit` to Pest: `phpunit.xml` sets the limit through `<ini>`, which
+overrides the command-line flag in every process (see [CI](ci.md#pest-memory-limit-and-parallel-flags)).
+PHPStan has no such file, so it still needs the flag:
 
 ```bash
 php -d memory_limit=2G vendor/bin/phpstan analyse --no-progress packages/core/src
@@ -210,6 +221,53 @@ task is active in the same worktree:
 - Verify immediately with `git show --stat`: the file count must match your pathspec.
 - Commit each slice as its edits land rather than batching until the end. Isolation
   protects you from other sessions; frequent commits protect you from everything else.
+
+### Shared checkouts
+
+Several sessions may share one checkout, and the working tree and index are then shared
+state. Another session's `git checkout`, `reset --hard` or merge silently reverts
+uncommitted edits, so:
+
+- Run `git branch --show-current` immediately before every commit. The checkout can be
+  switched to another feature branch mid-session; note which branch a commit landed on.
+- Commit each slice as soon as its edits land, before verification. Batch verification
+  only inside your own worktree.
+- The pre-commit framework stashes and restores unstaged files around each commit. A
+  concurrent write inside that window can be replayed over, so "my edits vanished" is an
+  expected failure mode here: record the commit SHAs rather than debugging it.
+- A commit that sweeps in another session's staged files can silently revert their work
+  (the staged copy may be older than their working tree). Undo your own top commit with
+  `git reset --soft HEAD~1`, then re-commit by pathspec.
+
+### Cleaning up
+
+Remove scratch worktrees when they have served their purpose, and delete a merged branch
+locally and on the remote in the same pass. Only remove what you created: a worktree
+whose HEAD matches no remote branch (`git branch -r --contains <sha>`) holds unpushed
+work, and uncommitted files count too. `~/Sites/.capell-release-worktrees/` belongs to
+the release tooling in the application repository.
+
+### Auditing branches in a squash-merge repository
+
+Pull requests are squash-merged, so `git branch --merged` and
+`git merge-base --is-ancestor` report merged branches as unmerged: branch commits never
+become ancestors of `main`. Instead:
+
+1. No-op merge test: `git merge-tree --write-tree origin/main <branch>`. If the resulting
+   tree equals `git rev-parse origin/main^{tree}`, the branch is fully merged.
+2. Direction test: if `merge-tree` reports conflicts, check
+   `git diff origin/main <branch> -- <file>`. If the branch's changes appear as removals,
+   the branch is behind `main`, not ahead.
+3. Feature-presence test: confirm the feature exists on `main` (list the directory,
+   search for the identifier) instead of trusting history.
+4. Ground truth for "was a PR merged": `gh pr list --state all --json headRefName,state`.
+
+To rebase a stale branch across the squash gap, use the end-state rule. For each
+conflicting file, if `git diff origin/main <branch-tip> -- <file>` is empty, taking
+`main`'s side at every intermediate rebase step cannot change the final tree, so it is
+safe to auto-resolve. Only files with a non-empty end-state diff need judgement; for
+those, search both trees for the APIs each side references (`git grep`): the branch is
+usually the stale side.
 
 ## Further reading
 

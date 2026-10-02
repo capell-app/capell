@@ -20,6 +20,8 @@ protected function bootInstalledPackage(): self
 }
 ```
 
+Late registration of surfaces such as Blueprint subjects and outbound events is only legal inside `PackageSurfaceRegistrar::duringPackageInstallation()`, which reopens the registries the container froze on `booted` and treats an identical re-registration as a no-op (a conflicting one still throws). A provider whose surfaces must survive the mid-install re-boot registers them in `bootInstalledPackage()`, which runs inside a booted callback that `InstallPackageAction` re-runs through `callBootedCallbacks()` once the package is installed. Test it with `capell:install --fresh` on a genuinely empty database: a second run proves nothing because leftover rows hide the problem.
+
 Implement the real registration path first. Provider wiring does not require a special `capell.test` hostname or a mandatory testing-environment gate; tests should exercise the same container registrations as the application.
 
 ## Extension Registration
