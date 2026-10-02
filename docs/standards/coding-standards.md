@@ -124,6 +124,7 @@ The PHPStan ignore file is a debt ledger, not a destination:
 - Events describe something that happened and use past tense, such as `PagePublished` rather than `PublishPage`.
 - Boolean properties and methods read as predicates: `isPaid`, `hasTable()`, `canInstall()`, `shouldLogVisit()`.
 - Interfaces name the capability. Use `Interface` only where the established family already uses it; do not churn existing contract names.
+- Variables, parameters and closure arguments use full descriptive names everywhere, including tests, migrations and example snippets in docs: `$query`, not `$q`; `fn ($query) => ...`; `Schema::table('pages', fn ($table) => ...)`. In prose examples write `workspace` or a concrete number, not `W` or `N`.
 
 Three legacy Action classes intentionally do not have the suffix because their class names are already consumed: `AssignPermissionsToRole`, `GetMaxUploadSizeInBytes`, and `BladeComponentFacadeResolver`. New exceptions require an explicit compatibility rationale.
 
@@ -151,6 +152,8 @@ Use a Form Request at a conventional HTTP controller boundary when request valid
 
 Authorization occurs at the delivery boundary and again inside reusable mutating operations when they can be called independently. Never rely on a hidden button as authorization.
 
+In a `Spatie\LaravelData\Data` class, a non-nullable `array` property (even with `= []`) gets an inferred `required|array` rule, and `required` rejects an empty array. `validateAndCreate()` therefore fails on a present-but-empty field while `new Data(...)` works. Override `rules()` and mark optional passthrough arrays `['sometimes', 'array']`; avoid `nullable`, which causes null-to-array hydration errors.
+
 ### Queries
 
 Use a model scope for a reusable domain predicate or ordering, especially when it appears in multiple queries. Keep a one-off, local filter inline when naming it would not add domain meaning. Eager-load relationships used in loops or view-data assembly.
@@ -165,9 +168,23 @@ Read environment variables only from config files. Runtime code reads `config()`
 
 Prefer injected collaborators in domain Actions and Support classes when an interface or established service exists. Facades are acceptable at Laravel integration boundaries—service providers, console commands, Eloquent transactions, framework macros—and in narrowly scoped adapters. Do not replace a clear injected dependency with a facade for convenience.
 
+### Shared helpers
+
+Use the central helper instead of inlining the operation:
+
+- `Capell\Core\Support\Json\JsonCodec::encode()` / `decodeArray()` for JSON. `encode()` always throws on error; `decodeArray()` returns the supplied default on a parse failure or a non-array result.
+- `Capell\Core\Support\Url\UrlPathNormalizer` (`stripIndexPhp()`, `joinPrefix()`, `stripPrefix()`) for URL path manipulation in Actions and kernel steps.
+- `Capell\Core\Support\Slug\SlugGenerator`: `slug()` wraps `str($value)->slug()` for PHP, and `slugifyState()` builds the Filament/Alpine slugify snippet.
+
+### Filament options
+
+Back every fixed-set `Select`, `Radio`, `CheckboxList` or `ToggleButtons` with a backed enum that implements `Filament\Support\Contracts\HasLabel` and pass `->options(MyEnum::class)`. If no enum exists, create it first. An inline `->options([...])` array is for genuinely dynamic values only. One enum keeps the values, labels and translation keys in one place for casts, accessors and APIs.
+
 ### Dates
 
 Use `CarbonImmutable` for Data objects, policy decisions, timestamps passed between layers, and new immutable Eloquent casts. Respect an existing framework signature or mutable model contract rather than converting it opportunistically.
+
+Publish, draft and scheduled state is derived by `Capell\Core\Enums\PublishVisibilityStateEnum::fromDates()` (precedence: deleted, expired, draft, scheduled, published), with the draft sentinel created and detected only through `Capell\Core\Support\Publishing\PublishSentinel` (`draftValue()`, `isDraftValue()`). Never write sentinel arithmetic such as `now()->addYears(100)` inline. `HasPublishDates` exposes `publishVisibilityState()`, `scopeDraftSentinel()` and `scopeScheduled()`.
 
 `packages/marketplace/src/Data/MarketplaceInstallPolicyEvidenceData.php` and `MarketplaceInstallIntent` are the reference immutable Data/cast shapes.
 
@@ -233,6 +250,15 @@ Each test owns one behaviour or contract. It may use several assertions to prove
 - Freeze time when an assertion depends on the clock and restore it through the test lifecycle.
 - Fake queues, events, HTTP, storage, and external services at the narrowest boundary.
 - Tests must pass independently and in any order. Root `tests/Feature` and `tests/Integration` may cover cross-package contracts; package-owned behaviour stays with its package.
+- Test features that cross systems (registration, relations, admin linking) with real factories and the real page, not mocks. For example, create the model, attach the media, then `actingAsAdmin()->get(<the admin page that lists it>)->assertSuccessful()`. A mocked relation and an assertion on it can pass while the real page throws.
+
+### What a test may assert
+
+Assert business logic and externally visible behaviour. Do not assert CSS declarations, custom-property values, Tailwind utility strings or incidental markup nesting (`->toContain('inset-inline: 0;')`, `->toContain('md:grid-cols-3')`). Those encode a design decision as though it were a contract: the test fails on every legitimate redesign, catches no defect and teaches readers to edit assertions rather than trust them.
+
+- When behaviour is user-visible (a region hidden from assistive technology, a disabled control, a section being present), anchor the assertion to a stable `data-capell-*` attribute and add the attribute to the markup if it is missing. The attribute is the contract; the styling that reacts to it is not. If removing presentational assertions empties a test, delete it.
+- A string assertion is not presentational by default. Workflow, systemd and config contracts (`fail-fast: false`, `OnFailure=...`), drift-detection messages and security-manifest assertions state real guarantees.
+- The deciding question is whether the CSS is the subject's output or its styling. When a unit exists to produce CSS (`ThemeTokenRendererTest` asserting `--theme-*` declarations, `TailwindAssetsGeneratorTest`, `RenderWidgetRuntimeAttributesActionTest` asserting `->not->toContain('url(')` as a CSS-injection guard), that CSS is its contract and must be asserted. A prohibited assertion reaches through a subject to inspect how something happens to look.
 
 ### Expectations and PHPStan
 
