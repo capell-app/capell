@@ -40,9 +40,11 @@ return [
     ],
 
     'resources' => [
-        'page_redirects' => [
-            'icon' => 'heroicon-o-arrow-uturn-right',
-            'navigation_badge' => true,
+        'page' => [
+            'navigation_badge' => false,
+        ],
+        'user' => [
+            'navigation_badge' => false,
         ],
         'layout' => [
             'icon' => 'heroicon-o-squares-2x2',
@@ -72,13 +74,11 @@ return [
             'color' => 'info',
         ],
         'page' => [
-            'navigation_badge' => false,
             'icon' => 'heroicon-o-rectangle-stack',
             'model' => Page::class,
             'color' => 'secondary',
         ],
         'user' => [
-            'navigation_badge' => false,
             'icon' => 'heroicon-o-user-circle',
         ],
     ],

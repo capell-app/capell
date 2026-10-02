@@ -18,9 +18,7 @@ $internalAdminPresentation = [
     'capell-admin.assets.page.color',
     'capell-admin.assets.page.icon',
     'capell-admin.assets.page.model',
-    'capell-admin.assets.page.navigation_badge',
     'capell-admin.assets.user.icon',
-    'capell-admin.assets.user.navigation_badge',
     'capell-admin.icon.admin',
     'capell-admin.icon.colors',
     'capell-admin.icon.theme',
@@ -28,8 +26,6 @@ $internalAdminPresentation = [
     'capell-admin.resources.blueprint.icon',
     'capell-admin.resources.layout.active_icon',
     'capell-admin.resources.layout.icon',
-    'capell-admin.resources.page_redirects.icon',
-    'capell-admin.resources.page_redirects.navigation_badge',
     'capell-admin.resources.type.active_icon',
     'capell-admin.resources.type.icon',
 ];

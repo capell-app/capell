@@ -10,6 +10,7 @@ use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Installer\Data\InstallerRunStepData;
+use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Enums\InstallerRunStepResultCode;
 use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerRemediation;
@@ -51,7 +52,7 @@ final class AdvanceInstallerRunAction
         $plan = $this->sessions->plan($installId);
         $reporter = $this->reporter($installId);
 
-        if ($this->sessions->status($installId, 'pending') === 'complete') {
+        if ($this->sessions->status($installId, InstallerRunStatus::Pending->value) === InstallerRunStatus::Complete->value) {
             return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);
         }
 
@@ -68,7 +69,7 @@ final class AdvanceInstallerRunAction
             return $this->outOfSequenceResult($installId, $stepKey, $expectedStepKey, $reporter);
         }
 
-        $reporter->markRunning();
+        $this->sessions->run($installId)->markRunning($reporter);
 
         if (function_exists('memory_reset_peak_usage')) {
             memory_reset_peak_usage();
@@ -97,8 +98,7 @@ final class AdvanceInstallerRunAction
         } catch (Throwable $throwable) {
             $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());
             $reporter->error(sprintf('  at %s:%d', $throwable->getFile(), $throwable->getLine()));
-            $reporter->markFailed();
-            $this->sessions->clearActiveLock($installId);
+            $this->sessions->run($installId)->markFailed($reporter);
 
             return $this->result(
                 installId: $installId,
@@ -117,9 +117,9 @@ final class AdvanceInstallerRunAction
         $this->sessions->recordCompletedStep($installId, $stepKey, $nextStep);
 
         if ($nextStep === null) {
-            $reporter->markComplete();
+            $this->sessions->run($installId)->markComplete($reporter);
             CacheInstallerSuccessSummaryAction::run($installId, $inputData);
-            $this->sessions->clearActiveLock($installId);
+            $this->sessions->run($installId)->releaseLock();
 
             return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);
         }
@@ -142,8 +142,7 @@ final class AdvanceInstallerRunAction
         $this->remediation->reportPreflight($preflight, $reporter);
 
         if (InstallerPreflight::hasBlockingFailures($preflight['checks'])) {
-            $reporter->markFailed();
-            $this->sessions->clearActiveLock($installId);
+            $this->sessions->run($installId)->markFailed($reporter);
 
             return $this->result(
                 installId: $installId,

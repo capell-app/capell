@@ -6,9 +6,9 @@ namespace Capell\Marketplace\Providers;
 
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
+use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
-use Capell\Marketplace\Actions\VerifyMarketplaceSignedActivationAction;
 use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
 use Capell\Marketplace\Console\Commands\MarketplaceAutoUpdateCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceDoctorCommand;
@@ -26,6 +26,7 @@ use Capell\Marketplace\Settings\MarketplaceSettings;
 use Capell\Marketplace\Support\ArtisanMarketplaceRuntimeRefresher;
 use Capell\Marketplace\Support\ComposerInstalledPackageVersionResolver;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
+use Capell\Marketplace\Support\MarketplaceExtensionEntitlements;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\MarketplaceQueueWorkerCommand;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
@@ -100,11 +101,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             );
             $this->app->bind(MarketplaceComposerChangePublisherRegistry::class);
             $this->app->singletonIf(MarketplaceRuntimeRefresher::class, ArtisanMarketplaceRuntimeRefresher::class);
-
-            $this->app->bind(
-                'capell.marketplace.activation-verifier',
-                fn (): callable => VerifyMarketplaceSignedActivationAction::run(...),
-            );
+            $this->app->scoped(ExtensionEntitlements::class, MarketplaceExtensionEntitlements::class);
         }
     }
 

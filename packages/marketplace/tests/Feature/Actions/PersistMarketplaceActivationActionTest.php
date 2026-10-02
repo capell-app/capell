@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Marketplace\MarketplacePayloadSigner;
 use Capell\Marketplace\Actions\PersistMarketplaceActivationAction;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceActivationContext;
 
 it('persists the encrypted authorization and makes expired-runtime grace reachable', function (): void {
@@ -21,10 +23,10 @@ it('persists the encrypted authorization and makes expired-runtime grace reachab
         'instance_id' => 'instance-123',
         'domain' => 'example.test',
         'issued_at' => now()->subDay()->toIso8601String(),
-        'signature' => 'signed-secret',
         'perpetual_installed_runtime' => true,
         'runtime_revoked' => false,
     ];
+    $receipt['signature'] = resolve(MarketplacePayloadSigner::class)->signature($receipt, 'test-signing-secret');
     $signedActivation = [
         'runtime_status' => 'expired',
         'installed_receipt' => $receipt,
@@ -47,10 +49,14 @@ it('persists the encrypted authorization and makes expired-runtime grace reachab
         'context' => MarketplaceActivationContext::encryptedInto([], $signedActivation),
     ]);
 
-    expect(json_encode($attempt->context, JSON_THROW_ON_ERROR))->not->toContain('signed-secret');
+    expect(json_encode($attempt->context, JSON_THROW_ON_ERROR))->not->toContain($receipt['signature']);
 
     PersistMarketplaceActivationAction::run($attempt);
-    app()->instance('capell.marketplace.activation-verifier', static fn (): bool => true);
+    MarketplaceInstance::query()->create([
+        'instance_id' => 'instance-123',
+        'signing_secret_encrypted' => 'test-signing-secret',
+        'last_heartbeat_at' => now(),
+    ]);
 
     $extension->refresh();
     $gate = ResolveExtensionRuntimeGateAction::run($extension);

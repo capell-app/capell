@@ -6,6 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Support\Install\PackageLifecycleSteps;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -27,7 +28,7 @@ class AfterInstallPackageAction
         ?ProgressReporter $reporter = null,
         bool $allowLegacyCommand = true,
     ): void {
-        if (($package->getAfterInstallCommand() === null || $package->getAfterInstallCommand() === '') && ($package->getAfterInstallAction() === null || $package->getAfterInstallAction() === '')) {
+        if (! PackageLifecycleSteps::hasAfterInstall($package)) {
             return;
         }
 
