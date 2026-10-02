@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
-use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
@@ -14,7 +13,6 @@ use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\FrontendRuntimeResolutionData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -29,7 +27,7 @@ class ResolveFrontendRuntimeAction
 
     public function handle(FrontendContextReader $context): FrontendRuntimeResolutionData
     {
-        $strategy = $this->renderingStrategy($context->page());
+        $strategy = ResolveRenderingStrategyAction::run($context->page());
         $manifest = $this->runtimeManifest($strategy, $context);
 
         if ($strategy === RenderingStrategyEnum::FullLivewire) {
@@ -73,19 +71,6 @@ class ResolveFrontendRuntimeAction
             runtime: FrontendRuntime::Blade,
             runtimeManifest: $manifest,
         );
-    }
-
-    private function renderingStrategy(?Pageable $page): RenderingStrategyEnum
-    {
-        $blueprint = $page instanceof Model && $page->relationLoaded('blueprint') ? $page->blueprint : null;
-
-        if ($blueprint?->is_livewire === true) {
-            return RenderingStrategyEnum::FullLivewire;
-        }
-
-        return RenderingStrategyEnum::tryFrom((string) ($page?->meta['rendering_strategy'] ?? ''))
-            ?? RenderingStrategyEnum::tryFrom((string) ($blueprint?->meta['rendering_strategy'] ?? ''))
-            ?? RenderingStrategyEnum::BladeOnly;
     }
 
     private function runtimeManifest(RenderingStrategyEnum $strategy, FrontendContextReader $context): FrontendRuntimeManifestData
