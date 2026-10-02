@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Actions;
 
 use Capell\Installer\Data\InstallerRunProgressData;
+use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -20,13 +21,13 @@ final class ReadInstallerRunProgressAction
 
     public function handle(string $installId): InstallerRunProgressData
     {
-        $status = $this->sessions->status($installId, 'running');
+        $status = $this->sessions->status($installId, InstallerRunStatus::Running->value);
 
-        if (in_array($status, ['complete', 'failed', 'cancelled'], true)) {
-            $this->sessions->clearActiveLock($installId);
+        if (InstallerRunStatus::tryFrom($status)?->isTerminal() === true) {
+            $this->sessions->run($installId)->releaseLock();
         }
 
-        if (in_array($status, ['failed', 'cancelled'], true)) {
+        if (in_array($status, [InstallerRunStatus::Failed->value, InstallerRunStatus::Cancelled->value], true)) {
             $this->sessions->forgetSuccessSummary($installId);
         }
 
@@ -34,7 +35,7 @@ final class ReadInstallerRunProgressAction
             installId: $installId,
             status: $status,
             lines: $this->sessions->lines($installId),
-            shouldRedirectToSuccess: $status === 'complete',
+            shouldRedirectToSuccess: $status === InstallerRunStatus::Complete->value,
         );
     }
 }

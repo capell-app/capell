@@ -6,6 +6,7 @@ namespace Capell\Installer\Support;
 
 use Capell\Core\Data\InstallInputData;
 use Capell\Installer\Data\ActiveInstallData;
+use Capell\Installer\Enums\InstallerRunStatus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -30,6 +31,11 @@ final class InstallerSessionRepository
         'diagnostics',
         'recommendation',
     ];
+
+    public function run(string $installId): InstallerRun
+    {
+        return new InstallerRun($this, $installId);
+    }
 
     public function cacheStoreIsUsable(): bool
     {
@@ -126,7 +132,7 @@ final class InstallerSessionRepository
 
         return new ActiveInstallData(
             installId: $installId,
-            status: $this->status($installId, 'running'),
+            status: $this->status($installId, InstallerRunStatus::Running->value),
             progressUrl: route('capell-installer.progress', ['installId' => $installId]),
             reportUrl: route('capell-installer.progress.download', ['installId' => $installId]),
             queued: (bool) ($lock['queued'] ?? false),
@@ -143,7 +149,7 @@ final class InstallerSessionRepository
 
         return $activeInstall instanceof ActiveInstallData
             ? [$activeInstall->installId, $activeInstall->status]
-            : [null, 'idle'];
+            : [null, InstallerRunStatus::Idle->value];
     }
 
     public function hasInstallSessionState(string $installId): bool
@@ -164,8 +170,7 @@ final class InstallerSessionRepository
             return;
         }
 
-        $this->clearInstallSession($activeInstallId);
-        $this->putStatus($activeInstallId, 'cancelled');
+        $this->run($activeInstallId)->cancel(releaseLock: false);
     }
 
     public function clearInstallSession(string $installId): void
@@ -201,7 +206,7 @@ final class InstallerSessionRepository
         }
     }
 
-    public function status(string $installId, string $default = 'unknown'): string
+    public function status(string $installId, string $default = InstallerRunStatus::Unknown->value): string
     {
         return (string) $this->get($this->key($installId, 'status'), $default);
     }
@@ -461,7 +466,7 @@ final class InstallerSessionRepository
         }
 
         $status = $this->status($lock['installId']);
-        if (! in_array($status, ['pending', 'queued', 'running'], true)) {
+        if (InstallerRunStatus::tryFrom($status)?->isActive() !== true) {
             $this->forget(self::LOCK_KEY);
 
             return null;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Http\Responses;
 
 use Capell\Installer\Data\InstallerRunStepData;
+use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Enums\InstallerRunStepResultCode;
 use Illuminate\Http\JsonResponse;
 
@@ -18,7 +19,7 @@ final class InstallStepResponse
         ], true)) {
             return response()->json([
                 'installId' => $result->installId,
-                'status' => 'failed',
+                'status' => InstallerRunStatus::Failed->value,
                 'error' => $this->errorMessage($result),
                 'csrfToken' => csrf_token(),
             ], 410);
@@ -73,9 +74,9 @@ final class InstallStepResponse
     private function status(InstallerRunStepResultCode $code): string
     {
         return match ($code) {
-            InstallerRunStepResultCode::Complete => 'complete',
-            InstallerRunStepResultCode::Running => 'running',
-            default => 'failed',
+            InstallerRunStepResultCode::Complete => InstallerRunStatus::Complete->value,
+            InstallerRunStepResultCode::Running => InstallerRunStatus::Running->value,
+            default => InstallerRunStatus::Failed->value,
         };
     }
 
