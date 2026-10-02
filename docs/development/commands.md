@@ -119,6 +119,13 @@ These commands are defined in the root `composer.json` or `package.json`:
 | `npm run screenshots:check`        | Validate docs screenshot manifests through the configured screenshot runner   |
 | `npm run docs:publish`             | Sync the local core docs into the external docs app and build it              |
 
+### Script vocabulary and tooling traps
+
+The formatting, Rector and analysis script names mean the same thing in capell-4 and capell-packages-4. `cs:fix` and `cs:check` are the real Pint definitions; `lint` and `lint:check` are aliases of them. `rector` (alias of `rector:all`) is a full write, `rector:changed` a changed-file write, `rector:check` a changed-file dry run and `rector:all:check` a full dry run. `analyze` is `analyze:full`; `analyze:source` is the fast iteration loop.
+
+- Host and container share the bind-mounted repo, and `phpstan.neon` pins `tmpDir` to `var/phpstan/full`. A cache holding paths from the other context raises internal errors such as `phar:///home/capell/current/... is not a file`; it is a cache collision, not a code error. Docker masks `var/` with the `capell-var` named volume to keep the two apart, so do not delete the volume to share a cache. A worktree has its own `var/`, so the same branch can pass there and fail in the primary checkout; compare the cached path provenance before reading code.
+- `scripts/` run straight from the PHP binary and mostly do not load the Composer autoloader, so Rector rules that assume a booted application (facade, `throw_if`, `sleep()` and `time()` rewrites) produce code that fatals; `rector.php` skips those rules for `scripts/`. `rector:changed` only visits changed files (the committed diff against the base branch, or staged files with `--staged`), so run `rector:all` after any Rector or rector-laravel bump.
+
 ## Naming Rules
 
 - Host commands use `capell:<name>` or `capell:<package>-<verb>`.
