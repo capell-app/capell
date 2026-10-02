@@ -12,6 +12,7 @@ use Capell\Admin\Filament\Concerns\HasNavigationBadge;
 use Capell\Admin\Filament\Resources\Themes\Pages\ManageThemes;
 use Capell\Admin\Filament\Resources\Themes\Schemas\ThemeForm;
 use Capell\Admin\Filament\Resources\Themes\Tables\ThemesTable;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Theme;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -54,7 +55,9 @@ class ThemeResource extends Resource
                 'editor',
                 'media',
             ])
-            ->withCount('sites')
+            ->withCount([
+                'sites' => fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'sites.id', denyWhenMissingActor: true),
+            ])
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

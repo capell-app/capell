@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Data\Themes;
 
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Spatie\LaravelData\Data;
@@ -58,7 +59,7 @@ final class ThemeLibraryCardData extends Data
             installed: true,
             active: $theme->isDefault(),
             enabled: $theme->status,
-            siteCount: $theme->sites_count ?? $theme->sites()->count(),
+            siteCount: $theme->sites_count ?? SiteScope::applyForCurrentActor($theme->sites()->getQuery(), 'sites.id', denyWhenMissingActor: true)->count(),
             package: self::stringValue($admin['package'] ?? null, $definition?->package ?: $theme->key),
             tags: array_values($definition?->tags ?: self::stringList($admin['tags'] ?? [])),
             bestFit: array_values($definition?->bestFit ?: self::stringList($admin['bestFit'] ?? $admin['best_fit'] ?? [])),

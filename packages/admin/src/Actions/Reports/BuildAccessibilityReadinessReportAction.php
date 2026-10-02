@@ -11,6 +11,7 @@ use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
@@ -32,7 +33,7 @@ final class BuildAccessibilityReadinessReportAction implements BuildsReportSnaps
     public function handle(?Site $site = null): ReportSnapshotData
     {
         $siteId = $site?->getKey();
-        $sites = Site::query()
+        $sites = SiteScope::applyForCurrentActor(Site::query(), 'id', denyWhenMissingActor: true)
             ->when($siteId !== null, fn ($query) => $query->whereKey($siteId))
             ->with('language')
             ->get();

@@ -192,6 +192,7 @@ use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
 use Capell\Admin\Support\Reports\ReportRegistry;
 use Capell\Admin\Support\Routing\AdminFrontendRouteReservationContributor;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
+use Capell\Admin\Support\SiteScope;
 use Capell\Admin\Support\Subscribers\ActAsOwnerEventSubscriber;
 use Capell\Admin\Support\Subscribers\AdminConfiguratorsSubscriber;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
@@ -903,8 +904,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // assert on them — and each gained its own settings key so an operator
         // can switch individual counts back on without re-enabling all four.
         $stats = [
-            'pages' => ['label' => 'stat_total_pages', 'sort' => 10, 'value' => fn (): int => Page::query()->count()],
-            'sites' => ['label' => 'stat_sites', 'sort' => 20, 'value' => fn (): int => Site::query()->count()],
+            'pages' => ['label' => 'stat_total_pages', 'sort' => 10, 'value' => fn (): int => SiteScope::applyForCurrentActor(Page::query(), denyWhenMissingActor: true)->count()],
+            'sites' => ['label' => 'stat_sites', 'sort' => 20, 'value' => fn (): int => SiteScope::applyForCurrentActor(Site::query(), 'id', denyWhenMissingActor: true)->count()],
             'languages' => ['label' => 'stat_languages', 'sort' => 30, 'value' => fn (): int => Language::query()->count()],
             'page_types' => ['label' => 'stat_page_types', 'sort' => 40, 'value' => fn (): int => Blueprint::query()->pageType()->count()],
         ];

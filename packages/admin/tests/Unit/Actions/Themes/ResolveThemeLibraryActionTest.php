@@ -10,8 +10,13 @@ use Capell\Core\Models\Theme;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
+
+uses(CreatesAdminUser::class);
 
 beforeEach(function (): void {
+    // Theme site counts cover only the sites the acting user may see; a global admin sees every site.
+    test()->actingAsAdmin();
     Blueprint::factory()->theme()->default()->create();
 });
 

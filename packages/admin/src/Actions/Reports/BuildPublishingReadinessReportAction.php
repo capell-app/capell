@@ -10,6 +10,7 @@ use Capell\Admin\Data\Reports\ReportFindingData;
 use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
+use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Enums\UrlTypeEnum;
@@ -116,7 +117,7 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
      */
     private function pages(): LazyCollection
     {
-        return Page::query()
+        return SiteScope::applyForCurrentActor(Page::query(), denyWhenMissingActor: true)
             ->with([
                 'layout:id,name',
                 'pageUrls:id,pageable_type,pageable_id,site_id,language_id,status,url,type',
