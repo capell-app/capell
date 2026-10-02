@@ -83,6 +83,12 @@ Use Mermaid for:
 
 The FLUX connector must be authenticated before generating these assets. Once authenticated, create images under `docs/images/diagrams/` and keep the exact Mermaid diagram beside the image in the same doc.
 
+## Core workbench content
+
+Core documentation captures come from `scripts/screenshots/prepare-workbench.sh`, which runs `capell:install --demo --package-mode=core --theme=none`. That seeds almost no content, because the core, admin and frontend `capell.json` files all declare `"demo": null`, and no theme is installed. Content-rich captures (for example the "Index of Practice" demo) come from the `theme-submissions` package's demo content in capell-packages-4, so run those passes from capell-packages-4.
+
+After a fresh `composer install`, `post-autoload-dump` removes `vendor/orchestra/testbench-core/laravel/database/migrations`; `prepare-workbench.sh` recreates the directory before the install step, so a manual `testbench capell:install` straight after `composer install` has nowhere to publish vendor migrations to.
+
 ## Next
 
 - [Architecture diagrams](../reference/architecture-diagrams.md)
