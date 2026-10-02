@@ -7,6 +7,14 @@ updates:
       interval: 'weekly'
     cooldown:
       default-days: 3
+    open-pull-requests-limit: 3
+    groups:
+      all-updates:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
     labels:
       - 'dependencies'
   - package-ecosystem: 'composer'
@@ -17,6 +25,14 @@ updates:
       interval: 'weekly'
     cooldown:
       default-days: 3
+    open-pull-requests-limit: 3
+    groups:
+      all-updates:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
     labels:
       - 'dependencies'
     ignore:
@@ -32,5 +48,13 @@ updates:
       interval: 'weekly'
     cooldown:
       default-days: 3
+    open-pull-requests-limit: 3
+    groups:
+      all-updates:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
     labels:
       - 'dependencies'

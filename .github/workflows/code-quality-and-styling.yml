@@ -8,55 +8,53 @@ on:
     branches:
       - main
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'tests/**/*.php'
-      - 'packages/**/*.php'
-      - 'packages/**/composer.json'
-      - 'composer.json'
-      - 'composer.lock'
-      - '*.md'
-      - 'README.md'
-      - 'docs/**'
-      - 'docs/packages/catalog.md'
-      - 'phpstan/**'
-      - 'phpstan.neon'
-      - 'pint.json'
-      - '.php-cs-fixer.dist.php'
-      - 'rector.php'
-      - 'scripts/rector-changed.sh'
-      - 'scripts/check-docs-env-vars.php'
-      - 'scripts/check-docs-config-keys.php'
-      - 'scripts/docs-config-key-classifications.php'
-      - 'scripts/check-docs-links.php'
-      - 'scripts/check-docs-orphans.php'
-      - 'scripts/check-docs-requirements.php'
-      - 'scripts/check-root-docs.php'
-      - 'scripts/sync-split-repository-health.php'
-      - 'scripts/RepositoryDistributionFiles.php'
-      - '.gitattributes'
-      - 'packages/*/capell.json'
-      - '.github/split-repository/**'
-      - 'packages/*/SECURITY.md'
-      - 'packages/*/.github/**'
-      - 'packages/*/.gitattributes'
-      - 'scripts/check-readme-engineering-standards.php'
-      - 'scripts/check-phpstan-baseline-growth.sh'
-      - '.github/workflows/test-full.yml'
-      - '.github/workflows/coverage-release.yml'
-      - 'scripts/php-modernization-skill.sh'
-      - '.github/workflows/code-quality-and-styling.yml'
 
 permissions:
   contents: read
 
+concurrency:
+  group: php-quality-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  quality:
-    name: PHP Quality
+  scope:
+    name: PHP Quality scope
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        php: [8.4]
+    outputs:
+      relevant: ${{ steps.scope.outputs.relevant }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether the changed files need the PHP quality gate
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mapfile -t pathspecs < .github/ci/php-quality-paths.txt
+          if [ -n "$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- "${pathspecs[@]}")" ]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "No changed file is covered by .github/ci/php-quality-paths.txt; the PHP quality gate is skipped."
+          fi
+
+  quality:
+    # Always present as a required check: the scope job decides whether the
+    # gate runs, so a pull request touching only unrelated files reports a
+    # skipped (passing) result instead of never reporting.
+    name: PHP Quality (8.4)
+    needs: scope
+    if: needs.scope.outputs.relevant == 'true'
+    runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
     steps:
@@ -67,7 +65,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
-          php-version: ${{ matrix.php }}
+          php-version: '8.4'
           extensions: curl, dom, fileinfo, intl, json, libxml, mbstring, phar, simplexml, zip
           tools: composer:v2, pint
 
