@@ -46,6 +46,18 @@ composer update
 - If you see autoload errors, run `composer dump-autoload`.
 - For cache issues, see [Server Configuration](https://docs.capell.app/packages/frontend/server-config/) and the [Frontend guide](../frontend/guide.md).
 
+### A test fails locally but passes in CI
+
+Nothing syncs `vendor/` after you pull a commit that bumps a dependency, so the working tree keeps running the old package while CI installs fresh. Compare every package version in `composer.lock` with `vendor/composer/installed.json` (an `installed.json` older than the lock is the tell) before reading any source, and run `composer install` if they differ.
+
+Techniques that help once drift is ruled out:
+
+- Compare a vendor package's versions without touching `vendor/` by unzipping the archives in `$(composer config --global cache-files-dir)/<vendor>/<package>/`.
+- To check for a CI coverage hole, run the matrix cell's exact filter (for example `pest --testsuite=Unit --group=frontend`). Groups come from `tests/Pest.php`; cells come from `scripts/test-all/TestAllMatrix.php`.
+- For a pristine baseline, `git worktree add --detach <path outside the repository> <commit>`, then provision it as described in [Git worktrees](worktrees.md).
+- A shared primary checkout can show green while committed `main` is red, because uncommitted fixes in the working tree mask the failure. Check a pristine worktree of the commit before trusting it.
+- A scratch note left in the repository root fails `scripts/check-root-docs.php`.
+
 ---
 
 **Further Reading:**
