@@ -21,8 +21,7 @@ use Illuminate\Support\Facades\Schema;
  * swapped at publish time. Property values follow the exact same rule: a
  * value is "published" precisely when its owning page currently satisfies
  * `Page::published()`, checked at read time by the agent-layer resolver
- * (Phase 2), not by a duplicated row here. See the CAP-0460 Task 0
- * assumption-check note for the full reasoning — this replaces the original
+ * (Phase 2), not by a duplicated row here. This replaces the original
  * plan's draft/published `state` column.
  */
 return new class extends Migration
