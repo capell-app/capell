@@ -21,13 +21,14 @@
 | `capell:admin-install` | Install admin panel (runs migrations, publishes assets) |
 | `capell:admin-setup`   | Interactive setup wizard for admin                      |
 | `capell:admin-upgrade` | Upgrade admin panel                                     |
-
-| `capell:admin-cache-schemas` | Cache all schema definitions for performance |
-| `capell:admin-clear-schemas-cache` | Clear cached schemas (use after schema changes) |
-| `capell:admin-make-schema {type?} {name?}` | Scaffold a new schema class |
-| `capell:admin-publish-schema` | Publish schema files; prefer extenders for upgrade safety |
+| `capell:admin-clear-cache` | Flush Capell core, view-finder, local theme definition and registered admin caches |
+| `capell:admin-cache-configurators` | Cache all registered admin configurators |
+| `capell:admin-clear-configurators-cache` | Clear cached admin configurators |
+| `capell:admin-cache-widgets` | Cache all discoverable Filament widgets |
+| `capell:admin-clear-widgets-cache` | Clear the cached Filament widgets |
 | `capell:admin-publish-resources` | Publish Filament resources to app |
-| `capell:admin-view-page-cache` | View list of cached HTML pages |
+
+Scaffold a schema class with the core command `capell:make-schema {name}`; it writes to `App\Schemas`.
 
 ## Frontend Commands (`capell:frontend-*`)
 
@@ -96,8 +97,7 @@ same canonical spec returns the existing site.
 ### After changing schema/type files:
 
 ```bash
-php artisan capell:admin-clear-schemas-cache
-php artisan capell:admin-cache-schemas  # optional, for performance
+php artisan capell:admin-clear-cache
 ```
 
 ### After modifying content that affects frontend cache:

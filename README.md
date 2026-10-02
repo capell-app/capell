@@ -58,16 +58,9 @@ Do not run `filament:install --panels` before requiring Capell: the installer br
 
 ### Paid package install
 
-An organisation with an active paid package entitlement can request a short-lived private Composer command from its Capell account. Run the generated commands in the Laravel application, then use the same Installer flow:
+Paid packages are served from `https://capell.app/composer` with a short-lived credential that Capell issues for a purchase; the customer account lists and revokes issued credentials but does not reveal them. The site builder handoff lists the exact `composer config`, `composer require` and `php artisan capell:install --spec=...` commands to run, and installing from Marketplace in Admin passes the credential to Composer for you. To install a purchased package by hand, require that package and run `php artisan capell:extension-install <vendor>/<purchased-package>`.
 
-```bash
-composer config repositories.capell composer https://capell.app/composer
-composer config bearer.capell.app <short-lived-token>
-composer require capell-app/capell
-php artisan capell:install
-```
-
-`capell-app/capell` is the root aggregate for the aligned Core, Admin, Frontend, Installer, and Marketplace code line. Marketplace authorises the connected organisation's entitled protected packages. The token is scoped, expires within 30 minutes, and is redacted from account serialization. Do not paste it into tickets, logs, source control, or shared shell history; request a new command when it expires.
+The credential expires 30 minutes after it is issued, so request it immediately before use. Do not paste it into tickets, logs, source control, or shared shell history. See [Paid package access](docs/getting-started/install.md#paid-package-access) for the details.
 
 Capell is not a hosted CMS and does not ship a public content-delivery API. Your pages render inside your Laravel application through Blade, Livewire, Inertia, Vue, or your own stack.
 
