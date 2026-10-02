@@ -54,6 +54,12 @@ it('blocks comment feedback when the licence decision can only rate', function (
         'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
     ]);
 
+    MarketplaceInstance::query()->create([
+        'instance_id' => 'instance-123',
+        'signing_secret_encrypted' => 'secret-value',
+        'last_heartbeat_at' => now(),
+    ]);
+
     Http::fake([
         'https://marketplace.test/api/extensions/seo-suite/licence-decision' => Http::response([
             'data' => [
