@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f04dad4a790317057981af838641ec7d",
+    "content-hash": "125479b08404959122f13ee8b928550a",
     "packages": [
         {
             "name": "aimeos/laravel-nestedset",
@@ -12117,52 +12117,6 @@
                 }
             ],
             "time": "2026-09-03T16:02:27+00:00"
-        },
-        {
-            "name": "symplify/monorepo-builder",
-            "version": "10.3.3",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/symplify/monorepo-builder.git",
-                "reference": "5f97613a2015b74aa86a7330b47a88c283877fd4"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/symplify/monorepo-builder/zipball/5f97613a2015b74aa86a7330b47a88c283877fd4",
-                "reference": "5f97613a2015b74aa86a7330b47a88c283877fd4",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=7.2"
-            },
-            "bin": [
-                "bin/monorepo-builder"
-            ],
-            "type": "library",
-            "extra": {
-                "branch-alias": {
-                    "dev-main": "10.3-dev"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "description": "Prefixed version of Not only Composer tools to build a Monorepo.",
-            "support": {
-                "source": "https://github.com/symplify/monorepo-builder/tree/10.3.3"
-            },
-            "funding": [
-                {
-                    "url": "https://www.paypal.me/rectorphp",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/tomasvotruba",
-                    "type": "github"
-                }
-            ],
-            "time": "2022-06-13T14:01:16+00:00"
         },
         {
             "name": "tanmuhittin/laravel-google-translate",
