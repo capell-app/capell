@@ -9,6 +9,7 @@ use Capell\Core\Actions\BladeComponentFacadeResolver;
 use Capell\Core\Actions\ConfigureMailMarkdownComponentsAction;
 use Capell\Core\Actions\ConfigureMailMarkdownLogoAction;
 use Capell\Core\Actions\RegisterModelMorphMapAction;
+use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Console\Commands\AgentSchemaVerifyCommand;
 use Capell\Core\Console\Commands\AuditSiteDomainOriginsCommand;
 use Capell\Core\Console\Commands\BackupHealthCommand;
@@ -254,6 +255,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->tag([SiteSpecProjectBuildArtifactHandler::class], ProjectBuildArtifactHandler::TAG);
         $this->app->scoped(SiteSpecApplierRegistry::class);
         $this->app->scoped(PageUrlRewriteContext::class);
+        $this->app->scoped(ResolvePublicPageableMorphTypesAction::class);
 
         config(['media-library.media_model' => Media::class]);
         $this->app->register(MediaLibraryServiceProvider::class);
