@@ -1,5 +1,14 @@
 # Testing in Capell
 
+## Contents
+
+- [Test Infrastructure](#test-infrastructure)
+- [Running Tests](#running-tests)
+- [Pest Conventions in Capell](#pest-conventions-in-capell)
+- [Test Helpers & Traits](#test-helpers--traits)
+- [phpunit.xml Configuration](#phpunitxml-configuration)
+- [Code Quality](#code-quality)
+
 ## Test Infrastructure
 
 - **Framework**: Pest 4 with Pest plugins for Laravel, Livewire, Architecture, Type Coverage
