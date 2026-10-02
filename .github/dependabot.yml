@@ -19,6 +19,11 @@ updates:
       default-days: 3
     labels:
       - 'dependencies'
+    ignore:
+      # Version 5 moves namespaces and traits and changes the stored attribute
+      # changes; it needs a planned migration across Core and its consumers.
+      - dependency-name: 'spatie/laravel-activitylog'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: 'npm'
     directories:
       - '/'

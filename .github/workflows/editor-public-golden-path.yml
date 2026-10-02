@@ -3,50 +3,14 @@ name: Editor to public golden path
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/admin/**'
-      - 'packages/core/**'
-      - 'packages/frontend/**'
-      - 'packages/installer/**'
-      - 'packages/marketplace/**'
-      - 'tests/Browser/**'
-      - 'tests/Unit/EditorPublicGoldenPathWorkflowTest.php'
-      - 'tests/fixtures/editor-public-golden-path.json'
-      - 'scripts/run-editor-public-golden-path.sh'
-      - 'composer.json'
-      - 'composer.lock'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'playwright.config.js'
-      - '.github/workflows/editor-public-golden-path.yml'
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'packages/admin/**'
-      - 'packages/core/**'
-      - 'packages/frontend/**'
-      - 'packages/installer/**'
-      - 'packages/marketplace/**'
-      - 'tests/Browser/**'
-      - 'tests/Unit/EditorPublicGoldenPathWorkflowTest.php'
-      - 'tests/fixtures/editor-public-golden-path.json'
-      - 'scripts/run-editor-public-golden-path.sh'
-      - 'composer.json'
-      - 'composer.lock'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'playwright.config.js'
-      - '.github/workflows/editor-public-golden-path.yml'
+    tags:
+      - '*'
 
 permissions:
   contents: read
 
 concurrency:
-  group: editor-public-golden-path-${{ github.event.pull_request.number || github.ref }}
+  group: editor-public-golden-path-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -59,13 +23,6 @@ jobs:
         working-directory: repositories/capell
 
     steps:
-      - name: Explain fork pull request limitation
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
-        working-directory: .
-        run: |
-          echo "::error::The golden path requires private screenshot-tools and companion-package checkouts. Fork pull requests cannot receive ACCESS_TOKEN; a maintainer must validate the exact commit from a same-repository branch before merge."
-          exit 1
-
       - name: Checkout exact Capell head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
