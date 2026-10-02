@@ -11,6 +11,8 @@ use Capell\Core\Support\Install\InstallPlan;
 
 class InstallPlanSetupActionOnlyPackageAction {}
 
+class InstallPlanAfterInstallActionOnlyPackageAction {}
+
 function makePlanInput(array $overrides = []): InstallInputData
 {
     return new InstallInputData(
@@ -137,6 +139,27 @@ it('includes setup steps for packages with setup lifecycle actions', function ()
     ]));
 
     expect(array_column($plan, 'key'))->toContain(InstallPlan::packageSetupStepKey('capell-app/action-only'));
+});
+
+it('includes after-install steps for packages with after-install lifecycle actions and no command', function (): void {
+    CapellCore::registerPackage(name: 'capell-app/after-action-only');
+    CapellCore::getPackage('capell-app/after-action-only')->afterInstallAction = InstallPlanAfterInstallActionOnlyPackageAction::class;
+
+    $plan = InstallPlan::build(makePlanInput([
+        'packages' => ['capell-app/after-action-only'],
+    ]));
+
+    expect(array_column($plan, 'key'))->toContain(InstallPlan::packageAfterInstallStepKey('capell-app/after-action-only'));
+});
+
+it('omits after-install steps for packages without an after-install command or action', function (): void {
+    CapellCore::registerPackage(name: 'capell-app/no-after-install');
+
+    $plan = InstallPlan::build(makePlanInput([
+        'packages' => ['capell-app/no-after-install'],
+    ]));
+
+    expect(array_column($plan, 'key'))->not->toContain(InstallPlan::packageAfterInstallStepKey('capell-app/no-after-install'));
 });
 
 it('uses demo instead of matching setup commands when demo content is enabled', function (): void {

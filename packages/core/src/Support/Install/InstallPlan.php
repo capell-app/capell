@@ -175,7 +175,7 @@ final class InstallPlan
 
             $selectedPackages
                 ->reject(fn (PackageData $package): bool => in_array($package->name, $inputData->extraPackages, true))
-                ->filter(fn (PackageData $package): bool => $package->getAfterInstallCommand() !== null && $package->getAfterInstallCommand() !== '')
+                ->filter(fn (PackageData $package): bool => PackageLifecycleSteps::hasAfterInstall($package))
                 ->each(function (PackageData $package) use ($steps): void {
                     $steps->push(new InstallStepData(
                         self::packageAfterInstallStepKey($package->name),

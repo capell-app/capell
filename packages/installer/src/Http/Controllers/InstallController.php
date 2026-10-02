@@ -19,6 +19,7 @@ use Capell\Installer\Actions\RemoveSetupPackageAction;
 use Capell\Installer\Actions\StartInstallerRunAction;
 use Capell\Installer\Data\InstallerRunStartData;
 use Capell\Installer\Enums\InstallerRunMode;
+use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Http\Requests\RunInstallStepRequest;
 use Capell\Installer\Http\Requests\StoreInstallRequest;
 use Capell\Installer\Http\Responses\InstallStepResponse;
@@ -63,7 +64,7 @@ final class InstallController
         $installId = $viewData['installId'] ?? null;
         if (is_string($installId) && ! $this->canAccessInstall($request, $installId)) {
             $viewData['installId'] = null;
-            $viewData['installStatus'] = 'idle';
+            $viewData['installStatus'] = InstallerRunStatus::Idle->value;
             $viewData['cancelUrl'] = null;
             $viewData['recommendationSelection'] = null;
         }
@@ -205,7 +206,7 @@ final class InstallController
     {
         abort_unless($this->canAccessInstall($request, $installId) && $this->sessions->hasInstallSessionState($installId), 404);
 
-        $status = $this->sessions->status($installId, 'running');
+        $status = $this->sessions->status($installId, InstallerRunStatus::Running->value);
         /** @var view-string $progressView */
         $progressView = 'capell-installer::progress';
 
@@ -221,7 +222,7 @@ final class InstallController
     {
         abort_unless($this->canAccessInstall($request, $installId), 404);
 
-        abort_if($this->sessions->status($installId) !== 'complete'
+        abort_if($this->sessions->status($installId) !== InstallerRunStatus::Complete->value
             || ! $this->sessions->hasSuccessSummary($installId), 404);
 
         $successSummary = $this->sessions->pullSuccessSummary($installId);
@@ -285,7 +286,7 @@ final class InstallController
         CancelInstallerRunAction::run($installId);
 
         if ($request->expectsJson()) {
-            return response()->json(['status' => 'cancelled']);
+            return response()->json(['status' => InstallerRunStatus::Cancelled->value]);
         }
 
         return to_route('capell-installer.show');
