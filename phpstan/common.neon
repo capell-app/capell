@@ -57,6 +57,7 @@ parameters:
         - stubs/optional-packages.stub
     scanFiles:
         - stubs/optional-packages.stub
+        - ../scripts/RepositoryDistributionFiles.php
         - ../scripts/release/ReleaseEngine.php
         - ../scripts/check-stable-extension-api.php
         - ../tests/Pest.php

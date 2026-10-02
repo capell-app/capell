@@ -74,12 +74,12 @@ token) and each package's `composer.json` `name` field
 Current topics on each (read via `gh repo view capell-app/<repo> --json
 repositoryTopics,description`, 2026-07-29):
 
-| Repo | Current topics |
-|---|---|
-| core | capell, capell-cms, cms, content-management, laravel, php, multilingual, multisite |
-| admin | admin-panel, capell, capell-cms, cms, filament, laravel, livewire, php |
-| frontend | blade, capell, capell-cms, cms, frontend, laravel, php, rendering, caching, themes |
-| installer | capell, capell-cms, filament, installer, laravel, php, setup, onboarding |
+| Repo        | Current topics                                                                                     |
+| ----------- | -------------------------------------------------------------------------------------------------- |
+| core        | capell, capell-cms, cms, content-management, laravel, php, multilingual, multisite                 |
+| admin       | admin-panel, capell, capell-cms, cms, filament, laravel, livewire, php                             |
+| frontend    | blade, capell, capell-cms, cms, frontend, laravel, php, rendering, caching, themes                 |
+| installer   | capell, capell-cms, filament, installer, laravel, php, setup, onboarding                           |
 | marketplace | capell, capell-cms, extensions, filament, laravel, marketplace, package-management, php, ecommerce |
 
 Each split repo's existing topics are already specific and accurate to what
@@ -199,15 +199,15 @@ So there is no "create the repo" step. The corrected sequence:
 2. Push the chosen content to `profile/README.md` in `capell-app/.github`.
 3. Make the repository public:
 
-   ```bash
-   gh repo edit capell-app/.github --visibility public --accept-visibility-change-consequences
-   ```
+    ```bash
+    gh repo edit capell-app/.github --visibility public --accept-visibility-change-consequences
+    ```
 
-   `--visibility` and its required `--accept-visibility-change-consequences`
-   companion flag are confirmed via `gh repo edit --help` (2026-07-29); `gh`
-   warns changing visibility can affect stars/watchers and repo ranking, so
-   review that before running it. This is a mutating command and therefore
-   not run as part of this task.
+    `--visibility` and its required `--accept-visibility-change-consequences`
+    companion flag are confirmed via `gh repo edit --help` (2026-07-29); `gh`
+    warns changing visibility can affect stars/watchers and repo ranking, so
+    review that before running it. This is a mutating command and therefore
+    not run as part of this task.
 
 Rationale: `profile/README.md` in a **public** `.github` repo is the file
 GitHub renders as `github.com/capell-app`'s front page. Today that URL shows
@@ -239,3 +239,54 @@ README does not currently mention Capell at all, so a developer who finds it
 independently has no path back to the CMS it was built for. That repository
 is not checked out here, so fixing its README is a separate action for Ben,
 not something implemented as part of this task.
+
+### Split repository health files
+
+The release engine publishes the exact committed `packages/<name>` tree to each
+repository listed in `config/release-packages.json`; the legacy local splitter
+uses the same package boundaries. Root GitHub configuration is not inherited.
+Run `composer sync:split-repository-health` after editing the root `SECURITY.md`,
+the templates in `.github/split-repository/`, or a package's ecosystem manifests.
+`composer check:split-repository-health` rejects missing or stale generated files
+in preflight and the PHP Quality workflow. Each split keeps its policy and update
+configuration in Git while `.gitattributes` excludes development files from dist.
+The splits are read-only mirrors whose PRs forward to the monorepo. Their
+Dependabot entries cover Composer and GitHub Actions, plus npm where a
+`package.json` exists, with `open-pull-requests-limit: 0` to prevent duplicate
+version-update PRs. Security updates are grouped per ecosystem and remain
+available when enabled in repository settings; this file does not enable that
+setting. Routine version updates belong in the monorepo.
+[Plumb's updater check](https://plumbphp.dev/checks/security/dependabot-or-renovate-configured)
+inspects ecosystem entries, and its
+[cooldown check](https://plumbphp.dev/checks/security/dependency-update-cooldown)
+requires at least three days. Retaining both satisfies those documented checks
+without generating routine PRs in the mirrors.
+[GitHub documents the zero limit](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/customizing-dependabot-security-prs)
+as disabling version updates while retaining security updates.
+
+The generator derives documentation exclusions from manifest assets and local
+runtime source paths. Referenced asset directories ship in full; documentation
+without a runtime reference is excluded selectively, without ignoring an
+ancestor of a required file. `SplitRepositoryHealthTest` builds real aggregate
+and split archives from `HEAD` with the working attributes, then checks runtime
+inputs and the absence of development tooling. This previews attribute edits
+without staging them; other file contents still come from `HEAD`.
+
+Fork forwarding keeps checkout v4.4.0 pinned and opts in to fork checkout only
+on the source step, with credentials disabled. The trusted workflow copies the
+fork's files into the monorepo PR; it must never execute those files or install
+their dependencies in this privileged job.
+
+[Plumb's checks](https://plumbphp.dev/checks) assess repository security settings
+separately from the latest stable release archive. The API exposes each scan's
+`reference_version` and `reference_commit`: the aggregate's current scan uses
+`v1.0.12`, and its workflow inventory matches that tag rather than current `main`.
+The split scans use `v1.0.62`. Publish the changed trees in new stable releases
+before expecting the health scores to reflect these files.
+The committed root `composer.lock` remains available for development and CI.
+
+The current release publisher derives split commit dates from a hash in the
+2000–2020 range. Packagist uses those dates as release times, so publishing again
+alone cannot fix activity recency. Before the next split release, the publisher
+needs to preserve the approved source commit's real timestamp while retaining
+repeatable commit identities; no synthetic activity commits are needed.

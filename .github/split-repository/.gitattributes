@@ -23,17 +23,3 @@
 /tailwind.config.* export-ignore
 /vite.config.* export-ignore
 /scripts export-ignore
-
-# Generated documentation exclusions: runtime paths come from manifests/source.
-/docs/assets/readme export-ignore
-/docs/extending-render-hooks.md export-ignore
-/docs/frontend-resources.md export-ignore
-/docs/images export-ignore
-/docs/overview.md export-ignore
-/docs/page-site-loading.md export-ignore
-/docs/presentation-delivery.md export-ignore
-/docs/screenshots.json export-ignore
-/docs/security.md export-ignore
-/docs/server-config.md export-ignore
-/docs/tailwind-assets.md export-ignore
-/docs/testing-frontend.md export-ignore

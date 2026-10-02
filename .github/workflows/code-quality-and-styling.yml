@@ -31,6 +31,14 @@ on:
       - 'scripts/check-docs-orphans.php'
       - 'scripts/check-docs-requirements.php'
       - 'scripts/check-root-docs.php'
+      - 'scripts/sync-split-repository-health.php'
+      - 'scripts/RepositoryDistributionFiles.php'
+      - '.gitattributes'
+      - 'packages/*/capell.json'
+      - '.github/split-repository/**'
+      - 'packages/*/SECURITY.md'
+      - 'packages/*/.github/**'
+      - 'packages/*/.gitattributes'
       - 'scripts/check-readme-engineering-standards.php'
       - 'scripts/check-phpstan-baseline-growth.sh'
       - '.github/workflows/test-full.yml'
@@ -68,6 +76,9 @@ jobs:
 
       - name: Check Composer lock file
         run: composer run check:composer-lock
+
+      - name: Check split repository health
+        run: composer run check:split-repository-health
 
       - name: Check root documentation
         run: composer run check:root-docs
