@@ -78,11 +78,10 @@ it('does not cancel the install that is about to start', function (): void {
 
     $repository = new InstallerSessionRepository;
 
-    Cache::put(InstallerSessionRepository::LOCK_KEY, ['installId' => 'current-install']);
-    Cache::put('capell.install.current-install.status', 'running');
+    $repository->run('current-install')->startSynchronous();
     Cache::put('capell.install.current-install.output', json_encode(['message' => 'still running']));
 
-    $repository->cancelActiveInstallBeforeStarting('current-install');
+    $repository->run('current-install')->startSynchronous();
 
     expect(Cache::get('capell.install.current-install.status'))->toBe('running')
         ->and($repository->hasInstallSessionState('current-install'))->toBeTrue();
@@ -113,8 +112,7 @@ it('resolves active install data and clears stale locks', function (): void {
     $repository = new InstallerSessionRepository;
     $installId = '11111111-1111-4111-a111-111111111111';
 
-    $repository->lock($installId, queued: true);
-    $repository->putStatus($installId, 'queued');
+    $repository->run($installId)->startQueued();
     Cache::put($repository->key($installId, 'plan'), ['prepare', 'install']);
 
     $activeInstall = $repository->activeInstallData();
@@ -126,7 +124,8 @@ it('resolves active install data and clears stale locks', function (): void {
         ->and($activeInstall?->planStepCount)->toBe(2)
         ->and($repository->activeInstallState())->toBe([$installId, 'queued']);
 
-    $repository->putStatus($installId, 'failed');
+    // Core reporters can finish before the next poll releases the stale lock.
+    $repository->run($installId)->markComplete();
 
     expect($repository->hasActiveInstallLock())->toBeFalse()
         ->and(Cache::get(InstallerSessionRepository::LOCK_KEY))->toBeNull();
@@ -142,8 +141,7 @@ it('owns browser step session state transitions', function (): void {
         ['key' => 'prepare-environment', 'label' => 'Prepare environment'],
     ];
 
-    $repository->startStepInstallSession(
-        installId: $installId,
+    $repository->run($installId)->startBrowserSteps(
         inputData: new InstallInputData(
             siteUrl: 'https://example.com',
             packages: [],
@@ -154,7 +152,6 @@ it('owns browser step session state transitions', function (): void {
             generateStaticSite: false,
         ),
         plan: $plan,
-        installStatus: 'pending',
         firstStepKey: 'preflight-checks',
         preflight: ['status' => 'ok'],
     );

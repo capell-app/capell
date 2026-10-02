@@ -131,9 +131,9 @@ it('does not clear a foreign lock when a synchronous start fails', function (): 
         ->andReturnUsing(function (
             InstallInputData $inputData,
             ProgressReporter $reporter,
-        ) use ($sessions, $foreignInstallId): never {
-            $sessions->putStatus($foreignInstallId, 'running');
-            $sessions->lock($foreignInstallId);
+        ) use ($sessions, $installId, $foreignInstallId): never {
+            $sessions->run($installId)->releaseLock();
+            $sessions->run($foreignInstallId)->startSynchronous();
 
             throw new RuntimeException('Synchronous install failed');
         });
@@ -158,14 +158,13 @@ it('returns typed replay and out-of-sequence step results without executing a st
         ['key' => 'expected-next', 'label' => 'Expected next'],
     ];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'running',
         firstStepKey: 'expected-next',
         preflight: installerPreflightReport(),
     );
+    $sessions->run($installId)->markRunning();
     $sessions->recordCompletedStep($installId, 'already-complete', 'expected-next');
 
     $replay = AdvanceInstallerRunAction::run($installId, 'already-complete');
@@ -189,11 +188,9 @@ it('advances a passing preflight step and records its report', function (): void
         ['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare environment'],
     ];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'pending',
         firstStepKey: InstallPlan::STEP_PREFLIGHT_CHECKS,
         preflight: [],
     );
@@ -218,16 +215,14 @@ it('returns a typed preflight failure without clearing a foreign lock', function
     $foreignInstallId = '36363636-3636-4636-a636-363636363636';
     $plan = [['key' => InstallPlan::STEP_PREFLIGHT_CHECKS, 'label' => 'Preflight checks']];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'pending',
         firstStepKey: InstallPlan::STEP_PREFLIGHT_CHECKS,
         preflight: [],
     );
-    $sessions->putStatus($foreignInstallId, 'running');
-    $sessions->lock($foreignInstallId);
+    $sessions->run($installId)->releaseLock();
+    $sessions->run($foreignInstallId)->startSynchronous();
 
     $failedPreflight = installerPreflightReport();
     $failedPreflight['status'] = 'fail';
@@ -261,14 +256,13 @@ it('advances a successful installer step', function (): void {
         ['key' => InstallPlan::STEP_CLEAR_CACHES, 'label' => 'Clear caches'],
     ];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'running',
         firstStepKey: InstallPlan::STEP_PREPARE_ENVIRONMENT,
         preflight: installerPreflightReport(),
     );
+    $sessions->run($installId)->markRunning();
     RunInstallStepAction::mock()
         ->shouldReceive('handle')
         ->once()
@@ -293,14 +287,13 @@ it('persists the package metadata refresh flag across installer steps instead of
         ['key' => 'install-package:bar', 'label' => 'Install bar'],
     ];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'running',
         firstStepKey: 'install-package:foo',
         preflight: installerPreflightReport(),
     );
+    $sessions->run($installId)->markRunning();
 
     $receivedFlags = [];
 
@@ -335,11 +328,9 @@ it('resets the package metadata refresh flag when a new installer run starts', f
     $sessions = resolve(InstallerSessionRepository::class);
     $sessions->putPackageMetadataRefreshed($installId, true);
 
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: [['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare environment']],
-        installStatus: 'pending',
         firstStepKey: InstallPlan::STEP_PREPARE_ENVIRONMENT,
         preflight: [],
     );
@@ -354,16 +345,15 @@ it('returns a typed execution failure without clearing a foreign lock', function
     $foreignInstallId = '39393939-3939-4939-a939-393939393939';
     $plan = [['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare environment']];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'running',
         firstStepKey: InstallPlan::STEP_PREPARE_ENVIRONMENT,
         preflight: installerPreflightReport(),
     );
-    $sessions->putStatus($foreignInstallId, 'running');
-    $sessions->lock($foreignInstallId);
+    $sessions->run($installId)->markRunning();
+    $sessions->run($installId)->releaseLock();
+    $sessions->run($foreignInstallId)->startSynchronous();
     RunInstallStepAction::mock()
         ->shouldReceive('handle')
         ->once()
@@ -386,14 +376,13 @@ it('clears its owned lock when an installer step fails', function (): void {
     $installId = '40404040-4040-4040-a040-404040404040';
     $plan = [['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare environment']];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'running',
         firstStepKey: InstallPlan::STEP_PREPARE_ENVIRONMENT,
         preflight: installerPreflightReport(),
     );
+    $sessions->run($installId)->markRunning();
     RunInstallStepAction::mock()
         ->shouldReceive('handle')
         ->once()
@@ -415,16 +404,15 @@ it('completes the final step and preserves a foreign lock', function (): void {
     $foreignInstallId = '42424242-4242-4242-a242-424242424242';
     $plan = [['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare environment']];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'running',
         firstStepKey: InstallPlan::STEP_PREPARE_ENVIRONMENT,
         preflight: installerPreflightReport(),
     );
-    $sessions->putStatus($foreignInstallId, 'running');
-    $sessions->lock($foreignInstallId);
+    $sessions->run($installId)->markRunning();
+    $sessions->run($installId)->releaseLock();
+    $sessions->run($foreignInstallId)->startSynchronous();
     RunInstallStepAction::mock()
         ->shouldReceive('handle')
         ->once()
@@ -448,16 +436,15 @@ it('replays an already completed run without clearing a foreign lock', function 
     $foreignInstallId = '47474747-4747-4747-a747-474747474747';
     $plan = [['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare environment']];
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: $plan,
-        installStatus: 'complete',
         firstStepKey: InstallPlan::STEP_PREPARE_ENVIRONMENT,
         preflight: installerPreflightReport(),
     );
-    $sessions->putStatus($foreignInstallId, 'running');
-    $sessions->lock($foreignInstallId);
+    $sessions->run($installId)->markComplete();
+    $sessions->run($installId)->releaseLock();
+    $sessions->run($foreignInstallId)->startSynchronous();
 
     $result = AdvanceInstallerRunAction::run(
         $installId,
@@ -473,14 +460,13 @@ it('reads terminal progress and builds a typed diagnostic report', function (): 
 
     $installId = '44444444-4444-4444-a444-444444444444';
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: installerRunInput(),
         plan: [['key' => 'preflight-checks', 'label' => 'Preflight checks']],
-        installStatus: 'failed',
         firstStepKey: 'preflight-checks',
         preflight: installerPreflightReport(),
     );
+    $sessions->run($installId)->markFailed();
     $sessions->putSuccessSummary($installId, ['primaryAdmin' => null, 'roleUsersCreated' => false]);
     Cache::put(
         $sessions->key($installId, 'output'),
@@ -511,9 +497,9 @@ it('does not clear a foreign lock when reading stale terminal progress', functio
     $installId = '43434343-4343-4343-a343-434343434343';
     $foreignInstallId = '45454545-4545-4545-a545-454545454545';
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->putStatus($installId, 'failed');
-    $sessions->putStatus($foreignInstallId, 'running');
-    $sessions->lock($foreignInstallId);
+    $sessions->run($installId)->markFailed();
+    $sessions->run($installId)->releaseLock();
+    $sessions->run($foreignInstallId)->startSynchronous();
 
     $progress = ReadInstallerRunProgressAction::run($installId);
 
@@ -527,9 +513,8 @@ it('cancels one run without clearing another run lock', function (): void {
     $cancelledInstallId = '55555555-5555-4555-a555-555555555555';
     $activeInstallId = '66666666-6666-4666-a666-666666666666';
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->putStatus($cancelledInstallId, 'running');
-    $sessions->putStatus($activeInstallId, 'running');
-    $sessions->lock($activeInstallId);
+    $sessions->run($cancelledInstallId)->markRunning();
+    $sessions->run($activeInstallId)->startSynchronous();
 
     CancelInstallerRunAction::run($cancelledInstallId);
 
@@ -542,8 +527,7 @@ it('prevents a cancelled queued run from executing when its job is delivered', f
 
     $installId = '57575757-5757-4757-a757-575757575757';
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->putStatus($installId, 'queued');
-    $sessions->lock($installId, queued: true);
+    $sessions->run($installId)->startQueued();
 
     RunInstallAction::mock()
         ->shouldReceive('handle')
@@ -561,11 +545,9 @@ it('refuses destructive browser plans including persisted plans from older versi
     $installId = '83838383-8383-4838-a838-838383838383';
     $input = InstallInputData::from([...installerRunInput()->toArray(), 'freshInstall' => true]);
     $sessions = resolve(InstallerSessionRepository::class);
-    $sessions->startStepInstallSession(
-        installId: $installId,
+    $sessions->run($installId)->startBrowserSteps(
         inputData: $input,
         plan: [['key' => InstallPlan::STEP_PREFLIGHT_CHECKS, 'label' => 'Preflight']],
-        installStatus: 'pending',
         firstStepKey: InstallPlan::STEP_PREFLIGHT_CHECKS,
         preflight: [],
     );
