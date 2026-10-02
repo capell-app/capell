@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Frontend\Http\Middleware;
 
 use Capell\Core\Contracts\Pageable;
+use Capell\Frontend\Actions\ResolveRenderingStrategyAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Closure;
 use Exception;
 use Illuminate\Http\Request;
@@ -27,8 +27,7 @@ class RenderingStrategyMiddleware
                 return $response;
             }
 
-            $strategy = RenderingStrategyEnum::tryFrom($page->meta['rendering_strategy'] ?? '')
-                ?? RenderingStrategyEnum::BladeOnly;
+            $strategy = ResolveRenderingStrategyAction::run($page);
 
             $response->headers->set('X-Rendering-Strategy', $strategy->value);
         } catch (Exception) {
