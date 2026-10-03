@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Frontend\Support\Assets\ViteConfigurationLocator;
 use Illuminate\Filesystem\Filesystem;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -20,9 +21,7 @@ final class IntegrateViteInputsAction
 
     public function handle(): string
     {
-        $path = collect(['vite.config.js', 'vite.config.mjs', 'vite.config.ts'])
-            ->map(fn (string $candidate): string => base_path($candidate))
-            ->first(fn (string $candidate): bool => $this->files->isFile($candidate));
+        $path = new ViteConfigurationLocator($this->files)->find();
 
         throw_unless(is_string($path), RuntimeException::class, 'No supported Vite configuration file was found.');
 

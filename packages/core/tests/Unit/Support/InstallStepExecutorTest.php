@@ -290,6 +290,7 @@ afterEach(function (): void {
 });
 
 it('fails the install step when npm cannot build frontend resources', function (): void {
+    expectInstallStepExecutorNpmProcessCommand('npm install', installStepExecutorProcessResult(true));
     $errorMessage = "Cannot find module '@rollup/rollup-linux-arm64-gnu'.";
 
     expectInstallStepExecutorNpmProcessCommand(
@@ -318,6 +319,7 @@ it('fails the install step when npm cannot build frontend resources', function (
 });
 
 it('reports successful npm rebuilds through the install step reporter', function (): void {
+    expectInstallStepExecutorNpmProcessCommand('npm install', installStepExecutorProcessResult(true));
     expectInstallStepExecutorNpmProcessCommand(
         'npm run build',
         installStepExecutorProcessResult(true),
@@ -340,6 +342,7 @@ it('reports successful npm rebuilds through the install step reporter', function
 });
 
 it('applies the install url and cache lifecycle around successful step execution', function (): void {
+    expectInstallStepExecutorNpmProcessCommand('npm install', installStepExecutorProcessResult(true));
     config(['app.url' => 'https://before-install.test']);
 
     $cacheClearCount = 0;

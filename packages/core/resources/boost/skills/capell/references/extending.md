@@ -1,5 +1,17 @@
 # Extending Capell: Patterns & Examples
 
+## Contents
+
+- [Creating a Custom Page Type](#creating-a-custom-page-type)
+- [Creating a Custom Widget](#creating-a-custom-widget)
+- [Creating a Settings Schema](#creating-a-settings-schema)
+- [Extending an Existing Schema](#extending-an-existing-schema)
+- [Creating a Schema Extender (for Admin form-builder)](#creating-a-schema-extender-for-admin-form-builder)
+- [Creating a New Add-on Package](#creating-a-new-add-on-package)
+- [Local Development Setup (Path Repositories)](#local-development-setup-path-repositories)
+- [Extending Core Types/Resources](#extending-core-typesresources)
+- [Publishing Core Schemas](#publishing-core-schemas)
+
 ## Creating a Custom Page Type
 
 Page types describe the model subject that can be edited as a page-like blueprint. Register them with `PageTypeData`; form fields and admin behavior are extended separately through schema extenders and admin contracts.

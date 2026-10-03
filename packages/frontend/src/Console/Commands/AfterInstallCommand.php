@@ -5,21 +5,20 @@ declare(strict_types=1);
 namespace Capell\Frontend\Console\Commands;
 
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
-use Capell\Frontend\Actions\GenerateTailwindAssetsAction;
+use Capell\Core\Support\Install\ConsoleProgressReporter;
+use Capell\Frontend\Actions\ApplyFrontendInstallationAction;
+use Capell\Frontend\Actions\PrepareFrontendInstallationAction;
 use Capell\Frontend\Actions\ResolveFrontendDependencyPlanAction;
-use Capell\Frontend\Actions\WriteViteInputManifestAction;
 use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
+use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Process;
 
 use function Laravel\Prompts\confirm;
 
 final class AfterInstallCommand extends Command
 {
     use DescribesCommandOptions;
-
-    private const int PROCESS_TIMEOUT_SECONDS = 900;
 
     protected $signature = 'capell:frontend-after-install
         {--apply : Apply the printed plan in non-interactive mode}
@@ -34,7 +33,7 @@ final class AfterInstallCommand extends Command
             (string) config('capell-frontend.tailwind.output_css', 'resources/css/capell/frontend.css'),
             ...resolve(FrontendViteInputRegistry::class)->all(),
         ];
-        $viteIntegrated = $this->viteInputHelperIsIntegrated();
+        $viteIntegrated = resolve(PrepareFrontendInstallationAction::class)->viteInputHelperIsIntegrated();
         $buildCommand = [$dependencyPlan->manager->value, 'run', $this->option('dev') ? 'dev' : 'build'];
 
         $this->writeCommandIntro('plan Capell frontend installation', $this->enabledOptionDetails([
@@ -61,18 +60,10 @@ final class AfterInstallCommand extends Command
             return self::FAILURE;
         }
 
-        if (! $this->runDependencyCommand($dependencyPlan->runtimeCommand) || ! $this->runDependencyCommand($dependencyPlan->developmentCommand)) {
-            return self::FAILURE;
-        }
-
-        $generated = GenerateTailwindAssetsAction::run();
-        WriteViteInputManifestAction::run($generated);
-
-        $build = Process::timeout(self::PROCESS_TIMEOUT_SECONDS)->run($buildCommand);
-        $this->outputProcessStreams($build->output(), $build->errorOutput());
-
-        if (! $build->successful()) {
-            $this->error('Capell remediation: install the planned dependencies, verify the generated input manifest, and re-run the displayed build command.');
+        try {
+            ApplyFrontendInstallationAction::run($dependencyPlan, (bool) $this->option('dev'), new ConsoleProgressReporter($this));
+        } catch (FrontendResourcePlanException $frontendResourcePlanException) {
+            $this->error($frontendResourcePlanException->getMessage());
 
             return self::FAILURE;
         }
@@ -102,48 +93,5 @@ final class AfterInstallCommand extends Command
             $this->line("import { capellViteInputs } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js'");
             $this->line('input: [...capellViteInputs(), /* application entries */]');
         }
-    }
-
-    /** @param  array<int, string>  $command */
-    private function runDependencyCommand(array $command): bool
-    {
-        if ($command === []) {
-            return true;
-        }
-
-        $result = Process::timeout(self::PROCESS_TIMEOUT_SECONDS)->run($command);
-        $this->outputProcessStreams($result->output(), $result->errorOutput());
-
-        if ($result->successful()) {
-            return true;
-        }
-
-        $this->error('Capell remediation: resolve the dependency constraints reported above, then re-run the exact command from the plan.');
-
-        return false;
-    }
-
-    private function outputProcessStreams(string $output, string $errorOutput): void
-    {
-        if ($output !== '') {
-            $this->getOutput()->write($output);
-        }
-
-        if ($errorOutput !== '') {
-            $this->getOutput()->write($errorOutput);
-        }
-    }
-
-    private function viteInputHelperIsIntegrated(): bool
-    {
-        $path = base_path('vite.config.js');
-
-        if (! is_file($path)) {
-            return false;
-        }
-
-        $config = (string) file_get_contents($path);
-
-        return str_contains($config, 'capellViteInputs') && str_contains($config, 'capell-vite-inputs.js');
     }
 }

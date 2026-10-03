@@ -1,5 +1,16 @@
 # Capell Architecture Reference
 
+## Contents
+
+- [Core Database Schema](#core-database-schema)
+- [Core Models](#core-models)
+- [Service Providers Bootstrap Order](#service-providers-bootstrap-order)
+- [Key Interfaces & Contracts](#key-interfaces--contracts)
+- [Middleware Chain (Frontend Requests)](#middleware-chain-frontend-requests)
+- [Event System](#event-system)
+- [Filament Resources (Admin Panel)](#filament-resources-admin-panel)
+- [Dependencies (Key Packages)](#dependencies-key-packages)
+
 ## Core Database Schema
 
 ### Primary Tables (core package, 18 migrations)
