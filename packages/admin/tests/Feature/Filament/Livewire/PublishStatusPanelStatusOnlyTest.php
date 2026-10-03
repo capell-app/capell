@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
+use Capell\Admin\Tests\Fixtures\Publishing\SharedStatusRecordPolicy;
 use Capell\Admin\Tests\Fixtures\Publishing\StatusOnlyRecord;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -17,6 +19,8 @@ beforeEach(function (): void {
         $table->id();
         $table->boolean('status')->default(true);
     });
+
+    Gate::policy(StatusOnlyRecord::class, SharedStatusRecordPolicy::class);
 });
 
 function statusOnlyPanel(StatusOnlyRecord $record): Testable
