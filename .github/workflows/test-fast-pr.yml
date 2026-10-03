@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   test:
-    if: github.event.pull_request.draft == false
+    if: ${{ github.actor != 'dependabot[bot]' && (github.event.pull_request.draft == false) }}
     name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
     runs-on: ubuntu-latest
     env:
@@ -75,6 +75,18 @@ jobs:
 
       - name: Check Composer lock file
         run: composer run check:composer-lock
+
+      - name: Locate Composer download cache
+        id: composer-download-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-download-cache.outputs.dir }}
+          key: composer-downloads-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-downloads-${{ runner.os }}-
 
       - name: Install PHP dependencies
         if: steps.php-cache.outputs.cache-hit != 'true'

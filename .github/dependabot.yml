@@ -4,17 +4,14 @@ updates:
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'weekly'
+      interval: monthly
     cooldown:
       default-days: 3
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
     groups:
-      all-updates:
+      all:
         patterns:
           - '*'
-        update-types:
-          - 'minor'
-          - 'patch'
     labels:
       - 'dependencies'
   - package-ecosystem: 'composer'
@@ -22,17 +19,14 @@ updates:
       - '/'
       - '/packages/*'
     schedule:
-      interval: 'weekly'
+      interval: monthly
     cooldown:
       default-days: 3
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
     groups:
-      all-updates:
+      all:
         patterns:
           - '*'
-        update-types:
-          - 'minor'
-          - 'patch'
     labels:
       - 'dependencies'
     ignore:
@@ -45,16 +39,13 @@ updates:
       - '/'
       - '/packages/*'
     schedule:
-      interval: 'weekly'
+      interval: monthly
     cooldown:
       default-days: 3
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
     groups:
-      all-updates:
+      all:
         patterns:
           - '*'
-        update-types:
-          - 'minor'
-          - 'patch'
     labels:
       - 'dependencies'

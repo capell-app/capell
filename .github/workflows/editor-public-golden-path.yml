@@ -11,10 +11,11 @@ permissions:
 
 concurrency:
   group: editor-public-golden-path-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   editor-public-golden-path:
+    if: github.actor != 'dependabot[bot]'
     name: Fresh install, author, cache, and restore
     runs-on: ubuntu-latest
     timeout-minutes: 35
