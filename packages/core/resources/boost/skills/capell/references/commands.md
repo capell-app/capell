@@ -25,17 +25,17 @@
 
 ## Admin Commands (`capell:admin-*`)
 
-| Command                | Description                                             |
-| ---------------------- | ------------------------------------------------------- |
-| `capell:admin-install` | Install admin panel (runs migrations, publishes assets) |
-| `capell:admin-setup`   | Interactive setup wizard for admin                      |
-| `capell:admin-upgrade` | Upgrade admin panel                                     |
-| `capell:admin-clear-cache` | Flush Capell core, view-finder, local theme definition and registered admin caches |
-| `capell:admin-cache-configurators` | Cache all registered admin configurators |
-| `capell:admin-clear-configurators-cache` | Clear cached admin configurators |
-| `capell:admin-cache-widgets` | Cache all discoverable Filament widgets |
-| `capell:admin-clear-widgets-cache` | Clear the cached Filament widgets |
-| `capell:admin-publish-resources` | Publish Filament resources to app |
+| Command                                  | Description                                                                        |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| `capell:admin-install`                   | Install admin panel (runs migrations, publishes assets)                            |
+| `capell:admin-setup`                     | Interactive setup wizard for admin                                                 |
+| `capell:admin-upgrade`                   | Upgrade admin panel                                                                |
+| `capell:admin-clear-cache`               | Flush Capell core, view-finder, local theme definition and registered admin caches |
+| `capell:admin-cache-configurators`       | Cache all registered admin configurators                                           |
+| `capell:admin-clear-configurators-cache` | Clear cached admin configurators                                                   |
+| `capell:admin-cache-widgets`             | Cache all discoverable Filament widgets                                            |
+| `capell:admin-clear-widgets-cache`       | Clear the cached Filament widgets                                                  |
+| `capell:admin-publish-resources`         | Publish Filament resources to app                                                  |
 
 Scaffold a schema class with the core command `capell:make-schema {name}`; it writes to `App\Schemas`.
 

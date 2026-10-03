@@ -58,9 +58,9 @@
             </span>
         @else
             <span class="ml-auto text-gray-400 dark:text-gray-500">
-                {{ __($view->isLive() || $view->isExpired()
-                    ? 'capell-admin::publish_panel.publication_date_unknown'
-                    : 'capell-admin::publish_panel.not_published') }}
+                {{ $view->isLive() || $view->isExpired()
+                    ? __('capell-admin::publish_panel.publication_date_unknown')
+                    : __('capell-admin::publish_panel.not_published') }}
             </span>
         @endif
     </div>
