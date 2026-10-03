@@ -250,6 +250,12 @@ final class InstallerSessionRepository
         return is_array($plan) ? array_values(array_filter($plan, is_array(...))) : [];
     }
 
+    /** @param array<int, array{key: string, label: string}> $plan */
+    public function putPlan(string $installId, array $plan): void
+    {
+        $this->put($this->key($installId, 'plan'), $plan);
+    }
+
     public function resolvedUserId(string $installId): ?int
     {
         $resolvedUserId = $this->get($this->key($installId, 'user_id'));

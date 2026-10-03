@@ -84,3 +84,23 @@ it('translates both expired-run responses at the HTTP boundary', function (
         'Mae cynllun y gosodwr wedi dod i ben.',
     ],
 ]);
+
+it('returns a refreshed plan only when the step result includes one', function (): void {
+    expect(new ReflectionClass(InstallerRunStepData::class)->getFileName())->toBe(dirname(__DIR__, 2) . '/src/Data/InstallerRunStepData.php');
+    $plan = [['key' => 'install-package:vendor/dependency', 'label' => 'Install dependency']];
+    foreach ([null, $plan] as $updatedPlan) {
+        $response = resolve(InstallStepResponse::class)->fromResult(new InstallerRunStepData(
+            installId: '22222222-2222-4222-a222-222222222222',
+            currentStep: 'require-package:vendor/theme',
+            code: InstallerRunStepResultCode::Running,
+            nextStep: 'install-package:vendor/dependency',
+            plan: $updatedPlan,
+        ))->getData(true);
+        expect($response)->toMatchArray(['currentStep' => 'require-package:vendor/theme', 'nextStep' => 'install-package:vendor/dependency', 'status' => 'running']);
+        if ($updatedPlan === null) {
+            expect($response)->not->toHaveKey('plan');
+        } else {
+            expect($response['plan'])->toBe($plan);
+        }
+    }
+});

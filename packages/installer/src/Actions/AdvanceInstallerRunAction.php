@@ -66,7 +66,7 @@ final class AdvanceInstallerRunAction
         }
 
         if ($stepKey !== $expectedStepKey) {
-            return $this->outOfSequenceResult($installId, $stepKey, $expectedStepKey, $reporter);
+            return $this->outOfSequenceResult($installId, $stepKey, $expectedStepKey, $reporter, $plan);
         }
 
         $this->sessions->run($installId)->markRunning($reporter);
@@ -74,6 +74,8 @@ final class AdvanceInstallerRunAction
         if (function_exists('memory_reset_peak_usage')) {
             memory_reset_peak_usage();
         }
+
+        $refreshedPlan = null;
 
         try {
             $reporter->step(InstallPlan::labelForStep($plan, $stepKey) . '…');
@@ -94,6 +96,15 @@ final class AdvanceInstallerRunAction
 
             if ($stepResult->packageMetadataRefreshed && ! $packageMetadataRefreshed) {
                 $this->sessions->putPackageMetadataRefreshed($installId, true);
+            }
+
+            if (InstallPlan::isPackageRequireStep($stepKey) || $stepKey === InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING) {
+                $updatedPlan = InstallPlan::refreshPackageSteps($inputData, $plan, [...$this->sessions->completedSteps($installId), $stepKey]);
+                if ($updatedPlan !== $plan) {
+                    $plan = $updatedPlan;
+                    $refreshedPlan = $plan;
+                    $this->sessions->putPlan($installId, $plan);
+                }
             }
         } catch (Throwable $throwable) {
             $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());
@@ -124,7 +135,7 @@ final class AdvanceInstallerRunAction
             return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);
         }
 
-        return $this->result($installId, $stepKey, InstallerRunStepResultCode::Running, $reporter, nextStep: $nextStep);
+        return $this->result($installId, $stepKey, InstallerRunStepResultCode::Running, $reporter, nextStep: $nextStep, plan: $refreshedPlan);
     }
 
     /**
@@ -167,11 +178,13 @@ final class AdvanceInstallerRunAction
         );
     }
 
+    /** @param array<int, array{key: string, label: string}> $plan */
     private function outOfSequenceResult(
         string $installId,
         string $stepKey,
         string $expectedStepKey,
         FileLogProgressReporter $reporter,
+        array $plan,
     ): InstallerRunStepData {
         if (in_array($stepKey, $this->sessions->completedSteps($installId), true)) {
             return $this->result(
@@ -180,6 +193,7 @@ final class AdvanceInstallerRunAction
                 code: InstallerRunStepResultCode::Running,
                 reporter: $reporter,
                 nextStep: $expectedStepKey,
+                plan: $plan,
             );
         }
 
@@ -193,6 +207,10 @@ final class AdvanceInstallerRunAction
         );
     }
 
+    /**
+     * @param  array<string, mixed>|null  $preflight
+     * @param  array<int, array{key: string, label: string}>|null  $plan
+     */
     private function result(
         string $installId,
         string $stepKey,
@@ -204,6 +222,7 @@ final class AdvanceInstallerRunAction
         ?string $exceptionMessage = null,
         ?string $remediation = null,
         ?array $preflight = null,
+        ?array $plan = null,
     ): InstallerRunStepData {
         return new InstallerRunStepData(
             installId: $installId,
@@ -217,6 +236,7 @@ final class AdvanceInstallerRunAction
             exceptionMessage: $exceptionMessage,
             remediation: $remediation,
             preflight: $preflight,
+            plan: $plan,
         );
     }
 
