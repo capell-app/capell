@@ -25,6 +25,12 @@ final class InstallerScreenshotFixture
         $queue = new EnvQueueConnectionPatch($environmentPath);
         $settings = new EnvSettingsCachePatch($environmentPath);
 
+        // Installation creates the host .env without the recommended cache key.
+        // Use its applicable patch so existing values and the real backup survive.
+        if ($settings->probe() === PatchStatus::Applicable) {
+            $settings->apply();
+        }
+
         throw_if(
             $queue->probe() === PatchStatus::Unsupported || $settings->probe() !== PatchStatus::AlreadyApplied,
             RuntimeException::class,

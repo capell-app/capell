@@ -2,6 +2,11 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repositoryRoot = dirname(fileURLToPath(import.meta.url))
+const workbenchPhpConfig = join(repositoryRoot, 'workbench/php')
+const inheritedPhpScanDirectory = process.env.PHP_INI_SCAN_DIR
+const phpScanDirectory = inheritedPhpScanDirectory
+    ? `${inheritedPhpScanDirectory}:${workbenchPhpConfig}`
+    : `:${workbenchPhpConfig}`
 const appUrl = 'http://127.0.0.1:8145'
 
 // Absolute URLs the app renders end up visible in captures — Filament shows one
@@ -45,7 +50,9 @@ export default {
             ],
             readyUrl: `${appUrl}/__ping`,
             environment: {
-                PHPRC: join(repositoryRoot, 'workbench/php'),
+                // Remove inherited PHPRC: replacing the main ini loses host extension paths.
+                PHPRC: undefined,
+                PHP_INI_SCAN_DIR: phpScanDirectory,
             },
         },
     },
