@@ -178,8 +178,9 @@ final class InstallStepExecutor
         RequireExtraPackagesAction::run([$packageName], $state->reporter);
 
         $this->registerComposerDiscoveredProviders();
+        $this->refreshInstalledPackageMetadata();
         CapellCore::clearExtensionCache();
-        $state->refreshSelectedPackages();
+        $state->refreshSelectedPackages()->markPackageMetadataRefreshed();
     }
 
     private function installDeveloperTooling(InstallRunState $state): void

@@ -9,6 +9,7 @@ use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Actions\DemoPackageAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
+use Capell\Core\Actions\Install\RequireExtraPackagesAction;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
@@ -1248,4 +1249,20 @@ it('does not refresh package metadata again when the run state already reports i
 
     expect($state->packageMetadataIsRefreshed())->toBeTrue()
         ->and($packageAfterExecute->path)->not->toBe($installedPath);
+});
+
+it('refreshes newly downloaded manifests even when an earlier download already refreshed metadata', function (): void {
+    $packageName = 'vendor/newly-downloaded';
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(name: $packageName), installPath: base_path('vendor/vendor/newly-downloaded'));
+    $discovery = Mockery::mock(InstalledPackageManifestDiscovery::class);
+    $discovery->shouldReceive('discover')->once()->andReturn([$packageName => $manifest]);
+    app()->instance(InstalledPackageManifestDiscovery::class, $discovery);
+    RequireExtraPackagesAction::mock()->shouldReceive('handle')->with([$packageName], Mockery::type(ProgressReporter::class))->once();
+    $lines = [];
+    $state = new InstallRunState(installStepExecutorInputData(), installStepExecutorReporter($lines), packageMetadataRefreshed: true);
+
+    resolve(InstallStepExecutor::class)->execute(InstallPlan::packageRequireStepKey($packageName), $state);
+
+    expect(CapellCore::getPackage($packageName)->path)->toBe($manifest->installPath)
+        ->and($state->packageMetadataIsRefreshed())->toBeTrue();
 });

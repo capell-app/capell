@@ -722,3 +722,129 @@ test('runner uses the active success url after a valid completion', async ({
     expect(result.events).toContain('completed-token')
     expect(result.events).toContain('step-complete')
 })
+
+test('downloaded dependencies refresh progress labels and totals without losing completed steps on retry', async ({
+    page,
+}) => {
+    await setInstallerHarness(page)
+    const result = await page.evaluate(async () => {
+        const initialPlan = [
+            { key: 'download', label: 'Download theme' },
+            { key: 'theme', label: 'Install theme' },
+            { key: 'finish', label: 'Finish' },
+        ]
+        const refreshedPlan = [
+            initialPlan[0],
+            { key: 'layout', label: 'Install Layout Builder' },
+            initialPlan[1],
+            { key: 'layout-after', label: 'Post-install Layout Builder' },
+            initialPlan[2],
+        ]
+        const observations = []
+        let failHook = true
+        let resolveFailure
+        let resolveComplete
+        const failed = new Promise((resolve) => {
+            resolveFailure = resolve
+        })
+        const complete = new Promise((resolve) => {
+            resolveComplete = resolve
+        })
+        const progress = window.CapellInstaller.createProgress({ messages: {} })
+        progress.renderPlanSteps(initialPlan)
+        observations.push(
+            document.querySelector('[data-progress-steps-count]').textContent,
+        )
+        const originalFailure = progress.showFailurePanel
+        progress.showFailurePanel = (key) => {
+            originalFailure(key)
+            resolveFailure()
+        }
+        progress.showInstalledPanel = () => resolveComplete()
+        window.fetch = async (url, options) => {
+            const key = JSON.parse(options.body).step
+            observations.push({
+                key,
+                count: document.querySelector('[data-progress-steps-count]')
+                    .textContent,
+                label: document.getElementById('current-step-name').textContent,
+            })
+            if (key === 'download')
+                return new Response(
+                    JSON.stringify({
+                        status: 'running',
+                        plan: refreshedPlan,
+                        nextStep: 'layout',
+                    }),
+                )
+            if (key === 'layout-after' && failHook) {
+                failHook = false
+                return new Response(
+                    JSON.stringify({
+                        status: 'failed',
+                        error: 'Controlled hook failure',
+                    }),
+                    { status: 500 },
+                )
+            }
+            const index = refreshedPlan.findIndex((step) => step.key === key)
+            return new Response(
+                JSON.stringify({
+                    status: 'running',
+                    nextStep: refreshedPlan[index + 1]?.key,
+                }),
+            )
+        }
+        const runner = window.CapellInstaller.createInstallRunner({
+            form: document.getElementById('install-form'),
+            wizard: { completeInstallingFlow: () => {} },
+            packages: { updateSubmitButtonLabel: () => {} },
+            progress,
+            csrf: { token: () => 'token', setToken: () => {} },
+        })
+        runner.runNextStep('install-1', '/run-step', 'download')
+        await failed
+        const failureTitle =
+            document.getElementById('failure-title').textContent
+        runner.runNextStep('install-1', '/run-step', 'layout-after')
+        await complete
+        return {
+            observations,
+            failureTitle,
+            finalCount: document.querySelector('[data-progress-steps-count]')
+                .textContent,
+        }
+    })
+
+    expect(result.observations[0]).toBe('0 of 3 complete')
+    expect(result.observations.filter((item) => item.key === 'layout')).toEqual(
+        [
+            {
+                key: 'layout',
+                count: '1 of 5 complete',
+                label: 'Install Layout Builder',
+            },
+        ],
+    )
+    expect(
+        result.observations.filter((item) => item.key === 'layout-after'),
+    ).toEqual([
+        {
+            key: 'layout-after',
+            count: '3 of 5 complete',
+            label: 'Post-install Layout Builder',
+        },
+        {
+            key: 'layout-after',
+            count: '3 of 5 complete',
+            label: 'Post-install Layout Builder',
+        },
+    ])
+    expect(result.observations.find((item) => item.key === 'theme').count).toBe(
+        '2 of 5 complete',
+    )
+    expect(result.failureTitle).toBe(
+        'There is a problem with post-install Layout Builder. See the log.',
+    )
+    expect(result.finalCount).toBe('5 of 5 complete')
+})
