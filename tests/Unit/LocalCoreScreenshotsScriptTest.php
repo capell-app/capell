@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
 it('prepares the Core workbench without mutating the shared Testbench vendor tree', function (): void {
@@ -113,3 +114,81 @@ it('refuses to skip the install when no dependency executables are installed', f
         rmdir($root);
     }
 });
+
+it('prepares a real Laravel manifest before installation without replacing an existing manifest', function (?string $existingManifest, int $expectedExit): void {
+    $repository = dirname(__DIR__, 2);
+    $temporary = sys_get_temp_dir() . '/capell-core-screenshot-manifest-' . bin2hex(random_bytes(6));
+    $root = $temporary . '/root';
+    $binaryDirectory = $temporary . '/bin';
+    $runtime = $root . '/vendor/orchestra/testbench-core/laravel';
+    $fixture = $repository . '/scripts/screenshots/laravel-v13.10.1-package.json';
+    $expectedManifest = $temporary . '/expected-package.json';
+    $log = $temporary . '/commands.log';
+
+    expect(hash_file('sha256', $fixture))->toBe('023d511d768e05b69e8127e18ae0e3d4a2e91702e8dd82917c655e53e5908de5');
+
+    mkdir($binaryDirectory, 0777, true);
+    mkdir($root . '/scripts/screenshots', 0777, true);
+    mkdir($runtime, 0777, true);
+    copy($repository . '/scripts/screenshots/prepare-workbench.sh', $root . '/scripts/screenshots/prepare-workbench.sh');
+    copy($fixture, $root . '/scripts/screenshots/laravel-v13.10.1-package.json');
+    file_put_contents($expectedManifest, $existingManifest ?? file_get_contents($fixture));
+    if ($existingManifest !== null) {
+        file_put_contents($runtime . '/package.json', $existingManifest);
+    }
+
+    file_put_contents($temporary . '/check-manifest.php', <<<'PHP'
+<?php
+declare(strict_types=1);
+
+$path = getcwd() . '/vendor/orchestra/testbench-core/laravel/package.json';
+if (! is_file($path)) {
+    throw new RuntimeException('Generated Laravel package.json was absent before capell:install.');
+}
+json_decode(file_get_contents($path), flags: JSON_THROW_ON_ERROR);
+if (file_get_contents($path) !== file_get_contents(getenv('CAPELL_SCREENSHOT_TEST_EXPECTED_MANIFEST'))) {
+    throw new RuntimeException('The application manifest was replaced or did not match Laravel.');
+}
+file_put_contents(getenv('CAPELL_SCREENSHOT_SCRIPT_TEST_LOG'), "manifest validated before capell:install\n", FILE_APPEND);
+PHP);
+
+    file_put_contents($binaryDirectory . '/php', <<<'BASH'
+#!/bin/sh
+set -e
+if [ "${2:-}" = "capell:install" ]; then
+    "$CAPELL_SCREENSHOT_TEST_PHP" "$CAPELL_SCREENSHOT_TEST_CHECKER"
+fi
+BASH);
+    file_put_contents($binaryDirectory . '/node', "#!/bin/sh\nexit 0\n");
+    chmod($binaryDirectory . '/php', 0755);
+    chmod($binaryDirectory . '/node', 0755);
+
+    try {
+        $process = new Process(
+            ['/bin/bash', 'scripts/screenshots/prepare-workbench.sh'],
+            $root,
+            [
+                'PATH' => $binaryDirectory . PATH_SEPARATOR . getenv('PATH'),
+                'CAPELL_SCREENSHOT_TEST_PHP' => PHP_BINARY,
+                'CAPELL_SCREENSHOT_TEST_CHECKER' => $temporary . '/check-manifest.php',
+                'CAPELL_SCREENSHOT_TEST_EXPECTED_MANIFEST' => $expectedManifest,
+                'CAPELL_SCREENSHOT_SCRIPT_TEST_LOG' => $log,
+            ],
+        );
+        $process->run();
+
+        expect($process->getExitCode())->toBe($expectedExit, $process->getErrorOutput())
+            ->and(file_get_contents($runtime . '/package.json'))->toBe(file_get_contents($expectedManifest));
+        if ($expectedExit === 0) {
+            expect(file($log, FILE_IGNORE_NEW_LINES))->toBe(['manifest validated before capell:install']);
+        } else {
+            expect($process->getErrorOutput())->toContain('Syntax error');
+        }
+    } finally {
+        (new Filesystem)->deleteDirectory($temporary);
+    }
+})->with([
+    'missing manifest' => [null, 0],
+    'existing application manifest' => ['{"private":true,"scripts":{"build":"custom build"},"dependencies":{"axios":"^1.0"}}', 0],
+    'malformed application manifest' => ['{"private":', 255],
+]);

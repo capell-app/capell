@@ -52,6 +52,14 @@ export default {
 };
 VITE_CONFIG
 
+# Testbench omits the application npm manifest required by frontend preparation.
+# Seed the original laravel/laravel v13.10.1 package.json only when absent.
+# Source commit: 5aad4ddf34d5e21dfe6b4c07eeac67d5bd5e08b0.
+TESTBENCH_PACKAGE_JSON="${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/package.json"
+if [[ ! -e "${TESTBENCH_PACKAGE_JSON}" && ! -L "${TESTBENCH_PACKAGE_JSON}" ]]; then
+    cp "${REPOSITORY_ROOT}/scripts/screenshots/laravel-v13.10.1-package.json" "${TESTBENCH_PACKAGE_JSON}"
+fi
+
 rm -f "${DATABASE_PATH}"
 touch "${DATABASE_PATH}"
 
