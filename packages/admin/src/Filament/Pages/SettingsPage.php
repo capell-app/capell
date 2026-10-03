@@ -18,7 +18,6 @@ use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Site;
 use Capell\Core\Settings\CoreSettings;
-use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
@@ -310,7 +309,7 @@ class SettingsPage extends AbstractAdminSettingsPage
      */
     private function allSiteSurrogateKeys(): array
     {
-        return array_values(SiteAccess::current()->query(Site::class)
+        return array_values(Site::query()
             ->pluck('id')
             ->map(fn (int $siteId): string => 'site-' . $siteId)
             ->all());

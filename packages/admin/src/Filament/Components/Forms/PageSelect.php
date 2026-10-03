@@ -35,6 +35,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use Override;
 
 class PageSelect extends Select
 {
@@ -49,6 +50,7 @@ class PageSelect extends Select
 
     private ?Closure $modifySelectOptionsQueryUsing = null;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -71,7 +73,7 @@ class PageSelect extends Select
 
                 $page = SiteAccess::current()->query(Page::class)
                     ->with(['pageUrls', 'ancestors'])
-                    ->withCount(['children', 'pageUrls'])
+                    ->withCount(['children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query), 'pageUrls'])
                     ->whereKey($value)
                     ->first();
 
@@ -310,7 +312,7 @@ class PageSelect extends Select
 
         $pages = $query
             ->with($relations)
-            ->withCount(['children', 'pageUrls'])
+            ->withCount(['children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query), 'pageUrls'])
             ->orderBy('site_id')
             ->orderBy(NestedSet::LFT, 'asc')
             ->get();

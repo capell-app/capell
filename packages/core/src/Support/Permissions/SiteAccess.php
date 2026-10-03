@@ -41,6 +41,9 @@ final readonly class SiteAccess
 
     public static function current(): self
     {
+        // Queue workers reuse the bootstrap request, and grants can be revoked
+        // within an HTTP request through writes that emit no model event.
+        // Always read the live boundary; callers may retain an explicit snapshot.
         return self::forActor(auth()->user());
     }
 

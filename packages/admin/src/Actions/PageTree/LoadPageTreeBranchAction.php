@@ -38,7 +38,7 @@ final class LoadPageTreeBranchAction
         $pageClass = Page::class;
 
         /** @var Collection<int, Page> $pages */
-        $pages = SiteAccess::current()->query($pageClass)
+        $pages = SiteAccess::forActor($actor)->query($pageClass)
             ->when(($parentId ?? 0) > 0, function (Builder $query) use ($parentId): void {
                 $query->where('parent_id', $parentId);
             })
@@ -60,7 +60,7 @@ final class LoadPageTreeBranchAction
     public function hasVisibleChildren(Authenticatable $actor, Page $page): bool
     {
         /** @var Collection<int, Page> $children */
-        $children = SiteAccess::current()->scope($page->children()->getQuery())
+        $children = SiteAccess::forActor($actor)->scope($page->children()->getQuery())
             ->with(['site', 'blueprint.roleRestrictions'])
             ->get();
 

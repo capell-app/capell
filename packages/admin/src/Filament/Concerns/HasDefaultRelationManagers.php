@@ -8,6 +8,8 @@ use Capell\Admin\Filament\Resources\Pages\RelationManagers\ChildrenRelationManag
 use Capell\Admin\Filament\Resources\Pages\RelationManagers\SiblingsRelationManager;
 use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 trait HasDefaultRelationManagers
@@ -19,11 +21,11 @@ trait HasDefaultRelationManagers
     public static function relationManagers(Model $record): array
     {
         if ($record->getAttributeValue('children_count') === null) {
-            $record->loadCount('children');
+            $record->loadCount(['children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query)]);
         }
 
         if ($record->getAttributeValue('siblings_count') === null) {
-            $record->loadCount('siblings');
+            $record->loadCount(['siblings' => fn (Builder $query): Builder => SiteAccess::current()->scope($query)]);
         }
 
         return [

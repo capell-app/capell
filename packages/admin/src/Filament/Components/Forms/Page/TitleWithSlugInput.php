@@ -18,7 +18,6 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
-use Exception;
 use Filament\Actions\Action;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\FusedGroup;
@@ -51,7 +50,9 @@ class TitleWithSlugInput
                             $siteId = $formData['site_id'] ?? null;
                         }
 
-                        throw_unless($siteId, Exception::class, 'Site ID is required to generate URL path');
+                        if (! $siteId) {
+                            return '/';
+                        }
 
                         $languageId = $get('language_id');
 
