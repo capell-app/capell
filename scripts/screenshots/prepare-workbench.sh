@@ -63,7 +63,13 @@ fi
 rm -f "${DATABASE_PATH}"
 touch "${DATABASE_PATH}"
 
-export PHPRC="${REPOSITORY_ROOT}/workbench/php"
+# Keep the host main php.ini and extension paths; append fixture memory settings.
+unset PHPRC
+if [[ -n "${PHP_INI_SCAN_DIR:-}" ]]; then
+    export PHP_INI_SCAN_DIR="${PHP_INI_SCAN_DIR}:${REPOSITORY_ROOT}/workbench/php"
+else
+    export PHP_INI_SCAN_DIR=":${REPOSITORY_ROOT}/workbench/php"
+fi
 export APP_URL
 export APP_ENV=production
 export APP_DEBUG=false

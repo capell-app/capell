@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 import {
     commandsForEntries,
@@ -86,3 +90,60 @@ test('initializes published media for the formerly orphaned media capture', () =
         1,
     )
 })
+
+for (const inheritedScan of [undefined, '', 'custom']) {
+    test(`uses the host PHP ini and appends fixture settings with ${inheritedScan ?? 'default'} scan`, async () => {
+        const directory = mkdtempSync(join(tmpdir(), 'core-screenshot-ini-'))
+        const previousScan = process.env.PHP_INI_SCAN_DIR
+        const previousPhprc = process.env.PHPRC
+        const scan = inheritedScan === 'custom' ? directory : inheritedScan
+        const cleanEnvironment = {
+            ...process.env,
+            PHPRC: undefined,
+            PHP_INI_SCAN_DIR: undefined,
+        }
+        const baseline = spawnSync(
+            'php',
+            ['-r', 'echo php_ini_loaded_file();'],
+            { env: cleanEnvironment, encoding: 'utf8' },
+        )
+        assert.equal(baseline.status, 0, baseline.stderr)
+        writeFileSync(join(directory, 'custom.ini'), 'precision=11\n')
+        try {
+            if (scan === undefined) delete process.env.PHP_INI_SCAN_DIR
+            else process.env.PHP_INI_SCAN_DIR = scan
+            process.env.PHPRC = join(directory, 'stale-php.ini')
+            const { default: config } = await import(
+                `../../screenshots.config.mjs?scan=${encodeURIComponent(String(inheritedScan))}`
+            )
+            const environment = fixtureEnvironment({
+                environment: config.environment,
+                serve: config.app.serve,
+            })
+            const child = spawnSync(
+                'php',
+                [
+                    '-r',
+                    `echo json_encode(['phprc' => getenv('PHPRC'), 'scan' => getenv('PHP_INI_SCAN_DIR'), 'loaded' => php_ini_loaded_file(), 'memory' => ini_get('memory_limit'), 'precision' => ini_get('precision')]);`,
+                ],
+                { env: environment, encoding: 'utf8' },
+            )
+            assert.equal(child.status, 0, child.stderr)
+            const actual = JSON.parse(child.stdout)
+            assert.equal(actual.phprc, false)
+            assert.equal(
+                actual.scan,
+                `${scan || ''}:${resolve('workbench/php')}`,
+            )
+            assert.equal(actual.loaded, baseline.stdout)
+            assert.equal(actual.memory, '-1')
+            if (scan) assert.equal(actual.precision, '11')
+        } finally {
+            if (previousScan === undefined) delete process.env.PHP_INI_SCAN_DIR
+            else process.env.PHP_INI_SCAN_DIR = previousScan
+            if (previousPhprc === undefined) delete process.env.PHPRC
+            else process.env.PHPRC = previousPhprc
+            rmSync(directory, { recursive: true, force: true })
+        }
+    })
+}
