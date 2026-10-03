@@ -8,6 +8,8 @@ use Capell\Admin\Contracts\Activity\ActivityDecorator;
 use Capell\Admin\Data\Activity\ActivityPresentationData;
 use Capell\Admin\Support\Activity\DefaultActivityDecorator;
 use Capell\Admin\Support\Activity\TranslationActivityDecorator;
+use Capell\Core\Support\Permissions\SiteAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Activitylog\Models\Activity;
@@ -22,6 +24,8 @@ final class DescribeActivityAction
 
     public function handle(Activity $activity): ActivityPresentationData
     {
+        throw_unless(SiteAccess::current()->canUseRecord($activity), AuthorizationException::class);
+
         foreach ($this->decorators() as $decorator) {
             if ($decorator->supports($activity)) {
                 return $decorator->decorate($activity);

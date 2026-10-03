@@ -6,7 +6,6 @@ namespace Capell\Admin\Actions\Layouts;
 
 use Capell\Admin\Actions\EditorImpact\BuildEditorImpactConsequencesAction;
 use Capell\Admin\Support\PageUrlPresenter;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\EditorImpact\EditorImpactPageData;
 use Capell\Core\Data\EditorImpact\EditorImpactPreviewData;
@@ -17,6 +16,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Impact\ImpactPlanFingerprint;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -44,9 +44,8 @@ final class BuildLayoutImpactPreviewAction
 
             /** @var class-string<Page&Pageable> $pageClass */
             $pages = $pages->merge(
-                SiteScope::applyForCurrentActor(
-                    $pageClass::query(),
-                    denyWhenMissingActor: true,
+                SiteAccess::current()->scope(
+                    SiteAccess::current()->query($pageClass),
                 )
                     ->where('layout_id', $layout->getKey())
                     ->with([
@@ -148,11 +147,6 @@ final class BuildLayoutImpactPreviewAction
             return false;
         }
 
-        if ($layout->site_id === null || SiteScope::isGlobalActor($actor)) {
-            return true;
-        }
-
-        return method_exists($actor, 'getAssignedSiteIds')
-            && $actor->getAssignedSiteIds()->contains($layout->site_id);
+        return SiteAccess::forActor($actor)->canUseLayout($layout);
     }
 }

@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Components\Forms\Layout;
 
 use Capell\Core\Enums\LayoutGroupEnum;
 use Capell\Core\Models\Layout;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -24,7 +25,7 @@ class GroupSelect extends Select
                 /** @var class-string<Layout> $model */
                 $model = Layout::class;
 
-                $options = $model::getGroups();
+                $options = SiteAccess::current()->layoutGroups();
 
                 if (is_string($state) && $state !== '' && ! isset($options[$state])) {
                     $options[$state] = $state;

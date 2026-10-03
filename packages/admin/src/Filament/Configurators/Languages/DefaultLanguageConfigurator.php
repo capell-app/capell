@@ -11,9 +11,9 @@ use Capell\Admin\Enums\SchemaExtenderEnum;
 use Capell\Admin\Filament\Components\Forms\DefaultToggle;
 use Capell\Admin\Filament\Components\Forms\StatusToggle;
 use Capell\Admin\Filament\Concerns\HasConfigurator;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Field;
@@ -142,7 +142,7 @@ class DefaultLanguageConfigurator implements ConfiguratorInterface
                             /** @var class-string<Site> $model */
                             $model = Site::class;
 
-                            return SiteScope::applyForCurrentActor($model::query(), 'id')
+                            return SiteAccess::current()->query($model)
                                 ->select(['name', 'id'])
                                 ->ordered()
                                 ->pluck('name', 'id')

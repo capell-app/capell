@@ -9,6 +9,13 @@ use Capell\Admin\Data\Agent\AgentAdminToolResultData;
 use Capell\Core\Data\Agent\AgentToolDefinitionData;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Enums\TranslatableType;
+use Capell\Core\Models\EditorScratchDraft;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PropertySet;
+use Capell\Core\Models\Taxonomy;
+use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
@@ -128,7 +135,7 @@ final readonly class AgentAdminToolInvocationService
             $id = $invocation->payload['id'] ?? null;
 
             if (($invocation->payload['operation'] ?? null) === 'update' && is_numeric($id)) {
-                DB::table($resource === 'taxonomy' ? 'taxonomies' : 'property_sets')
+                ($resource === 'taxonomy' ? SiteAccess::forActor($invocation->user)->query(Taxonomy::class) : PropertySet::query())
                     ->where('id', (int) $id)
                     ->lockForUpdate()
                     ->first();
@@ -162,19 +169,19 @@ final readonly class AgentAdminToolInvocationService
             return;
         }
 
-        DB::table('pages')
+        SiteAccess::forActor($invocation->user)->query(Page::class)
             ->where('id', $pageId)
             ->where('site_id', $invocation->siteId)
             ->lockForUpdate()
             ->first();
 
-        DB::table('page_property_values')
+        SiteAccess::forActor($invocation->user)->query(PagePropertyValue::class)
             ->where('page_id', $pageId)
             ->where('site_id', $invocation->siteId)
             ->lockForUpdate()
             ->get();
 
-        DB::table('translations')
+        SiteAccess::forActor($invocation->user)->query(Translation::class)
             ->where('translatable_type', TranslatableType::Page->value)
             ->where('translatable_id', $pageId)
             ->lockForUpdate()
@@ -185,7 +192,7 @@ final readonly class AgentAdminToolInvocationService
             ->lockForUpdate()
             ->get();
 
-        DB::table('editor_scratch_drafts')
+        SiteAccess::forActor($invocation->user)->query(EditorScratchDraft::class)
             ->where('user_id', $invocation->user->getAuthIdentifier())
             ->where('site_id', $invocation->siteId)
             ->where('record_type', TranslatableType::Page->value)

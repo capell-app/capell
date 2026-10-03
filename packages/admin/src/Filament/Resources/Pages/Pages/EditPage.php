@@ -65,6 +65,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\ForceDeleteAction;
@@ -1221,7 +1222,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
         $selectedLangIds = array_map(intval(...), $selectedLangIds);
 
-        $parent = Page::query()
+        $parent = SiteAccess::current()->query(Page::class)
             ->withWhereHas('blueprint')
             ->withWhereHas('translations')
             ->firstWhere('id', $parentId);

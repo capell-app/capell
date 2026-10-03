@@ -16,6 +16,7 @@ use Capell\Core\Exceptions\MissingMorphedModelException;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -77,7 +78,7 @@ class PageUrlForm implements FormConfigurator
                                     return;
                                 }
 
-                                $languageBelongsToSite = Site::query()
+                                $languageBelongsToSite = SiteAccess::current()->query(Site::class)
                                     ->whereKey((int) $siteId)
                                     ->whereHas(
                                         'languages',
@@ -117,7 +118,7 @@ class PageUrlForm implements FormConfigurator
                                         $set('url', null);
                                     }
 
-                                    $url = PageUrl::query()->where([
+                                    $url = SiteAccess::current()->query(PageUrl::class)->where([
                                         'site_id' => $get('site_id'),
                                         'language_id' => $get('language_id'),
                                         'pageable_type' => $get('pageable_type'),
@@ -187,7 +188,7 @@ class PageUrlForm implements FormConfigurator
                                 throw_if($model === null, MissingMorphedModelException::class, $pageType);
 
                                 /** @var (Pageable<Model>&Model)|null $page */
-                                $page = $model::query()->find($get('pageable_id'));
+                                $page = SiteAccess::current()->query($model)->find($get('pageable_id'));
 
                                 if ($page === null) {
                                     return __('capell-admin::generic.page_url_path_info');

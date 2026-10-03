@@ -11,8 +11,8 @@ use Capell\Admin\Filament\Components\Forms\FixedWidthSidebar;
 use Capell\Admin\Filament\Components\Forms\MediaLibraryFileUpload;
 use Capell\Admin\Filament\Contracts\FormConfigurator;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -212,6 +212,6 @@ class UserForm implements FormConfigurator
             return true;
         }
 
-        return SiteScope::isGlobalActor($actor);
+        return SiteAccess::forActor($actor)->isGlobal();
     }
 }

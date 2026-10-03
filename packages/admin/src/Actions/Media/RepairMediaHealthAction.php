@@ -6,8 +6,8 @@ namespace Capell\Admin\Actions\Media;
 
 use Capell\Admin\Data\Media\MediaHealthRepairResultData;
 use Capell\Admin\Enums\MediaHealthRepairEnum;
-use Capell\Admin\Support\MediaScope;
 use Capell\Core\Models\Media;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -30,8 +30,8 @@ final class RepairMediaHealthAction
         $selectedIds = $selectedMedia->modelKeys();
 
         /** @var Collection<int, Media> $media */
-        $media = MediaScope::applyForCurrentActor(
-            Media::query()->with(['translations.language']),
+        $media = SiteAccess::current()->scopeMedia(
+            SiteAccess::current()->query(Media::class)->with(['translations.language']),
         )
             ->whereKey($selectedIds)
             ->get()

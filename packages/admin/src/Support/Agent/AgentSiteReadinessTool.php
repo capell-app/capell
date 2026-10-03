@@ -13,6 +13,7 @@ use Capell\Core\Data\Agent\AgentToolDefinitionData;
 use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Collection;
 
 final readonly class AgentSiteReadinessTool implements AgentAdminTool
@@ -79,7 +80,7 @@ final readonly class AgentSiteReadinessTool implements AgentAdminTool
         $missingPublish = 0;
         $missingContract = 0;
 
-        Page::query()
+        SiteAccess::forActor($invocation->user)->query(Page::class)
             ->where('site_id', $invocation->siteId)
             ->select(['id', 'blueprint_id', 'site_id'])
             ->chunkById(200, function (Collection $pages) use (&$pagesChecked, &$completePages, &$missingPublish, &$missingContract): void {

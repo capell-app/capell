@@ -6,9 +6,9 @@ namespace Capell\Admin\Filament\Resources\Languages\Actions;
 
 use Capell\Admin\Actions\Translations\ExportSiteTranslationsAction;
 use Capell\Admin\Enums\ResourceEnum;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
@@ -63,7 +63,7 @@ class ExportTranslationsAction extends Action
     protected static function getSiteOptions(): array
     {
         /** @var array<int, string> $options */
-        $options = SiteScope::applyForCurrentActor(Site::query(), 'id')
+        $options = SiteAccess::current()->query(Site::class)
             ->ordered()
             ->pluck('name', 'id')
             ->all();
@@ -94,7 +94,7 @@ class ExportTranslationsAction extends Action
     protected static function export(array $data): ?StreamedResponse
     {
         /** @var Site|null $site */
-        $site = Site::query()->find($data['site_id'] ?? null);
+        $site = SiteAccess::current()->query(Site::class)->find($data['site_id'] ?? null);
 
         if (! $site instanceof Site) {
             return null;

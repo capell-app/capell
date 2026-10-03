@@ -15,11 +15,13 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ThemeManifestKey;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Marketplace\Actions\ApplyMarketplaceThemeToSitesAction;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Override;
@@ -77,7 +79,7 @@ final class ThemeExtensionPage extends Page
         $siteId = $this->selectedSiteIdForApply();
         $siteName = $siteId === null
             ? null
-            : Site::query()->whereKey($siteId)->value('name');
+            : SiteAccess::current()->query(Site::class)->whereKey($siteId)->value('name');
 
         if ($this->isSiteScopedApply() && $siteId === null) {
             Notification::make()
@@ -161,7 +163,7 @@ final class ThemeExtensionPage extends Page
     {
         return Theme::query()
             ->where('key', $this->themeKey)
-            ->withCount('sites')
+            ->withCount(['sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query)])
             ->first();
     }
 
@@ -170,7 +172,7 @@ final class ThemeExtensionPage extends Page
      */
     public function sites(): Collection
     {
-        return Site::query()
+        return SiteAccess::current()->query(Site::class)
             ->with('theme')
             ->ordered()
             ->get();
@@ -199,7 +201,7 @@ final class ThemeExtensionPage extends Page
         }
 
         return $this->siteId !== null
-            && Site::query()->whereKey($this->siteId)->exists()
+            && SiteAccess::current()->query(Site::class)->whereKey($this->siteId)->exists()
                 ? $this->siteId
                 : null;
     }
@@ -209,27 +211,23 @@ final class ThemeExtensionPage extends Page
         $selectedSiteId = $this->siteId;
 
         if ($selectedSiteId !== null) {
-            $selectedSite = Site::query()->whereKey($selectedSiteId)->first();
-
-            if ($selectedSite instanceof Site) {
-                return $selectedSite;
-            }
+            return SiteAccess::current()->query(Site::class)->whereKey($selectedSiteId)->first();
         }
 
-        return Site::query()
+        return SiteAccess::current()->query(Site::class)
             ->whereHas('pages')
             ->ordered()
             ->first()
-            ?? Site::query()->ordered()->first();
+            ?? SiteAccess::current()->query(Site::class)->ordered()->first();
     }
 
     private function previewPage(Site $site): ?PageModel
     {
-        return PageModel::query()
+        return SiteAccess::current()->query(PageModel::class)
             ->whereBelongsTo($site)
             ->homePage()
             ->first()
-            ?? PageModel::query()
+            ?? SiteAccess::current()->query(PageModel::class)
                 ->whereBelongsTo($site)
                 ->ordered()
                 ->first();

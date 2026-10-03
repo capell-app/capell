@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\BuildDefaultSiteStatsAction;
 use Capell\Core\Models\Page;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
 
+uses(CreatesAdminUser::class);
+
 it('builds default CMS stats from core pages', function (): void {
+    test()->actingAsAdmin();
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-03 12:00:00'));
 
     Page::factory()->published(CarbonImmutable::parse('2026-05-01 09:00:00'))->create();
@@ -29,6 +33,7 @@ it('builds default CMS stats from core pages', function (): void {
 });
 
 it('excludes sentinel drafts from the pending count and work queue', function (): void {
+    test()->actingAsAdmin();
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-03 12:00:00'));
 
     Page::factory()->createOne([

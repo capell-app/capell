@@ -8,6 +8,7 @@ use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page as FilamentPage;
 use Filament\Support\Icons\Heroicon;
@@ -50,8 +51,8 @@ class RecentlyDeletedPage extends FilamentPage
     public function restoreRecord(string $resource, int $id): void
     {
         $model = match ($resource) {
-            'page' => Page::onlyTrashed()->find($id),
-            'media' => Media::onlyTrashed()->find($id),
+            'page' => SiteAccess::current()->query(Page::class)->onlyTrashed()->find($id),
+            'media' => SiteAccess::current()->query(Media::class)->onlyTrashed()->find($id),
             default => null,
         };
 
@@ -70,8 +71,8 @@ class RecentlyDeletedPage extends FilamentPage
     public function forceDeleteRecord(string $resource, int $id): void
     {
         $model = match ($resource) {
-            'page' => Page::onlyTrashed()->find($id),
-            'media' => Media::onlyTrashed()->find($id),
+            'page' => SiteAccess::current()->query(Page::class)->onlyTrashed()->find($id),
+            'media' => SiteAccess::current()->query(Media::class)->onlyTrashed()->find($id),
             default => null,
         };
 
@@ -104,10 +105,10 @@ class RecentlyDeletedPage extends FilamentPage
     private function collectGroups(): array
     {
         /** @var Collection<int, Model> $deletedPages */
-        $deletedPages = new Collection(Page::onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());
+        $deletedPages = new Collection(SiteAccess::current()->query(Page::class)->onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());
 
         /** @var Collection<int, Model> $deletedMedia */
-        $deletedMedia = new Collection(Media::onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());
+        $deletedMedia = new Collection(SiteAccess::current()->query(Media::class)->onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());
 
         return [
             [

@@ -10,8 +10,8 @@ use Capell\Admin\Actions\Diagnostics\BuildSiteHealthReportAction;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthWidget;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthWidgetWithParameters;
 use Capell\Admin\Data\Diagnostics\SiteHealthReportData;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
@@ -87,7 +87,7 @@ final class SiteHealthPage extends Page
         }
 
         /** @var Builder<Site> $query */
-        $query = SiteScope::applyForCurrentActor(Site::query(), 'id', denyWhenMissingActor: true);
+        $query = SiteAccess::current()->query(Site::class);
 
         $this->siteOptionsCache = $query
             ->with('siteDomains')

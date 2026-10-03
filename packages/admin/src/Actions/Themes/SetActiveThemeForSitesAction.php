@@ -9,6 +9,7 @@ use Capell\Admin\Enums\Themes\ThemeActivationScope;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -39,7 +40,7 @@ final class SetActiveThemeForSitesAction
 
             if ($data->scope === ThemeActivationScope::SelectedSites && $data->siteIds !== []) {
                 /** @var EloquentCollection<int, Site> $sites */
-                $sites = Site::query()
+                $sites = SiteAccess::current()->query(Site::class)
                     ->whereKey($data->siteIds)
                     ->get();
 

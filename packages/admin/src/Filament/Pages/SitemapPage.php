@@ -6,9 +6,9 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
@@ -146,7 +146,7 @@ class SitemapPage extends Page
         /** @var class-string<Site> $model */
         $model = Site::class;
 
-        return SiteScope::applyForCurrentActor($model::query(), 'id', denyWhenMissingActor: true)
+        return SiteAccess::current()->query($model)
             ->with([
                 'languages',
                 'translations.language',

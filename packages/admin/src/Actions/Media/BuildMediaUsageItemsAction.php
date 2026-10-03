@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Media;
 
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Admin\Support\MediaScope;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Media;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -41,7 +41,7 @@ final class BuildMediaUsageItemsAction
             );
         }
 
-        $relations = MediaScope::applyAssetAttachmentsForCurrentActor($media->assetRelations()->getQuery())
+        $relations = SiteAccess::current()->scopeAssetAttachments($media->assetRelations()->getQuery())
             ->with('related')
             ->orderBy('order')
             ->limit(12)

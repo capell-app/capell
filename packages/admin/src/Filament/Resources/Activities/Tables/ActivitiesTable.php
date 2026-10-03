@@ -12,6 +12,7 @@ use Capell\Admin\Data\Activity\ActivityChangeSetData;
 use Capell\Admin\Data\Activity\ActivityRevertResultData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Support\Activity\ActivityChangeDetailsPresenter;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Notifications\Notification;
@@ -19,6 +20,7 @@ use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\HtmlString;
 use Spatie\Activitylog\Models\Activity;
 
@@ -55,7 +57,7 @@ final class ActivitiesTable
             ->filters([
                 SelectFilter::make('event')
                     ->label(__('capell-admin::activity.event'))
-                    ->options(fn (): array => Activity::query()
+                    ->options(fn (): array => SiteAccess::current()->query(Activity::class)
                         ->whereNotNull('event')
                         ->distinct()
                         ->orderBy('event')
@@ -85,6 +87,7 @@ final class ActivitiesTable
             ->modalSubmitAction(false)
             ->modalCancelActionLabel(__('capell-admin::button.close'))
             ->modalContent(function (Activity $record) use ($activityDetailsView): HtmlString {
+                throw_unless(SiteAccess::current()->canUseRecord($record), AuthorizationException::class);
                 $changeSet = self::changeSet($record);
 
                 return new HtmlString(view($activityDetailsView, [

@@ -16,6 +16,7 @@ use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\PageSavedAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Slug\SlugGenerator;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -182,7 +183,7 @@ class CreatePageAction extends CreateAction
             /** @var class-string<Site> $model */
             $model = Site::class;
 
-            $data['site_id'] = $model::query()->with('languages')->default()->value('id');
+            $data['site_id'] = SiteAccess::current()->query($model)->with('languages')->default()->value('id');
         }
 
         $this->getPageResource($group)::mutateFormDataBeforeCreate($data, $formData);
@@ -201,7 +202,7 @@ class CreatePageAction extends CreateAction
         /** @var class-string<Site> $model */
         $model = Site::class;
 
-        $site = $model::query()->with('languages')->default()->first();
+        $site = SiteAccess::current()->query($model)->with('languages')->default()->first();
 
         $this->getPageResource($group)::mutateFormDataBeforeCreate($data, $formData);
 

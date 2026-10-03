@@ -1347,6 +1347,7 @@ it('applies the theme after install when the operator asked for it on the review
         'extension_slug' => 'aurora-theme',
         'extension_name' => 'Aurora',
         'kind' => 'theme',
+        'user_id' => (string) test()->createUserWithRole('super_admin')->getKey(),
     ]);
 
     try {

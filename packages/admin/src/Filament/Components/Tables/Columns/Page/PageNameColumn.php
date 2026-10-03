@@ -10,6 +10,7 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Exception;
 use Filament\Support\Enums\FontWeight;
@@ -230,7 +231,7 @@ class PageNameColumn extends BadgeableColumn
     {
         $ancestors = $page instanceof Model && $page->relationLoaded('ancestors')
             ? $page->getRelation('ancestors')
-            : $page->ancestors()->get();
+            : SiteAccess::current()->scope($page->ancestors()->getQuery())->get();
 
         if (! $ancestors instanceof EloquentCollection) {
             return null;

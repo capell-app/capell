@@ -8,9 +8,10 @@ use BackedEnum;
 use Capell\Admin\Contracts\DashboardReports\ActivityTrailQueryProvider;
 use Capell\Admin\Filament\Resources\Activities\Pages\ListActivities;
 use Capell\Admin\Filament\Resources\Activities\Tables\ActivitiesTable;
+use Capell\Admin\Filament\Resources\SiteScopedResource;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Database\RuntimeSchemaState;
-use Filament\Resources\Resource;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Override;
 use Spatie\Activitylog\Models\Activity;
 
-final class ActivityResource extends Resource
+final class ActivityResource extends SiteScopedResource
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
 
@@ -55,7 +56,7 @@ final class ActivityResource extends Resource
             return null;
         }
 
-        $count = Activity::query()
+        $count = SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build())
             ->whereNotNull('properties->workspace_id')
             ->count();
 
@@ -95,8 +96,7 @@ final class ActivityResource extends Resource
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        return resolve(ActivityTrailQueryProvider::class)
-            ->build()
+        return SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build())
             ->with('causer')
             ->with([
                 'subject' => function (Relation $relation): Relation {

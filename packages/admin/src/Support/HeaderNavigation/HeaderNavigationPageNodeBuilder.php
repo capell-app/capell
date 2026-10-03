@@ -7,6 +7,7 @@ namespace Capell\Admin\Support\HeaderNavigation;
 use BackedEnum;
 use Capell\Admin\Data\HeaderNavigation\HeaderNavigationPageNodeData;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -54,7 +55,7 @@ final readonly class HeaderNavigationPageNodeBuilder
             ->all());
 
         /** @var Builder<Page> $query */
-        $query = Page::query()
+        $query = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Page::class)
             ->select(['id', 'parent_id', 'site_id', 'blueprint_id'])
             ->whereIn('parent_id', $pageIds);
 

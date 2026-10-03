@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Data\Dashboard\SiteStatsData;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -96,7 +96,7 @@ final class BuildDefaultSiteStatsAction
     private function basePageQuery(): Builder
     {
         /** @var Builder<Page> $query */
-        $query = SiteScope::applyForCurrentActor(Page::query());
+        $query = SiteAccess::current()->query(Page::class);
 
         return $query;
     }

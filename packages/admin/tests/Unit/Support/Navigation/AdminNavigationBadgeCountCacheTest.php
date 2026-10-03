@@ -5,10 +5,14 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Core\Models\Page;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 
+uses(CreatesAdminUser::class);
+
 it('caches resource navigation badge counts for the request', function (): void {
+    test()->actingAsAdmin();
     Page::factory()->createOne();
 
     $queries = 0;

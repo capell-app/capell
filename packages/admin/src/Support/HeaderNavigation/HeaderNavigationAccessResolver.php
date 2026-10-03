@@ -7,13 +7,13 @@ namespace Capell\Admin\Support\HeaderNavigation;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\PageUrlPresenter;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Facades\Filament;
 use Filament\Models\Contracts\FilamentUser;
@@ -49,7 +49,7 @@ final class HeaderNavigationAccessResolver
         }
 
         /** @var Builder<Site> $query */
-        $query = Site::query()
+        $query = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Site::class)
             ->select(['id', 'name', 'order', 'default'])
             ->with('defaultDomain')
             ->ordered();
@@ -239,7 +239,7 @@ final class HeaderNavigationAccessResolver
 
     public function isGlobalActor(Authenticatable $actor): bool
     {
-        return SiteScope::isGlobalActor($actor);
+        return SiteAccess::forActor($actor)->isGlobal();
     }
 
     /**

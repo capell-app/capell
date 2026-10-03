@@ -17,11 +17,10 @@ use Capell\Admin\Filament\Resources\Sites\RelationManagers\SiteDomainsRelationMa
 use Capell\Admin\Filament\Resources\Sites\Schemas\SiteForm;
 use Capell\Admin\Filament\Resources\Sites\Tables\SitesTable;
 use Capell\Admin\Filament\Resources\Sites\Widgets\SiteAlertsWidget;
+use Capell\Admin\Filament\Resources\SiteScopedResource;
 use Capell\Admin\Policies\SitePolicy;
 use Capell\Admin\Support\Search\AppliesNameSearchRelevance;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,7 +28,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Override;
 
-class SiteResource extends Resource
+class SiteResource extends SiteScopedResource
 {
     use AppliesNameSearchRelevance;
     use HasConfiguredForm;
@@ -66,7 +65,7 @@ class SiteResource extends Resource
     #[Override]
     public static function getGlobalSearchEloquentQuery(): Builder
     {
-        return SiteScope::applyForCurrentActor(parent::getGlobalSearchEloquentQuery(), 'id')
+        return parent::getGlobalSearchEloquentQuery()
             ->with('translation');
     }
 
@@ -143,14 +142,10 @@ class SiteResource extends Resource
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
+        return parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
-
-        SiteScope::applyForCurrentActor($query, 'id');
-
-        return $query;
     }
 
     #[Override]

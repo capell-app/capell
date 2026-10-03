@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Activity;
 
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -21,6 +22,8 @@ final class DeleteActivityLogAction
 
     public function handle(Activity $activity): bool
     {
+        throw_unless(SiteAccess::current()->canUseRecord($activity), AuthorizationException::class);
+
         throw_unless(
             auth()->user()?->can(CapellPermission::DeleteActivityLog->name()) === true,
             AuthorizationException::class,

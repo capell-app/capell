@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Http\Controllers\Themes;
 
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Routing\Controller as BaseController;
@@ -55,7 +55,7 @@ final class ThemePreviewController extends BaseController
 
     private function abortUnlessActorCanPreviewSite(Authenticatable $actor, Site $site): void
     {
-        abort_unless(SiteScope::actorCanUseSite($actor, $site), SymfonyResponse::HTTP_FORBIDDEN);
+        abort_unless(SiteAccess::forActor($actor)->can($site), SymfonyResponse::HTTP_FORBIDDEN);
     }
 
     private function abortUnlessPageBelongsToSite(Page $page, Site $site): void

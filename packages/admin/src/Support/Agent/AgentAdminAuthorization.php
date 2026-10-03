@@ -9,6 +9,7 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Term;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,7 +20,9 @@ final class AgentAdminAuthorization
 {
     public function site(Authenticatable $user, int $siteId): Site
     {
-        $site = Site::query()->findOrFail($siteId);
+        $access = SiteAccess::forActor($user);
+        throw_unless($access->canSiteId($siteId), AuthorizationException::class);
+        $site = $access->query(Site::class)->findOrFail($siteId);
         Gate::forUser($user)->authorize('view', $site);
 
         return $site;
@@ -28,7 +31,7 @@ final class AgentAdminAuthorization
     public function page(AgentAdminToolInvocationData $invocation, string $ability): Page
     {
         $pageId = $invocation->payload['page_id'] ?? null;
-        $page = Page::query()
+        $page = SiteAccess::forActor($invocation->user)->query(Page::class)
             ->whereKey($pageId)
             ->where('site_id', $invocation->siteId)
             ->firstOrFail();
@@ -41,7 +44,7 @@ final class AgentAdminAuthorization
     public function term(AgentAdminToolInvocationData $invocation): Term
     {
         $termId = $invocation->payload['term_id'] ?? null;
-        $term = Term::query()
+        $term = SiteAccess::forActor($invocation->user)->query(Term::class)
             ->whereKey($termId)
             ->whereHas('taxonomy', static fn (Builder $query): Builder => $query->where('site_id', $invocation->siteId))
             ->with(['taxonomy', 'propertyValues.propertyDefinition.propertySet'])

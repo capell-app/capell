@@ -6,9 +6,9 @@ namespace Capell\Admin\Actions\Themes;
 
 use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
 use Capell\Admin\Data\Themes\ThemeLibraryCardData;
-use Capell\Admin\Support\SiteScope;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -33,7 +33,7 @@ final class ResolveThemeLibraryAction
             ->with('media')
             // The displayed count covers only the sites the actor may see.
             ->withCount([
-                'sites' => fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'sites.id', denyWhenMissingActor: true),
+                'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'sites.id'),
             ])
             ->ordered()
             ->get()

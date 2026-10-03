@@ -71,6 +71,7 @@ it('admin can see edit page', function (): void {
 });
 
 it('applies page resource defaults and extension widgets for the admin surface', function (): void {
+    test()->actingAsAdmin();
     $language = Language::factory()->english()->createOne();
     $site = Site::factory()
         ->language($language)

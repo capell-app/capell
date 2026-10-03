@@ -10,6 +10,7 @@ use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use CodeWithDennis\FilamentSelectTree\SelectTree;
 use Filament\Schemas\Components\Utilities\Get;
@@ -105,7 +106,7 @@ class PageRelationSelect extends SelectTree
                     $model = Page::class;
 
                     /** @var ?Page $page */
-                    $page = $model::query()->withWhereHas('blueprint:id,admin')->find($state);
+                    $page = SiteAccess::current()->query($model)->withWhereHas('blueprint:id,admin')->find($state);
 
                     if ($page === null) {
                         return null;

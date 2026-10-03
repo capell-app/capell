@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\Pages;
 use Capell\Admin\Contracts\Support\FlagIconRenderer;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -25,7 +26,7 @@ final class BuildPageUrlsViewDataAction
     public function handle(Page $record): array
     {
         return [
-            'pageUrls' => $record->pageUrls()->with(['language', 'siteDomain'])->get(),
+            'pageUrls' => SiteAccess::current()->scope($record->pageUrls()->getQuery())->with(['language', 'siteDomain'])->get(),
             'flagIconRenderer' => resolve(FlagIconRenderer::class),
         ];
     }

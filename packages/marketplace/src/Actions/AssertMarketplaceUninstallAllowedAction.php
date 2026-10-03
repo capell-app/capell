@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Packages\ActiveThemeUninstallGuard;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Marketplace\Data\MarketplaceUninstallOptionsData;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -93,7 +94,9 @@ final class AssertMarketplaceUninstallAllowedAction
             $activeThemeRefusal = $this->activeThemeUninstallGuard->refusalReason($package);
 
             if ($activeThemeRefusal !== null) {
-                return $activeThemeRefusal;
+                return SiteAccess::current()->isGlobal() || app()->runningInConsole() && auth()->guest()
+                    ? $activeThemeRefusal
+                    : (string) __('capell-marketplace::marketplace.uninstalls.theme_in_use', ['package' => $package->name]);
             }
         }
 

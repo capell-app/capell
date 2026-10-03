@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Policies;
 
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Layout;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Foundation\Auth\User;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
@@ -58,7 +58,7 @@ class LayoutPolicy
 
     public function editContent(User $user, Layout $layout): bool
     {
-        if ($this->hasPermission($user, self::permission('edit_content', $this->subject()))) {
+        if ($this->hasPermission($user, self::permission('edit_content', $this->subject())) && $this->canUseLayoutSite($user, $layout)) {
             return true;
         }
 
@@ -67,7 +67,7 @@ class LayoutPolicy
 
     public function editLayout(User $user, Layout $layout): bool
     {
-        if ($this->hasPermission($user, self::permission('edit_layout', $this->subject()))) {
+        if ($this->hasPermission($user, self::permission('edit_layout', $this->subject())) && $this->canUseLayoutSite($user, $layout)) {
             return true;
         }
 
@@ -124,10 +124,6 @@ class LayoutPolicy
 
     private function canUseLayoutSite(User $user, Layout $layout): bool
     {
-        if ($layout->site_id === null || SiteScope::isGlobalActor($user)) {
-            return true;
-        }
-
-        return $user->getAssignedSiteIds()->contains($layout->site_id);
+        return SiteAccess::forActor($user)->canUseLayout($layout);
     }
 }

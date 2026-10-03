@@ -27,6 +27,7 @@ it('reverts a pending publish to draft, clears future expiry, and preserves past
     ]);
 
     $actor = test()->createUserWithPermission('Update:Page');
+    $actor->assignedSiteIds = collect([$pendingPublish->site_id, $pendingUnpublish->site_id, $noSchedule->site_id]);
 
     $result = BulkCancelScheduleAction::run(
         Collection::make([$pendingPublish, $pendingUnpublish, $noSchedule]),
@@ -52,6 +53,7 @@ it('skips a page the actor cannot update', function (): void {
 
     Permission::query()->firstOrCreate(['name' => 'View:Page', 'guard_name' => 'web']);
     $actorWithoutPermission = test()->createUserWithPermission('View:Page');
+    $actorWithoutPermission->assignedSiteIds = collect([$scheduled->site_id]);
 
     $result = BulkCancelScheduleAction::run(Collection::make([$scheduled]), $actorWithoutPermission);
 

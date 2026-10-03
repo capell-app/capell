@@ -11,6 +11,7 @@ use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\TermPropertyValue;
+use Capell\Core\Support\Permissions\SiteAccess;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
 
@@ -20,7 +21,7 @@ final class AgentAdminPropertyValuePresenter
     public function page(Page $page): array
     {
         $definitions = ResolveEffectiveDefinitionsAction::run($page)->keyBy('definitionId');
-        $values = PagePropertyValue::query()
+        $values = SiteAccess::current()->query(PagePropertyValue::class)
             ->where('site_id', $page->site_id)
             ->where('page_id', $page->id)
             ->orderBy('property_definition_id')

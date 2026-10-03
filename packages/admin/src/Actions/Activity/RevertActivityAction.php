@@ -9,6 +9,7 @@ use Capell\Admin\Data\Activity\ActivityRevertResultData;
 use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Support\Activity\ActivityRevertHandlerResolver;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -29,7 +30,7 @@ final class RevertActivityAction
     {
         $selectedPaths = $selectedPaths === null ? null : $this->normalizedSelectedPaths($selectedPaths);
 
-        if (! $this->actorCanRevert()) {
+        if (! $this->actorCanRevert() || ! SiteAccess::current()->canUseRecord($activity)) {
             return ActivityRevertResultData::failed(
                 messageKey: 'capell-admin::activity.revert_unauthorized',
                 skippedFields: ['unauthorized' => $selectedPaths ?? $this->oldValuePaths($activity)],

@@ -12,6 +12,7 @@ use Capell\Admin\Filament\Components\Forms\StatusToggle;
 use Capell\Admin\Filament\Components\Forms\ThemeSelect;
 use Capell\Admin\Support\Configurators\ConfiguratorResolver;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -47,7 +48,7 @@ class SettingsSchema
                 ->label(__('capell-admin::form.order'))
                 ->required()
                 ->numeric()
-                ->default(fn (): int => Site::query()->enabled()->max('order') + 1)
+                ->default(fn (): int => SiteAccess::current()->query(Site::class)->enabled()->max('order') + 1)
                 ->minValue(0)
                 ->step(1),
             DefaultToggle::make('default'),

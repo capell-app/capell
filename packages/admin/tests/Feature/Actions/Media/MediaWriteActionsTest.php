@@ -12,10 +12,13 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\Conversions\FileManipulator;
 use Spatie\MediaLibrary\MediaCollections\Models\Media as SpatieMedia;
+
+uses(CreatesAdminUser::class);
 
 uses()->group('media');
 
@@ -27,6 +30,7 @@ beforeEach(function (): void {
 });
 
 it('creates ordered external video media for a site', function (): void {
+    test()->actingAsAdmin();
     $site = Site::factory()->createOne();
     $video = expectPresent(YouTubeVideoUrl::parse('https://youtu.be/FgalLC99jzY'));
 

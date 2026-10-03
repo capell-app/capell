@@ -34,6 +34,7 @@ it('falls back to the default builder when no tagged builder supports the activi
 });
 
 it('does not mark deleted activity fields as reversible in the default builder', function (): void {
+    test()->actingAsAdmin();
     $activity = activity()
         ->performedOn(Language::factory()->createOne(['name' => 'French']))
         ->event('deleted')
@@ -49,6 +50,7 @@ it('does not mark deleted activity fields as reversible in the default builder',
 });
 
 it('does not mark workspace stamped default activity fields as reversible', function (): void {
+    test()->actingAsAdmin();
     $activity = activity()
         ->performedOn(Language::factory()->createOne(['name' => 'French']))
         ->event('updated')
@@ -68,6 +70,7 @@ it('does not mark workspace stamped default activity fields as reversible', func
 });
 
 it('does not mark non-fillable default activity fields as reversible', function (): void {
+    test()->actingAsAdmin();
     $activity = activity()
         ->performedOn(Language::factory()->createOne(['name' => 'French']))
         ->event('updated')

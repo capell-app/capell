@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Support\Activity\DefaultActivityRevertHandler;
+use Capell\Admin\Tests\Fixtures\Activity\GlobalAuditUser;
 use Capell\Core\Models\Language;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -120,7 +121,7 @@ function defaultActivityRevertPermittedUser(): object
 {
     Permission::findOrCreate(CapellPermission::RevertActivityLog->name());
 
-    return test()->createUserWithPermission(CapellPermission::RevertActivityLog->name());
+    return GlobalAuditUser::fromUser(test()->createUserWithPermission(CapellPermission::RevertActivityLog->name()));
 }
 
 function defaultLoggedActivity(mixed $activity): Activity

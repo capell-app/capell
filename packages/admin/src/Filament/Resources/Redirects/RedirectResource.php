@@ -10,10 +10,9 @@ use Capell\Admin\Filament\Concerns\HasConfiguredTable;
 use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
 use Capell\Admin\Filament\Resources\Redirects\Schemas\RedirectForm;
 use Capell\Admin\Filament\Resources\Redirects\Tables\RedirectsTable;
-use Capell\Admin\Support\SiteScope;
+use Capell\Admin\Filament\Resources\SiteScopedResource;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
-use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -21,7 +20,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Override;
 
-class RedirectResource extends Resource
+class RedirectResource extends SiteScopedResource
 {
     use HasConfiguredForm;
     use HasConfiguredTable;
@@ -51,7 +50,7 @@ class RedirectResource extends Resource
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
+        return parent::getEloquentQuery()
             ->where('type', UrlTypeEnum::Redirect)
             ->with([
                 'language',
@@ -60,8 +59,6 @@ class RedirectResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
-
-        return SiteScope::applyForCurrentActor($query);
     }
 
     /**
