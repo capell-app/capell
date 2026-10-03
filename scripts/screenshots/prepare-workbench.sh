@@ -52,10 +52,24 @@ export default {
 };
 VITE_CONFIG
 
+# Testbench omits the application npm manifest required by frontend preparation.
+# Seed the original laravel/laravel v13.10.1 package.json only when absent.
+# Source commit: 5aad4ddf34d5e21dfe6b4c07eeac67d5bd5e08b0.
+TESTBENCH_PACKAGE_JSON="${REPOSITORY_ROOT}/vendor/orchestra/testbench-core/laravel/package.json"
+if [[ ! -e "${TESTBENCH_PACKAGE_JSON}" && ! -L "${TESTBENCH_PACKAGE_JSON}" ]]; then
+    cp "${REPOSITORY_ROOT}/scripts/screenshots/laravel-v13.10.1-package.json" "${TESTBENCH_PACKAGE_JSON}"
+fi
+
 rm -f "${DATABASE_PATH}"
 touch "${DATABASE_PATH}"
 
-export PHPRC="${REPOSITORY_ROOT}/workbench/php"
+# Keep the host main php.ini and extension paths; append fixture memory settings.
+unset PHPRC
+if [[ -n "${PHP_INI_SCAN_DIR:-}" ]]; then
+    export PHP_INI_SCAN_DIR="${PHP_INI_SCAN_DIR}:${REPOSITORY_ROOT}/workbench/php"
+else
+    export PHP_INI_SCAN_DIR=":${REPOSITORY_ROOT}/workbench/php"
+fi
 export APP_URL
 export APP_ENV=production
 export APP_DEBUG=false

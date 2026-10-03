@@ -33,7 +33,7 @@ it('captures deterministic record states through real Filament routes and visibl
         ])
         ->and($media['notes'])->toContain('record-state-image.svg', 'zero tracked usage')
         ->and($entries->get('admin-media-edit-focal-point')['waitFor'])->toBe(".fi-sc-tabs:has(button[role='tab']:has-text('Crop and focal point'))")
-        ->and($entries->get('admin-media-edit-localized-metadata')['url'])->toBe('/media/{first-record}/edit')
+        ->and($entries->get('admin-media-edit-localized-metadata')['url'])->toBe('/screenshot-fixtures/record-states/media-editor')
         ->and($entries->get('admin-media-edit-localized-metadata')['interactions'])->toContain([
             'type' => 'waitFor',
             'selector' => ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))",
@@ -56,4 +56,34 @@ it('captures deterministic record states through real Filament routes and visibl
             'selector' => ".fi-fo-field:has(label[for='form.layout_id']) .fi-select-input-option:has(.select-option-label:has-text('Disabled unused layout')):has-text('Disabled'):has-text('Unused layout')",
         ])
         ->and($layoutSelect['notes'])->toContain('HTML-enabled');
+});
+
+it('keeps package media editors and their documentation aliases on the same deterministic route', function (): void {
+    $root = dirname(__DIR__, 5);
+    $package = json_decode(File::get($root . '/packages/admin/docs/screenshots.json'), true, flags: JSON_THROW_ON_ERROR);
+    $docs = json_decode(File::get($root . '/docs/screenshots.json'), true, flags: JSON_THROW_ON_ERROR);
+    $entries = collect($package['entries'])->keyBy('id');
+
+    $aliases = collect($docs['entries'])->whereIn('sameCaptureAs', ['admin-media-edit-focal-point', 'admin-media-edit-localized-metadata']);
+    expect($aliases->pluck('id')->all())->toEqualCanonicalizing([
+        'docs-media-edit-focal-point',
+        'docs-media-edit-localized-metadata',
+        'admin-media-edit-form',
+    ]);
+
+    foreach ($aliases as $alias) {
+        $entry = $entries->get($alias['sameCaptureAs']);
+        expect($entry['url'])->toBe('/screenshot-fixtures/record-states/media-editor')
+            ->and($entry['url'])->toBe($alias['url'])
+            ->and($entry['waitFor'])->toBe($alias['waitFor']);
+
+        if ($alias['sameCaptureAs'] === 'admin-media-edit-localized-metadata') {
+            $populatedMetadataWait = [
+                'type' => 'waitFor',
+                'selector' => ".fi-fo-field:has(label:has-text('Alt text')) input",
+            ];
+            expect($entry['interactions'])->toContain($populatedMetadataWait)
+                ->and($alias['interactions'])->toContain($populatedMetadataWait);
+        }
+    }
 });
