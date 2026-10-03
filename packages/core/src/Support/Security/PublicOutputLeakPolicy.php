@@ -42,8 +42,6 @@ final class PublicOutputLeakPolicy
     ];
 
     private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTES = [
-        // Bare hook for the public countdown clock; no authoring data or suffix family.
-        'data-capell-countdown',
         'data-capell-interaction',
         'data-capell-cookie',
         'data-capell-origin-cookie',
@@ -54,13 +52,6 @@ final class PublicOutputLeakPolicy
         'data-capell-stylesheet-fallback',
         'data-capell-stylesheet-recovery-runtime',
         'data-capell-stylesheet-fallback-active',
-    ];
-
-    /** @var array<non-empty-string, list<string>> */
-    private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTE_VALUES = [
-        // The countdown target is emitted separately as data-target. Its hook
-        // is boolean and must never become a carrier for arbitrary metadata.
-        'data-capell-countdown' => [''],
     ];
 
     private const array BLOCKED_PUBLIC_VALUE_PATTERNS = [
@@ -113,12 +104,6 @@ final class PublicOutputLeakPolicy
     public function allowedCapellRuntimeAttributes(): array
     {
         return self::ALLOWED_CAPELL_RUNTIME_ATTRIBUTES;
-    }
-
-    /** @return array<non-empty-string, list<string>> */
-    public function allowedCapellRuntimeAttributeValues(): array
-    {
-        return self::ALLOWED_CAPELL_RUNTIME_ATTRIBUTE_VALUES;
     }
 
     /** @return list<non-empty-string> */

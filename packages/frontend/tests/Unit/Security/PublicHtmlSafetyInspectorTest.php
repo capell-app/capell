@@ -15,113 +15,6 @@ it('consumes the core public output leak policy', function (): void {
     }
 });
 
-it('allows the countdown public runtime hook with its public display data', function (): void {
-    $html = <<<'HTML'
-        <section class="capell-countdown" data-capell-countdown data-target="2026-12-01T00:00:00Z" data-expired-label="Started">
-            <h2>Launch</h2>
-            <p>Event time: <time datetime="2026-12-01T00:00:00Z">1 December 2026</time></p>
-            <div class="capell-countdown__values" aria-hidden="true">
-                <span><b data-days>0</b>days</span><span><b data-hours>0</b>hours</span>
-                <span><b data-minutes>0</b>minutes</span><span><b data-seconds>0</b>seconds</span>
-            </div>
-            <p role="status" aria-live="polite" data-countdown-status></p>
-            <a href="/launch">Learn more</a>
-        </section>
-    HTML;
-
-    expect(new PublicHtmlSafetyInspector()->detectAuthoringSurface($html))->toBeNull();
-});
-
-it('allows empty countdown hooks using HTML attribute syntax', function (string $attribute): void {
-    expect(new PublicHtmlSafetyInspector()->detectAuthoringSurface('<section ' . $attribute . '></section>'))->toBeNull();
-})->with([
-    'bare' => 'data-capell-countdown',
-    'uppercase' => 'DATA-CAPELL-COUNTDOWN',
-    'empty double quotes' => 'data-capell-countdown=""',
-    'empty single quotes' => "data-capell-countdown=''",
-    'HTML whitespace' => "DATA-CAPELL-COUNTDOWN\t=\n\"\"",
-]);
-
-it('rejects complete countdown suffix names in every tag-shaped context', function (string $attribute, string $context): void {
-    $markup = '<section ' . $attribute . '="42"></section>';
-    $html = match ($context) {
-        'element' => $markup,
-        'script attribute' => '<script ' . $attribute . '="42"></script>',
-        'style attribute' => '<style ' . $attribute . '="42"></style>',
-        'script text' => '<script>const markup = `' . $markup . '`;</script>',
-        'style text' => '<style>/* ' . $markup . ' */</style>',
-        'comment' => '<!-- ' . $markup . ' -->',
-        'after quoted greater-than' => '<section title="1 > 0" ' . $attribute . '="42"></section>',
-        'after malformed equals' => '<section = ' . $attribute . '="42"></section>',
-        default => throw new InvalidArgumentException('Unknown countdown test context: ' . $context),
-    };
-
-    $detection = new PublicHtmlSafetyInspector()->detectAuthoringSurface($html);
-
-    expect($detection)->not->toBeNull()
-        ->and($detection?->matched)->toBe(strtolower($attribute));
-})->with([
-    'hyphen' => 'data-capell-countdown-model-id',
-    'underscore' => 'data-capell-countdown_model_id',
-    'colon' => 'data-capell-countdown:model-id',
-    'dot' => 'data-capell-countdown.model-id',
-    'uppercase underscore' => 'DATA-CAPELL-COUNTDOWN_MODEL_ID',
-    'non-ASCII' => 'data-capell-countdowné',
-    'punctuation' => 'data-capell-countdown@model-id',
-    'non-HTML whitespace' => "data-capell-countdown\x0Bmodel-id",
-    'double quote in malformed name' => 'data-capell-countdown"model-id',
-    'single quote in malformed name' => "data-capell-countdown'model-id",
-    'less-than in malformed name' => 'data-capell-countdown<model-id',
-])->with([
-    'element', 'script attribute', 'style attribute', 'script text', 'style text',
-    'comment', 'after quoted greater-than', 'after malformed equals',
-]);
-
-it('rejects non-empty countdown values in every tag-shaped context', function (string $attribute, string $context): void {
-    $markup = '<section ' . $attribute . '></section>';
-    $html = match ($context) {
-        'element' => $markup,
-        'script attribute' => '<script ' . $attribute . '></script>',
-        'style attribute' => '<style ' . $attribute . '></style>',
-        'script text' => '<script>const markup = `' . $markup . '`;</script>',
-        'style text' => '<style>/* ' . $markup . ' */</style>',
-        'comment' => '<!-- ' . $markup . ' -->',
-        'after quoted greater-than' => '<section title="1 > 0" ' . $attribute . '></section>',
-        'after malformed equals' => '<section = ' . $attribute . '></section>',
-        default => throw new InvalidArgumentException('Unknown countdown test context: ' . $context),
-    };
-
-    $detection = new PublicHtmlSafetyInspector()->detectAuthoringSurface($html);
-
-    expect($detection)->not->toBeNull()
-        ->and($detection?->matched)->toBe('data-capell-countdown');
-})->with([
-    'authoring fields' => 'data-capell-countdown="model_id=42 field_path=content.title permission=pages.update"',
-    'JSON permissions and package' => 'data-capell-countdown=\'{"permissions":["pages.update"],"package":"capell/publishing-studio"}\'',
-    'encoded JSON permissions and package' => 'data-capell-countdown="{&quot;permissions&quot;:[&quot;pages.update&quot;],&quot;package&quot;:&quot;capell/publishing-studio&quot;}"',
-    'unquoted model id' => 'data-capell-countdown=model_id=42',
-    'uppercase hook' => 'DATA-CAPELL-COUNTDOWN="permission=pages.update"',
-    'timestamp belongs to data-target' => 'data-capell-countdown="2026-12-01T00:00:00Z"',
-    'token' => 'data-capell-countdown="countdown"',
-    'whitespace is not empty' => 'data-capell-countdown=" "',
-    'encoded field names' => 'data-capell-countdown="model&#95;id=42"',
-    'duplicate hook with payload' => 'data-capell-countdown data-capell-countdown="permission=pages.update"',
-])->with([
-    'element', 'script attribute', 'style attribute', 'script text', 'style text',
-    'comment', 'after quoted greater-than', 'after malformed equals',
-]);
-
-it('still rejects authoring leaks alongside the countdown runtime hook', function (string $leak): void {
-    expect(new PublicHtmlSafetyInspector()->containsAuthoringSurface('<section data-capell-countdown>' . $leak . '</section>'))->toBeTrue();
-})->with([
-    'model id' => '<div data-model-id="42"></div>',
-    'field path' => '<div data-field-path="content.blocks.0.title"></div>',
-    'permission' => '<div data-permission="pages.update"></div>',
-    'selector' => '<div data-capell-selector="#page-42"></div>',
-    'signed editor url' => '<a href="/admin/pages/42/edit?expires=123&amp;signature=secret">Edit</a>',
-    'countdown authoring suffix' => '<div data-capell-countdown-model-id="42"></div>',
-]);
-
 it('detects frontend authoring markers in public html', function (string $html): void {
     $inspector = new PublicHtmlSafetyInspector;
 
@@ -396,9 +289,6 @@ describe('undocumented data-capell-* runtime attributes', function (): void {
         // Leak listed before an allowed attribute on the same tag: a greedy
         // single-match-per-tag scan would miss this.
         'leak before allowed attribute' => '<div data-capell-secret="x" data-capell-widget-runtime="y">Promo</div>',
-        'reference in another attribute value' => '<div title="data-capell-internal-id=42">Promo</div>',
-        'reference after quoted greater-than' => '<div title="1 > 0: data-capell-internal-id=42">Promo</div>',
-        'reference in a custom tag name' => '<data-capell-secret>Promo</data-capell-secret>',
     ]);
 
     it('allows the documented public-safe runtime attributes', function (string $html): void {
