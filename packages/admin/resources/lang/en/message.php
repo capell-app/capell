@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 return [
+    'force_delete_dependencies_info' => 'Other records still use this item. Remove those records, including any in the trash, before permanently deleting it.',
+    'site_force_delete_blocked' => 'This site still contains records.',
+    'site_force_delete_blocked_info' => 'Permanently delete its pages, domains and layouts, including those in the trash, before permanently deleting the site.',
     'impact_plan_stale' => 'This impact preview is out of date. Review the updated impact preview, then save again.',
     'asset_added' => 'Asset added successfully.',
     'asset_created_successfully' => 'Asset ":name" created successfully.',

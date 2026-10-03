@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Media as CapellMedia;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class)
     ->group('page', 'media');
@@ -55,6 +59,30 @@ it('permanently deletes recently deleted records', function (): void {
     expect(Page::query()->withTrashed()->find($page->getKey()))->toBeNull();
 });
 
+it('refuses permanent deletion of a protected page from recently deleted', function (): void {
+    $blueprint = Blueprint::factory()->page()->createOne(['admin' => ['deletable' => false]]);
+    $page = Page::factory()->type($blueprint)->createOne();
+    $page->delete();
+
+    Livewire::test(RecentlyDeletedPage::class)
+        ->call('forceDeleteRecord', 'page', $page->getKey());
+
+    expect(Page::withTrashed()->find($page->getKey()))->not->toBeNull();
+});
+
+it('authorises permanent deletion of each recently deleted record', function (): void {
+    $page = Page::factory()->createOne();
+    $page->delete();
+
+    test()->actingAsUser();
+    test()->authenticatedUser()->assignedSiteIds = collect([$page->site_id]);
+    Gate::before(fn (User $user, string $ability): ?bool => $ability === 'forceDelete' ? false : null);
+
+    expect(fn () => (new RecentlyDeletedPage)->forceDeleteRecord('page', (int) $page->getKey()))
+        ->toThrow(AuthorizationException::class);
+    expect(Page::withTrashed()->find($page->getKey()))->not->toBeNull();
+});
+
 it('lists only accessible deleted pages and media', function (): void {
     $assigned = Site::factory()->create();
     $foreign = Site::factory()->create();
@@ -90,6 +118,11 @@ it('refuses foreign deleted record mutations and permits accessible records', fu
     $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
 
     test()->actingAs($actor);
+    if ($operation === 'forceDeleteRecord') {
+        $permission = Permission::findOrCreate($resource === 'page' ? 'ForceDelete:Page' : 'ForceDelete:Media', 'web');
+        $actor->givePermissionTo($permission);
+    }
+
     $page = new RecentlyDeletedPage;
 
     $page->{$operation}($resource, (int) $other->getKey());
