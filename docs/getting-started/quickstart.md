@@ -125,13 +125,17 @@ _The seeded Pages workspace proves the Admin package, demo records, permissions,
 
 ## 4. Publish and recover one change
 
-In **Pages**, open a seeded page, change a short piece of text, and save it. Preview the page, publish the change, then confirm the public URL shows it.
+1. Select the intended site, open **Pages**, and open a seeded page to edit.
+2. Change a short piece of text in the content fields provided by its page type. Use the [first-page guide](create-your-first-page.md) if you prefer to create a new page or [add an image](create-your-first-page.md#optionally-add-an-image).
+3. Follow [Preview and publish](create-your-first-page.md#preview-and-publish), then reload the canonical public URL in a private browser window. The changed text should appear without an Admin login.
 
 [![Capell page editor with content and publishing controls](../images/generated/admin/admin-page-edit-form.png)](../images/generated/admin/admin-page-edit-form.png)
 
 [![Page editor showing a scheduled page with no active URL, a publishing blocker, and the public effect Not visible now](../images/generated/admin/first-page-edit-settings-tab.png)](../images/generated/admin/first-page-edit-settings-tab.png)
 
 _Check the Publish panel before expecting a public change. This existing fixture capture deliberately shows a scheduled page with no active URL and “Not visible now”; it is not the expected result of a successful publication._
+
+Compare it with the [published public-page example](../frontend/guide.md). For your own page, success means the new text appears at its public URL now; a signed preview or a scheduled state does not establish that.
 
 Open the page's history relation after the save. Inspect the before/after change, preview a rollback, and cancel it unless you deliberately want to test page-only recovery. Page rollback restores the page and its owned content relationships; it does not restore the application database, media store, analytics counters, or infrastructure.
 
