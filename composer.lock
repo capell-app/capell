@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "125479b08404959122f13ee8b928550a",
+    "content-hash": "ee57d531328ed65d0449b31f70491bcc",
     "packages": [
         {
             "name": "aimeos/laravel-nestedset",
@@ -272,25 +272,27 @@
         },
         {
             "name": "awobaz/compoships",
-            "version": "2.5.5",
+            "version": "3.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/topclaudy/compoships.git",
-                "reference": "e3759efad4093c132a053bf5ad1c5b1c16955ad0"
+                "reference": "c28228355edb36e52171a99252c7c2b28b8a4e8c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/topclaudy/compoships/zipball/e3759efad4093c132a053bf5ad1c5b1c16955ad0",
-                "reference": "e3759efad4093c132a053bf5ad1c5b1c16955ad0",
+                "url": "https://api.github.com/repos/topclaudy/compoships/zipball/c28228355edb36e52171a99252c7c2b28b8a4e8c",
+                "reference": "c28228355edb36e52171a99252c7c2b28b8a4e8c",
                 "shasum": ""
             },
             "require": {
-                "illuminate/database": ">=5.6 <14.0"
+                "illuminate/database": "^12.0|^13.0",
+                "php": "^8.2"
             },
             "require-dev": {
                 "ext-sqlite3": "*",
                 "fakerphp/faker": "^1.18",
-                "phpunit/phpunit": "^6.0|^8.0|^9.0|^10.0|^11.0|^12.0"
+                "illuminate/queue": "^12.0|^13.0",
+                "phpunit/phpunit": "^11.0|^12.0"
             },
             "suggest": {
                 "awobaz/blade-active": "Blade directives for the Laravel 'Active' package",
@@ -322,7 +324,7 @@
             ],
             "support": {
                 "issues": "https://github.com/topclaudy/compoships/issues",
-                "source": "https://github.com/topclaudy/compoships/tree/2.5.5"
+                "source": "https://github.com/topclaudy/compoships/tree/3.1.0"
             },
             "funding": [
                 {
@@ -330,7 +332,7 @@
                     "type": "custom"
                 }
             ],
-            "time": "2026-03-11T19:17:29+00:00"
+            "time": "2026-08-19T12:36:48+00:00"
         },
         {
             "name": "bezhansalleh/filament-plugin-essentials",
@@ -5250,16 +5252,16 @@
         },
         {
             "name": "nesbot/carbon",
-            "version": "3.14.1",
+            "version": "3.14.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/CarbonPHP/carbon.git",
-                "reference": "34e9109535165bf1d7ff17a610492372ae73a896"
+                "reference": "94cfc34887f07ab5c0efa07914c8f527544e3224"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/CarbonPHP/carbon/zipball/34e9109535165bf1d7ff17a610492372ae73a896",
-                "reference": "34e9109535165bf1d7ff17a610492372ae73a896",
+                "url": "https://api.github.com/repos/CarbonPHP/carbon/zipball/94cfc34887f07ab5c0efa07914c8f527544e3224",
+                "reference": "94cfc34887f07ab5c0efa07914c8f527544e3224",
                 "shasum": ""
             },
             "require": {
@@ -5279,7 +5281,7 @@
                 "doctrine/orm": "^2.15.2 || ^3.0",
                 "friendsofphp/php-cs-fixer": "^v3.87.1",
                 "kylekatarnls/multi-tester": "^2.5.3",
-                "phpmd/phpmd": "^2.15.0",
+                "phpmd/phpmd": "^3.0@dev",
                 "phpstan/extension-installer": "^1.4.3",
                 "phpstan/phpstan": "^2.1.22",
                 "phpunit/phpunit": "^10.5.53",
@@ -5351,7 +5353,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-27T12:07:26+00:00"
+            "time": "2026-10-02T07:26:52+00:00"
         },
         {
             "name": "nette/php-generator",
