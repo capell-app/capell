@@ -13,6 +13,7 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -27,6 +28,57 @@ afterEach(function (): void {
     resolve(PermissionRegistrar::class)->teams = false;
     resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     config(['permission.teams' => false]);
+});
+
+it('memoises current access by actor and team within the request', function (): void {
+    $alpha = Site::factory()->create();
+    $beta = Site::factory()->create();
+    $actor = HasSitePermissionsTestUser::query()->create(['name' => 'Memoised', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $role = Role::findOrCreate('memoised-editor', 'web');
+    $actor->assignRoleForSite($alpha, $role);
+    $actor->assignRoleForSite($beta, $role);
+
+    test()->actingAs($actor);
+    setPermissionsTeamId($alpha->id);
+    $first = SiteAccess::current();
+    expect(SiteAccess::current())->toBe($first)->and($first->allowedSiteIds())->toBe([$alpha->id]);
+
+    setPermissionsTeamId($beta->id);
+    $second = SiteAccess::current();
+    expect($second)->not->toBe($first)->and($second->allowedSiteIds())->toBe([$beta->id])
+        ->and(SiteAccess::current())->toBe($second);
+    setPermissionsTeamId($alpha->id);
+    expect(SiteAccess::current())->toBe($first);
+    $otherActor = HasSitePermissionsTestUser::query()->create(['name' => 'Other actor', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $otherActor->assignRoleForSite($beta, $role);
+
+    test()->actingAs($otherActor);
+    expect(SiteAccess::current())->not->toBe($first)->and(SiteAccess::current()->allowedSiteIds())->toBe([]);
+    test()->actingAs($actor);
+    expect(SiteAccess::current())->toBe($first);
+    $actor->setAttribute('remember_token', null);
+    auth()->logout();
+    expect(SiteAccess::current()->allowedSiteIds())->toBe([]);
+});
+
+it('does not retain current access across request replacement in a long lived application', function (): void {
+    $alpha = Site::factory()->create();
+    $actor = HasSitePermissionsTestUser::query()->create(['name' => 'Worker', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $role = Role::findOrCreate('request-editor', 'web');
+    $actor->assignRoleForSite($alpha, $role);
+    test()->actingAs($actor);
+    setPermissionsTeamId($alpha->id);
+    $first = SiteAccess::current();
+    expect(SiteAccess::current())->toBe($first);
+    $request = request();
+    try {
+        app()->instance('request', Request::create('/next-request'));
+        $actor->removeRoleForSite($alpha, $role);
+        expect(SiteAccess::current())->not->toBe($first)
+            ->and(SiteAccess::current()->allowedSiteIds())->toBe([]);
+    } finally {
+        app()->instance('request', $request);
+    }
 });
 
 it('captures active team access and makes cross site membership an explicit choice', function (): void {

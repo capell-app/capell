@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\PermissionRegistrar;
 
 /** An actor and active-team snapshot; never register this as a singleton. */
 final readonly class SiteAccess
@@ -41,7 +42,21 @@ final readonly class SiteAccess
 
     public static function current(): self
     {
-        return self::forActor(auth()->user());
+        $actor = auth()->user();
+        $teamId = resolve(PermissionRegistrar::class)->getPermissionsTeamId();
+        $key = self::class . ':' . ($actor !== null ? $actor::class . ':' . $actor->getAuthIdentifier() : 'guest')
+            . ':' . ($teamId === null ? 'no-team' : (string) $teamId);
+        $request = request();
+        $access = $request->attributes->get($key);
+
+        if (! $access instanceof self) {
+            $access = self::forActor($actor);
+            // The request owns the snapshot. A worker's next request starts with
+            // an empty attribute bag; no static or container singleton survives.
+            $request->attributes->set($key, $access);
+        }
+
+        return $access;
     }
 
     public static function forActor(?Authenticatable $actor, bool $acrossAssignedSites = false): self

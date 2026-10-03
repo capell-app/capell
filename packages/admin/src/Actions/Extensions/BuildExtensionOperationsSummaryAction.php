@@ -26,6 +26,7 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -54,7 +55,15 @@ final class BuildExtensionOperationsSummaryAction
 
     public function handle(): ExtensionOperationsSummaryData
     {
-        return resolve(ExtensionOperationsRequestCache::class)->remember(
+        $cache = resolve(ExtensionOperationsRequestCache::class);
+        $access = SiteAccess::current();
+        if (request()->attributes->get(self::REQUEST_CACHE_KEY) !== $access) {
+            // A team or actor change must not reuse another visibility snapshot.
+            $cache->forget(self::REQUEST_CACHE_KEY);
+            request()->attributes->set(self::REQUEST_CACHE_KEY, $access);
+        }
+
+        return $cache->remember(
             self::REQUEST_CACHE_KEY,
             fn (): ExtensionOperationsSummaryData => $this->build(),
         );
@@ -291,8 +300,11 @@ final class BuildExtensionOperationsSummaryAction
         }
 
         try {
+            $siteIds = SiteAccess::current()->allowedSiteIds();
             /** @var Collection<string, Collection<int, ExtensionHealthAlert>> $alerts */
             $alerts = ExtensionHealthAlert::query()
+                ->when($siteIds !== null, fn (Builder $query): Builder => $query
+                    ->where(fn (Builder $query): Builder => $query->whereNull('affected_site_id')->orWhereIn('affected_site_id', $siteIds)))
                 ->where(fn (Builder $query) => $query
                     ->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now()))
