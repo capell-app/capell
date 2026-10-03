@@ -137,6 +137,22 @@ it('formats related pageable records and reports missing page relationships', fu
         ->formatState('Broken page'))->toThrow(Exception::class, 'Page relation not found.');
 });
 
+it('renders a missing-url placeholder without linking a page with no canonical url', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    $page->pageUrls()->delete();
+    $page->unsetRelation('pageUrl');
+
+    expect($page->pageUrl)->toBeNull();
+
+    $description = PageNameColumn::make('name')->urlDescription()->record($page)->getDescriptionBelow();
+
+    expect($description)->toBeInstanceOf(Htmlable::class);
+    assert($description instanceof Htmlable);
+
+    expect($description->toHtml())->toBe(e(__('capell-admin::table.page_health_missing_url')))
+        ->not->toContain('<a');
+});
+
 function evaluatePageNameColumnProperty(PageNameColumn $column, string $property, Model $record): mixed
 {
     $reflectionProperty = new ReflectionProperty($column, $property);
