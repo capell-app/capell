@@ -38,6 +38,7 @@ use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -72,6 +73,18 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
     {
         $this->recordClass = $recordClass;
         $this->recordId = $recordId;
+    }
+
+    #[On('page-editor-saved')]
+    public function refreshAfterPageSaved(int $pageId): void
+    {
+        if (! is_a($this->recordClass, Page::class, true) || $pageId !== $this->recordId) {
+            $this->skipRender();
+
+            return;
+        }
+
+        $this->invalidateComputedState();
     }
 
     #[Computed]
@@ -355,6 +368,11 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
         $this->afterChange($runner($record, $actor), $messageKey);
     }
 
+    private function invalidateComputedState(): void
+    {
+        unset($this->viewData, $this->readiness, $this->extensions);
+    }
+
     private function afterChange(
         PublicationTransitionResultData|PublishVisibilityActionResultData $result,
         string $messageKey,
@@ -367,7 +385,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
             return;
         }
 
-        unset($this->viewData, $this->extensions);
+        $this->invalidateComputedState();
 
         Notification::make()
             ->title(__('capell-admin::message.' . $messageKey))
