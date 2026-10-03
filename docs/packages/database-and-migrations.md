@@ -20,7 +20,7 @@ For dynamic discovery, packages can scan migration filenames and pass them to Pa
 
 ## Production Timestamp Defaults
 
-MariaDB 10.5, or MariaDB 10.11 with `explicit_defaults_for_timestamp=0`, gives the first required TIMESTAMP an implicit `ON UPDATE CURRENT_TIMESTAMP` and can reject later required TIMESTAMP columns because of zero defaults. For migrations dated 2026-09-29 onwards, use `dateTime()`, `nullable()`, `useCurrent()` or an explicit `default()`; the Foundation migration guard rejects unspecified required TIMESTAMP columns. Event and expiry values must remain unchanged when unrelated fields are updated.
+With `explicit_defaults_for_timestamp=0` (the default before MariaDB 10.10), MariaDB gives the first required TIMESTAMP an implicit `ON UPDATE CURRENT_TIMESTAMP` and can reject later required TIMESTAMP columns because of zero defaults. For migrations dated 2026-09-29 onwards, use `dateTime()`, `nullable()`, `useCurrent()` or an explicit `default()`; the Foundation migration guard rejects unspecified required TIMESTAMP columns. Event and expiry values must remain unchanged when unrelated fields are updated.
 
 The forward Core migration `2026_09_29_000001_remove_implicit_timestamp_updates` is self-contained so published copies remain independent of movable package code. It uses Laravel's schema grammar to inspect only columns in Core-created tables and the schema builder to remove automatic updates where MySQL or MariaDB actually added them. The grammar's unprocessed column metadata retains automatic updates that `getColumns()` omits. It preserves nullability, precision, supported insert defaults, comments, indexes and existing values. NULL, CURRENT_TIMESTAMP and literal timestamp defaults are supported; other expressions raise a clear error before altering the column, so they cannot become quoted literals. Other schema grammars and already-safe columns are unchanged, and rollback deliberately does not restore the unsafe behaviour. The optional `RepairsImplicitTimestampUpdates` dialect capability remains available to other callers. Applying the migration cannot reconstruct timestamps that were already rewritten; audit those rows separately against reliable event or expiry records.
 
@@ -30,13 +30,13 @@ The standard Integration regression always uses its own in-memory SQLite connect
 ./capell pest packages/core/tests/Database/ImplicitTimestampRepairTest.php --configuration=phpunit.xml
 ```
 
-The MariaDB legacy-semantics proof is declared separately in `phpunit.mariadb.xml` and the standard-suite discovery exceptions. Set `DB_HOST`, `DB_PORT`, `DB_USERNAME` and `DB_PASSWORD` to a disposable MariaDB 10.5 or 10.11 server, then explicitly name its Laravel connection:
+The MariaDB legacy-semantics proof is declared separately in `phpunit.mariadb.xml` and the standard-suite discovery exceptions. Set `DB_HOST`, `DB_PORT`, `DB_USERNAME` and `DB_PASSWORD` to a disposable MariaDB server, then explicitly name its Laravel connection:
 
 ```bash
 CAPELL_MARIADB_CONNECTION=mariadb vendor/bin/pest --configuration=phpunit.mariadb.xml
 ```
 
-The proof fails if the connection name is absent, the server is not MariaDB, the version is not 10.5 or 10.11, or the test session cannot set `explicit_defaults_for_timestamp=0`; no environment skip is used. It creates and removes only its own database. `DB_HOST` alone never selects this proof.
+The proof fails if the connection name is absent or the test session cannot set `explicit_defaults_for_timestamp=0`, the only precondition for the legacy behaviour it repairs; it never checks which server version it runs on, and no environment skip is used. It creates and removes only its own database. `DB_HOST` alone never selects this proof.
 
 ## Extension Lifecycle Ledger
 

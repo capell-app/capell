@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-// MariaDB's legacy timestamp semantics (10.5, or 10.11 with
-// explicit_defaults_for_timestamp=0) assign invalid zero defaults to later
-// required TIMESTAMP columns. New migrations must be explicit.
+// With explicit_defaults_for_timestamp=0 (the default before MariaDB 10.10),
+// MariaDB assigns invalid zero defaults to later required TIMESTAMP columns.
+// New migrations must be explicit.
 const FOUNDATION_TIMESTAMP_RULE_SINCE = '2026_09_29';
 
 /** @return list<string> */

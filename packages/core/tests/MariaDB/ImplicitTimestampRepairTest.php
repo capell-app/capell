@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 it('repairs implicit timestamp updates under legacy MariaDB semantics through an explicitly named connection', function (): void {
     $connectionName = getenv('CAPELL_MARIADB_CONNECTION');
-    throw_unless(is_string($connectionName) && $connectionName !== '', RuntimeException::class, 'Set CAPELL_MARIADB_CONNECTION to a disposable MariaDB 10.5 or 10.11 connection before running phpunit.mariadb.xml.');
+    throw_unless(is_string($connectionName) && $connectionName !== '', RuntimeException::class, 'Set CAPELL_MARIADB_CONNECTION to a disposable MariaDB connection before running phpunit.mariadb.xml.');
 
     /** @var array{driver: string, host: string, port: int|string, username: string, password: string}|null $serviceConfiguration */
     $serviceConfiguration = config('database.connections.' . $connectionName);
@@ -27,21 +27,8 @@ it('repairs implicit timestamp updates under legacy MariaDB semantics through an
         $serviceConfiguration['password'],
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
     );
-    $versionQuery = $server->query('SELECT VERSION()');
-    throw_if($versionQuery === false, RuntimeException::class, 'Unable to read the MariaDB service version.');
-
-    $version = $versionQuery->fetchColumn();
-    throw_unless(
-        is_string($version) && str_contains(strtolower($version), 'mariadb'),
-        RuntimeException::class,
-        sprintf('The named connection must reach MariaDB, not MySQL. The server reported [%s].', (string) $version),
-    );
-    throw_unless(
-        preg_match('/^10\.(?:5|11)\./', $version) === 1,
-        RuntimeException::class,
-        sprintf('The named MariaDB connection must use MariaDB 10.5 or 10.11. The server reported [%s].', $version),
-    );
     $server->exec('SET SESSION explicit_defaults_for_timestamp = 0');
+
     $sessionQuery = $server->query('SELECT @@SESSION.explicit_defaults_for_timestamp');
     throw_if($sessionQuery === false, RuntimeException::class, 'Unable to read the MariaDB timestamp session setting.');
     expect((int) $sessionQuery->fetchColumn())->toBe(0);
