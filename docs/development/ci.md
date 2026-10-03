@@ -130,12 +130,12 @@ shard plus the merge/threshold job to finish successfully.
 
 Test All owns a focused portability group for every advertised database family:
 
-| Cell                            | Runtime                                          |
-| ------------------------------- | ------------------------------------------------ |
-| `l13-portability-sqlite`        | SQLite from PHP 8.4                              |
-| `l13-portability-mysql-8`       | `mysql:8.0`                                      |
-| `l13-portability-mariadb-10-5`  | `mariadb:10.5` through the MariaDB platform seam |
-| `l13-portability-postgresql-16` | `postgres:16` through `pdo_pgsql`                |
+| Cell                            | Runtime                                           |
+| ------------------------------- | ------------------------------------------------- |
+| `l13-portability-sqlite`        | SQLite from PHP 8.4                               |
+| `l13-portability-mysql-8`       | `mysql:8.0`                                       |
+| `l13-portability-mariadb-10-11` | `mariadb:10.11` through the MariaDB platform seam |
+| `l13-portability-postgresql-16` | `postgres:16` through `pdo_pgsql`                 |
 
 Every cell runs the same repository-owned Pest group. It proves the complete Core
 migration set, database provisioning, install, doctor and upgrade paths, query and

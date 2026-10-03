@@ -23,7 +23,7 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
         ->toBe([
             'l13-portability-sqlite',
             'l13-portability-mysql-8',
-            'l13-portability-mariadb-10-5',
+            'l13-portability-mariadb-10-11',
             'l13-portability-postgresql-16',
         ])
         ->and(array_column($portability, 'database'))
@@ -31,9 +31,9 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
         ->and(array_column($portability, 'database_driver'))
         ->toBe(['sqlite', 'mysql', 'mariadb', 'pgsql'])
         ->and(array_column($portability, 'database_version'))
-        ->toBe(['runtime', '8.0', '10.5', '16'])
+        ->toBe(['runtime', '8.0', '10.11', '16'])
         ->and(array_column($portability, 'database_image'))
-        ->toBe(['none', 'mysql:8.0', 'mariadb:10.5', 'postgres:16'])
+        ->toBe(['none', 'mysql:8.0', 'mariadb:10.11', 'postgres:16'])
         ->and(array_column($portability, 'test_group'))
         ->each->toBe('database-portability')
         ->and(array_column($portability, 'command'))
@@ -183,7 +183,7 @@ PHP);
         @rmdir($temporaryDirectory);
     }
 })->with([
-    'MariaDB 10.5' => ['l13-portability-mariadb-10-5', 'mariadb', 'mariadb', '10.5'],
+    'MariaDB 10.11' => ['l13-portability-mariadb-10-11', 'mariadb', 'mariadb', '10.11'],
     'PostgreSQL 16' => ['l13-portability-postgresql-16', 'postgresql', 'pgsql', '16'],
 ]);
 
@@ -235,7 +235,7 @@ it('describes a distinct disposable service for each server database family', fu
         ]);
 })->with([
     'MySQL 8' => ['l13-portability-mysql-8', 'mysql:8.0', 'MYSQL_ROOT_PASSWORD', 'root', '3306'],
-    'MariaDB 10.5' => ['l13-portability-mariadb-10-5', 'mariadb:10.5', 'MARIADB_ROOT_PASSWORD', 'root', '3306'],
+    'MariaDB 10.11' => ['l13-portability-mariadb-10-11', 'mariadb:10.11', 'MARIADB_ROOT_PASSWORD', 'root', '3306'],
     'PostgreSQL 16' => ['l13-portability-postgresql-16', 'postgres:16', 'POSTGRES_PASSWORD', 'postgres', '5432'],
 ]);
 
