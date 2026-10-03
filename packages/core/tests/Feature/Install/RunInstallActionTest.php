@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Install\PublishVendorMigrationsAction;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
 use Capell\Core\Contracts\ProgressReporter;
@@ -105,15 +106,51 @@ function bindRunInstallTestConsoleKernel(array $commands = ['capell:doctor' => t
     return $kernel;
 }
 
+/** @return array<string, array{contents: string, permissions: int}> */
+function snapshotRunInstallPublishedMigrations(): array
+{
+    $directory = database_path('migrations');
+    if (! File::isDirectory($directory)) {
+        return [];
+    }
+
+    $snapshot = [];
+    foreach (File::allFiles($directory, true) as $file) {
+        $snapshot[$file->getRelativePathname()] = ['contents' => File::get($file->getPathname()), 'permissions' => $file->getPerms() & 0777];
+    }
+
+    ksort($snapshot);
+
+    return $snapshot;
+}
+
+/** @param array<string, array{contents: string, permissions: int}> $snapshot */
+function restoreRunInstallPublishedMigrations(array $snapshot): void
+{
+    foreach (snapshotRunInstallPublishedMigrations() as $relativePath => $file) {
+        if (! array_key_exists($relativePath, $snapshot)) {
+            File::delete(database_path('migrations/' . $relativePath));
+        }
+    }
+
+    foreach ($snapshot as $relativePath => $file) {
+        $path = database_path('migrations/' . $relativePath);
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, $file['contents']);
+        File::chmod($path, $file['permissions']);
+    }
+}
+
 beforeEach(function (): void {
     acquireCapellInstallFilesystemLock();
+    $this->publishedMigrationSnapshot = snapshotRunInstallPublishedMigrations();
 });
 
 afterEach(function (): void {
-    $stub = database_path('migrations/2025_01_01_000000_create_permission_tables.php');
-    if (File::exists($stub)) {
-        File::delete($stub);
-    }
+    // Real install publishes canonical vendor stubs despite the migration-editor fake.
+    // Restore the fixture directory so later upgrade tests see only their own inputs.
+    restoreRunInstallPublishedMigrations($this->publishedMigrationSnapshot);
+    expect(snapshotRunInstallPublishedMigrations())->toBe($this->publishedMigrationSnapshot);
 
     $panelProvider = app_path('Providers/Filament/RunInstallTestPanelProvider.php');
     if (File::exists($panelProvider)) {
@@ -457,4 +494,27 @@ it('fails an install step when admin panel integration command fails', function 
         $inputData,
         new NullProgressReporter,
     ))->toThrow(RuntimeException::class, "Command 'capell:admin-setup' failed with exit code 1.");
+});
+
+it('restores real published migrations and preserves existing file bytes across repeated teardown', function (): void {
+    $originalDatabasePath = app()->databasePath();
+    $sandbox = storage_path('framework/testing/install-published-migrations-' . bin2hex(random_bytes(8)));
+    File::ensureDirectoryExists($sandbox . '/migrations');
+    app()->useDatabasePath($sandbox);
+    try {
+        $existing = database_path('migrations/existing.php');
+        File::put($existing, '<?php /* pre-existing fixture */');
+        File::chmod($existing, 0640);
+        $snapshot = snapshotRunInstallPublishedMigrations();
+        new PublishVendorMigrationsAction()->handle(new NullProgressReporter);
+        expect(File::exists(database_path('migrations/2026_05_10_190828_add_event_column_to_activity_log_table.php')))->toBeTrue();
+        File::put($existing, '<?php /* changed by fixture */');
+        restoreRunInstallPublishedMigrations($snapshot);
+        expect(snapshotRunInstallPublishedMigrations())->toBe($snapshot);
+        restoreRunInstallPublishedMigrations($snapshot);
+        expect(snapshotRunInstallPublishedMigrations())->toBe($snapshot);
+    } finally {
+        app()->useDatabasePath($originalDatabasePath);
+        File::deleteDirectory($sandbox);
+    }
 });

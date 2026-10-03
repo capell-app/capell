@@ -147,6 +147,14 @@ Rerunning `capell:install` is supported after correcting a failed step. Keep the
 
 ### 5. Open Admin and the public page
 
+Before opening either page, apply the Frontend dependency plan and build production assets unless the installer recorded a successful resource rebuild:
+
+```bash
+php artisan capell:frontend-after-install --apply --no-interaction
+```
+
+This supported command installs registered dependencies using the application's detected package manager, prepares the asset inputs, and builds once. It works with the current preparation hook and earlier releases. After it succeeds, start the application; a second npm build is unnecessary. If the installer already recorded a successful rebuild, start the application directly.
+
 Run the Laravel application with your normal local workflow, then open:
 
 - `/admin` for the admin where editors work;
@@ -279,12 +287,14 @@ The default install runs the Frontend lifecycle and generates Capell's Tailwind 
 php artisan capell:frontend-install
 ```
 
-Then run the host application's normal asset build when required:
+The Frontend after-install lifecycle prepares registered dependencies in `package.json`, generated CSS, and the Vite input manifest. Preparation does not install Node dependencies or build assets. For an optional prepared CI or host asset pipeline, first ensure that the registered dependency plan has been written to `package.json` and the generated CSS/Vite input manifest is present. Then run the application's package manager install and production build. For npm:
 
 ```bash
 npm install
 npm run build
 ```
+
+When preparation has not already completed, explicitly run `php artisan capell:frontend-after-install --apply --no-interaction`. This applies registered dependencies and builds assets; without `--apply`, non-interactive use is report-only. Browser installation runs Node only when **Rebuild resources** is selected. That installer build path supports npm; pnpm, Yarn, and Bun hosts should leave it unselected and use the explicit Frontend command or their normal package manager install/build after preparation. A completed setup/doctor handoff alone does not verify built assets.
 
 Do not copy package-specific Tailwind paths from an unrelated project. Use the generated entry file and the installed package's documented integration.
 

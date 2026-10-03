@@ -37,6 +37,13 @@ final class BuildInstallHandoffAction
         $setupCompleted = in_array(InstallPlan::STEP_MARK_CORE_INSTALLED, $result->completedSteps, true);
         $completed = $migrationsCompleted && $setupCompleted && $doctorStatus !== 'unknown';
 
+        $needsFrontendBuild = (in_array('capell-app/frontend', $result->selectedPackages, true)
+            || in_array(InstallPlan::packageAfterInstallStepKey('capell-app/frontend'), $result->completedSteps, true))
+            && ! in_array(InstallPlan::STEP_REBUILD_RESOURCES, $result->completedSteps, true);
+        if ($needsFrontendBuild) {
+            $warnings[] = 'This install did not record a frontend asset build. Run the application package manager install and production build before opening Admin or the public page.';
+        }
+
         return new InstallHandoffData(
             schemaVersion: 1,
             status: $completed ? 'completed' : 'incomplete',
@@ -66,15 +73,19 @@ final class BuildInstallHandoffAction
                 ->unique()
                 ->values()
                 ->all()),
-            nextAction: $completed
+            nextAction: $completed && $needsFrontendBuild
                 ? [
+                    'label' => 'Install and build frontend assets before opening Admin or the public page',
+                    'url' => self::INSTALL_DOCS_URL . '#themes-and-frontend-assets',
+                ]
+                : ($completed ? [
                     'label' => 'Create and verify your first editable public page',
                     'url' => self::FIRST_PAGE_DOCS_URL,
                 ]
                 : [
                     'label' => 'Review installation and resolve incomplete checks',
                     'url' => self::INSTALL_DOCS_URL,
-                ],
+                ]),
             publicImpact: [
                 'summary' => $completed
                     ? 'Capell completed the selected foundation and extension setup. Public rendering remains application-owned.'

@@ -7,7 +7,9 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Contracts\InstallOrchestrationHost;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\Install\InstallOrchestrationData;
+use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Install\InstallPlan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -39,6 +41,11 @@ final class OrchestrateInstallAction
 
         if ($orchestration->runNpmBuild) {
             $host->buildFrontendAssets();
+            $result = new InstallRunResultData(
+                selectedPackages: $result->selectedPackages,
+                completedSteps: array_values(array_unique([...$result->completedSteps, InstallPlan::STEP_REBUILD_RESOURCES])),
+                doctorStatus: $result->doctorStatus,
+            );
         }
 
         if ($orchestration->removeInstaller) {

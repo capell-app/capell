@@ -2,7 +2,7 @@
 
 You've run `php artisan capell:install` and it finished without errors. This guide covers what to do next — from logging in for the first time through to publishing your first page.
 
-If you haven't installed Capell yet, start with the [Install guide](install.md).
+If you haven't installed Capell yet, start with the [Install guide](install.md). Before opening Admin, run `php artisan capell:frontend-after-install --apply --no-interaction` unless the installer recorded a successful resource rebuild. This existing command installs registered dependencies and builds production assets once, including on releases without the new preparation hook; then start the application. Frontend preparation and a passed doctor check do not by themselves verify built assets.
 
 ---
 

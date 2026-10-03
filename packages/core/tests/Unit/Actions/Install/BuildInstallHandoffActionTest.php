@@ -95,3 +95,30 @@ it('fails closed for incomplete outcomes and unsupported first page states', fun
             'doctor' => 'unknown',
         ])->and($handoff->firstPage)->toBe(['status' => 'unavailable']);
 });
+
+it('requires an asset build before the first page when frontend preparation has not been rebuilt', function (bool $rebuilt): void {
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: ['capell-app/frontend'], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $steps = [InstallPlan::STEP_RUN_MIGRATIONS_POST, InstallPlan::STEP_MARK_CORE_INSTALLED];
+    if ($rebuilt) {
+        $steps[] = InstallPlan::STEP_REBUILD_RESOURCES;
+    }
+
+    $handoff = BuildInstallHandoffAction::run($input, new InstallRunResultData(['capell-app/frontend'], $steps, 'passed'), null, 'editable', []);
+    expect($handoff->status)->toBe('completed')
+        ->and($handoff->nextAction['label'])->toBe($rebuilt ? 'Create and verify your first editable public page' : 'Install and build frontend assets before opening Admin or the public page')
+        ->and($handoff->warnings)->toHaveCount($rebuilt ? 0 : 1);
+})->with([false, true]);
+
+it('uses executed frontend preparation for a theme-only requested selection', function (bool $rebuilt): void {
+    $selected = ['capell-app/theme-foundation'];
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: $selected, languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $steps = [InstallPlan::packageAfterInstallStepKey('capell-app/frontend'), InstallPlan::STEP_RUN_MIGRATIONS_POST, InstallPlan::STEP_MARK_CORE_INSTALLED];
+    if ($rebuilt) {
+        $steps[] = InstallPlan::STEP_REBUILD_RESOURCES;
+    }
+
+    $handoff = BuildInstallHandoffAction::run($input, new InstallRunResultData($selected, $steps, 'passed'), null, 'editable', []);
+    expect($handoff->selectedPackages)->toBe($selected)->and($handoff->schemaVersion)->toBe(1)
+        ->and($handoff->warnings)->toHaveCount($rebuilt ? 0 : 1)
+        ->and($handoff->nextAction['label'])->toBe($rebuilt ? 'Create and verify your first editable public page' : 'Install and build frontend assets before opening Admin or the public page');
+})->with([false, true]);
