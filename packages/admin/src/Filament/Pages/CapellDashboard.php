@@ -17,7 +17,6 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
-use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
@@ -195,7 +194,7 @@ class CapellDashboard extends Dashboard
     {
         if (! CapellCore::getPackage(AdminServiceProvider::$packageName)->isInstalled()
             || ! resolve(RuntimeSchemaState::class)->hasTable((new Site)->getTable())
-            || ! SiteAccess::current()->query(Site::class)->exists()) {
+            || ! Site::query()->exists()) {
             return CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::NotInstalled);
         }
 
@@ -228,7 +227,7 @@ class CapellDashboard extends Dashboard
     {
         return CapellCore::getPackage(AdminServiceProvider::$packageName)->isInstalled()
             && resolve(RuntimeSchemaState::class)->hasTable((new Site)->getTable())
-            && SiteAccess::current()->query(Site::class)->exists()
+            && Site::query()->exists()
             ? DashboardEnum::Main
             : DashboardEnum::NotInstalled;
     }

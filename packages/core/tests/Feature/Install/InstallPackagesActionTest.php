@@ -11,6 +11,9 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\InstallRunState;
+use Capell\Core\Support\Install\InstallStepExecutor;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
@@ -535,6 +538,38 @@ it('runs after install lifecycle actions even when no after install command is d
         ],
     ]);
 });
+
+it('plans and executes action-only after-install steps', function (?string $command): void {
+    CapellCore::registerPackage(name: 'test');
+    $package = CapellCore::getPackage('test');
+    $package->afterInstallCommand = $command;
+    $package->afterInstallAction = LifecycleRecorderAction::class;
+    $package->afterInstallParams = ['url'];
+
+    $inputData = makeInstallInputData(packages: ['test'], seedDefaultData: false);
+    $stepKeys = array_column(InstallPlan::build($inputData), 'key');
+    $afterInstallStepKey = InstallPlan::packageAfterInstallStepKey('test');
+
+    expect($stepKeys)->toContain($afterInstallStepKey)
+        ->and(array_search($afterInstallStepKey, $stepKeys, true))
+        ->toBeGreaterThan(array_search(InstallPlan::packageInstallStepKey('test'), $stepKeys, true));
+
+    $state = new InstallRunState($inputData, new NullProgressReporter);
+    $state->setResolvedUser(User::factory()->createOne());
+
+    foreach ($stepKeys as $stepKey) {
+        if (InstallPlan::isPackageAfterInstallStep($stepKey)) {
+            resolve(InstallStepExecutor::class)->execute($stepKey, $state);
+        }
+    }
+
+    expect(LifecycleRecorderAction::$calls)->toBe([
+        [
+            'package' => 'test',
+            'arguments' => ['--url' => 'https://example.com'],
+        ],
+    ]);
+})->with(['null command' => null, 'empty command' => '']);
 
 it('runs demo commands when demo content is enabled', function (): void {
     Storage::fake();
