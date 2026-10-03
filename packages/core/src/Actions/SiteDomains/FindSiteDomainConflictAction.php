@@ -6,11 +6,13 @@ namespace Capell\Core\Actions\SiteDomains;
 
 use Capell\Core\Models\SiteDomain;
 use Illuminate\Database\Eloquent\Builder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Domain uniqueness is a system invariant, including sites hidden from the actor. */
 final class FindSiteDomainConflictAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param array<string, string|null> $urlParts */

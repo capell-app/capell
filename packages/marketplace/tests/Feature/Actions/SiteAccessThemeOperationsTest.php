@@ -52,7 +52,7 @@ it('denies queued activation with no initiating actor even in another users requ
     test()->actingAsAdmin();
     $site = Site::factory()->create();
     $original = $site->theme_id;
-    bindFakeAction(ResolveMarketplaceInstallAttemptUserAction::class, null);
+    bindFakeAction(ResolveMarketplaceInstallAttemptUserAction::class);
     $attempt = siteAccessThemeAttempt();
 
     expect(fn (): mixed => ApplyRequestedThemeActivationAction::run($attempt))->toThrow(AuthorizationException::class);
