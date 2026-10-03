@@ -112,9 +112,7 @@ final class RecordStateScreenshotFixture
     {
         $media = self::media();
 
-        if (! $media instanceof Media) {
-            throw new ModelNotFoundException('The record-state screenshot fixture has not been initialized.');
-        }
+        throw_unless($media instanceof Media, ModelNotFoundException::class, 'The record-state screenshot fixture has not been initialized.');
 
         return MediaResource::getUrl('edit', ['record' => $media]);
     }
@@ -123,9 +121,7 @@ final class RecordStateScreenshotFixture
     {
         $page = Page::query()->where('name', self::PageName)->first();
 
-        if (! $page instanceof Page) {
-            throw new ModelNotFoundException('The record-state screenshot fixture has not been initialized.');
-        }
+        throw_unless($page instanceof Page, ModelNotFoundException::class, 'The record-state screenshot fixture has not been initialized.');
 
         return $page;
     }
@@ -134,9 +130,7 @@ final class RecordStateScreenshotFixture
     {
         $layout = Layout::query()->where('key', self::DisabledLayoutKey)->first();
 
-        if (! $layout instanceof Layout) {
-            throw new ModelNotFoundException('The record-state screenshot fixture has not been initialized.');
-        }
+        throw_unless($layout instanceof Layout, ModelNotFoundException::class, 'The record-state screenshot fixture has not been initialized.');
 
         return $layout;
     }
@@ -204,6 +198,19 @@ final class RecordStateScreenshotFixture
             'model_type' => $page->getMorphClass(),
             'model_id' => $page->getKey(),
         ])->save();
+
+        $media->translations()->updateOrCreate(
+            ['language_id' => $page->site->language_id],
+            [
+                'title' => 'Unused editorial image',
+                'meta' => [
+                    'alt' => 'A white circle with a navy plus sign above blue waves',
+                    'caption' => 'An editorial image ready to attach to a page',
+                    'credit' => 'Capell',
+                    'decorative' => false,
+                ],
+            ],
+        );
 
         Storage::disk($media->disk)->put($media->getKey() . '/' . $media->file_name, $contents);
 

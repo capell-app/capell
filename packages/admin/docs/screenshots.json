@@ -135,7 +135,7 @@
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
             "scenario": "admin-index",
-            "url": "/media/{first-record}/edit",
+            "url": "/screenshot-fixtures/record-states/media-editor",
             "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Crop and focal point'))",
             "docsPage": "packages/admin/docs/overview.md",
             "output": "packages/admin/docs/images/screenshots/admin-media-edit-focal-point.png",
@@ -150,7 +150,7 @@
             "targetType": "admin-surface",
             "target": "MediaResource/EditMedia",
             "scenario": "admin-index",
-            "url": "/media/{first-record}/edit",
+            "url": "/screenshot-fixtures/record-states/media-editor",
             "waitFor": ".fi-sc-tabs:has(button[role='tab']:has-text('Metadata'))",
             "beforeWait": [
                 {
@@ -166,6 +166,10 @@
                 {
                     "type": "scrollIntoView",
                     "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-fo-field:has(label:has-text('Alt text')) input"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",

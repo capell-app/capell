@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Components\Forms\Page\LayoutSelect;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
+use Capell\Admin\Filament\Resources\Media\Pages\EditMedia;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\AssetAttachment;
@@ -15,6 +16,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 use Workbench\App\Support\RecordStateScreenshotFixture;
 
 uses(CreatesAdminUser::class)
@@ -138,4 +140,44 @@ it('redirects authenticated requests to seeded Filament surfaces without writing
         ->not->toContain('update "layouts"')
         ->not->toContain('insert into "media"')
         ->not->toContain('update "media"');
+});
+
+it('prefills localized media metadata on the deterministic editor despite earlier unrelated media', function (): void {
+    test()->actingAsAdmin();
+    $unrelated = Media::factory()->createOne([
+        'name' => 'Earlier unrelated image',
+        'model_type' => Page::query()->firstOrFail()->getMorphClass(),
+        'model_id' => Page::query()->firstOrFail()->getKey(),
+    ]);
+    RecordStateScreenshotFixture::initialize();
+    RecordStateScreenshotFixture::initialize();
+    $media = RecordStateScreenshotFixture::media();
+    assert($media instanceof Media);
+    $languageId = RecordStateScreenshotFixture::page()->site->language_id;
+
+    expect($unrelated->getKey())->toBeLessThan($media->getKey());
+    test()->get('/screenshot-fixtures/record-states/media-editor')
+        ->assertRedirect(MediaResource::getUrl('edit', ['record' => $media]));
+
+    expect($media->translations()->count())->toBe(1)
+        ->and($media->translations()->sole()->language_id)->toBe($languageId)
+        ->and($media->usage_count)->toBe(0)
+        ->and(AssetAttachment::query()->where('asset_id', (string) $media->getKey())->count())->toBe(0);
+
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSchemaStateSet(function (array $state) use ($languageId): void {
+            expect(array_values($state['translations']))->toBe([
+                [
+                    'language_id' => (string) $languageId,
+                    'title' => 'Unused editorial image',
+                    'meta' => [
+                        'alt' => 'A white circle with a navy plus sign above blue waves',
+                        'caption' => 'An editorial image ready to attach to a page',
+                        'credit' => 'Capell',
+                        'decorative' => false,
+                    ],
+                ],
+            ]);
+        });
 });

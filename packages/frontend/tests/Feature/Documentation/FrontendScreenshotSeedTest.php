@@ -92,7 +92,7 @@ it('initializes an idempotent generated frontend screenshot fixture without clai
     $media = Media::query()->where('uuid', '6b6f1639-95be-4cc3-a5a5-f19a0ef825dc')->sole();
     Storage::disk('public')->assertExists($media->getKey() . '/coastal-walk.svg');
     $translation->refresh();
-    expect($translation->content)->toContain(e($media->getUrl()));
+    expect($translation->content)->toContain(e('/storage/' . $media->getPathRelativeToRoot()));
 
     $layout->refresh();
     $theme->refresh();
@@ -206,4 +206,25 @@ it('rejects a placeholder stylesheet instead of accepting an unstyled fixture', 
     File::put(public_path('build/screenshots/default-theme.css'), '/* Placeholder stylesheet. */');
     expect(fn () => FrontendScreenshotSeed::initialize('http://127.0.0.1:8145'))
         ->toThrow(RuntimeException::class, 'compiled default-theme CSS');
+});
+
+it('renders the local fixture image from its stored public path despite the display origin', function (): void {
+    Storage::fake('public', ['url' => 'https://capell.example/storage']);
+    config()->set('app.url', 'https://capell.example');
+    frontendScreenshotSeedModels();
+    FrontendScreenshotSeed::initialize('http://127.0.0.1:8145');
+
+    $media = Media::query()->where('uuid', '6b6f1639-95be-4cc3-a5a5-f19a0ef825dc')->sole();
+    $path = $media->getPathRelativeToRoot();
+
+    expect($media->getUrl())->toBe('https://capell.example/storage/' . $path);
+    Storage::disk('public')->assertExists($path);
+    expect(Storage::disk('public')->get($path))->toBe(file_get_contents(dirname(__DIR__, 5) . '/workbench/resources/images/coastal-walk.svg'));
+
+    $this->get('http://127.0.0.1:8145/')
+        ->assertOk()
+        ->assertElementExists('figure img', fn ($image) => $image->has('src', '/storage/' . $path))
+        ->assertDontSee('https://capell.example/storage/', false);
+
+    expect(config('app.url'))->toBe('https://capell.example');
 });
