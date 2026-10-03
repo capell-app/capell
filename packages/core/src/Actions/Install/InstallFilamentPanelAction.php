@@ -82,7 +82,7 @@ class InstallFilamentPanelAction
         }
 
         if (! array_key_exists('filament:install', Artisan::all())) {
-            $this->installPanelInFreshProcess($reporter, null);
+            $this->installFilamentInFreshProcess($reporter, null);
             $this->ensurePanelProviderWasCreated();
             self::registerPanelProviders();
             $this->ensureDefaultThemeStylesheetExists();
@@ -100,7 +100,7 @@ class InstallFilamentPanelAction
             ]);
         } catch (Throwable $throwable) {
             $reporter->error(sprintf('✗ Failed to scaffold Filament panel: %s', $throwable->getMessage()));
-            $this->installPanelInFreshProcess($reporter, $throwable);
+            $this->installFilamentInFreshProcess($reporter, $throwable);
         }
 
         $output = trim(Artisan::output());
@@ -134,18 +134,22 @@ class InstallFilamentPanelAction
         return array_values(array_filter($paths, is_file(...)));
     }
 
-    private function installPanelInFreshProcess(ProgressReporter $reporter, ?Throwable $previous): void
+    private function installFilamentInFreshProcess(ProgressReporter $reporter, ?Throwable $previous): void
     {
         $reporter->step('Setting up Filament admin panel in a fresh Artisan process…');
 
+        $command = [PHP_BINARY, 'artisan', 'filament:install'];
+
+        // Asset publication can fail after scaffolding succeeds. Regenerating
+        // that registered panel would remove its default and login configuration.
+        if (self::panelProviderPaths() === []) {
+            $command[] = '--panels';
+        }
+
+        $command[] = '--no-interaction';
+
         $process = $this->processFactory->make(
-            [
-                PHP_BINARY,
-                'artisan',
-                'filament:install',
-                '--panels',
-                '--no-interaction',
-            ],
+            $command,
             base_path(),
             ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
         );
