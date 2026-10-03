@@ -136,7 +136,10 @@ final class FrontendScreenshotSeed
         ])->save();
         Storage::disk('public')->put($media->getKey() . '/' . $media->file_name, $contents);
 
-        return view()->file(dirname(__DIR__, 2) . '/resources/views/screenshot-fixtures/frontend-content.blade.php', ['imageUrl' => $media->getUrl()])->render();
+        // Serve the local fixture asset from the runner origin while preserving the installed display domain.
+        $imageUrl = '/storage/' . $media->getPathRelativeToRoot();
+
+        return view()->file(dirname(__DIR__, 2) . '/resources/views/screenshot-fixtures/frontend-content.blade.php', ['imageUrl' => $imageUrl])->render();
     }
 
     /** @return array{host: string, scheme: string, port: int|null} */
