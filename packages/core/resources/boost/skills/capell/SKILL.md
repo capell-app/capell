@@ -1,6 +1,6 @@
 ---
 name: capell
-description: Use when editing or reviewing Capell CMS core, admin, frontend rendering, page types, schemas, caching, or extension points.
+description: Capell CMS architecture, public-output safety, extension points, SiteSpec import, demo installs and Marketplace operations. Use when editing or reviewing Capell core, admin, frontend rendering, page types, schemas, caching, or extension points.
 ---
 
 # Capell CMS

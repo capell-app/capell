@@ -2,6 +2,13 @@
 
 SiteSpec is Capell's deterministic site handoff contract. Core validates and imports it without making creative decisions. AI and other generators may produce the JSON, but they live outside core and must emit this contract exactly.
 
+## Contents
+
+- [Import](#import)
+- [Contract](#contract)
+- [Remote Media Safety](#remote-media-safety)
+- [Package-Owned Blocks](#package-owned-blocks)
+
 ## Import
 
 ```bash

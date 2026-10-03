@@ -6,14 +6,17 @@ while the repository objects and local branch refs remain shared. That isolates
 uncommitted edits and staging, but deleting or moving a shared branch ref still affects
 every checkout.
 
-Worktrees live outside the checkout, in the shared `.capell-wt` root beside the
-repositories — `../.capell-wt` relative to this repository. Never create one
-inside the repository — an in-tree worktree is deleted by `git clean -fdx` run
-in the primary checkout, and every tree-wide scan then walks two copies of the
-source.
+Worktrees live outside the checkout, in one `.capell-wt` root shared by the App,
+Core and companion-package repositories. Set `CAPELL_WORKTREE_ROOT` to that root
+(the App's `./capell worktree` reads the same variable); otherwise use
+`../.capell-wt`. When the App and Core checkouts sit in different parent
+directories, the fallback produces a second root whose orphaned worktrees nobody
+cleans up, so set the variable. Never create one inside the repository — an
+in-tree worktree is deleted by `git clean -fdx` run in the primary checkout, and
+every tree-wide scan then walks two copies of the source.
 
 ```bash
-git worktree add ../.capell-wt/core-my-feature -b feature/my-feature
+git worktree add "${CAPELL_WORKTREE_ROOT:-../.capell-wt}/core-my-feature" -b feature/my-feature
 ```
 
 ## First: are you running PHP on the host, or in Docker?
