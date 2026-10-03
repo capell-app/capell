@@ -14,6 +14,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Filament\Actions\ActionsServiceProvider;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Validation\ValidationException;
@@ -63,7 +64,7 @@ it('renders signed previews for assigned sites without a team while denying fore
 })->with(['page', 'theme']);
 
 it('imports redirects for the queued owner without authentication or a team', function (): void {
-    (require base_path('vendor/filament/actions/database/migrations/create_imports_table.php'))->up();
+    (require dirname((string) new ReflectionClass(ActionsServiceProvider::class)->getFileName(), 2) . '/database/migrations/create_imports_table.php')->up();
     auth()->logout();
     app()->instance(Authenticatable::class, $this->actor);
     $import = new Import;

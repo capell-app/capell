@@ -254,7 +254,7 @@ final class SiteAccessQueryGuard
         return $method . '|' . $normalised;
     }
 
-    /** @param array<Arg|Node\VariadicPlaceholder> $arguments
+    /** @param array<Node> $arguments
      * @return list<array{string, bool}>
      */
     private static function relationStrings(array $arguments): array
