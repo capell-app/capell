@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Concerns;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\RelationManagers\RelationManager;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 /**
  * @mixin  RelationManager
@@ -21,7 +22,13 @@ trait HasRelationManagerBadge
             return null;
         }
 
-        $query = SiteAccess::current()->scope($ownerRecord->{$relationship}()->getQuery());
+        $relation = $ownerRecord->{$relationship}();
+
+        if (! $relation instanceof Relation) {
+            return null;
+        }
+
+        $query = SiteAccess::current()->scope($relation->getQuery());
 
         $count = $query->count();
 

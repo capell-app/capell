@@ -128,6 +128,7 @@ it('provides no-op defaults for schema extenders', function (): void {
 });
 
 it('returns relation manager badges only when related records exist', function (): void {
+    test()->actingAsAdmin();
     $site = Site::factory()->hasSiteDomains(2)->create();
     $emptySite = Site::factory()->createOne();
 
