@@ -58,3 +58,16 @@ it('shows an Active badge instead of a publish-status badge', function (): void 
         ->assertSee(__('capell-admin::publish_panel.status_active'))
         ->assertDontSee(__('capell-admin::publish_panel.not_published'));
 });
+
+it('ignores a saved page with the same identifier as a non-page resource', function (): void {
+    test()->actingAsAdmin();
+    $record = StatusOnlyRecord::query()->create(['status' => true]);
+    $component = statusOnlyPanel($record)->instance();
+    $view = $component->viewData;
+    $record->update(['status' => false]);
+
+    $component->refreshAfterPageSaved((int) $record->getKey());
+
+    expect($component->viewData)->toBe($view)
+        ->and($component->viewData->isEnabled())->toBeTrue();
+});
