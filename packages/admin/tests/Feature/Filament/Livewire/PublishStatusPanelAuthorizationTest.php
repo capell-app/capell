@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
+use ReflectionMethod;
 use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
@@ -157,8 +158,11 @@ it('keeps both record identifiers locked against client updates', function (stri
 it('keeps a missing record not found', function (): void {
     test()->actingAsAdmin();
     Gate::policy(StatusOnlyRecord::class, SharedStatusRecordPolicy::class);
+    $panel = new PublishStatusPanel;
+    $panel->recordClass = StatusOnlyRecord::class;
+    $panel->recordId = 999999;
 
-    expect(fn () => Livewire::test(PublishStatusPanel::class, ['recordClass' => StatusOnlyRecord::class, 'recordId' => 999999]))
+    expect(fn (): mixed => new ReflectionMethod($panel, 'record')->invoke($panel))
         ->toThrow(ModelNotFoundException::class);
 });
 
