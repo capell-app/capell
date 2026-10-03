@@ -32,6 +32,8 @@ final class BlockTemplateResource extends Resource
 
     protected static ?int $navigationSort = 45;
 
+    protected static ?string $recordTitleAttribute = 'name';
+
     /**
      * @return class-string<BlockTemplate>
      */
