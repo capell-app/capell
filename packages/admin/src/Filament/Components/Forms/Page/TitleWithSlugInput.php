@@ -17,6 +17,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Exception;
 use Filament\Actions\Action;
 use Filament\Resources\Resource;
@@ -59,7 +60,7 @@ class TitleWithSlugInput
                         }
 
                         /** @var Site $site */
-                        $site = resolve(Site::class)::query()->find($siteId);
+                        $site = SiteAccess::current()->query(Site::class)->find($siteId);
 
                         /** @var Language $language */
                         $language = resolve(Language::class)::query()->find($languageId);
@@ -74,11 +75,15 @@ class TitleWithSlugInput
                         /** @var class-string<Page> $model */
                         $model = Page::class;
 
-                        $parentPageId = $model::query()->select('id')
+                        $parentPageId = SiteAccess::current()->query($model)->select('id')
                             ->where('id', $parentUuid)
                             ->value('id');
 
-                        $baseQuery = $model::query();
+                        if ($parentPageId === null) {
+                            return $basePath;
+                        }
+
+                        $baseQuery = SiteAccess::current()->query($model);
 
                         foreach (app()->tagged(PageTableExtender::TAG) as $extender) {
                             if ($extender instanceof PageTableExtender) {
@@ -124,20 +129,16 @@ class TitleWithSlugInput
                     titleExtraInputAttributes: ['class' => ''],
                     titleAutofocus: false,
                     titleAfterStateUpdated: function (?string $state, Get $get, Set $set): void {
-                        if ($state === null || $state === '') {
+                        if (blank($state)) {
                             return;
                         }
 
                         $namePath = '../../name';
 
                         $currentName = $get($namePath);
-                        if ($currentName === null || $currentName === '') {
+                        if (blank($currentName)) {
                             $set($namePath, $state);
-
-                            return;
                         }
-
-                        $set($namePath, $state);
                     },
                     slugLabel: '',
                     slugStatePath: 'meta.slug',
@@ -168,7 +169,7 @@ class TitleWithSlugInput
                             $id = $page?->getKey() !== null ? $page->getKey() : $baseRecord?->getKey();
 
                             /** @var list<int> $pageIds */
-                            $pageIds = $model::query()
+                            $pageIds = SiteAccess::current()->query($model)
                                 ->select($modelId)
                                 ->join(
                                     'translations',
@@ -248,7 +249,7 @@ class TitleWithSlugInput
             $model = Site::class;
 
             /** @var Site|null $site */
-            $site = $model::query()
+            $site = SiteAccess::current()->query($model)
                 ->whereKey($site_id)
                 ->withWhereHas(
                     'siteDomain',

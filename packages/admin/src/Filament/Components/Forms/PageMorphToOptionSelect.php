@@ -12,6 +12,7 @@ use Capell\Core\Data\PageVariationData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
@@ -133,7 +134,7 @@ class PageMorphToOptionSelect extends OptionMorphToSelect
     private function getOptionsQuery(Select $component, PageVariationData $pageData): Builder
     {
         $model = $pageData->model;
-        $query = $model::query();
+        $query = SiteAccess::current()->query($model);
 
         if (! $this->modifyKeySelectOptionsQueryUsing instanceof Closure) {
             return $query;

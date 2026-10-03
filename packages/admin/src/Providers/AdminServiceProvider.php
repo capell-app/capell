@@ -225,6 +225,7 @@ use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
@@ -903,8 +904,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // assert on them — and each gained its own settings key so an operator
         // can switch individual counts back on without re-enabling all four.
         $stats = [
-            'pages' => ['label' => 'stat_total_pages', 'sort' => 10, 'value' => fn (): int => Page::query()->count()],
-            'sites' => ['label' => 'stat_sites', 'sort' => 20, 'value' => fn (): int => Site::query()->count()],
+            'pages' => ['label' => 'stat_total_pages', 'sort' => 10, 'value' => fn (): int => SiteAccess::current()->query(Page::class)->count()],
+            'sites' => ['label' => 'stat_sites', 'sort' => 20, 'value' => fn (): int => SiteAccess::current()->query(Site::class)->count()],
             'languages' => ['label' => 'stat_languages', 'sort' => 30, 'value' => fn (): int => Language::query()->count()],
             'page_types' => ['label' => 'stat_page_types', 'sort' => 40, 'value' => fn (): int => Blueprint::query()->pageType()->count()],
         ];

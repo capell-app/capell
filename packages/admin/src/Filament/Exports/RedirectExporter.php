@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Exports;
 
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
@@ -65,7 +65,7 @@ class RedirectExporter extends Exporter
     {
         return $query
             ->redirects()
-            ->tap(fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query))
+            ->tap(fn (Builder $query): Builder => SiteAccess::current()->scope($query))
             ->with(['site', 'language']);
     }
 

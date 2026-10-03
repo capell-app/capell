@@ -45,6 +45,37 @@ it('builds demo install health metrics without critical findings for an install-
         ->and($criticalFindings->values()->all())->toBe([]);
 });
 
+it('counts only the sites and pages assigned to a site-scoped user', function (): void {
+    demoInstallHealthSeedInstall();
+    $globalUser = auth()->user();
+    assert($globalUser instanceof User);
+    $assignedSite = Site::query()->default()->firstOrFail();
+
+    foreach (['Beta', 'Gamma'] as $label) {
+        $otherSite = Site::factory()->create(['name' => sprintf('Unassigned %s Site', $label)]);
+        Page::factory()->site($otherSite)->create();
+    }
+
+    $scopedUser = User::factory()->createOne();
+    $scopedUser->assignedSiteIds = collect([(int) $assignedSite->getKey()]);
+
+    test()->actingAs($scopedUser);
+
+    $scopedMetrics = collect(BuildDemoInstallHealthReportAction::run()->metrics)->pluck('value', 'label');
+
+    test()->actingAs($globalUser);
+
+    $globalMetrics = collect(BuildDemoInstallHealthReportAction::run()->metrics)->pluck('value', 'label');
+    $sitesLabel = __('capell-admin::reports.demo_install_health_metric_sites');
+    $pagesLabel = __('capell-admin::reports.demo_install_health_metric_pages');
+
+    expect($scopedMetrics[$sitesLabel])->toBe(1)
+        ->and($scopedMetrics[$pagesLabel])->toBe(Page::query()->withoutGlobalScopes()->where('site_id', $assignedSite->getKey())->count())
+        ->and($globalMetrics[$sitesLabel])->toBe(3)
+        ->and($globalMetrics[$pagesLabel])->toBe(Page::query()->withoutGlobalScopes()->count())
+        ->and($globalMetrics[$pagesLabel])->toBeGreaterThan($scopedMetrics[$pagesLabel]);
+});
+
 it('reports a missing default theme record as a critical finding with remediation', function (): void {
     demoInstallHealthSeedInstall();
 
@@ -201,6 +232,10 @@ function demoInstallHealthSeedInstall(): void
         'guard_name' => 'web',
     ]);
     $adminUser->assignRole($superAdminRole);
+
+    // The report counts only the sites the acting user may see, so the
+    // install-shaped fixture acts as its global super admin.
+    test()->actingAs($adminUser);
 }
 
 /**

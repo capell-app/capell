@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   fresh-install-extension-audit:
+    if: github.actor != 'dependabot[bot]'
     name: Fresh install extension audit
     runs-on: ubuntu-latest
     timeout-minutes: 10

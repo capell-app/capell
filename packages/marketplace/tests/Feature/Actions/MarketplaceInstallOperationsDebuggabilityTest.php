@@ -377,6 +377,7 @@ it('finds the latest active package operation while ignoring completed attempts'
 });
 
 it('applies marketplace themes to every site and promotes the theme as default', function (): void {
+    test()->actingAsAdmin();
     Event::fake([FrontendSurrogateKeysInvalidated::class]);
 
     $previousTheme = Theme::factory()->create([
@@ -409,6 +410,7 @@ it('applies marketplace themes to every site and promotes the theme as default',
 });
 
 it('applies marketplace themes to one selected site without changing the default theme', function (): void {
+    test()->actingAsAdmin();
     Event::fake([FrontendSurrogateKeysInvalidated::class]);
 
     $previousTheme = Theme::factory()->create([

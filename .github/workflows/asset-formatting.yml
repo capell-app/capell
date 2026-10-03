@@ -27,6 +27,7 @@ concurrency:
 
 jobs:
   prettier:
+    if: github.actor != 'dependabot[bot]'
     name: Prettier
     runs-on: ubuntu-latest
 

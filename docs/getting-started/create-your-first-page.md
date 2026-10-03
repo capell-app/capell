@@ -1,6 +1,6 @@
 # Create your first page
 
-This guide walks through creating your first Capell page from the admin panel. It is written for a first-time user who has already installed Capell and can log in to `/admin`.
+Create a useful About or Contact page, save a draft, check it, then publish it. Start after a successful install, with an account that can log in to `/admin`. The expected result is your new content at the page’s canonical public URL, visible to a visitor who is not signed in.
 
 If you have not installed Capell yet, start with the [quickstart](quickstart.md) or the full [install guide](install.md).
 
@@ -12,7 +12,7 @@ Open **Pages** from the sidebar. Pages are the main routable content records in 
 
 [Light](../images/generated/admin/first-page-pages-list.png) · [Dark](../images/generated/admin/first-page-pages-list-dark.png)
 
-Click **New page** in the top-right corner.
+Check the selected site, then click **New page** and choose a page type from those offered. Its blueprint determines the content fields you will see. You can also open an existing page from the list to practise with seeded content.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-new-page-action-dark.png"><img src="../images/generated/admin/first-page-new-page-action.png" alt="New page action on the Pages list"></picture>
 
@@ -71,18 +71,27 @@ Good first-page examples:
 
 Keep slugs short, lowercase, and stable. Changing a slug after publishing changes the public URL.
 
+## Optionally add an image
+
+If your page needs a photo or illustration, prepare it before attaching it to the page:
+
+1. Open **Media** in the sidebar and choose **Upload files**. Choose an image within your configured upload limits, select the intended site in **Attach to site**, and submit the action. Wait for the upload success notification.
+2. Open the uploaded item using **Manage media**. In **Localized metadata**, use **Add locale metadata** if needed, select the page’s **Language**, and fill **Alt text** with a short description of the meaningful image content. Repeat for the other languages you will publish, then save. Use **Decorative image** only for an image that adds no information.
+3. Return to your page. If its configured image field offers a media-library picker, select the uploaded item there; if it offers upload only, use that field’s upload control, then check the resulting attached media item’s language-specific alt text before publishing. Some page types place images in blocks or widgets instead of a page-level field. Use the fields supplied by that blueprint rather than assuming every page has a featured-image field.
+4. Save the page and check the image in the preview before publishing. Uploading a file to **Media** alone does not place it on the page.
+
+See [Upload a file](../admin/media-management.md#upload-a-file), [language-specific alt text and captions](../admin/media-management.md#add-alt-text-and-captions-per-language), and [upload limits](../admin/media-management.md#limits). If your page type has no image field or media control, publish the text first and use [Build a page](building-pages.md) to choose an appropriate content structure.
+
 ## Write the content
 
-**Content** — the main body of the page.
-
-On a plain install, this is a rich text editor for headings, paragraphs, links, tables, lists, and simple formatting. When the page needs typed blocks or approved section composition, choose the supported path in [Build a page](building-pages.md): page-type blocks with a page-specific `content_structure_override`, or the optional Layout Builder package for containers, widgets, and widget assets.
+Use the content fields provided by the selected page type. A plain text page normally has a **Content** editor for headings, paragraphs, links, tables, lists, and simple formatting. When the page needs typed blocks or approved section composition, choose the supported path in [Build a page](building-pages.md): page-type blocks with a page-specific `content_structure_override`, or the optional Layout Builder package for containers, widgets, and widget assets.
 
 For your first page, keep it simple:
 
 1. Add a short heading or opening sentence.
 2. Add one paragraph of useful body copy.
-3. Save as draft.
-4. Preview the page before publishing.
+3. Choose **Save as draft**.
+4. Follow [Preview and publish](#preview-and-publish) below.
 
 ## Fill useful extra content
 
@@ -116,17 +125,21 @@ Developers can register custom blueprints through Capell extension points. Read 
 
 ## Save as draft first
 
-Use **Save as Draft** while you are still editing. A draft is stored in the admin, but it is not the public version yet.
+Choose **Save as draft** on the new-page form. The page is stored in Admin, but it is not available to anonymous visitors yet. The other create action is **Save and Publish**, so use the draft action for this first review.
 
-Use **Create** or **Save changes** when you are ready to store the record normally. On a plain install, use **Save and Publish** or **Publish** when the page is ready to go live. If workflow packages are installed, publishing may move through [approvals](../../packages/admin/docs/permissions-and-approval.md), Publishing Studio, or scheduled publishing.
-
-For the first page, save a draft, then preview it.
+On an already published page, the save action is labelled **Save**. If workflow packages are installed, draft changes and publishing may move through [approvals](../../packages/admin/docs/permissions-and-approval.md), Publishing Studio, or scheduled publishing; follow the actions and checks your installation presents.
 
 ## Preview and publish
 
-Return to the Pages list and open the row action for your page. The preview action opens the frontend view so you can check the content before making it public.
+1. Open your saved draft for editing from **Pages**. Choose **Preview draft** to open its signed preview in another tab. When editing an existing published page, use the preview action your configured workflow provides and remember that **Save** can update the live page. Check the text, links, and any image. This preview lets you review unpublished content; it does not make the page public.
+2. Return to the editor and inspect the **Publish** panel. For an immediate first publication, review its URL and publishing blockers, and avoid a deliberate future **Visible From** or expired **Visible until** date. A saved draft is expected to remain unavailable until you publish it.
+3. Choose **Save and Publish** on the draft editor, or the **Publish** action provided by your workflow. Resolve any validation or approval message rather than assuming the save made the page live.
+4. Copy the canonical public URL for the page and open it in a private browser window with no Admin session. Use the ordinary site URL, not the signed preview link. For a top-level page with slug `about`, this is normally the selected site’s domain followed by `/about`.
+5. Confirm that the page loads and shows the text you just wrote, plus the image if you attached one. Reload after any later change to prove it reaches visitors.
 
-After publishing, visit the page URL directly.
+The [published public-page example](../frontend/guide.md) shows the kind of frontend result to check. Your page’s appearance depends on its theme and layout. A draft, a future schedule, “Not visible now”, or a successful preview is not a successful immediate publication.
+
+If the public URL returns a 404 or the page stays unavailable, check the selected site, URL, publishing blockers and dates, then use [Troubleshooting](../operations/troubleshooting.md). For a queued page that never generates, follow [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate).
 
 Use **Unpublish** from the edit page when the page should come down. To schedule a removal, set **Visible until** in the Publish Dates section. Use **Cancel scheduled unpublish** if the page should stay live after a removal date was set.
 

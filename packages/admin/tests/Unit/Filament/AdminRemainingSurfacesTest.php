@@ -25,6 +25,7 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -33,6 +34,8 @@ use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+
+uses(CreatesAdminUser::class);
 
 it('builds the site details tab with provided components and default groups', function (): void {
     $tab = DetailsTab::make(Schema::make(), [
@@ -53,6 +56,7 @@ it('builds the site details tab with provided components and default groups', fu
 });
 
 it('selects dashboard Filament widgets from install state and available sites', function (): void {
+    test()->actingAsAdmin();
     $capellAccountWidget = 'Capell\\Account\\Filament\\Widgets\\CapellAccountFilamentWidget';
     $filamentInfoWidget = FilamentInfoWidget::class;
 
@@ -124,6 +128,7 @@ it('provides no-op defaults for schema extenders', function (): void {
 });
 
 it('returns relation manager badges only when related records exist', function (): void {
+    test()->actingAsAdmin();
     $site = Site::factory()->hasSiteDomains(2)->create();
     $emptySite = Site::factory()->createOne();
 

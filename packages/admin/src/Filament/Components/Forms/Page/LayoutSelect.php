@@ -9,10 +9,10 @@ use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Layouts\Tables\LayoutsTable;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Layout;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -193,7 +193,7 @@ class LayoutSelect extends Select
     {
         $actor = auth()->user();
 
-        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
+        return $actor instanceof Authenticatable && SiteAccess::forActor($actor)->isGlobal();
     }
 
     /**

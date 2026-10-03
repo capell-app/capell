@@ -3,13 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
+use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
+use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 
 it('allows an expired paid extension that was previously valid for this site', function (): void {
-    app()->bind(
-        'capell.marketplace.activation-verifier',
-        fn (): callable => fn (CapellExtension $extension, array $activation): bool => $extension->composer_name === $activation['composer_name'],
+    bindRuntimeGateEntitlements(
+        fn (CapellExtension $extension, array $installedReceipt): bool => $extension->composer_name === $installedReceipt['composer_name']
+            && $installedReceipt['receipt_id'] === 'receipt-123',
     );
 
     $extension = CapellExtension::query()->create([
@@ -37,10 +39,8 @@ it('allows an expired paid extension that was previously valid for this site', f
         ->and($gate->reason)->toBe('expired_but_previously_valid');
 });
 
-it('blocks an expired paid extension when its durable receipt records revocation', function (): void {
-    app()->bind('capell.marketplace.activation-verifier', fn (): callable => fn (): bool => true);
-    $receipt = validInstalledReceipt();
-    $receipt['runtime_revoked'] = true;
+it('blocks an expired paid extension when the extension entitlements reject or cannot verify its receipt', function (Closure $verify): void {
+    bindRuntimeGateEntitlements($verify);
 
     $extension = CapellExtension::query()->create([
         'composer_name' => 'capell-app/seo-suite',
@@ -49,11 +49,37 @@ it('blocks an expired paid extension when its durable receipt records revocation
         'is_paid_marketplace_extension' => true,
         'marketplace_runtime_status' => 'expired',
         'marketplace_runtime_allowed' => true,
-        'marketplace_signed_activation' => ['installed_receipt' => $receipt],
+        'marketplace_signed_activation' => ['installed_receipt' => validInstalledReceipt()],
     ]);
 
-    expect(ResolveExtensionRuntimeGateAction::run($extension)->allowed)->toBeFalse();
-});
+    $gate = ResolveExtensionRuntimeGateAction::run($extension);
+
+    expect($gate->allowed)->toBeFalse()
+        ->and($gate->reason)->toBe('expired_without_activation');
+})->with([
+    'rejected' => [fn (): bool => false],
+    'verification throws' => [function (): bool {
+        throw new RuntimeException('Verification unavailable.');
+    }],
+]);
+
+function bindRuntimeGateEntitlements(Closure $verify): void
+{
+    app()->bind(ExtensionEntitlements::class, fn (): ExtensionEntitlements => new readonly class($verify) implements ExtensionEntitlements
+    {
+        public function __construct(private Closure $verify) {}
+
+        public function licenceDecision(string $slug, string $action, string $domain): ExtensionLicenceDecisionData
+        {
+            throw new LogicException('The runtime gate must not request licence decisions.');
+        }
+
+        public function verifyActivation(CapellExtension $extension, array $installedReceipt): bool
+        {
+            return ($this->verify)($extension, $installedReceipt);
+        }
+    });
+}
 
 /** @return array<string, mixed> */
 function validInstalledReceipt(): array

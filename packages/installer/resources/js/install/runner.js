@@ -95,6 +95,9 @@
                         return
                     }
                     progress.renderLines(result.payload.lines || [])
+                    if (result.payload.plan) {
+                        progress.renderPlanSteps(result.payload.plan)
+                    }
                     if (
                         result.payload.status === 'failed' ||
                         result.httpStatus >= 400

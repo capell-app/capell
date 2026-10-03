@@ -26,48 +26,46 @@ class NameInput extends BaseNameInput
 
             $translations = $get('translations');
 
-            if ($translations === null || $translations === []) {
+            if (! is_array($translations)) {
                 return;
             }
 
-            $key = array_key_first($translations);
-
-            $translation = $translations[$key];
-
-            $set(sprintf('translations.%s.title', $key), $state);
-
-            $isChangedManually = (bool) ($translation['is_slug_changed_manually'] ?? false);
-            $slug = $translation['slug'] ?? null;
-            if (! $isChangedManually && ($slug === null || $slug === '')) {
-                $set(sprintf('translations.%s.slug', $key), Str::slug($state));
-            }
-        })
-            ->afterStateUpdatedJs(function (string $operation): string {
-                if (! in_array($operation, ['create', 'createOption', 'replicate'], true)) {
-                    return '';
+            foreach ($translations as $key => $translation) {
+                if (! is_array($translation)) {
+                    continue;
                 }
 
-                return <<<'JS'
-                    if ($state) {
-                        const translations = $get('translations');
-                        if (translations) {
-                            for (const key in translations) {
-                                if (translations[key].is_slug_changed_manually) {
-                                    continue;
-                                }
+                if (filled($translation['title'] ?? null)) {
+                    continue;
+                }
 
-                                const title = $state
-                                    .normalize('NFD')
-                                    .replace(/[\u0300-\u036f]/g, '')
-                                    .replace(/-/g, ' ')
-                                    .replace(/\b\w/g, c => c.toUpperCase());
+                // Deferred updates already contain the submitted public title.
+                // The internal name is only an initial default for blank fields.
+                $set(sprintf('translations.%s.title', $key), $state);
 
-                                $set(`translations.${key}.title`, title);
-                                setTimeout(() => $set(`translations.${key}.is_slug_changed_manually`, false), 0);
+                $isChangedManually = (bool) ($translation['slug_auto_update_disabled'] ?? false)
+                    || (bool) ($translation['is_slug_changed_manually'] ?? false);
+                if (! $isChangedManually && blank(data_get($translation, 'meta.slug'))) {
+                    $set(sprintf('translations.%s.meta.slug', $key), Str::slug($state));
+                }
+            }
+        })
+            // A state watcher runs on every keystroke; seed the completed input.
+            ->extraInputAttributes(function (string $operation): array {
+                if (! in_array($operation, ['create', 'createOption', 'replicate'], true)) {
+                    return [];
+                }
+
+                return ['x-on:change' => <<<'JS'
+                    if ($state?.trim()) {
+                        const translations = $get('translations') ?? {};
+                        for (const [key, translation] of Object.entries(translations)) {
+                            if (translation && !(translation.title ?? '').trim()) {
+                                $set(`translations.${key}.title`, $state);
                             }
                         }
                     }
-                JS;
-            });
+                JS];
+            }, merge: true);
     }
 }

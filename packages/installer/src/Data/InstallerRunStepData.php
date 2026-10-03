@@ -12,6 +12,7 @@ final class InstallerRunStepData extends Data
     /**
      * @param  array<int, mixed>  $lines
      * @param  array<string, mixed>|null  $preflight
+     * @param  array<int, array{key: string, label: string}>|null  $plan
      */
     public function __construct(
         public readonly string $installId,
@@ -25,5 +26,6 @@ final class InstallerRunStepData extends Data
         public readonly ?string $exceptionMessage = null,
         public readonly ?string $remediation = null,
         public readonly ?array $preflight = null,
+        public readonly ?array $plan = null,
     ) {}
 }

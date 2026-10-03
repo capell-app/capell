@@ -9,11 +9,14 @@ use Capell\Core\Data\LinkableContentData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Override;
 
 final class PageLinkableContentProvider implements LinkableContent
 {
+    #[Override]
     public function key(): string
     {
         return 'pages';
@@ -22,9 +25,10 @@ final class PageLinkableContentProvider implements LinkableContent
     /**
      * @return Collection<int, LinkableContentData>
      */
+    #[Override]
     public function options(?int $siteId = null, ?int $languageId = null): Collection
     {
-        return PageUrl::query()
+        return SiteAccess::current()->query(PageUrl::class)
             ->with(['pageable', 'translation'])
             ->where('pageable_type', (new Page)->getMorphClass())
             ->whereNull('type')

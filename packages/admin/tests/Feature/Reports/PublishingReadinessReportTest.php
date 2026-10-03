@@ -18,6 +18,11 @@ use Livewire\Livewire;
 uses(CreatesAdminUser::class)
     ->group('admin', 'reports');
 
+beforeEach(function (): void {
+    // Reports only cover the sites the acting user may see; a global admin sees every site.
+    test()->actingAsAdmin();
+});
+
 it('reports ready pages without findings when required translations and urls exist', function (): void {
     [$site, $blueprint, $english, $welsh] = publishingReadinessSiteContext();
 

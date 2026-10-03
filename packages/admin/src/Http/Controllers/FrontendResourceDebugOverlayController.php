@@ -10,6 +10,7 @@ use Capell\Core\Data\SiteDomains\SiteRequestTargetData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -34,7 +35,7 @@ class FrontendResourceDebugOverlayController extends Controller
         $pageId = $request->integer('page_id');
 
         if ($pageId > 0) {
-            return Page::query()->find($pageId);
+            return SiteAccess::current()->query(Page::class)->find($pageId);
         }
 
         $url = $request->string('url')->trim()->toString();
@@ -46,7 +47,7 @@ class FrontendResourceDebugOverlayController extends Controller
         try {
             $resolution = ResolveSiteDomainAction::run(
                 SiteRequestTargetData::fromUrl($url),
-                Site::query()->excludingPreview()->with('siteDomains')->get(),
+                SiteAccess::current()->query(Site::class)->excludingPreview()->with('siteDomains')->get(),
             );
         } catch (InvalidArgumentException) {
             return null;

@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Themes;
 
 use Capell\Admin\Data\Themes\ThemeCompatibilityData;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Illuminate\Support\Facades\Storage;
 use Spatie\LaravelData\Data;
@@ -50,7 +51,7 @@ final class ThemeCardData extends Data
             isActive: $theme->isDefault(),
             isNew: $theme->created_at !== null && $theme->created_at->greaterThan(now()->subDay()),
             isEnabled: $theme->status,
-            siteCount: $theme->sites_count ?? $theme->sites()->count(),
+            siteCount: $theme->sites_count ?? SiteAccess::current()->scope($theme->sites()->getQuery(), 'sites.id')->count(),
             compatibility: ThemeCompatibilityData::fromAdmin($admin),
             package: $definition instanceof ThemeDefinitionData ? $definition->package : self::stringValue($admin['package'] ?? null, $theme->key),
             tags: $definition instanceof ThemeDefinitionData ? $definition->tags : self::stringList($admin['tags'] ?? []),

@@ -22,7 +22,6 @@ use Capell\Admin\Filament\Resources\Redirects\RedirectResource;
 use Capell\Admin\Filament\Resources\Themes\Tables\ThemesTable;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Admin\Support\MediaScope;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Enums\UrlTypeEnum;
@@ -33,6 +32,7 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -69,7 +69,7 @@ class MediaTable implements TableConfigurator
                 SelectFilter::make('collection_name')
                     ->label(__('capell-admin::table.collection'))
                     ->options(
-                        fn (): array => MediaScope::applyForCurrentActor(Media::query())
+                        fn (): array => SiteAccess::current()->query(Media::class)
                             ->select('collection_name')
                             ->distinct()
                             ->orderBy('collection_name')
@@ -435,8 +435,8 @@ class MediaTable implements TableConfigurator
     {
         $attachments = new AssetAttachment;
 
-        return MediaScope::applyAssetAttachmentsForCurrentActor(
-            AssetAttachment::query()
+        return SiteAccess::current()->scopeAssetAttachments(
+            SiteAccess::current()->query(AssetAttachment::class)
                 ->selectRaw('1')
                 ->where($attachments->qualifyColumn('asset_type'), $query->getModel()->getMorphClass())
                 ->whereColumn($attachments->qualifyColumn('asset_id'), $query->qualifyColumn($query->getModel()->getKeyName())),
@@ -448,8 +448,8 @@ class MediaTable implements TableConfigurator
     {
         $attachments = new AssetAttachment;
 
-        return MediaScope::applyAssetAttachmentsForCurrentActor(
-            AssetAttachment::query()
+        return SiteAccess::current()->scopeAssetAttachments(
+            SiteAccess::current()->query(AssetAttachment::class)
                 ->selectRaw('COUNT(*)')
                 ->where($attachments->qualifyColumn('asset_type'), $query->getModel()->getMorphClass())
                 ->whereColumn($attachments->qualifyColumn('asset_id'), $query->qualifyColumn($query->getModel()->getKeyName())),
@@ -458,14 +458,14 @@ class MediaTable implements TableConfigurator
 
     protected static function noTrackedUsageLabel(): string
     {
-        return (string) __(MediaScope::isGlobalActor()
+        return (string) __(SiteAccess::current()->isGlobal()
             ? 'capell-admin::table.no_tracked_uses'
             : 'capell-admin::table.no_accessible_tracked_uses');
     }
 
     protected static function noTrackedUsageTooltip(): string
     {
-        return (string) __(MediaScope::isGlobalActor()
+        return (string) __(SiteAccess::current()->isGlobal()
             ? 'capell-admin::table.asset_usage_no_tracked_uses_tooltip'
             : 'capell-admin::table.asset_usage_no_accessible_tracked_uses_tooltip');
     }

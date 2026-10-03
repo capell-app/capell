@@ -8,6 +8,7 @@ use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -45,7 +46,7 @@ final class CreateExternalVideoMediaAction
 
     private function nextVideoOrderForSite(Site $site): int
     {
-        $max = Media::query()
+        $max = SiteAccess::current()->query(Media::class)
             ->where('model_type', $site->getMorphClass())
             ->where('model_id', $site->getKey())
             ->where('collection_name', MediaCollectionEnum::Video->value)

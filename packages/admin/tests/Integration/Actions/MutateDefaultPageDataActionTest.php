@@ -6,10 +6,14 @@ use Capell\Admin\Actions\MutateDefaultPageDataAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Str;
+
+uses(CreatesAdminUser::class);
 
 describe('MutateDefaultPageDataAction feature', function (): void {
     it('returns correct default page data structure and values', function (): void {
+        test()->actingAsAdmin();
         $layout = Layout::factory()->default()->create();
         $type = Blueprint::factory()->page()->default()->create();
         $site = Site::factory()->createOne();

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Support;
 
 use Capell\Core\Models\Site;
-use Capell\Core\Support\Permissions\PermissionTeamContext;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -13,61 +13,26 @@ use Illuminate\Database\Eloquent\Model;
 final class SiteScope
 {
     /**
-     * @template TModel of \Illuminate\Database\Eloquent\Model
+     * The legacy flag is retained for named-argument compatibility. Missing
+     * actors are always denied, including when the old opt-out is supplied.
+     *
+     * @template TModel of Model
      *
      * @param  Builder<TModel>  $query
      * @return Builder<TModel>
      */
-    public static function applyForCurrentActor(Builder $query, string $column = 'site_id', bool $denyWhenMissingActor = false): Builder
+    public static function applyForCurrentActor(Builder $query, string $column = 'site_id', bool $denyWhenMissingActor = true): Builder
     {
-        $actor = auth()->user();
-
-        if (! $actor instanceof Authenticatable) {
-            return $denyWhenMissingActor ? $query->whereRaw('1 = 0') : $query;
-        }
-
-        if (self::isGlobalActor($actor)) {
-            return $query;
-        }
-
-        $assignedSiteIds = $actor->getAssignedSiteIds();
-
-        return $assignedSiteIds->isNotEmpty()
-            ? $query->whereIn($column, $assignedSiteIds)
-            : $query->whereRaw('1 = 0');
+        return SiteAccess::current()->scope($query, $column);
     }
 
     public static function actorCanUseSite(?Authenticatable $actor, Site $site): bool
     {
-        if (! $actor instanceof Authenticatable) {
-            return false;
-        }
-
-        if (self::isGlobalActor($actor)) {
-            return true;
-        }
-
-        return $actor->getAssignedSiteIds()->contains($site->getKey());
+        return SiteAccess::forActor($actor)->can($site);
     }
 
     public static function isGlobalActor(Authenticatable $actor): bool
     {
-        if (method_exists($actor, 'isGlobalAdmin')) {
-            return $actor->isGlobalAdmin();
-        }
-
-        $configured = config('capell.roles.super_admin', config('filament-shield.super_admin.name', 'super_admin'));
-        $superAdminRole = is_string($configured) && $configured !== '' ? $configured : 'super_admin';
-
-        // Eloquent models are callable through __call(), so method_exists() is the safer runtime guard here.
-        if (! method_exists($actor, 'hasRole')) {
-            return false;
-        }
-
-        return PermissionTeamContext::run(
-            null,
-            fn (): bool => $actor->hasRole($superAdminRole),
-            $actor instanceof Model ? $actor : null,
-        );
+        return SiteAccess::forActor($actor)->isGlobal();
     }
 }

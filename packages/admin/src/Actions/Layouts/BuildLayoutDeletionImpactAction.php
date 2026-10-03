@@ -7,9 +7,9 @@ namespace Capell\Admin\Actions\Layouts;
 use Capell\Admin\Data\RecordDeletionImpactData;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\Resource;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -68,7 +68,7 @@ final class BuildLayoutDeletionImpactAction
     {
         $actor = auth()->user();
 
-        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
+        return $actor instanceof Authenticatable && SiteAccess::forActor($actor)->isGlobal();
     }
 
     private function pagesUrl(Layout $layout, int $pagesCount): ?string

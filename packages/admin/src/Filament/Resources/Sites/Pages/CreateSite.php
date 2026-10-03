@@ -15,6 +15,7 @@ use Capell\Admin\Support\Filament\RawState;
 use Capell\Core\Actions\SiteCreatedAction;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
@@ -152,7 +153,7 @@ class CreateSite extends CreateRecord
                 continue;
             }
 
-            SiteDomain::query()->create([
+            SiteAccess::current()->query(SiteDomain::class)->create([
                 'site_id' => $this->record->getKey(),
                 'language_id' => $domain['language_id'] ?? $this->record->language_id,
                 'scheme' => $urlParts['scheme'] ?? null,

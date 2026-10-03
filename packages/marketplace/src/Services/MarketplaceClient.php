@@ -431,12 +431,11 @@ final class MarketplaceClient
 
     public function extensionLicenceDecision(string $slug, string $action, ?string $domain = null): ExtensionLicenceDecisionData
     {
-        unset($domain);
-
         $data = $this->postSignedJsonData(
             $this->extensionPath($slug, '/licence-decision'),
             [
                 'action' => $action,
+                'domain' => $this->licenceDecisionDomain($domain),
                 'app_url' => config('app.url'),
             ],
             'Marketplace could not resolve this licence decision.',
@@ -882,6 +881,23 @@ final class MarketplaceClient
     private function validatedApprovalUrl(string $approvalUrl): string
     {
         return MarketplaceApprovalUrl::validate($approvalUrl);
+    }
+
+    /**
+     * The marketplace requires a domain on every licence decision. Callers that
+     * have none (feedback) send the host of this site's own URL.
+     */
+    private function licenceDecisionDomain(?string $domain): string
+    {
+        $domain = mb_trim((string) $domain);
+
+        if ($domain !== '') {
+            return $domain;
+        }
+
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        return is_string($host) ? $host : '';
     }
 
     private function extensionPath(string $slug, string $suffix = ''): string

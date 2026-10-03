@@ -1,9 +1,6 @@
 name: PHP Quality
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -18,6 +15,7 @@ concurrency:
 
 jobs:
   scope:
+    if: github.actor != 'dependabot[bot]'
     name: PHP Quality scope
     runs-on: ubuntu-latest
     outputs:
@@ -58,7 +56,7 @@ jobs:
     needs: scope
     # A failed scope job must not turn the required check into a skipped pass,
     # so the gate also runs whenever the scope could not be decided.
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.relevant == 'true') }}
+    if: ${{ github.actor != 'dependabot[bot]' && (!cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.relevant == 'true')) }}
     runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'

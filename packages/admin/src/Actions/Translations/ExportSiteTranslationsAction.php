@@ -9,6 +9,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Generator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -91,7 +92,7 @@ class ExportSiteTranslationsAction
 
         foreach ($this->translatables($site) as $translatable) {
             /** @var Collection<int, Translation> $translations */
-            $translations = $translatable->translations()->get()->keyBy('language_id');
+            $translations = SiteAccess::current()->scope($translatable->translations()->getQuery())->get()->keyBy('language_id');
             $source = $defaultLanguage instanceof Language
                 ? $translations->get($defaultLanguage->id)
                 : null;
@@ -113,7 +114,7 @@ class ExportSiteTranslationsAction
     {
         yield $site;
 
-        foreach (Page::query()->where('site_id', $site->id)->orderBy('id')->lazyById(self::CHUNK_SIZE) as $page) {
+        foreach (SiteAccess::current()->query(Page::class)->where('site_id', $site->id)->orderBy('id')->lazyById(self::CHUNK_SIZE) as $page) {
             yield $page;
         }
     }

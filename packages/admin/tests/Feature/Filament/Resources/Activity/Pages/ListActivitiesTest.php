@@ -7,6 +7,7 @@ use Capell\Admin\Filament\Resources\Activities\ActivityResource;
 use Capell\Admin\Filament\Resources\Activities\Pages\ListActivities;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
+use Capell\Admin\Tests\Fixtures\Activity\GlobalAuditUser;
 use Capell\Admin\Tests\Fixtures\Autoload\PackageActivityChangeSetBuilderForListTest;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -22,11 +23,11 @@ uses(CreatesAdminUser::class)
 
 beforeEach(function (): void {
     Role::findOrCreate(config('capell.roles.editor', 'editor'));
-
     $user = $this->createUser();
     $user->assignRole(config('capell.roles.editor', 'editor'));
+    // Global audit ownership is independent of the revert/delete permissions below.
 
-    $this->actingAs($user);
+    $this->actingAs(GlobalAuditUser::fromUser($user));
 });
 
 it('lists decorated activity rows', function (): void {

@@ -10,11 +10,14 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+
+uses(CreatesAdminUser::class);
 
 it('builds option morph page blueprints from registered page variations', function (): void {
     CapellCore::registerPageVariation(new PageVariationData(
@@ -42,6 +45,7 @@ it('configures standard page morph select defaults', function (): void {
 });
 
 it('loads page options through registered page variations and query callbacks', function (): void {
+    test()->actingAsAdmin();
     CapellCore::registerPageVariation(new PageVariationData(
         name: 'coverage_landing_page',
         model: Page::class,

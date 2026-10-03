@@ -19,6 +19,7 @@ use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\Width;
@@ -55,7 +56,7 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
         $query = parent::getFilteredTableQuery();
 
         if (! $query instanceof Builder) {
-            $query = Page::query();
+            $query = SiteAccess::current()->query(Page::class);
         }
 
         return BuildPageListingQueryAction::run(
@@ -180,7 +181,7 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
             ->enabled()
             ->pageType()
             ->adminResource($resource::getResourceName())
-            ->withCount('pages')
+            ->withCount(['pages' => fn (Builder $query): Builder => SiteAccess::current()->scope($query)])
             ->ordered()
             ->get()
             ->each(fn (Blueprint $pageType): Blueprint => $pageType->setAttribute(

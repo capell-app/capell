@@ -15,11 +15,11 @@ use Capell\Admin\Filament\Resources\Languages\LanguageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Admin\Support\Redirects\RedirectHealthRequestCache;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -102,7 +102,7 @@ class RedirectsTable implements TableConfigurator
                 ->relationship(
                     name: 'site',
                     titleAttribute: 'name',
-                    modifyQueryUsing: fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'id'),
+                    modifyQueryUsing: fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'id'),
                 ),
             SelectFilter::make('language_id')
                 ->label(__('capell-admin::form.language'))

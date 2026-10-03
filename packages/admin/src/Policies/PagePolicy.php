@@ -7,13 +7,14 @@ namespace Capell\Admin\Policies;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Foundation\Auth\User;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 /**
  * Filament-compatible policy for Page / page-variation resources.
  *
- * Site scoping is handled transparently by Spatie's team feature: the
+ * Site ownership is checked independently of the active permission team. The
  * SetSitePermissionScope middleware sets the active team ID before any
  * request reaches a policy, so checkPermissionTo() calls are already scoped.
  *
@@ -46,6 +47,10 @@ class PagePolicy
 
     public function view(User $user, Page $page): bool
     {
+        if (! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -71,6 +76,10 @@ class PagePolicy
 
     public function export(User $user, ?Page $page = null): bool
     {
+        if ($page instanceof Page && ! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -84,6 +93,10 @@ class PagePolicy
 
     public function update(User $user, Page $page): bool
     {
+        if (! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -97,6 +110,10 @@ class PagePolicy
 
     public function editContent(User $user, Page $page): bool
     {
+        if (! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -113,6 +130,10 @@ class PagePolicy
 
     public function editLayout(User $user, Page $page): bool
     {
+        if (! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -129,6 +150,10 @@ class PagePolicy
 
     public function delete(User $user, Page $page): bool
     {
+        if (! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -151,6 +176,10 @@ class PagePolicy
 
     public function restore(User $user, Page $page): bool
     {
+        if (! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -170,6 +199,10 @@ class PagePolicy
 
     public function forceDelete(User $user, Page $page): bool
     {
+        if (! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }
@@ -189,6 +222,10 @@ class PagePolicy
 
     public function replicate(User $user, Page $page): bool
     {
+        if (! SiteAccess::forActor($user)->canUseRecord($page)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin($user)) {
             return true;
         }

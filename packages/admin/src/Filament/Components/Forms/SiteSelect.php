@@ -6,8 +6,8 @@ namespace Capell\Admin\Filament\Components\Forms;
 
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -43,7 +43,7 @@ class SiteSelect extends Select
                         ->map(fn (mixed $siteId): int => (int) $siteId)
                         ->values();
 
-                    $sites = Site::query()
+                    $sites = SiteAccess::current()->query(Site::class)
                         ->whereKey($siteIds)
                         ->get();
 
@@ -55,7 +55,7 @@ class SiteSelect extends Select
 
                     $actor = auth()->user();
                     $hasInaccessibleSite = $sites->contains(
-                        fn (Site $site): bool => ! SiteScope::actorCanUseSite($actor, $site),
+                        fn (Site $site): bool => ! SiteAccess::forActor($actor)->can($site),
                     );
 
                     if ($hasInaccessibleSite) {
@@ -122,7 +122,7 @@ class SiteSelect extends Select
         /** @var class-string<Site> $model */
         $model = Site::class;
 
-        $query = SiteScope::applyForCurrentActor($model::query(), 'id');
+        $query = SiteAccess::current()->query($model);
         if ($modifyQueryUsing instanceof Closure) {
             $query = $this->evaluate($modifyQueryUsing, ['query' => $query]);
         }

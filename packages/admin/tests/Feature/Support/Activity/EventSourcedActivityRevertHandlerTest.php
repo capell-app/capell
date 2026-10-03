@@ -7,9 +7,12 @@ use Capell\Admin\Support\Activity\ActivityRevertHandlerResolver;
 use Capell\Admin\Support\Activity\EventSourcedActivityRevertHandler;
 use Capell\Core\EventSourcing\Events\PageRolledBack;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
+use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Contracts\Activity;
+use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class)
     ->group('admin');
@@ -84,4 +87,22 @@ it('refuses to revert for a user without the page rollback permission', function
         ->where('aggregate_uuid', $page->uuid)
         ->where('event_class', PageRolledBack::class)
         ->count())->toBe(0);
+});
+
+it('denies rollback of a foreign page even when the actor has rollback permission', function (): void {
+    $assigned = Site::factory()->create();
+    $foreignPage = Page::factory()->site(Site::factory()->create())->withTranslations()->create();
+    $foreignPage->load(['translations', 'pageUrls']);
+    $foreignPage->save();
+
+    $activity = activity()->performedOn($foreignPage)->event('updated')->log('edited page');
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+    Permission::findOrCreate('page.rollback', 'web');
+    $actor->givePermissionTo('page.rollback');
+    test()->actingAs($actor);
+    $result = resolve(EventSourcedActivityRevertHandler::class)->revert(selectionForPage($foreignPage, expectPresent($activity)->id));
+
+    expect($result->successful)->toBeFalse()
+        ->and(DB::table('stored_events')->where('aggregate_uuid', $foreignPage->uuid)->where('event_class', PageRolledBack::class)->count())->toBe(0);
 });

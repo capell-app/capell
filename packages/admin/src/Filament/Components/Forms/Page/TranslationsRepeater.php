@@ -13,6 +13,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\CapellCoreHelper;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -143,7 +144,7 @@ class TranslationsRepeater extends BaseTranslationsRepeater
                     /** @var class-string<Page> $model */
                     $model = Page::class;
 
-                    $parent = $model::query()
+                    $parent = SiteAccess::current()->query($model)
                         ->with(['blueprint', 'translations' => fn (BuilderContract $query): BuilderContract => $query->with('language')])
                         ->firstWhere('id', $formData['parent_id']);
 
@@ -215,7 +216,7 @@ class TranslationsRepeater extends BaseTranslationsRepeater
         $model = Site::class;
 
         /** @var Site $site */
-        $site = $model::query()
+        $site = SiteAccess::current()->query($model)
             ->with('translations:id,language_id,translatable_type,translatable_id')
             ->find($siteId, ['id']);
 

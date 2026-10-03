@@ -43,6 +43,10 @@ final class InstallStepResponse
         $payload['currentStep'] = $result->currentStep;
         $payload['nextStep'] = $result->nextStep;
 
+        if ($result->plan !== null) {
+            $payload['plan'] = $result->plan;
+        }
+
         if ($result->expectedStep !== null) {
             $payload['expectedStep'] = $result->expectedStep;
         }

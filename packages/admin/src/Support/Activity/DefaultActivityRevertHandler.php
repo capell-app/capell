@@ -8,6 +8,11 @@ use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
 use Capell\Admin\Data\Activity\ActivityRevertResultData;
 use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Core\Models\Media;
+use Capell\Core\Models\Site;
+use Capell\Core\Models\Term;
+use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Spatie\Activitylog\Models\Activity;
@@ -34,7 +39,7 @@ final class DefaultActivityRevertHandler implements ActivityRevertHandler
             );
         }
 
-        $activity = Activity::query()->find($selection->activityId);
+        $activity = SiteAccess::current()->query(Activity::class)->find($selection->activityId);
 
         if (! $activity instanceof Activity) {
             return ActivityRevertResultData::failed(
@@ -64,6 +69,14 @@ final class DefaultActivityRevertHandler implements ActivityRevertHandler
             return ActivityRevertResultData::failed(
                 messageKey: 'capell-admin::activity.revert_failed',
                 skippedFields: ['missing_subject' => $selection->selectedPaths],
+            );
+        }
+
+        if (($subject instanceof Site || $subject instanceof Media || $subject instanceof Term || $subject instanceof Translation || $subject->hasAttribute('site_id'))
+            && ! SiteAccess::current()->canUseRecord($subject)) {
+            return ActivityRevertResultData::failed(
+                messageKey: 'capell-admin::activity.revert_unauthorized',
+                skippedFields: ['unauthorized' => $selection->selectedPaths],
             );
         }
 
@@ -111,12 +124,22 @@ final class DefaultActivityRevertHandler implements ActivityRevertHandler
             );
         }
 
+        $currentSubject = $subject;
+        $subject = clone $subject;
+
         try {
             $subject->fill($updates);
         } catch (Throwable) {
             return ActivityRevertResultData::failed(
                 messageKey: 'capell-admin::activity.revert_failed',
                 skippedFields: ['cast_invalid' => array_keys($updates)] + $skippedFields,
+            );
+        }
+
+        if (! resolve(ProposedActivityRevertAccess::class)->allows($currentSubject, $updates)) {
+            return ActivityRevertResultData::failed(
+                messageKey: 'capell-admin::activity.revert_unauthorized',
+                skippedFields: ['unauthorized' => array_keys($updates)] + $skippedFields,
             );
         }
 

@@ -29,7 +29,7 @@ Before changing an existing application, back up its database and media and conf
 - Keep `storage/` and `bootstrap/cache/` writable by the web and worker users, and know where the host records PHP and web-server errors.
 - Process execution (`proc_open`) is required for local automated Composer and package lifecycle work. Marketplace readiness reports this before confirmation and changes the call to action to deployment/manual instructions when the limitation is deliberate. Do not bypass the check or increase browser timeouts; enable the process API, use a deployment publisher, or apply the recorded commands during deployment. Database backup commands have their own binary checks.
 - Database backups shell out to `mysqldump` or `pg_dump`. Slim containers usually ship neither — install them, point `backup.binaries.*` at them, or use SQLite, which needs no external binary.
-- Installing extensions from the admin UI runs Composer against the application root, so it cannot work on a read-only or immutable deployment. Install extensions during your build instead.
+- Installing extensions from the admin UI runs Composer against the application root, so it cannot work on a read-only or immutable deployment. Install extensions during your build instead. Paid packages need a Capell-issued Composer credential that expires 30 minutes after issue (and, when issued for an installation, is bound to that instance and domain), so request it immediately before the build and never bake it into a reusable image or long-lived CI secret. See [Paid package access](#paid-package-access).
 - Rebuilding frontend assets from the admin UI needs Node and npm on the server. If your image has neither, build assets in CI and deploy the output.
 - Marketplace installs use their own queue. A plain `php artisan queue:work` will not process them — see [configuration](../development/configuration.md#marketplace-config).
 - Host-specific Marketplace capability tiers and every readiness remediation are documented in [Marketplace hosting](../operations/marketplace-hosting.md).
@@ -69,16 +69,21 @@ composer require capell-app/installer
 
 #### Paid package access
 
-Owners, Billing members, and authorised technical members of an organisation with an active paid package entitlement can reveal a short-lived Composer command in the customer account. Use that generated command instead of inventing repository credentials:
+Paid packages are served from `https://capell.app/composer` with a short-lived bearer credential that Capell issues for a purchase. The customer account does not reveal one: its **Packages** page lists the credentials already issued to an organisation (package, creation date, last use, expiry) and lets you revoke them. That section is shown to Owners, Billing members, and members with private Composer access. Credentials are issued by one of two flows:
+
+- **Site builder handoff.** After purchase, the handoff for the site build lists the commands to run in order: `composer config repositories.capell composer <repository-url>`, `composer config bearer.<host> <token>`, `composer require` for the purchased packages at exact versions, then `php artisan capell:install --spec=<file> --theme=<theme>`. Run those commands as given rather than assembling repository credentials by hand.
+- **Marketplace in Admin.** Installing a paid package from Marketplace requests a credential for that installation and passes it to Composer for you, so there is nothing to copy.
+
+To install a purchased package by hand, require that package, not the root package, then run its install step:
 
 ```bash
-composer config repositories.capell composer https://capell.app/composer
-composer config bearer.capell.app <short-lived-token>
-composer require capell-app/capell
-php artisan capell:install
+composer require <vendor>/<purchased-package>
+php artisan capell:extension-install <vendor>/<purchased-package>
 ```
 
-The root package keeps Core, Admin, Frontend, Installer, and Marketplace on one version identity. The connected Marketplace account supplies access to the organisation's entitled protected packages. The bearer token expires within 30 minutes and is stored only as a hash by Capell. Composer may retain the supplied credential in its local authentication configuration, so keep that file out of source control and replace the credential when it expires. Never put the token in deployment output, support requests, queue payloads, or application logs.
+Themes need one further step in Admin: open **Sites**, edit the site, choose the installed theme in the **Theme** field, and save.
+
+The credential expires 30 minutes after it is issued and is stored only as a hash by Capell. A credential issued for a single package installation is also bound to that installation's instance and domain, so it cannot be reused for another site. Composer may retain the supplied credential in its local authentication configuration, so keep that file out of source control and replace the credential when it expires. Never put the token in deployment output, support requests, queue payloads, or application logs.
 
 Do not run `filament:install --panels` first. The Installer requires and configures the selected Admin package in the correct lifecycle order.
 
@@ -156,7 +161,13 @@ Run the Laravel application with your normal local workflow, then open:
 
 _A healthy install reaches the styled Pages resource with the expected records, state, and actions; this is separate from command success alone._
 
-Sign in with the created administrator, open **Pages**, save and publish a small change, and confirm the public URL updates. Continue with [Create your first page](create-your-first-page.md).
+Sign in with the created administrator, then:
+
+1. Select the intended site and open **Pages**. Open a seeded page to edit, or choose **New page** to create an About or Contact page.
+2. Follow [Create your first page](create-your-first-page.md) to add useful content, optionally add an image, and save a draft.
+3. [Preview and publish](create-your-first-page.md#preview-and-publish), then open the canonical public URL in a private browser window. Your new text should appear without needing an Admin login.
+
+Reaching `/admin` or seeing a draft preview confirms only that part of the journey. The anonymous public page is the publication check. If it does not appear, follow the recovery links in the first-page guide.
 
 ## Browser installer
 

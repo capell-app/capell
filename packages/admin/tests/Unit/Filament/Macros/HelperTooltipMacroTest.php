@@ -8,6 +8,7 @@ use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Icon;
@@ -15,6 +16,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
 use function PHPUnit\Framework\assertSame;
+
+uses(CreatesAdminUser::class);
 
 function mountedHelperTooltipField(string|Closure|null $tooltip): Checkbox
 {
@@ -112,6 +115,7 @@ it('honours the admin helper tooltip setting', function (): void {
 });
 
 it('requires blueprint fields only for site languages that must be translated', function (): void {
+    test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
     $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
 

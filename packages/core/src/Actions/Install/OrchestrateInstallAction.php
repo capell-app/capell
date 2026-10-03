@@ -34,7 +34,7 @@ final class OrchestrateInstallAction
             $host->outputPlan($inputData);
         }
 
-        $this->runInstall->handle($inputData, $reporter);
+        $result = $this->runInstall->runWithResult($inputData, $reporter);
         $host->upgradeFilament();
 
         if ($orchestration->runNpmBuild) {
@@ -51,6 +51,6 @@ final class OrchestrateInstallAction
 
         $this->clearCaches->handle($cachesToClear, $reporter);
         $host->reportManualChanges();
-        $host->finalizeInstall($inputData, BuildInstallRunResultAction::run($inputData));
+        $host->finalizeInstall($inputData, $result);
     }
 }

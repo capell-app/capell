@@ -27,3 +27,19 @@ it('builds a deterministic successful result from the completed install plan', f
     ])->and($result->completedSteps)->toBe(InstallPlan::steps($input)->pluck('key')->all())
         ->and($result->doctorStatus)->toBe('passed');
 });
+
+it('retains executed dependency phases when installed requirements disappear from later graph expansion', function (): void {
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        extraPackages: ['vendor/theme'],
+    );
+    $completedSteps = [InstallPlan::packageInstallStepKey('vendor/dependency'), InstallPlan::packageAfterInstallStepKey('vendor/dependency'), InstallPlan::packageInstallStepKey('vendor/theme'), InstallPlan::STEP_RUN_DOCTOR_SUMMARY, InstallPlan::STEP_MARK_CORE_INSTALLED];
+
+    expect(BuildInstallRunResultAction::run($input, $completedSteps)->completedSteps)->toBe($completedSteps);
+});

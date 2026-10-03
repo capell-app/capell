@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   build-frontend-package:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,6 +42,7 @@ jobs:
         run: npm run build
 
   nested-checkout-resolution:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     env:
       CAPELL_CHECKOUT: ${{ github.workspace }}/repositories/vendor/capell

@@ -3,16 +3,17 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Marketplace\ResolveExtensionLicenceDecisionAction;
+use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
+use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
 use Illuminate\Support\Facades\Http;
 
-it('resolves extension licence decisions through the signed marketplace client when available', function (): void {
-    fakeMarketplace();
-
-    app()->bind('capell.marketplace.client', fn (): object => new class
+it('resolves extension licence decisions through the bound extension entitlements', function (): void {
+    app()->bind(ExtensionEntitlements::class, fn (): ExtensionEntitlements => new class implements ExtensionEntitlements
     {
-        public function extensionLicenceDecision(string $slug, string $action, string $domain): ExtensionLicenceDecisionData
+        public function licenceDecision(string $slug, string $action, string $domain): ExtensionLicenceDecisionData
         {
             expect($slug)->toBe('forms')
                 ->and($action)->toBe('install')
@@ -31,6 +32,11 @@ it('resolves extension licence decisions through the signed marketplace client w
                 installId: 'install-123',
             );
         }
+
+        public function verifyActivation(CapellExtension $extension, array $installedReceipt): bool
+        {
+            return false;
+        }
     });
 
     $decision = ResolveExtensionLicenceDecisionAction::run('forms', 'install', 'example.test');
@@ -41,7 +47,9 @@ it('resolves extension licence decisions through the signed marketplace client w
         ->and($decision->installId)->toBe('install-123');
 });
 
-it('falls back to the marketplace HTTP endpoint when no signed client can be used', function (): void {
+it('falls back to the marketplace HTTP endpoint when no marketplace package provides entitlements', function (): void {
+    app()->bind(ExtensionEntitlements::class, NullExtensionEntitlements::class);
+
     config([
         'app.url' => 'https://customer.test',
         'capell-marketplace.marketplace.base_url' => 'https://marketplace.test',
@@ -80,25 +88,8 @@ it('falls back to the marketplace HTTP endpoint when no signed client can be use
         ->and($decision->signedActivation)->toBe(['signature' => 'abc']);
 });
 
-it('fails loudly for invalid marketplace licence decision integrations', function (): void {
-    config([
-        'capell-marketplace.instance.id' => 'install-123',
-        'capell-marketplace.marketplace.webhook_secret' => 'secret',
-    ]);
-
-    app()->bind('capell.marketplace.client', fn (): object => new class
-    {
-        public function extensionLicenceDecision(): array
-        {
-            return [];
-        }
-    });
-
-    expect(fn (): ExtensionLicenceDecisionData => ResolveExtensionLicenceDecisionAction::run('forms', 'install', 'example.test'))
-        ->toThrow(RuntimeException::class, 'Marketplace client returned an invalid licence decision.');
-
-    app()->forgetInstance('capell.marketplace.client');
-    app()->offsetUnset('capell.marketplace.client');
+it('fails loudly when the fallback marketplace endpoint cannot resolve a licence decision', function (): void {
+    app()->bind(ExtensionEntitlements::class, NullExtensionEntitlements::class);
 
     config([
         'capell-marketplace.instance.id' => null,
@@ -126,4 +117,9 @@ it('fails loudly for invalid marketplace licence decision integrations', functio
 
     expect(fn (): ExtensionLicenceDecisionData => ResolveExtensionLicenceDecisionAction::run('forms', 'install', 'example.test'))
         ->toThrow(RuntimeException::class, 'The marketplace licence decision response did not include a data object.');
+});
+
+it('never verifies an installed receipt without a marketplace package', function (): void {
+    expect((new NullExtensionEntitlements)->verifyActivation(new CapellExtension, ['composer_name' => 'capell-app/forms', 'signature' => 'signed']))
+        ->toBeFalse();
 });

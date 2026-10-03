@@ -15,6 +15,7 @@ use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
@@ -73,7 +74,7 @@ class RedirectForm implements FormConfigurator
                                     return;
                                 }
 
-                                $languageBelongsToSite = Site::query()
+                                $languageBelongsToSite = SiteAccess::current()->query(Site::class)
                                     ->whereKey((int) $siteId)
                                     ->whereHas(
                                         'languages',

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Filament\Actions;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\Admin\Support\SiteScope;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Marketplace\Actions\RunMarketplaceHeartbeatAction;
 use Capell\Marketplace\Actions\StartMarketplaceAccountConnectionAction;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
@@ -191,7 +191,7 @@ final class MarketplaceConnectionFormModel
 
         return is_object($user)
             && method_exists($user, 'hasRole')
-            && SiteScope::isGlobalActor($user);
+            && SiteAccess::forActor($user)->isGlobal();
     }
 
     private function marketplaceBaseUrlConfigured(): bool

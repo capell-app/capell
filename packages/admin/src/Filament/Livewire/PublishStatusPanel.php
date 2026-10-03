@@ -22,6 +22,7 @@ use Capell\Core\Data\Publishing\PublicationTransitionResultData;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
@@ -301,7 +302,7 @@ final class PublishStatusPanel extends Component implements HasActions, HasSchem
         /** @var class-string<Model> $class */
         $class = $this->recordClass;
 
-        $record = $class::query()->findOrFail($this->recordId);
+        $record = SiteAccess::current()->query($class)->findOrFail($this->recordId);
 
         if (! $record instanceof Publishable && ! $record instanceof Statusable) {
             throw new InvalidArgumentException(sprintf('[%s] is neither publishable nor statusable.', $class));

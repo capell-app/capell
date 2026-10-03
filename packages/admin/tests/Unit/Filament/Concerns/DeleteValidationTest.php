@@ -9,6 +9,10 @@ use Capell\Admin\Tests\Unit\Filament\Concerns\Fixtures\PageDeleteValidationHarne
 use Capell\Core\Data\ContentGraph\ContentImpactPreviewData;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
+use Capell\Tests\Fixtures\Models\User;
+use Filament\Notifications\Notification;
+use Illuminate\Contracts\Translation\Translator;
 
 it('blocks page deletion for non-deletable page types and canonical dependants', function (): void {
     $protectedType = Blueprint::factory()->page()->create([
@@ -65,4 +69,22 @@ it('blocks blueprint deletion when records still use the blueprint', function ()
 
     expect($validator->validateDelete($type))->toBeFalse()
         ->and($validator->errors)->toHaveKey('data.type');
+});
+
+it('keeps blueprint delete protection global while exposing only accessible page counts', function (): void {
+    $assigned = Site::factory()->create();
+    $foreign = Site::factory()->create();
+    $type = Blueprint::factory()->page()->create();
+    Page::factory()->type($type)->site($assigned)->create();
+    Page::factory()->type($type)->site($foreign)->create();
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+
+    test()->actingAs($actor);
+    resolve(Translator::class)->addLines(['message.page_type_not_deletable_info' => 'Accessible pages: :count'], 'en', 'capell-admin');
+
+    expect((new BlueprintDeleteValidationHarness)->validateDelete($type))->toBeFalse();
+    $notifications = session('filament.notifications');
+    $notification = Notification::fromArray(end($notifications));
+    expect($notification->getBody())->toBe('Accessible pages: 1');
 });

@@ -11,8 +11,10 @@ use Capell\Admin\Enums\CapellPermission;
 use Capell\Core\EventSourcing\Contracts\EventSourced;
 use Capell\Core\EventSourcing\Exceptions\RollbackBlocked;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
+use Capell\Core\EventSourcing\Rollback\RollbackService;
 use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
 use Capell\Core\Models\PageRevision;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
 
@@ -51,11 +53,11 @@ final class EventSourcedActivityRevertHandler implements ActivityRevertHandler
     {
         $subjectClass = $selection->subjectClass;
 
-        if ($subjectClass === null) {
+        if ($subjectClass === null || ! is_a($subjectClass, Model::class, true)) {
             return ActivityRevertResultData::failed('capell-admin::event-sourcing.revert_subject_missing');
         }
 
-        $model = $subjectClass::query()->find($selection->subjectId);
+        $model = SiteAccess::current()->query($subjectClass)->find($selection->subjectId);
 
         if (! $model instanceof Model || ! $model instanceof EventSourced) {
             return ActivityRevertResultData::failed('capell-admin::event-sourcing.revert_subject_missing');
@@ -74,6 +76,12 @@ final class EventSourcedActivityRevertHandler implements ActivityRevertHandler
             return ActivityRevertResultData::failed('capell-admin::event-sourcing.revert_no_revision');
         }
 
+        $state = resolve(RollbackService::class)->targetStateAt($model->aggregateUuid(), $version);
+
+        if (! resolve(ProposedActivityRevertAccess::class)->allows($model, $state['attributes'] ?? [], $state)) {
+            return ActivityRevertResultData::failed('capell-admin::event-sourcing.rollback_forbidden');
+        }
+
         try {
             ApplyRollbackAction::run($model, $version);
         } catch (RollbackBlocked) {
@@ -85,10 +93,11 @@ final class EventSourcedActivityRevertHandler implements ActivityRevertHandler
 
     private function resolveVersion(Model&EventSourced $model, int|string $activityId): ?int
     {
+        /** @var class-string<Activity> $activityModel */
         $activityModel = config('activitylog.activity_model', Activity::class);
-        $occurredAt = $activityModel::query()->find($activityId)?->created_at;
+        $occurredAt = SiteAccess::current()->query($activityModel)->find($activityId)?->created_at;
 
-        $query = PageRevision::query()->where('page_uuid', $model->aggregateUuid());
+        $query = SiteAccess::current()->query(PageRevision::class)->where('page_uuid', $model->aggregateUuid());
 
         if ($occurredAt !== null) {
             $query->where('occurred_at', '<=', $occurredAt);

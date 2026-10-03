@@ -1,9 +1,6 @@
 name: Test All
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -48,11 +45,12 @@ env:
 
 jobs:
   fast-pr:
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    if: ${{ github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' && github.event.pull_request.draft == false) }}
     name: Fast PR gate
     uses: ./.github/workflows/test-fast-pr.yml
 
   matrix:
+    if: github.actor != 'dependabot[bot]'
     name: Resolve repository-owned Test All matrix
     runs-on: ubuntu-latest
     outputs:
@@ -89,11 +87,13 @@ jobs:
   sentinel:
     needs: [fast-pr, matrix]
     if: >-
+      ${{ github.actor != 'dependabot[bot]' && (
       always()
       && needs.matrix.result == 'success'
       && (needs.fast-pr.result == 'success' || needs.fast-pr.result == 'skipped')
       && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
       && !(github.event_name == 'workflow_dispatch' && inputs.cell != '')
+      ) }}
     name: Sentinel - portability, cache, migrations, destructive schema
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -132,6 +132,18 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
+      - name: Locate Composer download cache
+        id: composer-download-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-download-cache.outputs.dir }}
+          key: composer-downloads-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-downloads-${{ runner.os }}-
+
       - name: Prepare exact Laravel 13 dependencies
         run: php scripts/prepare-test-all-dependencies.php --laravel='13.*' --testbench='11.*'
 
@@ -164,12 +176,14 @@ jobs:
   test-behaviour:
     needs: [sentinel, matrix]
     if: >-
+      ${{ github.actor != 'dependabot[bot]' && (
       always()
       && needs.matrix.result == 'success'
       && (needs.sentinel.result == 'success'
         || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
       && (inputs.cell == ''
         || (!contains(inputs.cell, '-unit-') && !contains(inputs.cell, '-portability-')))
+      ) }}
     name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package }} - DB${{ matrix.database }}
     runs-on: ubuntu-latest
     env:
@@ -209,6 +223,18 @@ jobs:
         run: |
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Locate Composer download cache
+        id: composer-download-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-download-cache.outputs.dir }}
+          key: composer-downloads-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-downloads-${{ runner.os }}-
 
       - name: Prepare exact framework dependencies
         run: php scripts/prepare-test-all-dependencies.php --laravel='${{ matrix.laravel }}' --testbench='${{ matrix.testbench }}'
@@ -277,11 +303,13 @@ jobs:
   test-unit:
     needs: [sentinel, matrix]
     if: >-
+      ${{ github.actor != 'dependabot[bot]' && (
       always()
       && needs.matrix.result == 'success'
       && (needs.sentinel.result == 'success'
         || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
       && (inputs.cell == '' || contains(inputs.cell, '-unit-'))
+      ) }}
     name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - Unit - ${{ matrix.package }}
     runs-on: ubuntu-latest
     env:
@@ -307,6 +335,18 @@ jobs:
         run: |
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Locate Composer download cache
+        id: composer-download-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-download-cache.outputs.dir }}
+          key: composer-downloads-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-downloads-${{ runner.os }}-
 
       - name: Prepare exact framework dependencies
         run: php scripts/prepare-test-all-dependencies.php --laravel='${{ matrix.laravel }}' --testbench='${{ matrix.testbench }}'
@@ -356,11 +396,13 @@ jobs:
   test-portability:
     needs: [sentinel, matrix]
     if: >-
+      ${{ github.actor != 'dependabot[bot]' && (
       always()
       && needs.matrix.result == 'success'
       && (needs.sentinel.result == 'success'
         || (github.event_name == 'workflow_dispatch' && inputs.cell != ''))
       && (inputs.cell == '' || contains(inputs.cell, '-portability-'))
+      ) }}
     name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - DB${{ matrix.database }}${{ matrix.database_version }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -388,6 +430,18 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
+      - name: Locate Composer download cache
+        id: composer-download-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-download-cache.outputs.dir }}
+          key: composer-downloads-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-downloads-${{ runner.os }}-
+
       - name: Prepare exact framework dependencies
         run: php scripts/prepare-test-all-dependencies.php --laravel='${{ matrix.laravel }}' --testbench='${{ matrix.testbench }}'
 
@@ -403,7 +457,7 @@ jobs:
           if-no-files-found: warn
 
   engineering-metrics:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{ github.actor != 'dependabot[bot]' && (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     name: Aggregate engineering metrics
     needs: [matrix, test-behaviour, test-unit]
     runs-on: ubuntu-latest

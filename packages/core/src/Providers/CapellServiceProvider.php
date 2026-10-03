@@ -64,6 +64,7 @@ use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Extensions\BootsExtensionContributionReceiptContext;
 use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
+use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
 use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
@@ -158,6 +159,7 @@ use Capell\Core\Support\Makers\BuiltIn\PageBladeComponentMaker;
 use Capell\Core\Support\Makers\BuiltIn\PageLivewireComponentMaker;
 use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Makers\MakerSafety;
+use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
@@ -527,6 +529,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(BackendResolver::class);
         $this->app->singleton(MediaCompositionGuidanceRegistry::class);
         $this->app->bindIf(AdminPanelUrlResolver::class, UnavailableAdminPanelUrlResolver::class);
+        $this->app->bindIf(ExtensionEntitlements::class, NullExtensionEntitlements::class);
         $this->app->bindIf(MediaUploadConfigurationFactory::class, SpatieMediaUploadConfigurationFactory::class);
         $this->app->bindIf(MediaUploadMetadataResolver::class, SpatieMediaUploadMetadataResolver::class);
         // Keep these legacy class names as strings so the compatibility binding

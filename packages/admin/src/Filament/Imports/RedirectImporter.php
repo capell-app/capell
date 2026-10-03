@@ -7,12 +7,12 @@ namespace Capell\Admin\Filament\Imports;
 use Capell\Admin\Filament\Components\Forms\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\Redirects\ValidateRedirectAction;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -74,7 +74,7 @@ class RedirectImporter extends Importer
     {
         return [
             SiteSelect::make('site_id')
-                ->modifyQueryUsing(fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'id', denyWhenMissingActor: true))
+                ->modifyQueryUsing(fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'id'))
                 ->reactive()
                 ->required(),
 
@@ -119,9 +119,9 @@ class RedirectImporter extends Importer
         $record = $this->record;
         $siteId = (int) $this->options['site_id'];
         $languageId = (int) $this->options['language_id'];
-        $site = Site::query()->find($siteId);
+        $site = SiteAccess::forActor($this->resolveActor())->query(Site::class)->find($siteId);
 
-        if ($site === null || ! SiteScope::actorCanUseSite($this->resolveActor(), $site)) {
+        if ($site === null || ! SiteAccess::forActor($this->resolveActor())->can($site)) {
             throw ValidationException::withMessages([
                 'site_id' => __('capell-admin::message.redirect_import_invalid_site'),
             ]);

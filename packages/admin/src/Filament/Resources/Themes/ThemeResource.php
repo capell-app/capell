@@ -13,6 +13,7 @@ use Capell\Admin\Filament\Resources\Themes\Pages\ManageThemes;
 use Capell\Admin\Filament\Resources\Themes\Schemas\ThemeForm;
 use Capell\Admin\Filament\Resources\Themes\Tables\ThemesTable;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -54,7 +55,9 @@ class ThemeResource extends Resource
                 'editor',
                 'media',
             ])
-            ->withCount('sites')
+            ->withCount([
+                'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'sites.id'),
+            ])
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);

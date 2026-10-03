@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Livewire;
 use Capell\Core\Actions\EditorScratchDrafts\DiscardEditorScratchDraftAction;
 use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -46,7 +47,7 @@ final class PageScratchDraftPanel extends Component
             return null;
         }
 
-        return EditorScratchDraft::query()
+        return SiteAccess::current()->query(EditorScratchDraft::class)
             ->forEditor($user, $page, $this->locale, self::CONTEXT)
             ->where('expires_at', '>', CarbonImmutable::now('UTC'))
             ->first();
@@ -100,6 +101,6 @@ final class PageScratchDraftPanel extends Component
 
     private function page(): ?Page
     {
-        return Page::query()->find($this->pageId);
+        return SiteAccess::current()->query(Page::class)->find($this->pageId);
     }
 }

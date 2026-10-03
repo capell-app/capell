@@ -47,7 +47,7 @@ composer preflight:fix
 
 ### Configuration keys need documentation
 
-A new leaf in any `packages/*/config/*.php` must be documented in `docs/development/configuration.md` or classified in `scripts/docs-config-key-classifications.php`. Otherwise `php scripts/check-docs-config-keys.php` (`composer check:docs-config`) fails, and so do the PHP Quality workflow and `DocumentationConfigKeysScriptTest`. Run the script before pushing. The `main` ruleset does not currently require status checks, so `gh pr merge --auto` can merge while these checks are red; read CI before enabling auto-merge.
+A new leaf in any `packages/*/config/*.php` must be documented in `docs/development/configuration.md` or classified in `scripts/docs-config-key-classifications.php`. Otherwise `php scripts/check-docs-config-keys.php` (`composer check:docs-config`) fails, and so do the PHP Quality workflow and `DocumentationConfigKeysScriptTest`. Run the script before pushing. Keep the required `PHP Quality (8.4)` and `actionlint` checks present on every pull request to `main`, and read their results before merging.
 
 ### Language key audit
 
@@ -66,14 +66,31 @@ A new leaf in any `packages/*/config/*.php` must be documented in `docs/developm
 - XML comments cannot contain a double hyphen. A flag name such as `--parallel` in a comment makes the file malformed and every Pest run fails to load its configuration. Run `xmllint --noout phpunit.xml` after editing a comment.
 - PHPStan is not a Pest process and gets no limit from these files: pass its own memory limit (the `analyze` scripts use `--memory-limit=4G`).
 
-## Check the main runs after every merge
+## Hosted workflow triggers
 
-Some workflows run only on push to `main`. "Core Screenshots" (`.github/workflows/screenshots.yml`) selects manifests from the changed package paths (`scripts/changed-screenshot-packages.js`), so a PR that touches `packages/admin` can be green at PR level and leave `main` red. After each merge run `gh run list --repo capell-app/capell --branch main --limit 5` and read the result.
+Test All and PHP Quality run on pull requests to `main`, without duplicate
+post-merge runs. CodeQL runs weekly or by manual dispatch. Coverage runs on tags
+or by manual dispatch. Core Screenshots runs by manual dispatch; screenshots
+also run during release deployment. Existing release and dispatch entry points
+remain available. The Test All engineering-metrics job is still push-only and
+has no automatic trigger after the main push trigger is removed.
 
-## Verifying Coverage At A Merge Head
+## Dependabot updates
 
-A pull request state is not a test result. Before release work, resolve the
-exact merge commit and inspect every required workflow for that SHA. A workflow
+Dependabot opens one monthly grouped PR per ecosystem. Dependabot PRs run no
+hosted jobs and never auto-merge. Combine all open Dependabot PRs into one branch
+(for example, `gh combine-prs --query "author:app/dependabot"`, if that extension
+is installed, or cherry-pick their commits), run the repository's local gates,
+merge once, then close the original PRs.
+
+Run `composer preflight:all` and `composer test:all:matrix:local` before merging
+the combined branch.
+
+## Verifying Coverage For A Release
+
+A pull request state is not a test result. Before release work, run Coverage
+for the exact release SHA through its tag trigger or manual dispatch, then
+inspect every required workflow for that SHA. A workflow
 which is still running, failed after executing steps, or was refused before a
 runner was assigned is not a green gate. For a failed Coverage run, inspect the
 individual shard jobs and retain their logs before rerunning anything:

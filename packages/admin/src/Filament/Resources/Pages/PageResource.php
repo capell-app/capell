@@ -29,10 +29,10 @@ use Capell\Admin\Filament\Resources\Pages\RelationManagers\UrlsRelationManager;
 use Capell\Admin\Filament\Resources\Pages\Schemas\PageForm;
 use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
 use Capell\Admin\Filament\Resources\Pages\Widgets\ListPageAlertsWidget;
+use Capell\Admin\Filament\Resources\SiteScopedResource;
 use Capell\Admin\Policies\PagePolicy;
 use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\Search\AppliesNameSearchRelevance;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetNameFromTranslationsAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\Database\SqlFragment;
@@ -44,7 +44,7 @@ use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
-use Filament\Resources\Resource;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Filament\Widgets\Widget;
@@ -57,7 +57,7 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Override;
 
-class PageResource extends Resource implements ValidatesDelete
+class PageResource extends SiteScopedResource implements ValidatesDelete
 {
     use AppliesNameSearchRelevance;
     use HasConfiguredForm;
@@ -99,8 +99,6 @@ class PageResource extends Resource implements ValidatesDelete
             ])
             ->whereHas('blueprint', static::applyBaseTypeAdminResourceConstraint(...));
 
-        SiteScope::applyForCurrentActor($query);
-
         return collect(app()->tagged(PageTableExtender::TAG))
             ->reduce(fn (Builder $carry, PageTableExtender $extender): Builder => $extender->modifyQuery($carry), $query);
     }
@@ -119,7 +117,7 @@ class PageResource extends Resource implements ValidatesDelete
     #[Override]
     public static function getGlobalSearchEloquentQuery(): Builder
     {
-        return SiteScope::applyForCurrentActor(parent::getGlobalSearchEloquentQuery())
+        return parent::getGlobalSearchEloquentQuery()
             ->with([
                 'site:id,name,default',
                 'translation',
@@ -285,9 +283,9 @@ class PageResource extends Resource implements ValidatesDelete
         /** @var class-string<Site> $model */
         $model = Site::class;
 
-        $site = is_scalar($siteId) ? $model::query()->find($siteId) : null;
+        $site = is_scalar($siteId) ? SiteAccess::current()->query($model)->find($siteId) : null;
         if (! $site instanceof Site) {
-            $site = $model::query()->default()->first();
+            $site = SiteAccess::current()->query($model)->default()->first();
         }
 
         if ($site === null) {
@@ -302,7 +300,7 @@ class PageResource extends Resource implements ValidatesDelete
             /** @var class-string<Layout> $model */
             $model = Layout::class;
 
-            $data['layout_id'] = $model::query()->default()->value('id');
+            $data['layout_id'] = SiteAccess::current()->query($model)->default()->value('id');
         }
 
         if (! array_key_exists('blueprint_id', $data) || $data['blueprint_id'] === '') {

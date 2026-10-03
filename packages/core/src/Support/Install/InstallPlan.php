@@ -80,6 +80,71 @@ final class InstallPlan
     }
 
     /**
+     * Composer can reveal requirements after a run has saved its initial plan.
+     * Keep completed keys and existing descriptors; order only pending package
+     * work against the refreshed graph so retries retain their phase checkpoints.
+     *
+     * @param  array<int, array{key: string, label: string}>  $plan
+     * @param  list<string>  $completedSteps
+     * @return array<int, array{key: string, label: string}>
+     */
+    public static function refreshPackageSteps(InstallInputData $inputData, array $plan, array $completedSteps): array
+    {
+        $packageSteps = [];
+        foreach ([...self::build($inputData), ...$plan] as $step) {
+            if (self::isPackageLifecycleStep($step['key']) && ! in_array($step['key'], $completedSteps, true)) {
+                $packageSteps[$step['key']] = $step;
+            }
+        }
+
+        $orderedPackages = resolve(PackageWorkflowPlanner::class)->expandAndOrder(
+            CapellCore::getPackages(),
+            array_values(array_unique([...$inputData->packages, ...$inputData->extraPackages])),
+            includeInstalledRequirements: true,
+        );
+        $orderedPackageNames = array_values(array_unique([
+            ...$orderedPackages->keys()->all(),
+            ...array_map(fn (array $step): string => self::packageNameFromStep($step['key']), array_values($packageSteps)),
+        ]));
+        $pendingSteps = [];
+        // Setup can resolve any selected theme, so every install must finish first.
+        foreach ([self::STEP_INSTALL_PACKAGE_PREFIX, self::STEP_SETUP_PACKAGE_PREFIX, self::STEP_DEMO_PACKAGE_PREFIX, self::STEP_AFTER_INSTALL_PACKAGE_PREFIX] as $prefix) {
+            foreach ($orderedPackageNames as $packageName) {
+                $key = $prefix . $packageName;
+                if (isset($packageSteps[$key])) {
+                    $pendingSteps[] = $packageSteps[$key];
+                    unset($packageSteps[$key]);
+                }
+            }
+        }
+
+        // Discovery must not silently delete explicit work from a saved run.
+        array_push($pendingSteps, ...array_values($packageSteps));
+
+        $refreshedPlan = [];
+        $inserted = false;
+        foreach ($plan as $step) {
+            if (! $inserted && in_array($step['key'], [self::STEP_INTEGRATE_ADMIN_PANEL, self::STEP_RUN_MIGRATIONS_POST], true)) {
+                array_push($refreshedPlan, ...$pendingSteps);
+                $inserted = true;
+            }
+
+            if (self::isPackageLifecycleStep($step['key']) && ! in_array($step['key'], $completedSteps, true)) {
+                if (! $inserted) {
+                    array_push($refreshedPlan, ...$pendingSteps);
+                    $inserted = true;
+                }
+
+                continue;
+            }
+
+            $refreshedPlan[] = $step;
+        }
+
+        return $refreshedPlan;
+    }
+
+    /**
      * Build an ordered collection of typed step descriptors for the given input.
      *
      * @return Collection<int, InstallStepData>
@@ -175,7 +240,7 @@ final class InstallPlan
 
             $selectedPackages
                 ->reject(fn (PackageData $package): bool => in_array($package->name, $inputData->extraPackages, true))
-                ->filter(fn (PackageData $package): bool => $package->getAfterInstallCommand() !== null && $package->getAfterInstallCommand() !== '')
+                ->filter(fn (PackageData $package): bool => PackageLifecycleSteps::hasAfterInstall($package))
                 ->each(function (PackageData $package) use ($steps): void {
                     $steps->push(new InstallStepData(
                         self::packageAfterInstallStepKey($package->name),
@@ -340,6 +405,23 @@ final class InstallPlan
         }
 
         return '';
+    }
+
+    private static function isPackageLifecycleStep(string $stepKey): bool
+    {
+        if (self::isPackageInstallStep($stepKey)) {
+            return true;
+        }
+
+        if (self::isPackageSetupStep($stepKey)) {
+            return true;
+        }
+
+        if (self::isPackageDemoStep($stepKey)) {
+            return true;
+        }
+
+        return self::isPackageAfterInstallStep($stepKey);
     }
 
     /**

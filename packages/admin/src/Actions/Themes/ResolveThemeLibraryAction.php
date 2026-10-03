@@ -8,7 +8,9 @@ use Capell\Admin\Contracts\Themes\PendingThemeInstallProvider;
 use Capell\Admin\Data\Themes\ThemeLibraryCardData;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
+use Illuminate\Database\Eloquent\Builder;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -29,7 +31,10 @@ final class ResolveThemeLibraryAction
         $definitions = $runtime->definitions();
         $installedThemes = Theme::query()
             ->with('media')
-            ->withCount('sites')
+            // The displayed count covers only the sites the actor may see.
+            ->withCount([
+                'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'sites.id'),
+            ])
             ->ordered()
             ->get()
             ->reject(fn (Theme $theme): bool => $this->isUnusedLegacyFoundationTheme($theme, $definitions));
@@ -76,7 +81,9 @@ final class ResolveThemeLibraryAction
     /**
      * Foundation used to be stored with a `foundation` theme key. The runtime
      * definition is now the registered `default` theme, so an unused legacy row
-     * should not make `capell:themes:validate` fail.
+     * should not make `capell:themes:validate` fail. Usage is checked across
+     * every site, not the actor-scoped `sites_count`, so a row in use on a
+     * site the actor cannot see is never hidden as unused.
      *
      * @param  array<string, ThemeDefinitionData>  $definitions
      */
@@ -85,8 +92,8 @@ final class ResolveThemeLibraryAction
         $foundationDefinition = $definitions['default'] ?? null;
 
         return $theme->key === 'foundation'
-            && (int) ($theme->sites_count ?? 0) === 0
             && $foundationDefinition instanceof ThemeDefinitionData
-            && $foundationDefinition->package === 'capell-app/foundation-theme';
+            && $foundationDefinition->package === 'capell-app/foundation-theme'
+            && ! $theme->sites()->exists();
     }
 }

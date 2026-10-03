@@ -13,7 +13,6 @@ use Capell\Admin\Filament\Components\Tables\Columns\Page\PageNameColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\SiteColumn;
 use Capell\Admin\Filament\Concerns\HasRelationManagerBadge;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Enums\AssetEnum;
@@ -21,6 +20,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -121,7 +121,7 @@ abstract class AbstractPagesRelationManager extends RelationManager
                     ->relationship(
                         name: 'site',
                         titleAttribute: 'name',
-                        modifyQueryUsing: fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'id')->ordered(),
+                        modifyQueryUsing: fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'id')->ordered(),
                     )
                     ->hidden(fn (self $livewire): bool => $livewire->isSiteColumnHidden()),
                 SelectFilter::make('blueprint_id')
@@ -151,7 +151,7 @@ abstract class AbstractPagesRelationManager extends RelationManager
      */
     protected function modifyQuery(Builder $query): Builder
     {
-        return SiteScope::applyForCurrentActor($query);
+        return SiteAccess::current()->scope($query);
     }
 
     protected function getDescription(Table $table): ?string

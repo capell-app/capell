@@ -20,6 +20,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
@@ -116,7 +117,7 @@ final class BuildPublishingReadinessReportAction implements BuildsReportSnapshot
      */
     private function pages(): LazyCollection
     {
-        return Page::query()
+        return SiteAccess::current()->query(Page::class)
             ->with([
                 'layout:id,name',
                 'pageUrls:id,pageable_type,pageable_id,site_id,language_id,status,url,type',

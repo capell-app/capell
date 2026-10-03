@@ -15,6 +15,7 @@ use Capell\Admin\Filament\Components\Forms\ThemeSelect;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Group;
@@ -66,7 +67,7 @@ class DetailsSchema
                             /** @var class-string<Layout> $model */
                             $model = Layout::class;
 
-                            return $model::query()->max('order') + 1;
+                            return SiteAccess::current()->query($model)->max('order') + 1;
                         })
                         ->minValue(0)
                         ->step(1),
@@ -127,7 +128,7 @@ class DetailsSchema
                             /** @var class-string<Site> $model */
                             $model = Site::class;
 
-                            $themeId = $model::query()
+                            $themeId = SiteAccess::current()->query($model)
                                 ->where('id', $get('site_id'))
                                 ->value('theme_id');
 

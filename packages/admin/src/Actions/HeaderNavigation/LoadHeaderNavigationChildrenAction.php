@@ -8,6 +8,7 @@ use Capell\Admin\Data\HeaderNavigation\HeaderNavigationBranchData;
 use Capell\Admin\Support\HeaderNavigation\HeaderNavigationAccessResolver;
 use Capell\Admin\Support\HeaderNavigation\HeaderNavigationPageNodeBuilder;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -45,7 +46,7 @@ final class LoadHeaderNavigationChildrenAction
         $perPage = max(1, min(50, $perPage));
 
         /** @var Builder<Page> $query */
-        $query = Page::query()
+        $query = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Page::class)
             ->with(['site', 'blueprint.roleRestrictions', 'pageUrl.siteDomain'])
             ->ordered();
 

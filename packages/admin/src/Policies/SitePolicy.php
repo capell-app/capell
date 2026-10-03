@@ -6,9 +6,9 @@ namespace Capell\Admin\Policies;
 
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Foundation\Auth\User;
 
 /**
@@ -45,7 +45,7 @@ class SitePolicy
 
     public function view(User $user, Site $site): bool
     {
-        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+        if (config('permission.teams') && ! SiteAccess::forActor($user)->can($site)) {
             return false;
         }
 
@@ -82,7 +82,7 @@ class SitePolicy
 
     public function update(User $user, Site $site): bool
     {
-        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+        if (config('permission.teams') && ! SiteAccess::forActor($user)->can($site)) {
             return false;
         }
 
@@ -97,7 +97,7 @@ class SitePolicy
 
     public function delete(User $user, Site $site): bool
     {
-        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+        if (config('permission.teams') && ! SiteAccess::forActor($user)->can($site)) {
             return false;
         }
 
@@ -111,7 +111,7 @@ class SitePolicy
 
     public function restore(User $user, Site $site): bool
     {
-        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+        if (config('permission.teams') && ! SiteAccess::forActor($user)->can($site)) {
             return false;
         }
 
@@ -120,7 +120,7 @@ class SitePolicy
 
     public function forceDelete(User $user, Site $site): bool
     {
-        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+        if (config('permission.teams') && ! SiteAccess::forActor($user)->can($site)) {
             return false;
         }
 
@@ -130,7 +130,7 @@ class SitePolicy
     /** Manage which users/roles are assigned to this site (custom permission). */
     public function managePermissions(User $user, Site $site): bool
     {
-        if (config('permission.teams') && ! SiteScope::actorCanUseSite($user, $site)) {
+        if (config('permission.teams') && ! SiteAccess::forActor($user)->can($site)) {
             return false;
         }
 
@@ -144,7 +144,7 @@ class SitePolicy
         }
 
         return PermissionTeamContext::run(
-            SiteScope::isGlobalActor($user) ? null : $site->getKey(),
+            SiteAccess::forActor($user)->isGlobal() ? null : $site->getKey(),
             fn (): bool => $user->checkPermissionTo($permission),
             $user,
         );
@@ -156,6 +156,6 @@ class SitePolicy
             return true;
         }
 
-        return SiteScope::isGlobalActor($user);
+        return SiteAccess::forActor($user)->isGlobal();
     }
 }
