@@ -172,6 +172,15 @@ result rather than running one yourself.
   `bash scripts/init-worktree.sh` refuses the Docker path and exits before its own
   `node_modules/` step, so the npm step is never done for you; a preflight that
   stops on "node_modules/ is missing" is an unprovisioned worktree, not a result.
+  `bash scripts/init-worktree.sh --host-only` does not run `npm ci` either, and
+  `packages/admin` carries its own `package.json` and lock: run `npm ci --no-audit
+  --no-fund` in the repository root and again in `packages/admin` before building
+  bundles (`npm run build:js` there). The lock pins esbuild; a different version
+  rewrites unrelated published bundles, so regenerate with the pinned one, never
+  hand-edit `packages/admin/publishes/build`, and restore bundles you did not mean
+  to change. Automated workers cannot run `npm ci` in their sandbox: provision
+  before handing them the worktree and have them stop, not work around it, when a
+  module is missing.
 - Focused Pest in the container: `./capell pest <path> --configuration=phpunit.xml`.
   The wrapper runs it as the `capell` user with SQLite `:memory:`. Never use raw
   `./capell compose exec app vendor/bin/pest`: it runs as root with the container's
