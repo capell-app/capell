@@ -42,8 +42,14 @@ final class SiteAccessQueryAllowList
             // Permission definitions, users and role pivots are installation-wide.
             'packages/admin/src/Filament/Actions/Site/ManageSitePermissionsAction.php' => ['assignmentsFor|' . DB::class . '::table($modelHasRolesTable)->where($teamColumn, $site->getKey())->whereIn(\'model_type\', $modelTypes)->orderBy(\'model_id\')->get([\'model_id\', \'role_id\'])', 'assignmentsFor|$userModel::query()->whereKey($userIds)->pluck(\'id\')->map(fn(mixed $userId): int => (int) $userId)->all()', 'userOptions|$userModel::query()->orderBy(\'name\')->get([\'id\', \'name\', \'email\'])->mapWithKeys(fn(\Illuminate\Foundation\Auth\User $user): array => [(int) $user->getKey() => sprintf(\'%s <%s>\', $user->name, $user->email)])->all()'],
             'packages/admin/src/Filament/Components/Forms/UserSelect.php' => ['setUp|$this->userModel()::query()->whereKey($value)->value(\'name\')', 'userQuery|$this->userModel()::query()->limit(10)'],
+            // Role and permission definitions are installation-wide provisioning for
+            // the acting guard; they hold no site content.
             'packages/admin/src/Actions/AssignPermissionsToRole.php' => [
-                'grantSuperAdminPermissions|$permissionModel::query()->where(\'guard_name\', ' . Utils::class . '::getFilamentAuthGuard())->whereIn(\'name\', $permissions)->pluck($this->modelKeyName($permissionModel))->all()',
+                'grantSuperAdminPermissions|$permissionModel::query()->where(\'guard_name\', $guardName)->whereIn(\'name\', $permissions)->pluck($this->modelKeyName($permissionModel))->all()',
+                'grantSuperAdminPermissions|' . Utils::class . "::getRoleModel()::firstOrCreate(['name' => " . Utils::class . '::getSuperAdminName(), \'guard_name\' => $guardName, ' . Utils::class . '::getTenantModelForeignKey() => $tenantId])->permissions()->syncWithoutDetaching($permissionIds)',
+                'grantSuperAdminPermissions|' . Utils::class . '::getRoleModel()::firstOrCreate($attributes)->permissions()->syncWithoutDetaching($permissionIds)',
+                'pageOrWidgetPermissions|' . Utils::class . '::getPermissionModel()::firstOrCreate([\'name\' => \'View:\' . class_basename($class), \'guard_name\' => $guardName])->name',
+                'resourcePermissions|' . Utils::class . '::getPermissionModel()::firstOrCreate([\'name\' => $permission, \'guard_name\' => $guardName])->name',
                 // Shield tenant enumeration assigns global permissions; it returns
                 // no site content and is a system provisioning operation.
                 'grantSuperAdminPermissions|$tenantModel::query()->pluck($this->modelKeyName($tenantModel))',
