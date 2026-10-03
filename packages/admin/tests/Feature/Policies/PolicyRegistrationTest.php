@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Shield\ResolveDefaultRolePermissionsAction;
 use Capell\Admin\Policies\BlueprintPolicy;
 use Capell\Admin\Policies\LanguagePolicy;
 use Capell\Admin\Policies\LayoutPolicy;
@@ -18,7 +19,9 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Support\Facades\Gate;
+use Spatie\Permission\Models\Permission;
 
 /**
  * Admin policies live in `Capell\Admin\Policies\*` but they gate models in
@@ -44,4 +47,50 @@ it('registers every admin policy globally via the service provider', function ()
     if (class_exists(RedirectPolicy::class)) {
         expect(Gate::getPolicyFor(PageUrl::class))->toBeInstanceOf(RedirectPolicy::class);
     }
+});
+
+it('lets a site administrator manage domains using the existing site update permission', function (string $permission): void {
+    $site = Site::factory()->createOne();
+    $foreign = Site::factory()->createOne();
+    $ownDomain = SiteDomain::factory()->site($site)->createOne();
+    $foreignDomain = SiteDomain::factory()->site($foreign)->createOne();
+    $actor = User::factory()->createOne();
+    $actor->assignedSiteIds = collect([$site->id]);
+    if ($permission === 'default admin') {
+        foreach (['ViewAny:Site', 'View:Site', 'Update:Site', 'UpdateOwn:Site', 'Create:Site', 'Delete:Site', 'DeleteAny:Site'] as $name) {
+            Permission::findOrCreate($name, 'web');
+        }
+
+        $actor->givePermissionTo(ResolveDefaultRolePermissionsAction::run('admin', 'web'));
+    } else {
+        $actor->givePermissionTo(Permission::findOrCreate($permission, 'web'));
+    }
+
+    test()->actingAs($actor);
+
+    expect($actor->checkPermissionTo('Create:Site'))->toBeFalse()
+        ->and($actor->checkPermissionTo('Delete:Site'))->toBeFalse()
+        ->and(Gate::allows('create', [SiteDomain::class, $site]))->toBeTrue()
+        ->and(Gate::allows('create', [SiteDomain::class, $foreign]))->toBeFalse()
+        ->and(Gate::allows('create', SiteDomain::class))->toBeTrue()
+        ->and(Gate::allows('deleteAny', [SiteDomain::class, $site]))->toBeTrue()
+        ->and(Gate::allows('deleteAny', [SiteDomain::class, $foreign]))->toBeFalse();
+    foreach (['update', 'delete'] as $ability) {
+        expect(Gate::allows($ability, $ownDomain))->toBeTrue()
+            ->and(Gate::allows($ability, $foreignDomain))->toBeFalse();
+    }
+})->with(['Update:Site', 'UpdateOwn:Site', 'default admin']);
+
+it('denies domain management to assigned users without site permissions', function (): void {
+    $site = Site::factory()->createOne();
+    $domain = SiteDomain::factory()->site($site)->createOne();
+    $actor = User::factory()->createOne();
+    $actor->assignedSiteIds = collect([$site->id]);
+
+    test()->actingAs($actor);
+    expect(Gate::allows('create', [SiteDomain::class, $site]))->toBeFalse()
+        ->and(Gate::allows('create', SiteDomain::class))->toBeFalse()
+        ->and(Gate::allows('deleteAny', [SiteDomain::class, $site]))->toBeFalse()
+        ->and(Gate::allows('update', $domain))->toBeFalse()
+        ->and(Gate::allows('delete', $domain))->toBeFalse();
 });

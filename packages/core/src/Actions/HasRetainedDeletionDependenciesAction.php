@@ -34,10 +34,13 @@ final class HasRetainedDeletionDependenciesAction
                 || $record->layouts()->withTrashed()->exists()
                 || PageUrl::withTrashed()->where('site_id', $record->getKey())->exists()
                 || Taxonomy::query()->where('site_id', $record->getKey())->exists()
-                || EditorScratchDraft::query()->where('site_id', $record->getKey())->exists(),
+                || EditorScratchDraft::query()->where('site_id', $record->getKey())
+                    // Orphan recovery buffers have no page that an author can discard them from.
+                    ->where('record_type', (new Page)->getMorphClass())
+                    ->whereIn('record_id', Page::withTrashed()->select('id'))->exists(),
             // Nested-set deletion removes descendants outside the selected-record guards.
             // Require authors to remove children explicitly before their parent.
-            $record instanceof Page => $record->descendants()->getQuery()->withTrashed()->exists()
+            $record instanceof Page => $this->hasPageDescendants($record)
                 || $record->canonicalPages()->withTrashed()->exists()
                 || PagePropertyValue::query()->where('referenced_page_id', $record->getKey())
                     ->where('page_id', '!=', $record->getKey())->exists()
@@ -54,6 +57,12 @@ final class HasRetainedDeletionDependenciesAction
                 || $record->translations()->withTrashed()->exists(),
             default => false,
         } || $this->hasRetainedGraphDependants($record);
+    }
+
+    /** Integrity includes children outside the author's site access and retained trash. */
+    public function hasPageDescendants(Page $record): bool
+    {
+        return $record->descendants()->getQuery()->withTrashed()->exists();
     }
 
     private function hasRetainedGraphDependants(Model $record): bool

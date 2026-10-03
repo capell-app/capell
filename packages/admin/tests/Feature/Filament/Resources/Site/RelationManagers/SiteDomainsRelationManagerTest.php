@@ -2,16 +2,22 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Shield\ResolveDefaultRolePermissionsAction;
 use Capell\Admin\Filament\Resources\Sites\Pages\EditSite;
 use Capell\Admin\Filament\Resources\Sites\RelationManagers\SiteDomainsRelationManager;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Tests\Fixtures\Models\User;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
 use Livewire\Livewire;
 
 use function Pest\Laravel\assertSoftDeleted;
+
+use Spatie\Permission\Models\Permission;
 
 it('can list domains', function (): void {
     test()->actingAsAdmin();
@@ -146,4 +152,47 @@ it('can update a domain', function (): void {
         ->default->toBeTrue()
         ->status->toBeFalse();
 
+});
+
+it('preserves domain creation editing and deletion for a site admin with default permissions', function (): void {
+    $site = Site::factory()->createOne();
+    $foreign = Site::factory()->createOne();
+    $actor = User::factory()->createOne();
+    $actor->assignedSiteIds = collect([$site->id]);
+    foreach (['ViewAny:Site', 'View:Site', 'Update:Site', 'UpdateOwn:Site', 'Create:Site', 'Delete:Site', 'DeleteAny:Site'] as $name) {
+        Permission::findOrCreate($name, 'web');
+    }
+
+    $actor->givePermissionTo(ResolveDefaultRolePermissionsAction::run('admin', 'web'));
+    test()->actingAs($actor);
+    expect($actor->checkPermissionTo('Create:Site'))->toBeFalse()
+        ->and($actor->checkPermissionTo('Delete:Site'))->toBeFalse();
+
+    $component = Livewire::test(SiteDomainsRelationManager::class, [
+        'ownerRecord' => $site, 'pageClass' => EditSite::class,
+    ])->callAction(TestAction::make(CreateAction::class)->table(), data: [
+        'scheme' => 'https', 'domain' => 'own-site.test', 'path' => '',
+        'language_id' => $site->language_id, 'default' => false, 'status' => true,
+    ])->assertHasNoFormErrors();
+    $domain = $site->siteDomains()->where('domain', 'own-site.test')->firstOrFail();
+    $component->callAction(TestAction::make(EditAction::class)->table($domain), data: [
+        'scheme' => 'https', 'domain' => 'edited-own-site.test', 'path' => '',
+        'language_id' => $site->language_id, 'default' => false, 'status' => true,
+    ])->assertHasNoFormErrors();
+    expect($domain->fresh()->domain)->toBe('edited-own-site.test');
+    $component->callAction(TestAction::make(DeleteAction::class)->table($domain));
+    assertSoftDeleted($domain);
+
+    $bulkDomain = SiteDomain::factory()->site($site)->createOne();
+    Livewire::test(SiteDomainsRelationManager::class, [
+        'ownerRecord' => $site, 'pageClass' => EditSite::class,
+    ])->selectTableRecords([$bulkDomain])
+        ->callAction(TestAction::make(DeleteBulkAction::class)->table()->bulk());
+    assertSoftDeleted($bulkDomain);
+
+    Livewire::test(SiteDomainsRelationManager::class, [
+        'ownerRecord' => $foreign, 'pageClass' => EditSite::class,
+    ])->assertActionHidden(TestAction::make(CreateAction::class)->table())
+        ->assertActionHidden(TestAction::make(DeleteBulkAction::class)->table()->bulk());
+    expect($foreign->siteDomains()->count())->toBe(0);
 });

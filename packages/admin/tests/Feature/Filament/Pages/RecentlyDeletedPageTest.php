@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\CanRestorePageCascadeAction;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Media as CapellMedia;
@@ -176,3 +177,85 @@ it('denies deleted record listing and mutations without an actor', function (): 
     expect($record->fresh())->not->toBeNull()
         ->and($record->fresh()->trashed())->toBeTrue();
 });
+
+it('refuses the whole restore cascade when a related page is denied', function (string $deniedRelation): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+    $child->appendToNode($parent)->save();
+    $sibling = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+    $sibling->appendToNode($parent)->save();
+    $parent->delete();
+    $selected = $deniedRelation === 'child' ? $parent : $child;
+    $denied = match ($deniedRelation) {
+        'child' => $child,
+        'ancestor' => $parent,
+        'sibling' => $sibling,
+        default => throw new InvalidArgumentException('Unknown denied relation: ' . $deniedRelation),
+    };
+
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$parent->site_id]);
+    $actor->givePermissionTo(Permission::findOrCreate('View:RecentlyDeletedPage', 'web'));
+    Gate::before(fn (User $user, string $ability, array $arguments): ?bool => $ability === 'restore' ? ! $arguments[0]->is($denied) : null);
+    expect(Gate::allows('restore', $selected))->toBeTrue();
+
+    $component = Livewire::test(RecentlyDeletedPage::class)
+        ->call('restoreRecord', 'page', (int) $selected->getKey());
+
+    expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id, $sibling->id])->count())->toBe(3);
+    $component->assertNotified(__('capell-admin::message.recently_deleted_restore_cascade_denied'));
+})->with(['child', 'ancestor', 'sibling']);
+
+it('restores an authorised cascade without requiring permission for older unrelated trash', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+    $child->appendToNode($parent)->save();
+    $older = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+    $older->appendToNode($parent)->save();
+    $this->travel(-2)->minutes();
+    $older->delete();
+    $this->travelBack();
+    $parent->delete();
+
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$parent->site_id]);
+    Gate::before(fn (User $user, string $ability, array $arguments): ?bool => $ability === 'restore' ? ! $arguments[0]->is($older) : null);
+
+    (new RecentlyDeletedPage)->restoreRecord('page', (int) $child->id);
+    expect($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeFalse()
+        ->and($older->fresh()->trashed())->toBeTrue();
+});
+
+it('refuses a restore cascade check for a page that is no longer trashed', function (): void {
+    $page = Page::factory()->createOne();
+    expect(CanRestorePageCascadeAction::run($page))->toBeFalse()
+        ->and($page->fresh()->trashed())->toBeFalse();
+});
+
+it('refuses the whole restore cascade when a related page is outside site access', function (string $foreignRelation): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->createOne();
+    $child->appendToNode($parent)->save();
+    $parent->delete();
+    $selected = $foreignRelation === 'child' ? $parent : $child;
+    $foreign = $foreignRelation === 'child' ? $child : $parent;
+
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$selected->site_id]);
+    $actor->givePermissionTo(Permission::findOrCreate('View:RecentlyDeletedPage', 'web'));
+    Gate::before(fn (User $user, string $ability, array $arguments): ?bool => $ability === 'restore'
+        ? $user->assignedSiteIds->contains($arguments[0]->site_id)
+        : null);
+    expect(Gate::allows('restore', $selected))->toBeTrue()
+        ->and(Gate::denies('restore', $foreign))->toBeTrue();
+
+    $component = Livewire::test(RecentlyDeletedPage::class)
+        ->call('restoreRecord', 'page', (int) $selected->getKey());
+
+    expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(2);
+    $component->assertNotified(__('capell-admin::message.recently_deleted_restore_cascade_denied'));
+})->with(['child', 'ancestor']);

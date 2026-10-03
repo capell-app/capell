@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Actions\CanRestorePageCascadeAction;
 use Capell\Admin\Filament\Actions\ForceDeleteAction;
 use Capell\Admin\Filament\Concerns\Validate\PageValidation;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
@@ -68,6 +69,15 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
         }
 
         Gate::authorize('restore', $model);
+        if ($model instanceof Page && ! CanRestorePageCascadeAction::run($model)) {
+            Notification::make()
+                ->title(__('capell-admin::message.recently_deleted_restore_cascade_denied'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
         $model->restore();
 
         Notification::make()

@@ -10,7 +10,12 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Foundation\Auth\User;
 
-/** Domains are a Site relation manager: Shield generates Site permissions for them. */
+/**
+ * Domains are managed while editing their owning Site. Adding, editing and deleting
+ * domains therefore use the Site update permission (including UpdateOwn:Site),
+ * together with access to that Site. Creating or deleting a Site is not required.
+ * Restore and permanent deletion continue to use the corresponding Site permissions.
+ */
 final class SiteDomainPolicy
 {
     use ResolvesShieldPermission;
@@ -29,9 +34,19 @@ final class SiteDomainPolicy
         return $site instanceof Site && SiteAccess::forActor($user)->can($site) && $this->sites->view($user, $site);
     }
 
-    public function create(User $user): bool
+    public function create(User $user, ?Site $site = null): bool
     {
-        return $this->sites->create($user);
+        if ($site instanceof Site) {
+            return SiteAccess::forActor($user)->can($site) && $this->sites->update($user, $site);
+        }
+
+        foreach (SiteAccess::forActor($user)->query(Site::class)->get() as $accessibleSite) {
+            if ($this->sites->update($user, $accessibleSite)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function update(User $user, SiteDomain $domain): bool
@@ -45,12 +60,12 @@ final class SiteDomainPolicy
     {
         $site = $this->site($domain);
 
-        return $site instanceof Site && SiteAccess::forActor($user)->can($site) && $this->sites->delete($user, $site);
+        return $site instanceof Site && SiteAccess::forActor($user)->can($site) && $this->sites->update($user, $site);
     }
 
-    public function deleteAny(User $user): bool
+    public function deleteAny(User $user, ?Site $site = null): bool
     {
-        return $this->sites->deleteAny($user);
+        return $this->create($user, $site);
     }
 
     public function restore(User $user, SiteDomain $domain): bool

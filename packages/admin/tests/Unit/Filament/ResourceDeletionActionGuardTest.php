@@ -51,18 +51,31 @@ function unguardedResourceDeletionActions(string $source): array
             $violations[] = 'Direct permanent deletion bypasses the guarded action.';
         }
 
-        if ($node instanceof MethodCall && $node->name instanceof Identifier && strtolower($node->name->toString()) === 'delete') {
+        if (($node instanceof MethodCall || $node instanceof NullsafeMethodCall) && $node->name instanceof Identifier && strtolower($node->name->toString()) === 'delete') {
             $query = $node->var;
+            $tableName = null;
             while ($query instanceof MethodCall || $query instanceof NullsafeMethodCall) {
+                if ($query->name instanceof Identifier && strtolower($query->name->toString()) === 'table'
+                    && ($query->args[0]->value ?? null) instanceof String_) {
+                    $tableName = $query->args[0]->value->value;
+                }
+
                 $query = $query->var;
             }
 
             if ($query instanceof StaticCall && $query->class instanceof Name && $query->class->toString() === DB::class
-                && $query->name instanceof Identifier && strtolower($query->name->toString()) === 'table'
-                && ($query->args[0]->value ?? null) instanceof String_) {
+                && $query->name instanceof Identifier && in_array(strtolower($query->name->toString()), ['table', 'connection'], true)) {
+                if (strtolower($query->name->toString()) === 'table' && ($query->args[0]->value ?? null) instanceof String_) {
+                    $tableName = $query->args[0]->value->value;
+                }
+
+                if ($tableName === null) {
+                    continue;
+                }
+
                 $tables = array_map(fn (ResourceEnum $resource): string => (new ($resource->value::getModel()))->getTable(), ResourceEnum::cases());
                 $tables[] = 'site_domains';
-                $table = preg_split('/\s+/u', strtolower($query->args[0]->value->value))[0] ?? '';
+                $table = preg_split('/\s+/u', strtolower($tableName))[0] ?? '';
                 if (in_array($table, $tables, true)) {
                     $violations[] = 'Direct resource table deletion bypasses the guarded action: ' . $table;
                 }
@@ -89,23 +102,20 @@ function unguardedResourceDeletionActions(string $source): array
 }
 
 /**
- * The panel combines Admin contributions with installed-package Filament discovery.
- * Explicit extra package roots let a manager check companion source without installing it.
+ * Scan this foundation's Filament trees and local Admin registry contributions.
+ * Companion packages own their source guards; real paths keep symlinks from escaping.
  *
- * @param  list<string>  $extraPackagePaths
  * @return list<string>
  */
-function resourceDeletionSourceFiles(array $extraPackagePaths = []): array
+function resourceDeletionSourceFiles(): array
 {
+    $foundationSources = realpath(dirname(__DIR__, 5) . '/packages');
+    assert(is_string($foundationSources));
     $directories = [realpath(__DIR__ . '/../../../src/Filament')];
     foreach (CapellCore::getInstalledPackages() as $package) {
         if (is_string($package->path)) {
             $directories[] = $package->path . '/src/Filament';
         }
-    }
-
-    foreach ($extraPackagePaths as $path) {
-        $directories[] = $path . '/src/Filament';
     }
 
     foreach (CapellAdmin::getAdminSurfaceRegistry()->all() as $contributions) {
@@ -138,44 +148,30 @@ function resourceDeletionSourceFiles(array $extraPackagePaths = []): array
             continue;
         }
 
+        $directory = realpath($directory);
+        if (! is_string($directory)) {
+            continue;
+        }
+
+        if (! str_starts_with($directory, $foundationSources . DIRECTORY_SEPARATOR)) {
+            continue;
+        }
+
         if (! is_dir($directory)) {
             continue;
         }
 
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
             if ($file instanceof SplFileInfo && $file->getExtension() === 'php') {
-                $files[] = $file->getRealPath();
+                $path = $file->getRealPath();
+                if (is_string($path) && str_starts_with($path, $foundationSources . DIRECTORY_SEPARATOR)) {
+                    $files[] = $path;
+                }
             }
         }
     }
 
     return array_values(array_unique($files));
-}
-
-/** @return array<string, list<string>> */
-function knownPackageDeletionOffenders(): array
-{
-    // Temporary, class-specific follow-ups in the companion repository. Exact matching
-    // rejects extra unsafe actions and fails once an offender is fixed, forcing removal.
-    return [
-        'Capell\\Blog\\Filament\\Resources\\Articles\\Tables\\ArticlePagesTable' => [Filament\Actions\ForceDeleteBulkAction::class],
-        'Capell\\LayoutBuilder\\Filament\\Resources\\Widgets\\Pages\\EditWidget' => [Filament\Actions\ForceDeleteAction::class],
-    ];
-}
-
-/** @return list<string> */
-function expectedPackageDeletionViolations(string $source): array
-{
-    $parser = new ParserFactory()->createForNewestSupportedVersion();
-    $nodes = new NodeTraverser(new NameResolver)->traverse($parser->parse($source) ?? []);
-    foreach ((new NodeFinder)->findInstanceOf($nodes, Class_::class) as $class) {
-        $name = isset($class->namespacedName) ? $class->namespacedName->toString() : '';
-        if (isset(knownPackageDeletionOffenders()[$name])) {
-            return knownPackageDeletionOffenders()[$name];
-        }
-    }
-
-    return [];
 }
 
 it('scans table and page sources beside registered package resources', function (): void {
@@ -201,8 +197,7 @@ it('discovers every resource deletion and restoration action and rejects unguard
     $unexpected = [];
     $reported = [];
 
-    $extraPackagePaths = array_values(array_filter(explode(PATH_SEPARATOR, (string) getenv('CAPELL_DELETION_GUARD_PACKAGE_PATHS'))));
-    foreach (resourceDeletionSourceFiles($extraPackagePaths) as $path) {
+    foreach (resourceDeletionSourceFiles() as $path) {
         $file = new SplFileInfo($path);
 
         if (in_array($file->getRealPath(), [new ReflectionClass(ForceDeleteAction::class)->getFileName(), new ReflectionClass(ForceDeleteBulkAction::class)->getFileName()], true)) {
@@ -213,13 +208,9 @@ it('discovers every resource deletion and restoration action and rejects unguard
         expect($source)->toBeString();
         assert(is_string($source));
         $actual = unguardedResourceDeletionActions($source);
-        $expected = expectedPackageDeletionViolations($source);
-        if ($actual !== $expected) {
-            $unexpected[$file->getPathname()] = ['actual' => $actual, 'expected' => $expected];
-        }
-
-        if ($actual !== [] || $expected !== []) {
-            $reported[$file->getPathname()] = ['actual' => $actual, 'expected' => $expected];
+        if ($actual !== []) {
+            $unexpected[$file->getPathname()] = $actual;
+            $reported[$file->getPathname()] = $actual;
         }
 
         $nodes = new NodeTraverser(new NameResolver)->traverse($parser->parse($source) ?? []);
@@ -262,6 +253,10 @@ it('rejects aliases, fully qualified construction, subclasses and direct permane
     'quiet deletion' => '$record->forceDeleteQuietly();',
     'destroy' => Page::class . '::forceDestroy([1, 2]);',
     'raw resource query' => 'use Illuminate\\Support\\Facades\\DB; DB::table("pages")->where("id", 1)->delete();',
+    'connection query' => 'use Illuminate\\Support\\Facades\\DB; DB::connection()->table("pages")->delete();',
+    'named connection query' => 'use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->table("pages")->where("id", 1)->delete();',
+    'aliased connection query' => 'use Illuminate\\Support\\Facades\\DB as Database; Database::connection("sqlite")->table("layouts as l")->delete();',
+    'nullsafe connection query' => 'use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->table("pages")?->delete();',
     'raw aliased query' => 'use Illuminate\\Support\\Facades\\DB as Database; Database::table("layouts")->delete();',
 ]);
 
@@ -273,17 +268,31 @@ it('keeps confirmation and model fetching mandatory when callers override action
         ->and(new ReflectionClass(ForceDeleteBulkAction::class)->isFinal())->toBeTrue();
 });
 
-it('keeps package exceptions exact and requires removal when their actions are guarded', function (string $class, string $rawAction): void {
-    $namespace = substr($class, 0, (int) strrpos($class, '\\'));
-    $name = class_basename($class);
-    $unsafe = '<?php namespace ' . $namespace . '; class ' . $name . ' { public function action() { return \\' . $rawAction . '::make(); } }';
-    expect(unguardedResourceDeletionActions($unsafe))->toBe(expectedPackageDeletionViolations($unsafe));
-    $guardedAction = $rawAction === Filament\Actions\ForceDeleteBulkAction::class ? ForceDeleteBulkAction::class : ForceDeleteAction::class;
-    $safe = str_replace($rawAction, $guardedAction, $unsafe);
-    expect(unguardedResourceDeletionActions($safe))->toBe([])
-        ->and(expectedPackageDeletionViolations($safe))->not->toBe([]);
-})->with(fn (): array => array_map(fn (string $class, array $violations): array => [$class, $violations[0]], array_keys(knownPackageDeletionOffenders()), array_values(knownPackageDeletionOffenders())));
-
 it('permits deletion of unrelated operational tables', function (): void {
-    expect(unguardedResourceDeletionActions('<?php use Illuminate\\Support\\Facades\\DB; DB::table("jobs")->delete();'))->toBe([]);
+    expect(unguardedResourceDeletionActions('<?php use Illuminate\\Support\\Facades\\DB; DB::table("jobs")->delete();'))->toBe([])
+        ->and(unguardedResourceDeletionActions('<?php use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->table("jobs")->delete();'))->toBe([]);
 });
+
+it('confines discovered sources to foundation packages even with other installed paths', function (bool $insideRepository): void {
+    $parent = $insideRepository ? dirname(__DIR__, 5) . '/var/codex' : sys_get_temp_dir();
+    $external = $parent . '/capell-deletion-discovery-' . bin2hex(random_bytes(8));
+    mkdir($external . '/src/Filament', 0777, true);
+    $specimen = $external . '/src/Filament/External.php';
+    file_put_contents($specimen, '<?php $record->forceDelete();');
+    CapellCore::partialMock()->shouldReceive('getInstalledPackages')->andReturn(collect([
+        new PackageData(name: 'vendor/external-specimen', type: PackageTypeEnum::Package, path: $external),
+    ]));
+    try {
+        expect(resourceDeletionSourceFiles())->not->toContain(realpath($specimen));
+        foreach (resourceDeletionSourceFiles() as $file) {
+            expect(str_starts_with($file, dirname(__DIR__, 5) . '/packages/'))->toBeTrue();
+        }
+
+        expect((string) file_get_contents(__FILE__))->not->toContain("getenv('" . 'CAPELL_DELETION_GUARD_PACKAGE_PATHS' . "')");
+    } finally {
+        unlink($specimen);
+        rmdir($external . '/src/Filament');
+        rmdir($external . '/src');
+        rmdir($external);
+    }
+})->with(['external root' => false, 'non-foundation root in this checkout' => true]);

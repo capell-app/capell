@@ -33,6 +33,16 @@ final class ValidateForceDeleteAction
     {
         Gate::authorize('forceDelete', $record);
 
+        if ($record instanceof Page && resolve(HasRetainedDeletionDependenciesAction::class)->hasPageDescendants($record)) {
+            Notification::make('page_descendants_not_deletable')
+                ->warning()
+                ->title(__('capell-admin::message.page_not_deletable'))
+                ->body(__('capell-admin::message.page_descendants_not_deletable_info'))
+                ->send();
+
+            return false;
+        }
+
         if ($validator instanceof ValidatesDelete && ! $validator->validateDelete($record)) {
             return false;
         }
