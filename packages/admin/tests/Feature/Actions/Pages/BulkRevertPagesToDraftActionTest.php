@@ -28,6 +28,7 @@ it('reverts a published page to draft and reports the existing return shape', fu
     $draftVisibleFromBefore = $alreadyDraftPage->fresh()->visible_from;
 
     $actor = test()->createUserWithPermission('Update:Page');
+    $actor->assignedSiteIds = collect([$publishedPage->site_id, $alreadyDraftPage->site_id]);
 
     $result = BulkRevertPagesToDraftAction::run(
         Collection::make([$publishedPage, $alreadyDraftPage]),
@@ -63,6 +64,7 @@ it('skips a page the actor cannot update and leaves its dates untouched', functi
     $visibleUntilBefore = $publishedPage->fresh()->visible_until;
 
     $actorWithoutPermission = test()->createUserWithPermission('View:Page');
+    $actorWithoutPermission->assignedSiteIds = collect([$publishedPage->site_id]);
 
     $result = BulkRevertPagesToDraftAction::run(
         Collection::make([$publishedPage]),
@@ -94,6 +96,7 @@ it('maps a trashed page to the trashed skip reason', function (): void {
     $trashedPage->delete();
 
     $actor = test()->createUserWithPermission('Update:Page');
+    $actor->assignedSiteIds = collect([$trashedPage->site_id]);
 
     $result = BulkRevertPagesToDraftAction::run(
         Collection::make([$trashedPage]),

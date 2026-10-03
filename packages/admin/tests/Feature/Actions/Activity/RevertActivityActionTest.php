@@ -7,6 +7,7 @@ use Capell\Admin\Actions\Activity\RevertActivityAction;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
 use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Admin\Tests\Fixtures\Activity\GlobalAuditUser;
 use Capell\Admin\Tests\Fixtures\Autoload\CapturingActivityRevertHandlerForTest;
 use Capell\Admin\Tests\Fixtures\Autoload\PermissiveActivityRevertHandlerForTest;
 use Capell\Core\Models\Language;
@@ -84,7 +85,7 @@ it('filters selected paths before resolving package revert handlers', function (
 });
 
 it('denies revert when the actor does not have the activity log revert permission', function (): void {
-    test()->actingAs(test()->createUser());
+    test()->actingAs(GlobalAuditUser::fromUser(test()->createUser()));
 
     $language = Language::factory()->createOne(['name' => 'French']);
 
@@ -106,7 +107,7 @@ it('denies revert when the actor does not have the activity log revert permissio
 
 it('denies revert before resolving package handlers', function (): void {
     app()->tag([PermissiveActivityRevertHandlerForTest::class], ActivityRevertHandler::TAG);
-    test()->actingAs(test()->createUser());
+    test()->actingAs(GlobalAuditUser::fromUser(test()->createUser()));
 
     $language = Language::factory()->createOne(['name' => 'French']);
 
@@ -218,7 +219,7 @@ it('deletes activity log entries only with delete permission', function (): void
         ->withProperties(['old' => ['name' => 'Francais'], 'attributes' => ['name' => 'French']])
         ->log('updated language'));
 
-    test()->actingAs(test()->createUser());
+    test()->actingAs(GlobalAuditUser::fromUser(test()->createUser()));
 
     DeleteActivityLogAction::run($activity);
 })->throws(AuthorizationException::class);
@@ -248,11 +249,17 @@ it('deletes activity log entries for permitted actors', function (): void {
         ->and($properties->get('deleted_activity_subject_type'))->toBe($activity->subject_type);
 });
 
-function createActivityLogPermittedUser(CapellPermission $permission): object
+function createActivityLogPermittedUser(CapellPermission $permission, bool $globalAudit = true): object
 {
     Permission::findOrCreate($permission->name());
 
-    return test()->createUserWithPermission($permission->name());
+    $user = test()->createUserWithPermission($permission->name());
+
+    if ($globalAudit) {
+        return GlobalAuditUser::fromUser($user);
+    }
+
+    return $user;
 }
 
 function loggedActivity(mixed $activity): Activity
@@ -270,7 +277,7 @@ function capturedActivityRevertSelection(): ?ActivityRevertSelectionData
 it('denies a foreign site subject in the default revert handler', function (): void {
     $assigned = Site::factory()->create();
     $foreign = Site::factory()->create(['name' => 'Current foreign name']);
-    $actor = createActivityLogPermittedUser(CapellPermission::RevertActivityLog);
+    $actor = createActivityLogPermittedUser(CapellPermission::RevertActivityLog, globalAudit: false);
     $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
 
     test()->actingAs($actor);

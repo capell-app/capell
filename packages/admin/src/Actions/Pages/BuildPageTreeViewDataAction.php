@@ -44,7 +44,7 @@ final class BuildPageTreeViewDataAction
             $home->loadMissing(['blueprint', 'pageUrl.siteDomain']);
         }
 
-        $ancestorIds = $record->ancestors()->get(['id'])->pluck('id')->all();
+        $ancestorIds = SiteAccess::current()->scope($record->ancestors()->getQuery())->get(['id'])->pluck('id')->all();
         $ancestors = $ancestorIds === []
             ? new Collection
             : SiteAccess::current()->query(Page::class)
@@ -61,8 +61,8 @@ final class BuildPageTreeViewDataAction
         return [
             'record' => $record,
             'home' => $home,
-            'siblings' => $record->siblings()->with($relations)->get(),
-            'children' => $record->children()->with($relations)->get(),
+            'siblings' => SiteAccess::current()->scope($record->siblings()->getQuery())->with($relations)->get(),
+            'children' => SiteAccess::current()->scope($record->children()->getQuery())->with($relations)->get(),
             'ancestors' => $ancestors,
             'resourceClass' => AdminSurfaceLookup::resource(ResourceEnum::Page, $type),
             'resourceIcon' => CapellCore::getAsset(AssetEnum::Page)->getIcon(),

@@ -120,7 +120,7 @@ final class SearchHeaderNavigationPagesAction
             return null;
         }
 
-        $ancestors = $match->ancestors()->get();
+        $ancestors = SiteAccess::forActor($actor, acrossAssignedSites: true)->scope($match->ancestors()->getQuery())->get();
         $ancestors->load(['site', 'blueprint.roleRestrictions', 'pageUrl.siteDomain']);
 
         /** @var Collection<int, Page> $pathPages */

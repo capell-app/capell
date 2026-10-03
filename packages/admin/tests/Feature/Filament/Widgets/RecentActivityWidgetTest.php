@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
+use Capell\Admin\Tests\Fixtures\Activity\GlobalAuditUser;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Translation;
@@ -28,7 +29,7 @@ it('renders the recent activity table for an authenticated editor', function ():
     $user = $this->createUser();
     $user->assignRole(config('capell.roles.editor', 'editor'));
 
-    $this->actingAs($user);
+    $this->actingAs(GlobalAuditUser::fromUser($user));
     activity()
         ->causedBy($user)
         ->performedOn($user)
@@ -56,6 +57,7 @@ it('renders translation activity with the page and language in the primary row',
 
     $language = Language::factory()->english()->create();
     $page = Page::factory()->state(['name' => 'Home'])->create();
+    $user->assignedSiteIds = collect([(int) $page->site_id]);
     $translation = Translation::factory()
         ->language($language)
         ->translatable($page)

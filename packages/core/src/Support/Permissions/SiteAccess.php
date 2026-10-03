@@ -7,18 +7,27 @@ namespace Capell\Core\Support\Permissions;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\AssetAttachment;
+use Capell\Core\Models\ContentLock;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PagePropertyValue;
+use Capell\Core\Models\PageRevision;
+use Capell\Core\Models\PageUrl;
+use Capell\Core\Models\PageWorkflowState;
 use Capell\Core\Models\PublicRenderContractEvent;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
+use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Term;
+use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Spatie\Activitylog\Models\Activity;
 
 /** An actor and active-team snapshot; never register this as a singleton. */
 final readonly class SiteAccess
@@ -104,9 +113,7 @@ final readonly class SiteAccess
             return true;
         }
 
-        $media->loadMissing('model');
-
-        return $this->canUseOwner($media->model);
+        return $this->canUseRelatedOwner($media, 'model', 'model_type', 'model_id');
     }
 
     public function canUseRecord(Model $record): bool
@@ -119,14 +126,37 @@ final readonly class SiteAccess
             return true;
         }
 
+        if ($record instanceof Activity) {
+            // Resolve from persisted ownership at action time; loaded morphs may
+            // predate another administrator moving the subject to another site.
+            return $this->query($record::class)->whereKey($record->getKey())->exists();
+        }
+
+        if ($record instanceof PageRevision || $record instanceof PageWorkflowState) {
+            return $this->query(Page::class)->where('uuid', $record->getAttribute('page_uuid'))->exists();
+        }
+
+        if ($record instanceof ContentLock) {
+            $ownerClass = Relation::getMorphedModel((string) $record->getAttribute('model_type'));
+
+            return in_array($ownerClass, $this->ownerModels(), true)
+                && $this->query($ownerClass)->whereKey($record->getAttribute('model_id'))->exists();
+        }
+
+        if ($record instanceof AssetAttachment) {
+            return $this->canUseRelatedOwner($record, 'related', 'related_type', 'related_id');
+        }
+
+        if ($record instanceof TermPropertyValue) {
+            return $this->query(Term::class)->whereKey($record->getAttribute('term_id'))->exists();
+        }
+
         if ($record instanceof Media) {
             return $this->canUseMedia($record);
         }
 
         if ($record instanceof Term) {
-            $record->loadMissing('taxonomy');
-
-            return $record->taxonomy !== null && $this->canSiteId((int) $record->taxonomy->site_id);
+            return $this->query(Taxonomy::class)->whereKey($record->getAttribute('taxonomy_id'))->exists();
         }
 
         if ($record instanceof Site || $record instanceof Layout || $record instanceof Pageable || $record instanceof Translation) {
@@ -166,6 +196,33 @@ final readonly class SiteAccess
         }
 
         $model = $query->getModel();
+
+        if ($model instanceof Activity) {
+            return $this->scopeRelatedOwner($query, 'subject');
+        }
+
+        if ($model instanceof Translation) {
+            return $this->scopeRelatedOwner($query, 'translatable');
+        }
+
+        if ($model instanceof TermPropertyValue) {
+            return $query->whereHas('term', fn (Builder $term): Builder => $this->scope($term));
+        }
+
+        if ($model instanceof PageRevision || $model instanceof PageWorkflowState) {
+            return $query->whereIn($model->qualifyColumn('page_uuid'), $this->query(Page::class)->select('uuid'));
+        }
+
+        if ($model instanceof ContentLock) {
+            return $query->where(function (Builder $locks): void {
+                foreach ($this->ownerModels() as $ownerClass) {
+                    $owner = new $ownerClass;
+                    $locks->orWhere(fn (Builder $owned): Builder => $owned
+                        ->where('model_type', $owner->getMorphClass())
+                        ->whereIn('model_id', $this->query($ownerClass)->select($owner->getKeyName())));
+                }
+            });
+        }
 
         if ($model instanceof Media) {
             return $this->scopeMedia($query);
@@ -246,10 +303,12 @@ final readonly class SiteAccess
             return $this->canSiteId((int) $owner->getAttribute('site_id'));
         }
 
-        if ($owner instanceof Translation) {
-            $owner->loadMissing('translatable');
+        if ($owner instanceof Media) {
+            return $this->canUseMedia($owner);
+        }
 
-            return $this->canUseOwner($owner->translatable);
+        if ($owner instanceof Translation) {
+            return $this->canUseRelatedOwner($owner, 'translatable', 'translatable_type', 'translatable_id');
         }
 
         return false;
@@ -288,56 +347,69 @@ final readonly class SiteAccess
             return $query;
         }
 
-        $assignedSiteIds = collect($this->siteIds);
+        $owners = $this->relatedOwnerModels($relation);
 
-        return $query->where(function (Builder $nestedQuery) use ($assignedSiteIds, $relation): void {
-            $nestedQuery
-                ->whereHasMorph(
-                    $relation,
-                    [
-                        ...CapellCore::getPageVariationModels(),
-                        Site::class,
-                        Layout::class,
-                    ],
-                    function (Builder $ownerQuery, string $ownerType) use ($assignedSiteIds): Builder {
-                        $ownerClass = Relation::getMorphedModel($ownerType) ?? $ownerType;
+        return $query->where(function (Builder $owned) use ($relation, $owners): void {
+            $owned->whereHasMorph($relation, $owners, fn (Builder $owner): Builder => $this->scope($owner));
 
-                        if (is_a($ownerClass, Site::class, true)) {
-                            return $ownerQuery->whereIn('id', $assignedSiteIds);
-                        }
+            if ($relation !== 'translatable') {
+                $owned->orWhereHasMorph($relation, [Translation::class], fn (Builder $translation): Builder => $relation === 'subject'
+                    ? $this->scope($translation)
+                    : $translation->whereHasMorph('translatable', $owners, fn (Builder $owner): Builder => $this->scope($owner)));
+            }
 
-                        if (is_a($ownerClass, Layout::class, true)) {
-                            return $ownerQuery->where(
-                                fn (Builder $layoutQuery): Builder => $layoutQuery
-                                    ->whereNull('site_id')
-                                    ->orWhereIn('site_id', $assignedSiteIds),
-                            );
-                        }
-
-                        return $ownerQuery->whereIn('site_id', $assignedSiteIds);
-                    },
-                )
-                ->orWhereHasMorph(
-                    $relation,
-                    [Translation::class],
-                    fn (Builder $translationQuery): Builder => $translationQuery->whereHasMorph(
-                        'translatable',
-                        [
-                            ...CapellCore::getPageVariationModels(),
-                            Site::class,
-                            Layout::class,
-                        ],
-                        function (Builder $translatableQuery, string $translatableType) use ($assignedSiteIds): Builder {
-                            $translatableClass = Relation::getMorphedModel($translatableType) ?? $translatableType;
-
-                            if (is_a($translatableClass, Site::class, true)) {
-                                return $translatableQuery->whereIn('id', $assignedSiteIds);
-                            }
-
-                            return $this->scope($translatableQuery);
-                        },
-                    ),
-                );
+            if (in_array($relation, ['subject', 'translatable'], true)) {
+                $owned->orWhereHasMorph($relation, [Media::class], fn (Builder $media): Builder => $this->scopeMedia($media));
+            }
         });
+    }
+
+    /** @return list<class-string<Model>> */
+    private function ownerModels(): array
+    {
+        // Only registered morph owners can be logged or attached. Unknown and
+        // orphaned attributions remain global-only rather than falling open.
+        return array_values(array_intersect(array_unique([
+            ...CapellCore::getPageVariationModels(),
+            Site::class, Layout::class, Translation::class, Term::class,
+            TermPropertyValue::class, PageRevision::class, PageWorkflowState::class,
+            SiteDomain::class, PageUrl::class,
+            Taxonomy::class, PagePropertyValue::class,
+        ]), array_values(Relation::morphMap())));
+    }
+
+    private function canUseRelatedOwner(Model $record, string $relation, string $typeColumn, string $idColumn): bool
+    {
+        $type = $record->getAttribute($typeColumn);
+        $id = $record->getAttribute($idColumn);
+        $class = is_string($type) ? Relation::getMorphedModel($type) : null;
+        $assetRelation = in_array($relation, ['model', 'related'], true);
+        $direct = $this->relatedOwnerModels($relation);
+        if (! $assetRelation) {
+            $direct[] = Media::class;
+        }
+
+        $owners = $assetRelation ? [...$direct, Translation::class] : $direct;
+
+        if ($class === null || ! in_array($class, $owners, true) || ! is_int($id) && ! is_string($id)) {
+            return false;
+        }
+
+        // Resolve proposed reference values afresh. Keep the same finite morph
+        // graph as query scoping, including the narrower asset-owner contract.
+        $query = $this->query($class)->whereKey($id);
+        if ($assetRelation && $class === Translation::class) {
+            $query->whereHasMorph('translatable', $direct, fn (Builder $owner): Builder => $this->scope($owner));
+        }
+
+        return $query->exists();
+    }
+
+    /** @return list<class-string<Model>> */
+    private function relatedOwnerModels(string $relation): array
+    {
+        return in_array($relation, ['model', 'related'], true)
+            ? [...CapellCore::getPageVariationModels(), Site::class, Layout::class]
+            : array_values(array_diff($this->ownerModels(), [Translation::class]));
     }
 }

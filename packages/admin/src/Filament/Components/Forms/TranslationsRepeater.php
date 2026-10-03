@@ -273,8 +273,7 @@ class TranslationsRepeater extends RepeaterTabs
             return null;
         }
 
-        $defaultTranslation = $translatable
-            ->translations()
+        $defaultTranslation = SiteAccess::current()->scope($translatable->translations()->getQuery())
             ->whereRelation('language', 'default', true)
             ->first();
 

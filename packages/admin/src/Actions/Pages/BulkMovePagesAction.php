@@ -90,7 +90,7 @@ class BulkMovePagesAction
                         continue;
                     }
 
-                    $preMoveUrls = $addRedirects ? $this->captureUrls($page) : [];
+                    $preMoveUrls = $addRedirects ? $this->captureUrls($page, $actor) : [];
 
                     $page->parent_id = $newParent->getKey();
                     resolve(PageUrlRewriteContext::class)->withoutAutomaticRedirects(function () use ($page): void {
@@ -133,7 +133,7 @@ class BulkMovePagesAction
             return 'cross_sites';
         }
 
-        if ($this->wouldCreateCycle($page, $newParent)) {
+        if ($this->wouldCreateCycle($page, $newParent, $actor)) {
             return 'cycle';
         }
 
@@ -144,7 +144,7 @@ class BulkMovePagesAction
         return null;
     }
 
-    private function wouldCreateCycle(Page $page, Page $newParent): bool
+    private function wouldCreateCycle(Page $page, Page $newParent, User $actor): bool
     {
         if ($page->is($newParent)) {
             return true;
@@ -158,7 +158,7 @@ class BulkMovePagesAction
                 return true;
             }
 
-            $current = SiteAccess::current()->query(Page::class)->find($current->parent_id);
+            $current = SiteAccess::forActor($actor)->query(Page::class)->find($current->parent_id);
 
             if ($current === null) {
                 return false;
@@ -181,12 +181,12 @@ class BulkMovePagesAction
      *
      * @return array<int, array{pageable: Pageable&Page, language: Language, url: string, site_id: int}>
      */
-    private function captureUrls(Page $page): array
+    private function captureUrls(Page $page, User $actor): array
     {
         /** @var Collection<int, Page> $pages */
         $pages = new Collection([$page]);
         /** @var Collection<int, Page> $descendants */
-        $descendants = $page->descendants()->get();
+        $descendants = SiteAccess::forActor($actor)->scope($page->descendants()->getQuery())->get();
         $pages = $pages->merge($descendants);
 
         $snapshots = [];

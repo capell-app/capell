@@ -92,7 +92,7 @@ class ExportSiteTranslationsAction
 
         foreach ($this->translatables($site) as $translatable) {
             /** @var Collection<int, Translation> $translations */
-            $translations = $translatable->translations()->get()->keyBy('language_id');
+            $translations = SiteAccess::current()->scope($translatable->translations()->getQuery())->get()->keyBy('language_id');
             $source = $defaultLanguage instanceof Language
                 ? $translations->get($defaultLanguage->id)
                 : null;

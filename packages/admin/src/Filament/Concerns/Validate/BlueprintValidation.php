@@ -34,7 +34,7 @@ trait BlueprintValidation
         ];
 
         foreach ($blueprints as $type => $relation) {
-            $hasRelated = $record->newQuery()
+            $hasRelated = Blueprint::query()
                 ->where('id', $record->getKey())
                 ->has($relation)
                 ->exists();
@@ -57,7 +57,7 @@ trait BlueprintValidation
             $this->addError('data.type', $error);
 
             $countKey = $relation . '_count';
-            $relatedCount = (int) $record->newQuery()
+            $relatedCount = (int) Blueprint::query()
                 ->where('id', $record->getKey())
                 ->withCount([$relation => fn (Builder $query): Builder => $type === 'theme' ? $query : SiteAccess::current()->scope($query)])
                 ->value($countKey);

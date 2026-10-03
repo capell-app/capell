@@ -278,6 +278,7 @@ it('adds the only available page translation language when add action arguments 
 });
 
 it('flags a translation whose default language was edited more recently', function (): void {
+    test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
     $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
 
@@ -305,6 +306,7 @@ it('flags a translation whose default language was edited more recently', functi
 });
 
 it('does not report a freshly cloned language row as complete', function (): void {
+    test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
     $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
 

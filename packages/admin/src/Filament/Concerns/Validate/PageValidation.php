@@ -9,6 +9,7 @@ use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Core\Actions\GetResourceFromBlueprintAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
@@ -58,7 +59,7 @@ trait PageValidation
                 ))
                 ->body(__(
                     'capell-admin::message.canonical_page_not_deletable',
-                    ['count' => $record->canonicalPages()->count()],
+                    ['count' => SiteAccess::current()->scope($record->canonicalPages()->getQuery())->count()],
                 ))
                 ->actions([
                     Action::make('pages')

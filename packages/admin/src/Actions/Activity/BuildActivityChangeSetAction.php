@@ -6,6 +6,8 @@ namespace Capell\Admin\Actions\Activity;
 
 use Capell\Admin\Data\Activity\ActivityChangeSetData;
 use Capell\Admin\Support\Activity\ActivityChangeSetBuilderResolver;
+use Capell\Core\Support\Permissions\SiteAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Activitylog\Models\Activity;
@@ -20,6 +22,8 @@ final class BuildActivityChangeSetAction
 
     public function handle(Activity $activity): ActivityChangeSetData
     {
+        throw_unless(SiteAccess::current()->canUseRecord($activity), AuthorizationException::class);
+
         $builder = resolve(ActivityChangeSetBuilderResolver::class)->resolve($activity);
 
         return $builder->build($activity);

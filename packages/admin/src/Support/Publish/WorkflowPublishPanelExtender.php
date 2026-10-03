@@ -32,7 +32,7 @@ final class WorkflowPublishPanelExtender implements PublishPanelExtender
             return null;
         }
 
-        $workflow = PageWorkflowState::query()
+        $workflow = SiteAccess::current()->query(PageWorkflowState::class)
             ->where('page_uuid', $page->uuid)
             ->first();
 

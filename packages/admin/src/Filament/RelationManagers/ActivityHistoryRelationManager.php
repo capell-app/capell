@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\RelationManagers;
 use BackedEnum;
 use Capell\Admin\Filament\Resources\Activities\Tables\ActivitiesTable;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -34,7 +35,7 @@ final class ActivityHistoryRelationManager extends RelationManager
         return ActivitiesTable::configure($table)
             ->heading(__('capell-admin::tab.history'))
             ->description(__('capell-admin::activity.resource_history_description'))
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+            ->modifyQueryUsing(fn (Builder $query): Builder => SiteAccess::current()->scope($query)
                 ->with('causer')
                 ->with([
                     'subject' => function (Relation $relation): Relation {
