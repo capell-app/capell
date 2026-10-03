@@ -100,7 +100,7 @@ class BulkMovePagesAction
                     $movedCount++;
 
                     if ($addRedirects) {
-                        $redirectCount += $this->createRedirects($preMoveUrls);
+                        $redirectCount += $this->createRedirects($preMoveUrls, $actor);
                     }
                 }
             });
@@ -214,7 +214,7 @@ class BulkMovePagesAction
     /**
      * @param  array<int, array{pageable: Pageable&Page, language: Language, url: string, site_id: int}>  $snapshots
      */
-    private function createRedirects(array $snapshots): int
+    private function createRedirects(array $snapshots, User $actor): int
     {
         $created = 0;
 
@@ -235,7 +235,7 @@ class BulkMovePagesAction
                 continue;
             }
 
-            if ($this->redirectUrlExists($siteId, $language->getKey(), $oldUrl)) {
+            if ($this->redirectUrlExists($siteId, $language->getKey(), $oldUrl, $actor)) {
                 continue;
             }
 
@@ -246,9 +246,9 @@ class BulkMovePagesAction
         return $created;
     }
 
-    private function redirectUrlExists(int $siteId, int $languageId, string $url): bool
+    private function redirectUrlExists(int $siteId, int $languageId, string $url, User $actor): bool
     {
-        return SiteAccess::current()->query(PageUrl::class)
+        return SiteAccess::forActor($actor)->query(PageUrl::class)
             ->where('site_id', $siteId)
             ->where('language_id', $languageId)
             ->where('url', $url)

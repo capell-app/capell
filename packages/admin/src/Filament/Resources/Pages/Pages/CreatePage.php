@@ -92,7 +92,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             return;
         }
 
-        if (SiteAccess::current()->query(Site::class)->count() === 0) {
+        if (! Site::query()->exists()) {
             $this->redirect(SiteResource::getUrl('create'));
         }
     }

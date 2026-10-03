@@ -6,6 +6,7 @@ use Capell\Admin\Actions\Activity\BuildActivityChangeSetAction;
 use Capell\Admin\Actions\Activity\DeleteActivityLogAction;
 use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
 use Capell\Admin\Data\Agent\AgentAdminToolInvocationData;
+use Capell\Admin\Data\Pages\PageRelationshipCountsData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Filament\Concerns\HasRelationManagerBadge;
 use Capell\Admin\Filament\Concerns\Validate\LayoutValidation;
@@ -262,6 +263,30 @@ it('denies a mounted editor update when its page moves out of scope before hydra
     $editor->set('data.name', 'A stale editor write')->assertForbidden();
     expect($page->refresh()->name)->not->toBe('A stale editor write');
     expect(EditorScratchDraft::query()->where('record_id', $page->id)->count())->toBe(0);
+});
+
+it('counts canonical backlinks in the editor only within the actors sites', function (): void {
+    $page = Page::factory()->site($this->alpha)->withTranslations()->create();
+    $meta = ['canonical_pageable_type' => $page->getMorphClass(), 'canonical_pageable_id' => $page->id];
+    Page::factory()->site($this->alpha)->create(['meta' => $meta]);
+    Page::factory()->site($this->beta)->count(3)->create(['meta' => $meta]);
+    reviewActorWithPermissions($this->actor, ['ViewAny:Page', 'View:Page', 'Update:Page']);
+    $editor = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])->assertSuccessful();
+    expect($editor->instance()->getRecord()->getAttribute('canonical_pages_count'))->toBe(1);
+});
+
+it('counts hierarchy children only within assigned sites including a preloaded foreign child', function (): void {
+    $parent = Page::factory()->site($this->alpha)->create();
+    $own = Page::factory()->site($this->alpha)->create();
+    $foreign = Page::factory()->site($this->beta)->create();
+    $own->forceFill(['parent_id' => $parent->id])->saveQuietly();
+    $foreign->forceFill(['parent_id' => $parent->id])->saveQuietly();
+    test()->actingAs($this->actor);
+
+    expect(PageRelationshipCountsData::fromPage($parent)->childrenCount)->toBe(1);
+    $parent->load('children');
+    expect($parent->children)->toHaveCount(2)
+        ->and(PageRelationshipCountsData::fromPage($parent)->childrenCount)->toBe(1);
 });
 
 it('scopes draft translations for the explicit invocation actor without request authentication', function (): void {

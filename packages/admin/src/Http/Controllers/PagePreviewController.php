@@ -62,6 +62,6 @@ final class PagePreviewController extends BaseController
 
     private function abortUnlessActorCanPreviewSite(Authenticatable $actor, Site $site): void
     {
-        abort_unless(SiteAccess::forActor($actor)->can($site), SymfonyResponse::HTTP_FORBIDDEN);
+        abort_unless(SiteAccess::forActor($actor, acrossAssignedSites: true)->can($site), SymfonyResponse::HTTP_FORBIDDEN);
     }
 }

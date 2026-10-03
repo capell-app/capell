@@ -119,9 +119,11 @@ class RedirectImporter extends Importer
         $record = $this->record;
         $siteId = (int) $this->options['site_id'];
         $languageId = (int) $this->options['language_id'];
-        $site = SiteAccess::forActor($this->resolveActor())->query(Site::class)->find($siteId);
+        // Queued imports have an owner but no request-selected permission team.
+        $access = SiteAccess::forActor($this->resolveActor(), acrossAssignedSites: true);
+        $site = $access->query(Site::class)->find($siteId);
 
-        if ($site === null || ! SiteAccess::forActor($this->resolveActor())->can($site)) {
+        if ($site === null) {
             throw ValidationException::withMessages([
                 'site_id' => __('capell-admin::message.redirect_import_invalid_site'),
             ]);

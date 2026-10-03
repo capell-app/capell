@@ -126,7 +126,7 @@ class PageResource extends SiteScopedResource implements ValidatesDelete
                 'pageUrls',
             ])
             ->withCount([
-                'children',
+                'children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query),
                 'pageUrls',
             ]);
     }
