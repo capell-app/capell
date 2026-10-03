@@ -103,9 +103,16 @@ This command is destructive because `--fresh=force` rebuilds the database. Use i
 
 ## 3. Start the application
 
+Before opening Admin or the public page, apply the Frontend dependency plan and build the production assets unless the installer recorded a successful resource rebuild:
+
 ```bash
+php artisan capell:frontend-after-install --apply --no-interaction
 php artisan serve
 ```
+
+The Frontend command installs registered dependencies using the application's detected package manager, prepares generated CSS and Vite inputs, and builds once. It works with the current preparation hook and releases that do not yet declare that hook. Its default without `--apply` only prints the plan. After a successful installer rebuild, skip the Frontend command and start the application.
+
+Browser **Rebuild resources** runs the existing npm-only build path. pnpm, Yarn, and Bun hosts leave that option unselected and use the explicit Frontend command. For a prepared CI asset pipeline, see [Themes and frontend assets](install.md#themes-and-frontend-assets).
 
 Open:
 
