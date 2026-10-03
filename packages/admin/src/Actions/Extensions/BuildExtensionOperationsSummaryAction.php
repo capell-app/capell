@@ -33,6 +33,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Spatie\Permission\PermissionRegistrar;
 use Throwable;
 
 final class BuildExtensionOperationsSummaryAction
@@ -57,10 +58,12 @@ final class BuildExtensionOperationsSummaryAction
     {
         $cache = resolve(ExtensionOperationsRequestCache::class);
         $access = SiteAccess::current();
-        if (request()->attributes->get(self::REQUEST_CACHE_KEY) !== $access) {
-            // A team or actor change must not reuse another visibility snapshot.
+        $boundary = [auth()->user(), resolve(PermissionRegistrar::class)->getPermissionsTeamId(), $access->isGlobal(), $access->allowedSiteIds()];
+        if (request()->attributes->get(self::REQUEST_CACHE_KEY) !== $boundary) {
+            // Compare fresh access values so revoked grants invalidate cached
+            // diagnostics even when the actor and selected team stay the same.
             $cache->forget(self::REQUEST_CACHE_KEY);
-            request()->attributes->set(self::REQUEST_CACHE_KEY, $access);
+            request()->attributes->set(self::REQUEST_CACHE_KEY, $boundary);
         }
 
         return $cache->remember(

@@ -67,9 +67,9 @@ final class SiteAccessQueryGuard
 
     // Applying an access scope after executing a query cannot authorise that
     // read or write. Builder composition may precede scope; execution may not.
-    private const array EXECUTES_QUERY = ['load', 'loadMissing', 'loadCount', 'loadAggregate', 'getRelationValue', 'getRelation', 'all', 'get', 'first', 'firstOrFail', 'firstWhere', 'find', 'findOrFail', 'findMany', 'sole', 'count', 'min', 'max', 'sum', 'avg', 'average', 'exists', 'doesntExist', 'value', 'pluck', 'cursor', 'lazy', 'lazyById', 'lazyByIdDesc', 'chunk', 'chunkById', 'chunkByIdDesc', 'each', 'eachById', 'paginate', 'simplePaginate', 'cursorPaginate', 'insert', 'insertOrIgnore', 'insertUsing', 'update', 'updateOrInsert', 'updateOrCreate', 'create', 'createOrFirst', 'firstOrCreate', 'firstOrNew', 'delete', 'forceDelete', 'restore', 'truncate', 'upsert', 'increment', 'decrement', 'incrementEach', 'decrementEach'];
+    private const array EXECUTES_QUERY = ['load', 'loadMissing', 'loadCount', 'loadAggregate', 'loadSum', 'loadAvg', 'loadMax', 'loadMin', 'loadExists', 'getRelationValue', 'getRelation', 'all', 'get', 'first', 'firstOrFail', 'firstWhere', 'find', 'findOrFail', 'findMany', 'sole', 'count', 'min', 'max', 'sum', 'avg', 'average', 'exists', 'doesntExist', 'value', 'pluck', 'cursor', 'lazy', 'lazyById', 'lazyByIdDesc', 'chunk', 'chunkById', 'chunkByIdDesc', 'each', 'eachById', 'paginate', 'simplePaginate', 'cursorPaginate', 'insert', 'insertOrIgnore', 'insertUsing', 'update', 'updateOrInsert', 'updateOrCreate', 'create', 'createOrFirst', 'firstOrCreate', 'firstOrNew', 'delete', 'forceDelete', 'restore', 'truncate', 'upsert', 'increment', 'decrement', 'incrementEach', 'decrementEach'];
 
-    /** @var array<class-string<Model>, array<string, array{target: ?string, foreignKey: ?string, many: bool, ownerRelation: ?string}>>|null */
+    /** @var array<class-string<Model>, array<string, array{target: ?string, foreignKey: ?string, childKey: ?string, many: bool, ownerRelation: ?string}>>|null */
     private static ?array $modelRelations = null;
 
     /**
@@ -141,7 +141,7 @@ final class SiteAccessQueryGuard
                 continue;
             }
 
-            if (in_array($call->name->toString(), ['with', 'withCount', 'withExists', 'withAggregate', 'has', 'orHas', 'doesntHave', 'whereHas', 'orWhereHas', 'whereDoesntHave', 'whereRelation', 'load', 'loadMissing', 'loadCount', 'loadAggregate', 'getRelationValue', 'getRelation'], true)) {
+            if (in_array($call->name->toString(), ['with', 'withCount', 'withExists', 'withAggregate', 'withSum', 'withAvg', 'withMax', 'withMin', 'has', 'orHas', 'doesntHave', 'whereHas', 'orWhereHas', 'whereDoesntHave', 'whereRelation', 'load', 'loadMissing', 'loadCount', 'loadAggregate', 'loadSum', 'loadAvg', 'loadMax', 'loadMin', 'loadExists', 'getRelationValue', 'getRelation'], true)) {
                 $class = self::className($call instanceof StaticCall ? $call->class : $call->var, $call, $finder, $nodes);
                 $arguments = in_array($call->name->toString(), ['with', 'load', 'loadMissing'], true) ? $call->args : array_slice($call->args, 0, 1);
                 foreach (self::relationStrings($arguments) as [$relation, $scopedRelation]) {
@@ -164,6 +164,15 @@ final class SiteAccessQueryGuard
 
                         $receiver = self::relationTarget($receiver, $name);
                     }
+                }
+            }
+
+            if (($call instanceof MethodCall || $call instanceof NullsafeMethodCall)
+                && in_array($call->name->toString(), ['scope', 'scopeMedia', 'scopeAssetAttachments'], true)
+                && self::className($call->var, $call, $finder, $nodes) === SiteAccess::class) {
+                $argument = $call->args[0] ?? null;
+                if ($argument instanceof Arg && self::executesQuery($argument->value)) {
+                    $violations[] = 'scope after execution at line ' . $call->getStartLine() . ' [' . $origin . ']';
                 }
             }
 
@@ -290,7 +299,7 @@ final class SiteAccessQueryGuard
      * Read relation definitions without invoking them. This includes inherited
      * trait relations and host morph registrations, rather than a name baseline.
      *
-     * @return array<class-string<Model>, array<string, array{target: ?string, foreignKey: ?string, many: bool, ownerRelation: ?string}>>
+     * @return array<class-string<Model>, array<string, array{target: ?string, foreignKey: ?string, childKey: ?string, many: bool, ownerRelation: ?string}>>
      */
     private static function modelRelations(): array
     {
@@ -354,6 +363,7 @@ final class SiteAccessQueryGuard
                     && in_array($node->name->toString(), ['hasOne', 'hasMany', 'hasOneThrough', 'hasManyThrough', 'belongsTo', 'belongsToMany', 'morphOne', 'morphMany', 'morphTo', 'morphToMany', 'morphedByMany'], true)) : null;
                 $target = null;
                 $foreignKey = null;
+                $childKey = null;
                 $many = array_any($types, static fn (mixed $type): bool => $type instanceof ReflectionNamedType && preg_match('/Many|Descendants|Ancestors/', $type->getName()) === 1);
                 $ownerRelation = null;
                 if ($constructor instanceof MethodCall) {
@@ -368,20 +378,35 @@ final class SiteAccessQueryGuard
                         $foreignKey = $key instanceof Arg && $key->value instanceof String_ ? $key->value->value : Str::snake($method->getName()) . '_id';
                     }
 
+                    if ($constructor->name instanceof Identifier && in_array($constructor->name->toString(), ['hasOne', 'hasMany'], true)) {
+                        $key = $constructor->args[1] ?? null;
+                        $childKey = $key instanceof Arg && $key->value instanceof String_ ? $key->value->value : Str::snake(class_basename($class)) . '_id';
+                        $local = $constructor->args[2] ?? null;
+                        if ($key instanceof Arg && $key->value instanceof Array_ && $local instanceof Arg && $local->value instanceof Array_) {
+                            foreach ($key->value->items as $index => $item) {
+                                $localItem = $local->value->items[$index] ?? null;
+                                if ($item?->value instanceof String_ && $item->value->value === 'site_id'
+                                    && $localItem?->value instanceof String_ && $localItem->value->value === 'site_id') {
+                                    $childKey = 'site_id';
+                                }
+                            }
+                        }
+                    }
+
                     if ($constructor->name instanceof Identifier && in_array($constructor->name->toString(), ['morphOne', 'morphMany'], true)) {
                         $owner = $constructor->args[1] ?? null;
                         $ownerRelation = $owner instanceof Arg && $owner->value instanceof String_ ? $owner->value->value : null;
                     }
                 }
 
-                $relations[$class][$method->getName()] = ['target' => $target, 'foreignKey' => $foreignKey, 'many' => $many, 'ownerRelation' => $ownerRelation];
+                $relations[$class][$method->getName()] = ['target' => $target, 'foreignKey' => $foreignKey, 'childKey' => $childKey, 'many' => $many, 'ownerRelation' => $ownerRelation];
             }
         }
 
         return self::$modelRelations = $relations;
     }
 
-    /** @return array{target: ?string, foreignKey: ?string, many: bool, ownerRelation: ?string}|null */
+    /** @return array{target: ?string, foreignKey: ?string, childKey: ?string, many: bool, ownerRelation: ?string}|null */
     private static function relation(?string $class, string $name): ?array
     {
         if ($class !== null && is_a($class, Pageable::class, true) && ! class_exists($class)) {
@@ -444,19 +469,18 @@ final class SiteAccessQueryGuard
         }
 
         if ($class !== null && ! self::unknownModelClass($class)) {
-            if (! is_a($class, Model::class, true) || self::singleSite($class)) {
+            if (! is_a($class, Model::class, true)) {
                 return false;
             }
 
             $relation = self::relation($class, $name);
 
-            return $relation !== null && self::spansSites($relation);
+            return $relation !== null && self::spansSites($relation) && ! self::ownedChild($class, $relation);
         }
 
         foreach (self::modelRelations() as $model => $relations) {
             $relation = $relations[$name] ?? null;
-            if ($relation !== null && ! self::singleSite($model)
-                && self::spansSites($relation)) {
+            if ($relation !== null && self::spansSites($relation) && ! self::ownedChild($model, $relation)) {
                 return true;
             }
         }
@@ -464,7 +488,7 @@ final class SiteAccessQueryGuard
         return false;
     }
 
-    /** @param array{target: ?string, foreignKey: ?string, many: bool, ownerRelation: ?string} $relation */
+    /** @param array{target: ?string, foreignKey: ?string, childKey: ?string, many: bool, ownerRelation: ?string} $relation */
     private static function spansSites(array $relation): bool
     {
         if (! $relation['many'] || self::siteModel($relation['target']) === null) {
@@ -475,6 +499,38 @@ final class SiteAccessQueryGuard
         // visibility. Usage backlinks do: their owner is the referring record.
         return $relation['ownerRelation'] === null || $relation['target'] === null
             || self::singleSite($relation['target']);
+    }
+
+    /** @param array{target: ?string, foreignKey: ?string, childKey: ?string, many: bool, ownerRelation: ?string} $relation */
+    private static function ownedChild(string $class, array $relation): bool
+    {
+        $target = $relation['target'];
+        if ($target === null || ! class_exists($target) || ! self::singleSite($class)) {
+            return false;
+        }
+
+        $doc = new ReflectionClass($target)->getDocComment() ?: '';
+        if ($relation['childKey'] === 'site_id') {
+            return true;
+        }
+
+        // Page URLs have an inverse pageable owner and a saving-time site-match
+        // invariant. Canonical backlinks point into another page's metadata;
+        // they have no matching inverse owner and keep their independent site.
+        if ($relation['ownerRelation'] !== null && self::relation($target, $relation['ownerRelation']) !== null) {
+            return true;
+        }
+
+        foreach (self::modelRelations()[$target] ?? [] as $owner) {
+            if ($relation['childKey'] !== null && $owner['foreignKey'] === $relation['childKey']
+                && $owner['target'] === $class
+                && preg_match('/@property\s+([^\s]+)\s+\$' . preg_quote($relation['childKey'], '/') . '\b/', $doc, $match) === 1
+                && ! str_contains($match[1], 'null') && ! str_contains($match[1], '?')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function queryMethod(string $method): bool
@@ -638,17 +694,29 @@ final class SiteAccessQueryGuard
 
             $scope = self::lexicalScope($at);
             $bound = null;
+            $declared = false;
             if ($scope !== null) {
                 foreach ($scope->getParams() as $param) {
                     $type = $param->type instanceof NullableType ? $param->type->type : $param->type;
-                    if ($param->var instanceof Variable && $param->var->name === $expression->name && $type instanceof Name) {
-                        $bound = $type->toString();
+                    if ($param->var instanceof Variable && $param->var->name === $expression->name) {
+                        $declared = true;
+                        $bound = $type instanceof Name ? $type->toString() : null;
+                    }
+                }
+            }
+
+            if (! $declared && $scope instanceof ArrowFunction) {
+                $bound = self::className($expression, $scope, $finder, $nodes);
+            } elseif (! $declared && $scope instanceof Closure) {
+                foreach ($scope->uses as $use) {
+                    if ($use->var->name === $expression->name && ! $use->byRef) {
+                        $bound = self::className($expression, $scope, $finder, $nodes);
                     }
                 }
             }
 
             foreach ($finder->findInstanceOf($scope?->getStmts() ?? $nodes, Assign::class) as $assignment) {
-                if ($assignment->var instanceof Variable && $assignment->var->name === $expression->name
+                if (self::lexicalScope($assignment) === $scope && $assignment->var instanceof Variable && $assignment->var->name === $expression->name
                     && $assignment->getStartFilePos() < $at->getStartFilePos()) {
                     $bound = self::className($assignment->expr, $assignment, $finder, $nodes);
                 }
@@ -735,29 +803,7 @@ final class SiteAccessQueryGuard
 
     private static function accessVariable(Variable $variable, Node $at): bool
     {
-        $scope = self::ancestor($at, ClassMethod::class);
-        if (! $scope instanceof ClassMethod) {
-            return false;
-        }
-
-        $valid = false;
-        foreach ($scope->params as $param) {
-            if ($param->var instanceof Variable && $param->var->name === $variable->name && $param->type instanceof Name
-                && $param->type->toString() === SiteAccess::class) {
-                $valid = true;
-            }
-        }
-
-        foreach ((new NodeFinder)->findInstanceOf($scope->stmts ?? [], Assign::class) as $assignment) {
-            if ($assignment->var instanceof Variable && $assignment->var->name === $variable->name
-                && $assignment->getStartFilePos() < $at->getStartFilePos()) {
-                $valid = $assignment->expr instanceof StaticCall && $assignment->expr->class instanceof Name
-                    && $assignment->expr->class->toString() === SiteAccess::class
-                    && $assignment->expr->name instanceof Identifier && in_array($assignment->expr->name->toString(), ['current', 'forActor'], true);
-            }
-        }
-
-        return $valid;
+        return self::className($variable, $at, new NodeFinder, []) === SiteAccess::class;
     }
 
     private static function localHelper(MethodCall|NullsafeMethodCall $call): bool

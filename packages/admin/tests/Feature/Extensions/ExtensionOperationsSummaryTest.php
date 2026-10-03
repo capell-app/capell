@@ -107,6 +107,34 @@ it('keeps foreign site health alerts out of the operations summary', function (b
     }
 })->with(['console' => false, 'cached HTTP request' => true]);
 
+it('refreshes cached health alerts when the same actor loses site access', function (): void {
+    $packageName = 'vendor/revoked-site-health';
+    registerOperationsSummaryManifest($packageName, ['displayName' => 'Site Health', 'version' => '1.0.0']);
+    $site = Site::factory()->create();
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'revoked-health', 'source' => 'test', 'composer_name' => $packageName,
+        'affected_site_id' => $site->id, 'severity' => ExtensionHealthAlertSeverity::Critical,
+        'category' => ExtensionHealthAlertCategory::Security, 'title' => 'Private health alert',
+        'message' => 'Private diagnostic', 'signature' => 'test', 'issued_at' => now(),
+    ]);
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $site->id]);
+
+    test()->actingAs($actor);
+    $console = new ReflectionProperty(app(), 'isRunningInConsole');
+    $previous = $console->getValue(app());
+    $console->setValue(app(), false);
+    try {
+        $first = BuildExtensionOperationsSummaryAction::run();
+        expect(collect($first->alerts)->pluck('id')->all())->toBe(['revoked-health'])
+            ->and(BuildExtensionOperationsSummaryAction::run())->toBe($first);
+        $actor->assignedSiteIds = collect();
+        expect(BuildExtensionOperationsSummaryAction::run()->alerts)->toBe([]);
+    } finally {
+        $console->setValue(app(), $previous);
+    }
+});
+
 it('builds downstream extension update, dependency, runtime, and audit surfaces from the operations summary', function (): void {
     app()->instance('testing.update-readiness-provider', new class implements ExtensionUpdateMetadataProvider
     {
