@@ -26,6 +26,7 @@ export default function capellContentLockHeartbeat(config) {
         logoutSubmitHandler: null,
         logoutPending: false,
         initialDataHash: null,
+        localDraftTrackingStarted: false,
         localDraft: null,
         localDraftAvailable: false,
         heartbeatRequestId: 0,
@@ -37,9 +38,7 @@ export default function capellContentLockHeartbeat(config) {
         released: false,
 
         init() {
-            this.initialDataHash = this.dataHash()
-            this.localDraft = this.readStoredLocalDraft()
-            this.localDraftAvailable = this.localDraft !== null
+            this.loadLocalDraft()
             this.applyReadOnly()
 
             if (typeof this.$wire?.$hook === 'function') {
@@ -60,13 +59,22 @@ export default function capellContentLockHeartbeat(config) {
                     }
 
                     succeed(() => {
-                        this.queueLocalDraft()
+                        this.$nextTick(() => {
+                            if (!this.localDraftTrackingStarted) {
+                                this.loadLocalDraft()
+                            } else {
+                                this.queueLocalDraft()
+                            }
+                        })
                         this.heartbeat()
                     })
                 })
             }
 
             this.$nextTick(() => {
+                if (!this.localDraftTrackingStarted) {
+                    this.loadLocalDraft()
+                }
                 this.bindForm()
                 this.bindLogoutForm()
             })
@@ -94,10 +102,22 @@ export default function capellContentLockHeartbeat(config) {
                 return
             }
 
-            const queueDraft = () => this.queueLocalDraft()
+            const queueDraft = (event) => {
+                if (!event.isTrusted || this.readOnly || this.released) {
+                    return
+                }
 
-            this.form.addEventListener('input', queueDraft)
-            this.form.addEventListener('change', queueDraft)
+                this.beginLocalDraftTracking()
+                this.queueLocalDraft()
+            }
+
+            // Capture before Alpine/Livewire changes data. Client hydration and
+            // synthetic widget events must not create recoverable work.
+            this.form.addEventListener('input', queueDraft, true)
+            this.form.addEventListener('change', queueDraft, true)
+            this.form.addEventListener('click', queueDraft, true)
+            this.form.addEventListener('pointerdown', queueDraft, true)
+            this.form.addEventListener('keydown', queueDraft, true)
 
             if (window.MutationObserver) {
                 this.formObserver = new MutationObserver(() => {
@@ -343,8 +363,30 @@ export default function capellContentLockHeartbeat(config) {
             this.$wire.mountAction('take-over-content-lock')
         },
 
+        loadLocalDraft() {
+            this.initialDataHash = this.dataHash()
+
+            if (this.initialDataHash === null) {
+                return
+            }
+
+            this.localDraft = this.readStoredLocalDraft()
+            this.localDraftAvailable = this.localDraft !== null
+        },
+
+        beginLocalDraftTracking() {
+            if (!this.localDraftTrackingStarted) {
+                this.initialDataHash = this.dataHash()
+                this.localDraftTrackingStarted = true
+            }
+        },
+
         queueLocalDraft() {
-            if (this.readOnly || this.released) {
+            if (
+                !this.localDraftTrackingStarted ||
+                this.readOnly ||
+                this.released
+            ) {
                 return
             }
 
@@ -359,10 +401,25 @@ export default function capellContentLockHeartbeat(config) {
         },
 
         persistLocalDraft() {
+            if (
+                !this.localDraftTrackingStarted ||
+                this.readOnly ||
+                this.released
+            ) {
+                return
+            }
+
             const data = this.currentData()
 
-            if (data === null || this.dataHash(data) === this.initialDataHash) {
-                this.clearLocalDraft()
+            if (data === null) {
+                return
+            }
+
+            if (this.dataHash(data) === this.initialDataHash) {
+                // A click without an edit must not discard work from an earlier visit.
+                if (!this.localDraftAvailable) {
+                    this.clearLocalDraft()
+                }
 
                 return
             }
@@ -382,8 +439,10 @@ export default function capellContentLockHeartbeat(config) {
                     this.localDraftStorageKey,
                     JSON.stringify(draft),
                 )
-                this.localDraft = data
-                this.localDraftAvailable = true
+                // The recovery offer belongs to a previous visit, not the
+                // work already visible in the current editor.
+                this.localDraft = null
+                this.localDraftAvailable = false
             } catch {
                 // Private browsing and storage quota errors must not interrupt editing.
             }
@@ -417,7 +476,8 @@ export default function capellContentLockHeartbeat(config) {
                     typeof draft.savedAt !== 'number' ||
                     !Number.isFinite(draft.savedAt) ||
                     draft.savedAt > Date.now() ||
-                    Date.now() - draft.savedAt > this.localDraftTtlMs
+                    Date.now() - draft.savedAt > this.localDraftTtlMs ||
+                    this.dataHash(draft.data) === this.initialDataHash
                 ) {
                     this.removeStoredLocalDraft()
 
@@ -445,6 +505,7 @@ export default function capellContentLockHeartbeat(config) {
                 return
             }
 
+            this.beginLocalDraftTracking()
             this.$wire.$set('data', data)
             this.clearLocalDraft()
             this.$nextTick(() => this.queueLocalDraft())
@@ -472,6 +533,7 @@ export default function capellContentLockHeartbeat(config) {
 
         markEditorSaved() {
             this.initialDataHash = this.dataHash()
+            this.localDraftTrackingStarted = false
             this.clearLocalDraft()
         },
 
@@ -490,7 +552,23 @@ export default function capellContentLockHeartbeat(config) {
         },
 
         dataHash(data = this.currentData()) {
-            return data === null ? null : JSON.stringify(data)
+            const normalise = (value) => {
+                if (Array.isArray(value)) {
+                    return value.map(normalise)
+                }
+
+                if (value !== null && typeof value === 'object') {
+                    return Object.fromEntries(
+                        Object.keys(value)
+                            .sort()
+                            .map((key) => [key, normalise(value[key])]),
+                    )
+                }
+
+                return value
+            }
+
+            return data === null ? null : JSON.stringify(normalise(data))
         },
 
         clone(data) {

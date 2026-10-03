@@ -15,6 +15,23 @@ it('consumes the core public output leak policy', function (): void {
     }
 });
 
+it('allows the countdown public runtime hook with its public display data', function (): void {
+    $html = '<section class="capell-countdown" data-capell-countdown data-target="2026-12-01T00:00:00Z" data-expired-label="Started"><b data-days>2</b><p data-countdown-status>2 days remaining</p></section>';
+
+    expect(new PublicHtmlSafetyInspector()->detectAuthoringSurface($html))->toBeNull();
+});
+
+it('still rejects authoring leaks alongside the countdown runtime hook', function (string $leak): void {
+    expect(new PublicHtmlSafetyInspector()->containsAuthoringSurface('<section data-capell-countdown>' . $leak . '</section>'))->toBeTrue();
+})->with([
+    'model id' => '<div data-model-id="42"></div>',
+    'field path' => '<div data-field-path="content.blocks.0.title"></div>',
+    'permission' => '<div data-permission="pages.update"></div>',
+    'selector' => '<div data-capell-selector="#page-42"></div>',
+    'signed editor url' => '<a href="/admin/pages/42/edit?expires=123&amp;signature=secret">Edit</a>',
+    'countdown authoring suffix' => '<div data-capell-countdown-model-id="42"></div>',
+]);
+
 it('detects frontend authoring markers in public html', function (string $html): void {
     $inspector = new PublicHtmlSafetyInspector;
 

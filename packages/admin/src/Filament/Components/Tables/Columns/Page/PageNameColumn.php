@@ -17,6 +17,7 @@ use Filament\Support\Enums\FontWeight;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Override;
 
 class PageNameColumn extends BadgeableColumn
 {
@@ -28,6 +29,7 @@ class PageNameColumn extends BadgeableColumn
 
     protected string $resolveRecordKey = 'id';
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -113,7 +115,11 @@ class PageNameColumn extends BadgeableColumn
             $page = $this->resolvePageRecord($record);
             $pageUrl = $this->resolveRenderablePageUrl($page);
 
-            if (! $pageUrl instanceof PageUrl || $pageUrl->url === '/') {
+            if (! $pageUrl instanceof PageUrl) {
+                return new HtmlString(e(__('capell-admin::table.page_health_missing_url')));
+            }
+
+            if ($pageUrl->url === '/') {
                 return null;
             }
 
@@ -260,7 +266,7 @@ class PageNameColumn extends BadgeableColumn
 
         $pageUrl = $page->pageUrl;
 
-        if (! $pageUrl->exists) {
+        if (! $pageUrl instanceof PageUrl || ! $pageUrl->exists) {
             return null;
         }
 

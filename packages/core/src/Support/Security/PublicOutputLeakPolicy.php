@@ -42,6 +42,8 @@ final class PublicOutputLeakPolicy
     ];
 
     private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTES = [
+        // Bare hook for the public countdown clock; no authoring data or suffix family.
+        'data-capell-countdown',
         'data-capell-interaction',
         'data-capell-cookie',
         'data-capell-origin-cookie',
