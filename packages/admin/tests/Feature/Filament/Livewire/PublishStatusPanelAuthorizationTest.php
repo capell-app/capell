@@ -196,10 +196,17 @@ it('rechecks view permission when an already mounted action is invoked', functio
         ->and($record->fresh()?->isEnabled())->toBeTrue();
 });
 
-it('keeps foreign pages denied by PagePolicy', function (): void {
-    sharedPanelActor(Site::factory()->create());
-    $page = Page::factory()->create(['site_id' => Site::factory()->create()->getKey()]);
+it('keeps foreign pages denied by PagePolicy while an assigned-site page is allowed', function (): void {
+    $site = Site::factory()->create();
+    $actor = sharedPanelActor($site);
+    Permission::findOrCreate('View:Page');
+    $actor->givePermissionTo('View:Page');
+    $ownPage = Page::factory()->create(['site_id' => $site->getKey()]);
+    $foreignPage = Page::factory()->create(['site_id' => Site::factory()->create()->getKey()]);
 
-    Livewire::test(PublishStatusPanel::class, ['recordClass' => Page::class, 'recordId' => $page->getKey()])
+    Livewire::test(PublishStatusPanel::class, ['recordClass' => Page::class, 'recordId' => $ownPage->getKey()])
+        ->assertSuccessful();
+
+    Livewire::test(PublishStatusPanel::class, ['recordClass' => Page::class, 'recordId' => $foreignPage->getKey()])
         ->assertForbidden();
 });
