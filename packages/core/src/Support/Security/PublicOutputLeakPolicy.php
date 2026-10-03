@@ -56,6 +56,13 @@ final class PublicOutputLeakPolicy
         'data-capell-stylesheet-fallback-active',
     ];
 
+    /** @var array<non-empty-string, list<string>> */
+    private const array ALLOWED_CAPELL_RUNTIME_ATTRIBUTE_VALUES = [
+        // The countdown target is emitted separately as data-target. Its hook
+        // is boolean and must never become a carrier for arbitrary metadata.
+        'data-capell-countdown' => [''],
+    ];
+
     private const array BLOCKED_PUBLIC_VALUE_PATTERNS = [
         '/\bdata-(?:capell-authoring|capell-editor|field-path|model-id|page-id)\b/i',
         '/\b(?:fieldPath|field[_-]?path|modelId|model[_-]?id|pageId|page[_-]?id)\b\s*(?:=|:)/i',
@@ -106,6 +113,12 @@ final class PublicOutputLeakPolicy
     public function allowedCapellRuntimeAttributes(): array
     {
         return self::ALLOWED_CAPELL_RUNTIME_ATTRIBUTES;
+    }
+
+    /** @return array<non-empty-string, list<string>> */
+    public function allowedCapellRuntimeAttributeValues(): array
+    {
+        return self::ALLOWED_CAPELL_RUNTIME_ATTRIBUTE_VALUES;
     }
 
     /** @return list<non-empty-string> */

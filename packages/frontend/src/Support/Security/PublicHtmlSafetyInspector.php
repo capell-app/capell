@@ -318,42 +318,60 @@ final class PublicHtmlSafetyInspector
      */
     private function detectUnknownCapellAttribute(string $html): ?string
     {
-        // Fast path: sweep the whole document for `data-capell-*` names first.
-        // When every candidate is on the runtime allowlist — the shape of every
-        // clean public page — there is nothing to detect and the far more
-        // expensive per-tag verification below never runs.
-        if (preg_match_all('#\\b(data-capell-[a-z0-9-]+)#i', $html, $candidateMatches) < 1) {
+        if (stripos($html, 'data-capell-') === false) {
             return null;
         }
 
-        $unknownCandidateExists = array_any(array_unique($candidateMatches[1]), fn (string $candidate): bool => ! $this->isAllowedCapellRuntimeAttribute(strtolower($candidate)));
-
-        if (! $unknownCandidateExists) {
+        // Scan tag-shaped text in scripts, styles and comments too: these
+        // surfaces must not carry metadata hidden behind a public runtime hook.
+        if (preg_match_all('#<[a-z][a-z0-9:-]*\\b#i', $html, $tagMatches, PREG_OFFSET_CAPTURE) < 1) {
             return null;
         }
 
-        // Only inspect attributes actually used on a tag, never the name merely
-        // appearing in body text. Scan each opening tag's attribute span as a
-        // whole so a tag carrying multiple `data-capell-*` attributes (e.g. an
-        // allowed one alongside a leaking one) is fully checked — a single
-        // greedy match per tag would otherwise miss all but the last attribute.
-        if (preg_match_all('#<[a-z][a-z0-9]*\\b[^>]*>#i', $html, $tagMatches) < 1) {
-            return null;
-        }
+        // HTML attribute names end only at HTML whitespace, `/`, `=` or `>`.
+        // Restricting them to letters/digits/hyphens truncates suffixes such as
+        // `_model_id`, `:model-id` and `.model-id` into an allowlisted name.
+        // Consume each whole value, including quoted `>`, so its contents
+        // cannot be read as attributes. Quotes in malformed names are retained
+        // by HTML parsers too; they must not hide the rest of the opening tag.
+        // A stray leading `=` starts a malformed attribute name in HTML; keep
+        // scanning after it rather than abandoning later, leaking attributes.
+        $attributePattern = '#\\G[\\x09\\x0A\\x0C\\x0D\\x20/]*(?<name>=[^\\x09\\x0A\\x0C\\x0D\\x20/=>]*|[^\\x09\\x0A\\x0C\\x0D\\x20/=>]+)(?:[\\x09\\x0A\\x0C\\x0D\\x20]*=[\\x09\\x0A\\x0C\\x0D\\x20]*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<unquoted>[^\\x09\\x0A\\x0C\\x0D\\x20>]+)))?#';
+        $allowedValues = $this->leakPolicy->allowedCapellRuntimeAttributeValues();
 
-        foreach ($tagMatches[0] as $tag) {
-            if (preg_match_all('#\\b(data-capell-[a-z0-9-]+)#i', $tag, $attributeMatches) < 1) {
-                continue;
-            }
+        foreach ($tagMatches[0] as [$tag, $tagOffset]) {
+            $attributeOffset = $tagOffset + strlen($tag);
 
-            foreach ($attributeMatches[1] as $attribute) {
-                $normalized = strtolower($attribute);
+            while (preg_match($attributePattern, $html, $attribute, PREG_UNMATCHED_AS_NULL, $attributeOffset) === 1) {
+                $attributeOffset += strlen($attribute[0]);
+                $normalized = strtolower($attribute['name']);
 
-                if ($this->isAllowedCapellRuntimeAttribute($normalized)) {
+                if (! str_starts_with($normalized, 'data-capell-')) {
                     continue;
                 }
 
-                return $normalized;
+                $value = $attribute['double'] ?? $attribute['single'] ?? $attribute['unquoted'] ?? '';
+
+                if (! $this->isAllowedCapellRuntimeAttribute($normalized)
+                    || (isset($allowedValues[$normalized]) && ! in_array($value, $allowedValues[$normalized], true))) {
+                    // Only the name is recorded; a rejected value can be private.
+                    return $normalized;
+                }
+            }
+
+            // Preserve rejection of undocumented textual references in custom
+            // tag names and other attributes' values. This reference scan never
+            // grants permission to an actual attribute: its complete name and
+            // value have already been checked above.
+            $tagContent = substr($html, $tagOffset, $attributeOffset - $tagOffset);
+            preg_match_all('#\\b(data-capell-[a-z0-9_.:-]+)#i', $tagContent, $references);
+
+            foreach ($references[1] as $reference) {
+                $normalized = strtolower($reference);
+
+                if (! $this->isAllowedCapellRuntimeAttribute($normalized)) {
+                    return $normalized;
+                }
             }
         }
 
