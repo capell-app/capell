@@ -31,6 +31,11 @@ final class SiteAccessQueryAllowList
             // must not be offered installation for an already installed CMS.
             'packages/admin/src/Filament/Pages/CapellDashboard.php' => ['getWidgets|' . Site::class . '::query()->exists()', 'dashboardEnum|' . Site::class . '::query()->exists()'],
             'packages/admin/src/Filament/Resources/Pages/Pages/CreatePage.php' => ['mount|' . Site::class . '::query()->exists()'],
+            // The status panel authorises the record through its registered view
+            // policy instead of SiteAccess: a shared (no-site) record that a
+            // package policy allows for a site editor must stay reachable, and a
+            // model with no policy is refused.
+            'packages/admin/src/Filament/Livewire/PublishStatusPanel.php' => ['record|$class::query()->findOrFail($this->recordId)'],
             // Theme settings are installation-wide. Purging only the saving
             // actor's sites would retain stale public output on every other site.
             'packages/admin/src/Filament/Pages/SettingsPage.php' => ['allSiteSurrogateKeys|' . Site::class . '::query()->pluck(\'id\')->map(fn(int $siteId): string => \'site-\' . $siteId)->all()'],

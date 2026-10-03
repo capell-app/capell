@@ -144,8 +144,10 @@ it('schedules a future unpublish via the setExpiry action', function (): void {
 
 it('hides every management action from a user who cannot update the page', function (): void {
     Permission::findOrCreate(panelPagePermission('update'));
+    Permission::findOrCreate(panelPagePermission('view_any'));
+    Permission::findOrCreate(panelPagePermission('view'));
     $page = Page::factory()->create(['visible_from' => now()->subDay()]);
-    $user = test()->createUser();
+    $user = test()->createUserWithPermission(panelPagePermission('view'));
     $user->assignedSiteIds = collect([(int) $page->site_id]);
 
     test()->actingAs($user);
