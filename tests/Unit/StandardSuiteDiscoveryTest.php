@@ -121,7 +121,7 @@ final class StandardSuiteDiscoveryTest extends TestCase
         $exceptions = [
             '~(?:^|/)Browser/~' => 'Separate browser runner and services',
             '~^tests/MariaDB/MariaDbMigrationCompatibilityTest\.php$~' => 'Separate MariaDB compatibility harness',
-            '~^packages/core/tests/MariaDB/ImplicitTimestampRepairTest\.php$~' => 'Opt-in MariaDB 10.5 timestamp proof in phpunit.mariadb.xml',
+            '~^packages/core/tests/MariaDB/ImplicitTimestampRepairTest\.php$~' => 'Opt-in MariaDB legacy implicit timestamp proof in phpunit.mariadb.xml',
             '~(?:^|/)[Ff]ixtures/~' => 'Autoloaded fixture classes, not test cases',
         ];
 
