@@ -3,8 +3,6 @@ name: Coverage
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
       - '*'
 
@@ -20,6 +18,7 @@ env:
 
 jobs:
   generate-coverage:
+    if: github.actor != 'dependabot[bot]'
     name: Generate coverage
     runs-on: ubuntu-latest
     permissions:
@@ -105,6 +104,7 @@ jobs:
           path: coverage/clover-${{ matrix.shard }}.xml
 
   merge-coverage:
+    if: github.actor != 'dependabot[bot]'
     name: Merge coverage and enforce threshold
     needs: generate-coverage
     runs-on: ubuntu-latest
@@ -138,6 +138,7 @@ jobs:
           path: coverage/clover.xml
 
   publish-coverage:
+    if: github.actor != 'dependabot[bot]'
     name: Publish coverage
     needs: merge-coverage
     runs-on: ubuntu-latest

@@ -4,15 +4,6 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'docs/screenshots.json'
-      - 'packages/**'
-      - 'packages/**/docs/screenshots.json'
-      - 'scripts/*screenshot*.js'
-      - '.github/workflows/screenshots.yml'
   workflow_dispatch:
     inputs:
       package:
@@ -31,6 +22,7 @@ concurrency:
 
 jobs:
   capture-core-screenshots:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
