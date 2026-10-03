@@ -8,13 +8,13 @@ use Capell\Core\Facades\CapellDatabase;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
-it('repairs legacy MariaDB 10.5 implicit timestamp updates through an explicitly named connection', function (): void {
-    $connectionName = getenv('CAPELL_MARIADB_10_5_CONNECTION');
-    throw_unless(is_string($connectionName) && $connectionName !== '', RuntimeException::class, 'Set CAPELL_MARIADB_10_5_CONNECTION to a disposable MariaDB 10.5 connection before running phpunit.mariadb.xml.');
+it('repairs implicit timestamp updates under legacy MariaDB semantics through an explicitly named connection', function (): void {
+    $connectionName = getenv('CAPELL_MARIADB_CONNECTION');
+    throw_unless(is_string($connectionName) && $connectionName !== '', RuntimeException::class, 'Set CAPELL_MARIADB_CONNECTION to a disposable MariaDB 10.5 or 10.11 connection before running phpunit.mariadb.xml.');
 
     /** @var array{driver: string, host: string, port: int|string, username: string, password: string}|null $serviceConfiguration */
     $serviceConfiguration = config('database.connections.' . $connectionName);
-    throw_unless(is_array($serviceConfiguration) && in_array($serviceConfiguration['driver'], ['mysql', 'mariadb'], true), RuntimeException::class, 'The named MariaDB 10.5 connection must use the mysql or mariadb driver.');
+    throw_unless(is_array($serviceConfiguration) && in_array($serviceConfiguration['driver'], ['mysql', 'mariadb'], true), RuntimeException::class, 'The named MariaDB connection must use the mysql or mariadb driver.');
 
     $migration = require dirname(__DIR__, 2) . '/database/migrations/2026_09_29_000001_remove_implicit_timestamp_updates.php';
     expect($migration)->toBeInstanceOf(Migration::class);
@@ -31,7 +31,20 @@ it('repairs legacy MariaDB 10.5 implicit timestamp updates through an explicitly
     throw_if($versionQuery === false, RuntimeException::class, 'Unable to read the MariaDB service version.');
 
     $version = $versionQuery->fetchColumn();
-    expect($version)->toContain('10.5.')->toContain('MariaDB');
+    throw_unless(
+        is_string($version) && str_contains(strtolower($version), 'mariadb'),
+        RuntimeException::class,
+        sprintf('The named connection must reach MariaDB, not MySQL. The server reported [%s].', (string) $version),
+    );
+    throw_unless(
+        preg_match('/^10\.(?:5|11)\./', $version) === 1,
+        RuntimeException::class,
+        sprintf('The named MariaDB connection must use MariaDB 10.5 or 10.11. The server reported [%s].', $version),
+    );
+    $server->exec('SET SESSION explicit_defaults_for_timestamp = 0');
+    $sessionQuery = $server->query('SELECT @@SESSION.explicit_defaults_for_timestamp');
+    throw_if($sessionQuery === false, RuntimeException::class, 'Unable to read the MariaDB timestamp session setting.');
+    expect((int) $sessionQuery->fetchColumn())->toBe(0);
     $database = 'capell_timestamp_test_' . getmypid() . '_' . bin2hex(random_bytes(4));
     $server->exec('CREATE DATABASE `' . $database . '`');
     try {
@@ -48,8 +61,8 @@ it('repairs legacy MariaDB 10.5 implicit timestamp updates through an explicitly
             'strict' => true,
         ]]);
         $connection = DB::connection('timestamp_proof');
-        expect((int) $connection->selectOne('SELECT @@GLOBAL.explicit_defaults_for_timestamp AS value')->value)->toBe(0)
-            ->and((int) $connection->selectOne('SELECT @@SESSION.explicit_defaults_for_timestamp AS value')->value)->toBe(0);
+        $connection->statement('SET SESSION explicit_defaults_for_timestamp = 0');
+        expect((int) $connection->selectOne('SELECT @@SESSION.explicit_defaults_for_timestamp AS value')->value)->toBe(0);
         foreach ($columns as $table => $column) {
             $connection->statement(sprintf('CREATE TABLE `proof_%s` (`id` INT PRIMARY KEY, `%s` TIMESTAMP NOT NULL, `value` INT NOT NULL)', $table, $column));
             $connection->statement(sprintf("INSERT INTO `proof_%s` VALUES (1, '2020-01-01 00:00:00', 0)", $table));
