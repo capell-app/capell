@@ -6,6 +6,7 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -78,3 +79,56 @@ it('restores an authorised whole cascade from page resources', function (string 
 
     expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(0);
 })->with(['list', 'edit']);
+
+it('counts overlapping bulk restore selections as successes while retaining cascade refusals', function (bool $includeRefused): void {
+    test()->actingAsAdmin();
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->site($parent->site)->createOne(['blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+    $child->appendToNode($parent)->save();
+    $parent->delete();
+    $selected = [$parent, $child];
+    $refused = null;
+    $restrictedChild = null;
+    if ($includeRefused) {
+        $refused = Page::factory()->site($parent->site)->createOne(['blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+        $restrictedType = Blueprint::factory()->page()->createOne();
+        $restrictedType->roleRestrictions()->create(['role_id' => Role::findOrCreate('restricted-restorer', 'web')->id]);
+        $restrictedChild = Page::factory()->site($parent->site)->createOne(['blueprint_id' => $restrictedType->id, 'layout_id' => $parent->layout_id]);
+        $restrictedChild->appendToNode($refused)->save();
+        $refused->delete();
+        $selected[] = $refused;
+    }
+
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$parent->site_id]);
+    foreach (['ViewAny:Page', 'View:Page', 'Restore:Page', 'RestoreAny:Page'] as $name) {
+        $actor->givePermissionTo(Permission::findOrCreate($name, 'web'));
+    }
+
+    session()->forget('filament.notifications');
+    $component = Livewire::test(ListPages::class)
+        ->filterTable('trashed', true)
+        ->assertCanSeeTableRecords($selected)
+        ->callTableBulkAction('restore', $selected);
+
+    expect($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeFalse();
+    if ($includeRefused) {
+        expect($refused->fresh()->trashed())->toBeTrue()
+            ->and($restrictedChild->fresh()->trashed())->toBeTrue();
+        $component->assertNotified(Notification::make()->warning()->persistent()
+            ->title(trans_choice(
+                'filament-actions::restore.multiple.notifications.restored_partial.title',
+                2,
+                ['count' => 2, 'total' => 3],
+            ))
+            ->body('<p>' . trans_choice(
+                'filament-actions::restore.multiple.notifications.restored_partial.missing_processing_failure_message',
+                1,
+                ['count' => 1],
+            ) . '</p>'));
+    } else {
+        $component->assertNotified(Notification::make()->success()->title(__('filament-actions::restore.multiple.notifications.restored.title')));
+    }
+})->with(['parent and child' => false, 'overlap and refused cascade' => true]);

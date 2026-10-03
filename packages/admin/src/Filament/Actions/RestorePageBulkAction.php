@@ -25,7 +25,8 @@ final class RestorePageBulkAction extends RestoreBulkAction
                 $isFirstException = true;
                 foreach ($records as $record) {
                     try {
-                        if (! $record instanceof Page || ! RestorePageCascadeAction::run($record)) {
+                        if (! $record instanceof Page
+                            || ($record->fresh()?->trashed() !== false && ! RestorePageCascadeAction::run($record))) {
                             $this->reportBulkProcessingFailure();
                         }
                     } catch (Throwable $exception) {

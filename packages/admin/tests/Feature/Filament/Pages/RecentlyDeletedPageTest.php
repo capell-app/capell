@@ -13,6 +13,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
@@ -349,22 +350,19 @@ it('collects a deep restore cascade with one descendant query', function (): voi
 });
 
 it('retries a deadlocked restore after rereading the selected page and propagates other query failures', function (bool $deadlock): void {
-    // A separate in-memory connection has no suite-owned outer transaction, so
-    // Laravel can exercise its real top-level deadlock retry and rollback path.
-    $source = DB::connection();
+    // Migrate a separate in-memory connection independently of the suite's
+    // database engine and outer transaction to exercise top-level retries.
     config()->set('database.connections.restore_retry', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]);
     $retry = DB::connection('restore_retry');
-    foreach ($source->select("select name, sql from sqlite_master where type = 'table' and name not like 'sqlite_%'") as $table) {
-        $retry->statement($table->sql);
-        $columns = array_column($source->select('PRAGMA table_info("' . $table->name . '")'), 'name');
-        foreach ($source->table($table->name)->get($columns) as $row) {
-            $retry->table($table->name)->insert((array) $row);
-        }
-    }
-
     $original = DB::getDefaultConnection();
     DB::setDefaultConnection('restore_retry');
     try {
+        expect(Artisan::call('migrate', [
+            '--database' => 'restore_retry',
+            '--path' => $this->resolveMigrationPaths(),
+            '--realpath' => true,
+            '--force' => true,
+        ]))->toBe(0);
         $page = Page::factory()->createOne();
         $page->delete();
         $attempts = 0;
@@ -393,7 +391,8 @@ it('retries a deadlocked restore after rereading the selected page and propagate
                 ->and($attempts)->toBe(1);
         }
 
-        $selectedReads = array_filter($retry->getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'select * from "pages"') && str_contains($query['query'], '"pages"."id" = ?'));
+        $grammar = $retry->getQueryGrammar();
+        $selectedReads = array_filter($retry->getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'select * from ' . $grammar->wrapTable('pages')) && str_contains($query['query'], $grammar->wrap('pages.id') . ' = ?'));
         expect(count($selectedReads))->toBe($deadlock ? 3 : 2);
     } finally {
         DB::setDefaultConnection($original);
@@ -419,7 +418,8 @@ it('locks the subtree using only primary keys without hydrating descendant model
     expect($ids)->toEqualCanonicalizing([$parent->id, $child->id])
         ->and($hydrated)->not->toContain((int) $child->id)
         ->and($queries)->toHaveCount($lockForUpdate ? 3 : 2);
-    expect($queries[1]['query'])->toStartWith('select "id" from "pages"');
+    $grammar = DB::connection()->getQueryGrammar();
+    expect($queries[1]['query'])->toStartWith('select ' . $grammar->wrap('id') . ' from ' . $grammar->wrapTable('pages'));
 })->with(['locking collection' => true, 'ordinary collection' => false]);
 
 it('eager loads site and blueprint once for restore cascade gates', function (): void {
@@ -452,7 +452,7 @@ it('eager loads site and blueprint once for restore cascade gates', function ():
     $queries = DB::getQueryLog();
     DB::disableQueryLog();
     foreach (['blueprints', 'sites'] as $table) {
-        $reads = array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'from "' . $table . '"'));
+        $reads = array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'from ' . DB::connection()->getQueryGrammar()->wrapTable($table)));
         expect(count($reads))->toBe(1);
     }
 

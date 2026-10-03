@@ -23,10 +23,13 @@ class GrantCapellDefaultRolePermissionsAction
     {
         $guard = config('auth.defaults.guard', 'web');
 
-        AssignPermissionsToRole::run(resources: [ResourceEnum::PageUrl, ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language]);
+        AssignPermissionsToRole::run(
+            resources: [ResourceEnum::PageUrl, ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language],
+            guardName: $guard,
+        );
 
         foreach ($this->rolePermissionMap($mode, $guard) as $roleName => $permissionNames) {
-            $role = Role::findOrCreate($roleName);
+            $role = Role::findOrCreate($roleName, $guard);
 
             foreach ($permissionNames as $permissionName) {
                 if (! $role->hasPermissionTo($permissionName, $guard)) {

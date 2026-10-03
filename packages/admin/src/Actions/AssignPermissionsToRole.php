@@ -17,7 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
- * @method static void run(array<int, ResourceEnum|class-string> $resources = [], array<int, PageEnum|class-string> $pages = [], array<int, FilamentWidgetEnum|class-string> $widgets = [])
+ * @method static void run(array<int, ResourceEnum|class-string> $resources = [], array<int, PageEnum|class-string> $pages = [], array<int, FilamentWidgetEnum|class-string> $widgets = [], ?string $guardName = null)
  */
 class AssignPermissionsToRole
 {
@@ -29,16 +29,17 @@ class AssignPermissionsToRole
      * @param  array<int, PageEnum|class-string>  $pages
      * @param  array<int, FilamentWidgetEnum|class-string>  $widgets
      */
-    public function handle(array $resources = [], array $pages = [], array $widgets = []): void
+    public function handle(array $resources = [], array $pages = [], array $widgets = [], ?string $guardName = null): void
     {
+        $guardName ??= Utils::getFilamentAuthGuard();
         $permissions = [
-            ...$this->resourcePermissions($resources),
-            ...$this->pageOrWidgetPermissions($pages),
-            ...$this->pageOrWidgetPermissions($widgets),
+            ...$this->resourcePermissions($resources, $guardName),
+            ...$this->pageOrWidgetPermissions($pages, $guardName),
+            ...$this->pageOrWidgetPermissions($widgets, $guardName),
         ];
 
         if ($permissions !== []) {
-            $this->grantSuperAdminPermissions(array_values(array_unique($permissions)));
+            $this->grantSuperAdminPermissions(array_values(array_unique($permissions)), $guardName);
         }
     }
 
@@ -50,7 +51,7 @@ class AssignPermissionsToRole
      *
      * @param  list<string>  $permissions
      */
-    private function grantSuperAdminPermissions(array $permissions): void
+    private function grantSuperAdminPermissions(array $permissions, string $guardName): void
     {
         if (Utils::isSuperAdminDefinedViaGate() || ! Utils::isSuperAdminEnabled()) {
             return;
@@ -58,17 +59,26 @@ class AssignPermissionsToRole
 
         $permissionModel = Utils::getPermissionModel();
         $permissionIds = $permissionModel::query()
-            ->where('guard_name', Utils::getFilamentAuthGuard())
+            ->where('guard_name', $guardName)
             ->whereIn('name', $permissions)
             ->pluck($this->modelKeyName($permissionModel))
             ->all();
 
         if (Utils::isTenancyEnabled() && ($tenantModel = Utils::getTenantModel()) !== null) {
             foreach ($tenantModel::query()->pluck($this->modelKeyName($tenantModel)) as $tenantId) {
-                Utils::createRole(tenantId: $tenantId)->permissions()->syncWithoutDetaching($permissionIds);
+                Utils::getRoleModel()::firstOrCreate([
+                    'name' => Utils::getSuperAdminName(),
+                    'guard_name' => $guardName,
+                    Utils::getTenantModelForeignKey() => $tenantId,
+                ])->permissions()->syncWithoutDetaching($permissionIds);
             }
         } else {
-            Utils::createRole()->permissions()->syncWithoutDetaching($permissionIds);
+            $attributes = ['name' => Utils::getSuperAdminName(), 'guard_name' => $guardName];
+            if (Utils::isTenancyEnabled()) {
+                $attributes[Utils::getTenantModelForeignKey()] = null;
+            }
+
+            Utils::getRoleModel()::firstOrCreate($attributes)->permissions()->syncWithoutDetaching($permissionIds);
         }
 
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -87,13 +97,16 @@ class AssignPermissionsToRole
      * @param  array<int, FilamentWidgetEnum|PageEnum|class-string>  $cases
      * @return list<string>
      */
-    private function pageOrWidgetPermissions(array $cases): array
+    private function pageOrWidgetPermissions(array $cases, string $guardName): array
     {
         return array_values(array_map(
-            static function (FilamentWidgetEnum|PageEnum|string $case): string {
+            static function (FilamentWidgetEnum|PageEnum|string $case) use ($guardName): string {
                 $class = is_string($case) ? $case : $case->value;
 
-                return Utils::createPermission('View:' . class_basename($class));
+                return Utils::getPermissionModel()::firstOrCreate([
+                    'name' => 'View:' . class_basename($class),
+                    'guard_name' => $guardName,
+                ])->name;
             },
             $cases,
         ));
@@ -103,7 +116,7 @@ class AssignPermissionsToRole
      * @param  array<int, ResourceEnum|class-string>  $resources
      * @return list<string>
      */
-    private function resourcePermissions(array $resources): array
+    private function resourcePermissions(array $resources, string $guardName): array
     {
         $permissions = [];
 
@@ -118,7 +131,10 @@ class AssignPermissionsToRole
             }
 
             foreach ($resourcePermissions as $permission) {
-                $permissions[] = Utils::createPermission($permission);
+                $permissions[] = Utils::getPermissionModel()::firstOrCreate([
+                    'name' => $permission,
+                    'guard_name' => $guardName,
+                ])->name;
             }
         }
 
