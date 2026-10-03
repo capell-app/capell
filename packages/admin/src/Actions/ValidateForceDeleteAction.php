@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Capell\Admin\Actions\ContentGraph\ValidateContentDeleteImpactAction;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
+use Capell\Admin\Support\ContentGraph\SharedDeleteImpact;
 use Capell\Core\Actions\HasRetainedDeletionDependenciesAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -24,6 +25,11 @@ final class ValidateForceDeleteAction
     use AsObject;
 
     public function handle(Model $record, ?ValidatesDelete $validator): bool
+    {
+        return resolve(SharedDeleteImpact::class)->during($record, fn (): bool => $this->validateRecord($record, $validator));
+    }
+
+    private function validateRecord(Model $record, ?ValidatesDelete $validator): bool
     {
         Gate::authorize('forceDelete', $record);
 

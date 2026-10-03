@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Themes\ResolveThemeLibraryAction;
 use Capell\Admin\Data\Themes\ThemeLibraryCardData;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Resources\Themes\Pages\ManageThemes;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Admin\Support\Themes\ThemeCardData;
@@ -17,6 +18,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Contracts\Translation\Translator;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class)
     ->group('admin', 'theme');
@@ -44,6 +46,11 @@ function actAsThemeSiteScopedUser(Site $site): void
 {
     $user = User::factory()->createOne();
     $user->assignedSiteIds = collect([(int) $site->getKey()]);
+    foreach (['view_any', 'view'] as $affix) {
+        $user->givePermissionTo(Permission::findOrCreate(ResourceEnum::Theme->permission($affix), 'web'));
+    }
+
+    expect($user->isGlobalAdmin())->toBeFalse();
 
     test()->actingAs($user);
 }

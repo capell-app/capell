@@ -163,7 +163,7 @@ class PagesTable implements TableConfigurator
                     ->after(self::afterBulkDelete(...)),
                 RestoreBulkAction::make(),
                 ForceDeleteBulkAction::make()
-                    ->after(self::afterRecordDeleted(...)),
+                    ->after(self::afterBulkDelete(...)),
             ])
             ->emptyStateHeading(__('capell-admin::generic.no_pages_found'))
             ->emptyStateDescription(__('capell-admin::generic.no_pages_description'))
@@ -361,7 +361,7 @@ class PagesTable implements TableConfigurator
     /**
      * @param  Collection<int, PageModel>  $records
      */
-    protected static function afterBulkDelete(DeleteBulkAction $action, Collection $records): void
+    protected static function afterBulkDelete(Collection $records): void
     {
         $records->each(self::afterRecordDeleted(...));
     }

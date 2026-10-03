@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Enums\BlueprintCreationModeEnum;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\Blueprint\CreateBlueprintAction;
 use Capell\Admin\Filament\Resources\Blueprints\Pages\ManageBlueprints;
 use Capell\Admin\Support\AdminSurfaceLookup;
@@ -483,6 +484,9 @@ it('can not update page role restrictions without the manage restrictions permis
         ->create();
 
     test()->actingAsUser();
+    foreach (['view_any', 'view', 'update'] as $affix) {
+        test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ResourceEnum::Blueprint->permission($affix), 'web'));
+    }
 
     Livewire::test(ManageBlueprints::class)
         ->assertSuccessful()
@@ -515,6 +519,10 @@ it('can update page role restrictions with the manage restrictions permission', 
         ->create();
 
     $user = test()->createUserWithPermission(CapellPermission::ManagePageRestrictions->name());
+    foreach (['view_any', 'view', 'update'] as $affix) {
+        $user->givePermissionTo(Permission::findOrCreate(ResourceEnum::Blueprint->permission($affix), 'web'));
+    }
+
     test()->actingAs($user);
 
     Livewire::test(ManageBlueprints::class)

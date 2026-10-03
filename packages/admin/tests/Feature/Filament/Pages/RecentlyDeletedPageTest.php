@@ -83,6 +83,23 @@ it('authorises permanent deletion of each recently deleted record', function ():
     expect(Page::withTrashed()->find($page->getKey()))->not->toBeNull();
 });
 
+it('authorises restoration before mutating an accessible recently deleted record', function (string $resource): void {
+    $page = Page::factory()->createOne();
+    $record = $resource === 'page' ? $page : CapellMedia::factory()->model($page)->createOne();
+    $record->delete();
+
+    test()->actingAsUser();
+    test()->authenticatedUser()->assignedSiteIds = collect([$page->site_id]);
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate('View:RecentlyDeletedPage', 'web'));
+    Gate::before(fn (User $user, string $ability): ?bool => $ability === 'restore' ? false : null);
+
+    Livewire::test(RecentlyDeletedPage::class)
+        ->call('restoreRecord', $resource, (int) $record->getKey())
+        ->assertForbidden();
+
+    expect($record->fresh()?->trashed())->toBeTrue();
+})->with(['page', 'media']);
+
 it('lists only accessible deleted pages and media', function (): void {
     $assigned = Site::factory()->create();
     $foreign = Site::factory()->create();
@@ -118,10 +135,9 @@ it('refuses foreign deleted record mutations and permits accessible records', fu
     $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
 
     test()->actingAs($actor);
-    if ($operation === 'forceDeleteRecord') {
-        $permission = Permission::findOrCreate($resource === 'page' ? 'ForceDelete:Page' : 'ForceDelete:Media', 'web');
-        $actor->givePermissionTo($permission);
-    }
+    $ability = $operation === 'forceDeleteRecord' ? 'ForceDelete' : 'Restore';
+    $permission = Permission::findOrCreate($ability . ':' . ($resource === 'page' ? 'Page' : 'Media'), 'web');
+    $actor->givePermissionTo($permission);
 
     $page = new RecentlyDeletedPage;
 

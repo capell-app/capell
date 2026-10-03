@@ -19,6 +19,7 @@ use Filament\Support\Exceptions\Halt;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 use Override;
 
 /**
@@ -66,6 +67,7 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
             return;
         }
 
+        Gate::authorize('restore', $model);
         $model->restore();
 
         Notification::make()

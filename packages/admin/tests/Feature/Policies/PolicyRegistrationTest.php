@@ -2,14 +2,22 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Policies\BlueprintPolicy;
+use Capell\Admin\Policies\LanguagePolicy;
 use Capell\Admin\Policies\LayoutPolicy;
 use Capell\Admin\Policies\PagePolicy;
 use Capell\Admin\Policies\RedirectPolicy;
+use Capell\Admin\Policies\SiteDomainPolicy;
 use Capell\Admin\Policies\SitePolicy;
+use Capell\Admin\Policies\ThemePolicy;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
+use Capell\Core\Models\Theme;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -27,7 +35,11 @@ use Illuminate\Support\Facades\Gate;
 it('registers every admin policy globally via the service provider', function (): void {
     expect(Gate::getPolicyFor(Page::class))->toBeInstanceOf(PagePolicy::class)
         ->and(Gate::getPolicyFor(Layout::class))->toBeInstanceOf(LayoutPolicy::class)
-        ->and(Gate::getPolicyFor(Site::class))->toBeInstanceOf(SitePolicy::class);
+        ->and(Gate::getPolicyFor(Site::class))->toBeInstanceOf(SitePolicy::class)
+        ->and(Gate::getPolicyFor(Blueprint::class))->toBeInstanceOf(BlueprintPolicy::class)
+        ->and(Gate::getPolicyFor(Language::class))->toBeInstanceOf(LanguagePolicy::class)
+        ->and(Gate::getPolicyFor(Theme::class))->toBeInstanceOf(ThemePolicy::class)
+        ->and(Gate::getPolicyFor(SiteDomain::class))->toBeInstanceOf(SiteDomainPolicy::class);
 
     if (class_exists(RedirectPolicy::class)) {
         expect(Gate::getPolicyFor(PageUrl::class))->toBeInstanceOf(RedirectPolicy::class);

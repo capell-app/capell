@@ -120,11 +120,15 @@ use Capell\Admin\Macros\Filament\TestableMacro;
 use Capell\Admin\Macros\Filament\TextInputMacro;
 use Capell\Admin\Observers\LayoutObserver as AdminLayoutObserver;
 use Capell\Admin\Observers\PageObserver as AdminPageObserver;
+use Capell\Admin\Policies\BlueprintPolicy;
+use Capell\Admin\Policies\LanguagePolicy;
 use Capell\Admin\Policies\LayoutPolicy;
 use Capell\Admin\Policies\MediaPolicy;
 use Capell\Admin\Policies\PagePolicy;
 use Capell\Admin\Policies\RedirectPolicy;
+use Capell\Admin\Policies\SiteDomainPolicy;
 use Capell\Admin\Policies\SitePolicy;
+use Capell\Admin\Policies\ThemePolicy;
 use Capell\Admin\Policies\UserPolicy;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
@@ -149,6 +153,7 @@ use Capell\Admin\Support\Bridges\AdminBridgeRegistry;
 use Capell\Admin\Support\Bridges\AdminNotificationPreferencesUserResourceBridge;
 use Capell\Admin\Support\Cache\UnavailableStaticSiteGenerationDispatcher;
 use Capell\Admin\Support\CapellAdminManager;
+use Capell\Admin\Support\ContentGraph\SharedDeleteImpact;
 use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Dashboard\DashboardFilamentWidgetRegistry;
 use Capell\Admin\Support\Dashboard\DefaultDashboardAnalyticsDataProvider;
@@ -220,6 +225,8 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
+use Capell\Core\Models\Theme;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
@@ -358,6 +365,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ActivityResourceLinkRegistry::class);
         $this->app->singleton(AdminZoneRegistry::class);
         $this->app->singleton(AdminSurfaceContributionRegistry::class);
+        $this->app->scoped(SharedDeleteImpact::class);
 
         $orderingAudit = $this->app->make(ExtensionOrderingAudit::class);
         if (! $orderingAudit->hasSource(AdminZoneRegistry::class)) {
@@ -1044,6 +1052,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         Gate::policy(Layout::class, LayoutPolicy::class);
         Gate::policy(Media::class, MediaPolicy::class);
         Gate::policy(Site::class, SitePolicy::class);
+        Gate::policy(Blueprint::class, BlueprintPolicy::class);
+        Gate::policy(Language::class, LanguagePolicy::class);
+        Gate::policy(Theme::class, ThemePolicy::class);
+        Gate::policy(SiteDomain::class, SiteDomainPolicy::class);
 
         $userModel = config('auth.providers.users.model');
 

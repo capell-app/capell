@@ -7,6 +7,7 @@ use Capell\Admin\Contracts\Extenders\ResourceHeaderActionExtender;
 use Capell\Admin\Contracts\Themes\ThemeEditorExtension;
 use Capell\Admin\Data\Themes\ThemeEditorContextData;
 use Capell\Admin\Data\Themes\ThemeEditorStateData;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Enums\Themes\ThemeActivationScope;
 use Capell\Admin\Filament\Components\Tables\Actions\ReplicateAction;
 use Capell\Admin\Filament\Resources\Themes\Pages\ManageThemes;
@@ -20,6 +21,7 @@ use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Discovery\LocalAppThemeDefinitionRepository;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -27,14 +29,8 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
 use Filament\Tables\Columns\Column;
-use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Factories\Sequence;
-use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -42,6 +38,8 @@ use Pest\Expectation;
 
 use function Pest\Laravel\assertDatabaseHas;
 use function Pest\Laravel\assertSoftDeleted;
+
+use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class)
     ->group('theme');
@@ -101,57 +99,15 @@ function lastThemeHeaderActionName(array $actionNames): string
 /**
  * @param  SupportCollection<int, int>  $assignedSiteIds
  */
-function createThemePageScopedUser(SupportCollection $assignedSiteIds): Authenticatable
+function createThemePageScopedUser(SupportCollection $assignedSiteIds): User
 {
-    $user = new class($assignedSiteIds) extends User implements FilamentUser
-    {
-        /** @use HasFactory<Factory<static>> */
-        use HasFactory;
+    $user = User::factory()->createOne();
+    $user->assignedSiteIds = $assignedSiteIds;
+    foreach (['view_any', 'view'] as $affix) {
+        $user->givePermissionTo(Permission::findOrCreate(ResourceEnum::Theme->permission($affix), 'web'));
+    }
 
-        /** @var SupportCollection<int, int> */
-        public SupportCollection $assignedSiteIds;
-
-        protected $table = 'users';
-
-        /**
-         * @param  SupportCollection<int, int>  $assignedSiteIds
-         */
-        public function __construct(?SupportCollection $assignedSiteIds = null)
-        {
-            parent::__construct();
-
-            $this->assignedSiteIds = $assignedSiteIds ?? collect();
-        }
-
-        public function canAccessPanel(Panel $panel): bool
-        {
-            return true;
-        }
-
-        public function isGlobalAdmin(): bool
-        {
-            return false;
-        }
-
-        public function hasRole(string $role): bool
-        {
-            return false;
-        }
-
-        /**
-         * @return SupportCollection<int, int>
-         */
-        public function getAssignedSiteIds(): SupportCollection
-        {
-            return $this->assignedSiteIds;
-        }
-    };
-
-    $user->forceFill([
-        'name' => 'Scoped Theme User',
-        'email' => fake()->unique()->safeEmail(),
-        'password' => bcrypt('password'),
-    ]);
+    expect($user->isGlobalAdmin())->toBeFalse();
 
     return $user;
 }
