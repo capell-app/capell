@@ -12,20 +12,20 @@ Manage images and files for your sites from **Media** in the admin sidebar.
 ## Upload a file
 
 1. Open **Media**.
-2. Click the create/upload action and choose a file.
-3. Save. The file is now available to attach to pages and components.
+2. Choose **Upload files**, select a file, and choose its site in **Attach to site**.
+3. Submit the action and wait for the upload success notification. The file is now available to attach to pages and components; uploading alone does not place it on a public page.
 
 ## Add alt text and captions (per language)
 
-1. Open a media item.
-2. Use the language tabs to pick a locale.
+1. Open a media item using **Manage media**.
+2. In **Localized metadata**, choose **Add locale metadata** if needed and select a **Language** for each entry.
 3. Fill **Alt text** (a short description of the image), and optionally caption and credit.
-4. Mark an image **decorative** only when it adds no information — this leaves the alt text empty on purpose so screen readers skip it.
-5. Save.
+4. Mark an image **Decorative image** only when it adds no information — this leaves the alt text empty on purpose so screen readers skip it.
+5. Repeat for each language you will publish, then save.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata-dark.png">
-  <img src="../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata.png" alt="Media metadata tab with localized alt text, caption, credit, and decorative controls">
+  <img src="../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata.png" alt="Example media metadata form with localized alt text, caption, credit, and decorative controls">
 </picture>
 
 [Light](../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata.png) · [Dark](../../packages/admin/docs/images/screenshots/admin-media-edit-localized-metadata-dark.png)
