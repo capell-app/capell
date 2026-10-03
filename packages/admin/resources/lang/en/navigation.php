@@ -13,6 +13,8 @@ return [
     'group_content' => 'Content',
     'group_dashboard' => 'Dashboard',
     'group_extensions' => 'Extensions',
+    'group_growth' => 'Growth',
+    'group_integrations' => 'Integrations',
     'group_marketing' => 'Marketing',
     'group_monitoring' => 'Insights & health',
     'group_layouts' => 'Layouts',
