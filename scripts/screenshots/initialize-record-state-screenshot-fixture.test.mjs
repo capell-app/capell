@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { once } from 'node:events'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -147,3 +149,127 @@ for (const inheritedScan of [undefined, '', 'custom']) {
         }
     })
 }
+
+test('keeps fixture environment visible to Laravel in the real HTTP child', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'core-screenshot-http-env-'))
+    let child
+    let closed
+    let diagnostics = ''
+    try {
+        const baseline = spawnSync(
+            'php',
+            [
+                '-r',
+                'echo json_encode(["ini" => php_ini_loaded_file(), "extension_dir" => ini_get("extension_dir")]);',
+            ],
+            {
+                env: {
+                    ...process.env,
+                    PHPRC: undefined,
+                    PHP_INI_SCAN_DIR: undefined,
+                },
+                encoding: 'utf8',
+            },
+        )
+        assert.equal(baseline.status, 0, baseline.stderr)
+        const host = JSON.parse(baseline.stdout)
+        // Retain the host's extension paths while controlling its GPCS profile.
+        const hostIni = join(directory, 'host.ini')
+        const hostConfiguration = readFileSync(host.ini, 'utf8')
+        writeFileSync(hostIni, `${hostConfiguration}\nvariables_order=GPCS\n`)
+        writeFileSync(
+            join(directory, 'index.php'),
+            `<?php
+require getenv('CAPELL_SCREENSHOT_TEST_AUTOLOAD');
+Illuminate\\Support\\Env::disablePutenv();
+header('Content-Type: application/json');
+echo json_encode([
+    'values' => array_map(fn ($key) => env($key), ['DB_DATABASE', 'DB_CONNECTION', 'APP_ENV', 'CAPELL_SCREENSHOT_DISPLAY_ORIGIN']),
+    'variables_order' => ini_get('variables_order'),
+    'memory' => ini_get('memory_limit'),
+    'extension_dir' => ini_get('extension_dir'),
+], JSON_THROW_ON_ERROR);
+`,
+        )
+        const socket = createServer()
+        await new Promise((resolvePromise, rejectPromise) => {
+            socket.once('error', rejectPromise)
+            socket.listen(0, '127.0.0.1', resolvePromise)
+        })
+        const { port } = socket.address()
+        await new Promise((resolvePromise, rejectPromise) =>
+            socket.close((error) =>
+                error ? rejectPromise(error) : resolvePromise(),
+            ),
+        )
+        const { default: config } =
+            await import('../../screenshots.config.mjs?http-environment')
+        const environment = fixtureEnvironment({
+            environment: config.environment,
+            serve: config.app.serve,
+        })
+        child = spawn(
+            'php',
+            ['-c', hostIni, '-S', `127.0.0.1:${port}`, '-t', directory],
+            {
+                cwd: resolve('.'),
+                env: {
+                    ...environment,
+                    CAPELL_SCREENSHOT_TEST_AUTOLOAD: resolve(
+                        'vendor/autoload.php',
+                    ),
+                },
+                stdio: ['ignore', 'pipe', 'pipe'],
+            },
+        )
+        closed = once(child, 'close')
+        await new Promise((resolvePromise, rejectPromise) => {
+            const timeout = setTimeout(
+                () =>
+                    rejectPromise(
+                        new Error(`HTTP child did not start: ${diagnostics}`),
+                    ),
+                10000,
+            )
+            const finish = (error) => {
+                clearTimeout(timeout)
+                if (error) rejectPromise(error)
+                else resolvePromise()
+            }
+            child.once('error', finish)
+            child.once('exit', (code) =>
+                finish(new Error(`HTTP child exited ${code}: ${diagnostics}`)),
+            )
+            child.stderr.on('data', (chunk) => {
+                diagnostics += chunk.toString()
+                if (
+                    diagnostics.includes('Development Server') &&
+                    diagnostics.includes('started')
+                )
+                    finish()
+            })
+            child.stdout.on('data', (chunk) => {
+                diagnostics += chunk.toString()
+            })
+        })
+        const response = await fetch(`http://127.0.0.1:${port}/`, {
+            signal: AbortSignal.timeout(10000),
+        })
+        assert.equal(response.status, 200, diagnostics)
+        const actual = await response.json()
+        assert.deepEqual(actual.values, [
+            environment.DB_DATABASE,
+            environment.DB_CONNECTION,
+            environment.APP_ENV,
+            environment.CAPELL_SCREENSHOT_DISPLAY_ORIGIN,
+        ])
+        assert.equal(actual.variables_order, 'EGPCS')
+        assert.equal(actual.memory, '-1')
+        assert.equal(actual.extension_dir, host.extension_dir)
+    } finally {
+        if (child && child.exitCode === null && child.signalCode === null)
+            child.kill('SIGTERM')
+        if (closed) await closed
+        rmSync(directory, { recursive: true, force: true })
+    }
+})
