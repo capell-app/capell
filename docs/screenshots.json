@@ -47,6 +47,10 @@
                 {
                     "type": "scrollIntoView",
                     "selector": ".fi-sc-tabs-tab:has(.fi-section-header-heading:has-text('Localized metadata'))"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": ".fi-fo-field:has(label:has-text('Alt text')) input"
                 }
             ],
             "docsPage": "docs/admin/media-management.md",

@@ -78,10 +78,12 @@ it('keeps package media editors and their documentation aliases on the same dete
             ->and($entry['waitFor'])->toBe($alias['waitFor']);
 
         if ($alias['sameCaptureAs'] === 'admin-media-edit-localized-metadata') {
-            expect($entry['interactions'])->toContain([
+            $populatedMetadataWait = [
                 'type' => 'waitFor',
                 'selector' => ".fi-fo-field:has(label:has-text('Alt text')) input",
-            ]);
+            ];
+            expect($entry['interactions'])->toContain($populatedMetadataWait)
+                ->and($alias['interactions'])->toContain($populatedMetadataWait);
         }
     }
 });
