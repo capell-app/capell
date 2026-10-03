@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use BezhanSalleh\FilamentShield\Support\Utils;
+use Capell\Admin\Contracts\Extenders\PublishPanelExtender;
+use Capell\Admin\Data\PagePublishStateData;
 use Capell\Admin\Enums\PublishPanelStatusEnum;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
+use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Support\Pages\PagePublishSentinel;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -149,4 +154,131 @@ it('hides every management action from a user who cannot update the page', funct
         ->assertActionHidden('publishNow')
         ->assertActionHidden('unpublish')
         ->assertActionHidden('revertToDraft');
+});
+
+it('refreshes the existing panel when its parent saves and publishes without a reload', function (): void {
+    test()->actingAsAdmin();
+    $site = Site::factory()->hasSiteDomains()->create();
+    $page = Page::factory()->site($site)->home()->create([
+        'visible_from' => PagePublishSentinel::draftValue(),
+        'visible_until' => null,
+    ]);
+    foreach ($site->siteDomains as $domain) {
+        $page->translations()->save(Translation::factory()->make([
+            'language_id' => $domain->language_id,
+            'title' => 'First page',
+        ]));
+    }
+
+    $panel = panelFor($page);
+    $componentId = $panel->instance()->getId();
+    expect($panel->instance()->viewData->isDraft())->toBeTrue();
+    $panel->assertSee(__('capell-admin::reports.publishing_readiness_public_effect_not_visible'));
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertDispatched('page-editor-saved', pageId: (int) $page->getKey());
+
+    expect($page->refresh()->publishVisibilityState()->value)->toBe('published');
+    $panel->dispatch('page-editor-saved', pageId: (int) $page->getKey())
+        ->assertSee(__('capell-admin::reports.publishing_readiness_public_effect_visible'));
+    expect($panel->instance()->getId())->toBe($componentId)
+        ->and($panel->instance()->viewData->isLive())->toBeTrue()
+        ->and($panel->instance()->readiness->publicEligible)->toBeTrue();
+});
+
+it('invalidates every computed projection for a matching saved page', function (): void {
+    test()->actingAsAdmin();
+    $extender = new class implements PublishPanelExtender
+    {
+        #[Override]
+        public function extendPanel(PagePublishStateData $state): string
+        {
+            return $state->isDraft ? 'Draft extension' : 'Live extension';
+        }
+    };
+    app()->instance('saved-page-panel-extender', $extender);
+    app()->tag('saved-page-panel-extender', PublishPanelExtender::TAG);
+
+    $page = Page::factory()->create(['visible_from' => PagePublishSentinel::draftValue()]);
+    $component = panelFor($page)->instance();
+    $view = $component->viewData;
+    $readiness = $component->readiness;
+    expect($component->extensions)->toContain('Draft extension');
+
+    $page->update(['visible_from' => null, 'visible_until' => null]);
+    $component->refreshAfterPageSaved((int) $page->getKey());
+
+    expect($component->viewData)->not->toBe($view)
+        ->and($component->viewData->isLive())->toBeTrue()
+        ->and($component->readiness)->not->toBe($readiness)
+        ->and($component->readiness->currentState->value)->toBe('published')
+        ->and($component->extensions)->toContain('Live extension')->not->toContain('Draft extension');
+});
+
+it('ignores a save event belonging to another page', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create(['visible_from' => PagePublishSentinel::draftValue()]);
+    $component = panelFor($page)->instance();
+    $view = $component->viewData;
+    $readiness = $component->readiness;
+    $page->update(['visible_from' => null]);
+
+    $component->refreshAfterPageSaved((int) $page->getKey() + 1);
+
+    expect($component->viewData)->toBe($view)
+        ->and($component->readiness)->toBe($readiness);
+});
+
+it('shows an unknown publication date honestly for an immediately published or expired page', function (bool $expired): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create([
+        'visible_from' => null,
+        'visible_until' => $expired ? now()->subDay() : null,
+    ]);
+    $panel = panelFor($page)
+        ->assertSee('Date not recorded')
+        ->assertDontSee(__('capell-admin::publish_panel.not_published'));
+
+    expect($panel->instance()->viewData->publishedAt)->toBeNull()
+        ->and($panel->instance()->viewData->isExpired())->toBe($expired)
+        ->and($panel->instance()->viewData->isLive())->toBe(! $expired);
+})->with([false, true]);
+
+it('refreshes cached readiness when the panel itself publishes', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create(['visible_from' => PagePublishSentinel::draftValue()]);
+    $component = panelFor($page)->instance();
+    $before = $component->readiness;
+    expect($before->currentState->value)->toBe('draft');
+
+    $component->publishNowAction()->call();
+
+    expect($page->refresh()->publishVisibilityState()->value)->toBe('published')
+        ->and($component->readiness)->not->toBe($before)
+        ->and($component->readiness->currentState->value)->toBe('published');
+});
+
+it('retains unpublished date wording for drafts and scheduled pages', function (bool $scheduled): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create([
+        'visible_from' => $scheduled ? now()->addDay() : PagePublishSentinel::draftValue(),
+        'visible_until' => null,
+    ]);
+
+    panelFor($page)
+        ->assertSee(__('capell-admin::publish_panel.not_published'))
+        ->assertDontSee('Date not recorded');
+})->with([false, true]);
+
+it('retains the recorded publication date for a dated live page', function (): void {
+    test()->actingAsAdmin();
+    $publishedAt = now()->subDay()->startOfMinute();
+    $page = Page::factory()->create(['visible_from' => $publishedAt, 'visible_until' => null]);
+
+    panelFor($page)
+        ->assertSee($publishedAt->translatedFormat('j M Y, H:i'))
+        ->assertDontSee('Date not recorded')
+        ->assertDontSee(__('capell-admin::publish_panel.not_published'));
 });

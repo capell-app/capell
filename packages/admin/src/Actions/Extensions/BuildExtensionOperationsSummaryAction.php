@@ -26,12 +26,14 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Spatie\Permission\PermissionRegistrar;
 use Throwable;
 
 final class BuildExtensionOperationsSummaryAction
@@ -54,7 +56,17 @@ final class BuildExtensionOperationsSummaryAction
 
     public function handle(): ExtensionOperationsSummaryData
     {
-        return resolve(ExtensionOperationsRequestCache::class)->remember(
+        $cache = resolve(ExtensionOperationsRequestCache::class);
+        $access = SiteAccess::current();
+        $boundary = [auth()->user(), resolve(PermissionRegistrar::class)->getPermissionsTeamId(), $access->isGlobal(), $access->allowedSiteIds()];
+        if (request()->attributes->get(self::REQUEST_CACHE_KEY) !== $boundary) {
+            // Compare fresh access values so revoked grants invalidate cached
+            // diagnostics even when the actor and selected team stay the same.
+            $cache->forget(self::REQUEST_CACHE_KEY);
+            request()->attributes->set(self::REQUEST_CACHE_KEY, $boundary);
+        }
+
+        return $cache->remember(
             self::REQUEST_CACHE_KEY,
             fn (): ExtensionOperationsSummaryData => $this->build(),
         );
@@ -291,8 +303,11 @@ final class BuildExtensionOperationsSummaryAction
         }
 
         try {
+            $siteIds = SiteAccess::current()->allowedSiteIds();
             /** @var Collection<string, Collection<int, ExtensionHealthAlert>> $alerts */
             $alerts = ExtensionHealthAlert::query()
+                ->when($siteIds !== null, fn (Builder $query): Builder => $query
+                    ->where(fn (Builder $query): Builder => $query->whereNull('affected_site_id')->orWhereIn('affected_site_id', $siteIds)))
                 ->where(fn (Builder $query) => $query
                     ->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now()))

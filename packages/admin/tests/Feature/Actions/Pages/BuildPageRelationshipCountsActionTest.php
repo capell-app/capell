@@ -7,6 +7,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 
 it('builds child and page url relationship counts from preloaded relations', function (): void {
+    test()->actingAsAdmin();
     $page = Page::factory()->create();
     Page::factory()->count(2)->parent($page)->create();
     PageUrl::factory()->page($page)->site($page->site)->language($page->site->language)->create();

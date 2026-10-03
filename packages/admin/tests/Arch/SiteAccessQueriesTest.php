@@ -5,28 +5,49 @@ declare(strict_types=1);
 use Capell\Admin\Tests\Support\SiteAccessQueryAllowList;
 use Capell\Admin\Tests\Support\SiteAccessQueryGuard;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\File;
+use PHPUnit\Framework\Assert;
 
 it('requires site sensitive Filament and report queries to start at SiteAccess', function (): void {
     $root = dirname(__DIR__, 4);
-    $violations = [];
-    foreach (['packages/admin/src/Filament', 'packages/admin/src/Actions', 'packages/admin/src/Support', 'packages/admin/src/Http/Controllers', 'packages/marketplace/src/Filament', 'packages/marketplace/src/Actions', 'packages/marketplace/src/Jobs'] as $directory) {
-        foreach (File::allFiles($root . '/' . $directory) as $file) {
-            if ($file->getExtension() !== 'php') {
-                continue;
-            }
+    expect(SiteAccessQueryGuard::scan($root, SiteAccessQueryAllowList::entries()))->toBe([]);
+});
 
-            foreach (SiteAccessQueryGuard::violations($file->getContents(), SiteAccessQueryAllowList::entries()[$directory . '/' . $file->getRelativePathname()] ?? []) as $violation) {
-                $violations[] = $directory . '/' . $file->getRelativePathname() . ': ' . $violation;
-            }
+it('keeps every exact exception necessary rather than accumulating a query baseline', function (): void {
+    $root = dirname(__DIR__, 4);
+    foreach (SiteAccessQueryAllowList::entries() as $path => $entries) {
+        $source = File::get($root . '/' . $path);
+        $unscoped = count(SiteAccessQueryGuard::violations($source));
+        foreach ($entries as $entry) {
+            Assert::assertLessThan($unscoped, count(SiteAccessQueryGuard::violations($source, [$entry])), $path . '|' . $entry);
         }
     }
-
-    expect($violations)->toBe([]);
 });
+
+it('scans authoring entry points beyond Filament with exact file exceptions', function (string $directory): void {
+    $root = sys_get_temp_dir() . '/site-access-guard-' . bin2hex(random_bytes(8));
+    $path = $directory . '/Probe.php';
+    File::makeDirectory($root . '/' . $directory, 0755, true);
+    try {
+        File::put($root . '/' . $path, '<?php class Probe { function read() { ' . Page::class . '::query()->count(); } }');
+        expect(SiteAccessQueryGuard::scan($root))->toHaveCount(1)
+            ->and(SiteAccessQueryGuard::scan($root, [$path => ['read|' . Page::class . '::query()->count()']]))->toBe([])
+            ->and(SiteAccessQueryGuard::scan($root, [$directory . '/Other.php' => ['read|' . Page::class . '::query()->count()']]))->toHaveCount(1);
+        File::put($root . '/' . $path, '<?php ' . SiteAccess::class . '::current()->query(' . Page::class . '::class)->count();');
+        expect(SiteAccessQueryGuard::scan($root))->toBe([]);
+    } finally {
+        File::deleteDirectory($root);
+    }
+})->with([
+    'packages/admin/src/Livewire', 'packages/admin/src/Macros', 'packages/admin/src/Http/Agent',
+    'packages/admin/src/Http/Middleware', 'packages/admin/src/Jobs', 'packages/admin/src/Providers',
+    'packages/admin/src/Data', 'packages/marketplace/src/Support', 'packages/marketplace/src/Http',
+    'packages/marketplace/src/Livewire',
+]);
 
 it('detects an unscoped query even with a model alias or an unused access import', function (): void {
     $source = '<?php use Capell\\Core\\Models\\Page as Content; use Capell\\Core\\Support\\Permissions\\SiteAccess; Content::query()->count();';
@@ -56,7 +77,7 @@ it('protects runtime model aliases outside the Core namespace', function (): voi
 });
 
 it('protects site-owned graph, snapshot and metric query origins', function (): void {
-    foreach (['ContentGraphEdge', 'LayoutContentSnapshot', 'MetricEvent'] as $model) {
+    foreach (['ContentGraphEdge', 'LayoutContentSnapshot', 'MetricEvent', 'ExtensionHealthAlert'] as $model) {
         expect(SiteAccessQueryGuard::violations('<?php \\Capell\\Core\\Models\\' . $model . '::query()->count();'))
             ->toHaveCount(1);
     }
@@ -120,6 +141,7 @@ it('reports raw relation instance dynamic and indirect ownership bypasses', func
     'aliased raw pages' => "use Illuminate\\Support\\Facades\\DB; DB::table('pages as p')->cursor();",
     'qualified raw pages' => 'use Illuminate\\Support\\Facades\\DB; DB::table("schema.\"pages\" p")->get();',
     'raw indirect' => "use Illuminate\\Support\\Facades\\DB; DB::table('translations')->cursor();",
+    'raw site health alerts' => "use Illuminate\\Support\\Facades\\DB; DB::table('capell_extension_health_alerts')->get();",
     'dynamic raw' => 'use Illuminate\\Support\\Facades\\DB; DB::table($table)->get();',
     'relation cursor' => '$site->pages()->cursor();',
     'relation chunk' => '$site->pages()->chunk(10, fn ($pages) => null);',
@@ -150,6 +172,8 @@ it('reports raw relation instance dynamic and indirect ownership bypasses', func
     'workflow' => 'use Capell\\Core\\Models\\PageWorkflowState; PageWorkflowState::query()->get();',
     'activity' => 'use Spatie\\Activitylog\\Models\\Activity; Activity::query()->get();',
     'lock' => 'use Capell\\Core\\Models\\ContentLock; ContentLock::query()->get();',
+    'vendor media model' => 'use Spatie\\MediaLibrary\\MediaCollections\\Models\\Media; Media::query()->get();',
+    'vendor media instance' => 'use Spatie\\MediaLibrary\\MediaCollections\\Models\\Media; function read(Media $record) { return $record->newQuery()->get(); }',
 ]);
 
 it('does not let an exact system exception authorise another query or a reassigned access variable', function (): void {
@@ -163,3 +187,138 @@ it('keeps legitimate visible relation and instance scopes accepted', function ()
     $source = '<?php use Capell\\Core\\Support\\Permissions\\SiteAccess; use Capell\\Core\\Models\\Page; SiteAccess::current()->scope($site->pages()->getQuery())->cursor(); SiteAccess::current()->scope((new Page)->newQuery())->get();';
     expect(SiteAccessQueryGuard::violations($source))->toBe([]);
 });
+
+it('detects lazy properties and string relation arguments before they can bypass the access boundary', function (string $expression): void {
+    $source = '<?php use Capell\\Core\\Models\\Layout; function read(Layout $record) { return ' . $expression . '; }';
+    expect(SiteAccessQueryGuard::violations($source))->not->toBeEmpty();
+})->with([
+    '$record->pages->count()', '$record->pages', '$record?->pages',
+    '$record->withCount("pages")', '$record->with("pages")', '$record->has("pages")',
+    '$record->whereHas("pages")', '$record->load("pages")', '$record->loadCount("pages")',
+    '$record->getRelationValue("pages")', '$record->load(["pages.translations"])',
+    '$record->withCount(["pages as total_pages"])',
+    '$record->with(["pages" => fn ($query) => $query->count()])',
+    '$record->with("site", "pages")',
+    'SiteAccess::current()->scope($record->load("pages"))',
+]);
+
+it('keeps scalar properties and unrelated relations accepted but exceptions exact', function (): void {
+    expect(SiteAccessQueryGuard::violations('<?php use Capell\\Core\\Models\\Layout; function read(Layout $record) { return [$record->name, $record->load("blueprint")]; }'))->toBe([]);
+    $source = '<?php use Capell\\Core\\Models\\Layout; class Reader { function read(Layout $record) { $record->pages->count(); $record->pages; } }';
+    expect(SiteAccessQueryGuard::violations($source, ['read|$record->pages->count()']))->toHaveCount(1);
+});
+
+it('accepts relations bounded by a single site without confusing them with shared parent reads', function (string $source): void {
+    expect(SiteAccessQueryGuard::violations('<?php ' . $source))->toBe([]);
+})->with([
+    'page translations' => 'use Capell\\Core\\Models\\Page; function read(Page $record) { return $record->translations->count(); }',
+    'site domains' => 'use Capell\\Core\\Models\\Site; function read(Site $record) { return $record->siteDomains; }',
+    'page eager load' => 'use Capell\\Core\\Models\\Page; function read(Page $record) { return $record->load("translations"); }',
+    'site eager load' => 'use Capell\\Core\\Models\\Site; function read(Site $record) { return $record->load("siteDomains"); }',
+    'taxonomy terms' => 'use Capell\\Core\\Models\\Taxonomy; function read(Taxonomy $record) { return $record->terms; }',
+    'term properties' => 'use Capell\\Core\\Models\\Term; function read(Term $record) { return $record->propertyValues; }',
+    'global metadata' => 'use Capell\\Core\\Models\\Layout; function read(Layout $record) { return $record->load("blueprint"); }',
+    'non model receiver' => 'function read(stdClass $record) { return $record->pages; }',
+]);
+
+it('detects shared relationships using model definitions and follows nested relation paths', function (string $source): void {
+    expect(SiteAccessQueryGuard::violations('<?php ' . $source))->not->toBeEmpty();
+})->with([
+    'global language sites' => 'use Capell\\Core\\Models\\Language; function read(Language $record) { return $record->sites; }',
+    'global language translations' => 'use Capell\\Core\\Models\\Language; function read(Language $record) { return $record->load("translations"); }',
+    'shared media usage' => 'use Capell\\Core\\Models\\Media; function read(Media $record) { return $record->assetRelations->count(); }',
+    'nested layout pages' => 'use Capell\\Core\\Models\\Page; function read(Page $record) { return $record->load("layout.pages"); }',
+    'nested lazy layout pages' => 'use Capell\\Core\\Models\\Page; function read(Page $record) { return $record->layout->pages; }',
+    'scoped layout still has foreign pages' => 'use Capell\\Core\\Models\\Layout; use Capell\\Core\\Support\\Permissions\\SiteAccess; $layout = SiteAccess::current()->query(Layout::class)->first(); $layout->pages->count();',
+    'parent scope does not scope counts' => 'use Capell\\Core\\Models\\Layout; use Capell\\Core\\Support\\Permissions\\SiteAccess; SiteAccess::current()->scope(Layout::query()->withCount("pages"));',
+    'derived language relation name' => 'use Capell\\Core\\Models\\Language; function read(Language $record) { return $record->loadCount("sitesLanguage"); }',
+    'callback cannot execute before scope' => 'use Capell\\Core\\Models\\Layout; use Capell\\Core\\Support\\Permissions\\SiteAccess; Layout::query()->withCount(["pages" => fn ($query) => SiteAccess::current()->scope($query->get())]);',
+    'callback cannot scope an unrelated query' => 'use Capell\\Core\\Models\\Layout; use Capell\\Core\\Support\\Permissions\\SiteAccess; Layout::query()->withCount(["pages" => fn ($query) => SiteAccess::current()->scope($other)]);',
+    'unresolved builder model' => 'use Illuminate\\Database\\Eloquent\\Builder; function read(Builder $query) { return $query->withCount("pages"); }',
+]);
+
+it('accepts an explicitly scoped child aggregate without treating other strings as relations', function (string $source): void {
+    expect(SiteAccessQueryGuard::violations('<?php ' . $source))->toBe([]);
+})->with([
+    'scoped count' => 'use Capell\\Core\\Models\\Theme; use Capell\\Core\\Support\\Permissions\\SiteAccess; Theme::query()->withCount(["sites" => fn ($query) => SiteAccess::current()->scope($query)]);',
+    'scalar comparison' => 'use Capell\\Core\\Models\\Layout; function read(Layout $record) { return $record->whereRelation("blueprint", "name", "pages"); }',
+    'callback string' => 'use Capell\\Core\\Models\\Layout; function read(Layout $record) { return $record->with(["blueprint" => fn ($query) => $query->where("name", "pages")]); }',
+    'non eloquent method' => 'use Illuminate\\Support\\Facades\\Route; Route::has("admin.pages.index");',
+    'authorised page child query' => 'use Capell\\Core\\Models\\Page; function read(Page $record) { return $record->pageUrls()->count(); }',
+    'shared owner image' => 'use Capell\\Core\\Models\\Layout; function read(Layout $record) { return $record->image; }',
+    'shared owner translations' => 'use Capell\\Core\\Models\\Media; function read(Media $record) { return $record->translations; }',
+]);
+
+it('requires child ownership proof even when the receiver belongs to one site', function (string $expression): void {
+    $prefix = '<?php use Capell\\Core\\Models\\Page; use Capell\\Core\\Support\\Permissions\\SiteAccess; function read(Page $record) { return ';
+    expect(SiteAccessQueryGuard::violations($prefix . $expression . '; }'))->not->toBeEmpty();
+})->with([
+    'backlink property' => '$record->canonicalPages->pluck("name")',
+    'backlink method' => '$record->canonicalPages()->count()',
+    'backlink count' => '$record->loadCount("canonicalPages")',
+    'backlink aliased count' => '$record->loadCount(["canonicalPages as total"])',
+    'independently owned children' => '$record->children->count()',
+    'independently owned siblings' => '$record->siblings()->count()',
+]);
+
+it('accepts bounded ownership and explicitly scoped backlinks', function (string $expression): void {
+    $prefix = '<?php use Capell\\Core\\Models\\Page; use Capell\\Core\\Support\\Permissions\\SiteAccess; function read(Page $record) { return ';
+    expect(SiteAccessQueryGuard::violations($prefix . $expression . '; }'))->toBe([]);
+})->with([
+    'owned translations' => '$record->translations->count()',
+    'owned URLs' => '$record->pageUrls()->count()',
+    'owned properties' => '$record->propertyValues',
+    'bounded count' => '$record->loadCount("pageUrls as total")',
+    'scoped backlinks' => '$record->loadCount(["canonicalPages" => fn ($query) => SiteAccess::current()->scope($query)])',
+]);
+
+it('checks every aggregate alias and array form independently of parent scoping', function (string $method, string $form): void {
+    $column = in_array($method, ['Count', 'Exists'], true) ? '' : ', "id"';
+    $prefix = '<?php use Capell\\Core\\Models\\Layout; use Capell\\Core\\Support\\Permissions\\SiteAccess; ';
+    $relation = match ($form) {
+        'string' => '"pages as page_total"',
+        'array' => '["pages as page_total"]',
+        'callback' => '["pages as page_total" => fn ($query) => $query->where("id", ">", 0)]',
+        default => throw new LogicException('Unexpected aggregate form'),
+    };
+    $builder = 'SiteAccess::current()->scope(Layout::query()->with' . $method . '(' . $relation . $column . '));';
+    $loaded = '$layout = SiteAccess::current()->query(Layout::class)->first(); $layout->load' . $method . '(' . $relation . $column . ');';
+    expect(SiteAccessQueryGuard::violations($prefix . $builder))->not->toBeEmpty()
+        ->and(SiteAccessQueryGuard::violations($prefix . $loaded))->not->toBeEmpty();
+
+    $scoped = '["pages as page_total" => fn ($query) => SiteAccess::current()->scope($query)]';
+    expect(SiteAccessQueryGuard::violations($prefix . 'SiteAccess::current()->scope(Layout::query()->with' . $method . '(' . $scoped . $column . '));'))->toBe([])
+        ->and(SiteAccessQueryGuard::violations($prefix . '$layout = SiteAccess::current()->query(Layout::class)->first(); $layout->load' . $method . '(' . $scoped . $column . ');'))->toBe([]);
+})->with(['Count', 'Sum', 'Avg', 'Max', 'Min', 'Exists'])->with(['string', 'array', 'callback']);
+
+it('does not scope an aggregate after it has already executed', function (string $method): void {
+    $column = $method === 'Exists' ? '' : ', "id"';
+    $source = '<?php use Capell\\Core\\Models\\Layout; use Capell\\Core\\Support\\Permissions\\SiteAccess; SiteAccess::current()->scope($record->load' . $method . '(["pages" => fn ($query) => SiteAccess::current()->scope($query)]' . $column . '));';
+    expect(SiteAccessQueryGuard::violations($source))->not->toBeEmpty();
+})->with(['Sum', 'Avg', 'Max', 'Min', 'Exists']);
+
+it('keeps receiver and access proofs within their lexical scope', function (string $body): void {
+    $source = '<?php use Capell\\Core\\Models\\Layout; use Capell\\Core\\Models\\Page; use Capell\\Core\\Support\\Permissions\\SiteAccess; ' . $body;
+    expect(SiteAccessQueryGuard::violations($source))->not->toBeEmpty();
+})->with([
+    'closure local method' => 'function read(Layout $record) { $fn = function () { $record = new stdClass; }; return $record->pages()->count(); }',
+    'closure local property' => 'function read(Layout $record) { $fn = function () { $record = new stdClass; }; return $record->pages; }',
+    'arrow local' => 'function read(Layout $record) { $fn = fn () => $record = new stdClass; return $record->pages; }',
+    'nested function' => 'function read(Layout $record) { function helper() { $record = new stdClass; } return $record->pages; }',
+    'closure parameter' => 'function read(Layout $record) { return function (Layout $record) { $helper = function () { $record = new stdClass; }; return $record->pages; }; }',
+    'captured by value' => 'function read(Layout $record) { return function () use ($record) { $helper = function () { $record = new stdClass; }; return $record->pages; }; }',
+    'captured by reference' => 'function read(Layout $record) { return function () use (&$record) { $helper = function () { $record = new stdClass; }; return $record->pages; }; }',
+    'access spoof' => 'class Reader { function read($access) { $helper = function () { $access = SiteAccess::current(); }; return $access->scope(Page::query()); } }',
+]);
+
+it('accepts lexical captures without importing sibling closure assignments', function (string $body): void {
+    $source = '<?php use Capell\\Core\\Models\\Layout; use Capell\\Core\\Models\\Page; use Capell\\Core\\Support\\Permissions\\SiteAccess; ' . $body;
+    expect(SiteAccessQueryGuard::violations($source))->toBe([]);
+})->with([
+    'local reassignment' => 'function read(Layout $record) { $record = new stdClass; return $record->pages; }',
+    'value capture' => 'function read(stdClass $record) { return function () use ($record) { return $record->pages; }; }',
+    'implicit arrow capture' => 'function read(stdClass $record) { return fn () => $record->pages; }',
+    'local access' => 'function read(SiteAccess $access) { return $access->scope(Page::query()); }',
+    'captured access' => 'function read(SiteAccess $access) { return function () use ($access) { return $access->scope(Page::query()); }; }',
+    'arrow access' => 'function read(SiteAccess $access) { return fn () => $access->scope(Page::query()); }',
+]);

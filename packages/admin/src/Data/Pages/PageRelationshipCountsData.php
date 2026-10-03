@@ -7,6 +7,7 @@ namespace Capell\Admin\Data\Pages;
 use Capell\Admin\Data\RecordRelationshipCountData;
 use Capell\Admin\Filament\Resources\PageUrls\PageUrlResource;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Spatie\LaravelData\Data;
 
 final class PageRelationshipCountsData extends Data
@@ -22,7 +23,7 @@ final class PageRelationshipCountsData extends Data
         $attributes = $page->getAttributes();
         $childrenCount = is_numeric($attributes['children_count'] ?? null)
             ? (int) $attributes['children_count']
-            : ($page->relationLoaded('children') ? $page->children->count() : $page->children()->count());
+            : SiteAccess::current()->scope($page->children()->getQuery())->count();
         $urlCount = is_numeric($attributes['page_urls_count'] ?? null)
             ? (int) $attributes['page_urls_count']
             : ($page->relationLoaded('pageUrls') ? $page->pageUrls->count() : $page->pageUrls()->count());

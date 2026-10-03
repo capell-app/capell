@@ -14,6 +14,7 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Exception;
 use Filament\Support\Enums\FontWeight;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
@@ -63,7 +64,7 @@ class PageNameColumn extends BadgeableColumn
 
                 if ($page->hasPageHierarchy() && $this->hasChildren()) {
                     if ($page->getAttributeValue('children_count') === null) {
-                        $page->loadCount(['children']);
+                        $page->loadCount(['children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query)]);
                     }
 
                     if ($page->children_count > 0) {

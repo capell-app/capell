@@ -27,9 +27,11 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\ExtensionHealthAlert;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Permission;
@@ -64,6 +66,73 @@ beforeEach(function (): void {
             return '1.0.0';
         }
     });
+});
+
+it('keeps foreign site health alerts out of the operations summary', function (bool $cachedRequest): void {
+    $packageName = 'vendor/site-health';
+    registerOperationsSummaryManifest($packageName, ['displayName' => 'Site Health', 'version' => '1.0.0']);
+    CapellExtension::query()->create([
+        'composer_name' => $packageName, 'name' => 'Site Health', 'version' => '1.0.0',
+        'status' => ExtensionStatusEnum::Enabled, 'installed_at' => now(),
+    ]);
+    $alpha = Site::factory()->create();
+    $beta = Site::factory()->create();
+    foreach ([null, $alpha->id, $beta->id] as $index => $siteId) {
+        ExtensionHealthAlert::query()->create([
+            'alert_id' => 'site-health-' . $index, 'source' => 'test', 'composer_name' => $packageName,
+            'affected_site_id' => $siteId, 'severity' => ExtensionHealthAlertSeverity::Critical,
+            'category' => ExtensionHealthAlertCategory::Security, 'title' => 'Site health alert',
+            'message' => 'Private site diagnostic', 'signature' => 'test', 'issued_at' => now(),
+        ]);
+    }
+
+    $console = new ReflectionProperty(app(), 'isRunningInConsole');
+    $previousConsole = $console->getValue(app());
+    $console->setValue(app(), ! $cachedRequest);
+    try {
+        foreach ([[$alpha->id], [$beta->id], []] as $index => $siteIds) {
+            $actor = User::factory()->create();
+            $actor->assignedSiteIds = collect($siteIds);
+            test()->actingAs($actor);
+            $summary = BuildExtensionOperationsSummaryAction::run();
+            $expected = $index < 2 ? ['site-health-0', 'site-health-' . ($index + 1)] : ['site-health-0'];
+            expect(collect($summary->package($packageName)?->healthAlerts)->pluck('id')->all())->toEqualCanonicalizing($expected)
+                ->and(collect($summary->alerts)->pluck('id')->all())->toEqualCanonicalizing($expected);
+        }
+
+        test()->actingAsAdmin();
+        expect(BuildExtensionOperationsSummaryAction::run()->package($packageName)?->healthAlerts)->toHaveCount(3);
+    } finally {
+        $console->setValue(app(), $previousConsole);
+    }
+})->with(['console' => false, 'cached HTTP request' => true]);
+
+it('refreshes cached health alerts when the same actor loses site access', function (): void {
+    $packageName = 'vendor/revoked-site-health';
+    registerOperationsSummaryManifest($packageName, ['displayName' => 'Site Health', 'version' => '1.0.0']);
+    $site = Site::factory()->create();
+    ExtensionHealthAlert::query()->create([
+        'alert_id' => 'revoked-health', 'source' => 'test', 'composer_name' => $packageName,
+        'affected_site_id' => $site->id, 'severity' => ExtensionHealthAlertSeverity::Critical,
+        'category' => ExtensionHealthAlertCategory::Security, 'title' => 'Private health alert',
+        'message' => 'Private diagnostic', 'signature' => 'test', 'issued_at' => now(),
+    ]);
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $site->id]);
+
+    test()->actingAs($actor);
+    $console = new ReflectionProperty(app(), 'isRunningInConsole');
+    $previous = $console->getValue(app());
+    $console->setValue(app(), false);
+    try {
+        $first = BuildExtensionOperationsSummaryAction::run();
+        expect(collect($first->alerts)->pluck('id')->all())->toBe(['revoked-health'])
+            ->and(BuildExtensionOperationsSummaryAction::run())->toBe($first);
+        $actor->assignedSiteIds = collect();
+        expect(BuildExtensionOperationsSummaryAction::run()->alerts)->toBe([]);
+    } finally {
+        $console->setValue(app(), $previous);
+    }
 });
 
 it('builds downstream extension update, dependency, runtime, and audit surfaces from the operations summary', function (): void {
