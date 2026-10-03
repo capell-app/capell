@@ -141,6 +141,7 @@ class TitleWithSlugInput
         $slugInput = SlugInput::make($fieldSlug)
 
             // Custom SlugInput methods
+            ->slugInputAutoUpdateDisabledStatePath('slug_auto_update_disabled')
             ->slugInputVisitLinkRoute($urlVisitLinkRoute)
             ->slugInputVisitLinkLabel($urlVisitLinkLabel)
             ->slugInputContext(fn (string $context): string => in_array($context, ['edit', 'editOption'], true) ? 'edit' : 'create')

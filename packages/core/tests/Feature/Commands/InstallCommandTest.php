@@ -1994,6 +1994,10 @@ it('can run an npm build after installing a frontend package', function (): void
     markInstallTestPackageAsFrontend('capell-app/frontend');
     $fake = bindFakeRunInstallAction();
 
+    $dependencyProcess = Mockery::mock();
+    Process::shouldReceive('timeout')->with(300)->once()->andReturn($dependencyProcess);
+    $dependencyProcess->shouldReceive('run')->with('npm install')->once()->andReturn(installCommandFakeProcessResult(true));
+
     $pendingProcess = Mockery::mock();
 
     Process::shouldReceive('timeout')
@@ -2030,6 +2034,10 @@ it('fails instead of reporting a completed install when the requested npm build 
     setupInstallTest(['capell-app/frontend']);
     markInstallTestPackageAsFrontend('capell-app/frontend');
     $fake = bindFakeRunInstallAction();
+
+    $dependencyProcess = Mockery::mock();
+    Process::shouldReceive('timeout')->with(300)->once()->andReturn($dependencyProcess);
+    $dependencyProcess->shouldReceive('run')->with('npm install')->once()->andReturn(installCommandFakeProcessResult(true));
 
     $pendingProcess = Mockery::mock();
 

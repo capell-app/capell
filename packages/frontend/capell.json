@@ -39,6 +39,9 @@
         "upgrade": "capell:frontend-upgrade",
         "doctor": null
     },
+    "actions": {
+        "afterInstall": "Capell\\Frontend\\Actions\\PrepareFrontendPackageAction"
+    },
     "settings": ["Capell\\Frontend\\Settings\\FrontendSettings"],
     "permissions": [],
     "capabilities": [
