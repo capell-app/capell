@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\EnsureCapellPermissionsAction;
 use Capell\Admin\Actions\GrantCapellDefaultRolePermissionsAction;
+use Capell\Admin\Actions\Shield\ResolveDefaultGlobalResourcePermissionsAction;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
+use Filament\Facades\Filament;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -99,3 +102,43 @@ it('forgets cached permissions after granting defaults', function (): void {
 
     expect(cache()->has($registrar->cacheKey))->toBeFalse();
 });
+
+it('grants upgrade defaults under the role guard independently of the panel guard and remains idempotent', function (string $panelGuard, bool $superAdminViaGate): void {
+    config()->set('auth.guards.panel', config('auth.guards.web'));
+    config()->set('auth.defaults.guard', 'web');
+    config()->set('filament-shield.super_admin.define_via_gate', $superAdminViaGate);
+    Filament::getDefaultPanel()->authGuard($panelGuard);
+    $admin = Role::findOrCreate('admin', 'web');
+    $custom = Permission::findOrCreate('custom.client.permission', 'web');
+    $admin->givePermissionTo($custom);
+    $otherGuardAdmin = Role::findOrCreate('admin', 'panel');
+    $otherGuardCustom = Permission::findOrCreate('custom.panel.permission', 'panel');
+    $otherGuardAdmin->givePermissionTo($otherGuardCustom);
+    $globalPermissions = ResolveDefaultGlobalResourcePermissionsAction::run();
+
+    GrantCapellDefaultRolePermissionsAction::run(PermissionSyncMode::Upgrade);
+
+    expect($globalPermissions)->toHaveCount(36)
+        ->and(Permission::query()->where('guard_name', 'web')->whereIn('name', $globalPermissions)->count())->toBe(36)
+        ->and($admin->refresh()->permissions()->pluck('name')->all())->toContain(...$globalPermissions)
+        ->toContain($custom->name)
+        ->and(Role::findByName('editor', 'web')->permissions()->whereIn('name', $globalPermissions)->count())->toBe(0)
+        ->and(Permission::query()->where('guard_name', 'panel')->whereIn('name', $globalPermissions)->count())->toBe(0)
+        ->and($otherGuardAdmin->refresh()->permissions()->pluck('name')->all())->toBe([$otherGuardCustom->name]);
+    if (! $superAdminViaGate) {
+        expect(Role::findByName('super_admin', 'web')->permissions()->whereIn('name', $globalPermissions)->count())->toBe(36);
+    }
+
+    $permissionCount = Permission::query()->count();
+    $pivotCount = DB::table(config('permission.table_names.role_has_permissions'))->count();
+
+    GrantCapellDefaultRolePermissionsAction::run(PermissionSyncMode::Upgrade);
+
+    expect(Permission::query()->count())->toBe($permissionCount)
+        ->and(DB::table(config('permission.table_names.role_has_permissions'))->count())->toBe($pivotCount)
+        ->and($admin->refresh()->permissions()->whereIn('name', $globalPermissions)->count())->toBe(36);
+})->with([
+    'matching guards' => ['web', true],
+    'different panel guard' => ['panel', true],
+    'different panel guard with direct super admin grants' => ['panel', false],
+]);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Capell\Admin\Actions\Shield\ResolveDefaultGlobalResourcePermissionsAction;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
@@ -22,10 +23,13 @@ class GrantCapellDefaultRolePermissionsAction
     {
         $guard = config('auth.defaults.guard', 'web');
 
-        AssignPermissionsToRole::run(resources: [ResourceEnum::PageUrl]);
+        AssignPermissionsToRole::run(
+            resources: [ResourceEnum::PageUrl, ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language],
+            guardName: $guard,
+        );
 
         foreach ($this->rolePermissionMap($mode, $guard) as $roleName => $permissionNames) {
-            $role = Role::findOrCreate($roleName);
+            $role = Role::findOrCreate($roleName, $guard);
 
             foreach ($permissionNames as $permissionName) {
                 if (! $role->hasPermissionTo($permissionName, $guard)) {
@@ -57,6 +61,11 @@ class GrantCapellDefaultRolePermissionsAction
                 $rolePermissionMap[$roleName][] = $permission->name();
             }
         }
+
+        $rolePermissionMap['admin'] = [
+            ...$rolePermissionMap['admin'],
+            ...ResolveDefaultGlobalResourcePermissionsAction::run(),
+        ];
 
         $pageUrlPermissions = [
             ResourceEnum::PageUrl->permission('view_any'),

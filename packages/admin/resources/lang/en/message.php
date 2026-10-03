@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 return [
+    'force_delete_dependencies_info' => 'Other records still use this item. Remove those records, including any in the trash, before permanently deleting it.',
+    'site_force_delete_blocked' => 'This site still contains records.',
+    'site_force_delete_blocked_info' => 'Permanently delete its pages, domains and layouts, including those in the trash, before permanently deleting the site.',
     'impact_plan_stale' => 'This impact preview is out of date. Review the updated impact preview, then save again.',
     'asset_added' => 'Asset added successfully.',
     'asset_created_successfully' => 'Asset ":name" created successfully.',
@@ -113,6 +116,7 @@ return [
     'page_language_parent_info' => 'Choose the matching page in the parent language.',
     'page_language_required' => 'A language is required.',
     'page_no_urls' => 'This page has no URLs.',
+    'page_descendants_not_deletable_info' => 'This page has children. Permanently delete the children first.',
     'page_not_deletable' => 'This page cannot be deleted.',
     'page_page_type_not_deletable' => 'This page type cannot be deleted.',
     'page_site_deleted' => 'The page site has been deleted.',
@@ -230,6 +234,7 @@ return [
     'widget_updated' => 'Widget updated successfully.',
     'snapshot_not_found' => 'That snapshot is no longer available.',
     'snapshot_restored' => 'Content restored from snapshot.',
+    'recently_deleted_restore_cascade_denied' => 'You cannot restore this page because you do not have permission to restore every related page. Nothing was restored.',
     'recently_deleted_restored' => 'Item restored.',
     'recently_deleted_force_deleted' => 'Item permanently deleted.',
 ];

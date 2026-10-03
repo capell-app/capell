@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\PageUrls\Tables;
 
 use Capell\Admin\Enums\PageUrlTypeEnum;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Filament\Actions\ForceDeleteBulkAction;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
@@ -26,7 +27,6 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\ReplicateAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Schemas\Schema;

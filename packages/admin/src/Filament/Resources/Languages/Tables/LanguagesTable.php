@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Languages\Tables;
 
 use Capell\Admin\Actions\SetupSiteLanguageAction;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Filament\Actions\ForceDeleteBulkAction;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Actions\ReplicateAction;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
@@ -24,7 +25,6 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;

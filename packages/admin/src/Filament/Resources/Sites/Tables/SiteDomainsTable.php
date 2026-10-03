@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Sites\Tables;
 
+use Capell\Admin\Filament\Actions\ForceDeleteBulkAction;
 use Capell\Admin\Filament\Components\Tables\Actions\CreateAction;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Columns\BadgeableColumn;
@@ -19,7 +20,6 @@ use Capell\Core\Models\SiteDomain;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;

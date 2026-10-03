@@ -12,8 +12,11 @@ use Capell\Admin\Filament\Concerns\Validate\SiteDomainValidation;
 use Capell\Admin\Filament\Resources\Sites\Schemas\SiteDomainForm;
 use Capell\Admin\Filament\Resources\Sites\Tables\SiteDomainsTable;
 use Capell\Core\Models;
+use Capell\Core\Models\SiteDomain;
 use Filament\Resources\RelationManagers\RelationManager;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 use Override;
 
 /**
@@ -51,5 +54,17 @@ class SiteDomainsRelationManager extends RelationManager
     protected static function getPluralModelLabel(): string
     {
         return __('capell-admin::generic.site_domains');
+    }
+
+    #[Override]
+    protected function getCreateAuthorizationResponse(): Response
+    {
+        return Gate::inspect('create', [SiteDomain::class, $this->getOwnerRecord()]);
+    }
+
+    #[Override]
+    protected function getDeleteAnyAuthorizationResponse(): Response
+    {
+        return Gate::inspect('deleteAny', [SiteDomain::class, $this->getOwnerRecord()]);
     }
 }
