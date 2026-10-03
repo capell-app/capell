@@ -242,7 +242,9 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
+use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Css;
+use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Icons\Heroicon;
 use Filament\Support\Livewire\Partials\DataStoreOverride;
@@ -258,6 +260,7 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
 use Override;
+use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
@@ -480,6 +483,24 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootPackage(): self
     {
+        $publishDirectory = realpath(__DIR__ . '/../../publishes');
+
+        throw_if($publishDirectory === false, RuntimeException::class, 'Publish directory not found.');
+
+        // A fresh host panel gains the plugin after its install-time asset copy.
+        // Register request-loaded assets here so publication does not depend on
+        // that panel having already been integrated in the current process.
+        FilamentAsset::register([
+            Js::make(
+                'rich-content-plugins/highlight',
+                $publishDirectory . '/build/js/filament/rich-content-plugins/highlight.js',
+            )->loadedOnRequest(),
+            AlpineComponent::make('capell-agent-admin', $publishDirectory . '/build/js/agent/admin-bridge.js'),
+            AlpineComponent::make('html-code-editor', $publishDirectory . '/build/js/components/html-code-editor.js'),
+            AlpineComponent::make('capell-keyboard-shortcuts', $publishDirectory . '/build/js/components/keyboard-shortcuts.js'),
+            AlpineComponent::make('capell-content-lock-heartbeat', $publishDirectory . '/build/js/components/content-lock-heartbeat.js'),
+        ], package: 'capell-admin');
+
         FilamentAsset::register([
             Css::make(
                 self::CSS_LAYER_ORDER_ASSET_ID,

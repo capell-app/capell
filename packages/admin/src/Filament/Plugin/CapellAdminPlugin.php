@@ -39,9 +39,7 @@ use Filament\Pages\Page as FilamentPage;
 use Filament\Pages\SettingsPage as FilamentSettingsPage;
 use Filament\Panel;
 use Filament\Resources\Resource;
-use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Css;
-use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Column;
@@ -57,7 +55,6 @@ use Illuminate\View\View;
 use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
 use ReflectionClass;
 use ReflectionProperty;
-use RuntimeException;
 
 class CapellAdminPlugin implements Plugin
 {
@@ -156,8 +153,7 @@ class CapellAdminPlugin implements Plugin
             return;
         }
 
-        $this->registerAssets()
-            ->registerInstalledPackageAdminProviders()
+        $this->registerInstalledPackageAdminProviders()
             ->registerConfigurators()
             ->registerPlugins($panel)
             ->synchronizeAdminSurface($panel)
@@ -328,34 +324,6 @@ class CapellAdminPlugin implements Plugin
         foreach ($extenders as $extender) {
             $extender->extend($panel);
         }
-
-        return $this;
-    }
-
-    protected function getPublishedDirectory(): string
-    {
-        $dir = realpath(__DIR__ . '/../../../publishes');
-
-        throw_if($dir === false, RuntimeException::class, 'Publish directory not found.');
-
-        return $dir;
-    }
-
-    protected function registerAssets(): self
-    {
-        $publishDir = self::getPublishedDirectory();
-
-        FilamentAsset::register([
-            Js::make(
-                'rich-content-plugins/highlight',
-                $publishDir . '/build/js/filament/rich-content-plugins/highlight.js',
-            )
-                ->loadedOnRequest(),
-            AlpineComponent::make('capell-agent-admin', $publishDir . '/build/js/agent/admin-bridge.js'),
-            AlpineComponent::make('html-code-editor', $publishDir . '/build/js/components/html-code-editor.js'),
-            AlpineComponent::make('capell-keyboard-shortcuts', $publishDir . '/build/js/components/keyboard-shortcuts.js'),
-            AlpineComponent::make('capell-content-lock-heartbeat', $publishDir . '/build/js/components/content-lock-heartbeat.js'),
-        ], package: 'capell-admin');
 
         return $this;
     }
