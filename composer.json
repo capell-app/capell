@@ -186,7 +186,7 @@
         "aimeos/laravel-nestedset": "^7.0",
         "amidesfahani/filament-tinyeditor": "^4.0",
         "awcodes/filament-badgeable-column": "^3.0|^4.0",
-        "awobaz/compoships": "^2.3",
+        "awobaz/compoships": "^2.3 || ^3.0",
         "bezhansalleh/filament-shield": "^4.1",
         "bkwld/cloner": "^3.11",
         "blade-ui-kit/blade-heroicons": "^2.5",
