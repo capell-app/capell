@@ -14,6 +14,7 @@ return [
     'never' => 'Never',
     'not_published' => 'Not published yet',
     'preview' => 'Preview',
+    'publication_date_unknown' => 'Date not recorded',
     'published_label' => 'Published',
     'published_on' => 'Published on',
     'publishing_actions' => 'Publishing actions',
