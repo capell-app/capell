@@ -39,7 +39,6 @@ use Capell\Admin\Support\AdminZoneRegistry;
 use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Admin\Support\PageUrlPresenter;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\PageDeletedAction;
 use Capell\Core\Data\Database\SqlFragment;
@@ -51,6 +50,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page as PageModel;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -377,7 +377,7 @@ class PagesTable implements TableConfigurator
      */
     protected static function applySiteFilterQuery(Builder $query): Builder
     {
-        return SiteScope::applyForCurrentActor($query, 'id')->ordered();
+        return SiteAccess::current()->scope($query, 'id')->ordered();
     }
 
     /**

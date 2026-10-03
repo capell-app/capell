@@ -8,6 +8,7 @@ use Capell\Admin\Filament\Support\HelperText;
 use Capell\Admin\Support\Filament\RawState;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Support\CapellCoreHelper;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Forms\Components\Field;
 use Filament\Schemas\Components\Utilities\Get;
@@ -69,7 +70,7 @@ class FieldMacro
                     /** @var Model $record */
                     $site = $record->getAttribute('site');
                 } else {
-                    $site = CapellCoreHelper::getSite(
+                    $site = SiteAccess::current()->site(
                         siteId: $rawState['site_id'] ?? null,
                     );
                 }

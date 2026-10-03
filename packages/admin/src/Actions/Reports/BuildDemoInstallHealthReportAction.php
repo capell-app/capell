@@ -9,7 +9,6 @@ use Capell\Admin\Data\Reports\ReportFindingData;
 use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\Diagnostics\BuildDoctorReportAction;
 use Capell\Core\Actions\Diagnostics\ResolveCapellInstallationStateAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
@@ -23,6 +22,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Diagnostics\CapellRuntimeSchemaContract;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\ConnectionResolverInterface;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -117,7 +117,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
             metrics: [
                 new ReportMetricData(
                     label: __('capell-admin::reports.demo_install_health_metric_sites'),
-                    value: SiteScope::applyForCurrentActor(Site::query(), 'id', denyWhenMissingActor: true)->count(),
+                    value: SiteAccess::current()->query(Site::class)->count(),
                     description: __('capell-admin::reports.demo_install_health_metric_sites_description'),
                 ),
                 new ReportMetricData(
@@ -362,7 +362,7 @@ final class BuildDemoInstallHealthReportAction implements BuildsReportSnapshot
 
         // Every page row the actor's sites own, including soft-deleted rows,
         // matching the raw table count a global actor has always seen.
-        return SiteScope::applyForCurrentActor(Page::query()->withoutGlobalScopes(), denyWhenMissingActor: true)->count();
+        return SiteAccess::current()->scope(SiteAccess::current()->query(Page::class)->withoutGlobalScopes())->count();
     }
 
     private function installedPackagesCount(): int

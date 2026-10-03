@@ -17,11 +17,11 @@ use Capell\Admin\Filament\Resources\PageUrls\Schemas\PageUrlForm;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Admin\Support\PageUrlPresenter;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Data\PageVariationData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -98,7 +98,7 @@ class PageUrlsTable implements TableConfigurator
                     ->relationship(
                         name: 'site',
                         titleAttribute: 'name',
-                        modifyQueryUsing: fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'id'),
+                        modifyQueryUsing: fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'id'),
                     ),
                 SelectFilter::make('language_id')
                     ->label(__('capell-admin::form.language'))

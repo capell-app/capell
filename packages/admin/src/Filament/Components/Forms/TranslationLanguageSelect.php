@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Components\Forms;
 
 use Capell\Admin\Support\Filament\RawState;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Override;
@@ -60,7 +60,7 @@ class TranslationLanguageSelect extends LanguageSelect
         /** @var class-string<Site> $model */
         $model = Site::class;
 
-        $site = SiteScope::applyForCurrentActor($model::query(), 'id')
+        $site = SiteAccess::current()->query($model)
             ->with('siteDomains:id,language_id,site_id')
             ->find($siteId, ['id', 'language_id']);
 

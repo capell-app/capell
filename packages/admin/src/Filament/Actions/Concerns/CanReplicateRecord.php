@@ -9,6 +9,10 @@ use Capell\Admin\Filament\Components\Forms\KeyTextInput;
 use Capell\Admin\Filament\Components\Forms\NameInput;
 use Capell\Core\Actions\GenerateUniqueKeyAction;
 use Capell\Core\Actions\IncrementNameAction;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Language;
+use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Slug\SlugGenerator;
 use Filament\Actions\ReplicateAction;
 use Filament\Schemas\Components\Component;
@@ -121,7 +125,12 @@ trait CanReplicateRecord
     {
         $name = IncrementNameAction::run($name);
 
-        $query = $model::query();
+        $query = match (true) {
+            $model instanceof Blueprint => Blueprint::query(),
+            $model instanceof Language => Language::query(),
+            $model instanceof Theme => Theme::query(),
+            default => SiteAccess::current()->query($model::class),
+        };
 
         while ($query->clone()->where('name', $name)->exists()) {
             $name = IncrementNameAction::run($name);

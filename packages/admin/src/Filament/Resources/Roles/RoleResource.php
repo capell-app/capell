@@ -9,7 +9,7 @@ use Capell\Admin\Filament\Resources\Roles\Pages\CreateRole;
 use Capell\Admin\Filament\Resources\Roles\Pages\EditRole;
 use Capell\Admin\Filament\Resources\Roles\Pages\ListRoles;
 use Capell\Admin\Filament\Resources\Roles\Pages\ViewRole;
-use Capell\Admin\Support\SiteScope;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -34,7 +34,7 @@ class RoleResource extends ShieldRoleResource
         $query = parent::getEloquentQuery();
         $actor = auth()->user();
 
-        if (! config('permission.teams') || ($actor !== null && SiteScope::isGlobalActor($actor))) {
+        if (! config('permission.teams') || ($actor !== null && SiteAccess::forActor($actor)->isGlobal())) {
             return $query;
         }
 

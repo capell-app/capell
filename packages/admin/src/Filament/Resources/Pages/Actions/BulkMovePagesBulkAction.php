@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Actions;
 
 use Capell\Admin\Actions\Pages\BulkMovePagesAction;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\BulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
@@ -36,13 +36,13 @@ class BulkMovePagesBulkAction extends BulkAction
                     ->label(__('capell-admin::bulk_actions.move_pages_parent'))
                     ->searchable()
                     ->required()
-                    ->getSearchResultsUsing(fn (string $search): array => SiteScope::applyForCurrentActor($pageModel::query())
+                    ->getSearchResultsUsing(fn (string $search): array => SiteAccess::current()->query($pageModel)
                         ->where('name', 'like', sprintf('%%%s%%', $search))
                         ->limit(50)
                         ->pluck('name', 'id')
                         ->all())
                     ->getOptionLabelUsing(function (mixed $value) use ($pageModel): ?string {
-                        $page = SiteScope::applyForCurrentActor($pageModel::query())->find($value);
+                        $page = SiteAccess::current()->query($pageModel)->find($value);
 
                         return $page instanceof Page ? $page->name : null;
                     }),
@@ -52,7 +52,7 @@ class BulkMovePagesBulkAction extends BulkAction
             ])
             ->action(function (Collection $records, array $data) use ($pageModel): void {
                 /** @var (Page&Pageable)|null $newParent */
-                $newParent = $pageModel::query()->find($data['parent_id']);
+                $newParent = SiteAccess::current()->query($pageModel)->find($data['parent_id']);
 
                 if ($newParent === null) {
                     Notification::make()

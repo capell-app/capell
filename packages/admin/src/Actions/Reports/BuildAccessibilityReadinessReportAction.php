@@ -11,7 +11,6 @@ use Capell\Admin\Data\Reports\ReportMetricData;
 use Capell\Admin\Data\Reports\ReportSnapshotData;
 use Capell\Admin\Enums\Reports\ReportFindingSeverity;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
@@ -20,6 +19,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -33,7 +33,7 @@ final class BuildAccessibilityReadinessReportAction implements BuildsReportSnaps
     public function handle(?Site $site = null): ReportSnapshotData
     {
         $siteId = $site?->getKey();
-        $sites = SiteScope::applyForCurrentActor(Site::query(), 'id', denyWhenMissingActor: true)
+        $sites = SiteAccess::current()->query(Site::class)
             ->when($siteId !== null, fn ($query) => $query->whereKey($siteId))
             ->with('language')
             ->get();
@@ -41,7 +41,7 @@ final class BuildAccessibilityReadinessReportAction implements BuildsReportSnaps
         $languagesBySite = $sites->mapWithKeys(
             fn (Site $currentSite): array => [$currentSite->getKey() => $this->requiredLanguages($currentSite)],
         );
-        $pages = Page::query()
+        $pages = SiteAccess::current()->query(Page::class)
             ->whereIn('site_id', $siteIds)
             ->with(['blueprint', 'site', 'translations.language', 'pageUrls'])
             ->get();
@@ -174,7 +174,7 @@ final class BuildAccessibilityReadinessReportAction implements BuildsReportSnaps
             fn (Page $page) => $page->translations->modelKeys(),
         )->all();
 
-        return Media::query()
+        return SiteAccess::current()->query(Media::class)
             ->where('mime_type', 'like', 'image/%')
             ->where('model_type', (new Translation)->getMorphClass())
             ->whereIn('model_id', $translationIds)

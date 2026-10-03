@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions;
 use Capell\Core\Actions\GenerateUniqueKeyAction;
 use Capell\Core\Actions\IncrementNameAction;
 use Capell\Core\Models\Layout;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -55,7 +56,7 @@ class ReplicateLayoutAction
         /** @var class-string<Layout> $model */
         $model = Layout::class;
 
-        while ($model::query()->where('name', $name)->exists()) {
+        while (SiteAccess::current()->query($model)->where('name', $name)->exists()) {
             $name = IncrementNameAction::run($name);
         }
 

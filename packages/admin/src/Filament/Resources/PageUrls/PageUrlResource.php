@@ -11,16 +11,15 @@ use Capell\Admin\Filament\Concerns\HasConfiguredTable;
 use Capell\Admin\Filament\Resources\PageUrls\Pages\ManagePageUrls;
 use Capell\Admin\Filament\Resources\PageUrls\Schemas\PageUrlForm;
 use Capell\Admin\Filament\Resources\PageUrls\Tables\PageUrlsTable;
-use Capell\Admin\Support\SiteScope;
+use Capell\Admin\Filament\Resources\SiteScopedResource;
 use Capell\Core\Models\PageUrl;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Override;
 
-class PageUrlResource extends Resource
+class PageUrlResource extends SiteScopedResource
 {
     use HasConfiguredForm;
     use HasConfiguredTable;
@@ -43,13 +42,11 @@ class PageUrlResource extends Resource
             'siteDomain',
         ];
 
-        $query = parent::getEloquentQuery()
+        return parent::getEloquentQuery()
             ->with($relations)
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
-
-        return SiteScope::applyForCurrentActor($query);
     }
 
     /**

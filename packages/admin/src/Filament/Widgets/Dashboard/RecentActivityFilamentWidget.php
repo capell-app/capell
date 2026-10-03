@@ -14,6 +14,7 @@ use Capell\Admin\Filament\Resources\Activities\Tables\ActivitiesTable;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\Layout\Stack;
@@ -93,8 +94,7 @@ final class RecentActivityFilamentWidget extends BaseWidget implements CapellFil
 
     private static function hasActivity(): bool
     {
-        return resolve(ActivityTrailQueryProvider::class)
-            ->build()
+        return SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build())
             ->exists();
     }
 
@@ -244,8 +244,7 @@ final class RecentActivityFilamentWidget extends BaseWidget implements CapellFil
      */
     private function activityQuery(): Builder
     {
-        return resolve(ActivityTrailQueryProvider::class)
-            ->build()
+        return SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build())
             ->with([
                 'causer',
                 'subject' => function (Relation $subject): void {

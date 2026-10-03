@@ -10,10 +10,10 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Concerns\HasImportExportHeaderActions;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -61,7 +61,7 @@ class ListMedia extends ListRecords
                         ->preload(),
                 ])
                 ->action(fn (array $data): null => $this->uploadFiles($data))
-                ->visible(fn (): bool => SiteScope::applyForCurrentActor(Site::query(), 'id')->exists()),
+                ->visible(fn (): bool => SiteAccess::current()->query(Site::class)->exists()),
             Action::make('add-youtube-video')
                 ->label(__('capell-admin::media.external_video_create'))
                 ->icon('heroicon-o-play-circle')
@@ -85,7 +85,7 @@ class ListMedia extends ListRecords
                         ->preload(),
                 ])
                 ->action(fn (array $data): null => $this->createYouTubeVideoMedia($data))
-                ->visible(fn (): bool => SiteScope::applyForCurrentActor(Site::query(), 'id')->exists()),
+                ->visible(fn (): bool => SiteAccess::current()->query(Site::class)->exists()),
         ]);
     }
 
@@ -94,7 +94,7 @@ class ListMedia extends ListRecords
      */
     private function siteOptions(): array
     {
-        return SiteScope::applyForCurrentActor(Site::query(), 'id')
+        return SiteAccess::current()->query(Site::class)
             ->orderBy('name')
             ->pluck('name', 'id')
             ->all();
@@ -114,7 +114,7 @@ class ListMedia extends ListRecords
         }
 
         /** @var Site|null $site */
-        $site = SiteScope::applyForCurrentActor(Site::query(), 'id')
+        $site = SiteAccess::current()->query(Site::class)
             ->whereKey((int) ($data['site_id'] ?? 0))
             ->first();
 
@@ -140,7 +140,7 @@ class ListMedia extends ListRecords
     private function uploadFiles(array $data): null
     {
         /** @var Site|null $site */
-        $site = SiteScope::applyForCurrentActor(Site::query(), 'id')
+        $site = SiteAccess::current()->query(Site::class)
             ->whereKey((int) ($data['site_id'] ?? 0))
             ->first();
 

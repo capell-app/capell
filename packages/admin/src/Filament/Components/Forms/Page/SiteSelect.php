@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Components\Forms\Page;
 use Capell\Admin\Filament\Components\Forms\SiteSelect as BaseSiteSelect;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Str;
@@ -24,7 +25,7 @@ class SiteSelect extends BaseSiteSelect
                 /** @var class-string<Site> $model */
                 $model = Site::class;
 
-                return $model::getDefault()?->id;
+                return SiteAccess::current()->query($model)->default()->first()?->id;
             })
             ->hiddenOn(['edit', 'editOption'])
             ->afterStateUpdated(function (Get $get, Set $set, ?int $state): void {
@@ -36,7 +37,7 @@ class SiteSelect extends BaseSiteSelect
                 $model = Site::class;
 
                 /** @var Site $site */
-                $site = $model::with('languages')->find($state);
+                $site = SiteAccess::current()->query($model)->with('languages')->findOrFail($state);
 
                 $name = $get('name');
 

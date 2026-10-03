@@ -11,6 +11,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
@@ -89,7 +90,7 @@ class BulkMovePagesAction
                         continue;
                     }
 
-                    $preMoveUrls = $addRedirects ? $this->captureUrls($page) : [];
+                    $preMoveUrls = $addRedirects ? $this->captureUrls($page, $actor) : [];
 
                     $page->parent_id = $newParent->getKey();
                     resolve(PageUrlRewriteContext::class)->withoutAutomaticRedirects(function () use ($page): void {
@@ -132,7 +133,7 @@ class BulkMovePagesAction
             return 'cross_sites';
         }
 
-        if ($this->wouldCreateCycle($page, $newParent)) {
+        if ($this->wouldCreateCycle($page, $newParent, $actor)) {
             return 'cycle';
         }
 
@@ -143,7 +144,7 @@ class BulkMovePagesAction
         return null;
     }
 
-    private function wouldCreateCycle(Page $page, Page $newParent): bool
+    private function wouldCreateCycle(Page $page, Page $newParent, User $actor): bool
     {
         if ($page->is($newParent)) {
             return true;
@@ -157,7 +158,7 @@ class BulkMovePagesAction
                 return true;
             }
 
-            $current = Page::query()->find($current->parent_id);
+            $current = SiteAccess::forActor($actor)->query(Page::class)->find($current->parent_id);
 
             if ($current === null) {
                 return false;
@@ -180,12 +181,12 @@ class BulkMovePagesAction
      *
      * @return array<int, array{pageable: Pageable&Page, language: Language, url: string, site_id: int}>
      */
-    private function captureUrls(Page $page): array
+    private function captureUrls(Page $page, User $actor): array
     {
         /** @var Collection<int, Page> $pages */
         $pages = new Collection([$page]);
         /** @var Collection<int, Page> $descendants */
-        $descendants = $page->descendants()->get();
+        $descendants = SiteAccess::forActor($actor)->scope($page->descendants()->getQuery())->get();
         $pages = $pages->merge($descendants);
 
         $snapshots = [];
@@ -247,7 +248,7 @@ class BulkMovePagesAction
 
     private function redirectUrlExists(int $siteId, int $languageId, string $url): bool
     {
-        return PageUrl::query()
+        return SiteAccess::current()->query(PageUrl::class)
             ->where('site_id', $siteId)
             ->where('language_id', $languageId)
             ->where('url', $url)

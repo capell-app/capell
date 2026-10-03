@@ -8,6 +8,7 @@ use Capell\Core\Contracts\Actionable;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -27,15 +28,12 @@ class MutateDefaultPageDataAction implements Actionable
     {
         $data = [];
 
-        /** @var class-string<Site> $sideModel */
-        $sideModel = Site::class;
-
-        $site = $sideModel::getDefault();
+        $site = SiteAccess::current()->site(null);
 
         /** @var class-string<Layout> $layoutModel */
         $layoutModel = Layout::class;
 
-        $data['layout_id'] = $layoutModel::query()->default()->value('id');
+        $data['layout_id'] = SiteAccess::current()->query($layoutModel)->default()->value('id');
 
         /** @var class-string<Blueprint> $model */
         $model = Blueprint::class;
@@ -45,7 +43,7 @@ class MutateDefaultPageDataAction implements Actionable
             ->default()
             ->value('id');
 
-        if ($site !== null) {
+        if ($site instanceof Site) {
             $data['site_id'] = $site->id;
 
             $data['translations'] = [

@@ -10,9 +10,11 @@ use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -32,7 +34,7 @@ trait BlueprintValidation
         ];
 
         foreach ($blueprints as $type => $relation) {
-            $hasRelated = $record->newQuery()
+            $hasRelated = Blueprint::query()
                 ->where('id', $record->getKey())
                 ->has($relation)
                 ->exists();
@@ -55,9 +57,9 @@ trait BlueprintValidation
             $this->addError('data.type', $error);
 
             $countKey = $relation . '_count';
-            $relatedCount = (int) $record->newQuery()
+            $relatedCount = (int) Blueprint::query()
                 ->where('id', $record->getKey())
-                ->withCount($relation)
+                ->withCount([$relation => fn (Builder $query): Builder => $type === 'theme' ? $query : SiteAccess::current()->scope($query)])
                 ->value($countKey);
 
             Notification::make($type . '_type_not_deletable')

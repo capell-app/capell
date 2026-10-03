@@ -618,6 +618,7 @@ return [
         ],
     ],
     'uninstalls' => [
+        'theme_in_use' => ':package cannot be uninstalled while its theme is in use. Ask a global administrator to review its assignments.',
         'blocked_by_dependents' => ':package cannot be uninstalled because these installed extensions depend on it: :dependents. Uninstall those first.',
         'capability_unavailable' => 'This site cannot run an automated uninstall (:capability). Remove the extension while building the next release instead.',
         'completed' => ':name uninstalled',

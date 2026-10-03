@@ -14,6 +14,7 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\DatabaseUrlExpression;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Contracts\Pagination\Paginator;
@@ -44,7 +45,7 @@ class ListSites extends ListRecords
         $query = parent::getFilteredTableQuery();
 
         if (! $query instanceof Builder) {
-            $query = Site::query();
+            $query = SiteAccess::current()->query(Site::class);
         }
 
         if (isset($this->getTableFilterState('filter')['language_id'])) {

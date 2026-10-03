@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Policies;
 
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
-use Capell\Admin\Support\MediaScope;
 use Capell\Core\Models\Media;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Foundation\Auth\User;
 
 class MediaPolicy
@@ -33,7 +33,7 @@ class MediaPolicy
             return false;
         }
 
-        return MediaScope::actorCanUseMedia($user, $media);
+        return SiteAccess::forActor($user)->canUseMedia($media);
     }
 
     public function create(User $user): bool
@@ -44,13 +44,13 @@ class MediaPolicy
     public function update(User $user, Media $media): bool
     {
         return $user->checkPermissionTo(self::permission('update', self::SUBJECT))
-            && MediaScope::actorCanUseMedia($user, $media);
+            && SiteAccess::forActor($user)->canUseMedia($media);
     }
 
     public function delete(User $user, Media $media): bool
     {
         return $user->checkPermissionTo(self::permission('delete', self::SUBJECT))
-            && MediaScope::actorCanUseMedia($user, $media);
+            && SiteAccess::forActor($user)->canUseMedia($media);
     }
 
     public function deleteAny(User $user): bool
@@ -61,7 +61,7 @@ class MediaPolicy
     public function restore(User $user, Media $media): bool
     {
         return $user->checkPermissionTo(self::permission('restore', self::SUBJECT))
-            && MediaScope::actorCanUseMedia($user, $media);
+            && SiteAccess::forActor($user)->canUseMedia($media);
     }
 
     public function restoreAny(User $user): bool
@@ -72,7 +72,7 @@ class MediaPolicy
     public function forceDelete(User $user, Media $media): bool
     {
         return $user->checkPermissionTo(self::permission('force_delete', self::SUBJECT))
-            && MediaScope::actorCanUseMedia($user, $media);
+            && SiteAccess::forActor($user)->canUseMedia($media);
     }
 
     public function forceDeleteAny(User $user): bool

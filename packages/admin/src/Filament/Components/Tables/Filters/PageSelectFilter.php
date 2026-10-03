@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Components\Tables\Filters;
 
 use Capell\Admin\Filament\Components\Forms\PageMorphToSelect;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Filters\Filter;
@@ -60,12 +61,12 @@ class PageSelectFilter extends Filter
                 $modelClass = Relation::getMorphedModel($data['pageable_type']);
 
                 if (is_array($data['pageable_id'])) {
-                    $names = $modelClass::query()
+                    $names = SiteAccess::current()->query($modelClass)
                         ->whereKey($data['pageable_id'])
                         ->pluck('name')
                         ->implode(', ');
                 } else {
-                    $names = $modelClass::query()
+                    $names = SiteAccess::current()->query($modelClass)
                         ->whereKey($data['pageable_id'])
                         ->value('name');
                 }

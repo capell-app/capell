@@ -11,8 +11,8 @@ use Capell\Admin\Filament\Concerns\HasNavigationBadge;
 use Capell\Admin\Filament\Resources\Languages\Pages\ManageLanguages;
 use Capell\Admin\Filament\Resources\Languages\Schemas\LanguageForm;
 use Capell\Admin\Filament\Resources\Languages\Tables\LanguagesTable;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Language;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
@@ -67,7 +67,7 @@ class LanguageResource extends Resource
                 'editor',
             ])
             ->withCount([
-                'sites' => fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'sites.id'),
+                'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'sites.id'),
             ])
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,

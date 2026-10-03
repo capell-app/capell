@@ -8,9 +8,11 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Manifest\ThemeManifestKey;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Marketplace\Enums\ExtensionKind;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -64,14 +66,17 @@ final class ApplyRequestedThemeActivationAction
             return null;
         }
 
-        // Site scope is deliberately every site. The checkbox sits on a
-        // whole-installation review screen with no site picker on it, and its
-        // label says the theme is applied to the operator's sites — narrowing
-        // that silently to one site would be a different promise again.
+        // Workers have no request actor. Resolve the initiating user and take
+        // a fresh membership snapshot; a missing user must never inherit another
+        // request's access or turn into unrestricted installation access.
+        $actor = ResolveMarketplaceInstallAttemptUserAction::run($attempt);
+        $access = SiteAccess::forActor($actor instanceof Authenticatable ? $actor : null, acrossAssignedSites: true);
+
         return ApplyMarketplaceThemeToSitesAction::run(
             themeKey: $themeKey,
             themeName: $intent->extension_name !== '' ? $intent->extension_name : $attempt->extension_name,
             siteId: null,
+            access: $access,
         );
     }
 

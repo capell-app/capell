@@ -16,6 +16,7 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Media\BackendResolver;
 use Capell\Core\Support\Media\MediaCropPresetRepository;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Repeater;
@@ -228,8 +229,7 @@ class EditMedia extends EditRecord
         $data['crop_presets'] = $cropPresetNames !== []
             ? $cropPresetNames
             : resolve(MediaCropPresetRepository::class)->names();
-        $data['translations'] = $this->record
-            ->translations()
+        $data['translations'] = SiteAccess::current()->scope($this->record->translations()->getQuery())
             ->orderBy('language_id')
             ->get()
             ->map(fn (Translation $translation): array => [

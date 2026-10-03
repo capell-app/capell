@@ -6,7 +6,7 @@ namespace Capell\Admin\Filament\Concerns;
 
 use BadMethodCallException;
 use Capell\Admin\Settings\AdminSettings;
-use Capell\Admin\Support\SiteScope;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Spatie\LaravelSettings\Exceptions\MissingSettings;
 
 /**
@@ -42,7 +42,7 @@ trait GatedByRoleAndSettings
         // super_admin bypasses role gating.
         try {
             $superAdminRole = config('capell.roles.super_admin', 'super_admin');
-            if (is_string($superAdminRole) && $superAdminRole !== '' && SiteScope::isGlobalActor($user)) {
+            if (is_string($superAdminRole) && $superAdminRole !== '' && SiteAccess::forActor($user)->isGlobal()) {
                 return true;
             }
         } catch (BadMethodCallException) {

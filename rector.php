@@ -9,6 +9,7 @@ use Rector\CodeQuality\Rector\FuncCall\InlineIsAInstanceOfRector;
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
 use Rector\Config\RectorConfig;
+use Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPublicMethodParameterRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessUnionReturnDocblockRector;
 use Rector\DeadCode\Rector\If_\ReduceAlwaysFalseIfOrRector;
@@ -102,6 +103,11 @@ return RectorConfig::configure()
         AssertElementToAssertContainsElementRule::class,
     ])
     ->withSkip([
+        // SiteScope keeps its former opt-out argument so installed extensions
+        // using named arguments continue to load; it can no longer disable access.
+        RemoveUnusedPublicMethodParameterRector::class => [
+            __DIR__ . '/packages/admin/src/Support/SiteScope.php',
+        ],
         PostIncDecToPreIncDecRector::class,
         AddTypeToConstRector::class,
         PrivatizeFinalClassPropertyRector::class,

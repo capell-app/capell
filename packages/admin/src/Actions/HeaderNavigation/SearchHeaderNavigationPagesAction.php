@@ -11,6 +11,7 @@ use Capell\Admin\Support\HeaderNavigation\HeaderNavigationAccessResolver;
 use Capell\Admin\Support\HeaderNavigation\HeaderNavigationPageNodeBuilder;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
@@ -49,7 +50,7 @@ final class SearchHeaderNavigationPagesAction
         }
 
         /** @var Builder<Page> $query */
-        $query = Page::query()
+        $query = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Page::class)
             ->select('pages.id', 'pages.site_id', 'pages._lft')
             ->distinct()
             ->orderBy('pages.site_id')
@@ -73,7 +74,7 @@ final class SearchHeaderNavigationPagesAction
         }
 
         /** @var Collection<int, Page> $matches */
-        $matches = Page::query()
+        $matches = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Page::class)
             ->with(['site.defaultDomain', 'blueprint.roleRestrictions', 'pageUrl.siteDomain'])
             ->whereIn('id', $pageIds)
             ->get()
@@ -119,7 +120,7 @@ final class SearchHeaderNavigationPagesAction
             return null;
         }
 
-        $ancestors = $match->ancestors()->get();
+        $ancestors = SiteAccess::forActor($actor, acrossAssignedSites: true)->scope($match->ancestors()->getQuery())->get();
         $ancestors->load(['site', 'blueprint.roleRestrictions', 'pageUrl.siteDomain']);
 
         /** @var Collection<int, Page> $pathPages */

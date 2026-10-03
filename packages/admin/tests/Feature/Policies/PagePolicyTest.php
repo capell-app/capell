@@ -23,7 +23,7 @@ use Spatie\Permission\PermissionRegistrar;
  *
  * Role-restriction tests (isAccessibleByUser = false) set up a page whose
  * type has a role restriction the test user does not satisfy — this is the
- * only supported mechanism for making a page inaccessible.
+ * blueprint restriction layer in addition to the site ownership boundary.
  */
 beforeEach(function (): void {
     $abilities = [
@@ -52,6 +52,7 @@ beforeEach(function (): void {
     $this->site = Site::factory()->createOne();
     $this->page = Page::factory()->for($this->site)->create();
     $this->user = User::factory()->createOne();
+    $this->user->assignedSiteIds = collect([(int) $this->site->getKey()]);
 });
 
 // ---------------------------------------------------------------------------

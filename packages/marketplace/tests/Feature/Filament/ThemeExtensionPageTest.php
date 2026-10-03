@@ -10,8 +10,11 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Marketplace\Actions\ApplyMarketplaceThemeToSitesAction;
 use Capell\Marketplace\Filament\Pages\ThemeExtensionPage;
+use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
 use Spatie\Permission\Models\Permission;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -165,3 +168,66 @@ function registerThemeExtensionManifest(string $themeKey, string $displayName): 
         $manifest->name => $manifest,
     ]);
 }
+
+it('limits marketplace sites and theme counts to the current actor', function (): void {
+    registerThemeExtensionManifest('scoped', 'Scoped Theme');
+    $theme = Theme::factory()->create(['key' => 'scoped']);
+    $assigned = Site::factory()->theme($theme)->create();
+    Site::factory()->theme($theme)->create();
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+
+    test()->actingAs($actor);
+    $page = resolve(ThemeExtensionPage::class);
+    $page->mount('scoped');
+
+    expect($page->sites()->pluck('id')->all())->toBe([$assigned->getKey()])
+        ->and($page->theme()?->sites_count)->toBe(1);
+});
+
+it('applies all only to accessible sites without changing the global default', function (): void {
+    registerThemeExtensionManifest('scoped-all', 'Scoped All');
+    $oldTheme = Theme::factory()->create(['default' => true]);
+    $assigned = Site::factory()->theme($oldTheme)->create();
+    $foreign = Site::factory()->theme($oldTheme)->create();
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+
+    test()->actingAs($actor);
+    $page = resolve(ThemeExtensionPage::class);
+    $page->mount('scoped-all');
+    $page->applyTheme();
+
+    $theme = Theme::query()->where('key', 'scoped-all')->firstOrFail();
+
+    expect($assigned->refresh()->theme_id)->toBe($theme->getKey())
+        ->and($foreign->refresh()->theme_id)->toBe($oldTheme->getKey())
+        ->and($oldTheme->refresh()->default)->toBeTrue()
+        ->and($theme->default)->toBeFalse();
+});
+
+it('rejects a supplied foreign site for apply and preview', function (): void {
+    registerThemeExtensionManifest('foreign-selection', 'Foreign Selection');
+    $assigned = Site::factory()->create();
+    $foreign = Site::factory()->create();
+    Page::factory()->site($foreign)->home()->create();
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+
+    test()->actingAs($actor);
+    $page = resolve(ThemeExtensionPage::class);
+    $page->mount('foreign-selection');
+    $page->scope = 'site';
+    $page->siteId = (int) $foreign->getKey();
+    $page->applyTheme();
+
+    expect(Theme::query()->where('key', 'foreign-selection')->exists())->toBeFalse()
+        ->and($page->previewTheme())->toBeNull();
+});
+
+it('denies direct marketplace theme writes without an actor', function (): void {
+    $site = Site::factory()->create();
+    auth()->logout();
+
+    ApplyMarketplaceThemeToSitesAction::run('guest-theme', 'Guest Theme');
+})->throws(AuthorizationException::class);

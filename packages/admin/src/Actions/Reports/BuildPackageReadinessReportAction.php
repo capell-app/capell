@@ -22,6 +22,7 @@ use Capell\Core\Models\PublicRenderContractEvent;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -327,7 +328,7 @@ final class BuildPackageReadinessReportAction implements BuildsReportSnapshot
             );
         }
 
-        $latest = PublicRenderContractEvent::query()
+        $latest = SiteAccess::current()->query(PublicRenderContractEvent::class)
             ->where('package_name', $manifest->name)
             ->latest('id')
             ->first();

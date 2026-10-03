@@ -15,11 +15,11 @@ use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
 use Capell\Admin\Filament\Components\Tables\Filters\StatusFilter;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\Themes\Pages\ManageThemes;
-use Capell\Admin\Support\SiteScope;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -225,7 +225,7 @@ class ThemesTable implements TableConfigurator
             TextColumn::make('sites_count')
                 ->label(__('capell-admin::theme-library.labels.sites'))
                 ->counts([
-                    'sites' => fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'sites.id', denyWhenMissingActor: true),
+                    'sites' => fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'sites.id'),
                 ])
                 ->numeric()
                 ->sortable()
@@ -354,7 +354,7 @@ class ThemesTable implements TableConfigurator
     /** @return array<int, string> */
     private static function siteOptions(?string $search = null, int $limit = 50): array
     {
-        $query = SiteScope::applyForCurrentActor(Site::query()->ordered(), 'id', denyWhenMissingActor: true);
+        $query = SiteAccess::current()->scope(SiteAccess::current()->query(Site::class)->ordered(), 'id');
 
         if (is_string($search) && $search !== '') {
             $query->where('name', 'like', sprintf('%%%s%%', $search));
@@ -375,9 +375,9 @@ class ThemesTable implements TableConfigurator
             return [];
         }
 
-        $query = Page::query()
+        $query = SiteAccess::current()->query(Page::class)
             ->where('site_id', $site->getKey())
-            ->defaultOrder();
+            ->orderBy((new Page)->getLftName());
 
         if (is_string($search) && $search !== '') {
             $query->where('name', 'like', sprintf('%%%s%%', $search));
@@ -410,7 +410,7 @@ class ThemesTable implements TableConfigurator
             return [];
         }
 
-        return SiteScope::applyForCurrentActor(Site::query()->whereKey($ids), 'id', denyWhenMissingActor: true)
+        return SiteAccess::current()->scope(SiteAccess::current()->query(Site::class)->whereKey($ids), 'id')
             ->pluck('name', 'id')
             ->all();
     }
@@ -442,13 +442,13 @@ class ThemesTable implements TableConfigurator
 
     private static function defaultPreviewSite(): ?Site
     {
-        $defaultSite = SiteScope::applyForCurrentActor(Site::query()->default(), 'id', denyWhenMissingActor: true)->first();
+        $defaultSite = SiteAccess::current()->scope(SiteAccess::current()->query(Site::class)->default(), 'id')->first();
 
         if ($defaultSite instanceof Site) {
             return $defaultSite;
         }
 
-        return SiteScope::applyForCurrentActor(Site::query()->ordered(), 'id', denyWhenMissingActor: true)->first();
+        return SiteAccess::current()->scope(SiteAccess::current()->query(Site::class)->ordered(), 'id')->first();
     }
 
     private static function defaultPreviewPage(?Site $site = null): ?Page
@@ -461,9 +461,9 @@ class ThemesTable implements TableConfigurator
 
         /** @var Page|null $page */
         $page = Page::getSiteHomePage($site)
-            ?? Page::query()
+            ?? SiteAccess::current()->query(Page::class)
                 ->where('site_id', $site->getKey())
-                ->defaultOrder()
+                ->orderBy((new Page)->getLftName())
                 ->first();
 
         return $page;
@@ -492,7 +492,7 @@ class ThemesTable implements TableConfigurator
     {
         $actor = auth()->user();
 
-        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
+        return $actor instanceof Authenticatable && SiteAccess::forActor($actor)->isGlobal();
     }
 
     private static function findScopedSite(int $siteId): ?Site
@@ -501,7 +501,7 @@ class ThemesTable implements TableConfigurator
             return null;
         }
 
-        return SiteScope::applyForCurrentActor(Site::query()->whereKey($siteId), 'id', denyWhenMissingActor: true)->first();
+        return SiteAccess::current()->scope(SiteAccess::current()->query(Site::class)->whereKey($siteId), 'id')->first();
     }
 
     private static function findScopedPage(int $pageId, Site $site): ?Page
@@ -510,7 +510,7 @@ class ThemesTable implements TableConfigurator
             return null;
         }
 
-        return Page::query()
+        return SiteAccess::current()->query(Page::class)
             ->whereKey($pageId)
             ->where('site_id', $site->getKey())
             ->first();
@@ -524,7 +524,7 @@ class ThemesTable implements TableConfigurator
      */
     private static function authorizedSiteIds(array $siteIds): array
     {
-        $authorizedSiteIds = array_values(SiteScope::applyForCurrentActor(Site::query()->whereKey($siteIds), 'id', denyWhenMissingActor: true)
+        $authorizedSiteIds = array_values(SiteAccess::current()->scope(SiteAccess::current()->query(Site::class)->whereKey($siteIds), 'id')
             ->pluck('id')
             ->map(fn (int $siteId): int => $siteId)
             ->values()

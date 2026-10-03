@@ -17,19 +17,17 @@ use Capell\Admin\Filament\Resources\Layouts\Pages\ListLayouts;
 use Capell\Admin\Filament\Resources\Layouts\RelationManagers\PagesRelationManager;
 use Capell\Admin\Filament\Resources\Layouts\Schemas\LayoutForm;
 use Capell\Admin\Filament\Resources\Layouts\Tables\LayoutsTable;
+use Capell\Admin\Filament\Resources\SiteScopedResource;
 use Capell\Admin\Support\Search\AppliesNameSearchRelevance;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Layout;
-use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Override;
 
-class LayoutResource extends Resource implements ValidatesDelete
+class LayoutResource extends SiteScopedResource implements ValidatesDelete
 {
     use AppliesNameSearchRelevance;
     use HasConfiguredForm;
@@ -50,7 +48,7 @@ class LayoutResource extends Resource implements ValidatesDelete
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        return self::applySiteScope(parent::getEloquentQuery())
+        return parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
@@ -65,7 +63,7 @@ class LayoutResource extends Resource implements ValidatesDelete
     #[Override]
     public static function getGlobalSearchEloquentQuery(): Builder
     {
-        return self::applySiteScope(parent::getGlobalSearchEloquentQuery())
+        return parent::getGlobalSearchEloquentQuery()
             ->with([
                 'site:id,name,default',
             ]);
@@ -157,28 +155,5 @@ class LayoutResource extends Resource implements ValidatesDelete
             ActivityHistoryRelationManager::class,
             PagesRelationManager::class,
         ];
-    }
-
-    /**
-     * @param  Builder<Model>  $query
-     * @return Builder<Model>
-     */
-    private static function applySiteScope(Builder $query): Builder
-    {
-        $actor = auth()->user();
-
-        if (! $actor instanceof Authenticatable || SiteScope::isGlobalActor($actor)) {
-            return $query;
-        }
-
-        $assignedSiteIds = $actor->getAssignedSiteIds();
-
-        return $query->where(function (Builder $query) use ($assignedSiteIds): void {
-            $query->whereNull('site_id');
-
-            if ($assignedSiteIds->isNotEmpty()) {
-                $query->orWhereIn('site_id', $assignedSiteIds);
-            }
-        });
     }
 }

@@ -13,7 +13,10 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Links\LinkableContentRegistry;
 use Capell\Core\Support\Links\PageLinkableContentProvider;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Event;
+
+uses(CreatesAdminUser::class);
 
 it('registers pages as linkable content', function (): void {
     $registry = resolve(LinkableContentRegistry::class);
@@ -22,6 +25,7 @@ it('registers pages as linkable content', function (): void {
 });
 
 it('returns normalized page linkable content data scoped by site and language', function (): void {
+    test()->actingAsAdmin();
     $language = Language::factory()->createOne();
     $site = Site::factory()->language($language)->create();
     $otherLanguage = Language::factory()->createOne();
@@ -64,6 +68,7 @@ it('returns normalized page linkable content data scoped by site and language', 
 });
 
 it('only returns the default page url when aliases and redirects exist for the same page', function (): void {
+    test()->actingAsAdmin();
     $language = Language::factory()->createOne();
     $site = Site::factory()->language($language)->create();
     $page = Page::factory()->site($site)->create(['name' => 'About']);
@@ -103,6 +108,7 @@ it('only returns the default page url when aliases and redirects exist for the s
 });
 
 it('returns one default page url per language when language is unscoped', function (): void {
+    test()->actingAsAdmin();
     $english = Language::factory()->createOne();
     $welsh = Language::factory()->createOne();
     $site = Site::factory()->language($english)->create();

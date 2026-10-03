@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Policies;
 
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
-use Capell\Admin\Support\SiteScope;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User;
 
@@ -104,7 +104,7 @@ class UserPolicy
 
     private function canAccessRecordSite(User $user, Model $record): bool
     {
-        if (SiteScope::isGlobalActor($user)) {
+        if (SiteAccess::forActor($user)->isGlobal()) {
             return true;
         }
 

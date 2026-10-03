@@ -6,10 +6,10 @@ namespace Capell\Admin\Filament\Components\Forms\Page;
 
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Filament\Components\Forms\PageSelect;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -31,7 +31,7 @@ class ParentSelect extends PageSelect
                         return;
                     }
 
-                    $parent = SiteScope::applyForCurrentActor(Page::query())
+                    $parent = SiteAccess::current()->query(Page::class)
                         ->whereKey($value)
                         ->first();
 

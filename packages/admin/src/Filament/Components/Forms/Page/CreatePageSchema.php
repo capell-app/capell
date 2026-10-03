@@ -8,8 +8,8 @@ use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\Configurators\ConfiguratorResolver;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Forms\Components\Hidden;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\EditRecord;
@@ -52,7 +52,7 @@ class CreatePageSchema
                                 return false;
                             }
 
-                            return SiteScope::isGlobalActor($user);
+                            return SiteAccess::forActor($user)->isGlobal();
                         }),
                     SiteSelect::make(),
                     static::getParentPageSelect($schema),

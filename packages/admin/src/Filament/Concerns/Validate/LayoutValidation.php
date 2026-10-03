@@ -8,6 +8,7 @@ use Capell\Admin\Actions\ContentGraph\ValidateContentDeleteImpactAction;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Core\Models\Layout;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +23,8 @@ trait LayoutValidation
      */
     public function validateDelete(Model $record): bool
     {
-        // Default
+        // The global existence check protects integrity; only the scoped count
+        // belongs in the notification shown to an author.
         if ($record->pages()->exists()) {
             Notification::make('layout_not_deletable')
                 ->warning()
@@ -32,7 +34,7 @@ trait LayoutValidation
                 ))
                 ->body(__(
                     'capell-admin::message.layout_not_deletable_info',
-                    ['count' => $record->pages->count()],
+                    ['count' => SiteAccess::current()->scope($record->pages()->getQuery())->count()],
                 ))
                 ->actions([
                     Action::make('pages')
