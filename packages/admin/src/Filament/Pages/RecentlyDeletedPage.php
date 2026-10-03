@@ -68,8 +68,21 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
             return;
         }
 
-        Gate::authorize('restore', $model);
-        if ($model instanceof Page && ! CanRestorePageCascadeAction::run($model)) {
+        $restored = $model->getConnection()->transaction(function () use ($model): bool {
+            $locked = SiteAccess::current()->query($model::class)->onlyTrashed()->whereKey($model->getKey())->lockForUpdate()->first();
+            if ($locked === null) {
+                return false;
+            }
+
+            Gate::authorize('restore', $locked);
+            if ($locked instanceof Page && ! CanRestorePageCascadeAction::run($locked, lockForUpdate: true)) {
+                return false;
+            }
+
+            return $locked->restore();
+        });
+
+        if (! $restored) {
             Notification::make()
                 ->title(__('capell-admin::message.recently_deleted_restore_cascade_denied'))
                 ->warning()
@@ -77,8 +90,6 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
 
             return;
         }
-
-        $model->restore();
 
         Notification::make()
             ->title(__('capell-admin::message.recently_deleted_restored'))

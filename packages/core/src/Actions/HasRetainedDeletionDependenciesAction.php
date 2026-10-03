@@ -19,6 +19,7 @@ use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Theme;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Integrity checks include all sites and retained trash, independently of author visibility. */
@@ -34,10 +35,7 @@ final class HasRetainedDeletionDependenciesAction
                 || $record->layouts()->withTrashed()->exists()
                 || PageUrl::withTrashed()->where('site_id', $record->getKey())->exists()
                 || Taxonomy::query()->where('site_id', $record->getKey())->exists()
-                || EditorScratchDraft::query()->where('site_id', $record->getKey())
-                    // Orphan recovery buffers have no page that an author can discard them from.
-                    ->where('record_type', (new Page)->getMorphClass())
-                    ->whereIn('record_id', Page::withTrashed()->select('id'))->exists(),
+                || $this->hasRetainedPageDrafts($record),
             // Nested-set deletion removes descendants outside the selected-record guards.
             // Require authors to remove children explicitly before their parent.
             $record instanceof Page => $this->hasPageDescendants($record)
@@ -63,6 +61,27 @@ final class HasRetainedDeletionDependenciesAction
     public function hasPageDescendants(Page $record): bool
     {
         return $record->descendants()->getQuery()->withTrashed()->exists();
+    }
+
+    private function hasRetainedPageDrafts(Site $site): bool
+    {
+        $drafts = EditorScratchDraft::query()->where('site_id', $site->getKey());
+        foreach ((clone $drafts)->distinct()->pluck('record_type') as $morphType) {
+            $pageClass = Relation::getMorphedModel($morphType) ?? $morphType;
+            if (! is_a($pageClass, Page::class, true)) {
+                continue;
+            }
+
+            // Only missing-page recovery buffers are orphans; subclasses and moved pages remain retained.
+            if ($pageClass::query()->withoutGlobalScopes()->whereIn(
+                (new $pageClass)->getKeyName(),
+                (clone $drafts)->where('record_type', $morphType)->select('record_id'),
+            )->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function hasRetainedGraphDependants(Model $record): bool

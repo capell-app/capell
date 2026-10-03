@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\CanRestorePageCascadeAction;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
+use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Media as CapellMedia;
 use Capell\Core\Models\Page;
@@ -11,6 +12,7 @@ use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -259,3 +261,88 @@ it('refuses the whole restore cascade when a related page is outside site access
     expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(2);
     $component->assertNotified(__('capell-admin::message.recently_deleted_restore_cascade_denied'));
 })->with(['child', 'ancestor']);
+
+it('refuses a child deleted during the restore ability checks without restoring any page', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+    $child->appendToNode($parent)->save();
+    // Keep the child live until the candidate snapshot has been collected.
+    Page::query()->whereKey($parent->id)->update(['deleted_at' => now()]);
+    test()->actingAsUser();
+    test()->authenticatedUser()->assignedSiteIds = collect([$parent->site_id]);
+    $parentChecks = 0;
+    $injected = false;
+    $transactionLevels = [];
+    Gate::before(function (User $user, string $ability, array $arguments) use ($parent, $child, &$parentChecks, &$injected, &$transactionLevels): ?bool {
+        if ($ability !== 'restore') {
+            return null;
+        }
+
+        $transactionLevels[] = $parent->getConnection()->transactionLevel();
+        if ($arguments[0]->is($parent) && ++$parentChecks === 2) {
+            $child->delete();
+            $injected = true;
+        }
+
+        return ! $arguments[0]->is($child);
+    });
+
+    $initialTransactionLevel = $parent->getConnection()->transactionLevel();
+    (new RecentlyDeletedPage)->restoreRecord('page', (int) $parent->id);
+
+    expect($injected)->toBeTrue()
+        ->and(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(2)
+        ->and($transactionLevels)->not->toBeEmpty()
+        ->and(array_all($transactionLevels, fn (int $level): bool => $level > $initialTransactionLevel))->toBeTrue();
+});
+
+it('collects a conservative superset of the native restore with different deletion times', function (): void {
+    $ancestor = Page::factory()->createOne();
+    $child = Page::factory()->createOne(['site_id' => $ancestor->site_id, 'blueprint_id' => $ancestor->blueprint_id, 'layout_id' => $ancestor->layout_id]);
+    $child->appendToNode($ancestor)->save();
+    $grandchild = Page::factory()->createOne(['site_id' => $ancestor->site_id, 'blueprint_id' => $ancestor->blueprint_id, 'layout_id' => $ancestor->layout_id]);
+    $grandchild->appendToNode($child)->save();
+    $sibling = Page::factory()->createOne(['site_id' => $ancestor->site_id, 'blueprint_id' => $ancestor->blueprint_id, 'layout_id' => $ancestor->layout_id]);
+    $sibling->appendToNode($ancestor)->save();
+    $this->travelTo(today()->setTime(11, 0));
+    $child->delete();
+    $this->travelTo(now()->setTime(12, 0));
+    $ancestor->delete();
+    $this->travelBack();
+    $child->refresh();
+
+    $collected = CollectPageRestoreCascadeIdsAction::run($child);
+    $child->restore();
+    $restored = Page::query()->whereKey([$ancestor->id, $child->id, $grandchild->id, $sibling->id])->pluck('id')->all();
+
+    expect($collected)->toContain($ancestor->id, $child->id, $grandchild->id, $sibling->id)
+        ->and($restored)->toEqualCanonicalizing([$ancestor->id, $child->id, $sibling->id])
+        ->and(array_diff($restored, $collected))->toBe([])
+        ->and($grandchild->fresh()->trashed())->toBeTrue();
+});
+
+it('collects a deep restore cascade with one descendant query', function (): void {
+    $root = Page::factory()->createOne();
+    $selected = $root;
+    $ids = [$root->id];
+    for ($depth = 0; $depth < 8; $depth++) {
+        $child = Page::factory()->createOne(['site_id' => $root->site_id, 'blueprint_id' => $root->blueprint_id, 'layout_id' => $root->layout_id]);
+        $child->appendToNode($selected)->save();
+        $selected = $child;
+        $ids[] = $child->id;
+    }
+
+    $root->refresh()->delete();
+    $selected->refresh();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        $collected = CollectPageRestoreCascadeIdsAction::run($selected);
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+    }
+
+    expect($collected)->toEqualCanonicalizing($ids)
+        ->and($queries)->toHaveCount(2);
+});

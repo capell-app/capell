@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Policies;
 
-use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -14,12 +13,10 @@ use Illuminate\Foundation\Auth\User;
  * Domains are managed while editing their owning Site. Adding, editing and deleting
  * domains therefore use the Site update permission (including UpdateOwn:Site),
  * together with access to that Site. Creating or deleting a Site is not required.
- * Restore and permanent deletion continue to use the corresponding Site permissions.
+ * Restore and permanent deletion, including bulk abilities, use that same permission.
  */
 final class SiteDomainPolicy
 {
-    use ResolvesShieldPermission;
-
     public function __construct(private readonly SitePolicy $sites) {}
 
     public function viewAny(User $user): bool
@@ -70,26 +67,22 @@ final class SiteDomainPolicy
 
     public function restore(User $user, SiteDomain $domain): bool
     {
-        $site = $this->site($domain);
-
-        return $site instanceof Site && SiteAccess::forActor($user)->can($site) && $this->sites->restore($user, $site);
+        return $this->delete($user, $domain);
     }
 
     public function forceDelete(User $user, SiteDomain $domain): bool
     {
-        $site = $this->site($domain);
-
-        return $site instanceof Site && SiteAccess::forActor($user)->can($site) && $this->sites->forceDelete($user, $site);
+        return $this->delete($user, $domain);
     }
 
-    public function forceDeleteAny(User $user): bool
+    public function forceDeleteAny(User $user, ?Site $site = null): bool
     {
-        return $user->checkPermissionTo(self::permission('force_delete_any', 'Site'));
+        return $this->deleteAny($user, $site);
     }
 
-    public function restoreAny(User $user): bool
+    public function restoreAny(User $user, ?Site $site = null): bool
     {
-        return $user->checkPermissionTo(self::permission('restore_any', 'Site'));
+        return $this->deleteAny($user, $site);
     }
 
     private function site(SiteDomain $domain): ?Site

@@ -11,22 +11,34 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-/** Check every page restored by the observer and nested-set hooks before any write. */
+/** Check the conservative restore cascade before any write; locking requires the caller's transaction. */
 final class CanRestorePageCascadeAction
 {
     use AsObject;
 
-    public function handle(Page $page): bool
+    public function handle(Page $page, bool $lockForUpdate = false): bool
     {
-        $restoredIds = CollectPageRestoreCascadeIdsAction::run($page);
+        $restoredIds = CollectPageRestoreCascadeIdsAction::run($page, lockForUpdate: $lockForUpdate);
         if ($restoredIds === []) {
             return false;
         }
 
-        $restoredPages = SiteAccess::current()->query($page::class)->onlyTrashed()->whereKey($restoredIds)->get();
+        $restoredQuery = SiteAccess::current()->query($page::class)->onlyTrashed()->whereKey($restoredIds);
+        if ($lockForUpdate) {
+            $restoredQuery->lockForUpdate();
+        }
+
+        $restoredPages = $restoredQuery->get();
 
         // A page omitted by site scoping is still restored by the model hooks.
-        return $restoredPages->count() === count($restoredIds)
-            && array_all($restoredPages->all(), fn (Model $restoredPage): bool => ! Gate::denies('restore', $restoredPage));
+        if ($restoredPages->count() !== count($restoredIds)
+            || ! array_all($restoredPages->all(), fn (Model $restoredPage): bool => ! Gate::denies('restore', $restoredPage))) {
+            return false;
+        }
+
+        // A callback on this connection can still mutate locked rows during an ability check.
+        $recomputedIds = CollectPageRestoreCascadeIdsAction::run($page, lockForUpdate: $lockForUpdate);
+
+        return array_diff($recomputedIds, $restoredIds) === [] && array_diff($restoredIds, $recomputedIds) === [];
     }
 }

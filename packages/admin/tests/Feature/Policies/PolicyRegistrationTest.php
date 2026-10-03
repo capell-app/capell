@@ -75,9 +75,15 @@ it('lets a site administrator manage domains using the existing site update perm
         ->and(Gate::allows('create', SiteDomain::class))->toBeTrue()
         ->and(Gate::allows('deleteAny', [SiteDomain::class, $site]))->toBeTrue()
         ->and(Gate::allows('deleteAny', [SiteDomain::class, $foreign]))->toBeFalse();
-    foreach (['update', 'delete'] as $ability) {
+    foreach (['update', 'delete', 'restore', 'forceDelete'] as $ability) {
         expect(Gate::allows($ability, $ownDomain))->toBeTrue()
             ->and(Gate::allows($ability, $foreignDomain))->toBeFalse();
+    }
+
+    foreach (['deleteAny', 'restoreAny', 'forceDeleteAny'] as $ability) {
+        expect(Gate::allows($ability, [SiteDomain::class, $site]))->toBeTrue()
+            ->and(Gate::allows($ability, [SiteDomain::class, $foreign]))->toBeFalse()
+            ->and(Gate::allows($ability, SiteDomain::class))->toBeTrue();
     }
 })->with(['Update:Site', 'UpdateOwn:Site', 'default admin']);
 

@@ -55,7 +55,7 @@ function unguardedResourceDeletionActions(string $source): array
             $query = $node->var;
             $tableName = null;
             while ($query instanceof MethodCall || $query instanceof NullsafeMethodCall) {
-                if ($query->name instanceof Identifier && strtolower($query->name->toString()) === 'table'
+                if ($tableName === null && $query->name instanceof Identifier && in_array(strtolower($query->name->toString()), ['table', 'from'], true)
                     && ($query->args[0]->value ?? null) instanceof String_) {
                     $tableName = $query->args[0]->value->value;
                 }
@@ -64,8 +64,8 @@ function unguardedResourceDeletionActions(string $source): array
             }
 
             if ($query instanceof StaticCall && $query->class instanceof Name && $query->class->toString() === DB::class
-                && $query->name instanceof Identifier && in_array(strtolower($query->name->toString()), ['table', 'connection'], true)) {
-                if (strtolower($query->name->toString()) === 'table' && ($query->args[0]->value ?? null) instanceof String_) {
+                && $query->name instanceof Identifier && in_array(strtolower($query->name->toString()), ['table', 'connection', 'query'], true)) {
+                if ($tableName === null && strtolower($query->name->toString()) === 'table' && ($query->args[0]->value ?? null) instanceof String_) {
                     $tableName = $query->args[0]->value->value;
                 }
 
@@ -257,6 +257,12 @@ it('rejects aliases, fully qualified construction, subclasses and direct permane
     'named connection query' => 'use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->table("pages")->where("id", 1)->delete();',
     'aliased connection query' => 'use Illuminate\\Support\\Facades\\DB as Database; Database::connection("sqlite")->table("layouts as l")->delete();',
     'nullsafe connection query' => 'use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->table("pages")?->delete();',
+    'connection builder from' => 'use Illuminate\\Support\\Facades\\DB; DB::connection()->query()->from("pages")->delete();',
+    'named connection builder from' => 'use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->query()->from("pages")->where("id", 1)->delete();',
+    'aliased connection builder from' => 'use Illuminate\\Support\\Facades\\DB as Database; Database::connection("sqlite")->query()->from("layouts", "l")->delete();',
+    'nullsafe connection builder from' => 'use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->query()->from("pages")?->delete();',
+    'connection aliased from' => 'use Illuminate\\Support\\Facades\\DB; DB::connection()->query()->from("site_domains as d")->delete();',
+    'facade builder from' => 'use Illuminate\\Support\\Facades\\DB; DB::query()->from("pages")->delete();',
     'raw aliased query' => 'use Illuminate\\Support\\Facades\\DB as Database; Database::table("layouts")->delete();',
 ]);
 
@@ -270,7 +276,9 @@ it('keeps confirmation and model fetching mandatory when callers override action
 
 it('permits deletion of unrelated operational tables', function (): void {
     expect(unguardedResourceDeletionActions('<?php use Illuminate\\Support\\Facades\\DB; DB::table("jobs")->delete();'))->toBe([])
-        ->and(unguardedResourceDeletionActions('<?php use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->table("jobs")->delete();'))->toBe([]);
+        ->and(unguardedResourceDeletionActions('<?php use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->table("jobs")->delete();'))->toBe([])
+        ->and(unguardedResourceDeletionActions('<?php use Illuminate\\Support\\Facades\\DB; DB::connection("sqlite")->query()->from("jobs")->delete();'))->toBe([])
+        ->and(unguardedResourceDeletionActions('<?php use Illuminate\\Support\\Facades\\DB; DB::query()->from("jobs")->delete();'))->toBe([]);
 });
 
 it('confines discovered sources to foundation packages even with other installed paths', function (bool $insideRepository): void {

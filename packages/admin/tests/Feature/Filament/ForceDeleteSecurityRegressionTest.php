@@ -34,6 +34,7 @@ use Capell\Core\Models\Translation;
 use Capell\Tests\Fixtures\Models\User;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -142,7 +143,7 @@ it('preserves retained graph and foreign-key dependants through bulk deletion', 
         ->and($dependent->fresh()?->getAttribute($column))->toBe($record->id);
 })->with(['theme-layout', 'language-url', 'language-domain', 'language-translation', 'site-url', 'site-draft', 'site-taxonomy', 'page-reference', 'term-page-reference'])->with(['active' => false, 'trashed' => true]);
 
-it('allows ordinary users with the generated force-delete permission and denies those without it', function (string $model): void {
+it('allows ordinary users with the required resource permission and denies those without it', function (string $model): void {
     [$record, $component, $resource] = match ($model) {
         'blueprint' => [Blueprint::factory()->page()->createOne(), ManageBlueprints::class, ResourceEnum::Blueprint],
         'theme' => [Theme::factory()->createOne(), ManageThemes::class, ResourceEnum::Theme],
@@ -157,19 +158,27 @@ it('allows ordinary users with the generated force-delete permission and denies 
     expect($actor->isGlobalAdmin())->toBeFalse()
         ->and(Gate::allows('forceDelete', $record))->toBeFalse();
 
-    foreach (['view_any', 'view', 'force_delete_any', 'update'] as $affix) {
+    $affixes = $record instanceof SiteDomain ? ['view_any', 'view', 'force_delete_any'] : ['view_any', 'view', 'force_delete_any', 'update'];
+    foreach ($affixes as $affix) {
         $actor->givePermissionTo(Permission::findOrCreate($resource->permission($affix), 'web'));
     }
 
     $parameters = $record instanceof SiteDomain ? ['ownerRecord' => $record->site, 'pageClass' => EditSite::class] : [];
-    Livewire::test($component, $parameters)
+    $unauthorised = Livewire::test($component, $parameters)
         ->filterTable('trashed', true)
         ->assertCanSeeTableRecords([$record])
-        ->selectTableRecords([$record])
-        ->callAction(TestAction::make(ForceDeleteBulkAction::class)->table()->bulk())
-        ->assertForbidden();
+        ->selectTableRecords([$record]);
+    if ($record instanceof SiteDomain) {
+        $unauthorised->assertActionHidden(TestAction::make(ForceDeleteBulkAction::class)->table()->bulk());
+        expect(fn (): bool => ValidateForceDeleteAction::run($record, null))->toThrow(AuthorizationException::class);
+    } else {
+        $unauthorised->callAction(TestAction::make(ForceDeleteBulkAction::class)->table()->bulk())
+            ->assertForbidden();
+    }
+
     expect($record->fresh())->not->toBeNull();
-    $actor->givePermissionTo(Permission::findOrCreate($resource->permission('force_delete'), 'web'));
+    $requiredPermission = $record instanceof SiteDomain ? 'UpdateOwn:Site' : $resource->permission('force_delete');
+    $actor->givePermissionTo(Permission::findOrCreate($requiredPermission, 'web'));
     expect(Gate::allows('forceDelete', $record))->toBeTrue();
     if ($record instanceof SiteDomain) {
         $foreign = SiteDomain::factory()->createOne();

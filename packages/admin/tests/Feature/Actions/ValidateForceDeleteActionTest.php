@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Capell\Admin\Actions\ValidateForceDeleteAction;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
+use Capell\Admin\Filament\Resources\Sites\Pages\ListSites;
+use Capell\Core\Actions\EditorScratchDrafts\SaveEditorScratchDraftAction;
 use Capell\Core\Actions\HasRetainedDeletionDependenciesAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\EditorScratchDraft;
@@ -13,9 +15,17 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\Testing\TestAction;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Livewire\Livewire;
+
+class RetainedDraftSubclassPage extends Page
+{
+    protected $table = 'pages';
+}
 
 it('protects retained dependencies even when a component validator allows deletion', function (string $type): void {
     test()->actingAsAdmin();
@@ -78,6 +88,44 @@ it('retains drafts referencing an existing page including trash', function (bool
         ->and(HasRetainedDeletionDependenciesAction::run($site))->toBeTrue()
         ->and(ValidateForceDeleteAction::run($site, null))->toBeFalse();
 })->with(['active' => false, 'trashed' => true]);
+
+it('retains a saved subclass draft after its page moves to another site', function (bool $trashed, bool $alias): void {
+    test()->actingAsAdmin();
+    $site = Site::factory()->createOne();
+    $destination = Site::factory()->createOne();
+    $storedPage = Page::factory()->site($site)->createOne();
+    $morphMap = Relation::morphMap();
+    try {
+        Relation::morphMap(['retained-draft-subclass' => RetainedDraftSubclassPage::class]);
+
+        $page = RetainedDraftSubclassPage::query()->whereKey($storedPage->getKey())->firstOrFail();
+        $draft = SaveEditorScratchDraftAction::run($page, test()->authenticatedUser(), 'en', 'page-editor', ['name' => 'Retained draft']);
+        if (! $alias) {
+            $draft->update(['record_type' => RetainedDraftSubclassPage::class]);
+        }
+
+        $page->update(['site_id' => $destination->id]);
+        if ($trashed) {
+            $page->delete();
+        }
+
+        $site->delete();
+        Livewire::test(ListSites::class)
+            ->filterTable('trashed', true)
+            ->assertCanSeeTableRecords([$site])
+            ->selectTableRecords([$site])
+            ->callAction(TestAction::make(ForceDeleteBulkAction::class)->table()->bulk());
+        expect($draft->record_type)->toBe($alias ? 'retained-draft-subclass' : RetainedDraftSubclassPage::class)
+            ->and($site->fresh())->not->toBeNull()
+            ->and($site->pages()->withTrashed()->exists())->toBeFalse()
+            ->and(HasRetainedDeletionDependenciesAction::run($site))->toBeTrue()
+            ->and(ValidateForceDeleteAction::run($site, null))->toBeFalse()
+            ->and($draft->fresh())->not->toBeNull()
+            ->and($page->fresh())->not->toBeNull();
+    } finally {
+        Relation::morphMap($morphMap, false);
+    }
+})->with(['active' => false, 'trashed' => true])->with(['class' => false, 'registered alias' => true]);
 
 it('explains that descendants must be removed before permanently deleting their parent', function (): void {
     test()->actingAsAdmin();
