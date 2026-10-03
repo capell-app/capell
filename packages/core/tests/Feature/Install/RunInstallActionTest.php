@@ -506,7 +506,7 @@ it('restores real published migrations and preserves existing file bytes across 
         File::put($existing, '<?php /* pre-existing fixture */');
         File::chmod($existing, 0640);
         $snapshot = snapshotRunInstallPublishedMigrations();
-        new PublishVendorMigrationsAction()->handle(new NullProgressReporter);
+        PublishVendorMigrationsAction::run(new NullProgressReporter);
         expect(File::exists(database_path('migrations/2026_05_10_190828_add_event_column_to_activity_log_table.php')))->toBeTrue();
         File::put($existing, '<?php /* changed by fixture */');
         restoreRunInstallPublishedMigrations($snapshot);

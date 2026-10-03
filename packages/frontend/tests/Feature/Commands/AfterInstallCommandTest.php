@@ -261,7 +261,7 @@ it('propagates a failed host dependency manifest write before generating assets'
     $action = new PrepareFrontendInstallationAction($files);
     expect(function () use ($action): void {
         try {
-            $action->handle();
+            runBoundAction(PrepareFrontendInstallationAction::class, $action);
         } finally {
             expect(File::exists($this->generatedAsset))->toBeFalse();
         }

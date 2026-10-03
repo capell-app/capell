@@ -9,11 +9,13 @@ use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Capell\Frontend\Support\Assets\ViteConfigurationLocator;
 use Illuminate\Filesystem\Filesystem;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use stdClass;
 
 final class PrepareFrontendInstallationAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly Filesystem $files) {}

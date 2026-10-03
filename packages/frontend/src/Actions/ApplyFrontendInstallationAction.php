@@ -8,10 +8,12 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Frontend\Data\Assets\FrontendDependencyPlanData;
 use Capell\Frontend\Exceptions\FrontendResourcePlanException;
 use Illuminate\Support\Facades\Process;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ApplyFrontendInstallationAction
 {
+    use AsFake;
     use AsObject;
 
     private const int PROCESS_TIMEOUT_SECONDS = 900;

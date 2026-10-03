@@ -159,6 +159,13 @@ it('withholds finalisation when an explicitly requested frontend build fails', f
     $clearCaches->shouldNotReceive('handle');
 
     expect(function () use ($runInstall, $clearCaches, $input, $reporter, $host): void {
-        new OrchestrateInstallAction($runInstall, $clearCaches)->handle($input, new InstallOrchestrationData(outputPlan: false, runNpmBuild: true, removeInstaller: false, cachesToClear: []), $reporter, $host);
+        runBoundAction(
+            OrchestrateInstallAction::class,
+            new OrchestrateInstallAction($runInstall, $clearCaches),
+            $input,
+            new InstallOrchestrationData(outputPlan: false, runNpmBuild: true, removeInstaller: false, cachesToClear: []),
+            $reporter,
+            $host,
+        );
     })->toThrow(RuntimeException::class, 'Frontend build failed');
 });
