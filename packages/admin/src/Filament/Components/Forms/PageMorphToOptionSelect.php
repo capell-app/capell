@@ -108,7 +108,7 @@ class PageMorphToOptionSelect extends OptionMorphToSelect
                 /** @var ?Page $page */
                 $page = $query
                     ->with(['pageUrls', 'ancestors'])
-                    ->withCount(['children', 'pageUrls'])
+                    ->withCount(['children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query), 'pageUrls'])
                     ->where($keyName, $value)
                     ->first();
 
@@ -158,7 +158,7 @@ class PageMorphToOptionSelect extends OptionMorphToSelect
         /** @var array<int|string, string> $options */
         $options = $query
             ->with(['pageUrls', 'ancestors'])
-            ->withCount(['children', 'pageUrls'])
+            ->withCount(['children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query), 'pageUrls'])
             ->get()
             ->mapWithKeys(fn (Model $record): array => [$record->getAttribute($keyName) => $this->pageOption($record, $titleAttribute)])
             ->all();

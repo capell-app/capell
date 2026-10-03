@@ -747,7 +747,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             'pageUrls.language',
         ])
             ->loadCount([
-                'canonicalPages',
+                'canonicalPages' => fn (Builder $query): Builder => SiteAccess::current()->scope($query),
             ]);
 
         if ($this->hasPageHierarchy() && $record->parent_id !== null && $record->parent_id !== 0) {
@@ -767,8 +767,8 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                 },
             ])
                 ->loadCount([
-                    'children',
-                    'siblings',
+                    'children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query),
+                    'siblings' => fn (Builder $query): Builder => SiteAccess::current()->scope($query),
                 ]);
         }
 

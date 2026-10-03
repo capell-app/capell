@@ -88,6 +88,7 @@ it('selects dashboard Filament widgets from install state and available sites', 
 });
 
 it('returns default page relation managers based on available counts', function (): void {
+    test()->actingAsAdmin();
     $parent = Page::factory()->createOne();
     $pageWithChildren = Page::factory()->parent($parent)->children()->create();
     $pageWithoutRelations = Page::factory()->createOne();

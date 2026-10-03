@@ -12,7 +12,12 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
 use Illuminate\Auth\GenericUser;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Facade;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -23,10 +28,156 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
+    SiteAccessLifecycleProbe::$observations = [];
     resolve(PermissionRegistrar::class)->setPermissionsTeamId(null);
     resolve(PermissionRegistrar::class)->teams = false;
     resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     config(['permission.teams' => false]);
+});
+
+it('reads revoked grants in the next queued job without replacing the bootstrap request', function (): void {
+    $site = Site::factory()->create();
+    $actor = HasSitePermissionsTestUser::query()->create(['name' => 'Queue actor', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $role = Role::findOrCreate('queue-editor', 'web');
+    $actor->assignRoleForSite($site, $role);
+    $request = request();
+
+    Bus::dispatchSync(new SiteAccessLifecycleProbe((int) $actor->id, (int) $site->id));
+    $actor->removeRoleForSite($site, $role);
+    // Match the worker scope reset: it does not replace the console request.
+    app()->forgetScopedInstances();
+    Facade::clearResolvedInstances();
+    Bus::dispatchSync(new SiteAccessLifecycleProbe((int) $actor->id, (int) $site->id));
+
+    expect(request())->toBe($request)
+        ->and(SiteAccessLifecycleProbe::$observations)->toBe([[$site->id], []]);
+});
+
+it('isolates different actors in sequential queued dispatches in one worker process', function (): void {
+    $alpha = Site::factory()->create();
+    $beta = Site::factory()->create();
+    $role = Role::findOrCreate('sequential-editor', 'web');
+    $first = HasSitePermissionsTestUser::query()->create(['name' => 'First', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $second = HasSitePermissionsTestUser::query()->create(['name' => 'Second', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $first->assignRoleForSite($alpha, $role);
+    $second->assignRoleForSite($beta, $role);
+    $request = request();
+
+    Bus::dispatchSync(new SiteAccessLifecycleProbe((int) $first->id, (int) $alpha->id));
+    Bus::dispatchSync(new SiteAccessLifecycleProbe((int) $second->id, (int) $beta->id));
+    $first->removeRoleForSite($alpha, $role);
+    Bus::dispatchSync(new SiteAccessLifecycleProbe((int) $first->id, (int) $alpha->id));
+
+    expect(request())->toBe($request)
+        ->and(SiteAccessLifecycleProbe::$observations)->toBe([[$alpha->id], [$beta->id], []]);
+});
+
+it('reads grant revocation within the same work unit including direct pivot writes', function (bool $http, bool $global): void {
+    $console = new ReflectionProperty(app(), 'isRunningInConsole');
+    $previous = $console->getValue(app());
+    $console->setValue(app(), ! $http);
+    try {
+        $site = Site::factory()->create();
+        $actor = HasSitePermissionsTestUser::query()->create(['name' => 'Revoked', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+        if ($global) {
+            $actor->assignGlobalRole('super_admin');
+        } else {
+            $actor->assignRoleForSite($site, Role::findOrCreate('revoked-editor', 'web'));
+        }
+
+        test()->actingAs($actor);
+        setPermissionsTeamId($site->id);
+        expect(SiteAccess::current()->allowedSiteIds())->toBe($global ? null : [$site->id]);
+        DB::table('model_has_roles')->where('model_id', $actor->id)->where('model_type', $actor->getMorphClass())->delete();
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+        expect(SiteAccess::current()->allowedSiteIds())->toBe([]);
+    } finally {
+        $console->setValue(app(), $previous);
+    }
+})->with(['HTTP' => true, 'console' => false])->with(['site role' => false, 'global role' => true]);
+
+it('reads fresh grants after logout login and rebinding the same actor identity', function (): void {
+    $site = Site::factory()->create();
+    $actor = HasSitePermissionsTestUser::query()->create(['name' => 'Relogin', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $role = Role::findOrCreate('relogin-editor', 'web');
+    $actor->assignRoleForSite($site, $role);
+    test()->actingAs($actor);
+    setPermissionsTeamId($site->id);
+    expect(SiteAccess::current()->allowedSiteIds())->toBe([$site->id]);
+    $actor->setAttribute('remember_token', null);
+    auth()->logout();
+    $actor->removeRoleForSite($site, $role);
+    auth()->login($actor);
+    expect(SiteAccess::current()->allowedSiteIds())->toBe([]);
+    $actor->assignRoleForSite($site, $role);
+    test()->actingAs($actor->fresh());
+    expect(SiteAccess::current()->allowedSiteIds())->toBe([$site->id]);
+});
+
+it('reads current actor and team access afresh within the request', function (): void {
+    $alpha = Site::factory()->create();
+    $beta = Site::factory()->create();
+    $actor = HasSitePermissionsTestUser::query()->create(['name' => 'Memoised', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $role = Role::findOrCreate('memoised-editor', 'web');
+    $actor->assignRoleForSite($alpha, $role);
+    $actor->assignRoleForSite($beta, $role);
+
+    test()->actingAs($actor);
+    setPermissionsTeamId($alpha->id);
+    $first = SiteAccess::current();
+    expect(SiteAccess::current())->not->toBe($first)->and($first->allowedSiteIds())->toBe([$alpha->id]);
+
+    setPermissionsTeamId($beta->id);
+    $second = SiteAccess::current();
+    expect($second)->not->toBe($first)->and($second->allowedSiteIds())->toBe([$beta->id])
+        ->and(SiteAccess::current()->allowedSiteIds())->toBe([$beta->id]);
+    setPermissionsTeamId($alpha->id);
+    expect(SiteAccess::current()->allowedSiteIds())->toBe([$alpha->id]);
+    $otherActor = HasSitePermissionsTestUser::query()->create(['name' => 'Other actor', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $otherActor->assignRoleForSite($beta, $role);
+
+    test()->actingAs($otherActor);
+    expect(SiteAccess::current())->not->toBe($first)->and(SiteAccess::current()->allowedSiteIds())->toBe([]);
+    test()->actingAs($actor);
+    expect(SiteAccess::current()->allowedSiteIds())->toBe([$alpha->id]);
+    $actor->setAttribute('remember_token', null);
+    auth()->logout();
+    expect(SiteAccess::current()->allowedSiteIds())->toBe([]);
+});
+
+final class SiteAccessLifecycleProbe implements ShouldQueue
+{
+    /** @var list<list<int>|null> */
+    public static array $observations = [];
+
+    public function __construct(public int $actorId, public int $siteId) {}
+
+    public function handle(): void
+    {
+        auth()->setUser(HasSitePermissionsTestUser::query()->findOrFail($this->actorId));
+        setPermissionsTeamId($this->siteId);
+        self::$observations[] = SiteAccess::current()->allowedSiteIds();
+    }
+}
+
+it('does not retain current access across request replacement in a long lived application', function (): void {
+    $alpha = Site::factory()->create();
+    $actor = HasSitePermissionsTestUser::query()->create(['name' => 'Worker', 'email' => fake()->unique()->safeEmail(), 'password' => bcrypt('password')]);
+    $role = Role::findOrCreate('request-editor', 'web');
+    $actor->assignRoleForSite($alpha, $role);
+    test()->actingAs($actor);
+    setPermissionsTeamId($alpha->id);
+    $first = SiteAccess::current();
+    expect(SiteAccess::current()->allowedSiteIds())->toBe([$alpha->id]);
+    $request = request();
+    try {
+        app()->instance('request', Request::create('/next-request'));
+        $actor->removeRoleForSite($alpha, $role);
+        expect(SiteAccess::current())->not->toBe($first)
+            ->and(SiteAccess::current()->allowedSiteIds())->toBe([]);
+    } finally {
+        app()->instance('request', $request);
+    }
 });
 
 it('captures active team access and makes cross site membership an explicit choice', function (): void {

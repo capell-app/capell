@@ -655,7 +655,7 @@ class PagesTable implements TableConfigurator
             )
             ->with($relations)
             ->withCount([
-                'children',
+                'children' => fn (Builder $query): Builder => SiteAccess::current()->scope($query),
                 'pageUrls',
             ])
             ->tap(resolve(PageTableStatusResolver::class)->modifyQuery(...));
