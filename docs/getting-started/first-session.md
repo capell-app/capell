@@ -50,15 +50,19 @@ Go to **Pages** in the sidebar. You'll see either an empty tree (fresh install) 
 
 [Light](../images/admin-pages-list.png) · [Dark](../images/admin-pages-list-dark.png)
 
-The full [Create your first page](create-your-first-page.md) guide now covers the page form field by field, including Site, Parent Page, URL generation, Blueprints, Layouts, content, drafts, preview, publishing, site-wide branding, and useful next extensions such as ContentSections and Navigation. See [Blueprints](types.md) for the reusable editing, rendering, and behaviour rules behind pages, widgets, and layouts.
+Before exploring the rest of Admin, publish one useful page:
 
-Use this first-session guide as the broader admin tour. Use the page guide when you are ready to create and publish the first real page.
+1. Select the intended site. Open an existing page to edit, or choose **New page** and a page type.
+2. Follow [Create your first page](create-your-first-page.md) to add a short piece of useful content and [optionally an image](create-your-first-page.md#optionally-add-an-image).
+3. [Save a draft, preview and publish](create-your-first-page.md#preview-and-publish), then check the canonical public URL in a private browser window. Your new content should be visible without an Admin login.
+
+The page guide covers the fields and recovery steps. Continue this tour after that public check succeeds. See [Blueprints](types.md) for the rules that determine each page type’s fields.
 
 ---
 
 ## Set up navigation
 
-Pages on their own aren't linked from anywhere. Go to **Navigation** in the sidebar to build a menu.
+A published page is available at its URL before you add a menu link. If the Navigation package is installed, open **Navigation** in the sidebar to build a menu; otherwise return to this step when your site needs one.
 
 Navigation sits alongside the other library resources in the admin.
 

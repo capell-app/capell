@@ -26,7 +26,7 @@ afterEach(function (): void {
     File::deleteDirectory($this->temporaryBasePath);
 });
 
-function bindFilamentPanelInstallProcessFactory(bool $successful = true, string $output = 'Filament panel installed', string $errorOutput = ''): void
+function bindFilamentPanelInstallProcessFactory(bool $successful = true, string $output = 'Filament panel installed', string $errorOutput = '', bool $scaffoldPanel = true): void
 {
     $process = Mockery::mock(SymfonyProcess::class);
     $process
@@ -36,8 +36,8 @@ function bindFilamentPanelInstallProcessFactory(bool $successful = true, string 
     $process
         ->shouldReceive('run')
         ->once()
-        ->andReturnUsing(function (?callable $callback = null) use ($successful, $output): int {
-            if ($successful) {
+        ->andReturnUsing(function (?callable $callback = null) use ($successful, $output, $scaffoldPanel): int {
+            if ($successful && $scaffoldPanel) {
                 File::ensureDirectoryExists(app_path('Providers/Filament'));
                 File::put(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php'), <<<'PHP'
 <?php
@@ -48,9 +48,11 @@ namespace App\Providers\Filament;
 
 use Filament\Panel;
 use Filament\PanelProvider;
+use Override;
 
 class FilamentInstallTestPanelProvider extends PanelProvider
 {
+    #[Override]
     public function panel(Panel $panel): Panel
     {
         return $panel->id('admin')->default();
@@ -78,7 +80,7 @@ PHP);
                 PHP_BINARY,
                 'artisan',
                 'filament:install',
-                '--panels',
+                ...($scaffoldPanel ? ['--panels'] : []),
                 '--no-interaction',
             ]),
             Mockery::type('string'),
@@ -100,9 +102,11 @@ namespace App\Providers\Filament;
 
 use Filament\Panel;
 use Filament\PanelProvider;
+use Override;
 
 class FilamentInstallTestPanelProvider extends PanelProvider
 {
+    #[Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -119,7 +123,16 @@ PHP);
     $this->app->instance(ConsoleKernel::class, $kernel);
     Artisan::clearResolvedInstances();
 
+    $providerPath = app_path('Providers/Filament/FilamentInstallTestPanelProvider.php');
+    $providerContents = File::get($providerPath);
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldNotReceive('make');
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
     InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(File::get($providerPath))->toBe($providerContents);
 });
 
 it('reports when an existing filament panel is missing theme configuration', function (): void {
@@ -133,9 +146,11 @@ namespace App\Providers\Filament;
 
 use Filament\Panel;
 use Filament\PanelProvider;
+use Override;
 
 class FilamentInstallTestPanelProvider extends PanelProvider
 {
+    #[Override]
     public function panel(Panel $panel): Panel
     {
         return $panel->id('admin');
@@ -177,9 +192,11 @@ namespace App\Providers\Filament;
 
 use Filament\Panel;
 use Filament\PanelProvider;
+use Override;
 
 class FilamentInstallTestPanelProvider extends PanelProvider
 {
+    #[Override]
     public function panel(Panel $panel): Panel
     {
         return $panel->id('admin')->default();
@@ -210,7 +227,7 @@ PHP);
 });
 
 it('rejects a failed filament install even when it leaves a partial panel provider', function (): void {
-    bindFilamentPanelInstallProcessFactory(false, '', 'Panel scaffolding failed.');
+    bindFilamentPanelInstallProcessFactory(false, '', 'Panel scaffolding failed.', scaffoldPanel: false);
 
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('all')->once()->andReturn(['filament:install' => true]);
@@ -266,6 +283,86 @@ it('falls back to a fresh process when in-process filament install fails', funct
     InstallFilamentPanelAction::run(new NullProgressReporter);
 
     expect(file_exists(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php')))->toBeTrue();
+});
+
+it('preserves the default panel and login when scaffolding succeeds before asset publication fails', function (): void {
+    $providerPath = app_path('Providers/Filament/FilamentRecoveryTestPanelProvider.php');
+    $providerContents = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Providers\Filament;
+
+use Filament\Panel;
+use Filament\PanelProvider;
+use Override;
+
+class FilamentRecoveryTestPanelProvider extends PanelProvider
+{
+    #[Override]
+    public function panel(Panel $panel): Panel
+    {
+        return $panel->id('admin')->default()->login();
+    }
+}
+PHP;
+
+    app()->instance(PanelRegistry::class, new PanelRegistry);
+
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->once()->andReturn(['filament:install' => true]);
+    $kernel->shouldReceive('call')->once()->with('filament:install', [
+        '--panels' => true,
+        '--no-interaction' => true,
+    ])->andReturnUsing(function () use ($providerPath, $providerContents): never {
+        File::ensureDirectoryExists(dirname($providerPath));
+        File::put($providerPath, $providerContents);
+        InstallFilamentPanelAction::registerPanelProviders();
+
+        throw new RuntimeException('Asset publication failed after panel scaffolding.');
+    });
+    $kernel->shouldReceive('output')->zeroOrMoreTimes()->andReturn('');
+    app()->instance(ConsoleKernel::class, $kernel);
+    Artisan::clearResolvedInstances();
+
+    $recoveryCommand = [];
+    $process = Mockery::mock(SymfonyProcess::class);
+    $process->shouldReceive('setTimeout')->once()->with(300)->andReturnSelf();
+    $process->shouldReceive('isSuccessful')->once()->andReturnTrue();
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->once()->with(
+        Mockery::type('array'),
+        $this->temporaryBasePath,
+        Mockery::type('array'),
+    )->andReturnUsing(function (array $command, string $workingDirectory, array $environment) use (&$recoveryCommand, $process, $providerPath, $providerContents): SymfonyProcess {
+        $recoveryCommand = $command;
+        $process->shouldReceive('run')->once()->andReturnUsing(function (?callable $callback = null) use ($command, $providerPath, $providerContents): int {
+            if (in_array('--panels', $command, true)) {
+                File::put($providerPath, str_replace(['->default()', '->login()'], '', $providerContents));
+            }
+
+            if ($callback !== null) {
+                $callback('out', 'Filament assets installed');
+            }
+
+            return 0;
+        });
+
+        return $process;
+    });
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    $reporter = new RecordingInstallProgressReporter;
+    InstallFilamentPanelAction::run($reporter);
+
+    expect(File::get($providerPath))->toBe($providerContents)
+        ->and($recoveryCommand)->toBe([PHP_BINARY, 'artisan', 'filament:install', '--no-interaction'])
+        ->and(resolve(PanelRegistry::class)->getDefault()->getId())->toBe('admin')
+        ->and(resolve(PanelRegistry::class)->getDefault()->hasLogin())->toBeTrue()
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile()
+        ->and($reporter->lines)->toContain('Filament assets installed');
 });
 
 it('throws when the fresh filament process fails', function (): void {
