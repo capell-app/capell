@@ -161,7 +161,13 @@ Run the Laravel application with your normal local workflow, then open:
 
 _A healthy install reaches the styled Pages resource with the expected records, state, and actions; this is separate from command success alone._
 
-Sign in with the created administrator, open **Pages**, save and publish a small change, and confirm the public URL updates. Continue with [Create your first page](create-your-first-page.md).
+Sign in with the created administrator, then:
+
+1. Select the intended site and open **Pages**. Open a seeded page to edit, or choose **New page** to create an About or Contact page.
+2. Follow [Create your first page](create-your-first-page.md) to add useful content, optionally add an image, and save a draft.
+3. [Preview and publish](create-your-first-page.md#preview-and-publish), then open the canonical public URL in a private browser window. Your new text should appear without needing an Admin login.
+
+Reaching `/admin` or seeing a draft preview confirms only that part of the journey. The anonymous public page is the publication check. If it does not appear, follow the recovery links in the first-page guide.
 
 ## Browser installer
 
