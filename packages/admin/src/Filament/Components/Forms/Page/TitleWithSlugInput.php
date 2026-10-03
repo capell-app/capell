@@ -129,20 +129,16 @@ class TitleWithSlugInput
                     titleExtraInputAttributes: ['class' => ''],
                     titleAutofocus: false,
                     titleAfterStateUpdated: function (?string $state, Get $get, Set $set): void {
-                        if ($state === null || $state === '') {
+                        if (blank($state)) {
                             return;
                         }
 
                         $namePath = '../../name';
 
                         $currentName = $get($namePath);
-                        if ($currentName === null || $currentName === '') {
+                        if (blank($currentName)) {
                             $set($namePath, $state);
-
-                            return;
                         }
-
-                        $set($namePath, $state);
                     },
                     slugLabel: '',
                     slugStatePath: 'meta.slug',
