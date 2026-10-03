@@ -7,6 +7,8 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\ForceDeleteAction;
 use Capell\Admin\Filament\Actions\ForceDeleteBulkAction;
+use Capell\Admin\Filament\Actions\RestorePageAction;
+use Capell\Admin\Filament\Actions\RestorePageBulkAction;
 use Capell\Admin\Tests\Fixtures\DeletionPackage\src\Filament\Resources\Unsafe\UnsafeDeletionResource;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
@@ -38,7 +40,7 @@ use PhpParser\ParserFactory;
  *
  * @return list<string>
  */
-function unguardedResourceDeletionActions(string $source): array
+function unguardedResourceDeletionActions(string $source, bool $hasPageRestoreCascade = false): array
 {
     $parser = new ParserFactory()->createForNewestSupportedVersion();
     $traverser = new NodeTraverser(new NameResolver);
@@ -92,6 +94,12 @@ function unguardedResourceDeletionActions(string $source): array
         }
 
         $name = $class->toString();
+        if ($hasPageRestoreCascade
+            && (is_a($name, RestoreAction::class, true) || is_a($name, RestoreBulkAction::class, true))
+            && ! in_array($name, [RestorePageAction::class, RestorePageBulkAction::class], true)) {
+            $violations[] = $name;
+        }
+
         if ((is_a($name, Filament\Actions\ForceDeleteAction::class, true) || is_a($name, Filament\Actions\ForceDeleteBulkAction::class, true))
             && ! in_array($name, [ForceDeleteAction::class, ForceDeleteBulkAction::class], true)) {
             $violations[] = $name;
@@ -207,7 +215,7 @@ it('discovers every resource deletion and restoration action and rejects unguard
         $source = file_get_contents($file->getPathname());
         expect($source)->toBeString();
         assert(is_string($source));
-        $actual = unguardedResourceDeletionActions($source);
+        $actual = unguardedResourceDeletionActions($source, hasPageRestoreCascade: str_contains($path, '/Resources/Pages/'));
         if ($actual !== []) {
             $unexpected[$file->getPathname()] = $actual;
             $reported[$file->getPathname()] = $actual;
@@ -304,3 +312,13 @@ it('confines discovered sources to foundation packages even with other installed
         rmdir($external);
     }
 })->with(['external root' => false, 'non-foundation root in this checkout' => true]);
+
+it('rejects raw restore actions on page cascade resources and allows other resources', function (string $source): void {
+    expect(unguardedResourceDeletionActions('<?php ' . $source, true))->not->toBeEmpty()
+        ->and(unguardedResourceDeletionActions('<?php ' . $source, false))->toBe([]);
+})->with([
+    'single alias' => 'use Filament\\Actions\\RestoreAction as Recover; Recover::make();',
+    'bulk alias' => 'use Filament\\Actions\\RestoreBulkAction as Recover; Recover::make();',
+    'single constructor' => 'new \\Filament\\Actions\\RestoreAction("restore");',
+    'bulk subclass' => 'class Unsafe extends \\Filament\\Actions\\RestoreBulkAction {}',
+]);

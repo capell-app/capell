@@ -12,6 +12,7 @@ use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
@@ -345,4 +346,115 @@ it('collects a deep restore cascade with one descendant query', function (): voi
 
     expect($collected)->toEqualCanonicalizing($ids)
         ->and($queries)->toHaveCount(2);
+});
+
+it('retries a deadlocked restore after rereading the selected page and propagates other query failures', function (bool $deadlock): void {
+    // A separate in-memory connection has no suite-owned outer transaction, so
+    // Laravel can exercise its real top-level deadlock retry and rollback path.
+    $source = DB::connection();
+    config()->set('database.connections.restore_retry', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]);
+    $retry = DB::connection('restore_retry');
+    foreach ($source->select("select name, sql from sqlite_master where type = 'table' and name not like 'sqlite_%'") as $table) {
+        $retry->statement($table->sql);
+        $columns = array_column($source->select('PRAGMA table_info("' . $table->name . '")'), 'name');
+        foreach ($source->table($table->name)->get($columns) as $row) {
+            $retry->table($table->name)->insert((array) $row);
+        }
+    }
+
+    $original = DB::getDefaultConnection();
+    DB::setDefaultConnection('restore_retry');
+    try {
+        $page = Page::factory()->createOne();
+        $page->delete();
+        $attempts = 0;
+        $previous = new PDOException($deadlock ? 'Deadlock found when trying to get lock' : 'Invalid query', $deadlock ? 40001 : 42000);
+        $previous->errorInfo = [$deadlock ? '40001' : '42000', $deadlock ? 1213 : 1064, $previous->getMessage()];
+        $failure = new QueryException('restore_retry', 'select * from pages for update', [], $previous);
+        Gate::before(function (mixed $user, string $ability) use (&$attempts, $failure): ?bool {
+            throw_if($ability === 'restore' && ++$attempts === 1, $failure);
+
+            return null;
+        });
+        test()->actingAsUser();
+        $actor = test()->authenticatedUser();
+        $actor->assignedSiteIds = collect([$page->site_id]);
+        $actor->givePermissionTo(Permission::findOrCreate('Restore:Page', 'web'));
+        $retry->enableQueryLog();
+        $retry->flushQueryLog();
+
+        if ($deadlock) {
+            (new RecentlyDeletedPage)->restoreRecord('page', (int) $page->id);
+            expect($page->fresh()->trashed())->toBeFalse()
+                ->and($attempts)->toBe(3);
+        } else {
+            expect(fn () => (new RecentlyDeletedPage)->restoreRecord('page', (int) $page->id))->toThrow($failure);
+            expect($page->fresh()->trashed())->toBeTrue()
+                ->and($attempts)->toBe(1);
+        }
+
+        $selectedReads = array_filter($retry->getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'select * from "pages"') && str_contains($query['query'], '"pages"."id" = ?'));
+        expect(count($selectedReads))->toBe($deadlock ? 3 : 2);
+    } finally {
+        DB::setDefaultConnection($original);
+        DB::purge('restore_retry');
+    }
+})->with(['deadlock 1213' => true, 'other query error' => false]);
+
+it('locks the subtree using only primary keys without hydrating descendant models', function (bool $lockForUpdate): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->site($parent->site)->createOne(['blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+    $child->appendToNode($parent)->save();
+    $parent->delete();
+    $hydrated = [];
+    Page::retrieved(function (Page $page) use (&$hydrated): void {
+        $hydrated[] = (int) $page->id;
+    });
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $ids = DB::transaction(fn (): array => CollectPageRestoreCascadeIdsAction::run($parent, lockForUpdate: $lockForUpdate));
+    $queries = DB::getQueryLog();
+    DB::disableQueryLog();
+
+    expect($ids)->toEqualCanonicalizing([$parent->id, $child->id])
+        ->and($hydrated)->not->toContain((int) $child->id)
+        ->and($queries)->toHaveCount($lockForUpdate ? 3 : 2);
+    expect($queries[1]['query'])->toStartWith('select "id" from "pages"');
+})->with(['locking collection' => true, 'ordinary collection' => false]);
+
+it('eager loads site and blueprint once for restore cascade gates', function (): void {
+    $parent = Page::factory()->createOne();
+    $children = Page::factory()->site($parent->site)->count(5)->create(['blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
+    foreach ($children as $child) {
+        $child->appendToNode($parent)->save();
+    }
+
+    $parent->delete();
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$parent->site_id]);
+    $actor->givePermissionTo(Permission::findOrCreate('Restore:Page', 'web'));
+
+    $loaded = [];
+    Gate::before(function (mixed $user, string $ability, array $arguments) use (&$loaded): ?bool {
+        if ($ability === 'restore') {
+            $loaded[] = $arguments[0]->relationLoaded('blueprint') && $arguments[0]->relationLoaded('site');
+            // Explicitly load missing data so query counts expose multiplication
+            // while the ordinary policy still decides every ability.
+            $arguments[0]->loadMissing(['blueprint.roleRestrictions', 'site']);
+        }
+
+        return null;
+    });
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    expect(DB::transaction(fn (): bool => CanRestorePageCascadeAction::run($parent, lockForUpdate: true)))->toBeTrue();
+    $queries = DB::getQueryLog();
+    DB::disableQueryLog();
+    foreach (['blueprints', 'sites'] as $table) {
+        $reads = array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'from "' . $table . '"'));
+        expect(count($reads))->toBe(1);
+    }
+
+    expect($loaded)->toHaveCount(6)->each->toBeTrue();
 });

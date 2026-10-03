@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use BezhanSalleh\FilamentShield\Support\Utils;
+use Capell\Admin\Actions\Shield\ResolveDefaultGlobalResourcePermissionsAction;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\ResourceEnum;
@@ -109,7 +110,14 @@ class AssignPermissionsToRole
         foreach ($resources as $resource) {
             $resourceClass = is_string($resource) ? $resource : $resource->value;
 
-            foreach (FilamentShield::getResourcePermissions($resourceClass) ?? [] as $permission) {
+            $resourcePermissions = array_values(FilamentShield::getResourcePermissions($resourceClass) ?? []);
+            $globalResource = ResourceEnum::tryFrom($resourceClass);
+            if (in_array($globalResource, [ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language], true)) {
+                // Explicit policies also need DeleteAny, omitted by Shield's default methods.
+                $resourcePermissions = [...$resourcePermissions, ...ResolveDefaultGlobalResourcePermissionsAction::run($globalResource)];
+            }
+
+            foreach ($resourcePermissions as $permission) {
                 $permissions[] = Utils::createPermission($permission);
             }
         }

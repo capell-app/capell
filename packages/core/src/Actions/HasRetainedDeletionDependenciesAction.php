@@ -20,11 +20,13 @@ use Capell\Core\Models\Theme;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Integrity checks include all sites and retained trash, independently of author visibility. */
 final class HasRetainedDeletionDependenciesAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $record): bool

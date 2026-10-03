@@ -6,7 +6,7 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
-use Capell\Admin\Actions\CanRestorePageCascadeAction;
+use Capell\Admin\Actions\RestorePageCascadeAction;
 use Capell\Admin\Filament\Actions\ForceDeleteAction;
 use Capell\Admin\Filament\Concerns\Validate\PageValidation;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
@@ -68,19 +68,18 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
             return;
         }
 
-        $restored = $model->getConnection()->transaction(function () use ($model): bool {
-            $locked = SiteAccess::current()->query($model::class)->onlyTrashed()->whereKey($model->getKey())->lockForUpdate()->first();
-            if ($locked === null) {
-                return false;
-            }
+        $restored = $model instanceof Page
+            ? RestorePageCascadeAction::run($model)
+            : $model->getConnection()->transaction(function () use ($model): bool {
+                $locked = SiteAccess::current()->query($model::class)->onlyTrashed()->whereKey($model->getKey())->lockForUpdate()->first();
+                if ($locked === null) {
+                    return false;
+                }
 
-            Gate::authorize('restore', $locked);
-            if ($locked instanceof Page && ! CanRestorePageCascadeAction::run($locked, lockForUpdate: true)) {
-                return false;
-            }
+                Gate::authorize('restore', $locked);
 
-            return $locked->restore();
-        });
+                return $locked->restore();
+            });
 
         if (! $restored) {
             Notification::make()

@@ -18,10 +18,12 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use LogicException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ValidateForceDeleteAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $record, ?ValidatesDelete $validator): bool

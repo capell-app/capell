@@ -43,6 +43,7 @@ class ResolveDefaultRolePermissionsAction
                 self::permission('update', 'Media'),
             ], $guardName),
             'admin' => $this->existing([
+                ...ResolveDefaultGlobalResourcePermissionsAction::run(),
                 self::permission('view_any', 'Page'),
                 self::permission('view', 'Page'),
                 self::permission('create', 'Page'),

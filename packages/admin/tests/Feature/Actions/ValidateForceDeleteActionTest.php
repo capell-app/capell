@@ -6,6 +6,7 @@ use Capell\Admin\Actions\ValidateForceDeleteAction;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
 use Capell\Admin\Filament\Resources\Sites\Pages\ListSites;
+use Capell\Admin\Tests\Fixtures\RetainedDraftSubclassPage;
 use Capell\Core\Actions\EditorScratchDrafts\SaveEditorScratchDraftAction;
 use Capell\Core\Actions\HasRetainedDeletionDependenciesAction;
 use Capell\Core\Models\Blueprint;
@@ -21,11 +22,6 @@ use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Livewire\Livewire;
-
-class RetainedDraftSubclassPage extends Page
-{
-    protected $table = 'pages';
-}
 
 it('protects retained dependencies even when a component validator allows deletion', function (string $type): void {
     test()->actingAsAdmin();

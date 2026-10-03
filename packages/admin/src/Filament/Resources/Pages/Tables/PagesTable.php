@@ -13,6 +13,7 @@ use Capell\Admin\Enums\AdminZone;
 use Capell\Admin\Enums\FilamentColorEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\ForceDeleteBulkAction;
+use Capell\Admin\Filament\Actions\RestorePageBulkAction;
 use Capell\Admin\Filament\Actions\Table\ReplicatePageAction;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Actions\VisitUrlAction;
@@ -57,7 +58,6 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Pages\Page as ResourcePage;
@@ -161,7 +161,7 @@ class PagesTable implements TableConfigurator
                     ]))
                     ->before(self::beforeBulkDelete(...))
                     ->after(self::afterBulkDelete(...)),
-                RestoreBulkAction::make(),
+                RestorePageBulkAction::make(),
                 ForceDeleteBulkAction::make()
                     ->after(self::afterBulkDelete(...)),
             ])

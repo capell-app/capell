@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -18,6 +19,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class CollectPageRestoreCascadeIdsAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return list<int> */
@@ -38,7 +40,8 @@ final class CollectPageRestoreCascadeIdsAction
                 return [];
             }
 
-            $root->descendants()->getQuery()->withTrashed()->lockForUpdate()->get();
+            // Eloquent pluck hydrates cast primary keys; base queries keep this read scalar-only.
+            $root->descendants()->getQuery()->withTrashed()->lockForUpdate()->toBase()->pluck($page->getKeyName());
         }
 
         $roots = [$page, ...$ancestors->all()];
@@ -74,7 +77,7 @@ final class CollectPageRestoreCascadeIdsAction
             $descendantsQuery->lockForUpdate();
         }
 
-        $descendantIds = $descendantsQuery->pluck($page->getKeyName());
+        $descendantIds = $descendantsQuery->toBase()->pluck($page->getKeyName());
         foreach ($descendantIds as $descendantId) {
             $restoredIds[(int) $descendantId] = true;
         }

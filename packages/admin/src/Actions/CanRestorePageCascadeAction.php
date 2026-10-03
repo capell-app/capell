@@ -9,11 +9,13 @@ use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Check the conservative restore cascade before any write; locking requires the caller's transaction. */
 final class CanRestorePageCascadeAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Page $page, bool $lockForUpdate = false): bool
@@ -23,7 +25,7 @@ final class CanRestorePageCascadeAction
             return false;
         }
 
-        $restoredQuery = SiteAccess::current()->query($page::class)->onlyTrashed()->whereKey($restoredIds);
+        $restoredQuery = SiteAccess::current()->query($page::class)->onlyTrashed()->whereKey($restoredIds)->with(['blueprint.roleRestrictions', 'site']);
         if ($lockForUpdate) {
             $restoredQuery->lockForUpdate();
         }
