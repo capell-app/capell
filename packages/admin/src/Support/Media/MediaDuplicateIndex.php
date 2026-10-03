@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Media;
 
-use Capell\Admin\Support\MediaScope;
 use Capell\Core\Models\Media;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -31,8 +31,8 @@ final class MediaDuplicateIndex
         /** @var array<int, list<Media>> $mediaBySize */
         $mediaBySize = [];
 
-        MediaScope::applyForCurrentActor(
-            Media::query()->whereNull('deleted_at')->where('size', '>', 0),
+        SiteAccess::current()->scopeMedia(
+            SiteAccess::current()->query(Media::class)->whereNull('deleted_at')->where('size', '>', 0),
         )
             ->select(['id', 'disk', 'size', 'file_name', 'model_type', 'model_id', 'uuid'])
             ->orderBy('id')

@@ -23,6 +23,7 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
@@ -91,7 +92,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             return;
         }
 
-        if (Site::query()->count() === 0) {
+        if (SiteAccess::current()->query(Site::class)->count() === 0) {
             $this->redirect(SiteResource::getUrl('create'));
         }
     }
@@ -166,7 +167,7 @@ class CreatePage extends CreateRecord implements HasPageResource
         $model = Site::class;
 
         $this->data['site_id'] ??= request('site_id')
-            ?? $model::getDefault()?->id;
+            ?? SiteAccess::current()->query($model)->default()->first()?->id;
 
         $siteId = $this->data['site_id'];
         $translations = $this->data['translations'] ?? null;
@@ -199,7 +200,7 @@ class CreatePage extends CreateRecord implements HasPageResource
             $model = Page::class;
 
             /** @var ?Page $parent */
-            $parent = $model::with(['blueprint', 'translations'])->firstWhere(
+            $parent = SiteAccess::current()->query($model)->with(['blueprint', 'translations'])->firstWhere(
                 'id',
                 $parentId,
             );
@@ -258,7 +259,7 @@ class CreatePage extends CreateRecord implements HasPageResource
         $model = Site::class;
 
         $data['site_id'] ??= request('site_id')
-            ?? $model::getDefault()?->id;
+            ?? SiteAccess::current()->query($model)->default()->first()?->id;
 
         if ($this->createdAsDraft) {
             // Sentinel: a far-future visible_from means "draft / not yet published".

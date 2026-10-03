@@ -10,6 +10,7 @@ use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Tests\Fixtures\Autoload\CapturingActivityRevertHandlerForTest;
 use Capell\Admin\Tests\Fixtures\Autoload\PermissiveActivityRevertHandlerForTest;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Site;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -265,3 +266,20 @@ function capturedActivityRevertSelection(): ?ActivityRevertSelectionData
 {
     return CapturingActivityRevertHandlerForTest::$selection;
 }
+
+it('denies a foreign site subject in the default revert handler', function (): void {
+    $assigned = Site::factory()->create();
+    $foreign = Site::factory()->create(['name' => 'Current foreign name']);
+    $actor = createActivityLogPermittedUser(CapellPermission::RevertActivityLog);
+    $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+
+    test()->actingAs($actor);
+    $activity = loggedActivity(activity()->performedOn($foreign)->event('updated')->withProperties([
+        'old' => ['name' => 'Previous foreign name'], 'attributes' => ['name' => 'Current foreign name'],
+    ])->log('updated site'));
+
+    $result = RevertActivityAction::run($activity);
+
+    expect($result->successful)->toBeFalse()
+        ->and($foreign->refresh()->name)->toBe('Current foreign name');
+});

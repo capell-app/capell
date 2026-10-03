@@ -215,6 +215,7 @@ it('skips redirect creation when the old URL equals the new URL (no-op move)', f
 });
 
 it('correctly detects cycles with deep parent chains', function (): void {
+    test()->actingAsAdmin();
     $actor = test()->createUserWithRole('super_admin');
     $site = Site::factory()->withTranslations()->create();
 
@@ -298,6 +299,7 @@ it('skips pages when the actor cannot update the new parent', function (): void 
 });
 
 it('correctly walks parent chain when parent() relationship has constraints', function (): void {
+    test()->actingAsAdmin();
     $actor = test()->createUserWithRole('super_admin');
     $site = Site::factory()->withTranslations()->create();
 
@@ -343,6 +345,7 @@ it('allows moving to unrelated root pages', function (): void {
 });
 
 it('skips pages that would create indirect cycles through intermediate parents', function (): void {
+    test()->actingAsAdmin();
     $actor = test()->createUserWithRole('super_admin');
     $site = Site::factory()->withTranslations()->create();
 

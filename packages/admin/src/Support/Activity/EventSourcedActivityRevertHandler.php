@@ -13,6 +13,7 @@ use Capell\Core\EventSourcing\Exceptions\RollbackBlocked;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
 use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
 use Capell\Core\Models\PageRevision;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
 
@@ -51,11 +52,11 @@ final class EventSourcedActivityRevertHandler implements ActivityRevertHandler
     {
         $subjectClass = $selection->subjectClass;
 
-        if ($subjectClass === null) {
+        if ($subjectClass === null || ! is_a($subjectClass, Model::class, true)) {
             return ActivityRevertResultData::failed('capell-admin::event-sourcing.revert_subject_missing');
         }
 
-        $model = $subjectClass::query()->find($selection->subjectId);
+        $model = SiteAccess::current()->query($subjectClass)->find($selection->subjectId);
 
         if (! $model instanceof Model || ! $model instanceof EventSourced) {
             return ActivityRevertResultData::failed('capell-admin::event-sourcing.revert_subject_missing');

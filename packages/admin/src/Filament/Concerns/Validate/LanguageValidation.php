@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Concerns\Validate;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Core\Models\Language;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
@@ -31,7 +32,7 @@ trait LanguageValidation
                 ))
                 ->body(__(
                     'capell-admin::message.language_not_deletable_info',
-                    ['count' => $record->sites()->count()],
+                    ['count' => SiteAccess::current()->scope($record->sites()->getQuery())->count()],
                 ))
                 ->actions([
                     Action::make('sites')

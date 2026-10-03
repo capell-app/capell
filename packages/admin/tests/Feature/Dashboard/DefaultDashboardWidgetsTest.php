@@ -98,6 +98,7 @@ it('orders dashboard Filament widgets by their filament sort value', function ()
 });
 
 it('keeps account and filament info widgets on the installed dashboard', function (): void {
+    test()->actingAsAdmin();
     Site::factory()->createOne();
 
     $widgets = (new CapellDashboard)->getWidgets();

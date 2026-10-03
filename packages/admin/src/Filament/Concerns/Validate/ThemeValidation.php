@@ -8,6 +8,7 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Model;
@@ -31,7 +32,7 @@ trait ThemeValidation
                 ))
                 ->body(__(
                     'capell-admin::message.theme_not_deletable_info',
-                    ['count' => $record->sites->count()],
+                    ['count' => SiteAccess::current()->scope($record->sites()->getQuery())->count()],
                 ))
                 ->actions([
                     Action::make('sites')

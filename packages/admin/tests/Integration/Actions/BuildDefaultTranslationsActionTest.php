@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\BuildDefaultTranslationsAction;
 use Capell\Core\Models\Site;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
+
+uses(CreatesAdminUser::class);
 
 it('builds default translations map', function (): void {
+    test()->actingAsAdmin();
     $site = Site::factory()->withTranslations()->create();
     $result = BuildDefaultTranslationsAction::run($site->id);
 

@@ -10,6 +10,7 @@ use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Enums\AssetEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Support\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -46,7 +47,7 @@ final class BuildPageTreeViewDataAction
         $ancestorIds = $record->ancestors()->get(['id'])->pluck('id')->all();
         $ancestors = $ancestorIds === []
             ? new Collection
-            : Page::query()
+            : SiteAccess::current()->query(Page::class)
                 ->with($relations)
                 ->whereKey($ancestorIds)
                 ->get()

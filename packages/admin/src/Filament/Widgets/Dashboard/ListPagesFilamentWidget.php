@@ -12,12 +12,12 @@ use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\Loader\SiteLoader;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Support\Enums\Alignment;
@@ -55,7 +55,7 @@ class ListPagesFilamentWidget extends BaseWidget implements CapellFilamentWidget
         $query = parent::getFilteredTableQuery();
 
         if (! $query instanceof Builder) {
-            $query = Page::query();
+            $query = SiteAccess::current()->query(Page::class);
         }
 
         $languageId = $this->getTableFilterState('filter')['language_id'] ?? null;
@@ -78,7 +78,7 @@ class ListPagesFilamentWidget extends BaseWidget implements CapellFilamentWidget
                     /** @var class-string<Page> $model */
                     $model = Page::class;
 
-                    $query = SiteScope::applyForCurrentActor($model::query())
+                    $query = SiteAccess::current()->query($model)
                         ->with([
                             'ancestors',
                             'site',
@@ -115,7 +115,7 @@ class ListPagesFilamentWidget extends BaseWidget implements CapellFilamentWidget
                     ->url(fn (Pageable $record): ?string => GetEditPageResourceUrlAction::run($record)),
             ])
             ->tap(function (Table $table): Table {
-                $sitesCount = Site::query()->count();
+                $sitesCount = SiteAccess::current()->query(Site::class)->count();
 
                 if ($sitesCount === 0) {
                     return $table->emptyStateHeading(__('capell-admin::generic.no_sites'))

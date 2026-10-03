@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\PageTree;
 
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,7 +18,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * Loads a site-scoped branch of the admin page tree for a given actor and
  * returns only the pages that actor may view.
  *
- * Encapsulates the SiteScope query constraint together with per-row
+ * Encapsulates the site-access constraint together with per-row
  * visibility (view gate + page-type role restrictions) so controllers and
  * other callers cannot accidentally leak pages outside the actor's scope.
  *
@@ -38,7 +38,7 @@ final class LoadPageTreeBranchAction
         $pageClass = Page::class;
 
         /** @var Collection<int, Page> $pages */
-        $pages = SiteScope::applyForCurrentActor($pageClass::query())
+        $pages = SiteAccess::current()->query($pageClass)
             ->when(($parentId ?? 0) > 0, function (Builder $query) use ($parentId): void {
                 $query->where('parent_id', $parentId);
             })
@@ -60,7 +60,7 @@ final class LoadPageTreeBranchAction
     public function hasVisibleChildren(Authenticatable $actor, Page $page): bool
     {
         /** @var Collection<int, Page> $children */
-        $children = SiteScope::applyForCurrentActor($page->children()->getQuery())
+        $children = SiteAccess::current()->scope($page->children()->getQuery())
             ->with(['site', 'blueprint.roleRestrictions'])
             ->get();
 

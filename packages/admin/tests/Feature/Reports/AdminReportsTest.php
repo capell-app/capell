@@ -348,6 +348,7 @@ it('dispatches AsObject report actions from report pages', function (): void {
 });
 
 it('builds public render safety report metrics from recorded contract events', function (): void {
+    test()->actingAsAdmin();
     PublicRenderContractEvent::query()->create([
         'result' => 'failed',
         'reason' => 'Public HTML contains a Capell internal marker.',
@@ -374,6 +375,7 @@ it('builds package readiness scorecard metrics from registered manifests', funct
 });
 
 it('treats frontend packages as render-safe until an attributed public render failure is recorded', function (): void {
+    test()->actingAsAdmin();
     $manifest = CapellManifestData::fromArray(capellManifestV3Array(
         name: 'vendor/frontend-package',
         surfaces: ['frontend'],

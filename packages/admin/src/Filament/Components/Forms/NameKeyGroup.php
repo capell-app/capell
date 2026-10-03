@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms;
 
-use Capell\Admin\Support\SiteScope;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Slug\SlugGenerator;
 use Closure;
 use Filament\Actions\Action;
@@ -117,7 +117,7 @@ class NameKeyGroup
                             return false;
                         }
 
-                        return SiteScope::isGlobalActor($user);
+                        return SiteAccess::forActor($user)->isGlobal();
                     }),
 
                 $keyInput,

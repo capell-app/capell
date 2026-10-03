@@ -5,8 +5,12 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Pages\BuildPageTreeViewDataAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
+
+uses(CreatesAdminUser::class);
 
 it('builds page tree data with ordered ancestors and related branches', function (): void {
+    test()->actingAsAdmin();
     $site = Site::factory()->withTranslations()->create();
     Page::factory()->recycle($site)->home()->published()->withTranslations()->create();
     $ancestor = Page::factory()->recycle($site)->withTranslations()->create();

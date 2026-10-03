@@ -8,6 +8,7 @@ use Capell\Admin\Contracts\Extenders\PublishPanelExtender;
 use Capell\Admin\Data\PagePublishStateData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageWorkflowState;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -25,7 +26,7 @@ final class WorkflowPublishPanelExtender implements PublishPanelExtender
 {
     public function extendPanel(PagePublishStateData $state): ?View
     {
-        $page = Page::query()->find($state->pageId);
+        $page = SiteAccess::current()->query(Page::class)->find($state->pageId);
 
         if ($page === null) {
             return null;

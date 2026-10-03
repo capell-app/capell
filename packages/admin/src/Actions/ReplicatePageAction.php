@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Actions\IncrementNameAction;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -63,7 +64,7 @@ class ReplicatePageAction
     {
         $name = IncrementNameAction::run($page->name);
 
-        while ($page::query()->where('name', $name)->exists()) {
+        while (SiteAccess::current()->query($page::class)->where('name', $name)->exists()) {
             $name = IncrementNameAction::run($name);
         }
 

@@ -6,7 +6,6 @@ namespace Capell\Admin\Actions\Metrics;
 
 use Capell\Admin\Data\Metrics\SiteAdminMetricSeriesData;
 use Capell\Admin\Data\Metrics\SiteAdminMetricTrendPointData;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Actions\Metrics\ReadMetricSeriesAction;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
 use Capell\Core\Data\Metrics\MetricDefinitionData;
@@ -21,6 +20,7 @@ use Capell\Core\Enums\Metrics\MetricVisibility;
 use Capell\Core\Enums\MetricUnitEnum;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Metrics\MetricEventRegistry;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -51,7 +51,7 @@ final class ReadSiteAdminMetricSeriesAction
     {
         Gate::forUser($actor)->authorize(self::Permission);
         throw_unless(
-            SiteScope::isGlobalActor($actor),
+            SiteAccess::forActor($actor)->isGlobal(),
             AuthorizationException::class,
             'Global metrics require a global administrator.',
         );

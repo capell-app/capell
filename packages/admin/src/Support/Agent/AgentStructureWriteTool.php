@@ -17,6 +17,7 @@ use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\PropertySet;
 use Capell\Core\Models\Taxonomy;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 
@@ -90,7 +91,7 @@ final readonly class AgentStructureWriteTool implements AgentAdminTool
         }
 
         if ($resource === 'taxonomy') {
-            $taxonomy = $id === null ? null : Taxonomy::query()
+            $taxonomy = $id === null ? null : SiteAccess::current()->query(Taxonomy::class)
                 ->whereKey((int) $id)
                 ->where('site_id', $invocation->siteId)
                 ->firstOrFail();
@@ -138,7 +139,7 @@ final readonly class AgentStructureWriteTool implements AgentAdminTool
             $site = $this->authorization->site($invocation->user, $invocation->siteId);
             $taxonomy = $operation === 'create'
                 ? CreateTaxonomyAction::run($site, $data)
-                : UpdateTaxonomyAction::run(Taxonomy::query()->whereKey((int) $id)->where('site_id', $site->id)->firstOrFail(), $data);
+                : UpdateTaxonomyAction::run(SiteAccess::current()->query(Taxonomy::class)->whereKey((int) $id)->where('site_id', $site->id)->firstOrFail(), $data);
             $savedId = $taxonomy->id;
         } else {
             $propertySet = $operation === 'create'
@@ -180,7 +181,7 @@ final readonly class AgentStructureWriteTool implements AgentAdminTool
         }
 
         if (($invocation->payload['resource'] ?? null) === 'taxonomy') {
-            $taxonomy = Taxonomy::query()
+            $taxonomy = SiteAccess::current()->query(Taxonomy::class)
                 ->whereKey((int) $invocation->payload['id'])
                 ->where('site_id', $invocation->siteId)
                 ->firstOrFail();

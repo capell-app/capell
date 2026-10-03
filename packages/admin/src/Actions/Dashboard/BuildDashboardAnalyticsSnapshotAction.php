@@ -6,7 +6,6 @@ namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
 use Capell\Admin\Settings\AdminSettings;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Enums\ActivityBucketSubjectEnum;
 use Capell\Core\Enums\Database\DatabaseFamily;
 use Capell\Core\Facades\CapellDatabase;
@@ -16,6 +15,7 @@ use Capell\Core\Models\MetricDailyRollup;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Metrics\ActivityBucketsDailyMetricsCollector;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -53,7 +53,7 @@ final class BuildDashboardAnalyticsSnapshotAction
             ->limit($this->topLimit())
             ->toBase()
             ->get();
-        $pageUrls = PageUrl::query()
+        $pageUrls = SiteAccess::forActor($actor)->query(PageUrl::class)
             ->whereIn('id', $topPageRows->pluck('subject_key')->map(static fn (mixed $id): int => (int) $id))
             ->pluck('url', 'id');
         $topPages = array_values($topPageRows->map(static fn (object $row): array => [
@@ -110,7 +110,7 @@ final class BuildDashboardAnalyticsSnapshotAction
             ->limit(20)
             ->toBase()
             ->get(['bucket_started_at', 'subject_key', 'count']);
-        $recentUrls = PageUrl::query()
+        $recentUrls = SiteAccess::forActor($actor)->query(PageUrl::class)
             ->whereIn('id', $recentRows->pluck('subject_key')->map(static fn (mixed $id): int => (int) $id))
             ->pluck('url', 'id');
         $recentActivity = array_values($recentRows->map(static fn (object $row): array => [
@@ -255,7 +255,7 @@ final class BuildDashboardAnalyticsSnapshotAction
         }
 
         $keys = $current->keys()->merge($previous->keys())->unique()->values();
-        $pageUrls = PageUrl::query()->whereIn('id', $keys->map(static fn (mixed $id): int => (int) $id))->pluck('url', 'id');
+        $pageUrls = SiteAccess::forActor($actor)->query(PageUrl::class)->whereIn('id', $keys->map(static fn (mixed $id): int => (int) $id))->pluck('url', 'id');
 
         return array_values($keys
             ->map(static function (mixed $key) use ($current, $previous, $pageUrls): ?array {
@@ -313,21 +313,17 @@ final class BuildDashboardAnalyticsSnapshotAction
     /** @return Builder<ActivityVisitor> */
     private function authorizedVisitorQuery(Authenticatable $actor, ?int $siteId): Builder
     {
-        $query = ActivityVisitor::query();
+        $query = SiteAccess::forActor($actor)->query(ActivityVisitor::class);
 
         if ($siteId !== null) {
-            $site = Site::query()->find($siteId);
+            $site = SiteAccess::forActor($actor)->query(Site::class)->find($siteId);
 
-            return ! $site instanceof Site || ! SiteScope::actorCanUseSite($actor, $site)
+            return ! $site instanceof Site || ! SiteAccess::forActor($actor)->can($site)
                 ? $query->whereRaw('1 = 0')
                 : $query->where('site_id', $siteId);
         }
 
-        return SiteScope::isGlobalActor($actor)
-            ? $query
-            : ($actor->getAssignedSiteIds()->isNotEmpty()
-                ? $query->whereIn('site_id', $actor->getAssignedSiteIds())
-                : $query->whereRaw('1 = 0'));
+        return $query;
     }
 
     private function rollupSum(Authenticatable $actor, string $metric, CarbonImmutable $start, CarbonImmutable $end, ?int $siteId, ?string $language): int
@@ -338,7 +334,7 @@ final class BuildDashboardAnalyticsSnapshotAction
     /** @return Builder<MetricDailyRollup> */
     private function rollupQuery(Authenticatable $actor, string $metric, CarbonImmutable $start, CarbonImmutable $end, ?int $siteId, ?string $language): Builder
     {
-        $query = MetricDailyRollup::query()
+        $query = SiteAccess::forActor($actor)->query(MetricDailyRollup::class)
             ->where('owner_package', ActivityBucketsDailyMetricsCollector::OWNER_PACKAGE)
             ->where('collector_key', ActivityBucketsDailyMetricsCollector::COLLECTOR_KEY)
             ->where('metric_key', $metric)
@@ -347,38 +343,30 @@ final class BuildDashboardAnalyticsSnapshotAction
             ->when($language !== null, fn (Builder $query): Builder => $query->where('language', $language));
 
         if ($siteId !== null) {
-            $site = Site::query()->find($siteId);
+            $site = SiteAccess::forActor($actor)->query(Site::class)->find($siteId);
 
-            return ! $site instanceof Site || ! SiteScope::actorCanUseSite($actor, $site)
+            return ! $site instanceof Site || ! SiteAccess::forActor($actor)->can($site)
                 ? $query->whereRaw('1 = 0')
                 : $query->where('site_id', $siteId);
         }
 
-        return SiteScope::isGlobalActor($actor)
-            ? $query
-            : ($actor->getAssignedSiteIds()->isNotEmpty()
-                ? $query->whereIn('site_id', $actor->getAssignedSiteIds())
-                : $query->whereRaw('1 = 0'));
+        return $query;
     }
 
     /** @return Builder<ActivityBucket> */
     private function authorizedActivityQuery(Authenticatable $actor, ?int $siteId): Builder
     {
-        $query = ActivityBucket::query();
+        $query = SiteAccess::forActor($actor)->query(ActivityBucket::class);
 
         if ($siteId !== null) {
-            $site = Site::query()->find($siteId);
+            $site = SiteAccess::forActor($actor)->query(Site::class)->find($siteId);
 
-            return ! $site instanceof Site || ! SiteScope::actorCanUseSite($actor, $site)
+            return ! $site instanceof Site || ! SiteAccess::forActor($actor)->can($site)
                 ? $query->whereRaw('1 = 0')
                 : $query->where('site_id', $siteId);
         }
 
-        return SiteScope::isGlobalActor($actor)
-            ? $query
-            : ($actor->getAssignedSiteIds()->isNotEmpty()
-                ? $query->whereIn('site_id', $actor->getAssignedSiteIds())
-                : $query->whereRaw('1 = 0'));
+        return $query;
     }
 
     private function periodDays(string $period): int

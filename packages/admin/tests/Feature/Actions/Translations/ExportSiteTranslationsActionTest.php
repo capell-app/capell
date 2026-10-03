@@ -7,7 +7,10 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+
+uses(CreatesAdminUser::class);
 
 /**
  * @return list<list<string>>
@@ -57,6 +60,7 @@ function makeTwoLanguageSite(): array
 }
 
 it('exports one row per record and target language with the expected columns', function (): void {
+    test()->actingAsAdmin();
     [$site, $english, $german] = makeTwoLanguageSite();
 
     $page = Page::factory()->createOne(['site_id' => $site->id, 'name' => 'Landing']);
@@ -89,6 +93,7 @@ it('exports one row per record and target language with the expected columns', f
 });
 
 it('round trips content containing commas, double quotes and newlines', function (): void {
+    test()->actingAsAdmin();
     [$site, $english, $german] = makeTwoLanguageSite();
 
     $content = "Line one, with comma\nLine \"two\" quoted\r\nLine three";
@@ -118,6 +123,7 @@ it('round trips content containing commas, double quotes and newlines', function
 });
 
 it('scopes the export to the requested site', function (): void {
+    test()->actingAsAdmin();
     [$site, $english] = makeTwoLanguageSite();
 
     $ownPage = Page::factory()->createOne(['site_id' => $site->id]);

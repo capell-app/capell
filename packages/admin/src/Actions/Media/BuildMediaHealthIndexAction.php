@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Media;
 
-use Capell\Admin\Support\MediaScope;
 use Capell\Core\Models\Media;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -19,8 +19,8 @@ final class BuildMediaHealthIndexAction
     public function handle(): array
     {
         /** @var Collection<int, Media> $media */
-        $media = MediaScope::applyForCurrentActor(
-            Media::query()->with(['translations.language']),
+        $media = SiteAccess::current()->scopeMedia(
+            SiteAccess::current()->query(Media::class)->with(['translations.language']),
         )->get();
 
         $states = [];

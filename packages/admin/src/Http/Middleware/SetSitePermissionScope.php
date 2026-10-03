@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Http\Middleware;
 
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -40,7 +40,7 @@ class SetSitePermissionScope
 
         $this->syncSessionSite($request, $user);
 
-        $siteId = $user instanceof Authenticatable && SiteScope::isGlobalActor($user)
+        $siteId = $user instanceof Authenticatable && SiteAccess::forActor($user)->isGlobal()
             ? null
             : $this->resolveSiteId($request);
 
@@ -76,7 +76,7 @@ class SetSitePermissionScope
 
         if ($requestedSiteId !== null) {
             $user = $request->user();
-            $site = Site::query()->find($requestedSiteId);
+            $site = SiteAccess::forActor($user, acrossAssignedSites: true)->query(Site::class)->find($requestedSiteId);
 
             if ($site !== null && $this->actorBelongsToSite($user, $site)) {
                 return $requestedSiteId;
@@ -91,7 +91,7 @@ class SetSitePermissionScope
 
         if ($sessionSiteId > 0
             && $user !== null) {
-            $site = Site::query()->find($sessionSiteId);
+            $site = SiteAccess::forActor($user, acrossAssignedSites: true)->query(Site::class)->find($sessionSiteId);
 
             if ($site !== null && $this->actorBelongsToSite($user, $site)) {
                 return $sessionSiteId;
@@ -118,7 +118,7 @@ class SetSitePermissionScope
             return false;
         }
 
-        if (SiteScope::isGlobalActor($actor)) {
+        if (SiteAccess::forActor($actor)->isGlobal()) {
             return true;
         }
 
@@ -154,7 +154,7 @@ class SetSitePermissionScope
             return;
         }
 
-        $site = Site::query()->find($requestedSiteId);
+        $site = SiteAccess::forActor($user, acrossAssignedSites: true)->query(Site::class)->find($requestedSiteId);
 
         if ($site !== null && $this->actorBelongsToSite($user, $site)) {
             $request->session()->put('capell.current_site_id', $requestedSiteId);

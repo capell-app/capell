@@ -18,9 +18,9 @@ use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\Languages\Pages\ManageLanguages;
 use Capell\Admin\Filament\Resources\Languages\Schemas\LanguageForm;
 use Capell\Admin\Support\AdminSurfaceLookup;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -60,7 +60,7 @@ class LanguagesTable implements TableConfigurator
                                 && isset($actionData['setup_sites']) && is_array($actionData['setup_sites']) && $actionData['setup_sites'] !== []
                             ) {
                                 /** @var Builder<Site> $siteQuery */
-                                $siteQuery = SiteScope::applyForCurrentActor(Site::query(), 'id')
+                                $siteQuery = SiteAccess::current()->query(Site::class)
                                     ->whereIn('id', $actionData['setup_sites']);
 
                                 $siteQuery->each(function (Site $site) use ($replica): void {

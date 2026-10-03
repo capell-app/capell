@@ -6,11 +6,10 @@ namespace Capell\Admin\Filament\Concerns;
 
 use Capell\Admin\Enums\CacheEnum;
 use Capell\Admin\Support\Loader\SiteLoader;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
@@ -29,7 +28,7 @@ trait HasSiteTableFilterTabs
 
     public function getTabs(): array
     {
-        if ($this->siteRelation === '' || SiteLoader::getTotalSites() < 2) {
+        if ($this->siteRelation === '' || (SiteAccess::current()->isGlobal() && SiteLoader::getTotalSites() < 2)) {
             return [];
         }
 
@@ -88,7 +87,7 @@ trait HasSiteTableFilterTabs
      */
     private function getRelatedModel(string $model): Model
     {
-        $query = $model::query()->select(['id', 'name']);
+        $query = SiteAccess::current()->query($model)->select(['id', 'name']);
 
         return $query->getRelation($this->siteRelation)->getRelated();
     }
@@ -103,9 +102,7 @@ trait HasSiteTableFilterTabs
             return $this->getSites($related);
         }
 
-        $actor = auth()->user();
-
-        if ($actor instanceof Authenticatable && ! SiteScope::isGlobalActor($actor)) {
+        if (! SiteAccess::current()->isGlobal()) {
             return $this->getSites($related);
         }
 
@@ -137,8 +134,8 @@ trait HasSiteTableFilterTabs
     private function getSites(Model $related): EloquentCollection
     {
         /** @var Builder<Site> $siteQuery */
-        $siteQuery = Site::query();
-        $query = SiteScope::applyForCurrentActor($siteQuery, 'id')->select(['id', 'name']);
+        $siteQuery = SiteAccess::current()->query(Site::class);
+        $query = SiteAccess::current()->scope($siteQuery, 'id')->select(['id', 'name']);
 
         /** @var EloquentCollection<int, Site> $sites */
         $sites = $this->modifySiteTableFilterTabsQuery(
@@ -174,7 +171,7 @@ trait HasSiteTableFilterTabs
 
     private function getNoneBadgeCount(Model $related): int
     {
-        return $related::query()
+        return SiteAccess::current()->query($related::class)
             ->whereNull('site_id')
             ->when(
                 $related->hasNamedScope('enabled'),

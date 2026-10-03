@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -27,13 +28,13 @@ class BuildDefaultTranslationsAction
             /** @var class-string<Site> $siteModel */
             $siteModel = Site::class;
 
-            $siteId = (int) ($siteModel::query()->where('default', true)->value('id') ?? 0) !== 0 ? (int) ($siteModel::query()->where('default', true)->value('id') ?? 0) : null;
+            $siteId = (int) (SiteAccess::current()->query($siteModel)->where('default', true)->value('id') ?? 0) !== 0 ? (int) (SiteAccess::current()->query($siteModel)->where('default', true)->value('id') ?? 0) : null;
         }
 
         /** @var class-string<SiteDomain> $model */
         $model = SiteDomain::class;
 
-        return $model::query()
+        return SiteAccess::current()->query($model)
             ->where('site_id', $siteId)
             ->groupBy('language_id')
             ->pluck('language_id')

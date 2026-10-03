@@ -16,6 +16,7 @@ use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
 use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Validation\ValidationException;
 
 final readonly class AgentPageDraftSaveTool implements AgentAdminTool
@@ -181,7 +182,7 @@ final readonly class AgentPageDraftSaveTool implements AgentAdminTool
 
     private function scratchDraft(AgentAdminToolInvocationData $invocation, Page $page): ?EditorScratchDraft
     {
-        return EditorScratchDraft::query()
+        return SiteAccess::current()->query(EditorScratchDraft::class)
             ->forEditor($invocation->user, $page, $this->locale($invocation), 'page-editor')
             ->first();
     }

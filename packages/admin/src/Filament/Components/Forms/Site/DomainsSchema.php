@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Components\Forms\Site;
 
 use Capell\Admin\Filament\Components\Forms\LanguageSelect;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
@@ -66,7 +67,7 @@ class DomainsSchema
 
                                 $appUrlHost = parse_url((string) config('app.url'), PHP_URL_HOST);
 
-                                $siteDomain = SiteDomain::query()->withWhereHas('site')
+                                $siteDomain = SiteAccess::current()->query(SiteDomain::class)->withWhereHas('site')
                                     ->whereHas('language')
                                     ->where(
                                         fn (Builder $query) => $query

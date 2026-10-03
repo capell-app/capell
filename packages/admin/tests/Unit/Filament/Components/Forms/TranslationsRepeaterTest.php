@@ -12,13 +12,17 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonInterface;
 use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
 
+uses(CreatesAdminUser::class);
+
 it('enforces required site translation languages from mounted admin form state', function (): void {
+    test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
     $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
     $french = Language::factory()->french(order: 3)->createOne();
@@ -86,6 +90,7 @@ it('enforces required site translation languages from mounted admin form state',
 });
 
 it('scopes page translation defaults and addable languages to the current site', function (): void {
+    test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
     $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
     $german = Language::factory()->german(order: 3)->createOne();
@@ -171,6 +176,7 @@ it('uses the page content structure override when preparing translation content'
 });
 
 it('blocks page translation additions that would violate parent language coverage', function (): void {
+    test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
     $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
 
@@ -243,6 +249,7 @@ it('blocks page translation additions that would violate parent language coverag
 });
 
 it('adds the only available page translation language when add action arguments are missing', function (): void {
+    test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
     $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
 

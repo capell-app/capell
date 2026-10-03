@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Policies;
 
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Foundation\Auth\User;
 
 class RedirectPolicy
@@ -95,6 +95,6 @@ class RedirectPolicy
     {
         $record->loadMissing('site');
 
-        return SiteScope::actorCanUseSite($user, $record->site);
+        return SiteAccess::forActor($user)->can($record->site);
     }
 }

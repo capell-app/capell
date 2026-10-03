@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Actions;
 
 use Capell\Admin\Actions\SetupSiteLanguageAction;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Actions\CreateAction as BaseCreateAction;
 use Filament\Resources\Pages\CreateRecord;
@@ -168,7 +168,7 @@ class CreateAction extends BaseCreateAction
 
         if ($record instanceof Language && $shouldSetupLanguage) {
             /** @var Builder<Site> $siteQuery */
-            $siteQuery = SiteScope::applyForCurrentActor(Site::query(), 'id')
+            $siteQuery = SiteAccess::current()->query(Site::class)
                 ->whereIn('id', $setupSites);
 
             $siteQuery->each(function (Site $site) use ($record): void {

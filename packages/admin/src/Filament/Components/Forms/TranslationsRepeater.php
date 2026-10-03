@@ -18,6 +18,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\CapellCoreHelper;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use DateTimeInterface;
 use Filament\Actions\Action;
@@ -361,7 +362,7 @@ class TranslationsRepeater extends RepeaterTabs
             if (is_array($requiredTranslations) && $requiredTranslations !== []) {
                 $rawState = RawState::array($component->getRootContainer()->getRawState());
                 $siteId = $rawState['site_id'] ?? null;
-                $site = CapellCoreHelper::getSite($siteId, true);
+                $site = SiteAccess::current()->site($siteId, true);
                 if (! $site instanceof Site) {
                     return 0;
                 }
@@ -394,7 +395,7 @@ class TranslationsRepeater extends RepeaterTabs
 
             $rawState = RawState::array($component->getRootContainer()->getRawState());
             $siteId = $rawState['site_id'] ?? null;
-            $site = CapellCoreHelper::getSite($siteId, true);
+            $site = SiteAccess::current()->site($siteId, true);
             if (! $site instanceof Site) {
                 return;
             }

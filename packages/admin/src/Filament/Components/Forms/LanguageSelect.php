@@ -6,9 +6,9 @@ namespace Capell\Admin\Filament\Components\Forms;
 
 use Capell\Admin\Actions\SetupSiteLanguageAction;
 use Capell\Admin\Filament\Resources\Languages\Schemas\LanguageForm;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -137,7 +137,7 @@ class LanguageSelect extends Select
 
                         if ($shouldSetup && is_array($setupSites) && $setupSites !== []) {
                             /** @var Builder<Site> $sitesQuery */
-                            $sitesQuery = SiteScope::applyForCurrentActor(Site::query(), 'id');
+                            $sitesQuery = SiteAccess::current()->query(Site::class);
 
                             $sitesQuery
                                 ->whereIn('id', $setupSites)

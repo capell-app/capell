@@ -10,16 +10,16 @@ use Capell\Admin\Filament\Concerns\HasNavigationBadge;
 use Capell\Admin\Filament\Resources\Media\Pages\EditMedia;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
 use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
-use Capell\Admin\Support\MediaScope;
+use Capell\Admin\Filament\Resources\SiteScopedResource;
 use Capell\Core\Models\Media;
-use Filament\Resources\Resource;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Override;
 use Spatie\MediaLibrary\MediaCollections\Models\Media as SpatieMedia;
 
-class MediaResource extends Resource
+class MediaResource extends SiteScopedResource
 {
     use HasConfiguredTable;
     use HasNavigationBadge;
@@ -45,7 +45,7 @@ class MediaResource extends Resource
     #[Override]
     public static function getEloquentQuery(): Builder
     {
-        return MediaScope::applyForCurrentActor(parent::getEloquentQuery())
+        return SiteAccess::current()->scopeMedia(parent::getEloquentQuery())
             ->with(['model', 'translations.language']);
     }
 

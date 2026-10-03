@@ -20,11 +20,11 @@ use Capell\Admin\Filament\Resources\Layouts\Pages\ListLayouts;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Resources\Themes\Tables\ThemesTable;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
-use Capell\Admin\Support\SiteScope;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -261,7 +261,7 @@ class LayoutsTable implements TableConfigurator
                 ->relationship(
                     name: 'site',
                     titleAttribute: 'name',
-                    modifyQueryUsing: fn (Builder $query): Builder => SiteScope::applyForCurrentActor($query, 'id')->ordered(),
+                    modifyQueryUsing: fn (Builder $query): Builder => SiteAccess::current()->scope($query, 'id')->ordered(),
                 ),
             SelectFilter::make('theme_id')
                 ->label(__('capell-admin::form.theme'))
@@ -281,22 +281,21 @@ class LayoutsTable implements TableConfigurator
 
     private static function getPageSiteSqlConstraint(string $qualifiedPageTable): string
     {
-        $actor = auth()->user();
+        $access = SiteAccess::current();
+        $assignedSiteIds = $access->allowedSiteIds();
 
-        if (! $actor instanceof Authenticatable || SiteScope::isGlobalActor($actor)) {
+        if ($assignedSiteIds === null) {
             return '';
         }
 
-        $assignedSiteIds = $actor->getAssignedSiteIds()->values();
-
-        if ($assignedSiteIds->isEmpty()) {
+        if ($assignedSiteIds === []) {
             return ' AND 1 = 0';
         }
 
         return sprintf(
             ' AND %s.site_id IN (%s)',
             $qualifiedPageTable,
-            $assignedSiteIds->implode(','),
+            implode(',', $assignedSiteIds),
         );
     }
 
@@ -304,6 +303,6 @@ class LayoutsTable implements TableConfigurator
     {
         $actor = auth()->user();
 
-        return $actor instanceof Authenticatable && SiteScope::isGlobalActor($actor);
+        return $actor instanceof Authenticatable && SiteAccess::forActor($actor)->isGlobal();
     }
 }

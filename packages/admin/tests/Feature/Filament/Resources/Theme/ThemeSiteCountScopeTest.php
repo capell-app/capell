@@ -15,6 +15,7 @@ use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Contracts\Translation\Translator;
 use Livewire\Livewire;
 
 uses(CreatesAdminUser::class)
@@ -134,4 +135,17 @@ it('keeps an in-use legacy foundation theme listed for a scoped user who cannot 
     actAsThemeSiteScopedUser($assignedSite);
 
     expect(themeSiteCountFromLibrary($theme))->toBe(0);
+});
+
+it('shows only accessible usage in the theme deletion notification', function (): void {
+    resolve(Translator::class)->addLines(['message.theme_not_deletable_info' => 'Accessible sites: :count'], 'en', 'capell-admin');
+    ['theme' => $theme, 'sites' => $sites] = themeSiteCountScopeFixture();
+    actAsThemeSiteScopedUser($sites[0]);
+    $page = Livewire::test(ManageThemes::class)->instance();
+    session()->forget('filament.notifications');
+
+    expect($page->validateDelete($theme))->toBeFalse();
+    $notification = collect(session()->get('filament.notifications'))->first();
+
+    expect($notification['body'])->toBe(__('capell-admin::message.theme_not_deletable_info', ['count' => 1]));
 });

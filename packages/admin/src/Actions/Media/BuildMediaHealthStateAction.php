@@ -6,8 +6,8 @@ namespace Capell\Admin\Actions\Media;
 
 use Capell\Admin\Data\Media\MediaHealthStateData;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
-use Capell\Admin\Support\MediaScope;
 use Capell\Core\Models\Media;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -37,6 +37,6 @@ final class BuildMediaHealthStateAction
 
         return is_numeric($projectedCount)
             ? (int) $projectedCount
-            : MediaScope::trackedUsageCount($media);
+            : SiteAccess::current()->trackedUsageCount($media);
     }
 }

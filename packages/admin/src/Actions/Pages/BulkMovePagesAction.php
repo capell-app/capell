@@ -11,6 +11,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
@@ -157,7 +158,7 @@ class BulkMovePagesAction
                 return true;
             }
 
-            $current = Page::query()->find($current->parent_id);
+            $current = SiteAccess::current()->query(Page::class)->find($current->parent_id);
 
             if ($current === null) {
                 return false;
@@ -247,7 +248,7 @@ class BulkMovePagesAction
 
     private function redirectUrlExists(int $siteId, int $languageId, string $url): bool
     {
-        return PageUrl::query()
+        return SiteAccess::current()->query(PageUrl::class)
             ->where('site_id', $siteId)
             ->where('language_id', $languageId)
             ->where('url', $url)
