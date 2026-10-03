@@ -31,6 +31,7 @@
             fullBaseUrl: @js($getFullBaseUrl()),
             rootBaseUrl: @js($getDisplayBaseUrl('/')),
             basePath: @js($getBasePath()),
+            autoUpdateDisabledStatePath: @js($getAutoUpdateDisabledStatePath()),
             editing: false,
             modified: false,
             init() {
@@ -54,6 +55,7 @@
             },
             submitModification() {
                 let state = $get('{{ $relativeStatePath }}')
+                this.updateAutoUpdateDisabled(state)
                 let slug = state
                     .normalize('NFD')
                     .replace(/[\u0300-\u036f]/g, '')
@@ -69,7 +71,14 @@
             },
             resetModification() {
                 this.$set('{{ $relativeStatePath }}', this.initialState)
+                this.updateAutoUpdateDisabled(this.initialState)
                 this.modified = false
+            },
+            updateAutoUpdateDisabled(state) {
+                if (this.autoUpdateDisabledStatePath !== null) {
+                    // Deferred title hooks must see the manual choice before the slug hook runs.
+                    this.$set(this.autoUpdateDisabledStatePath, typeof state === 'string' && state.trim() !== '')
+                }
             },
             currentSlug() {
                 return $get('{{ $relativeStatePath }}') ?? ''
@@ -175,7 +184,8 @@
                                 type="text"
                                 x-ref="slugInput"
                                 x-bind:disabled="! editing"
-                                x-on:keydown.enter="submitModification()"
+                                x-on:input="updateAutoUpdateDisabled($event.target.value)"
+                                x-on:keydown.enter.prevent="submitModification()"
                                 x-on:keydown.escape="cancelModification()"
                                 {!! ($autocomplete = $getAutocomplete()) ? "autocomplete=\"{$autocomplete}\"" : null !!}
                                 id="{{ $getId() }}"

@@ -43,6 +43,20 @@ class SlugInput extends TextInput
 
     protected string|Closure|null $slugLabelPostfix = null;
 
+    protected ?string $autoUpdateDisabledStatePath = null;
+
+    public function slugInputAutoUpdateDisabledStatePath(?string $statePath): static
+    {
+        $this->autoUpdateDisabledStatePath = $statePath;
+
+        return $this;
+    }
+
+    public function getAutoUpdateDisabledStatePath(): ?string
+    {
+        return $this->autoUpdateDisabledStatePath;
+    }
+
     public function slugInputModelName(?Closure $slugInputModelName): static
     {
         $this->slugInputModelName = $slugInputModelName;
