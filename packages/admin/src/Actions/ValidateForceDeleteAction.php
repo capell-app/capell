@@ -54,8 +54,8 @@ final class ValidateForceDeleteAction
         if (HasRetainedDeletionDependenciesAction::run($record)) {
             Notification::make('retained_dependencies_not_deletable')
                 ->warning()
-                ->title(__($record instanceof Site ? 'capell-admin::message.site_force_delete_blocked' : 'capell-admin::message.content_graph_delete_blocked'))
-                ->body(__($record instanceof Site ? 'capell-admin::message.site_force_delete_blocked_info' : 'capell-admin::message.force_delete_dependencies_info'))
+                ->title($record instanceof Site ? __('capell-admin::message.site_force_delete_blocked') : __('capell-admin::message.content_graph_delete_blocked'))
+                ->body($record instanceof Site ? __('capell-admin::message.site_force_delete_blocked_info') : __('capell-admin::message.force_delete_dependencies_info'))
                 ->send();
 
             return false;

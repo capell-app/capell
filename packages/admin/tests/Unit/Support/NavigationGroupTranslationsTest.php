@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Support\CompanionNavigationGroups;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator;
@@ -18,11 +19,7 @@ it('translates every referenced navigation group in every shipped admin locale',
 
     // Companion-only groups are part of Admin's translation contract even when
     // Notes, Socials, Social Feeds and Shopify Commerce are not installed here.
-    $navigationGroupKeys = [
-        'capell-admin::navigation.group_extensions',
-        'capell-admin::navigation.group_growth',
-        'capell-admin::navigation.group_integrations',
-    ];
+    $navigationGroupKeys = CompanionNavigationGroups::LABELS;
 
     $sourceReferences = [];
 
@@ -58,4 +55,8 @@ it('translates every referenced navigation group in every shipped admin locale',
             Assert::assertNotSame($navigationGroupKey, $translation, $locale . ': ' . $navigationGroupKey);
         }
     }
+});
+
+it('keeps the translated companion group map in step with the declared labels', function (): void {
+    expect(array_keys(CompanionNavigationGroups::translated()))->toBe(CompanionNavigationGroups::LABELS);
 });
