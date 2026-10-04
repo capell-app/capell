@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ee57d531328ed65d0449b31f70491bcc",
+    "content-hash": "767ae59a9afc44378e766da8324d3782",
     "packages": [
         {
             "name": "aimeos/laravel-nestedset",

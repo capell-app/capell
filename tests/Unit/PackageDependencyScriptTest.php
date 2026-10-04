@@ -2,6 +2,43 @@
 
 declare(strict_types=1);
 
+use Composer\Semver\Semver;
+
+it('admits locked external releases in every published Composer manifest', function (): void {
+    $root = dirname(__DIR__, 2);
+
+    /** @var array<string, list<array{name: string, version: string, replace?: array<string, string>}>> $lock */
+    $lock = json_decode((string) file_get_contents($root . '/composer.lock'), true, flags: JSON_THROW_ON_ERROR);
+    $versions = [];
+
+    foreach ([...$lock['packages'], ...$lock['packages-dev']] as $package) {
+        $versions[$package['name']] = $package['version'];
+
+        foreach ($package['replace'] ?? [] as $name => $constraint) {
+            if ($constraint === 'self.version') {
+                $versions[$name] = $package['version'];
+            }
+        }
+    }
+
+    $failures = [];
+
+    foreach ([$root . '/composer.json', ...(glob($root . '/packages/*/composer.json') ?: [])] as $path) {
+        /** @var array{require?: array<string, string>, 'require-dev'?: array<string, string>} $manifest */
+        $manifest = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+
+        foreach (['require', 'require-dev'] as $section) {
+            foreach ($manifest[$section] ?? [] as $name => $constraint) {
+                if (isset($versions[$name]) && ! Semver::satisfies($versions[$name], $constraint)) {
+                    $failures[] = sprintf('%s: %s %s excludes locked %s.', $path, $name, $constraint, $versions[$name]);
+                }
+            }
+        }
+    }
+
+    expect($failures)->toBe([], implode(PHP_EOL, $failures));
+});
+
 /**
  * @return array{0: int, 1: string}
  */
