@@ -7,7 +7,7 @@ Use this checklist when creating or reviewing a Capell package.
 ## Required
 
 - `composer.json` has the package name, PSR-4 namespace, and Laravel provider discovery.
-- Dependency constraints admit the latest compatible stable release and retain reasonable older majors. Check used APIs before widening, and update both the aggregate and owning package manifests. `php scripts/check-composer-major-constraints.php` checks bounded major pins in published manifests and literal workflow/provisioning overrides without installed dependencies; `tests/Unit/PackageDependencyScriptTest.php` also checks exact locked release admission. The lock is an offline snapshot, so dependencies absent from it and newer releases still need a release audit.
+- Dependency constraints admit the latest compatible stable release and retain reasonable older majors. Check used APIs before widening, and update both the aggregate and owning package manifests. After installing repository dependencies, `php scripts/check-composer-major-constraints.php` uses Composer Semver to prove that published manifest constraints and literal workflow/provisioning overrides (including resolved workflow matrix values) admit the exact locked version. It rejects invalid or unresolved constraint expressions and enforces the audited major holds in [`scripts/composer-major-exceptions.json`](../../scripts/composer-major-exceptions.json), which record each dependency, held major, reason and owner. Holds never bypass version admission; a locked-major change or an unused hold requires a new decision. The guard cannot prove registry freshness: the locked version may itself lag the latest stable release, and dependencies absent from the lock have no version benchmark.
 - `capell.json` uses manifest v3 and has `manifest-version`, `name`, `slug`, `displayName`, `kind`, `capellApiVersion`, `version`, `surfaces`, `dependencies`, and `providers`.
 - New packages start from `php artisan capell:make-extension --profile=minimal` or `--profile=full` unless there is a specific reason to hand-build the scaffold.
 - Every PHP file has `declare(strict_types=1);`.
@@ -25,6 +25,7 @@ Use this checklist when creating or reviewing a Capell package.
 
 ## Before Release
 
+- Audit dependencies against the package registry for the latest compatible stable releases, including dependencies absent from the lock, and review every audited hold. A passing locked-version guard does not replace this release-time registry audit.
 - Run package-focused Pest tests.
 - Run generated manifest and public-output safety tests.
 - Run the sibling repo test suite.
