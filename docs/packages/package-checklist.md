@@ -7,6 +7,7 @@ Use this checklist when creating or reviewing a Capell package.
 ## Required
 
 - `composer.json` has the package name, PSR-4 namespace, and Laravel provider discovery.
+- Dependency constraints admit the latest compatible stable release and retain reasonable older majors. Check used APIs before widening, and update both the aggregate and owning package manifests. `tests/Unit/PackageDependencyScriptTest.php` checks admission of locked releases; dependencies absent from the aggregate lock also need a release audit.
 - `capell.json` uses manifest v3 and has `manifest-version`, `name`, `slug`, `displayName`, `kind`, `capellApiVersion`, `version`, `surfaces`, `dependencies`, and `providers`.
 - New packages start from `php artisan capell:make-extension --profile=minimal` or `--profile=full` unless there is a specific reason to hand-build the scaffold.
 - Every PHP file has `declare(strict_types=1);`.
@@ -33,6 +34,8 @@ Use this checklist when creating or reviewing a Capell package.
 - Confirm sibling package integrations use the right manifest relationship: `dependencies.requires` for hard requirements, `dependencies.supports` for support packages that are auto-added when applicable, and `visibility: support` for packages that should not appear as standalone catalogue choices.
 - Confirm `class_exists()` is not used as the only availability check for optional Capell packages.
 - Confirm frontend requests do not boot admin-only providers.
+
+Activitylog 5 needs a code and schema migration before admission: Core models and the installer still use `Spatie\Activitylog\LogOptions`, `Spatie\Activitylog\Traits\LogsActivity` and `dontSubmitEmptyLogs()`, while Admin reads tracked changes from `properties`. Version 5 moves those classes, renames that method and stores tracked changes in `attribute_changes`.
 
 ## Optional Capell Packages
 

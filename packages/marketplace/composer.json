@@ -55,9 +55,9 @@
     },
     "require-dev": {
         "orchestra/testbench": "^10.8|^11.0",
-        "pestphp/pest": "^4.3",
-        "pestphp/pest-plugin-laravel": "^4.0",
-        "pestphp/pest-plugin-livewire": "^4.0"
+        "pestphp/pest": "^4.3|^5.0",
+        "pestphp/pest-plugin-laravel": "^4.0|^5.0",
+        "pestphp/pest-plugin-livewire": "^4.0|^5.0"
     },
     "config": {
         "sort-packages": true,
