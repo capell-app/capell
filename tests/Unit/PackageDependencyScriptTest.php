@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Composer\Semver\Semver;
+use Composer\Semver\VersionParser;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Yaml\Yaml;
 
 require_once dirname(__DIR__, 2) . '/scripts/ComposerMajorConstraints.php';
 
@@ -27,7 +30,7 @@ it('rejects an older major pin on a scratch copy and accepts an explicit union',
 
     $writeConstraint = function (string $constraint) use ($root, $path, $section): void {
         file_put_contents($root . '/' . $path, $section === 'command'
-            ? 'composer require "symfony/html-sanitizer:' . $constraint . '"'
+            ? 'run: composer require "symfony/html-sanitizer:' . $constraint . '"'
             : json_encode([$section => ['symfony/html-sanitizer' => $constraint]], JSON_THROW_ON_ERROR));
     };
 
@@ -68,7 +71,6 @@ it('rejects an older major pin on a scratch copy and accepts an explicit union',
     'split runtime' => ['packages/core/composer.json', 'require'],
     'split development' => ['packages/marketplace/composer.json', 'require-dev'],
     'CI override' => ['.github/workflows/test.yml', 'command'],
-    'provisioning override' => ['scripts/prepare.sh', 'command'],
 ]);
 
 it('admits locked external releases in every published Composer manifest', function (): void {
@@ -202,11 +204,11 @@ it('reports rejected constraint syntax even when the dependency is absent from t
 
 it('fails closed on an unterminated override instead of accepting its prefix', function (): void {
     withComposerConstraintFixture(function (string $root): void {
-        file_put_contents($root . '/scripts/prepare.sh', 'composer require "symfony/html-sanitizer:^8.0');
+        file_put_contents($root . '/.github/workflows/test.yml', "run: |\n  composer require \"symfony/html-sanitizer:^8.0");
         $failures = ComposerMajorConstraints::failures($root);
 
         expect($failures)->toHaveCount(1)
-            ->and($failures[0])->toContain('scripts/prepare.sh', 'symfony/html-sanitizer:^8.0', 'Unterminated');
+            ->and($failures[0])->toContain('.github/workflows/test.yml', 'symfony/html-sanitizer:^8.0', 'Unterminated');
     });
 });
 
@@ -273,6 +275,50 @@ it('enforces each audited hold at major four and requires a decision at major fi
 })->with(['spatie/laravel-activitylog', 'guava/filament-icon-picker', 'openspout/openspout'])->with([
     'held' => ['v4.12.3', true],
     'bumped' => ['5.0.0', false],
+]);
+
+it('reports each missing constraint library with a controlled failure and installation guidance', function (string $missingClass, string $autoload): void {
+    withComposerConstraintFixture(function (string $root) use ($missingClass, $autoload): void {
+        mkdir($root . '/vendor');
+        file_put_contents($root . '/vendor/autoload.php', $autoload);
+
+        foreach (['check-composer-major-constraints.php', 'ComposerMajorConstraints.php'] as $script) {
+            copy(dirname(__DIR__, 2) . '/scripts/' . $script, $root . '/scripts/' . $script);
+        }
+
+        $process = new Process([PHP_BINARY, $root . '/scripts/check-composer-major-constraints.php'], $root);
+        $process->run();
+
+        expect($process->getExitCode())->toBe(2)
+            ->and($process->getOutput())->toBe('')
+            ->and($process->getErrorOutput())->toBe('Composer constraint checks require ' . $missingClass . '; run composer install to install repository dependencies.' . PHP_EOL);
+    });
+})->with([
+    'missing Composer Semver' => [VersionParser::class, '<?php namespace Symfony\\Component\\Yaml; class Yaml {}'],
+    'missing Symfony YAML' => [Yaml::class, '<?php namespace Composer\\Semver; class VersionParser {}'],
+]);
+
+it('does not keep audited exceptions alive through incidental source text', function (string $path, string $contents): void {
+    withComposerConstraintFixture(function (string $root) use ($path, $contents): void {
+        file_put_contents($root . '/' . $path, $contents);
+
+        expect(ComposerMajorConstraints::failures($root))->toBe([
+            'scripts/composer-major-exceptions.json: absent/dependency is stale; no manifest or command override declares it.',
+        ]);
+    }, 'absent/dependency', '4.1.0', [[
+        'name' => 'absent/dependency',
+        'heldMajor' => 4,
+        'reason' => 'Compatibility review pending.',
+        'owner' => 'Review dependency compatibility',
+    ]]);
+})->with([
+    'PHP comment from review' => ['scripts/unrelated.php', '<?php // Example text, not a Composer command: absent/dependency:^4.0'],
+    'shell comment' => ['scripts/unrelated.sh', '# Example text: absent/dependency:^4.0'],
+    'PHP command text' => ['scripts/unrelated.php', '<?php $command = "composer require absent/dependency:^4.0";'],
+    'shell command outside CI' => ['scripts/unrelated.sh', 'composer require absent/dependency:^4.0'],
+    'workflow prose' => ['.github/workflows/test.yml', 'name: Example text absent/dependency:^4.0'],
+    'run comment' => ['.github/workflows/test.yml', "run: |\n  # composer require absent/dependency:^4.0"],
+    'run echo' => ['.github/workflows/test.yml', "run: echo 'composer require absent/dependency:^4.0'"],
 ]);
 
 it('reports stale audited exceptions absent from all constraints', function (): void {

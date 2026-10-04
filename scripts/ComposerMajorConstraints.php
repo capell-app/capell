@@ -60,9 +60,6 @@ final class ComposerMajorConstraints
             }
         }
 
-        // These named CLI parameters feed the PHP dependency-preparation script.
-        $parameters = [];
-
         foreach (self::files($root . '/.github/workflows', ['yml', 'yaml']) as $path) {
             $relative = substr($path, strlen($root) + 1);
 
@@ -91,42 +88,31 @@ final class ComposerMajorConstraints
                             $check($relative, $name, $resolved);
                         }
                     }
+                }
 
+                foreach (self::runBlocks($job) as $text) {
+                    $text = (string) preg_replace('/\\\\\r?\n/', ' ', $text);
+                    preg_match_all('/^\h*composer\h+require\h+([^\r\n]*)/m', $text, $commands);
+
+                    foreach ($commands[1] as $command) {
+                        foreach (self::overrides($command, $relative, $failures) as [$name, $constraint]) {
+                            foreach (self::resolve($constraint, $matrix, $relative, $failures) as $resolved) {
+                                $check($relative, $name, $resolved);
+                            }
+                        }
+                    }
+
+                    // These named CLI parameters feed the dependency-preparation command.
                     preg_match_all('/--(laravel|testbench)=/', $text, $matches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
 
                     foreach ($matches as $match) {
                         $constraint = self::value($text, $match[0][1] + strlen($match[0][0]), $relative, $failures);
 
                         foreach (self::resolve($constraint, $matrix, $relative, $failures) as $resolved) {
-                            $parameters[$match[1][0]][] = $resolved;
                             $check($relative, self::PARAMETERS[$match[1][0]], $resolved);
                         }
                     }
                 }
-            }
-        }
-
-        foreach (self::files($root . '/scripts', ['php', 'sh']) as $path) {
-            $relative = substr($path, strlen($root) + 1);
-
-            foreach (self::overrides(self::read($path), $relative, $failures) as [$name, $constraint]) {
-                if (str_starts_with($constraint, '$')) {
-                    $parameter = substr($constraint, 1);
-
-                    if ((self::PARAMETERS[$parameter] ?? null) !== $name || ! isset($parameters[$parameter])) {
-                        $failures[] = sprintf('%s: %s %s: Unresolved constraint parameter.', $relative, $name, $constraint);
-
-                        continue;
-                    }
-
-                    foreach ($parameters[$parameter] as $resolved) {
-                        $check($relative, $name, $resolved);
-                    }
-
-                    continue;
-                }
-
-                $check($relative, $name, $constraint);
             }
         }
 
@@ -180,6 +166,10 @@ final class ComposerMajorConstraints
         $overrides = [];
 
         foreach ($matches as $match) {
+            if ($wholeValue && $match[0][1] !== 0) {
+                continue;
+            }
+
             $offset = $match[0][1] + strlen($match[0][0]);
             $quote = $match[0][1] > 0 ? $text[$match[0][1] - 1] : '';
 
@@ -187,16 +177,6 @@ final class ComposerMajorConstraints
                 $constraint = trim(substr($text, $offset));
             } else {
                 $constraint = self::value($text, $offset, $path, $failures, in_array($quote, ['"', "'"], true) ? $quote : '');
-            }
-
-            // A PHP prefix concatenated with a named parameter is not a literal override.
-            if ($constraint === '' && preg_match('/^["\']\s*\.\s*(\$[a-z_]+)\b/', substr($text, $offset), $parameter) === 1) {
-                $constraint = $parameter[1];
-            }
-
-            // A trailing documentation path colon is prose, not a package argument.
-            if ($constraint === '' && str_ends_with($match[1][0], '.md')) {
-                continue;
             }
 
             $overrides[] = [$match[1][0], $constraint];
@@ -305,12 +285,32 @@ final class ComposerMajorConstraints
         $strings = [];
 
         if (is_array($value)) {
-            foreach ($value as $child) {
-                $strings = [...$strings, ...self::strings($child)];
+            foreach ($value as $key => $child) {
+                if ($key !== 'run') {
+                    $strings = [...$strings, ...self::strings($child)];
+                }
             }
         }
 
         return $strings;
+    }
+
+    /** @return list<string> */
+    private static function runBlocks(mixed $value): array
+    {
+        $runs = [];
+
+        if (is_array($value)) {
+            foreach ($value as $key => $child) {
+                if ($key === 'run' && is_string($child)) {
+                    $runs[] = $child;
+                } else {
+                    $runs = [...$runs, ...self::runBlocks($child)];
+                }
+            }
+        }
+
+        return $runs;
     }
 
     /**
