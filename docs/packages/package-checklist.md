@@ -7,7 +7,7 @@ Use this checklist when creating or reviewing a Capell package.
 ## Required
 
 - `composer.json` has the package name, PSR-4 namespace, and Laravel provider discovery.
-- Dependency constraints admit the latest compatible stable release and retain reasonable older majors. Check used APIs before widening, and update both the aggregate and owning package manifests. `tests/Unit/PackageDependencyScriptTest.php` checks admission of locked releases; dependencies absent from the aggregate lock also need a release audit.
+- Dependency constraints admit the latest compatible stable release and retain reasonable older majors. Check used APIs before widening, and update both the aggregate and owning package manifests. `php scripts/check-composer-major-constraints.php` checks bounded major pins in published manifests and literal workflow/provisioning overrides without installed dependencies; `tests/Unit/PackageDependencyScriptTest.php` also checks exact locked release admission. The lock is an offline snapshot, so dependencies absent from it and newer releases still need a release audit.
 - `capell.json` uses manifest v3 and has `manifest-version`, `name`, `slug`, `displayName`, `kind`, `capellApiVersion`, `version`, `surfaces`, `dependencies`, and `providers`.
 - New packages start from `php artisan capell:make-extension --profile=minimal` or `--profile=full` unless there is a specific reason to hand-build the scaffold.
 - Every PHP file has `declare(strict_types=1);`.
@@ -36,6 +36,8 @@ Use this checklist when creating or reviewing a Capell package.
 - Confirm frontend requests do not boot admin-only providers.
 
 Activitylog 5 needs a code and schema migration before admission: Core models and the installer still use `Spatie\Activitylog\LogOptions`, `Spatie\Activitylog\Traits\LogsActivity` and `dontSubmitEmptyLogs()`, while Admin reads tracked changes from `properties`. Version 5 moves those classes, renames that method and stores tracked changes in `attribute_changes`.
+
+Icon Picker 5 remains held pending inspection of its field API: Admin subclasses `Guava\IconPicker\Forms\Components\IconPicker` and overrides its protected `setUp()` hook. Version 5 metadata alone cannot establish that this extension remains compatible. OpenSpout 5 also remains held: Filament Actions 5.7.6 and 5.9.0 require `openspout/openspout:^4.23`, so admitting major 5 in a CI override cannot make it resolvable.
 
 ## Optional Capell Packages
 

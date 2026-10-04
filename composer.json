@@ -27,6 +27,7 @@
     ],
     "scripts": {
         "check:composer-paths": "@php scripts/check-composer-local-paths.php",
+        "check:composer-majors": "@php scripts/check-composer-major-constraints.php",
         "check:package-dependencies": "@php scripts/check-package-dependencies.php",
         "check:support-contract": "@php scripts/check-support-contract.php",
         "check:queue-contract": "@php scripts/check-queue-contract.php",

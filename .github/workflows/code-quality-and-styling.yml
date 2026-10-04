@@ -102,6 +102,9 @@ jobs:
       - name: Check documented config keys
         run: composer run check:docs-config
 
+      - name: Check locked stable dependency majors
+        run: php scripts/check-composer-major-constraints.php
+
       - name: Cache Composer dependencies
         id: composer-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

@@ -4,6 +4,61 @@ declare(strict_types=1);
 
 use Composer\Semver\Semver;
 
+require_once dirname(__DIR__, 2) . '/scripts/ComposerMajorConstraints.php';
+
+it('admits locked stable majors in manifests and command overrides without vendor dependencies', function (): void {
+    expect(ComposerMajorConstraints::failures(dirname(__DIR__, 2)))->toBe([]);
+});
+
+it('rejects an older major pin on a scratch copy and accepts an explicit union', function (string $path, string $section): void {
+    $root = sys_get_temp_dir() . '/capell-composer-majors-' . bin2hex(random_bytes(8));
+    mkdir($root . '/' . dirname($path), 0777, true);
+    file_put_contents($root . '/composer.json', '{}');
+    file_put_contents($root . '/composer.lock', json_encode([
+        'packages' => [['name' => 'symfony/html-sanitizer', 'version' => 'v8.1.8']],
+        'packages-dev' => [],
+    ], JSON_THROW_ON_ERROR));
+
+    $writeConstraint = function (string $constraint) use ($root, $path, $section): void {
+        file_put_contents($root . '/' . $path, $section === 'command'
+            ? 'composer require "symfony/html-sanitizer:' . $constraint . '"'
+            : json_encode([$section => ['symfony/html-sanitizer' => $constraint]], JSON_THROW_ON_ERROR));
+    };
+
+    try {
+        $writeConstraint('^7.0');
+        expect(ComposerMajorConstraints::failures($root))->toBe([
+            $path . ': symfony/html-sanitizer ^7.0 excludes locked stable major 8.',
+        ]);
+
+        $writeConstraint('^7.0 || ^8.0');
+        expect(ComposerMajorConstraints::failures($root))->toBe([]);
+    } finally {
+        unlink($root . '/' . $path);
+
+        if ($path !== 'composer.json') {
+            unlink($root . '/composer.json');
+        }
+
+        unlink($root . '/composer.lock');
+        $directory = dirname($root . '/' . $path);
+
+        while ($directory !== $root) {
+            rmdir($directory);
+            $directory = dirname($directory);
+        }
+
+        rmdir($root);
+    }
+})->with([
+    'aggregate runtime' => ['composer.json', 'require'],
+    'aggregate development' => ['composer.json', 'require-dev'],
+    'split runtime' => ['packages/core/composer.json', 'require'],
+    'split development' => ['packages/marketplace/composer.json', 'require-dev'],
+    'CI override' => ['.github/workflows/test.yml', 'command'],
+    'provisioning override' => ['scripts/prepare.sh', 'command'],
+]);
+
 it('admits locked external releases in every published Composer manifest', function (): void {
     $root = dirname(__DIR__, 2);
 
