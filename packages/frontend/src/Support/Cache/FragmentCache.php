@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
+use Capell\Core\Support\Cache\CacheOrigin;
 use Illuminate\Contracts\Cache\Repository;
 use UnexpectedValueException;
 
@@ -25,7 +26,12 @@ final class FragmentCache
         array $surrogateKeys = [],
     ): mixed {
         $namespace = $this->namespace();
-        $cacheKey = 'fragment:' . $namespace . ':value:' . $key;
+        $origin = CacheOrigin::discriminator();
+        // Keep standard-port keys byte-identical. A separate physical prefix
+        // prevents arbitrary logical keys from aliasing non-standard variants.
+        $cacheKey = $origin === ''
+            ? 'fragment:' . $namespace . ':value:' . $key
+            : 'fragment:' . $namespace . ':origin-value:' . hash('sha256', serialize([$key, $origin]));
 
         $result = $this->cache->remember($cacheKey, $ttlSeconds, $callback);
 
