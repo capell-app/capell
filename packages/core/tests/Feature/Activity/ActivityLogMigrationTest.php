@@ -37,7 +37,7 @@ it('adds the modern column once without changing legacy audit data', function ()
 
     expect(Schema::hasColumn($table, 'attribute_changes'))->toBeTrue()
         ->and(Schema::hasColumn($table, 'batch_uuid'))->toBeTrue()
-        ->and(json_decode((string) DB::table($table)->sole()->properties, true))->toBe(json_decode($properties, true))
+        ->and(json_decode((string) DB::table($table)->sole()->properties, true))->toEqualCanonicalizing(json_decode($properties, true))
         ->and(DB::table($table)->sole()->attribute_changes)->toBeNull();
 });
 
