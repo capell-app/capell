@@ -116,6 +116,8 @@ class CapellAdminPlugin implements Plugin
         $lockdownBannerView = 'capell-admin::components.header.lockdown-banner';
         /** @var view-string $headerActionsView */
         $headerActionsView = 'capell-admin::components.header.actions';
+        /** @var view-string $mobileHeaderView */
+        $mobileHeaderView = 'capell-admin::components.header.mobile';
         /** @var view-string $hiddenNavigationInitialStateView */
         $hiddenNavigationInitialStateView = 'capell-admin::components.hidden-navigation-initial-state';
 
@@ -190,6 +192,13 @@ class CapellAdminPlugin implements Plugin
             ->renderHook(
                 name: PanelsRenderHook::GLOBAL_SEARCH_AFTER,
                 hook: fn (): View => view($headerActionsView),
+            )
+            ->renderHook(
+                name: PanelsRenderHook::SIDEBAR_NAV_START,
+                hook: fn (): View => view(
+                    $mobileHeaderView,
+                    ['sites' => SiteLoader::getSites()],
+                ),
             )
             ->renderHook(
                 name: PanelsRenderHook::USER_MENU_PROFILE_AFTER,

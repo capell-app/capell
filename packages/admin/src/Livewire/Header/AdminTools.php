@@ -29,6 +29,8 @@ class AdminTools extends Component
 {
     public bool $lockdownActive = false;
 
+    public bool $inSidebar = false;
+
     protected string $view = 'capell-admin::livewire.header.admin-tools';
 
     public function mount(): void
