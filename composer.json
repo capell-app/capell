@@ -277,7 +277,6 @@
             "Capell\\Core\\Database\\Factories\\": "packages/core/database/factories",
             "Capell\\Installer\\": "packages/installer/src",
             "Capell\\Marketplace\\": "packages/marketplace/src",
-            "Capell\\Marketplace\\Database\\Factories\\": "packages/marketplace/database/factories",
             "Capell\\Frontend\\": "packages/frontend/src"
         }
     },

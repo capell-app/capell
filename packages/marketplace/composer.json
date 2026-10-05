@@ -24,8 +24,7 @@
     ],
     "autoload": {
         "psr-4": {
-            "Capell\\Marketplace\\": "src/",
-            "Capell\\Marketplace\\Database\\Factories\\": "database/factories/"
+            "Capell\\Marketplace\\": "src/"
         }
     },
     "autoload-dev": {
