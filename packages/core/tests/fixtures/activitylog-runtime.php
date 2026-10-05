@@ -52,7 +52,7 @@ if (isset($argv[2])) {
         'options_class' => $options::class,
         'logged_name' => ActivityLogCompat::attributeValues($updated, 'attributes')['name'] ?? null,
         'relation_count' => $instance->{$relation}()->count(),
-        'options' => $user->getMethod('getActivitylogOptions')->getReturnType()?->__toString(),
+        'options' => ($returnType = $user->getMethod('getActivitylogOptions')->getReturnType()) instanceof ReflectionNamedType ? $returnType->getName() : null,
         'trait' => in_array(LogsActivity::class, class_uses_recursive($user->getName()), true),
         'audit_alias' => $user->hasMethod('enableAudit'),
         'host_hook' => ActivityLogCompat::properties($updated)['host_hook'] ?? null,
