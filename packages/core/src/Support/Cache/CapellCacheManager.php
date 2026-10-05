@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use LogicException;
+use RuntimeException;
 use Throwable;
 
 final class CapellCacheManager
@@ -248,6 +249,20 @@ final class CapellCacheManager
 
         unset($this->localCache[$normalizedKey]);
         $this->getCacheInstance()->forget($normalizedKey);
+    }
+
+    /** @internal Lifecycle activation only; ordinary invalidation remains best-effort. */
+    public function removeCacheKeyOrFail(string $key): void
+    {
+        $normalizedKey = $this->normalizeCacheKey($key);
+        $cache = $this->getCacheInstance();
+        $existed = $cache->has($normalizedKey);
+
+        // A concurrent writer may repopulate the key after removal; a re-read cannot prove deletion failed.
+        unset($this->localCache[$normalizedKey]);
+        if ($existed && ! $cache->forget($normalizedKey)) {
+            throw new RuntimeException(__('capell::runtime-refresh.cache_key_removal_failed', ['key' => $key]));
+        }
     }
 
     public function flushCache(): void

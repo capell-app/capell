@@ -7,7 +7,9 @@ return [
     'failed_application' => 'Installed runtime failed; a fresh application is required before activation.',
 
     'application_unavailable' => 'This surface is unavailable after a runtime registration failure. Review the application log and runtime diagnostics, repair the cause, then start a fresh application or reload retained workers.',
-    'cache_refresh_required' => 'Package activation is incomplete: clear the Laravel route and configuration caches, then reload retained workers before using the new surfaces.',
+    'cache_refresh_required' => 'Package activation is incomplete: clear the Laravel route, configuration and component caches, then reload retained workers before using the new surfaces.',
+    'cache_removal_failed' => 'Failed to remove persisted cache [:path]. Check filesystem permissions and retry.',
+    'cache_key_removal_failed' => 'Failed to remove cached value [:key]. Check the cache backend and retry.',
     'diagnostic_label' => 'Installed runtime failures',
     'diagnostic_ok' => 'No installed runtime failures in this application.',
     'diagnostic_failed' => 'Installed runtime registration failed for: :packages.',

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\RuntimeRefresh;
 
-use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Components\ComponentRegistry;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -21,6 +22,8 @@ final class PreparePackageRuntimeReloadAction
 
     public function handle(): void
     {
+        resolve(CapellPackageRegistry::class)->clearExtensionCacheOrFail();
+
         // Rebuilding in this process would preserve its pre-install panel topology.
         foreach ([RefreshRouteCacheAction::run(rebuild: false), RefreshConfigurationCacheAction::run(rebuild: false)] as $stage) {
             if (! $stage->passed) {
@@ -34,6 +37,6 @@ final class PreparePackageRuntimeReloadAction
             }
         }
 
-        CapellCore::clearCachedComponents();
+        resolve(ComponentRegistry::class)->clearCachedComponentsOrFail();
     }
 }

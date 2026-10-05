@@ -33,11 +33,8 @@ final class PrepareInstalledExtensionReloadAction
             }
 
             foreach ($paths as $path) {
-                if ($this->files->exists($path)) {
-                    $this->files->delete($path);
-                }
-
-                if ($this->files->exists($path)) {
+                $removed = ! $this->files->exists($path) || $this->files->delete($path);
+                if (! $removed || $this->files->exists($path)) {
                     throw new RuntimeException(__('capell-admin::message.extension_activation_pending'));
                 }
             }
