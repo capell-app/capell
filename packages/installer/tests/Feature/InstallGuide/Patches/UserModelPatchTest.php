@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Illuminate\Support\Facades\File;
@@ -9,47 +10,26 @@ use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     $this->originalBasePath = $this->app->basePath();
-    $this->temporaryBasePath = sys_get_temp_dir() . '/capell-user-model-patch-test-' . uniqid();
-
+    $this->temporaryBasePath = sys_get_temp_dir() . '/capell-user-model-patch-test-' . bin2hex(random_bytes(8));
     File::makeDirectory($this->temporaryBasePath, 0755, true);
     $this->app->setBasePath($this->temporaryBasePath);
 });
 
 afterEach(function (): void {
     $this->app->setBasePath($this->originalBasePath);
-
-    if (is_dir($this->temporaryBasePath)) {
-        File::deleteDirectory($this->temporaryBasePath);
-    }
+    File::deleteDirectory($this->temporaryBasePath);
 });
 
 function writeSetupUserModelForPatchTest(string $content): string
 {
     $path = base_path('app/Models/User.php');
-
-    if (! is_dir(dirname($path))) {
-        mkdir(dirname($path), 0755, true);
-    }
-
-    file_put_contents($path, $content);
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, $content);
 
     return $path;
 }
 
-function cleanupSetupUserModelForPatchTest(): void
-{
-    $appPath = base_path('app');
-    $backupPath = storage_path('capell/php-file-backups');
-
-    if (is_dir($appPath)) {
-        exec('rm -rf ' . escapeshellarg($appPath));
-    }
-
-    if (is_dir($backupPath)) {
-        exec('rm -rf ' . escapeshellarg($backupPath));
-    }
-}
-
+/** @return array<string, mixed> */
 function loadPatchedUserModelForTest(string $path): array
 {
     $root = dirname(__DIR__, 6);
@@ -59,446 +39,193 @@ function loadPatchedUserModelForTest(string $path): array
     return json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
 }
 
-it('adopts existing vendor logging by resolved name and produces a loadable user', function (string $imports, string $trait, string $options): void {
-    $path = writeSetupUserModelForPatchTest("<?php\ndeclare(strict_types=1);\nnamespace App\\Models;\nuse Illuminate\\Foundation\\Auth\\User as Authenticatable;\n" . $imports . "\nclass User extends Authenticatable {\nuse " . $trait . ";\npublic function getActivitylogOptions(): " . $options . ' { return ' . $options . "::defaults()->logAll(); }\n}\n");
+function conventionalUserForPatchTest(string $declaration): string
+{
+    return '<?php declare(strict_types=1); namespace App\\Models; use Illuminate\\Foundation\\Auth\\User as Authenticatable; ' . $declaration;
+}
+
+it('patches only conventional users without activity logging and executes the result', function (string $declaration): void {
+    $path = writeSetupUserModelForPatchTest(conventionalUserForPatchTest($declaration));
     $patch = new UserModelPatch;
 
     expect($patch->probe())->toBe(PatchStatus::Applicable);
     $patch->apply();
+    expect(loadPatchedUserModelForTest($path))->toMatchArray([
+        'activities' => true, 'trait' => true, 'logged_name' => 'After', 'relation_count' => 2,
+    ])->and($patch->probe())->toBe(PatchStatus::AlreadyApplied);
 
-    expect(loadPatchedUserModelForTest($path))->toMatchArray(['activities' => true, 'trait' => true, 'logged_name' => 'After', 'relation_count' => 2])
-        ->and($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and(file_get_contents($path))->toContain('::defaults()->logAll()');
+    $contents = File::get($path);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'already_applied');
+    expect(File::get($path))->toBe($contents);
 })->with([
-    'v4 direct' => ['', '\\Spatie\\Activitylog\\Traits\\LogsActivity', '\\Spatie\\Activitylog\\LogOptions'],
-    'v4 import' => ['use Spatie\\Activitylog\\Traits\\LogsActivity; use Spatie\\Activitylog\\LogOptions;', 'LogsActivity', 'LogOptions'],
-    'v5 import' => ['use Spatie\\Activitylog\\Models\\Concerns\\LogsActivity; use Spatie\\Activitylog\\Support\\LogOptions;', 'LogsActivity', 'LogOptions'],
-    'v5 aliases' => ['use Spatie\\Activitylog\\Models\\Concerns\\LogsActivity as Audit; use Spatie\\Activitylog\\Support\\LogOptions as AuditOptions;', 'Audit', 'AuditOptions'],
-    'v5 grouped imports' => ['use Spatie\\Activitylog\\Models\\Concerns\\{LogsActivity as Audit}; use Spatie\\Activitylog\\Support\\{LogOptions as AuditOptions};', 'Audit', 'AuditOptions'],
-    'v5 direct' => ['', '\\Spatie\\Activitylog\\Models\\Concerns\\LogsActivity', '\\Spatie\\Activitylog\\Support\\LogOptions'],
-    'v5 namespace alias' => ['use Spatie\\Activitylog as Audit;', 'Audit\\Models\\Concerns\\LogsActivity', 'Audit\\Support\\LogOptions'],
-    'unrelated imported short name' => ['use Illuminate\\Notifications\\Notifiable as LogsActivity;', 'LogsActivity', '\\Capell\\Core\\Support\\Activity\\LogOptions'],
+    'no logging or traits' => 'class User extends Authenticatable {}',
+    'final class' => 'final class User extends Authenticatable {}',
+    'stock traits and casts' => 'class User extends Authenticatable { use \\Illuminate\\Notifications\\Notifiable; #[\\Override] protected function casts(): array { return ["name" => "string"]; } }',
+    'existing Filament user' => 'class User extends Authenticatable implements \\Filament\\Models\\Contracts\\FilamentUser { public function canAccessPanel(\\Filament\\Panel $panel): bool { return true; } }',
+    'existing non logging admin traits' => 'class User extends Authenticatable { use \\Spatie\\Permission\\Traits\\HasRoles, \\Capell\\Core\\Models\\Concerns\\HasSitePermissions; }',
+    'non colliding grouped import' => 'use Illuminate\\Notifications\\{Notifiable as Notify}; class User extends Authenticatable { use Notify; }',
+    'matching grouped admin import' => 'use Spatie\\Permission\\Traits\\{HasRoles}; class User extends Authenticatable { use HasRoles; }',
+    'matching aliased admin import' => 'use Spatie\\Permission\\Traits\\HasRoles as Roles; class User extends Authenticatable { use Roles; }',
 ]);
 
-it('can apply missing Capell admin role support to an existing Filament user model', function (): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-
-class User extends Authenticatable implements FilamentUser
-{
-    use Notifiable;
-
-    public function canAccessPanel(Panel $panel): bool
-    {
-        return true;
-    }
-}
-PHP);
-
-    try {
-        $patch = new UserModelPatch;
-
-        expect($patch->probe())->toBe(PatchStatus::Applicable);
-
-        $patch->apply();
-
-        $contents = file_get_contents($path);
-
-        expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-            ->and($contents)->toContain('use BezhanSalleh\FilamentShield\Traits\HasPanelShield;')
-            ->and($contents)->toContain('use Capell\Admin\Models\Concerns\HasImpersonation;')
-            ->and($contents)->toContain('use Capell\Core\Support\Activity\LogOptions;')
-            ->and($contents)->toContain('use Capell\Core\Support\Activity\ActivityLogCompat;')
-            ->and($contents)->toContain('use Spatie\Activitylog\Models\Activity;')
-            ->and($contents)->toContain('use Spatie\Permission\Traits\HasRoles;')
-            ->and($contents)->toContain('use Capell\Core\Models\Concerns\HasSitePermissions;')
-            ->and($contents)->not->toContain('use Spatie\ActivityLog\LogOptions;')
-            ->and($contents)->not->toContain('use Spatie\ActivityLog\Models\Activity;')
-            ->and($contents)->not->toContain('Capell\Admin\Traits')
-            ->and($contents)->toContain('use Notifiable, HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;')
-            ->and($contents)->not->toContain('LoginAuditgable')
-            ->and($contents)->not->toContain('Capell\Admin\Models\Concerns\HasImpersonation, BezhanSalleh\FilamentShield\Traits\HasPanelShield')
-            ->and($contents)->toContain('public function getActivitylogOptions(): LogOptions')
-            ->and($contents)->toContain("return ActivityLogCompat::options('user',")
-            ->and($contents)->not->toContain('dontSubmitEmptyLogs');
-    } finally {
-        cleanupSetupUserModelForPatchTest();
-    }
-});
-
-it('adds only core admin traits to the user model', function (): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-
-class User extends Authenticatable implements FilamentUser
-{
-    use Notifiable;
-
-    public function canAccessPanel(Panel $panel): bool
-    {
-        return true;
-    }
-}
-PHP);
-
-    try {
-        $patch = new UserModelPatch;
-
-        expect($patch->probe())->toBe(PatchStatus::Applicable);
-
-        $patch->apply();
-
-        $contents = file_get_contents($path);
-
-        expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-            ->and($contents)->toContain('use BezhanSalleh\FilamentShield\Traits\HasPanelShield;')
-            ->and($contents)->toContain('use Spatie\Permission\Traits\HasRoles;')
-            ->and($contents)->toContain('use Capell\Core\Support\Activity\LogsActivity;')
-            ->and($contents)->toContain('use Notifiable, HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;')
-            ->and($contents)->not->toContain('LoginAuditgable')
-            ->and($contents)->not->toContain('Rappasoft\LaravelLoginAudit');
-    } finally {
-        cleanupSetupUserModelForPatchTest();
-    }
-});
-
-it('can complete a partially prepared admin user model', function (): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Capell\Core\Support\Activity\LogOptions;
-use Spatie\Permission\Traits\HasRoles;
-
-class User extends Authenticatable implements FilamentUser
-{
-    use Notifiable;
-    use HasRoles;
-
-    public function canAccessPanel(Panel $panel): bool
-    {
-        return true;
-    }
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults();
-    }
-}
-PHP);
-
-    try {
-        $patch = new UserModelPatch;
-
-        expect($patch->probe())->toBe(PatchStatus::Applicable);
-
-        $patch->apply();
-
-        $contents = file_get_contents($path);
-
-        expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-            ->and($contents)->toContain('use BezhanSalleh\FilamentShield\Traits\HasPanelShield;')
-            ->and($contents)->toContain('use Capell\Admin\Models\Concerns\HasImpersonation;')
-            ->and($contents)->toContain('use Capell\Core\Support\Activity\LogsActivity;')
-            ->and($contents)->toContain('use Notifiable;')
-            ->and($contents)->toContain('use HasRoles, HasImpersonation, HasPanelShield, HasSitePermissions, LogsActivity;')
-            ->and(substr_count($contents, 'public function getActivitylogOptions(): LogOptions'))->toBe(1)
-            ->and($contents)->toContain('return LogOptions::defaults();');
-    } finally {
-        cleanupSetupUserModelForPatchTest();
-    }
-});
-
-it('treats customized or unparseable user models as manual install guide work', function (): void {
+it('refuses existing logging and unsafe user shapes without changing any bytes', function (string $declaration): void {
+    $contents = conventionalUserForPatchTest($declaration);
+    $path = writeSetupUserModelForPatchTest($contents);
     $patch = new UserModelPatch;
-
-    writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-class User extends CustomBaseUser
-{
-}
-PHP);
-
-    expect($patch->probe())->toBe(PatchStatus::Customised);
-
-    writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-class Account
-{
-}
-PHP);
-
-    expect($patch->probe())->toBe(PatchStatus::Unsupported);
-
-    writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-class User extends
-PHP);
-
-    expect($patch->probe())->toBe(PatchStatus::Unsupported);
-});
-
-it('does not apply over an already patched user model', function (): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
-use Capell\Admin\Models\Concerns\HasImpersonation;
-use Capell\Core\Models\Concerns\HasSitePermissions;
-use Filament\Models\Contracts\FilamentUser;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Capell\Core\Support\Activity\LogOptions;
-use Capell\Core\Support\Activity\LogsActivity;
-use Spatie\Permission\Traits\HasRoles;
-
-class User extends Authenticatable implements FilamentUser
-{
-    use HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults();
-    }
-}
-PHP);
-
-    $patch = new UserModelPatch;
-
-    expect($patch->probe())->toBe(PatchStatus::AlreadyApplied);
-    expect(loadPatchedUserModelForTest($path))->toMatchArray(['activities' => true, 'trait' => true, 'logged_name' => null, 'relation_count' => 2]);
-
-    expect(function () use ($patch): void {
-        $patch->apply();
-    })
-        ->toThrow(RuntimeException::class, 'Cannot apply patch when status is: already_applied');
-
-    file_put_contents($path, str_replace('getActivitylogOptions(): LogOptions', 'getActivitylogOptions(): \\stdClass', file_get_contents($path)));
-
-    expect($patch->probe())->toBe(PatchStatus::Customised);
-});
-
-it('leaves colliding traits and aliases for manual review', function (): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
-use Capell\Admin\Models\Concerns\HasImpersonation;
-use Capell\Core\Models\Concerns\HasSitePermissions;
-use Capell\Core\Support\Activity\LogOptions;
-use Capell\Core\Support\Activity\LogsActivity;
-use Filament\Models\Contracts\FilamentUser;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Spatie\Permission\Traits\HasRoles;
-
-class User extends Authenticatable implements FilamentUser
-{
-    use HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;
-    use \Spatie\Activitylog\Traits\LogsActivity {
-        enableLogging as enableAudit;
-    }
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults();
-    }
-}
-PHP);
-    $patch = new UserModelPatch;
-
-    $original = file_get_contents($path);
-    expect($patch->probe())->toBe(PatchStatus::Customised)
-        ->and($patch->reason())->toContain('Resolve trait adaptations');
-    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'customised');
-    expect(file_get_contents($path))->toBe($original);
-});
-
-it('can patch a minimal user model without any existing trait use block', function (): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Models;
-
-use Illuminate\Foundation\Auth\User as Authenticatable;
-
-class User extends Authenticatable
-{
-}
-PHP);
-
-    $patch = new UserModelPatch;
-
-    expect($patch->probe())->toBe(PatchStatus::Applicable);
-
-    $patch->apply();
-
-    expect(file_get_contents($path))
-        ->toContain('implements FilamentUser')
-        ->toContain('use HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;')
-        ->toContain('public function getActivitylogOptions(): LogOptions');
-});
-
-it('rejects unsafe options even after the Core imports and traits are already present', function (string $body): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-namespace App\Models;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Capell\Core\Support\Activity\LogOptions;
-use Capell\Core\Support\Activity\LogsActivity;
-use Capell\Core\Models\Concerns\HasSitePermissions;
-use Capell\Admin\Models\Concerns\HasImpersonation;
-use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
-use Spatie\Permission\Traits\HasRoles;
-class User extends Authenticatable implements \Filament\Models\Contracts\FilamentUser {
-    use HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;
-    public function getActivitylogOptions(): LogOptions { OPTIONS_BODY }
-}
-PHP);
-    $patch = new UserModelPatch;
-    $contents = str_replace('OPTIONS_BODY', $body, file_get_contents($path));
-    file_put_contents($path, $contents);
 
     expect($patch->probe())->toBe(PatchStatus::Customised)
-        ->and($patch->reason())->toContain('withoutEmptyLogs');
+        ->and($patch->reason())->toBe(__('capell-installer::install-guide.user_model_patch_customised'));
     expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'customised');
-    expect(file_get_contents($path))->toBe($contents);
+    expect(File::get($path))->toBe($contents);
 })->with([
-    'removed v4 option' => 'return LogOptions::defaults()->logAll()->dontSubmitEmptyLogs();',
-    'v5 only option' => 'return LogOptions::defaults()->dontLogEmptyChanges();',
-    'removed v4 enable option' => 'return LogOptions::defaults()->submitEmptyLogs();',
-    'v5 only enable option' => 'return LogOptions::defaults()->logEmptyChanges();',
-    'custom logic' => '$options = LogOptions::defaults(); return $options;',
-    'wrong argument type' => 'return LogOptions::defaults()->logOnly(42);',
-    'wrong argument count' => 'return LogOptions::defaults()->useLogName();',
-    'unknown method' => 'return LogOptions::defaults()->missingMethod();',
-]);
-
-it('rejects trait precedence rules before they can collapse into self exclusion', function (): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-namespace App\Models;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Capell\Core\Support\Activity\LogsActivity as CoreLogs;
-use Spatie\Activitylog\Traits\LogsActivity as VendorLogs;
-class User extends Authenticatable {
-    use CoreLogs, VendorLogs {
-        CoreLogs::bootLogsActivity insteadof VendorLogs;
-        CoreLogs::activities insteadof VendorLogs;
-    }
-}
-PHP);
-    $original = file_get_contents($path);
-    $patch = new UserModelPatch;
-    expect($patch->probe())->toBe(PatchStatus::Customised);
-    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'customised');
-    expect(file_get_contents($path))->toBe($original);
-});
-
-it('preserves custom user shapes for manual review', function (string $declaration): void {
-    $path = writeSetupUserModelForPatchTest('<?php namespace App\\Models; use Illuminate\\Foundation\\Auth\\User as Authenticatable; ' . $declaration);
-    $original = file_get_contents($path);
-    $patch = new UserModelPatch;
-    expect($patch->probe())->toBe(PatchStatus::Customised);
-    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'customised');
-    expect(file_get_contents($path))->toBe($original);
-})->with([
+    'v4 imports with portable options' => 'use Spatie\\Activitylog\\Traits\\LogsActivity; use Spatie\\Activitylog\\LogOptions; class User extends Authenticatable { use LogsActivity; public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll(); } }',
+    'v4 direct names with portable options' => <<<'PHP'
+class User extends Authenticatable { use \Spatie\Activitylog\Traits\LogsActivity; public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions { return \Spatie\Activitylog\LogOptions::defaults()->logAll(); } }
+PHP,
+    'v5 imports with portable options' => 'use Spatie\\Activitylog\\Models\\Concerns\\LogsActivity; use Spatie\\Activitylog\\Support\\LogOptions; class User extends Authenticatable { use LogsActivity; public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll(); } }',
+    'Core import only' => 'use Capell\\Core\\Support\\Activity\\LogOptions; class User extends Authenticatable {}',
+    'incomplete Core preparation' => 'use Capell\\Core\\Support\\Activity\\LogOptions; use Capell\\Core\\Support\\Activity\\LogsActivity; class User extends Authenticatable { use LogsActivity; public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll(); } }',
+    'both logging traits with precedence' => 'use Capell\\Core\\Support\\Activity\\LogsActivity as CoreLogs; use Spatie\\Activitylog\\Traits\\LogsActivity as VendorLogs; class User extends Authenticatable { use CoreLogs, VendorLogs { CoreLogs::bootLogsActivity insteadof VendorLogs; CoreLogs::activities insteadof VendorLogs; } }',
+    'vendor only options' => 'use Spatie\\Activitylog\\LogOptions; class User extends Authenticatable { public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->dontSubmitEmptyLogs(); } }',
+    'custom activity hook' => 'class User extends Authenticatable { public function tapActivity(\\stdClass $activity): void {} }',
+    'modern activity hook' => 'class User extends Authenticatable { public function beforeActivityLogged(\\stdClass $activity, string $event): void {} }',
+    'aliased logging imports' => 'use Spatie\\Activitylog\\Traits\\LogsActivity as Audit; use Spatie\\Activitylog\\LogOptions as AuditOptions; class User extends Authenticatable { use Audit; public function getActivitylogOptions(): AuditOptions { return AuditOptions::defaults()->logAll(); } }',
+    'grouped logging imports' => 'use Spatie\\Activitylog\\Traits\\{LogsActivity as Audit}; use Spatie\\Activitylog\\{LogOptions as AuditOptions}; class User extends Authenticatable { use Audit; public function getActivitylogOptions(): AuditOptions { return AuditOptions::defaults()->logAll(); } }',
+    'trait adaptation' => 'class User extends Authenticatable { use \\Illuminate\\Notifications\\Notifiable { notify as sendNotice; } }',
+    'abstract class' => 'abstract class User extends Authenticatable {}',
+    'readonly class' => 'readonly class User extends Authenticatable {}',
+    'non default namespace' => 'class User extends Authenticatable {} namespace Custom; class Other {}',
+    'multiple classes' => 'class Other {} class User extends Authenticatable {}',
+    'no User declaration' => 'class Account extends Authenticatable {}',
+    'differently cased User declaration' => 'class user extends Authenticatable {}',
+    'unused local LogsActivity trait' => 'trait LogsActivity {} class User extends Authenticatable {}',
+    'unused local trait' => 'trait LocalTrait {} class User extends Authenticatable {}',
+    'unused local interface' => 'interface LocalContract {} class User extends Authenticatable {}',
+    'unused local enum' => 'enum LocalState { case Active; } class User extends Authenticatable {}',
+    'namespaced helper with vendor only call' => 'use Spatie\\Activitylog\\LogOptions; function helper(): void { LogOptions::defaults()->dontSubmitEmptyLogs(); } class User extends Authenticatable { public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll(); } }',
+    'unused helper function' => 'function helper(): void {} class User extends Authenticatable {}',
+    'nested helper function' => 'class User extends Authenticatable { #[\\Override] protected function casts(): array { function helper(): void {} return []; } }',
+    'vendor only casts with portable options' => 'use Spatie\\Activitylog\\LogOptions; class User extends Authenticatable { public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll(); } #[\\Override] protected function casts(): array { $options = LogOptions::defaults()->dontSubmitEmptyLogs(); return []; } }',
+    'vendor only casts without options' => 'use Spatie\\Activitylog\\LogOptions; class User extends Authenticatable { #[\\Override] protected function casts(): array { $options = LogOptions::defaults()->dontSubmitEmptyLogs(); return []; } }',
+    'vendor only panel body' => 'use Spatie\\Activitylog\\LogOptions; class User extends Authenticatable implements \\Filament\\Models\\Contracts\\FilamentUser { public function canAccessPanel(\\Filament\\Panel $panel): bool { LogOptions::defaults()->dontSubmitEmptyLogs(); return true; } }',
+    'unused grouped colliding alias' => 'use Illuminate\\Notifications\\{Notifiable as LogsActivity}; class User extends Authenticatable {}',
+    'unused lower case colliding alias' => 'use Illuminate\\Notifications\\Notifiable as logsactivity; class User extends Authenticatable {}',
+    'unused grouped lower case collision' => 'use Illuminate\\Notifications\\{Notifiable as hasroles}; class User extends Authenticatable {}',
+    'unused Activity collision' => 'use Illuminate\\Notifications\\Notifiable as Activity; class User extends Authenticatable {}',
+    'unused FilamentUser collision' => 'use Illuminate\\Notifications\\Notifiable as filamentuser; class User extends Authenticatable {}',
     'missing parent' => 'class User {}',
+    'custom parent' => 'class User extends CustomBaseUser {}',
+    'unknown interface' => 'class User extends Authenticatable implements MissingInterface {}',
     'invalid panel signature' => 'class User extends Authenticatable { protected function canAccessPanel(): string { return "yes"; } }',
     'invalid casts override' => 'class User extends Authenticatable { public static function casts(): array { return []; } }',
-    'invalid parent property type' => 'class User extends Authenticatable { protected string $fillable; }',
-    'unknown interface' => 'class User extends Authenticatable implements MissingInterface {}',
-    'custom logging hook' => 'class User extends Authenticatable { public function tapActivity(\\stdClass $activity): void {} }',
-    'trait property conflict' => 'class User extends Authenticatable { public string $activitylogOptions; }',
-    'custom trait' => 'trait LogsActivity {} class User extends Authenticatable { use LogsActivity; }',
-    'multiple namespaces' => 'class User extends Authenticatable {} namespace Other; class User {}',
+    'invalid property type' => 'class User extends Authenticatable { protected string $fillable; }',
+    'custom trait' => 'trait CustomTrait {} class User extends Authenticatable { use CustomTrait; }',
+    'activity helper call' => 'class User extends Authenticatable { #[\\Override] protected function casts(): array { activity(); return []; } }',
+    'activity configuration' => 'class User extends Authenticatable { #[\\Override] protected function casts(): array { config("activitylog.enabled"); return []; } }',
+    'dynamic logging class string' => 'class User extends Authenticatable { #[\\Override] protected function casts(): array { $class = "Spatie\\\\Activitylog\\\\LogOptions"; $class::defaults(); return []; } }',
 ]);
 
-it('executes a portable custom option chain on the installed major', function (): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-namespace App\Models;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Spatie\Activitylog\LogOptions;
-use Capell\Core\Support\Activity\ActivityLogCompat;
-class User extends Authenticatable {
-    public function getActivitylogOptions(): LogOptions {
-        return ActivityLogCompat::withoutEmptyLogs(LogOptions::defaults()->useLogName('user')->logOnly(['name'])->logOnlyDirty());
+it('refuses a single User in a non default namespace unchanged', function (): void {
+    $contents = '<?php namespace Custom; class User extends \\Illuminate\\Foundation\\Auth\\User {}';
+    $path = writeSetupUserModelForPatchTest($contents);
+    $patch = new UserModelPatch;
+    expect($patch->probe())->toBe(PatchStatus::Customised);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'customised');
+    expect(File::get($path))->toBe($contents);
+});
+
+it('recognises only operational complete Core preparation without rewriting it', function (): void {
+    $path = writeSetupUserModelForPatchTest(conventionalUserForPatchTest('class User extends Authenticatable {}'));
+    $patch = new UserModelPatch;
+    $patch->apply();
+
+    $contents = File::get($path);
+
+    expect(loadPatchedUserModelForTest($path))->toMatchArray(['activities' => true, 'logged_name' => 'After', 'relation_count' => 2])
+        ->and($patch->probe())->toBe(PatchStatus::AlreadyApplied);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'already_applied');
+    expect(File::get($path))->toBe($contents);
+});
+
+it('recognises operational complete preparation with Core aliases and grouped imports', function (string $imports): void {
+    $contents = conventionalUserForPatchTest($imports . <<<'PHP'
+use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
+use Capell\Admin\Models\Concerns\HasImpersonation;
+use Capell\Core\Models\Concerns\HasSitePermissions;
+use Spatie\Permission\Traits\HasRoles;
+class User extends Authenticatable implements \Filament\Models\Contracts\FilamentUser {
+    use HasPanelShield, HasImpersonation, HasSitePermissions, HasRoles, Audit;
+    public function getActivitylogOptions(): AuditOptions {
+        return Compat::options('user', ['created_at', 'updated_at']);
     }
 }
 PHP);
+    $path = writeSetupUserModelForPatchTest($contents);
     $patch = new UserModelPatch;
-    expect($patch->probe())->toBe(PatchStatus::Applicable);
-    $patch->apply();
     expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and(loadPatchedUserModelForTest($path))->toMatchArray(['logged_name' => 'After', 'relation_count' => 2]);
+        ->and(loadPatchedUserModelForTest($path))->toMatchArray(['activities' => true, 'trait' => true, 'logged_name' => 'After', 'relation_count' => 2]);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'already_applied');
+    expect(File::get($path))->toBe($contents);
+})->with([
+    'aliases' => 'use Capell\\Core\\Support\\Activity\\LogsActivity as Audit; use Capell\\Core\\Support\\Activity\\LogOptions as AuditOptions; use Capell\\Core\\Support\\Activity\\ActivityLogCompat as Compat;',
+    'grouped aliases' => 'use Capell\\Core\\Support\\Activity\\{LogsActivity as Audit, LogOptions as AuditOptions, ActivityLogCompat as Compat};',
+]);
+
+it('refuses unsafe complete Core users without rewriting them', function (string $replacement): void {
+    $path = writeSetupUserModelForPatchTest(conventionalUserForPatchTest('class User extends Authenticatable {}'));
+    $patch = new UserModelPatch;
+    $patch->apply();
+
+    $contents = preg_replace("/return ActivityLogCompat::options\\('user',.*?;/", $replacement, File::get($path));
+    expect($contents)->toBeString();
+    File::put($path, $contents);
+
+    expect($patch->probe())->toBe(PatchStatus::Customised);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'customised');
+    expect(File::get($path))->toBe($contents);
+})->with([
+    'v4 only suppression' => 'return LogOptions::defaults()->dontSubmitEmptyLogs();',
+    'v5 only suppression' => 'return LogOptions::defaults()->dontLogEmptyChanges();',
+    'unknown options call' => 'return LogOptions::defaults()->missingMethod();',
+    'invalid options argument' => 'return LogOptions::defaults()->logOnly(42);',
+    'unresolved vendor options' => <<<'PHP'
+return \Spatie\Activitylog\LogOptions::defaults()->logAll();
+PHP,
+]);
+
+it('keeps the installed vendor User surface operational without applying the patch', function (): void {
+    $trait = ActivityLogCompat::logsActivityTrait();
+    $options = ActivityLogCompat::logOptionsClass();
+    $legacy = method_exists($options, 'dontSubmitEmptyLogs');
+    $suppress = $legacy ? 'dontSubmitEmptyLogs' : 'dontLogEmptyChanges';
+    $hook = $legacy ? 'tapActivity' : 'beforeActivityLogged';
+    $contents = conventionalUserForPatchTest(<<<PHP
+use {$trait};
+use {$options};
+class User extends Authenticatable {
+    use LogsActivity;
+    public function getActivitylogOptions(): LogOptions {
+        return LogOptions::defaults()->logAll()->useLogName(config('activitylog.default_log_name'))->{$suppress}();
+    }
+    public function {$hook}(\\Spatie\\Activitylog\\Models\\Activity \$activity, string \$event): void {
+        \$activity->properties = collect(['host_hook' => \$event]);
+    }
+}
+PHP);
+    $path = writeSetupUserModelForPatchTest($contents);
+    $patch = new UserModelPatch;
+    expect($patch->probe())->toBe(PatchStatus::Customised);
+    expect(loadPatchedUserModelForTest($path))->toMatchArray([
+        'activities' => true, 'trait' => false, 'relation_count' => 2, 'host_hook' => 'updated', 'log_name' => 'default',
+    ]);
+    expect(File::get($path))->toBe($contents);
 });
 
-it('adapts vendor options used inside a method with an existing Core return type', function (string $vendorOptions): void {
-    $path = writeSetupUserModelForPatchTest(<<<'PHP'
-<?php
-namespace App\Models;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-class User extends Authenticatable {}
-PHP);
+it('reports missing and unparseable users as unsupported without writes', function (): void {
     $patch = new UserModelPatch;
-    $patch->apply();
-
-    $contents = file_get_contents($path);
-    $contents = preg_replace("/return ActivityLogCompat::options\\('user',.*?;/", 'return OPTIONS_CLASS::defaults()->logAll();', $contents);
-    $contents = str_replace('OPTIONS_CLASS', $vendorOptions, $contents);
-    file_put_contents($path, $contents);
-
-    expect($patch->probe())->toBe(PatchStatus::Applicable);
-    $patch->apply();
-    expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and(loadPatchedUserModelForTest($path))->toMatchArray(['logged_name' => 'After']);
-})->with(['\\Spatie\\Activitylog\\LogOptions', '\\Spatie\\Activitylog\\Support\\LogOptions']);
+    expect($patch->probe())->toBe(PatchStatus::Unsupported);
+    $contents = '<?php class User extends';
+    $path = writeSetupUserModelForPatchTest($contents);
+    expect($patch->probe())->toBe(PatchStatus::Unsupported);
+    expect(File::get($path))->toBe($contents);
+});

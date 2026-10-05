@@ -271,6 +271,10 @@
         "spatie/laravel-ray": "^1.36"
     },
     "autoload": {
+        "files": [
+            "packages/core/src/Support/Activity/LogOptions.php",
+            "packages/core/src/Support/Activity/VendorLogsActivity.php"
+        ],
         "psr-4": {
             "Capell\\Admin\\": "packages/admin/src",
             "Capell\\Core\\": "packages/core/src",

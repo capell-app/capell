@@ -46,14 +46,17 @@ if (isset($argv[2])) {
     $instance->forceFill(['name' => 'After'])->save();
     $updated = Activity::query()->where('event', 'updated')->sole();
     $user = new ReflectionClass($userClass);
+    $relation = $user->hasMethod('activities') ? 'activities' : 'activitiesAsSubject';
     echo json_encode([
-        'activities' => $user->hasMethod('activities'),
+        'activities' => $user->hasMethod($relation),
         'options_class' => $options::class,
         'logged_name' => ActivityLogCompat::attributeValues($updated, 'attributes')['name'] ?? null,
-        'relation_count' => $instance->activities()->count(),
+        'relation_count' => $instance->{$relation}()->count(),
         'options' => $user->getMethod('getActivitylogOptions')->getReturnType()?->__toString(),
         'trait' => in_array(LogsActivity::class, class_uses_recursive($user->getName()), true),
         'audit_alias' => $user->hasMethod('enableAudit'),
+        'host_hook' => ActivityLogCompat::properties($updated)['host_hook'] ?? null,
+        'log_name' => $updated->log_name,
     ], JSON_THROW_ON_ERROR);
 
     return;

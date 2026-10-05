@@ -49,6 +49,10 @@
         "symfony/process": "^7.2|^8.0"
     },
     "autoload": {
+        "files": [
+            "src/Support/Activity/LogOptions.php",
+            "src/Support/Activity/VendorLogsActivity.php"
+        ],
         "psr-4": {
             "Capell\\Core\\": "src",
             "Capell\\Core\\Database\\Factories\\": "database/factories"
