@@ -17,12 +17,16 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Request;
 use Livewire\Livewire;
+use Override;
 use ReflectionClass;
+use ReflectionMethod;
 use RuntimeException;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 abstract class AbstractPackageServiceProvider extends PackageServiceProvider implements PackageServiceProvidable
 {
+    use RegistersInstalledRuntime;
+
     public static string $name;
 
     public static string $packageName;
@@ -39,12 +43,15 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         return static::$type;
     }
 
+    #[Override]
     public function registeringPackage(): void
     {
         $this->app->singletonIf(CapellPackageRegistry::class);
         $this->registerPackageMetadata();
 
-        $this->booted(function (): void {
+        $usesInstalledRuntime = new ReflectionMethod($this, 'bootInstalledRuntime')->getDeclaringClass()->getName() !== self::class;
+
+        $this->booted(function () use ($usesInstalledRuntime): void {
             $receipts = $this->app->make(ExtensionContributionReceiptRegistry::class);
             $contexts = $receipts->providerContexts(static::class);
             if ($contexts === []) {
@@ -53,25 +60,37 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
                     : ExtensionContributionReceiptContext::forPackage($this->receiptOwnerPackage(), $this->receiptProviderBucket(), static::class);
             }
 
-            $receipts->withContexts($contexts, function (): void {
+            $receipts->withContexts($contexts, function () use ($usesInstalledRuntime): void {
                 $this->bootPackage();
 
-                $this->bootWhenInstalled(function (): void {
-                    $this->bootInstalledPackage();
-                });
+                if (! $usesInstalledRuntime) {
+                    $this->bootWhenInstalled(function (): void {
+                        $this->bootInstalledPackage();
+                    });
+                }
             });
         });
+
+        if ($usesInstalledRuntime) {
+            $this->registerInstalledRuntime($this->receiptOwnerPackage(), $this->receiptProviderBucket());
+        }
     }
 
     /**
      * Boot work required before installation or during package discovery.
      *
-     * Ordinary package boot work belongs in bootInstalledPackage().
+     * New installed runtime wiring belongs in bootInstalledRuntime().
      */
     protected function bootPackage(): self
     {
         return $this;
     }
+
+    /**
+     * Opt-in, once-per-bootstrap wiring. Overrides replace the legacy installed
+     * callback; packageBooted() and bootPackage() retain their existing semantics.
+     */
+    protected function bootInstalledRuntime(): void {}
 
     protected function bootInstalledPackage(): self
     {

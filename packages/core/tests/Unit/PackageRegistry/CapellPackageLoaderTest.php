@@ -7,6 +7,7 @@ use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
@@ -92,6 +93,7 @@ it('quarantines an optional package when provider registration fails', function 
         ->once()
         ->with(AuthServiceProvider::class)
         ->andThrow(new RuntimeException('provider registration failed'));
+    $application->shouldReceive('resolved')->once()->with(InstalledRuntimeLifecycle::class)->andReturnFalse();
 
     CapellCore::shouldReceive('isPackageEnabled')->once()->with('vendor/failing-extension')->andReturnTrue();
     CapellCore::shouldReceive('markPackageProviderQuarantined')

@@ -69,6 +69,7 @@ use Capell\Admin\Filament\Pages\Reports\DemoInstallHealthReport;
 use Capell\Admin\Filament\Pages\Reports\PackageReadinessReport;
 use Capell\Admin\Filament\Pages\Reports\PublicRenderSafetyReport;
 use Capell\Admin\Filament\Pages\Reports\PublishingReadinessReport;
+use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
 use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
 use Capell\Admin\Filament\Resources\Redirects\RedirectResource;
@@ -177,6 +178,7 @@ use Capell\Admin\Support\Icons\FlagIconRenderer;
 use Capell\Admin\Support\ImportEntryRegistry;
 use Capell\Admin\Support\Install\AdminPermissionSynchronizer;
 use Capell\Admin\Support\Install\FilamentAdminPanelUrlResolver;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\DefaultPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\HomePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\MaintenancePageBlueprintInterceptor;
@@ -216,6 +218,7 @@ use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
+use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
@@ -258,6 +261,7 @@ use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
@@ -345,6 +349,14 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         );
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
+        $this->app->singleton(InstalledPanelRuntime::class);
+        $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (): void {
+            foreach (Filament::getPanels() as $panel) {
+                if ($panel->hasPlugin(CapellAdminPlugin::ID)) {
+                    resolve(CapellAdminPlugin::class)->synchronizePanelAdminSurface($panel);
+                }
+            }
+        });
         $this->app->singleton(EnumPresentationRegistry::class);
         $this->app->tag([CoreEnumPresentationContributor::class], EnumPresentationContributor::TAG);
         $this->app->bind(

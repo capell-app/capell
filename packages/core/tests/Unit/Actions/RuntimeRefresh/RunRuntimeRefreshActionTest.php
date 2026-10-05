@@ -61,9 +61,16 @@ it('runs runtime refresh stages in their safe deployment order', function (): vo
         return runtimeRefreshStage('doctor');
     });
 
+    $artisan->shouldReceive('handle')->once()->with('workers', 'Queue workers', 'queue:restart')
+        ->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
+            $order[] = 'workers';
+
+            return runtimeRefreshStage('workers');
+        });
+
     $result = new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor)->handle();
 
-    expect($order)->toBe(['packages', 'views', 'config', 'routes', 'warm', 'doctor'])
+    expect($order)->toBe(['packages', 'views', 'config', 'routes', 'warm', 'doctor', 'workers'])
         ->and($result->passed())->toBeTrue();
 });
 
@@ -83,11 +90,18 @@ it('continues independent stages and aggregates a partial failure', function ():
     $warm->shouldReceive('handle')->once()->andReturn(runtimeRefreshStage('warm'));
     $doctor->shouldReceive('handle')->once()->andReturn(runtimeRefreshStage('doctor'));
 
+    $artisan->shouldReceive('handle')->once()->with('workers', 'Queue workers', 'queue:restart')
+        ->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
+            $order[] = 'workers';
+
+            return runtimeRefreshStage('workers');
+        });
+
     $result = new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor)->handle();
 
     expect($result->passed())->toBeFalse()
-        ->and($result->stages)->toHaveCount(6)
-        ->and($result->stages->pluck('key')->all())->toBe(['packages', 'views', 'config', 'routes', 'warm', 'doctor'])
+        ->and($result->stages)->toHaveCount(7)
+        ->and($result->stages->pluck('key')->all())->toBe(['packages', 'views', 'config', 'routes', 'warm', 'doctor', 'workers'])
         ->and($result->stages->firstWhere('key', 'config')?->message)->toBe('config cache failed')
-        ->and($result->stages->where('passed', true))->toHaveCount(4);
+        ->and($result->stages->where('passed', true))->toHaveCount(5);
 });

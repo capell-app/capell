@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Plugin;
 
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
-use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
@@ -25,6 +24,7 @@ use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\RedirectToInstallerWhenCapellIsNotInstalled;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
@@ -46,6 +46,7 @@ use Filament\Tables\Columns\Column;
 use Filament\Tables\Table;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\Widget;
+use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Filesystem\Filesystem;
@@ -53,6 +54,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
 use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
+use Override;
 use ReflectionClass;
 use ReflectionProperty;
 
@@ -70,11 +72,13 @@ class CapellAdminPlugin implements Plugin
         return filament(resolve(static::class)->getId());
     }
 
+    #[Override]
     public function getId(): string
     {
         return static::ID;
     }
 
+    #[Override]
     public function boot(Panel $panel): void
     {
         $this->registerNavigationGroups($panel);
@@ -104,6 +108,7 @@ class CapellAdminPlugin implements Plugin
         return $this;
     }
 
+    #[Override]
     public function register(Panel $panel): void
     {
         /** @var view-string $logoView */
@@ -162,9 +167,7 @@ class CapellAdminPlugin implements Plugin
             ->registerSettings($panel);
 
         app()->booted(function () use ($panel): void {
-            $this->registerInstalledPackageAdminProviders()
-                ->registerConfigurators()
-                ->synchronizeAdminSurface($panel);
+            $this->synchronizePanelAdminSurface($panel);
         });
 
         $panel->renderHook(
@@ -221,21 +224,28 @@ class CapellAdminPlugin implements Plugin
             return;
         }
 
+        $this->synchronizePanelAdminSurface($panel);
+    }
+
+    public function synchronizePanelAdminSurface(Panel $panel): void
+    {
         $this->registerInstalledPackageAdminProviders()
             ->registerConfigurators()
             ->synchronizeAdminSurface($panel);
+        resolve(InstalledPanelRuntime::class)->extend($panel);
+        if (new ReflectionProperty($panel, 'id')->isInitialized($panel)) {
+            $panel->register();
+        }
 
         app()->forgetInstance(NavigationManager::class);
     }
 
     protected function registerPages(Panel $panel): self
     {
-        $pages = array_merge(
-            CapellAdmin::getAdminSurfaceRegistry()->pages(),
-            $this->discoverInstalledPackageFilamentPages(),
-        );
+        // Discovery contributes into the registry and returns its complete page list.
+        $pages = $this->discoverInstalledPackageFilamentPages();
 
-        $panel->pages(array_values(array_unique($pages)));
+        $panel->pages(array_values(array_diff($pages, $panel->getPages())));
 
         return $this;
     }
@@ -318,12 +328,7 @@ class CapellAdminPlugin implements Plugin
             $panel->plugin(FilamentClearCachePlugin::make());
         }
 
-        /** @var iterable<AdminPanelExtender> $extenders */
-        $extenders = app()->tagged(AdminPanelExtender::TAG);
-
-        foreach ($extenders as $extender) {
-            $extender->extend($panel);
-        }
+        resolve(InstalledPanelRuntime::class)->extend($panel);
 
         return $this;
     }
@@ -412,7 +417,11 @@ class CapellAdminPlugin implements Plugin
         /** @var list<class-string<Widget>> $widgets */
         $widgets = CapellAdmin::getAdminSurfaceRegistry()->widgets();
 
-        $panel->widgets($widgets);
+        $existing = array_map(
+            static fn (string|WidgetConfiguration $widget): string => is_string($widget) ? $widget : $widget->widget,
+            $panel->getWidgets(),
+        );
+        $panel->widgets(array_values(array_diff($widgets, $existing)));
 
         return $this;
     }

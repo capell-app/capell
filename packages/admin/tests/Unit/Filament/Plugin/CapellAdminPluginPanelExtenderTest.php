@@ -3,19 +3,34 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
+use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\SidebarCollapseEnum;
+use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestAdminPanelExtender;
+use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\RegistersInstalledRuntime;
+use Filament\Facades\Filament;
+use Filament\Pages\Page;
 use Filament\Panel;
+use Filament\Resources\Resource;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\View\PanelsRenderHook;
+use Filament\Widgets\Widget;
 use Illuminate\Contracts\View\View;
+use Illuminate\Routing\RouteCollection;
+use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
 
 use function Pest\Laravel\get;
+
+use Symfony\Component\HttpFoundation\Response;
 
 beforeEach(function (): void {
     TestAdminPanelExtender::$called = false;
@@ -27,6 +42,61 @@ it('runs tagged admin panel extenders while registering the admin plugin', funct
     CapellAdminPlugin::make()->register(Panel::make());
 
     expect(TestAdminPanelExtender::$called)->toBeTrue();
+});
+
+it('retains duplicate extender registrations while applying each tag entry once', function (): void {
+    $extender = new class implements AdminPanelExtender
+    {
+        public int $calls = 0;
+
+        #[Override]
+        public function extend(Panel $panel): void
+        {
+            $this->calls++;
+        }
+    };
+    app()->instance('runtime.counted-extender', $extender);
+    app()->tag(['runtime.counted-extender', 'runtime.counted-extender'], AdminPanelExtender::TAG);
+
+    $panel = Panel::make();
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+
+    expect($extender->calls)->toBe(2);
+});
+
+it('refuses ambiguous late authentication middleware on existing panel routes', function (): void {
+    $panel = Panel::make()->id('runtime-empty');
+    Route::get('runtime-empty/probe', static fn (): string => 'probe')->name('filament.runtime-empty.probe');
+    app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
+
+    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))
+        ->toThrow(RuntimeException::class, 'authenticated panel routes');
+});
+
+it('repairs route middleware after a failed extender is retried', function (): void {
+    $panel = Panel::make()->id('runtime-retry')->authMiddleware(['auth']);
+    $route = Route::get('runtime-retry/probe', static fn (): string => 'probe')
+        ->middleware(['auth'])->name('filament.runtime-retry.probe');
+    $extender = new class implements AdminPanelExtender
+    {
+        public bool $fail = true;
+
+        #[Override]
+        public function extend(Panel $panel): void
+        {
+            $panel->authMiddleware([LateSecurityMiddleware::class]);
+            throw_if($this->fail, RuntimeException::class, 'Extender failed after changing the panel.');
+        }
+    };
+    app()->instance('runtime.retry-extender', $extender);
+    app()->tag(['runtime.retry-extender'], AdminPanelExtender::TAG);
+
+    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    $extender->fail = false;
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+
+    expect($route->middleware())->toContain(LateSecurityMiddleware::class);
 });
 
 it('registers the admin tools dropdown in the topbar render hooks', function (): void {
@@ -161,3 +231,93 @@ it('emits the layer-order stylesheet before a registered extension stylesheet', 
 
     expect($preludePosition)->toBeLessThan($extensionPosition);
 });
+
+it('applies a late security extender to an existing panel and its existing authenticated routes', function (bool $compiled): void {
+    $panel = Filament::getPanel('admin');
+    Filament::setCurrentPanel($panel);
+    $this->actingAsAdmin();
+    // The route has already copied the panel middleware before installation.
+    Route::get('/admin/runtime-security-probe', fn (): string => 'protected')
+        ->middleware($panel->getMiddleware())
+        ->middleware($panel->getAuthMiddleware())
+        ->name('filament.admin.runtime-security-probe');
+    if ($compiled) {
+        $routes = resolve(Router::class)->getRoutes();
+        throw_unless($routes instanceof RouteCollection, RuntimeException::class, 'Expected uncached fixture routes.');
+
+        resolve(Router::class)->setCompiledRoutes($routes->compile());
+    }
+
+    $this->get('/admin/runtime-security-probe')->assertOk();
+    CapellCore::registerPackage('test/panel-runtime');
+    CapellCore::forcePackageInstalled('test/panel-runtime', false);
+    app()->register(LatePanelRuntimeProvider::class);
+    InstallPackageAction::run(CapellCore::getPackage('test/panel-runtime'));
+    $this->get('/admin/runtime-security-probe')->assertRedirect('/admin/change-password');
+    CapellAdminPlugin::make()->synchronizeCurrentPanelAdminSurface();
+    CapellAdminPlugin::make()->synchronizeCurrentPanelAdminSurface();
+    $this->get('/admin/runtime-security-probe')->assertRedirect('/admin/change-password');
+    expect(array_count_values($panel->getAuthMiddleware())[LateSecurityMiddleware::class] ?? 0)->toBe(1);
+})->with([false, true]);
+
+final class LateSecurityPanelExtender implements AdminPanelExtender
+{
+    #[Override]
+    public function extend(Panel $panel): void
+    {
+        $panel->authMiddleware([LateSecurityMiddleware::class], isPersistent: true);
+    }
+}
+
+final class LateSecurityMiddleware
+{
+    public function handle(): Response
+    {
+        return redirect('/admin/change-password');
+    }
+}
+
+final class LatePanelRuntimeProvider extends ServiceProvider
+{
+    use RegistersInstalledRuntime;
+
+    #[Override]
+    public function register(): void
+    {
+        $this->registerInstalledRuntime('test/panel-runtime', 'admin');
+    }
+
+    protected function bootInstalledRuntime(): void
+    {
+        $this->app->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
+        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(LateRuntimePage::class));
+        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource(LateRuntimeResource::class, 'Runtime'));
+        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::widget(LateRuntimeWidget::class));
+    }
+}
+
+it('adds late panel pages resources and widgets once and registers their Livewire components', function (): void {
+    $panel = Filament::getPanel('admin');
+    CapellCore::registerPackage('test/panel-runtime');
+    CapellCore::forcePackageInstalled('test/panel-runtime', false);
+    app()->register(LatePanelRuntimeProvider::class);
+    InstallPackageAction::run(CapellCore::getPackage('test/panel-runtime'));
+    CapellAdminPlugin::make()->synchronizePanelAdminSurface($panel);
+    expect($panel->getPages())->toContain(LateRuntimePage::class)
+        ->and($panel->getResources())->toContain(LateRuntimeResource::class)
+        ->and($panel->getWidgets())->toContain(LateRuntimeWidget::class);
+    foreach (['pages' => LateRuntimePage::class, 'resources' => LateRuntimeResource::class, 'widgets' => LateRuntimeWidget::class] as $property => $class) {
+        $entries = new ReflectionProperty($panel, $property)->getValue($panel);
+        expect(array_count_values($entries)[$class] ?? 0)->toBe(1);
+    }
+
+    $finder = resolve('livewire.finder');
+    $definitions = new ReflectionProperty($finder, 'classComponents')->getValue($finder);
+    expect($definitions)->toContain(LateRuntimePage::class, LateRuntimeWidget::class);
+});
+
+final class LateRuntimePage extends Page {}
+
+final class LateRuntimeResource extends Resource {}
+
+final class LateRuntimeWidget extends Widget {}

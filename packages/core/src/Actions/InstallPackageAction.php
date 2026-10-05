@@ -6,6 +6,8 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Actions\Install\PublishPackageMigrationsAction;
 use Capell\Core\Actions\Install\RunMigrationsAction;
+use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
+use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ListenerEnum;
@@ -18,7 +20,6 @@ use Exception;
 use Illuminate\Support\Facades\Event;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Throwable;
 
 /**
@@ -100,6 +101,7 @@ class InstallPackageAction
             throw $throwable;
         }
 
+        RestartQueueWorkersAction::run();
         CapellCore::clearCachedComponents();
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::PackageInstalled, $package);
         Event::dispatch(new PackageInstalled($package));
@@ -171,21 +173,6 @@ class InstallPackageAction
 
     private static function registerInstalledPackageProviders(PackageData $package): void
     {
-        foreach (['auth', 'runtime', 'admin', 'frontend'] as $context) {
-            foreach ($package->getProviderClasses($context) as $providerClass) {
-                app()->register($providerClass);
-                app()->getProvider($providerClass)?->callBootedCallbacks();
-            }
-        }
-
-        if ($package->serviceProviderClass === null) {
-            return;
-        }
-
-        $provider = app()->getProvider($package->serviceProviderClass);
-
-        if ($provider instanceof PackageServiceProvider) {
-            $provider->callBootedCallbacks();
-        }
+        RefreshInstalledPackageRuntimeAction::run($package);
     }
 }

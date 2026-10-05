@@ -311,3 +311,12 @@ final class MetadataHooksTestServiceProvider extends AbstractPackageServiceProvi
         return ['url', 'force'];
     }
 }
+
+it('preserves the legacy installed and unconditional hook callback semantics', function (): void {
+    $provider = new InstalledLifecycleTestServiceProvider(app(), installed: true);
+    $provider->registeringPackage();
+    $provider->runBootedCallback();
+    $provider->runBootedCallback();
+    expect($provider->installedBootCount())->toBe(2)
+        ->and($provider->packageBootCount())->toBe(2);
+});

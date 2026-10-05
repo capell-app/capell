@@ -18,7 +18,10 @@ final class PublicationReadinessRegistry
     /** @var list<PublicationReadinessContributor> */
     private array $contributors = [];
 
-    private bool $taggedContributorsDiscovered = false;
+    private int $taggedContributorCount = 0;
+
+    /** @var list<int> */
+    private array $taggedContributorIndexes = [];
 
     private readonly Container $container;
 
@@ -77,17 +80,18 @@ final class PublicationReadinessRegistry
     public function clear(): void
     {
         $this->contributors = [];
-        $this->taggedContributorsDiscovered = false;
+        $this->taggedContributorCount = 0;
+        $this->taggedContributorIndexes = [];
     }
 
     private function discoverTaggedContributors(): void
     {
-        if ($this->taggedContributorsDiscovered) {
+        $all = iterator_to_array($this->container->tagged(PublicationReadinessContributor::TAG));
+        $contributors = array_slice($all, $this->taggedContributorCount);
+        if ($contributors === []) {
             return;
         }
 
-        $contributors = iterator_to_array($this->container->tagged(PublicationReadinessContributor::TAG));
-        usort($contributors, static fn (mixed $left, mixed $right): int => get_debug_type($left) <=> get_debug_type($right));
         $validatedContributors = [];
 
         foreach ($contributors as $contributor) {
@@ -95,7 +99,20 @@ final class PublicationReadinessRegistry
             $validatedContributors[] = $contributor;
         }
 
-        $this->contributors = [...$this->contributors, ...$validatedContributors];
-        $this->taggedContributorsDiscovered = true;
+        $tagged = array_map(fn (int $index): PublicationReadinessContributor => $this->contributors[$index], $this->taggedContributorIndexes);
+        foreach ($validatedContributors as $contributor) {
+            $this->taggedContributorIndexes[] = count($this->contributors);
+            $this->contributors[] = $contributor;
+            $tagged[] = $contributor;
+        }
+
+        usort($tagged, static fn (PublicationReadinessContributor $left, PublicationReadinessContributor $right): int => $left::class <=> $right::class);
+        $ordered = $this->contributors;
+        foreach ($this->taggedContributorIndexes as $position => $index) {
+            $ordered[$index] = $tagged[$position];
+        }
+
+        $this->contributors = array_values($ordered);
+        $this->taggedContributorCount = count($all);
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'queue_workers' => 'Queue workers',
     'start' => 'Refreshing the Capell runtime',
     'passed' => 'passed',
     'failed' => 'failed',
