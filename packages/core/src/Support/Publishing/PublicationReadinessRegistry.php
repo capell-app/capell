@@ -18,7 +18,10 @@ final class PublicationReadinessRegistry
     /** @var list<PublicationReadinessContributor> */
     private array $contributors = [];
 
-    private bool $taggedContributorsDiscovered = false;
+    private int $taggedContributorCount = 0;
+
+    /** @var list<PublicationReadinessContributor> */
+    private array $taggedContributors = [];
 
     private readonly Container $container;
 
@@ -39,7 +42,7 @@ final class PublicationReadinessRegistry
     {
         $this->discoverTaggedContributors();
 
-        return $this->contributors;
+        return [...$this->contributors, ...$this->taggedContributors];
     }
 
     /** @return list<PublicationReadinessCheckData> */
@@ -49,7 +52,7 @@ final class PublicationReadinessRegistry
         $checks = [];
         $ids = [];
 
-        foreach ($this->contributors as $contributor) {
+        foreach ($this->contributors() as $contributor) {
             if (! $contributor->supports($record)) {
                 continue;
             }
@@ -77,17 +80,18 @@ final class PublicationReadinessRegistry
     public function clear(): void
     {
         $this->contributors = [];
-        $this->taggedContributorsDiscovered = false;
+        $this->taggedContributorCount = 0;
+        $this->taggedContributors = [];
     }
 
     private function discoverTaggedContributors(): void
     {
-        if ($this->taggedContributorsDiscovered) {
+        $all = iterator_to_array($this->container->tagged(PublicationReadinessContributor::TAG));
+        $contributors = array_slice($all, $this->taggedContributorCount);
+        if ($contributors === []) {
             return;
         }
 
-        $contributors = iterator_to_array($this->container->tagged(PublicationReadinessContributor::TAG));
-        usort($contributors, static fn (mixed $left, mixed $right): int => get_debug_type($left) <=> get_debug_type($right));
         $validatedContributors = [];
 
         foreach ($contributors as $contributor) {
@@ -95,7 +99,8 @@ final class PublicationReadinessRegistry
             $validatedContributors[] = $contributor;
         }
 
-        $this->contributors = [...$this->contributors, ...$validatedContributors];
-        $this->taggedContributorsDiscovered = true;
+        $this->taggedContributors = [...$this->taggedContributors, ...$validatedContributors];
+        usort($this->taggedContributors, static fn (PublicationReadinessContributor $left, PublicationReadinessContributor $right): int => $left::class <=> $right::class);
+        $this->taggedContributorCount = count($all);
     }
 }

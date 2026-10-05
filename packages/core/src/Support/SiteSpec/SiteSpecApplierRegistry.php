@@ -16,7 +16,7 @@ use RuntimeException;
 /** @extends AbstractKeyedRegistry<SiteSpecApplier> */
 final class SiteSpecApplierRegistry extends AbstractKeyedRegistry
 {
-    private bool $taggedAppliersDiscovered = false;
+    private int $taggedApplierCount = 0;
 
     public function __construct(private readonly Container $container) {}
 
@@ -67,16 +67,13 @@ final class SiteSpecApplierRegistry extends AbstractKeyedRegistry
 
     private function discoverTaggedAppliers(): void
     {
-        if ($this->taggedAppliersDiscovered) {
-            return;
-        }
-
-        $this->taggedAppliersDiscovered = true;
-
-        foreach ($this->container->tagged(SiteSpecApplier::TAG) as $applier) {
+        $tagged = iterator_to_array($this->container->tagged(SiteSpecApplier::TAG));
+        foreach (array_slice($tagged, $this->taggedApplierCount) as $applier) {
             if ($applier instanceof SiteSpecApplier) {
                 $this->register($applier);
             }
+
+            $this->taggedApplierCount++;
         }
     }
 }

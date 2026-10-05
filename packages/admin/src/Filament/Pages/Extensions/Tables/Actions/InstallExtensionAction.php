@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Pages\Extensions\Tables\Actions;
 
+use Capell\Admin\Actions\Extensions\PrepareInstalledExtensionReloadAction;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionRecord;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Actions\InstallPackageAction;
@@ -38,6 +39,7 @@ final class InstallExtensionAction
 
                 try {
                     InstallPackageAction::run($package);
+                    PrepareInstalledExtensionReloadAction::run();
                 } catch (Throwable $throwable) {
                     Notification::make('extension-install-failed')
                         ->title(__('capell-admin::message.extension_install_failed', [
@@ -58,7 +60,7 @@ final class InstallExtensionAction
                     ->success()
                     ->send();
 
-                ExtensionRecord::refreshTable($livewire);
+                $livewire->redirect(ExtensionsPage::getUrl(), navigate: false);
             });
     }
 }

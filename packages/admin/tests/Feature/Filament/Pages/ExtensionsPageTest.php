@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Extensions\PrepareInstalledExtensionReloadAction;
 use Capell\Admin\Contracts\Extenders\ExtensionsPageExtender;
 use Capell\Admin\Contracts\Extensions\ExtensionCatalogueMetadataProvider;
 use Capell\Admin\Contracts\Extensions\ExtensionRemovalCoordinator;
@@ -39,6 +40,7 @@ use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
@@ -51,6 +53,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\Column;
 use Filament\Widgets\WidgetConfiguration;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\HtmlString;
 use Livewire\Livewire;
@@ -1112,14 +1115,45 @@ it('can install an uninstalled local extension from the extensions page', functi
         ->assertSuccessful()
         ->assertTableActionVisible('installExtension', record: 'vendor/local-extension')
         ->callTableAction('installExtension', record: 'vendor/local-extension')
-        ->assertDispatched('refresh-sidebar')
+        ->assertRedirect(ExtensionsPage::getUrl())
+        ->assertNotDispatched('refresh-sidebar')
         ->assertNotified(__('capell-admin::message.extension_installed', [
             'extension' => 'Local Extension',
-        ]))
-        ->assertTableActionHidden('installExtension', record: 'vendor/local-extension');
+        ]));
 
     expect(CapellCore::isPackageInstalled('vendor/local-extension'))->toBeTrue();
 });
+
+it('reconciles persisted route caches before redirecting an installed extension', function (bool $writable): void {
+    grantExtensionsPageManagementAccess();
+    CapellCore::registerPackage(name: 'vendor/local-extension', path: extensionPackagePath(), version: '1.2.3');
+    CapellAdmin::registerExtensionPage('vendor/local-extension', UpgradePage::class);
+    $cacheState = new class
+    {
+        public bool $exists = true;
+    };
+    $path = app()->getCachedRoutesPath();
+    $files = Mockery::mock(Filesystem::class);
+    $files->shouldReceive('exists')->andReturnUsing(static fn (string $candidate): bool => $candidate === $path && $cacheState->exists);
+    $files->shouldReceive('delete')->once()->with($path)->andReturnUsing(static function () use ($writable, $cacheState): bool {
+        $cacheState->exists = ! $writable;
+
+        return $writable;
+    });
+    app()->instance(PrepareInstalledExtensionReloadAction::class, new PrepareInstalledExtensionReloadAction(app(), $files));
+    $component = Livewire::test(InstalledExtensionsFilamentWidget::class)
+        ->callTableAction('installExtension', record: 'vendor/local-extension');
+    if ($writable) {
+        $component->assertRedirect(ExtensionsPage::getUrl());
+        expect($component->effects)->not->toHaveKey('redirectUsingNavigate');
+        expect($cacheState->exists)->toBeFalse();
+    } else {
+        $component->assertNoRedirect()
+            ->assertNotified(__('capell-admin::message.extension_install_failed', ['extension' => 'Local Extension']));
+        expect(resolve(InstalledRuntimeLifecycle::class)->isUnavailable())->toBeTrue();
+        $this->get('/admin')->assertStatus(503);
+    }
+})->with([true, false]);
 
 it('shows uninstall actions for trusted package entries', function (): void {
     grantExtensionsPageManagementAccess();

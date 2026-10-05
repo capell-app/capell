@@ -16,6 +16,7 @@ use Capell\Core\Support\Diagnostics\Checks\DefaultThemeAndLayoutCheck;
 use Capell\Core\Support\Diagnostics\Checks\GeneratedTailwindCssCheck;
 use Capell\Core\Support\Diagnostics\Checks\HomepageRouteCheck;
 use Capell\Core\Support\Diagnostics\Checks\InstalledPackagesCheck;
+use Capell\Core\Support\Diagnostics\Checks\InstalledRuntimeCheck;
 use Capell\Core\Support\Diagnostics\Checks\ManifestContractsCheck;
 use Capell\Core\Support\Diagnostics\Checks\MorphMapCheck;
 use Capell\Core\Support\Diagnostics\Checks\PageUrlSiteDomainsCheck;
@@ -50,6 +51,7 @@ final class BuildDoctorReportAction
         ConfigFilesCheck::class,
         ManifestContractsCheck::class,
         InstalledPackagesCheck::class,
+        InstalledRuntimeCheck::class,
         ViteInputsCheck::class,
         GeneratedTailwindCssCheck::class,
         HomepageRouteCheck::class,
