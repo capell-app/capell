@@ -58,7 +58,7 @@ class ActivityRecord extends Model
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
-    protected function scopeInLog(Builder $query, mixed ...$logNames): Builder
+    public function scopeInLog(Builder $query, mixed ...$logNames): Builder
     {
         return $query->whereIn('log_name', $logNames);
     }
@@ -67,7 +67,7 @@ class ActivityRecord extends Model
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
-    protected function scopeCausedBy(Builder $query, Model $causer): Builder
+    public function scopeCausedBy(Builder $query, Model $causer): Builder
     {
         return $query->where('causer_type', $causer->getMorphClass())->where('causer_id', $causer->getKey());
     }
@@ -76,7 +76,7 @@ class ActivityRecord extends Model
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
-    protected function scopeForEvent(Builder $query, string $event): Builder
+    public function scopeForEvent(Builder $query, string $event): Builder
     {
         return $query->where('event', $event);
     }
@@ -85,7 +85,7 @@ class ActivityRecord extends Model
      * @param  Builder<static>  $query
      * @return Builder<static>
      */
-    protected function scopeForSubject(Builder $query, Model $subject): Builder
+    public function scopeForSubject(Builder $query, Model $subject): Builder
     {
         return $query->where('subject_type', $subject->getMorphClass())->where('subject_id', $subject->getKey());
     }

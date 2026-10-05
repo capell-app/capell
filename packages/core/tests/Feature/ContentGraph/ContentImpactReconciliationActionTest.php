@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\ContentGraph\ReconcileContentImpactAction;
 use Capell\Core\Models\Layout;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Illuminate\Support\Facades\Log;
 use Spatie\Activitylog\Models\Activity;
 
@@ -26,11 +27,11 @@ it('records matching predicted and actual surfaces in the activity log', functio
         ->and($result->missingSurfaces)->toBe([])
         ->and($result->unexpectedSurfaces)->toBe([])
         ->and($activity->event)->toBe('reconciled')
-        ->and($activity->properties?->get('predictedSurfaces'))->toBe([
+        ->and((ActivityLogCompat::properties($activity)['predictedSurfaces'] ?? null))->toBe([
             'cache:site-1',
             'url:https://example.test/landing',
         ])
-        ->and($activity->properties?->get('actualSurfaces'))->toBe([
+        ->and((ActivityLogCompat::properties($activity)['actualSurfaces'] ?? null))->toBe([
             'cache:site-1',
             'url:https://example.test/landing',
         ]);

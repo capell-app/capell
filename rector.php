@@ -139,6 +139,12 @@ return RectorConfig::configure()
             __DIR__ . '/packages/frontend/src/Support/Render/RenderHookRegistry.php',
         ],
         StringClassNameToClassConstantRector::class => [
+            // Only one activitylog major exists at runtime. Keep absent-major
+            // names as strings; fixture source also requires its leading slash.
+            __DIR__ . '/packages/core/src/Support/Activity/ActivityLogCompat.php',
+            __DIR__ . '/packages/core/tests/Unit/Support/Activity/ActivityLogCompatTest.php',
+            __DIR__ . '/packages/installer/src/Support/InstallGuide/Patches/UserModelPatch.php',
+            __DIR__ . '/packages/installer/tests/Feature/InstallGuide/Patches/UserModelPatchTest.php',
             __DIR__ . '/packages/core/src/Actions/Extensions/BuildExtensionSurfaceCatalogAction.php',
             // These two cover @deprecated compatibility steps that still ship and
             // stay reachable via the frontend.kernel.steps override. A ::class
@@ -167,6 +173,9 @@ return RectorConfig::configure()
             __DIR__ . '/packages/frontend/src/Livewire/Page/Sitemap.php',
         ],
         MakeModelAttributesAndScopesProtectedRector::class => [
+            // The child implements the installed activity contract. Its v4
+            // interface requires these inherited scopes to remain public.
+            __DIR__ . '/tests/fixtures/Activity/ActivityRecord.php',
             __DIR__ . '/packages/core/src/Enums/Attribute/EnumAttributeHelper.php',
         ],
         // Hand-written test doubles have no factory, and adding the trait only

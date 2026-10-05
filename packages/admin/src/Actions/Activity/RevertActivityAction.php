@@ -77,7 +77,7 @@ final class RevertActivityAction
             subjectClass: $this->subjectClass($activity),
             subjectId: $activity->subject_id,
             stableIdentifier: $this->stableIdentifier($activity),
-            workspaceId: $activity->properties?->get('workspace_id'),
+            workspaceId: (ActivityLogCompat::properties($activity)['workspace_id'] ?? null),
         );
 
         $handler = resolve(ActivityRevertHandlerResolver::class)->resolve($selection);

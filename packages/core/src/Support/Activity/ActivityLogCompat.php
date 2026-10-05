@@ -10,7 +10,6 @@ use JsonException;
 use LogicException;
 use Spatie\Activitylog\Contracts\Activity as ActivityContract;
 use Spatie\Activitylog\Models\Activity;
-use Spatie\Activitylog\Traits\LogsActivity;
 
 final class ActivityLogCompat
 {
@@ -20,14 +19,18 @@ final class ActivityLogCompat
     /** @return class-string */
     public static function logOptionsClass(): string
     {
-        return class_exists(self::ModernLogOptions) ? self::ModernLogOptions : \Spatie\Activitylog\LogOptions::class;
+        $class = class_exists(self::ModernLogOptions) ? self::ModernLogOptions : 'Spatie\\Activitylog\\LogOptions';
+
+        throw_unless(class_exists($class), LogicException::class, 'Activity log options are unavailable.');
+
+        return $class;
     }
 
     public static function logsActivityTrait(): string
     {
         return class_exists(self::ModernLogOptions)
             ? 'Spatie\\Activitylog\\Models\\Concerns\\LogsActivity'
-            : LogsActivity::class;
+            : 'Spatie\\Activitylog\\Traits\\LogsActivity';
     }
 
     /** @return class-string<Model&ActivityContract> */
@@ -76,10 +79,16 @@ final class ActivityLogCompat
         $changes = array_key_exists('attribute_changes', $activity->getAttributes())
             ? self::arrayValue($activity->getAttribute('attribute_changes'))
             : [];
-        $properties = self::arrayValue($activity->getAttribute('properties'));
+        $properties = self::properties($activity);
         $values = $changes[$key] ?? $properties[$key] ?? [];
 
         return is_array($values) ? $values : [];
+    }
+
+    /** @return array<string, mixed> */
+    public static function properties(Model $activity): array
+    {
+        return self::arrayValue($activity->getAttribute('properties'));
     }
 
     /** @return array<string, mixed> */

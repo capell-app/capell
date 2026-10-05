@@ -13,7 +13,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Activity;
-use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Symfony\Component\Process\Process;
 
 it('resolves the installed options and logging trait for every logging model', function (): void {
@@ -80,15 +79,15 @@ it('prefers modern tracked values and falls back for absent legacy values', func
     'malformed values' => [['old' => 'invalid', 'attributes' => 42], [], []],
 ]);
 
-it('selects the modern namespaces in an isolated process without polluting the installed vendor classes', function (): void {
+it('executes options and the legacy hook using the real installed vendor sources', function (): void {
     $root = dirname(__DIR__, 6);
-    $process = new Process([PHP_BINARY, $root . '/packages/core/tests/fixtures/activitylog-v5.php', $root]);
+    $process = new Process([PHP_BINARY, $root . '/packages/core/tests/fixtures/activitylog-options.php', $root]);
     $process->mustRun();
 
     expect(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR))->toBe([
-        'options' => Spatie\Activitylog\Support\LogOptions::class,
-        'trait' => LogsActivity::class,
-        'empty' => false,
+        'options' => ActivityLogCompat::logOptionsClass(),
+        'trait' => ActivityLogCompat::logsActivityTrait(),
+        'empty' => [class_exists('Spatie\\Activitylog\\Support\\LogOptions') ? 'logEmptyChanges' : 'submitEmptyLogs' => false],
         'configured' => true,
         'relation' => 'activity_log',
         'hook' => 'updated',

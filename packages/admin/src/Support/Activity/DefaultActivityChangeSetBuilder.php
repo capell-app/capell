@@ -57,7 +57,7 @@ final class DefaultActivityChangeSetBuilder implements ActivityChangeSetBuilder
                 : (string) __('capell-admin::dashboard.activity_system'),
             event: $activity->event,
             occurredAt: $activity->created_at,
-            workspaceId: $activity->properties?->get('workspace_id'),
+            workspaceId: (ActivityLogCompat::properties($activity)['workspace_id'] ?? null),
             emptyMessage: $fieldPaths === [] ? 'capell-admin::activity.no_field_changes' : null,
         );
     }
@@ -128,7 +128,7 @@ final class DefaultActivityChangeSetBuilder implements ActivityChangeSetBuilder
             return 'unsupported_event';
         }
 
-        if ($activity->properties?->get('workspace_id') !== null) {
+        if ((ActivityLogCompat::properties($activity)['workspace_id'] ?? null) !== null) {
             return 'workspace_context';
         }
 

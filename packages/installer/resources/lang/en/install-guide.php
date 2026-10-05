@@ -58,5 +58,6 @@ return [
     'vite_theme_input_patch_description' => 'Registers the Capell Filament theme in the Laravel Vite input array',
     'vite_theme_input_patch_label' => 'Vite Theme Input Patch',
     'user_model_patch_description' => 'Adds the required Capell traits and interfaces to the User model.',
+    'user_model_patch_customised' => 'Review this User model manually. Use one Capell\\Core\\Support\\Activity\\LogsActivity trait and the Core LogOptions alias. Use ActivityLogCompat::options() or ActivityLogCompat::withoutEmptyLogs() instead of vendor-only empty-log methods. Resolve trait adaptations, custom hooks and option logic against both activitylog 4 and 5 before enabling logging.',
     'user_model_patch_label' => 'User model patch',
 ];

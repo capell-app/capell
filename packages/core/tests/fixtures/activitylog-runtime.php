@@ -23,9 +23,34 @@ if (isset($argv[2])) {
     $userClass = 'App\\Models\\User';
     throw_unless(class_exists($userClass, false), LogicException::class, 'The generated User class did not load.');
 
+    Schema::create('activity_log', function (Blueprint $table): void {
+        $table->id();
+        $table->string('log_name')->nullable();
+        $table->string('event')->nullable();
+        $table->text('description');
+        $table->nullableMorphs('subject');
+        $table->nullableMorphs('causer');
+        $table->json('properties')->nullable();
+        $table->json('attribute_changes')->nullable();
+        $table->uuid('batch_uuid')->nullable();
+        $table->timestamps();
+    });
+    Schema::create('users', function (Blueprint $table): void {
+        $table->id();
+        $table->string('name');
+        $table->timestamps();
+    });
+    $instance = new $userClass;
+    $options = $instance->getActivitylogOptions();
+    $instance->forceFill(['name' => 'Before'])->save();
+    $instance->forceFill(['name' => 'After'])->save();
+    $updated = Activity::query()->where('event', 'updated')->sole();
     $user = new ReflectionClass($userClass);
     echo json_encode([
         'activities' => $user->hasMethod('activities'),
+        'options_class' => $options::class,
+        'logged_name' => ActivityLogCompat::attributeValues($updated, 'attributes')['name'] ?? null,
+        'relation_count' => $instance->activities()->count(),
         'options' => $user->getMethod('getActivitylogOptions')->getReturnType()?->__toString(),
         'trait' => in_array(LogsActivity::class, class_uses_recursive($user->getName()), true),
         'audit_alias' => $user->hasMethod('enableAudit'),
@@ -103,5 +128,5 @@ echo json_encode([
     'old' => ActivityLogCompat::attributeValues($logged, 'old'),
     'new' => ActivityLogCompat::attributeValues($logged, 'attributes'),
     'relation_count' => $subject->activities()->count(),
-    'hook' => ContractActivity::query()->latest('id')->firstOrFail()->getAttribute('properties')->get('hook'),
+    'hook' => ActivityLogCompat::properties(ContractActivity::query()->latest('id')->firstOrFail())['hook'],
 ], JSON_THROW_ON_ERROR);

@@ -10,6 +10,7 @@ use Capell\Admin\Support\Activity\TranslationActivityDecorator;
 use Capell\Admin\Tests\Fixtures\Activity\GlobalAuditUser;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 
@@ -32,7 +33,7 @@ it('decorates modern tracked changes and retains revert eligibility', function (
     expect($presentation->oldValues)->toBe(['title' => 'Before'])
         ->and($presentation->newValues)->toBe(['title' => 'After'])
         ->and($presentation->canRevert)->toBeTrue()
-        ->and($activity->properties?->get('custom'))->toBe('retained');
+        ->and((ActivityLogCompat::properties($activity)['custom'] ?? null))->toBe('retained');
 })->with(['default' => false, 'translation' => true]);
 
 it('presents and reverts modern tracked values while preserving custom properties', function (): void {
@@ -62,7 +63,7 @@ it('presents and reverts modern tracked values while preserving custom propertie
 
     expect($result->successful)->toBeTrue()
         ->and($language->refresh()->name)->toBe('Before')
-        ->and($activity->refresh()->properties?->get('custom'))->toBe('retained');
+        ->and((ActivityLogCompat::properties($activity->refresh())['custom'] ?? null))->toBe('retained');
 });
 
 it('rejects a modern tracked value that no longer matches the subject', function (): void {

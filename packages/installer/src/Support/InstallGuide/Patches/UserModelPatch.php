@@ -16,13 +16,21 @@ use Capell\Core\Support\Patching\PhpFileEditor;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Foundation\Auth\User;
 use PhpParser\Node;
+use PhpParser\Node\Arg;
+use PhpParser\Node\ArrayItem;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\Array_;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\StaticCall;
+use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Name\FullyQualified;
-use PhpParser\Node\Param;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\GroupUse;
+use PhpParser\Node\Stmt\Namespace_;
+use PhpParser\Node\Stmt\Return_;
 use PhpParser\Node\Stmt\TraitUse;
 use PhpParser\Node\Stmt\Use_;
 use PhpParser\NodeFinder;
@@ -53,7 +61,7 @@ class UserModelPatch implements Patch
     private const string FILAMENT_USER_INTERFACE = FilamentUser::class;
 
     private const array VENDOR_LOGGING_TRAITS = [
-        \Spatie\Activitylog\Traits\LogsActivity::class,
+        'Spatie\\Activitylog\\Traits\\LogsActivity',
         'Spatie\\Activitylog\\Models\\Concerns\\LogsActivity',
     ];
 
@@ -104,6 +112,16 @@ class UserModelPatch implements Patch
                 return PatchStatus::Unsupported;
             }
 
+            // Only rewrite a single, conventional host User. A file-wide name
+            // rewrite must not change another namespace or a second class.
+            $namespaces = (new NodeFinder)->findInstanceOf($editor->getAst(), Namespace_::class);
+            $classes = (new NodeFinder)->findInstanceOf($editor->getAst(), Class_::class);
+            if (count($namespaces) !== 1 || $namespaces[0]->name?->toString() !== 'App\\Models'
+                || count($classes) !== 1 || $classNode->isAbstract() || $classNode->isReadonly()
+                || ! $classNode->extends instanceof Name || ! $this->hasPortableUserShape($classNode)) {
+                return PatchStatus::Customised;
+            }
+
             // Check if extends a non-stock base class
             if ($classNode->extends instanceof Name) {
                 $extendsName = $this->getNodeName($classNode->extends);
@@ -116,16 +134,18 @@ class UserModelPatch implements Patch
             $requiredTraits = $this->requiredTraits();
             $presentTraits = $this->countPresentTraits($classNode, $requiredTraits);
             $totalRequiredTraits = count($requiredTraits);
-            $activitylogMethod = $editor->findMethodInClass(self::CLASS_NAME, 'getActivitylogOptions');
+            $activitylogMethod = $classNode->getMethod('getActivitylogOptions');
             if ($activitylogMethod instanceof ClassMethod && ! $this->canAdaptActivitylogOptions($activitylogMethod)) {
                 return PatchStatus::Customised;
             }
 
             $hasActivitylogMethod = $activitylogMethod instanceof ClassMethod;
             $hasCompatibleReturnType = $activitylogMethod?->returnType instanceof Name
-                && in_array(strtolower($this->getNodeName($activitylogMethod->returnType)), [strtolower(LogOptions::class), strtolower(ActivityLogCompat::logOptionsClass())], true);
+                && strtolower($this->getNodeName($activitylogMethod->returnType)) === strtolower(LogOptions::class);
 
-            $hasVendorLogging = $this->countPresentTraits($classNode, self::VENDOR_LOGGING_TRAITS) > 0;
+            $vendorNames = array_map(strtolower(...), [...self::VENDOR_LOGGING_TRAITS, 'Spatie\\Activitylog\\LogOptions', 'Spatie\\Activitylog\\Support\\LogOptions']);
+            $hasVendorLogging = (new NodeFinder)->findFirst($classNode, fn (Node $node): bool => $node instanceof Name
+                && in_array(strtolower($this->getNodeName($node)), $vendorNames, true)) instanceof Node;
             if ($hasFilamentUser && $presentTraits === $totalRequiredTraits && $hasActivitylogMethod && $hasCompatibleReturnType && ! $hasVendorLogging) {
                 return PatchStatus::AlreadyApplied;
             }
@@ -138,7 +158,14 @@ class UserModelPatch implements Patch
 
     public function reason(): ?string
     {
-        return null;
+        if ($this->probe() !== PatchStatus::Customised) {
+            return null;
+        }
+
+        $reason = __('capell-installer::install-guide.user_model_patch_customised');
+        throw_unless(is_string($reason), RuntimeException::class, 'User model guidance must be a translation string.');
+
+        return $reason;
     }
 
     public function apply(): void
@@ -156,7 +183,7 @@ class UserModelPatch implements Patch
 
         try {
             $editor = new PhpFileEditor($userModelPath);
-            $backupPath = $editor->backup();
+            $editor->backup();
             $this->resolveNames($editor);
             $traverser = new NodeTraverser(new ActivityLogNameVisitor);
             $editor->setAst($traverser->traverse($editor->getAst()));
@@ -178,13 +205,13 @@ class UserModelPatch implements Patch
             throw_unless($classNode instanceof Class_, RuntimeException::class, 'Could not find User class in the file');
 
             // Add FilamentUser to implements
-            $this->addInterfaceToClass($editor, $classNode);
+            $this->addInterfaceToClass($editor, $classNode, self::FILAMENT_USER_INTERFACE);
 
             // Add traits to the class
-            $this->addTraitsToClass($editor);
+            $this->addTraitsToClass($editor, $classNode);
 
             // Add the getActivitylogOptions method
-            $this->addActivitylogOptionsMethod($editor);
+            $this->addActivitylogOptionsMethod($editor, $classNode);
 
             $editor->save();
             clearstatcache(true, $userModelPath);
@@ -292,37 +319,12 @@ class UserModelPatch implements Patch
 
         // Find existing trait uses to know where to insert
         $traitUse = null;
-        $loggingTraitUse = null;
         $existingTraitNames = [];
 
-        foreach ($classNode->stmts as $index => $stmt) {
-            if ($stmt instanceof TraitUse) {
-                foreach ($stmt->traits as $traitIndex => $traitNode) {
-                    $traitName = strtolower($this->getNodeName($traitNode));
-                    if ($traitName === strtolower(LogsActivity::class) && isset($existingTraitNames[$traitName])) {
-                        if ($loggingTraitUse instanceof TraitUse && $loggingTraitUse !== $stmt) {
-                            $loggingTraitUse->adaptations = [...$loggingTraitUse->adaptations, ...$stmt->adaptations];
-                            $stmt->adaptations = [];
-                        }
-
-                        unset($stmt->traits[$traitIndex]);
-
-                        continue;
-                    }
-
-                    if ($traitName === strtolower(LogsActivity::class)) {
-                        $loggingTraitUse = $stmt;
-                    }
-
-                    $existingTraitNames[$traitName] = true;
-                }
-
-                $stmt->traits = array_values($stmt->traits);
-                if ($stmt->traits === []) {
-                    unset($classNode->stmts[$index]);
-                } else {
-                    $traitUse = $stmt;
-                }
+        foreach ($classNode->getTraitUses() as $statement) {
+            $traitUse = $statement;
+            foreach ($statement->traits as $trait) {
+                $existingTraitNames[strtolower($this->getNodeName($trait))] = true;
             }
         }
 
@@ -355,7 +357,7 @@ class UserModelPatch implements Patch
             $classNode->stmts = [];
         }
 
-        $methodExists = array_any($classNode->stmts, fn (mixed $stmt): bool => $stmt instanceof ClassMethod && $stmt->name->name === 'getActivitylogOptions');
+        $methodExists = array_any($classNode->stmts, fn (mixed $stmt): bool => $stmt instanceof ClassMethod && strcasecmp($stmt->name->name, 'getActivitylogOptions') === 0);
 
         if ($methodExists) {
             return;
@@ -391,16 +393,141 @@ PHP;
         $editor->setAst($traverser->traverse($editor->getAst()));
     }
 
+    private function hasPortableUserShape(Class_ $class): bool
+    {
+        $allowed = array_map(strtolower(...), [
+            ...self::ADMIN_TRAITS,
+            ...self::VENDOR_LOGGING_TRAITS,
+            'Illuminate\\Notifications\\Notifiable',
+            'Illuminate\\Database\\Eloquent\\Factories\\HasFactory',
+            'Illuminate\\Database\\Eloquent\\SoftDeletes',
+        ]);
+        $logging = array_map(strtolower(...), [LogsActivity::class, ...self::VENDOR_LOGGING_TRAITS]);
+        $loggingCount = 0;
+        $seen = [];
+        foreach ($class->getTraitUses() as $use) {
+            // Precedence and aliases can refer to removed methods or collapse to
+            // self-exclusion after replacement. Preserve them for manual review.
+            if ($use->adaptations !== []) {
+                return false;
+            }
+
+            foreach ($use->traits as $trait) {
+                $name = strtolower($this->getNodeName($trait));
+                if (! in_array($name, $allowed, true) || isset($seen[$name])) {
+                    return false;
+                }
+
+                $seen[$name] = true;
+                $loggingCount += (int) in_array($name, $logging, true);
+            }
+        }
+
+        foreach ($class->implements as $interface) {
+            if (strcasecmp($this->getNodeName($interface), self::FILAMENT_USER_INTERFACE) !== 0) {
+                return false;
+            }
+        }
+
+        // Custom hooks and overrides may depend on either major's internals.
+        foreach ($class->getMethods() as $method) {
+            if (! in_array(strtolower($method->name->name), ['getactivitylogoptions', 'casts', 'canaccesspanel'], true)) {
+                return false;
+            }
+
+            if (strcasecmp($method->name->name, 'casts') === 0 && ($method->isPrivate() || $method->isStatic() || $method->isAbstract()
+                || $method->byRef || $method->params !== [] || ! $method->returnType instanceof Identifier || $method->returnType->name !== 'array')) {
+                return false;
+            }
+
+            if (strcasecmp($method->name->name, 'canAccessPanel') === 0 && (! $method->isPublic() || $method->isStatic() || $method->isAbstract()
+                || $method->byRef || ! $method->returnType instanceof Identifier || $method->returnType->name !== 'bool'
+                || count($method->params) !== 1 || ! $method->params[0]->type instanceof Name
+                || $this->getNodeName($method->params[0]->type) !== 'Filament\\Panel' || $method->params[0]->byRef || $method->params[0]->variadic)) {
+                return false;
+            }
+        }
+
+        foreach ($class->getProperties() as $property) {
+            if ($property->type !== null || $property->isPrivate() || $property->isStatic() || $property->isReadonly()) {
+                return false;
+            }
+
+            foreach ($property->props as $item) {
+                if (! in_array($item->name->name, ['fillable', 'guarded', 'hidden', 'casts', 'table', 'connection', 'timestamps'], true)) {
+                    return false;
+                }
+            }
+        }
+
+        return $loggingCount <= 1;
+    }
+
     private function canAdaptActivitylogOptions(ClassMethod $method): bool
     {
-        return $method->isPublic() && ! $method->isStatic() && ! $method->isAbstract()
+        return $method->isPublic() && ! $method->isStatic() && ! $method->isAbstract() && ! $method->byRef
+            && $method->attrGroups === []
+            && $method->params === []
             && $method->returnType instanceof Name
             && in_array(strtolower($this->getNodeName($method->returnType)), [
                 strtolower(LogOptions::class),
                 'spatie\\activitylog\\logoptions',
                 'spatie\\activitylog\\support\\logoptions',
             ], true)
-            && ! array_any($method->params, static fn (Param $parameter): bool => ! $parameter->default instanceof Expr && ! $parameter->variadic);
+            && count($method->stmts ?? []) === 1
+            && $method->stmts[0] instanceof Return_
+            && $method->stmts[0]->expr instanceof Expr
+            && $this->isPortableOptions($method->stmts[0]->expr);
+    }
+
+    private function isPortableOptions(Expr $expression): bool
+    {
+        if ($expression instanceof MethodCall && $expression->name instanceof Identifier) {
+            $name = strtolower($expression->name->name);
+            $arguments = $expression->args;
+            $valid = match ($name) {
+                'logall', 'logunguarded', 'logfillable', 'dontlogfillable', 'logonlydirty' => $arguments === [],
+                'logonly', 'logexcept', 'dontlogifattributeschangedonly', 'useattributerawvalues' => count($arguments) === 1 && $this->isStringListArgument($arguments[0]),
+                'uselogname' => count($arguments) === 1 && $this->isStringArgument($arguments[0]),
+                default => false,
+            };
+
+            return $valid && $this->isPortableOptions($expression->var);
+        }
+
+        if (! $expression instanceof StaticCall || ! $expression->class instanceof Name || ! $expression->name instanceof Identifier) {
+            return false;
+        }
+
+        $class = strtolower($this->getNodeName($expression->class));
+        $name = strtolower($expression->name->name);
+        if ($class === strtolower(ActivityLogCompat::class)) {
+            return match ($name) {
+                'options' => count($expression->args) === 2
+                    && $this->isStringArgument($expression->args[0]) && $this->isStringListArgument($expression->args[1]),
+                'withoutemptylogs' => count($expression->args) === 1 && $expression->args[0] instanceof Arg
+                    && ! $expression->args[0]->unpack && ! $expression->args[0]->byRef && ! $expression->args[0]->name instanceof Identifier
+                    && $this->isPortableOptions($expression->args[0]->value),
+                default => false,
+            };
+        }
+
+        return in_array($class, [strtolower(LogOptions::class), 'spatie\\activitylog\\logoptions', 'spatie\\activitylog\\support\\logoptions'], true)
+            && $name === 'defaults' && $expression->args === [];
+    }
+
+    private function isStringArgument(Node $argument): bool
+    {
+        return $argument instanceof Arg && ! $argument->unpack && ! $argument->byRef && ! $argument->name instanceof Identifier
+            && $argument->value instanceof String_;
+    }
+
+    private function isStringListArgument(Node $argument): bool
+    {
+        return $argument instanceof Arg && ! $argument->unpack && ! $argument->byRef && ! $argument->name instanceof Identifier
+            && $argument->value instanceof Array_
+            && array_all($argument->value->items, static fn (ArrayItem $item): bool => $item instanceof ArrayItem
+                && ! $item->unpack && ! $item->byRef && ! $item->key instanceof Expr && $item->value instanceof String_);
     }
 
     private function referenceName(PhpFileEditor $editor, string $class): Name
