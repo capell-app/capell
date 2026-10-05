@@ -36,6 +36,9 @@ class RunRuntimeRefreshAction
         $this->runStage($stages, 'warm', 'Critical runtime pages', fn (): RuntimeRefreshStageResultData => $this->warmRuntime->handle());
         $this->runStage($stages, 'doctor', 'Capell Doctor', fn (): RuntimeRefreshStageResultData => $this->runDoctor->handle());
 
+        $workerLabel = (string) __('capell-core::runtime-refresh.queue_workers');
+        $this->runStage($stages, 'workers', $workerLabel, fn (): RuntimeRefreshStageResultData => $this->runArtisanStage->handle('workers', $workerLabel, 'queue:restart'));
+
         return new RuntimeRefreshResultData($stages);
     }
 

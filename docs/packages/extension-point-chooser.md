@@ -66,7 +66,7 @@ If you are not sure which runtime you are changing, start with [Package authorin
 - Put writes in Actions and structured state in Data objects.
 - Keep visible strings in translations.
 - Public output must pass the [public HTML safety contract](../frontend/public-html-safety.md).
-- Register most extension points from `bootInstalledPackage()` unless the contract explicitly belongs in discovery/bootstrap or must bind something in `register()`.
+- Register new installed extension points from `bootInstalledRuntime()` unless the contract explicitly belongs in discovery/bootstrap or must bind something in `register()`.
 
 ## Next
 

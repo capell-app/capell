@@ -19,9 +19,10 @@ class RefreshConfigurationCacheAction
         private readonly RunArtisanRuntimeRefreshStageAction $runArtisanStage,
     ) {}
 
-    public function handle(): RuntimeRefreshStageResultData
+    public function handle(bool $rebuild = true): RuntimeRefreshStageResultData
     {
-        if (! $this->application->configurationIsCached()) {
+        // Laravel memoises bootstrap cache mode; activation must inspect the actual file.
+        if (! ($rebuild ? $this->application->configurationIsCached() : is_file($this->application->getCachedConfigPath()))) {
             return new RuntimeRefreshStageResultData(
                 key: 'config',
                 label: 'Laravel configuration cache',
@@ -31,6 +32,6 @@ class RefreshConfigurationCacheAction
             );
         }
 
-        return $this->runArtisanStage->handle('config', 'Laravel configuration cache', 'config:cache');
+        return $this->runArtisanStage->handle('config', 'Laravel configuration cache', $rebuild ? 'config:cache' : 'config:clear');
     }
 }

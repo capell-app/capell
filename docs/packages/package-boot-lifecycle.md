@@ -1,5 +1,8 @@
 # Package Boot Lifecycle
 
+For the once-per-application installed hook, child-provider adapter, compatibility and retained-process boundaries, see [Installed runtime lifecycle](../development/installed-runtime-lifecycle.md).
+
+
 Capell package boot is deliberately split into metadata, install-time work, admin/runtime registration, and frontend rendering. Most extension bugs happen when code runs in the wrong bucket.
 
 ## Lifecycle Diagram

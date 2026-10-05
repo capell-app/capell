@@ -12,6 +12,7 @@ use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
@@ -148,6 +149,8 @@ it('records only the selected buckets for a shared provider in the public role',
 
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
+    $application->shouldReceive('make')->with(InstalledRuntimeLifecycle::class)->andReturn(new InstalledRuntimeLifecycle($application));
+    $application->shouldReceive('isBooted')->andReturnFalse();
     $application->shouldReceive('register')->once()->with(AuthServiceProvider::class)->andReturnUsing(
         function () use ($receipts): void {
             $receipts->recordFromContext(
@@ -189,6 +192,8 @@ it('does not mark an admin bucket as booted for a disabled install-only context'
 
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
+    $application->shouldReceive('make')->with(InstalledRuntimeLifecycle::class)->andReturn(new InstalledRuntimeLifecycle($application));
+    $application->shouldReceive('isBooted')->andReturnFalse();
     $application->shouldReceive('register')->once()->with(AuthServiceProvider::class)->andReturnUsing(
         function () use ($receipts): void {
             $receipts->recordFromContext(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ListenerEnum;
 use Capell\Core\Events\PackageUninstalled;
@@ -100,6 +101,7 @@ class UninstallPackageAction
     private static function finalizeUninstall(PackageData $package): void
     {
         CapellCore::markPackageUninstalled($package->name);
+        RestartQueueWorkersAction::run();
         CapellCore::clearCachedComponents();
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::PackageUninstalled, $package);
         Event::dispatch(new PackageUninstalled($package));
