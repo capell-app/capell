@@ -10,6 +10,28 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
+it('uses the capell role when the Shield super-admin role is not configured', function (): void {
+    $shieldSuperAdmin = config('filament-shield.super_admin');
+    assert(is_array($shieldSuperAdmin));
+    unset($shieldSuperAdmin['name']);
+
+    config()->set('capell.roles.super_admin', 'capell-configured-admin');
+    config()->set('filament-shield.super_admin', $shieldSuperAdmin);
+
+    $result = CheckAdminPanelAccessAction::run();
+
+    expect($result->evidence['role_name'])->toBe('capell-configured-admin');
+});
+
+it('prefers the Shield super-admin role over the capell fallback', function (): void {
+    config()->set('capell.roles.super_admin', 'capell-configured-admin');
+    config()->set('filament-shield.super_admin.name', 'shield-super-admin');
+
+    $result = CheckAdminPanelAccessAction::run();
+
+    expect($result->evidence['role_name'])->toBe('shield-super-admin');
+});
+
 it('reports critical evidence when no configured users exist', function (): void {
     $result = CheckAdminPanelAccessAction::run();
 

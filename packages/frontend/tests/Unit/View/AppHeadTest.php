@@ -278,7 +278,9 @@ it('renders the public head when Blaze compiles the anonymous component', functi
     $componentFixturePath = __DIR__ . '/../../Fixtures/views/components';
     $customHeadComponentPath = $componentFixturePath . '/app/head/custom.blade.php';
     $tokenComponentPath = $componentFixturePath . '/app/head/tokens.blade.php';
-    $headComponentPath = __DIR__ . '/../../../resources/views/components/app/head/index.blade.php';
+    $headComponentPath = realpath(__DIR__ . '/../../../resources/views/components/app/head/index.blade.php');
+
+    throw_unless(is_string($headComponentPath), RuntimeException::class, 'Expected the public head component path.');
 
     $blazeBladeService = resolve(BladeService::class);
     $blazeViewFactory = new ReflectionProperty(BladeService::class, 'view')->getValue($blazeBladeService);
@@ -312,16 +314,12 @@ it('renders the public head when Blaze compiles the anonymous component', functi
     bindAppHeadTestContext();
 
     $blazeRuntime = resolve(BlazeRuntime::class);
-    $headComponentHash = BlazeUtils::hash($headComponentPath);
+    $resolvedHeadComponentPath = $blazeBladeService->componentNameToPath('capell::app.head');
+    expect(realpath($resolvedHeadComponentPath))->toBe(realpath($headComponentPath));
+    $headComponentHash = BlazeUtils::hash($resolvedHeadComponentPath);
     $headFunction = '_' . $headComponentHash;
-    $compiledViewPath = config('view.compiled');
-
-    throw_unless(is_string($compiledViewPath), RuntimeException::class, 'Expected a compiled Blade view path.');
-
-    $blazeRuntime->ensureRequired(
-        $headComponentPath,
-        $compiledViewPath . '/' . $headComponentHash . '.php',
-    );
+    // resolve() compiles and loads the component in both supported Blaze APIs.
+    expect($blazeRuntime->resolve('capell::app.head'))->toBe($headComponentHash);
 
     throw_unless(function_exists($headFunction), RuntimeException::class, 'Expected the Blaze head function to be compiled.');
 
