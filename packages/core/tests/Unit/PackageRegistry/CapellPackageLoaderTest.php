@@ -89,6 +89,8 @@ it('quarantines an optional package when provider registration fails', function 
 
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
+    $application->shouldReceive('make')->with(InstalledRuntimeLifecycle::class)->andReturn(new InstalledRuntimeLifecycle($application));
+    $application->shouldReceive('isBooted')->andReturnFalse();
     $application->shouldReceive('register')
         ->once()
         ->with(AuthServiceProvider::class)
@@ -113,6 +115,8 @@ it('does not quarantine trusted core packages when provider registration fails',
 
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
+    $application->shouldReceive('make')->with(InstalledRuntimeLifecycle::class)->andReturn(new InstalledRuntimeLifecycle($application));
+    $application->shouldReceive('isBooted')->andReturnFalse();
     $application->shouldReceive('register')
         ->once()
         ->with(AuthServiceProvider::class)
@@ -162,6 +166,8 @@ function packageLoader(CapellPackageRegistry $registry): CapellPackageLoader
 {
     /** @var Application&MockInterface $application */
     $application = Mockery::mock(Application::class);
+    $application->shouldReceive('make')->with(InstalledRuntimeLifecycle::class)->andReturn(new InstalledRuntimeLifecycle($application));
+    $application->shouldReceive('isBooted')->andReturnFalse();
 
     return new CapellPackageLoader(
         $application,

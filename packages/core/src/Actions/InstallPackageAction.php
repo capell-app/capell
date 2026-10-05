@@ -14,6 +14,7 @@ use Capell\Core\Enums\ListenerEnum;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Exception;
@@ -39,6 +40,19 @@ class InstallPackageAction
         ?ProgressReporter $reporter = null,
         bool $allowLegacyCommand = true,
         bool $freshLifecycleProcess = false,
+    ): void {
+        resolve(InstalledRuntimeLifecycle::class)->assertCanActivate();
+        self::install($package, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
+        RestartQueueWorkersAction::run();
+    }
+
+    /** @param array<string, mixed> $arguments */
+    private static function install(
+        PackageData $package,
+        array $arguments,
+        ?ProgressReporter $reporter,
+        bool $allowLegacyCommand,
+        bool $freshLifecycleProcess,
     ): void {
         $name = $package->name;
         $reporter ??= new NullProgressReporter;
@@ -101,7 +115,6 @@ class InstallPackageAction
             throw $throwable;
         }
 
-        RestartQueueWorkersAction::run();
         CapellCore::clearCachedComponents();
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::PackageInstalled, $package);
         Event::dispatch(new PackageInstalled($package));
@@ -159,7 +172,7 @@ class InstallPackageAction
                     continue;
                 }
 
-                self::handle($member, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
+                self::install($member, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
                 $newlyInstalled[] = $member;
             }
         } catch (Throwable $throwable) {

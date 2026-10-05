@@ -93,7 +93,7 @@ final class SiteAccessQueryAllowList
             'packages/admin/src/Actions/Upgrade/RecordUpgradeSnapshotAction.php' => ['handle|' . DB::class . '::table(self::UPDATE_ADVISORY_SNAPSHOTS_TABLE)->insert([\'source\' => $source, \'checked_at\' => now(), \'capell_version\' => $capellVersion ?? ' . CapellCore::class . "::getInstalledPrettyVersion('capell-app/capell'), 'updates' => " . JsonCodec::class . '::encode($updates), \'advisories\' => ' . JsonCodec::class . '::encode($advisories), \'metadata\' => ' . JsonCodec::class . '::encode($metadata), \'created_at\' => now(), \'updated_at\' => now()])'],
             // pages() here is an extension registry or a helper returning an
             // already SiteAccess-scoped stream, rather than an Eloquent relation.
-            'packages/admin/src/Filament/Plugin/CapellAdminPlugin.php' => ['register|' . CapellAdmin::class . '::getAdminSurfaceRegistry()->pages()', 'registerPages|' . CapellAdmin::class . '::getAdminSurfaceRegistry()->pages()', 'discoverInstalledPackageFilamentPages|' . CapellAdmin::class . '::getAdminSurfaceRegistry()->pages()'],
+            'packages/admin/src/Filament/Plugin/CapellAdminPlugin.php' => ['register|' . CapellAdmin::class . '::getAdminSurfaceRegistry()->pages()', 'discoverInstalledPackageFilamentPages|' . CapellAdmin::class . '::getAdminSurfaceRegistry()->pages()'],
             'packages/admin/src/Actions/SyncCapellPermissionsAction.php' => ['handle|' . CapellAdmin::class . '::getAdminSurfaceRegistry()->pages()'],
             // These aggregate operations also serve setup/system callers. They
             // operate only on the supplied record (or newly created replica),

@@ -49,6 +49,36 @@ final class CapellPackageLoader
      */
     public function loadProviders(): array
     {
+        return $this->app->make(InstalledRuntimeLifecycle::class)->duringProviderRegistration($this->registerProviders(...));
+    }
+
+    /** Refresh only eligible runtime buckets; preserve legacy provider callbacks. */
+    public function refreshPackage(PackageData $package, bool $replayBootedCallbacks = true): void
+    {
+        $this->app->make(InstalledRuntimeLifecycle::class)->duringProviderRegistration(function () use ($package, $replayBootedCallbacks): void {
+            $this->registerPackageProviders($package, $replayBootedCallbacks);
+        });
+    }
+
+    /** @return list<string> */
+    public function collectProviders(): array
+    {
+        $providers = [];
+
+        foreach ($this->registry->all() as $manifest) {
+            foreach ($this->resolveProviders($manifest) as $provider) {
+                if (class_exists($provider)) {
+                    $providers[] = $provider;
+                }
+            }
+        }
+
+        return $providers;
+    }
+
+    /** @return list<class-string> */
+    private function registerProviders(): array
+    {
         $loadedProviders = [];
 
         foreach ($this->registry->all() as $manifest) {
@@ -101,8 +131,7 @@ final class CapellPackageLoader
         return $loadedProviders;
     }
 
-    /** Refresh only eligible runtime buckets; preserve legacy provider callbacks. */
-    public function refreshPackage(PackageData $package, bool $replayBootedCallbacks = true): void
+    private function registerPackageProviders(PackageData $package, bool $replayBootedCallbacks): void
     {
         if (! CapellCore::isPackageEnabled($package->name)) {
             return;
@@ -118,6 +147,10 @@ final class CapellPackageLoader
                     }
 
                     if (! in_array($bucket, $this->selectedProviderBuckets($manifest, $provider, true), true)) {
+                        continue;
+                    }
+
+                    if (! $replayBootedCallbacks && ! $this->app->providerIsLoaded($provider) && ! InstalledRuntimeLifecycle::adopts($provider)) {
                         continue;
                     }
 
@@ -141,22 +174,6 @@ final class CapellPackageLoader
                 $provider->callBootedCallbacks();
             }
         }
-    }
-
-    /** @return list<string> */
-    public function collectProviders(): array
-    {
-        $providers = [];
-
-        foreach ($this->registry->all() as $manifest) {
-            foreach ($this->resolveProviders($manifest) as $provider) {
-                if (class_exists($provider)) {
-                    $providers[] = $provider;
-                }
-            }
-        }
-
-        return $providers;
     }
 
     /** @return list<string> */

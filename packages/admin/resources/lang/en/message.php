@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    'extension_panel_topology_refresh' => 'Panel topology changes require a fresh application.',
+    'extension_panel_middleware_removal' => 'Panel middleware removal requires a fresh application.',
+    'extension_panel_authentication_ambiguous' => 'Cannot identify authenticated panel routes; a fresh application is required.',
+    'extension_panel_authentication_excluded' => 'Excluded panel authentication or tenancy requires a fresh application.',
+    'extension_panel_coverage_incomplete' => 'Incomplete panel middleware coverage requires a fresh application.',
+    'extension_panel_security_excluded' => 'Excluded panel security middleware requires a fresh application.',
+
+    'extension_activation_pending' => 'The extension is installed, but activation needs a cache refresh and a fresh application. Reload retained workers before continuing.',
     'force_delete_dependencies_info' => 'Other records still use this item. Remove those records, including any in the trash, before permanently deleting it.',
     'site_force_delete_blocked' => 'This site still contains records.',
     'site_force_delete_blocked_info' => 'Permanently delete its pages, domains and layouts, including those in the trash, before permanently deleting the site.',

@@ -28,6 +28,7 @@ use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Closure;
 use CmsMulti\FilamentClearCache\FilamentClearCachePlugin;
 use Filament\Actions\Action;
@@ -111,6 +112,10 @@ class CapellAdminPlugin implements Plugin
     #[Override]
     public function register(Panel $panel): void
     {
+        if (! app()->isBooted()) {
+            resolve(InstalledRuntimeLifecycle::class)->refresh();
+        }
+
         /** @var view-string $logoView */
         $logoView = 'capell-admin::img.logo';
         /** @var view-string $sitesView */
@@ -229,15 +234,20 @@ class CapellAdminPlugin implements Plugin
 
     public function synchronizePanelAdminSurface(Panel $panel): void
     {
-        $this->registerInstalledPackageAdminProviders()
-            ->registerConfigurators()
-            ->synchronizeAdminSurface($panel);
-        resolve(InstalledPanelRuntime::class)->extend($panel);
-        if (new ReflectionProperty($panel, 'id')->isInitialized($panel)) {
-            $panel->register();
-        }
+        resolve(InstalledPanelRuntime::class)->guard(function () use ($panel): void {
+            $this->registerInstalledPackageAdminProviders()->registerConfigurators();
+            // Route topology and Livewire component membership belong to bootstrap.
+            if (! app()->isBooted()) {
+                $this->synchronizeAdminSurface($panel);
+            }
 
-        app()->forgetInstance(NavigationManager::class);
+            resolve(InstalledPanelRuntime::class)->extend($panel);
+            if (new ReflectionProperty($panel, 'id')->isInitialized($panel)) {
+                $panel->register();
+            }
+
+            app()->forgetInstance(NavigationManager::class);
+        });
     }
 
     protected function registerPages(Panel $panel): self

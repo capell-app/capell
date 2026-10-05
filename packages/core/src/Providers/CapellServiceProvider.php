@@ -84,6 +84,7 @@ use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Http\Middleware\EnsureInstalledRuntimeAvailable;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
@@ -215,6 +216,7 @@ use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -544,6 +546,10 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ModelInterceptorRegistry::class);
         $this->app->singletonIf(CapellPackageRegistry::class);
         $this->app->singletonIf(InstalledRuntimeLifecycle::class);
+        $this->app->make(InstalledRuntimeLifecycle::class);
+        $this->callAfterResolving(Kernel::class, static function (\Illuminate\Foundation\Http\Kernel $kernel): void {
+            $kernel->prependMiddleware(EnsureInstalledRuntimeAvailable::class);
+        });
         $this->app->singleton(ExtensionContributionReceiptRegistry::class);
         $this->app->singleton(ExtensionOrderingAudit::class);
         $this->app->alias(ExtensionContributionReceiptRegistry::class, RecordsExtensionContributionReceipt::class);

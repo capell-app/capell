@@ -56,6 +56,26 @@ interface LateReadinessFirstContributor extends PublicationReadinessContributor 
 
 interface LateReadinessLastContributor extends PublicationReadinessContributor {}
 
+it('composes direct and tagged readiness contributors identically after interleaved discovery', function (): void {
+    $container = new Container;
+    $first = Mockery::mock(LateReadinessFirstContributor::class);
+    $last = Mockery::mock(LateReadinessLastContributor::class);
+    $direct = Mockery::mock(PublicationReadinessContributor::class);
+    $container->instance('last', $last);
+    $container->tag(['last'], PublicationReadinessContributor::TAG);
+
+    $late = new PublicationReadinessRegistry($container);
+    expect($late->contributors())->toBe([$last]);
+    $late->register($direct)->register($direct);
+    $container->instance('first', $first);
+    $container->tag(['first'], PublicationReadinessContributor::TAG);
+
+    $fresh = new PublicationReadinessRegistry($container);
+    $fresh->register($direct)->register($direct);
+    expect($late->contributors())->toBe($fresh->contributors())
+        ->and(array_slice($late->contributors(), 0, 2))->toBe([$direct, $direct]);
+});
+
 it('refreshes SiteSpec appliers resolved before installation', function (): void {
     $container = new Container;
     $registry = new SiteSpecApplierRegistry($container);

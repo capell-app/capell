@@ -5,8 +5,13 @@ declare(strict_types=1);
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\EnablePackageAction;
 use Capell\Core\Actions\InstallPackageAction;
+use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Actions\UninstallPackageAction;
+use Capell\Core\Contracts\PackageLifecycleAction;
+use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
+use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\FlushResettableState;
 use Capell\Core\Support\Manifest\CapellManifestData;
@@ -17,8 +22,12 @@ use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\RegistersInstalledRuntime;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Spatie\LaravelPackageTools\Package;
 
@@ -69,17 +78,15 @@ it('signals retained queue workers after each completed lifecycle transition', f
     expect(Cache::get('illuminate:queue:restart'))->toBeInt();
 })->with(['install', 'enable', 'disable', 'uninstall']);
 
-it('leaves failed activation retryable without swallowing its exception', function (): void {
+it('requires a fresh application after an activation failure', function (): void {
     $provider = app()->register(RuntimeLifecycleFixture::class);
     $provider->fail = true;
     CapellCore::markPackageInstalled(RuntimeLifecycleFixture::$packageName);
 
     expect(fn () => resolve(InstalledRuntimeLifecycle::class)->refresh())->toThrow(RuntimeException::class, 'fixture failure');
     $provider->fail = false;
-    resolve(InstalledRuntimeLifecycle::class)->refresh();
-    resolve(InstalledRuntimeLifecycle::class)->refresh();
-
-    expect($provider->registrations)->toBe(['runtime']);
+    expect(fn () => resolve(InstalledRuntimeLifecycle::class)->refresh())->toThrow(RuntimeException::class, 'fresh application');
+    expect($provider->registrations)->toBe([]);
 });
 
 it('surfaces activation failures belonging to another provider during package loading', function (): void {
@@ -357,3 +364,185 @@ it('does not activate installed runtime during package discovery', function (): 
     resolve(InstalledRuntimeLifecycle::class)->refresh();
     expect($provider->registrations)->toBe(['runtime']);
 });
+
+it('never repeats a listener or a completed provider after a mid-hook exception', function (): void {
+    $runtime = resolve(InstalledRuntimeLifecycle::class);
+    CapellCore::markPackageInstalled(RuntimeLifecycleFixture::$packageName);
+    $calls = 0;
+    $runtime->register(RuntimeLifecycleFixture::class, RuntimeLifecycleFixture::$packageName, 'runtime', function () use (&$calls): void {
+        $calls++;
+    });
+    $runtime->register(OrdinaryRuntimeChildFixture::class, RuntimeLifecycleFixture::$packageName, 'admin', function (): void {
+        resolve(Dispatcher::class)->listen('runtime.partial', static function (): void {});
+        throw new RuntimeException('after listener');
+    });
+    expect(fn () => $runtime->refresh())->toThrow(RuntimeException::class, 'after listener');
+    expect(fn () => $runtime->refresh())->toThrow(RuntimeException::class, 'fresh application');
+    expect($calls)->toBe(1)
+        ->and(resolve(Dispatcher::class)->getRawListeners()['runtime.partial'])->toHaveCount(1);
+});
+
+it('coalesces provider callbacks without retaining callbacks or rescanning providers', function (bool $installed): void {
+    $provider = app()->register(RuntimeLifecycleFixture::class);
+    if ($installed) {
+        InstallPackageAction::run(CapellCore::getPackage(RuntimeLifecycleFixture::$packageName));
+    }
+
+    $callbacks = new ReflectionProperty(app(), 'bootedCallbacks');
+    $before = count($callbacks->getValue(app()));
+    CapellCore::shouldReceive('isPackageEnabled')->never();
+    for ($iteration = 0; $iteration < 100; $iteration++) {
+        $provider->callBootedCallbacks();
+    }
+
+    expect(count($callbacks->getValue(app())))->toBe($before)
+        ->and($provider->registrations)->toBe($installed ? ['runtime'] : []);
+})->with([false, true]);
+
+it('orders provider enrolment through the loader in an already booted application', function (): void {
+    LoaderDependentRuntimeFixture::$order = [];
+    $registry = new CapellPackageRegistry;
+    foreach (['test/loader-dependent' => LoaderDependentRuntimeFixture::class, 'test/loader-dependency' => LoaderDependencyRuntimeFixture::class] as $name => $provider) {
+        $manifest = CapellManifestData::fromArray(capellManifestV3Array(name: $name, providers: ['runtime' => [$provider]]));
+        CapellCore::registerManifestPackage($manifest, '1.0.0');
+        CapellCore::markPackageInstalled($name);
+        $registry->register($manifest);
+    }
+
+    CapellCore::getPackage('test/loader-dependent')->requirements = ['test/loader-dependency'];
+    new CapellPackageLoader(app(), $registry)->loadProviders();
+    expect(LoaderDependentRuntimeFixture::$order)->toBe(['dependency', 'dependent']);
+});
+
+it('does not boot an unloaded legacy provider when enabling its package', function (): void {
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(name: 'test/unloaded-legacy', providers: ['runtime' => [UnloadedLegacyRuntimeFixture::class]]));
+    CapellCore::registerManifestPackage($manifest, '1.0.0');
+    CapellCore::markPackageDisabled($manifest->name);
+    EnablePackageAction::run(CapellCore::getPackage($manifest->name));
+    expect(app()->providerIsLoaded(UnloadedLegacyRuntimeFixture::class))->toBeFalse();
+});
+
+it('does not refresh panel surfaces when enabling a non-adopting package', function (): void {
+    Event::fake([InstalledRuntimeRefreshed::class]);
+    CapellCore::registerPackage('test/nonadopting', serviceProviderClass: LegacyEnableRuntimeFixture::class);
+    EnablePackageAction::run(CapellCore::getPackage('test/nonadopting'));
+    Event::assertNotDispatched(InstalledRuntimeRefreshed::class);
+});
+
+it('rejects sandbox lifecycle operations before any member state or install side effect changes', function (string $operation): void {
+    $package = CapellCore::getPackage(RuntimeLifecycleFixture::$packageName);
+    $package->installAction = SandboxInstallRuntimeFixture::class;
+
+    SandboxInstallRuntimeFixture::$calls = 0;
+    $package->kind = 'bundle';
+    CapellCore::registerPackage('test/sandbox-member');
+    $package->requirements = ['test/sandbox-member'];
+    $original = app();
+    resolve(InstalledRuntimeLifecycle::class);
+    Container::setInstance(clone $original);
+    try {
+        expect(fn () => $operation === 'install' ? InstallPackageAction::run($package) : EnablePackageAction::run($package))
+            ->toThrow(RuntimeException::class, 'owning application');
+    } finally {
+        Container::setInstance($original);
+    }
+
+    expect(SandboxInstallRuntimeFixture::$calls)->toBe(0)
+        ->and(CapellCore::isPackageEnabled($package->name))->toBeFalse()
+        ->and(CapellCore::isPackageEnabled('test/sandbox-member'))->toBeFalse();
+})->with(['install', 'enable']);
+
+it('signals restart once after a whole bundle and never during boot or callback replay', function (): void {
+    $cache = Mockery::mock(Repository::class);
+    $cache->shouldReceive('forever')->once()->with('illuminate:queue:restart', Mockery::type('int'))->andReturnTrue();
+    app()->instance(RestartQueueWorkersAction::class, new RestartQueueWorkersAction($cache));
+    $provider = app()->register(RuntimeLifecycleFixture::class);
+    $provider->callBootedCallbacks();
+
+    $bundle = CapellCore::getPackage(RuntimeLifecycleFixture::$packageName);
+    $bundle->kind = 'bundle';
+    foreach (['test/member-one', 'test/member-two'] as $name) {
+        CapellCore::registerPackage($name);
+    }
+
+    $bundle->requirements = ['test/member-one', 'test/member-two'];
+    InstallPackageAction::run($bundle);
+    $provider->callBootedCallbacks();
+    resolve(InstalledRuntimeLifecycle::class)->refresh();
+    Route::get('/runtime-request', static fn (): string => 'ready');
+    $this->get('/runtime-request')->assertOk();
+});
+
+final class LoaderDependentRuntimeFixture extends ServiceProvider
+{
+    use RegistersInstalledRuntime;
+
+    /** @var list<string> */
+    public static array $order = [];
+
+    #[Override]
+    public function register(): void
+    {
+        $this->registerInstalledRuntime('test/loader-dependent');
+    }
+
+    protected function bootInstalledRuntime(): void
+    {
+        self::$order[] = 'dependent';
+    }
+}
+
+final class LoaderDependencyRuntimeFixture extends ServiceProvider
+{
+    use RegistersInstalledRuntime;
+
+    #[Override]
+    public function register(): void
+    {
+        $this->registerInstalledRuntime('test/loader-dependency');
+    }
+
+    protected function bootInstalledRuntime(): void
+    {
+        LoaderDependentRuntimeFixture::$order[] = 'dependency';
+    }
+}
+
+final class UnloadedLegacyRuntimeFixture extends ServiceProvider {}
+
+final class SandboxInstallRuntimeFixture implements PackageLifecycleAction
+{
+    public static int $calls = 0;
+
+    #[Override]
+    public function handle(PackageData $package, array $arguments = [], ?ProgressReporter $reporter = null): void
+    {
+        self::$calls++;
+    }
+}
+
+it('does not signal a restart for an incomplete bundle after a member succeeded', function (): void {
+    $cache = Mockery::mock(Repository::class);
+    $cache->shouldNotReceive('forever');
+
+    app()->instance(RestartQueueWorkersAction::class, new RestartQueueWorkersAction($cache));
+    $bundle = CapellCore::getPackage(RuntimeLifecycleFixture::$packageName);
+    $bundle->kind = 'bundle';
+    foreach (['test/member-one', 'test/member-two'] as $name) {
+        CapellCore::registerPackage($name);
+    }
+
+    $bundle->requirements = ['test/member-one', 'test/member-two'];
+    CapellCore::getPackage('test/member-two')->installAction = FailingBundleRuntimeFixture::class;
+    expect(fn () => InstallPackageAction::run($bundle))->toThrow(RuntimeException::class, 'member failed');
+    expect(CapellCore::isPackageInstalled('test/member-one'))->toBeFalse();
+});
+
+final class FailingBundleRuntimeFixture implements PackageLifecycleAction
+{
+    #[Override]
+    public function handle(PackageData $package, array $arguments = [], ?ProgressReporter $reporter = null): void
+    {
+        throw new RuntimeException('member failed');
+    }
+}

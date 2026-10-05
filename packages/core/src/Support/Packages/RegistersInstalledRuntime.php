@@ -26,9 +26,7 @@ trait RegistersInstalledRuntime
             $this->bootInstalledRuntime(...),
         );
         $this->booted(function (): void {
-            $this->app->booted(function (): void {
-                $this->app->make(InstalledRuntimeLifecycle::class)->refresh();
-            });
+            $this->app->make(InstalledRuntimeLifecycle::class)->providerBooted(static::class);
         });
     }
 }

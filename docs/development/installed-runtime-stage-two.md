@@ -4,6 +4,16 @@ Read-only source audit: companion Packages `d0c62b87b778c70bb89f6f063e2e306f3f0a
 
 Use [Installed runtime lifecycle](installed-runtime-lifecycle.md) as the migration contract. Every row needs the manifest-derived parity test, an uninstalled-absence assertion, declared-surface expectations, preloaded child coverage where present, and a minimum Core version containing the new API. Do not remove installation commands, configuration, or a deliberately pre-install listener. No package dependency constraints were changed in stage 1.
 
+## Revised adopter contract
+
+A failed installed-runtime hook or panel refresh is terminal for that application. Do not add retry flags or make callers re-run partially completed registrations; replace the application and restore eligibility after fixing the cause. Test a listener registered before a deliberate failure and require same-application retry to throw without adding a second listener.
+
+Enrol from `register()` and put hook prerequisites in lifecycle-safe registration, because Admin activates enrolled hooks before constructing panel routes. Required providers must enrol before dependants; use the manifest buckets for every child. Enable loads new hook adopters only and preserves unloaded legacy-provider behaviour.
+
+For Admin packages, test fresh installed routing plus uninstalled boot followed by install: existing route middleware must protect grouped, unnamed, tenant and Livewire replay paths; new pages/resources remain absent from the current panel until a full reload after cache reconciliation. Core persists extender middleware automatically. Topology-changing extenders must defer to fresh bootstrap. A failed security refresh makes subsequent HTTP requests return 503. Password Policy still needs execution-time enabled checks after disable/uninstall.
+
+The direct Admin install action enforces the cache-clear/full-redirect boundary. CLI, queued installation and deployments must refresh persisted route/component caches and reload retained processes. Octane sandbox admission must fail before migrations, install Actions or member state changes. Test bundle restart emission once after success, and its absence at boot, per request and after failure.
+
 ## Application callbacks — 22 packages
 
 Move the installed branches from application booting/booted callbacks and the listed Spatie hooks into the main installed-runtime hook. Leave lifecycle-safe bindings in registration. Child providers need the adapter; remove their callbacks after moving the bodies.
@@ -124,4 +134,4 @@ Theme Directory inherits Foundation behaviour through its provider; verify it in
 
 ## Release boundary
 
-Do not ship the package migration until stage 1 is released or pinned and the deferred Filament route/component-cache design has landed. New page/resource routing, persisted caches, live Octane reload and cross-process propagation require consumer proof beyond provider snapshots.
+Do not ship the package migration until stage 1 is released or pinned and each consumer proves the fresh-application route/component-cache boundary. New page/resource routing, persisted caches, live Octane reload and cross-process propagation require consumer proof beyond provider snapshots.

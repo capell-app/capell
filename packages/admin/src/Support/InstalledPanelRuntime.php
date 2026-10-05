@@ -5,10 +5,18 @@ declare(strict_types=1);
 namespace Capell\Admin\Support;
 
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
+use Closure;
+use Filament\Http\Middleware\IdentifyTenant;
+use Filament\Http\Middleware\SetUpPanel;
 use Filament\Panel;
+use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Routing\Route;
 use Illuminate\Routing\Router;
+use Livewire\Livewire;
 use ReflectionProperty;
 use RuntimeException;
+use Throwable;
 use WeakMap;
 
 /** Tracks application wiring per panel, independently of transient plugin instances. */
@@ -17,7 +25,7 @@ final class InstalledPanelRuntime
     /** @var WeakMap<Panel, array<int, bool>> */
     private WeakMap $applied;
 
-    /** @var WeakMap<Panel, array{middleware: array<string>, auth: array<string>}> */
+    /** @var WeakMap<Panel, array{middleware: array<string>, auth: array<string>, tenant: array<string>}> */
     private WeakMap $routeMiddleware;
 
     public function __construct(private readonly Router $router)
@@ -26,23 +34,37 @@ final class InstalledPanelRuntime
         $this->routeMiddleware = new WeakMap;
     }
 
+    /** @param Closure(): void $callback */
+    public function guard(Closure $callback): void
+    {
+        $lifecycle = resolve(InstalledRuntimeLifecycle::class);
+        $lifecycle->assertCanActivate();
+        try {
+            $callback();
+        } catch (Throwable $throwable) {
+            // A partially changed security pipeline cannot safely serve another request.
+            $lifecycle->invalidate();
+
+            throw $throwable;
+        }
+    }
+
     public function extend(Panel $panel): void
+    {
+        $this->guard(fn () => $this->apply($panel));
+    }
+
+    private function apply(Panel $panel): void
     {
         $hasId = new ReflectionProperty($panel, 'id')->isInitialized($panel);
         $baseline = $this->routeMiddleware[$panel] ?? [
             'middleware' => $hasId ? $panel->getMiddleware() : [],
             'auth' => $panel->getAuthMiddleware(),
+            'tenant' => $panel->getTenantMiddleware(),
         ];
-        if ($hasId) {
-            // Retain the last synchronised route state if an extender fails halfway.
-            $this->routeMiddleware[$panel] = $baseline;
-        }
-
-        $middleware = $baseline['middleware'];
-        $authMiddleware = $baseline['auth'];
+        $topology = [$panel->getPages(), $panel->getResources(), $panel->getWidgets()];
         $applied = $this->applied[$panel] ?? [];
         $index = 0;
-
         foreach (app()->tagged(AdminPanelExtender::TAG) as $extender) {
             $entry = $index++;
             if (! $extender instanceof AdminPanelExtender) {
@@ -58,41 +80,84 @@ final class InstalledPanelRuntime
             $this->applied[$panel] = $applied;
         }
 
+        // Resolve messages only on failure: namespaces may not exist during panel bootstrap.
+        if (app()->isBooted() && $topology !== [$panel->getPages(), $panel->getResources(), $panel->getWidgets()]) {
+            throw new RuntimeException(__('capell-admin::message.extension_panel_topology_refresh'));
+        }
+
         if (! $hasId) {
             return;
         }
 
-        $addedMiddleware = array_values(array_diff($panel->getMiddleware(), $middleware));
-        $addedAuthMiddleware = array_values(array_diff($panel->getAuthMiddleware(), $authMiddleware));
-        if ($addedMiddleware === [] && $addedAuthMiddleware === []) {
-            return;
+        $current = ['middleware' => $panel->getMiddleware(), 'auth' => $panel->getAuthMiddleware(), 'tenant' => $panel->getTenantMiddleware()];
+        $added = [];
+        foreach ($current as $bucket => $middleware) {
+            if (array_diff($baseline[$bucket], $middleware) !== []) {
+                throw new RuntimeException(__('capell-admin::message.extension_panel_middleware_removal'));
+            }
+
+            $added[$bucket] = array_values(array_diff($middleware, $baseline[$bucket]));
         }
 
-        // Routes copy panel middleware at construction. Change the named route
-        // instance too, including the compiled collection's cached instance.
-        $routes = $this->router->getRoutes();
-        foreach ($routes->getRoutes() as $route) {
-            $name = $route->getName();
-            if ($name === null) {
-                continue;
+        // Persist resolved classes (including groups and parameterised middleware).
+        // Livewire filters the real route pipeline, preserving its order and arguments.
+        $persistent = $this->router->resolveMiddleware([...$added['middleware'], ...$added['auth'], ...$added['tenant']]);
+        $security = $this->router->resolveMiddleware([...$current['auth'], ...$current['tenant']]);
+        Livewire::addPersistentMiddleware(array_map(static fn (string $middleware): string => explode(':', $middleware, 2)[0], [...$persistent, ...$security]));
+
+        if ($persistent !== []) {
+            $routes = $this->router->getRoutes();
+            foreach ($routes->getRoutes() as $route) {
+                $name = $route->getName();
+                // Compiled collections cache their named route objects separately.
+                $instances = [$route];
+                if ($name !== null && ($named = $routes->getByName($name)) instanceof Route && $named !== $route) {
+                    $instances[] = $named;
+                }
+
+                foreach ($instances as $instance) {
+                    $resolved = $this->router->gatherRouteMiddleware($instance);
+                    // Exclusions must not hide the route's declared panel association.
+                    $declared = $this->router->resolveMiddleware($instance->gatherMiddleware());
+                    $associated = str_starts_with((string) $name, 'filament.' . $panel->getId() . '.')
+                        || in_array(SetUpPanel::class . ':' . $panel->getId(), $declared, true)
+                        || in_array('panel:' . $panel->getId(), $instance->gatherMiddleware(), true);
+                    if (! $associated) {
+                        continue;
+                    }
+
+                    if ($added['auth'] !== [] && $baseline['auth'] === []) {
+                        throw new RuntimeException(__('capell-admin::message.extension_panel_authentication_ambiguous'));
+                    }
+
+                    $auth = $this->router->resolveMiddleware($baseline['auth']);
+                    $tenant = $this->router->resolveMiddleware($baseline['tenant']);
+                    $authentication = array_values(array_filter($auth, static fn (string $middleware): bool => is_a(explode(':', $middleware, 2)[0], Authenticate::class, true)));
+                    $authentication = $authentication !== [] ? $authentication : $auth;
+                    if (array_intersect($authentication, $declared) !== array_intersect($authentication, $resolved)
+                        || array_intersect($tenant, $declared) !== array_intersect($tenant, $resolved)) {
+                        throw new RuntimeException(__('capell-admin::message.extension_panel_authentication_excluded'));
+                    }
+
+                    $authenticated = $authentication !== [] && array_diff($authentication, $resolved) === [];
+                    $tenanted = in_array(IdentifyTenant::class, $resolved, true);
+                    // Partial authentication/tenancy or exclusions of new security
+                    // middleware are ambiguous: do not silently publish weaker routes.
+                    if (($added['auth'] !== [] && array_intersect($auth, $resolved) !== [] && ! $authenticated)
+                        || ($added['tenant'] !== [] && array_intersect($tenant, $resolved) !== [] && ! $tenanted)) {
+                        throw new RuntimeException(__('capell-admin::message.extension_panel_coverage_incomplete'));
+                    }
+
+                    $required = [...$added['middleware'], ...($authenticated ? $added['auth'] : []), ...($tenanted ? $added['tenant'] : [])];
+                    $instance->middleware($required);
+                    $instance->computedMiddleware = null;
+                    if (array_diff($this->router->resolveMiddleware($required), $this->router->gatherRouteMiddleware($instance)) !== []) {
+                        throw new RuntimeException(__('capell-admin::message.extension_panel_security_excluded'));
+                    }
+                }
             }
-
-            if (! str_starts_with((string) $name, 'filament.' . $panel->getId() . '.')) {
-                continue;
-            }
-
-            throw_if($addedAuthMiddleware !== [] && $authMiddleware === [], RuntimeException::class, 'Cannot identify authenticated panel routes for newly installed middleware; rebuild the application before serving the panel.');
-
-            $route = $routes->getByName($name) ?? $route;
-            $authenticated = $authMiddleware !== [] && array_diff($authMiddleware, $route->middleware()) === [];
-            $route->middleware($addedMiddleware);
-            if ($authenticated) {
-                $route->middleware($addedAuthMiddleware);
-            }
-
-            $route->computedMiddleware = null;
         }
 
-        $this->routeMiddleware[$panel] = ['middleware' => $panel->getMiddleware(), 'auth' => $panel->getAuthMiddleware()];
+        $this->routeMiddleware[$panel] = $current;
     }
 }

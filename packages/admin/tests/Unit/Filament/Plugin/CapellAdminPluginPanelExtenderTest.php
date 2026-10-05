@@ -3,34 +3,40 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
-use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\SidebarCollapseEnum;
-use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\InstalledPanelRuntime;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\LatePanelRuntimeProvider;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateRuntimePage;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateRuntimeResource;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateRuntimeWidget;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateSecurityMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateSecurityPanelExtender;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeAllowMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeBlockMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeTenantMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeWireBlockMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestAdminPanelExtender;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Support\Packages\RegistersInstalledRuntime;
 use Filament\Facades\Filament;
-use Filament\Pages\Page;
+use Filament\Http\Middleware\IdentifyTenant;
+use Filament\Http\Middleware\SetUpPanel;
 use Filament\Panel;
-use Filament\Resources\Resource;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\View\PanelsRenderHook;
-use Filament\Widgets\Widget;
 use Illuminate\Contracts\View\View;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use Livewire\Mechanisms\HandleRequests\HandleRequests;
 
 use function Pest\Laravel\get;
-
-use Symfony\Component\HttpFoundation\Response;
 
 beforeEach(function (): void {
     TestAdminPanelExtender::$called = false;
@@ -74,10 +80,10 @@ it('refuses ambiguous late authentication middleware on existing panel routes', 
         ->toThrow(RuntimeException::class, 'authenticated panel routes');
 });
 
-it('repairs route middleware after a failed extender is retried', function (): void {
-    $panel = Panel::make()->id('runtime-retry')->authMiddleware(['auth']);
+it('denies requests and refuses retry after an extender partially fails', function (): void {
+    $panel = Panel::make()->id('runtime-retry')->authMiddleware([RuntimeAllowMiddleware::class]);
     $route = Route::get('runtime-retry/probe', static fn (): string => 'probe')
-        ->middleware(['auth'])->name('filament.runtime-retry.probe');
+        ->middleware([RuntimeAllowMiddleware::class])->name('filament.runtime-retry.probe');
     $extender = new class implements AdminPanelExtender
     {
         public bool $fail = true;
@@ -94,9 +100,9 @@ it('repairs route middleware after a failed extender is retried', function (): v
 
     expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
     $extender->fail = false;
-    resolve(InstalledPanelRuntime::class)->extend($panel);
-
-    expect($route->middleware())->toContain(LateSecurityMiddleware::class);
+    $this->get('/runtime-retry/probe')->assertStatus(503);
+    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class, 'fresh application');
+    expect(array_count_values($panel->getAuthMiddleware())[LateSecurityMiddleware::class])->toBe(1);
 });
 
 it('registers the admin tools dropdown in the topbar render hooks', function (): void {
@@ -260,64 +266,157 @@ it('applies a late security extender to an existing panel and its existing authe
     expect(array_count_values($panel->getAuthMiddleware())[LateSecurityMiddleware::class] ?? 0)->toBe(1);
 })->with([false, true]);
 
-final class LateSecurityPanelExtender implements AdminPanelExtender
-{
-    #[Override]
-    public function extend(Panel $panel): void
-    {
-        $panel->authMiddleware([LateSecurityMiddleware::class], isPersistent: true);
-    }
-}
-
-final class LateSecurityMiddleware
-{
-    public function handle(): Response
-    {
-        return redirect('/admin/change-password');
-    }
-}
-
-final class LatePanelRuntimeProvider extends ServiceProvider
-{
-    use RegistersInstalledRuntime;
-
-    #[Override]
-    public function register(): void
-    {
-        $this->registerInstalledRuntime('test/panel-runtime', 'admin');
-    }
-
-    protected function bootInstalledRuntime(): void
-    {
-        $this->app->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
-        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(LateRuntimePage::class));
-        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource(LateRuntimeResource::class, 'Runtime'));
-        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::widget(LateRuntimeWidget::class));
-    }
-}
-
-it('adds late panel pages resources and widgets once and registers their Livewire components', function (): void {
+it('defers new pages resources and widgets until a fresh application constructs routes', function (): void {
     $panel = Filament::getPanel('admin');
     CapellCore::registerPackage('test/panel-runtime');
     CapellCore::forcePackageInstalled('test/panel-runtime', false);
     app()->register(LatePanelRuntimeProvider::class);
     InstallPackageAction::run(CapellCore::getPackage('test/panel-runtime'));
     CapellAdminPlugin::make()->synchronizePanelAdminSurface($panel);
-    expect($panel->getPages())->toContain(LateRuntimePage::class)
-        ->and($panel->getResources())->toContain(LateRuntimeResource::class)
-        ->and($panel->getWidgets())->toContain(LateRuntimeWidget::class);
-    foreach (['pages' => LateRuntimePage::class, 'resources' => LateRuntimeResource::class, 'widgets' => LateRuntimeWidget::class] as $property => $class) {
-        $entries = new ReflectionProperty($panel, $property)->getValue($panel);
-        expect(array_count_values($entries)[$class] ?? 0)->toBe(1);
-    }
-
-    $finder = resolve('livewire.finder');
-    $definitions = new ReflectionProperty($finder, 'classComponents')->getValue($finder);
-    expect($definitions)->toContain(LateRuntimePage::class, LateRuntimeWidget::class);
+    expect($panel->getPages())->not->toContain(LateRuntimePage::class)
+        ->and($panel->getResources())->not->toContain(LateRuntimeResource::class)
+        ->and($panel->getWidgets())->not->toContain(LateRuntimeWidget::class);
+    $this->get('/admin/late-runtime')->assertNotFound();
 });
 
-final class LateRuntimePage extends Page {}
+it('closes existing routes after ambiguous security refresh', function (): void {
+    $panel = Panel::make()->id('runtime-ambiguous');
+    Route::get('/runtime-ambiguous/probe', static fn (): string => 'open')->name('filament.runtime-ambiguous.probe');
+    app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
+    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    $this->get('/runtime-ambiguous/probe')->assertStatus(503);
+});
 
-final class LateRuntimeResource extends Resource {}
+it('protects grouped unnamed and tenant routes during late security refresh', function (string $shape): void {
+    $panel = Panel::make()->id('coverage')->authMiddleware([RuntimeAllowMiddleware::class]);
+    Filament::registerPanel($panel);
+    resolve(Router::class)->middlewareGroup('runtime-auth', [RuntimeAllowMiddleware::class]);
+    resolve(Router::class)->middlewareGroup('runtime-panel', ['panel:coverage', RuntimeAllowMiddleware::class]);
 
-final class LateRuntimeWidget extends Widget {}
+    $middleware = match ($shape) {
+        'group' => ['runtime-auth'],
+        'unnamed' => ['panel:coverage', RuntimeAllowMiddleware::class],
+        'unnamed-excluded-setup' => ['runtime-panel'],
+        'tenant' => [RuntimeAllowMiddleware::class, IdentifyTenant::class],
+        default => throw new LogicException('Unknown route fixture.'),
+    };
+    $route = Route::get('/runtime-coverage', static fn (): string => 'open')->middleware($middleware);
+    if ($shape === 'unnamed-excluded-setup') {
+        $route->withoutMiddleware(SetUpPanel::class . ':coverage');
+    }
+
+    if (! str_starts_with($shape, 'unnamed')) {
+        $route->name('filament.coverage.probe');
+    }
+
+    $extender = new class implements AdminPanelExtender
+    {
+        #[Override]
+        public function extend(Panel $panel): void
+        {
+            $panel->authMiddleware([RuntimeBlockMiddleware::class]);
+            $panel->tenantMiddleware([RuntimeTenantMiddleware::class]);
+        }
+    };
+    app()->instance('runtime.coverage', $extender);
+    app()->tag(['runtime.coverage'], AdminPanelExtender::TAG);
+
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+    expect($route->middleware())->toContain(RuntimeBlockMiddleware::class);
+    if ($shape === 'tenant') {
+        expect($route->middleware())->toContain(RuntimeTenantMiddleware::class);
+    }
+
+    $this->get('/runtime-coverage')->assertForbidden();
+})->with(['group', 'unnamed', 'unnamed-excluded-setup', 'tenant']);
+
+it('enforces default extender middleware on an existing Livewire update snapshot', function (): void {
+    $panel = Panel::make()->id('runtime-wire')->authMiddleware([RuntimeAllowMiddleware::class], isPersistent: true);
+    Livewire::component('runtime.counter', RuntimeCounterComponent::class);
+    Route::get('/runtime-wire', static fn (): string => Livewire::mount('runtime.counter'))
+        ->middleware([RuntimeAllowMiddleware::class])->name('filament.runtime-wire.counter');
+    $html = $this->get('/runtime-wire')->assertOk()->getContent();
+    throw_unless(is_string($html), RuntimeException::class, 'Expected component HTML.');
+    preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
+    $snapshot = html_entity_decode($matches[1] ?? throw new RuntimeException('Missing Livewire snapshot.'), ENT_QUOTES);
+    $payload = ['components' => [['snapshot' => $snapshot, 'updates' => [], 'calls' => [['path' => '', 'method' => 'increment', 'params' => []]]]]];
+    $uri = resolve(HandleRequests::class)->getUpdateUri();
+    $this->postJson($uri, $payload, ['X-Livewire' => 'true'])->assertOk();
+    $extender = new class implements AdminPanelExtender
+    {
+        #[Override]
+        public function extend(Panel $panel): void
+        {
+            $panel->authMiddleware([RuntimeWireBlockMiddleware::class]);
+        }
+    };
+    app()->instance('runtime.wire', $extender);
+    app()->tag(['runtime.wire'], AdminPanelExtender::TAG);
+
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+    $panel->register();
+    $this->get('/runtime-wire')->assertForbidden();
+    Livewire::flushState();
+    $this->postJson($uri, $payload, ['X-Livewire' => 'true'])->assertForbidden();
+});
+
+it('denies excluded panel authentication instead of classifying the route as public', function (): void {
+    $panel = Panel::make()->id('coverage')->path('runtime-coverage')->authMiddleware([RuntimeAllowMiddleware::class]);
+    $route = Route::get('/runtime-coverage/probe', static fn (): string => 'open');
+    $route->middleware([RuntimeAllowMiddleware::class])->withoutMiddleware([RuntimeAllowMiddleware::class])->name('filament.coverage.probe');
+    app()->tag([LateSecurityPanelExtender::class], AdminPanelExtender::TAG);
+    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    $this->get('/runtime-coverage/probe')->assertStatus(503);
+});
+
+it('denies Livewire updates after a partial panel refresh even if its route was not synchronised', function (): void {
+    $panel = Panel::make()->id('failed-wire');
+    Livewire::component('runtime.failed-counter', RuntimeCounterComponent::class);
+    Route::get('/runtime-failed-wire', static fn (): string => Livewire::mount('runtime.failed-counter'))->name('filament.failed-wire.counter');
+    $html = $this->get('/runtime-failed-wire')->assertOk()->getContent();
+    throw_unless(is_string($html), RuntimeException::class, 'Expected component HTML.');
+    preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
+    $snapshot = html_entity_decode($matches[1] ?? throw new RuntimeException('Missing Livewire snapshot.'), ENT_QUOTES);
+    $payload = ['components' => [['snapshot' => $snapshot, 'updates' => [], 'calls' => [['path' => '', 'method' => 'increment', 'params' => []]]]]];
+    $uri = resolve(HandleRequests::class)->getUpdateUri();
+    $this->postJson($uri, $payload, ['X-Livewire' => 'true'])->assertOk();
+    $extender = new class implements AdminPanelExtender
+    {
+        #[Override]
+        public function extend(Panel $panel): void
+        {
+            $panel->authMiddleware([RuntimeWireBlockMiddleware::class]);
+            throw new RuntimeException('incomplete');
+        }
+    };
+    app()->instance('runtime.failed-wire', $extender);
+    app()->tag(['runtime.failed-wire'], AdminPanelExtender::TAG);
+
+    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    Livewire::flushState();
+    $this->postJson($uri, $payload, ['X-Livewire' => 'true'])->assertStatus(503);
+});
+
+it('denies the current response when an install caller catches a partial panel failure', function (): void {
+    $panel = Panel::make()->id('caught-failure');
+    $extender = new class implements AdminPanelExtender
+    {
+        #[Override]
+        public function extend(Panel $panel): void
+        {
+            throw new RuntimeException('incomplete security');
+        }
+    };
+    app()->instance('runtime.caught-failure', $extender);
+    app()->tag(['runtime.caught-failure'], AdminPanelExtender::TAG);
+    Route::get('/runtime-caught-failure', static function () use ($panel): string {
+        try {
+            resolve(InstalledPanelRuntime::class)->extend($panel);
+        } catch (RuntimeException) {
+            return 'caught but unsafe';
+        }
+
+        return 'ready';
+    });
+    $this->get('/runtime-caught-failure')->assertStatus(503);
+});
