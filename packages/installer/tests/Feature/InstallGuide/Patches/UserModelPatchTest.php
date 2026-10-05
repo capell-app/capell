@@ -2,8 +2,14 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Activity\ActivityLogCompat;
+use Capell\Core\Support\Install\InstallPatchContext;
+use Capell\Core\Support\Install\InstallPatchRegistry;
+use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Support\Install\RegisteredInstallPatch;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -229,3 +235,133 @@ it('reports missing and unparseable users as unsupported without writes', functi
     expect($patch->probe())->toBe(PatchStatus::Unsupported);
     expect(File::get($path))->toBe($contents);
 });
+
+function preparedUserForAdminReadinessTest(string $trait, string $options, string $expression): string
+{
+    return conventionalUserForPatchTest(<<<PHP
+class User extends Authenticatable implements \\Filament\\Models\\Contracts\\FilamentUser {
+    use \\Capell\\Admin\\Models\\Concerns\\HasImpersonation;
+    use \\BezhanSalleh\\FilamentShield\\Traits\\HasPanelShield;
+    use \\Spatie\\Permission\\Traits\\HasRoles;
+    use \\Capell\\Core\\Models\\Concerns\\HasSitePermissions;
+    use \\{$trait};
+
+    public function canAccessPanel(\\Filament\\Panel \$panel): bool { return true; }
+    public function getActivitylogOptions(): \\{$options} { return {$expression}; }
+}
+PHP);
+}
+
+function adminSelectionForReadinessTest(): InstallInputData
+{
+    return new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: ['capell-app/admin'],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+    );
+}
+
+it('accepts an operational installed-major vendor User through the real admin guard without preparing it', function (): void {
+    $trait = ActivityLogCompat::logsActivityTrait();
+    $options = ActivityLogCompat::logOptionsClass();
+    $suppression = method_exists($options, 'dontSubmitEmptyLogs') ? 'dontSubmitEmptyLogs' : 'dontLogEmptyChanges';
+    $contents = preparedUserForAdminReadinessTest($trait, $options, sprintf('\\%s::defaults()->logAll()->%s()', $options, $suppression));
+    $path = writeSetupUserModelForPatchTest($contents);
+
+    expect(loadPatchedUserModelForTest($path))->toMatchArray(['logged_name' => 'After', 'relation_count' => 2]);
+    (new AdminUserModelGuard)->ensureUserModelSupportsAdminPackage(adminSelectionForReadinessTest(), new NullProgressReporter);
+
+    $patch = new UserModelPatch;
+    expect($patch->probe())->toBe(PatchStatus::Customised);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'customised');
+    expect(File::get($path))->toBe($contents);
+
+    $registered = resolve(InstallPatchRegistry::class)->patchesFor(new InstallPatchContext(['capell-app/admin'], false));
+    expect(array_filter($registered, static fn (RegisteredInstallPatch $entry): bool => $entry->patch instanceof UserModelPatch))->toBeEmpty();
+});
+
+it('judges the unchanged legacy vendor User against the installed major in the real admin guard', function (): void {
+    $contents = <<<'PHP'
+<?php declare(strict_types=1);
+namespace App\Models;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Filament\Models\Contracts\FilamentUser;
+use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
+use Capell\Admin\Models\Concerns\HasImpersonation;
+use Capell\Core\Models\Concerns\HasSitePermissions;
+use Spatie\Permission\Traits\HasRoles;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+class User extends Authenticatable implements FilamentUser {
+    use HasPanelShield, HasImpersonation, HasSitePermissions, HasRoles, LogsActivity;
+    public function getActivitylogOptions(): LogOptions {
+        return LogOptions::defaults()->logAll()->dontSubmitEmptyLogs();
+    }
+}
+PHP;
+    $path = writeSetupUserModelForPatchTest($contents);
+    $guard = new AdminUserModelGuard;
+
+    if (method_exists(ActivityLogCompat::logOptionsClass(), 'dontSubmitEmptyLogs')) {
+        expect(loadPatchedUserModelForTest($path))->toMatchArray(['logged_name' => 'After', 'relation_count' => 2]);
+        $guard->ensureUserModelSupportsAdminPackage(adminSelectionForReadinessTest(), new NullProgressReporter);
+    } else {
+        expect(fn () => $guard->ensureUserModelSupportsAdminPackage(adminSelectionForReadinessTest(), new NullProgressReporter))
+            ->toThrow(RuntimeException::class, __('capell-installer::install-guide.user_model_patch_customised'));
+    }
+
+    expect((new UserModelPatch)->probe())->toBe(PatchStatus::Customised);
+    expect(File::get($path))->toBe($contents);
+});
+
+it('accepts a prepared Core User through the real admin guard without writes on either major', function (): void {
+    $contents = preparedUserForAdminReadinessTest(
+        'Capell\\Core\\Support\\Activity\\LogsActivity',
+        'Capell\\Core\\Support\\Activity\\LogOptions',
+        sprintf("\\%s::options('user', ['created_at', 'updated_at'])", ActivityLogCompat::class),
+    );
+    $path = writeSetupUserModelForPatchTest($contents);
+
+    (new AdminUserModelGuard)->ensureUserModelSupportsAdminPackage(adminSelectionForReadinessTest(), new NullProgressReporter);
+    expect(loadPatchedUserModelForTest($path))->toMatchArray(['trait' => true, 'logged_name' => 'After', 'relation_count' => 2]);
+    expect(File::get($path))->toBe($contents);
+});
+
+it('rejects installed-major vendor Users with invalid options through the real admin guard unchanged', function (string $expression): void {
+    $options = ActivityLogCompat::logOptionsClass();
+    $contents = preparedUserForAdminReadinessTest(ActivityLogCompat::logsActivityTrait(), $options, sprintf('\\%s::defaults()->%s', $options, $expression));
+    $path = writeSetupUserModelForPatchTest($contents);
+
+    expect(fn () => (new AdminUserModelGuard)->ensureUserModelSupportsAdminPackage(adminSelectionForReadinessTest(), new NullProgressReporter))
+        ->toThrow(RuntimeException::class, __('capell-installer::install-guide.user_model_patch_customised'));
+    expect(File::get($path))->toBe($contents);
+})->with(['unknown method' => 'missingMethod()', 'invalid argument' => 'logOnly(42)']);
+
+it('does not mistake an inoperative admin User declaration for readiness', function (string $search, string $replacement): void {
+    $contents = preparedUserForAdminReadinessTest(
+        'Capell\\Core\\Support\\Activity\\LogsActivity',
+        'Capell\\Core\\Support\\Activity\\LogOptions',
+        sprintf("\\%s::options('user', [])", ActivityLogCompat::class),
+    );
+    $contents = str_replace($search, $replacement, $contents);
+    if (str_starts_with($replacement, 'if (false)')) {
+        $contents .= '}';
+    }
+
+    $path = writeSetupUserModelForPatchTest($contents);
+
+    expect((new UserModelPatch)->isReadyForAdmin())->toBeFalse();
+    expect(fn () => (new AdminUserModelGuard)->ensureUserModelSupportsAdminPackage(adminSelectionForReadinessTest(), new NullProgressReporter))
+        ->toThrow(RuntimeException::class, __('capell-installer::install-guide.user_model_patch_customised'));
+    expect(File::get($path))->toBe($contents);
+})->with([
+    'missing admin trait' => ['use \\Spatie\\Permission\\Traits\\HasRoles;', ''],
+    'wrong namespace' => ['namespace App\\Models;', 'namespace Other;'],
+    'conditional declaration' => ['class User extends', 'if (false) { class User extends'],
+    'invalid panel override' => ['public function canAccessPanel(\\Filament\\Panel $panel): bool', 'protected function canAccessPanel(): string'],
+    'both logging traits' => ['use \\Capell\\Core\\Support\\Activity\\LogsActivity;', 'use \\Capell\\Core\\Support\\Activity\\LogsActivity, \\Spatie\\Activitylog\\Traits\\LogsActivity;'],
+]);

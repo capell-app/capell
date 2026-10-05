@@ -60,7 +60,6 @@ class UserModelPatch implements Patch
         // Site-scoped permission helpers (isGlobalAdmin(), etc.). Without this the
         // patched User 500s on admin requests that resolve global-admin status.
         HasSitePermissions::class,
-        LogsActivity::class,
     ];
 
     private const string FILAMENT_USER_INTERFACE = FilamentUser::class;
@@ -148,6 +147,64 @@ class UserModelPatch implements Patch
                 : PatchStatus::Applicable;
         } catch (RuntimeException) {
             return PatchStatus::Unsupported;
+        }
+    }
+
+    /**
+     * Readiness belongs to the installed major, while probe() deliberately only
+     * recognises portable preparation. Existing host logging must never be edited.
+     */
+    public function isReadyForAdmin(): bool
+    {
+        $path = base_path(self::USER_MODEL_PATH);
+        if (! is_file($path)) {
+            return false;
+        }
+
+        try {
+            $editor = new PhpFileEditor($path);
+            $this->resolveNames($editor);
+            $class = $editor->findClass(self::CLASS_NAME);
+            if (! $class instanceof Class_ || $class->isAbstract() || $class->isReadonly()
+                || ! $class->extends instanceof Name || $this->getNodeName($class->extends) !== User::class
+                || ! $this->classImplementsInterface($class, self::FILAMENT_USER_INTERFACE)
+                || $this->countPresentTraits($class, self::ADMIN_TRAITS) !== count(self::ADMIN_TRAITS)) {
+                return false;
+            }
+
+            $namespaces = (new NodeFinder)->findInstanceOf($editor->getAst(), Namespace_::class);
+            if (! array_any($namespaces, static fn (Namespace_ $namespace): bool => $namespace->name?->toString() === 'App\\Models'
+                && in_array($class, $namespace->stmts, true))) {
+                return false;
+            }
+
+            $panelAccess = $class->getMethod('canAccessPanel');
+            if ($panelAccess instanceof ClassMethod && ! $this->hasValidPanelAccessMethod($panelAccess)) {
+                return false;
+            }
+
+            $loggingTraits = [LogsActivity::class, ActivityLogCompat::logsActivityTrait()];
+            $presentLoggingTraits = 0;
+            foreach ($class->getTraitUses() as $use) {
+                if ($use->adaptations !== []) {
+                    return false;
+                }
+
+                foreach ($use->traits as $trait) {
+                    if (array_any($loggingTraits, fn (string $name): bool => strcasecmp($this->getNodeName($trait), $name) === 0)) {
+                        $presentLoggingTraits++;
+                    } elseif ($this->isLoggingName($this->getNodeName($trait))) {
+                        return false;
+                    }
+                }
+            }
+
+            $options = $class->getMethod('getActivitylogOptions');
+
+            return $presentLoggingTraits === 1 && $options instanceof ClassMethod
+                && $this->hasValidActivitylogOptions($options, installedMajor: true);
+        } catch (RuntimeException) {
+            return false;
         }
     }
 
@@ -250,11 +307,11 @@ class UserModelPatch implements Patch
     }
 
     /**
-     * @return array<string>
+     * @return list<class-string>
      */
     private function requiredTraits(): array
     {
-        return self::ADMIN_TRAITS;
+        return [...self::ADMIN_TRAITS, LogsActivity::class];
     }
 
     /**
@@ -386,7 +443,7 @@ PHP;
     private function hasPortableUserShape(Class_ $class): bool
     {
         $allowed = array_map(strtolower(...), [
-            ...self::ADMIN_TRAITS,
+            ...$this->requiredTraits(),
             'Illuminate\\Notifications\\Notifiable',
             'Illuminate\\Database\\Eloquent\\Factories\\HasFactory',
             'Illuminate\\Database\\Eloquent\\SoftDeletes',
@@ -426,10 +483,7 @@ PHP;
                 return false;
             }
 
-            if (strcasecmp($method->name->name, 'canAccessPanel') === 0 && (! $method->isPublic() || $method->isStatic() || $method->isAbstract()
-                || $method->byRef || ! $method->returnType instanceof Identifier || $method->returnType->name !== 'bool'
-                || count($method->params) !== 1 || ! $method->params[0]->type instanceof Name
-                || $this->getNodeName($method->params[0]->type) !== 'Filament\\Panel' || $method->params[0]->byRef || $method->params[0]->variadic)) {
+            if (strcasecmp($method->name->name, 'canAccessPanel') === 0 && ! $this->hasValidPanelAccessMethod($method)) {
                 return false;
             }
         }
@@ -449,20 +503,36 @@ PHP;
         return true;
     }
 
+    private function hasValidPanelAccessMethod(ClassMethod $method): bool
+    {
+        return $method->isPublic() && ! $method->isStatic() && ! $method->isAbstract() && ! $method->byRef
+            && $method->returnType instanceof Identifier && $method->returnType->name === 'bool'
+            && count($method->params) === 1 && $method->params[0]->type instanceof Name
+            && $this->getNodeName($method->params[0]->type) === 'Filament\\Panel'
+            && ! $method->params[0]->byRef && ! $method->params[0]->variadic;
+    }
+
     private function hasPortableActivitylogOptions(ClassMethod $method): bool
     {
+        return $this->hasValidActivitylogOptions($method, installedMajor: false);
+    }
+
+    private function hasValidActivitylogOptions(ClassMethod $method, bool $installedMajor): bool
+    {
+        $optionsClasses = $installedMajor ? [LogOptions::class, ActivityLogCompat::logOptionsClass()] : [LogOptions::class];
+
         return $method->isPublic() && ! $method->isStatic() && ! $method->isAbstract() && ! $method->byRef
             && $method->attrGroups === []
             && $method->params === []
             && $method->returnType instanceof Name
-            && strtolower($this->getNodeName($method->returnType)) === strtolower(LogOptions::class)
+            && array_any($optionsClasses, fn (string $name): bool => strcasecmp($this->getNodeName($method->returnType), $name) === 0)
             && count($method->stmts ?? []) === 1
             && $method->stmts[0] instanceof Return_
             && $method->stmts[0]->expr instanceof Expr
-            && $this->isPortableOptions($method->stmts[0]->expr);
+            && $this->isValidOptions($method->stmts[0]->expr, $installedMajor);
     }
 
-    private function isPortableOptions(Expr $expression): bool
+    private function isValidOptions(Expr $expression, bool $installedMajor): bool
     {
         if ($expression instanceof MethodCall && $expression->name instanceof Identifier) {
             $name = strtolower($expression->name->name);
@@ -470,11 +540,13 @@ PHP;
             $valid = match ($name) {
                 'logall', 'logunguarded', 'logfillable', 'dontlogfillable', 'logonlydirty' => $arguments === [],
                 'logonly', 'logexcept', 'dontlogifattributeschangedonly', 'useattributerawvalues' => count($arguments) === 1 && $this->isStringListArgument($arguments[0]),
+                'dontsubmitemptylogs', 'submitemptylogs', 'dontlogemptychanges', 'logemptychanges' => $installedMajor
+                    && method_exists(ActivityLogCompat::logOptionsClass(), $name) && $arguments === [],
                 'uselogname' => count($arguments) === 1 && $this->isStringArgument($arguments[0]),
                 default => false,
             };
 
-            return $valid && $this->isPortableOptions($expression->var);
+            return $valid && $this->isValidOptions($expression->var, $installedMajor);
         }
 
         if (! $expression instanceof StaticCall || ! $expression->class instanceof Name || ! $expression->name instanceof Identifier) {
@@ -489,12 +561,14 @@ PHP;
                     && $this->isStringArgument($expression->args[0]) && $this->isStringListArgument($expression->args[1]),
                 'withoutemptylogs' => count($expression->args) === 1 && $expression->args[0] instanceof Arg
                     && ! $expression->args[0]->unpack && ! $expression->args[0]->byRef && ! $expression->args[0]->name instanceof Identifier
-                    && $this->isPortableOptions($expression->args[0]->value),
+                    && $this->isValidOptions($expression->args[0]->value, $installedMajor),
                 default => false,
             };
         }
 
-        return $class === strtolower(LogOptions::class)
+        $optionsClasses = $installedMajor ? [LogOptions::class, ActivityLogCompat::logOptionsClass()] : [LogOptions::class];
+
+        return in_array($class, array_map(strtolower(...), $optionsClasses), true)
             && $name === 'defaults' && $expression->args === [];
     }
 
@@ -533,7 +607,7 @@ PHP;
     /** @return list<class-string> */
     private function importsToAdd(): array
     {
-        return [FilamentUser::class, ...self::ADMIN_TRAITS, Activity::class, LogOptions::class, ActivityLogCompat::class];
+        return [FilamentUser::class, ...$this->requiredTraits(), Activity::class, LogOptions::class, ActivityLogCompat::class];
     }
 
     private function hasSafeImports(PhpFileEditor $editor): bool
