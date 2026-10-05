@@ -8,7 +8,7 @@ use Capell\Core\Models\Page;
 use RuntimeException;
 
 /**
- * Thrown by PageObserver::restored() when restoring a soft-deleted page
+ * Thrown during restore preflight when restoring a soft-deleted page
  * would collide with a slug now owned by a live page. The admin layer
  * catches this and prompts the editor to pick a new slug.
  */

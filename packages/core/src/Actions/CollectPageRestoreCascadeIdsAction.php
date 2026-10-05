@@ -84,12 +84,27 @@ final class CollectPageRestoreCascadeIdsAction
         return array_keys($restoredIds);
     }
 
+    /**
+     * Collect exclusions without author visibility; the caller must hold the restore transaction.
+     *
+     * @param  list<int>  $restoredIds
+     * @return list<int>
+     */
+    public function collectExcludedDescendantIds(Page $root, array $restoredIds): array
+    {
+        $ids = $root->newQuery()->onlyTrashed()
+            ->whereDescendantOf($root)->whereNotIn($root->getQualifiedKeyName(), $restoredIds)
+            ->lockForUpdate()->toBase()->pluck($root->getKeyName())->all();
+
+        return array_values(array_map(intval(...), $ids));
+    }
+
     /** @return Builder<DeletionBatchRecord> */
     private function batchMemberIdsQuery(Page $root): Builder
     {
         $records = DeletionBatchRecord::on($root->getConnectionName())
             ->where('model_type', $root::class)
-            ->whereHas('batch', fn (Builder $batch): Builder => $batch->where('root_type', $root::class));
+            ->whereHas('batch', fn (Builder $batch): Builder => $batch->where('root_type', $root::class)->whereNull('restored_at'));
         $rootBatch = (clone $records)->select('deletion_batch_id')
             ->where('model_id', $root->getKey())->latest('id')->limit(1);
         // A later independent deletion supersedes membership in an older parent cascade.

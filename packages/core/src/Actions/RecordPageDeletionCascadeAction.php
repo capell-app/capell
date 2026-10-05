@@ -6,19 +6,26 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Models\DeletionBatch;
 use Capell\Core\Models\Page;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Record live subtree members before the nested-set hook deletes descendants. */
 final class RecordPageDeletionCascadeAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Page $page): void
     {
         // Serialise overlapping deletions before assigning their batch membership.
-        $page->newQuery()->withTrashed()->whereKey($page->getKey())->lockForUpdate()->toBase()->value($page->getKeyName());
-        $ids = $page->descendants()->getQuery()->lockForUpdate()->toBase()->pluck($page->getKeyName())->all();
+        $current = $page->newQuery()->withTrashed()->whereKey($page->getKey())->lockForUpdate()->first();
+        if (! $current instanceof Page || $current->trashed()) {
+            return;
+        }
+
+        $ids = $current->descendants()->getQuery()->lockForUpdate()->toBase()->pluck($page->getKeyName())->all();
         $ids[] = $page->getKey();
+        PrunePageDeletionMembershipAction::run($page, array_map(intval(...), $ids), pageBatchesOnly: true);
         $batch = DeletionBatch::on($page->getConnectionName())->create([
             'root_type' => $page::class,
             'root_id' => $page->getKey(),

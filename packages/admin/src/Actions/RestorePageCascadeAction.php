@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Capell\Admin\Data\PageRestoreResultData;
+use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Support\Facades\Gate;
@@ -18,19 +20,27 @@ final class RestorePageCascadeAction
 
     public function handle(Page $page): bool
     {
+        return $this->restoreWithResult($page)->restored;
+    }
+
+    public function restoreWithResult(Page $page): PageRestoreResultData
+    {
         // Re-read all candidates on each attempt: overlapping ancestor locks can deadlock.
-        return $page->getConnection()->transaction(function () use ($page): bool {
+        return $page->getConnection()->transaction(function () use ($page): PageRestoreResultData {
             $locked = SiteAccess::current()->query($page::class)->onlyTrashed()->whereKey($page->getKey())->lockForUpdate()->first();
             if (! $locked instanceof Page) {
-                return false;
+                return new PageRestoreResultData(false);
             }
 
             Gate::authorize('restore', $locked);
             if (! CanRestorePageCascadeAction::run($locked, lockForUpdate: true)) {
-                return false;
+                return new PageRestoreResultData(false);
             }
 
-            return $locked->restore();
+            $ids = CollectPageRestoreCascadeIdsAction::run($locked, lockForUpdate: true);
+            $notice = BuildPageRestoreNoticeAction::run($locked, $ids);
+
+            return new PageRestoreResultData($locked->restore(), $notice);
         }, attempts: 3);
     }
 }

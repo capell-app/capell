@@ -112,8 +112,25 @@ The extension and marketplace tables intentionally use stable string keys such a
 Page soft deletion records the live subtree in these batch tables before deleting
 descendants. Restoration and its permission checks use the same recorded membership,
 so crossing a clock second cannot lose a child or include independently deleted trash.
-A later deletion supersedes that page's earlier batch membership. Restoration keeps
-each selected page's plan while restoring its ancestors, and closes restored batches.
+Deletion re-reads current page state and nested-set bounds under row locks; a stale
+instance of an already-trashed page cannot record a second cascade. Membership is
+consumed per restored or permanently purged member, and empty Page batches are
+pruned. A moved subtree retains its own membership until it is restored or purged;
+a later genuine Page deletion supersedes earlier Page-batch membership for that
+member only. It preserves Site-owned membership recorded before the Site cascade.
+Site restoration consumes Page-owned membership for the pages it restores while
+retaining its own Site history.
+
+Restoration checks every member's old URLs before writes and restores standard URL
+and translation relations in two statements. Members then traverse their model
+lifecycle in parent-first order, preserving events, auditing, extension observers
+and cache invalidation. A collision or a refused restoring event rolls back pages,
+relations and membership together. The vendor timestamp hook performs no second
+restore.
+
 Historical trash without a recorded page batch must be restored explicitly; its
 trashed ancestors are restored too, while descendant membership is never guessed
-from `deleted_at`.
+from `deleted_at`. Admin recovery warns which accessible descendants remain in
+trash and explains how to restore them separately. Inaccessible descendants are
+reported by count with administrator guidance, without disclosing their names. Recently Deleted displays the
+same recovery guidance before any action.

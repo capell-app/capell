@@ -7,7 +7,6 @@ namespace Capell\Core\Models;
 use Aimeos\Nestedset\Collection;
 use Aimeos\Nestedset\NodeTrait;
 use Bkwld\Cloner\Cloneable;
-use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Actions\GetPageUrlPathAction;
 use Capell\Core\Actions\Properties\ResolveAgentPropertyValuesAction;
 use Capell\Core\Actions\RecordPageDeletionCascadeAction;
@@ -284,8 +283,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     protected static string $factory = PageFactory::class;
 
-    /** @var list<int> */
-    private array $pageRestoreCascadeIds = [];
+    private bool $pageRestoreCascadePrepared = false;
 
     public static function hasPageHierarchy(): bool
     {
@@ -396,21 +394,34 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     #[Override]
     public function delete(): ?bool
     {
-        return $this->getConnection()->transaction(fn (): ?bool => parent::delete());
+        return $this->getConnection()->transaction(function (): ?bool {
+            $current = $this->newQuery()->withTrashed()->whereKey($this->getKey())->lockForUpdate()->first();
+            if (! $current instanceof self || (! $this->isForceDeleting() && $current->trashed())) {
+                return false;
+            }
+
+            // Bounds and deletion state may have changed since this instance was loaded.
+            $this->setRawAttributes($current->getAttributes(), sync: true);
+
+            return parent::delete();
+        });
     }
 
     public function restore(): bool
     {
-        return $this->getConnection()->transaction(function (): bool {
-            $previousIds = $this->pageRestoreCascadeIds;
-            // Each instance keeps its own plan while observers recursively restore ancestors.
-            $this->pageRestoreCascadeIds = CollectPageRestoreCascadeIdsAction::run($this);
+        return RestorePageCascadeRecordsAction::run($this, static function (self $member): bool {
+            $member->pageRestoreCascadePrepared = true;
             try {
-                return $this->restoreSoftDeletedPage();
+                return $member->restoreSoftDeletedPage();
             } finally {
-                $this->pageRestoreCascadeIds = $previousIds;
+                $member->pageRestoreCascadePrepared = false;
             }
         });
+    }
+
+    public function isPageRestoreCascadePrepared(): bool
+    {
+        return $this->pageRestoreCascadePrepared;
     }
 
     /**
@@ -674,8 +685,7 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     protected function restoreDescendants(Carbon $deletedAt): void
     {
-        // The vendor hook passes a shared timestamp; membership never depends on that value.
-        RestorePageCascadeRecordsAction::run($this, $this->pageRestoreCascadeIds);
+        // The cascade action already plans and restores every member; never use the vendor timestamp.
     }
 
     /**

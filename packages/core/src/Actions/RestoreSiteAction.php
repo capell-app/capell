@@ -70,6 +70,17 @@ final class RestoreSiteAction
 
         /** @var class-string<Model> $modelType */
         $this->restoreModels($modelType, $modelIds);
+        if ($modelType === Page::class) {
+            // Site history remains intact; Page cascade membership ends when those pages return.
+            $page = new Page;
+            $page->setConnection($batch->getConnectionName());
+            $ids = $modelIds->all();
+            PrunePageDeletionMembershipAction::run(
+                $page,
+                array_map(intval(...), $ids),
+                pageBatchesOnly: true,
+            );
+        }
     }
 
     /**

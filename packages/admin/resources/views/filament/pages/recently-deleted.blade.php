@@ -15,6 +15,12 @@
                     </span>
                 </h2>
 
+                @if ($group['resource'] === 'page')
+                    <p class="mt-2 text-sm text-gray-500">
+                        {{ __('capell-admin::message.page_restore_historical_notice') }}
+                    </p>
+                @endif
+
                 @if ($group['items']->isEmpty())
                     <p class="mt-2 text-sm text-gray-500">{{ __('capell-admin::generic.recently_deleted_none') }}</p>
                 @else

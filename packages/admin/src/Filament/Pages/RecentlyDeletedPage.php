@@ -68,8 +68,9 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
             return;
         }
 
-        $restored = $model instanceof Page
-            ? RestorePageCascadeAction::run($model)
+        $result = $model instanceof Page ? RestorePageCascadeAction::make()->restoreWithResult($model) : null;
+        $restored = $result !== null
+            ? $result->restored
             : $model->getConnection()->transaction(function () use ($model): bool {
                 $locked = SiteAccess::current()->query($model::class)->onlyTrashed()->whereKey($model->getKey())->lockForUpdate()->first();
                 if ($locked === null) {
@@ -90,10 +91,14 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
             return;
         }
 
-        Notification::make()
-            ->title(__('capell-admin::message.recently_deleted_restored'))
-            ->success()
-            ->send();
+        $notification = Notification::make()->title(__('capell-admin::message.recently_deleted_restored'));
+        if ($result?->notice !== null) {
+            $notification->body($result->notice)->warning();
+        } else {
+            $notification->success();
+        }
+
+        $notification->send();
     }
 
     public function forceDeleteRecord(string $resource, int $id): void

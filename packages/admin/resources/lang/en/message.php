@@ -235,6 +235,9 @@ return [
     'snapshot_not_found' => 'That snapshot is no longer available.',
     'snapshot_restored' => 'Content restored from snapshot.',
     'recently_deleted_restore_cascade_denied' => 'You cannot restore this page because you do not have permission to restore every related page. Nothing was restored.',
+    'page_restore_excluded_descendants' => 'These descendants were not restored: :pages. They were deleted separately, or their original deletion could not be linked to this page. Restore them separately from Recently Deleted.',
+    'page_restore_inaccessible_descendants' => 'One descendant outside your accessible sites was not restored. Ask an administrator to restore it separately.|:count descendants outside your accessible sites were not restored. Ask an administrator to restore them separately.',
+    'page_restore_historical_notice' => 'For older deletions, only the selected page and its deleted parents can be recovered together. Descendants whose deletion cannot be linked to this page stay in trash; restore them separately. The restore message names the descendants left in trash that you can access.',
     'recently_deleted_restored' => 'Item restored.',
     'recently_deleted_force_deleted' => 'Item permanently deleted.',
 ];

@@ -4,22 +4,44 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
-use Capell\Core\Models\DeletionBatch;
+use Capell\Core\Exceptions\PageRestoreCancelledException;
 use Capell\Core\Models\Page;
+use Closure;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RestorePageCascadeRecordsAction
 {
+    use AsFake;
     use AsObject;
 
-    /** @param list<int> $ids */
-    public function handle(Page $page, array $ids): void
+    /** @param Closure(Page): bool $restoreMember */
+    public function handle(Page $page, Closure $restoreMember): bool
     {
-        $page->newQuery()->onlyTrashed()->whereKey($ids)->restore();
-        DeletionBatch::on($page->getConnectionName())
-            ->where('root_type', $page::class)
-            ->whereIn('root_id', $ids)
-            ->open()
-            ->update(['restored_at' => now()]);
+        try {
+            return $page->getConnection()->transaction(function () use ($page, $restoreMember): bool {
+                $current = $page->newQuery()->withTrashed()->whereKey($page->getKey())->lockForUpdate()->first();
+                if (! $current instanceof Page || ! $current->trashed()) {
+                    return false;
+                }
+
+                $page->setRawAttributes($current->getAttributes(), sync: true);
+                $ids = CollectPageRestoreCascadeIdsAction::run($page, lockForUpdate: true);
+                $members = $page->newQuery()->onlyTrashed()->whereKey($ids)->orderBy($page->getLftName())->lockForUpdate()->get();
+                AssertPageRestoreUrlsAvailableAction::run($members);
+                RestorePageCascadeRelationsAction::run($page, $ids);
+
+                // Keep model events, auditing and extension observers; standard relation work is batched above.
+                foreach ($members as $member) {
+                    throw_unless($restoreMember($member->is($page) ? $page : $member), PageRestoreCancelledException::class);
+                }
+
+                PrunePageDeletionMembershipAction::run($page, $ids);
+
+                return true;
+            });
+        } catch (PageRestoreCancelledException) {
+            return false;
+        }
     }
 }

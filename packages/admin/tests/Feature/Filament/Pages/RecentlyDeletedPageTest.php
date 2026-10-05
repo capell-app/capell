@@ -5,9 +5,13 @@ declare(strict_types=1);
 use Capell\Admin\Actions\CanRestorePageCascadeAction;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
 use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
+use Capell\Core\Exceptions\PageRestoreSlugConflictException;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\DeletionBatchRecord;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Media as CapellMedia;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -392,7 +396,7 @@ it('retries a deadlocked restore after rereading the selected page and propagate
         }
 
         $grammar = $retry->getQueryGrammar();
-        $selectedReads = array_filter($retry->getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'select * from ' . $grammar->wrapTable('pages')) && str_contains($query['query'], $grammar->wrap('pages.id') . ' = ?'));
+        $selectedReads = array_filter($retry->getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'select * from ' . $grammar->wrapTable('pages')) && str_contains($query['query'], $grammar->wrap('pages.id') . ' = ?') && str_contains($query['query'], $grammar->wrap('pages.deleted_at') . ' is not null'));
         expect(count($selectedReads))->toBe($deadlock ? 3 : 2);
     } finally {
         DB::setDefaultConnection($original);
@@ -458,3 +462,75 @@ it('eager loads site and blueprint once for restore cascade gates', function ():
 
     expect($loaded)->toHaveCount(6)->each->toBeTrue();
 });
+
+it('restores the whole admin cascade after a stale child deletes following its ancestor', function (): void {
+    $this->freezeTime();
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $grandchild = Page::factory()->parent($child)->createOne();
+    $stale = Page::query()->whereKey($child->id)->firstOrFail();
+    $parent->refresh()->delete();
+    $stale->delete();
+    (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
+
+    expect($child->fresh()->trashed())->toBeFalse()
+        ->and($grandchild->fresh()->trashed())->toBeFalse()
+        ->and(Page::isBroken())->toBeFalse();
+})->group('restore-review');
+
+it('refuses an admin cascade atomically when a replacement owns the child url', function (): void {
+    $this->freezeTime();
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $language = Language::factory()->english()->createOne();
+    $url = PageUrl::factory()->page($child)->site($child->site)->language($language)->createOne(['url' => '/child-collision']);
+    $parent->refresh()->delete();
+    $replacement = Page::factory()->site($parent->site)->createOne();
+    PageUrl::factory()->page($replacement)->site($replacement->site)->language($language)->createOne(['url' => '/child-collision']);
+
+    expect(fn () => (new RecentlyDeletedPage)->restoreRecord('page', $parent->id))->toThrow(PageRestoreSlugConflictException::class)
+        ->and($parent->fresh()->trashed())->toBeTrue()
+        ->and($child->fresh()->trashed())->toBeTrue()
+        ->and($url->fresh()->trashed())->toBeTrue()
+        ->and(DeletionBatchRecord::query()->where('model_type', Page::class)->whereIn('model_id', [$parent->id, $child->id])->count())->toBe(2)
+        ->and(Page::isBroken())->toBeFalse();
+})->group('restore-review');
+
+it('explains historical exclusions in recently deleted and the restore notification', function (): void {
+    $this->freezeTime();
+    $parent = Page::factory()->createOne(['name' => 'Historical parent']);
+    $child = Page::factory()->parent($parent)->createOne(['name' => 'Historical child']);
+    Page::query()->whereKey([$parent->id, $child->id])->update(['deleted_at' => now()]);
+
+    (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
+    $notification = array_values(session('filament.notifications', []))[0];
+
+    expect($notification['status'])->toBe('warning')
+        ->and($notification['body'])->toBe(__('capell-admin::message.page_restore_excluded_descendants', ['pages' => 'Historical child']))
+        ->and($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeTrue();
+    Page::query()->whereKey($parent->id)->update(['deleted_at' => now()]);
+    Livewire::test(RecentlyDeletedPage::class)
+        ->assertSee(__('capell-admin::message.page_restore_historical_notice'));
+})->group('restore-review');
+
+it('warns about inaccessible historical descendants without disclosing their names', function (): void {
+    $this->freezeTime();
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne(['name' => 'Private foreign child']);
+    $foreign = Site::factory()->createOne();
+    Page::query()->whereKey([$parent->id, $child->id])->update(['deleted_at' => now()]);
+    Page::withTrashed()->whereKey($child->id)->update(['site_id' => $foreign->id]);
+    test()->actingAsUser();
+    test()->authenticatedUser()->assignedSiteIds = collect([$parent->site_id]);
+    Gate::before(static fn (mixed $user, string $ability): ?bool => $ability === 'restore' ? true : null);
+
+    (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
+    $notification = array_values(session('filament.notifications', []))[0];
+
+    expect($notification['status'])->toBe('warning')
+        ->and($notification['body'])->toBe(trans_choice('capell-admin::message.page_restore_inaccessible_descendants', 1, ['count' => 1]))
+        ->and($notification['body'])->not->toContain('Private foreign child')
+        ->and($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeTrue();
+})->group('restore-review');
