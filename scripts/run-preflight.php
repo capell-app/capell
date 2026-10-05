@@ -20,6 +20,7 @@ $requested = array_values(array_filter(
 
 /** @var array<string, string> $quickStages */
 $quickStages = [
+    'composer-majors' => 'check:composer-majors',
     'queue-contract' => 'check:queue-contract',
     'language-keys' => 'check:lang-keys',
     'package-dependencies' => 'check:package-dependencies',
@@ -36,6 +37,7 @@ $quickStages = [
 /** @var array<string, string> $fullStages */
 $fullStages = [
     'composer-paths' => 'check:composer-paths',
+    'composer-majors' => 'check:composer-majors',
     'package-dependencies' => 'check:package-dependencies',
     'split-repository-health' => 'check:split-repository-health',
     'support-contract' => 'check:support-contract',

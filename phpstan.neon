@@ -15,4 +15,5 @@ parameters:
     scanFiles:
         - scripts/test-all/TestAllDatabaseService.php
         - scripts/test-all/TestAllMatrix.php
+        - scripts/ComposerMajorConstraints.php
     tmpDir: %currentWorkingDirectory%/var/phpstan/full
