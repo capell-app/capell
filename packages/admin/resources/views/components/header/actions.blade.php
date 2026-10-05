@@ -2,7 +2,7 @@
     @class([
         'items-center gap-x-1',
         'flex' => $inSidebar ?? false,
-        'hidden lg:flex' => ! ($inSidebar ?? false),
+        'flex max-lg:hidden' => ! ($inSidebar ?? false),
     ])
     data-capell-header-actions
 >

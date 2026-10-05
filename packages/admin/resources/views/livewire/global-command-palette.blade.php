@@ -53,7 +53,7 @@
                     "
                 />
                 <kbd
-                    class="hidden rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 sm:block dark:bg-gray-800 dark:text-gray-400"
+                    class="block rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 max-sm:hidden dark:bg-gray-800 dark:text-gray-400"
                 >
                     Esc
                 </kbd>

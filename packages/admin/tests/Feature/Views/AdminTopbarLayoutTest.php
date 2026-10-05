@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Tests\Support\ResponsiveVisibilityGuard;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -34,8 +35,12 @@ it('keeps mobile header controls in navigation and desktop controls in the topba
         ->assertElementExists(
             '.fi-topbar-end',
             fn (AssertElement $topbar): BaseAssert => $topbar
-                ->find('[data-capell-site-switcher]', fn (AssertElement $switcher): BaseAssert => $switcher->has('class', 'hidden lg:block'))
-                ->find('[data-capell-header-actions]', fn (AssertElement $actions): BaseAssert => $actions->has('class', 'hidden lg:flex'))
+                ->find('[data-capell-site-switcher]', fn (AssertElement $switcher): BaseAssert => $switcher
+                    ->has('class', 'block max-lg:hidden')
+                    ->doesntHave('class', 'hidden'))
+                ->find('[data-capell-header-actions]', fn (AssertElement $actions): BaseAssert => $actions
+                    ->has('class', 'flex max-lg:hidden')
+                    ->doesntHave('class', 'hidden'))
                 ->find('.fi-global-search-ctn input[type="search"]')
                 ->find('.fi-user-menu-trigger'),
         )
@@ -57,6 +62,16 @@ it('keeps mobile header controls in navigation and desktop controls in the topba
     $html = $response->getContent();
     assert(is_string($html));
     $xpath = new DOMXPath(DomParser::new($html)->getDocument());
+    $wrappers = $xpath->query('//*[@data-capell-site-switcher or @data-capell-header-actions or @data-capell-mobile-header]');
+    assert($wrappers instanceof DOMNodeList);
+
+    expect($wrappers->length)->toBe(5);
+
+    foreach ($wrappers as $wrapper) {
+        assert($wrapper instanceof DOMElement);
+        expect(ResponsiveVisibilityGuard::hasConflict($wrapper->getAttribute('class')))->toBeFalse();
+    }
+
     $panels = $xpath->query('//*[@data-capell-mobile-header]//*[@x-ref="panel"]');
     assert($panels instanceof DOMNodeList);
 

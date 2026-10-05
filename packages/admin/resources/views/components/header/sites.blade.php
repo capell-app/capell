@@ -14,7 +14,7 @@
     :teleport="$inSidebar ?? false"
     :shift="$inSidebar ?? false"
     :size="$inSidebar ?? false"
-    :class="($inSidebar ?? false) ? 'min-w-0 max-w-full' : 'hidden lg:block'"
+    :class="($inSidebar ?? false) ? 'min-w-0 max-w-full' : 'block max-lg:hidden'"
     data-capell-site-switcher
 >
     <x-slot name="trigger">
