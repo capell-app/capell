@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-/** Check the conservative restore cascade before any write; locking requires the caller's transaction. */
+/** Check recorded cascade membership before any write; locking requires the caller's transaction. */
 final class CanRestorePageCascadeAction
 {
     use AsFake;

@@ -7,9 +7,12 @@ namespace Capell\Core\Models;
 use Aimeos\Nestedset\Collection;
 use Aimeos\Nestedset\NodeTrait;
 use Bkwld\Cloner\Cloneable;
+use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Actions\GetPageUrlPathAction;
 use Capell\Core\Actions\Properties\ResolveAgentPropertyValuesAction;
+use Capell\Core\Actions\RecordPageDeletionCascadeAction;
 use Capell\Core\Actions\ResolveFirstPageByTypeAction;
+use Capell\Core\Actions\RestorePageCascadeRecordsAction;
 use Capell\Core\Actions\ValidatePageHierarchyAction;
 use Capell\Core\Concerns\HasCapellMedia;
 use Capell\Core\Concerns\WhenBootedShim;
@@ -42,6 +45,7 @@ use Capell\Core\Models\Contracts\Translatable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Observers\PageObserver;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -245,8 +249,12 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     use HasUserstamps;
     use IsEventSourced;
     use LogsActivity;
-    use NodeTrait;
-    use SoftDeletes;
+    use NodeTrait {
+        deleteDescendants as private deleteNestedSetDescendants;
+    }
+    use SoftDeletes {
+        restore as private restoreSoftDeletedPage;
+    }
     use WhenBootedShim;
 
     /**
@@ -275,6 +283,9 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     ];
 
     protected static string $factory = PageFactory::class;
+
+    /** @var list<int> */
+    private array $pageRestoreCascadeIds = [];
 
     public static function hasPageHierarchy(): bool
     {
@@ -380,6 +391,26 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
         }
 
         $pageUrl->setRelation('siteDomain', $matchingSiteDomain);
+    }
+
+    #[Override]
+    public function delete(): ?bool
+    {
+        return $this->getConnection()->transaction(fn (): ?bool => parent::delete());
+    }
+
+    public function restore(): bool
+    {
+        return $this->getConnection()->transaction(function (): bool {
+            $previousIds = $this->pageRestoreCascadeIds;
+            // Each instance keeps its own plan while observers recursively restore ancestors.
+            $this->pageRestoreCascadeIds = CollectPageRestoreCascadeIdsAction::run($this);
+            try {
+                return $this->restoreSoftDeletedPage();
+            } finally {
+                $this->pageRestoreCascadeIds = $previousIds;
+            }
+        });
     }
 
     /**
@@ -630,6 +661,21 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     {
         return $this->hasMany(PageRevision::class, 'page_uuid', 'uuid')
             ->orderByDesc('version');
+    }
+
+    protected function deleteDescendants(): void
+    {
+        if (! $this->isForceDeleting() && ! $this->trashed()) {
+            RecordPageDeletionCascadeAction::run($this);
+        }
+
+        $this->deleteNestedSetDescendants();
+    }
+
+    protected function restoreDescendants(Carbon $deletedAt): void
+    {
+        // The vendor hook passes a shared timestamp; membership never depends on that value.
+        RestorePageCascadeRecordsAction::run($this, $this->pageRestoreCascadeIds);
     }
 
     /**

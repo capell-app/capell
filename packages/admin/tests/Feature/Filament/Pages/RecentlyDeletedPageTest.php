@@ -211,15 +211,14 @@ it('refuses the whole restore cascade when a related page is denied', function (
     $component->assertNotified(__('capell-admin::message.recently_deleted_restore_cascade_denied'));
 })->with(['child', 'ancestor', 'sibling']);
 
-it('restores an authorised cascade without requiring permission for older unrelated trash', function (): void {
+it('restores an authorised cascade without requiring permission for independent trash in the same second', function (): void {
     $parent = Page::factory()->createOne();
     $child = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
     $child->appendToNode($parent)->save();
     $older = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
     $older->appendToNode($parent)->save();
-    $this->travel(-2)->minutes();
+    $this->freezeTime();
     $older->delete();
-    $this->travelBack();
     $parent->delete();
 
     test()->actingAsUser();
@@ -264,12 +263,13 @@ it('refuses the whole restore cascade when a related page is outside site access
     $component->assertNotified(__('capell-admin::message.recently_deleted_restore_cascade_denied'));
 })->with(['child', 'ancestor']);
 
-it('refuses a child deleted during the restore ability checks without restoring any page', function (): void {
+it('refuses a recorded cascade member becoming trashed during the restore ability checks without restoring any page', function (): void {
     $parent = Page::factory()->createOne();
     $child = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
     $child->appendToNode($parent)->save();
-    // Keep the child live until the candidate snapshot has been collected.
-    Page::query()->whereKey($parent->id)->update(['deleted_at' => now()]);
+    $parent->delete();
+    // Simulate a recorded member becoming live before the candidate snapshot.
+    Page::withTrashed()->whereKey($child->id)->update(['deleted_at' => null]);
     test()->actingAsUser();
     test()->authenticatedUser()->assignedSiteIds = collect([$parent->site_id]);
     $parentChecks = 0;
@@ -282,7 +282,7 @@ it('refuses a child deleted during the restore ability checks without restoring 
 
         $transactionLevels[] = $parent->getConnection()->transactionLevel();
         if ($arguments[0]->is($parent) && ++$parentChecks === 2) {
-            $child->delete();
+            Page::query()->whereKey($child->id)->update(['deleted_at' => now()]);
             $injected = true;
         }
 
@@ -298,7 +298,7 @@ it('refuses a child deleted during the restore ability checks without restoring 
         ->and(array_all($transactionLevels, fn (int $level): bool => $level > $initialTransactionLevel))->toBeTrue();
 });
 
-it('collects a conservative superset of the native restore with different deletion times', function (): void {
+it('collects the exact restore cascade across independent ancestor deletion operations', function (): void {
     $ancestor = Page::factory()->createOne();
     $child = Page::factory()->createOne(['site_id' => $ancestor->site_id, 'blueprint_id' => $ancestor->blueprint_id, 'layout_id' => $ancestor->layout_id]);
     $child->appendToNode($ancestor)->save();
@@ -318,9 +318,9 @@ it('collects a conservative superset of the native restore with different deleti
     $restored = Page::query()->whereKey([$ancestor->id, $child->id, $grandchild->id, $sibling->id])->pluck('id')->all();
 
     expect($collected)->toContain($ancestor->id, $child->id, $grandchild->id, $sibling->id)
-        ->and($restored)->toEqualCanonicalizing([$ancestor->id, $child->id, $sibling->id])
+        ->and($restored)->toEqualCanonicalizing([$ancestor->id, $child->id, $grandchild->id, $sibling->id])
         ->and(array_diff($restored, $collected))->toBe([])
-        ->and($grandchild->fresh()->trashed())->toBeTrue();
+        ->and($grandchild->fresh()->trashed())->toBeFalse();
 });
 
 it('collects a deep restore cascade with one descendant query', function (): void {

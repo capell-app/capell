@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-/** Authorise the entire native restore cascade under lock before restoring any page. */
+/** Authorise the entire recorded restore cascade under lock before restoring any page. */
 final class RestorePageCascadeAction
 {
     use AsFake;

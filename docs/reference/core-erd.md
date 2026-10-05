@@ -108,3 +108,12 @@ The extension and marketplace tables intentionally use stable string keys such a
 | `content_graph_edges.source_*` / `target_*`                  | Logical polymorphic | Derived graph edges for impact analysis, scoped optionally by site/language.                |
 | `content_locks.model_*`                                      | Logical polymorphic | One active lock per model record.                                                           |
 | `deletion_batches.root_*` / `deletion_batch_records.model_*` | Logical polymorphic | Tracks restore groups without coupling to package tables.                                   |
+
+Page soft deletion records the live subtree in these batch tables before deleting
+descendants. Restoration and its permission checks use the same recorded membership,
+so crossing a clock second cannot lose a child or include independently deleted trash.
+A later deletion supersedes that page's earlier batch membership. Restoration keeps
+each selected page's plan while restoring its ancestors, and closes restored batches.
+Historical trash without a recorded page batch must be restored explicitly; its
+trashed ancestors are restored too, while descendant membership is never guessed
+from `deleted_at`.

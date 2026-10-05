@@ -2,12 +2,136 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Exceptions\PageRestoreSlugConflictException;
+use Capell\Core\Models\DeletionBatch;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Illuminate\Support\Facades\Event;
+
+it('restores the exact cascade when descendant deletion crosses a second boundary', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $grandchild = Page::factory()->parent($child)->createOne();
+    $this->travelTo(today()->setTime(11, 0));
+    Event::listen('eloquent.deleted: ' . Page::class, function (Page $page) use ($child): void {
+        if ($page->is($child)) {
+            $this->travel(1)->seconds();
+        }
+    });
+    try {
+        $parent->refresh()->delete();
+    } finally {
+        $this->travelBack();
+    }
+
+    expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id, $grandchild->id])->count())->toBe(3)
+        ->and($child->fresh()->deleted_at->lt($parent->fresh()->deleted_at))->toBeTrue();
+    $parent->refresh()->restore();
+
+    expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id, $grandchild->id])->count())->toBe(0);
+});
+
+it('collects descendants deleted before the parent second for cascade authorisation', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $parent->delete();
+    Page::withTrashed()->whereKey($parent->id)->update(['deleted_at' => $child->fresh()->deleted_at->addSecond()]);
+
+    expect(CollectPageRestoreCascadeIdsAction::run($parent->refresh()))->toEqualCanonicalizing([$parent->id, $child->id]);
+});
+
+it('leaves independently deleted descendants trashed even in the same second', function (): void {
+    $parent = Page::factory()->createOne();
+    $independent = Page::factory()->parent($parent)->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $this->freezeTime();
+    $independent->delete();
+    $parent->refresh()->delete();
+
+    expect($independent->fresh()->deleted_at->eq($parent->fresh()->deleted_at))->toBeTrue();
+    $parent->refresh()->restore();
+
+    expect($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeFalse()
+        ->and($independent->fresh()->trashed())->toBeTrue();
+});
+
+it('retains the selected deletion cascade while restoring ancestors from a later operation', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $grandchild = Page::factory()->parent($child)->createOne();
+    $sibling = Page::factory()->parent($parent)->createOne();
+    $this->travelTo(today()->setTime(11, 0));
+    $child->refresh()->delete();
+    $this->travel(1)->seconds();
+    $parent->refresh()->delete();
+    $this->travelBack();
+
+    expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id, $grandchild->id, $sibling->id])->count())->toBe(4);
+    $child->refresh()->restore();
+
+    expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id, $grandchild->id, $sibling->id])->count())->toBe(0);
+});
+
+it('does not restore a cascade member independently deleted again while its parent remains trashed', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $this->freezeTime();
+    $parent->delete();
+    Page::withTrashed()->whereKey($child->id)->restore();
+    $child->refresh()->delete();
+
+    expect(CollectPageRestoreCascadeIdsAction::run($parent->refresh()))->toBe([$parent->id]);
+    $parent->restore();
+
+    expect($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeTrue();
+});
+
+it('restores untracked legacy trash explicitly without guessing descendant membership', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    Page::query()->whereKey([$parent->id, $child->id])->update(['deleted_at' => now()]);
+
+    expect(CollectPageRestoreCascadeIdsAction::run($parent->refresh()))->toBe([$parent->id]);
+    $parent->restore();
+
+    expect($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeTrue();
+    $child->refresh()->restore();
+    expect($child->fresh()->trashed())->toBeFalse();
+});
+
+it('rolls back deletion records and descendant deletion when a cascade throws', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $grandchild = Page::factory()->parent($child)->createOne();
+    $originalBatches = DeletionBatch::query()->count();
+    Event::listen('eloquent.deleted: ' . Page::class, function (Page $page) use ($child): void {
+        throw_if($page->is($child), RuntimeException::class, 'Deletion interrupted.');
+    });
+
+    expect(fn (): ?bool => $parent->refresh()->delete())->toThrow(RuntimeException::class, 'Deletion interrupted.')
+        ->and(Page::onlyTrashed()->whereKey([$parent->id, $child->id, $grandchild->id])->count())->toBe(0)
+        ->and(DeletionBatch::query()->count())->toBe($originalBatches);
+});
+
+it('keeps force deletion on the native tree path without recording a restore cascade', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $child->delete();
+
+    $originalBatches = DeletionBatch::query()->count();
+
+    $parent->forceDelete();
+
+    expect(Page::withTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(0)
+        ->and(DeletionBatch::query()->count())->toBe($originalBatches);
+});
 
 it('restores page urls and translations with the page', function (): void {
     $language = Language::factory()->english()->createOne();
