@@ -1,11 +1,5 @@
 [
     {
-        "name": "spatie/laravel-activitylog",
-        "heldMajor": 4,
-        "reason": "Version 5 moves LogOptions and LogsActivity namespaces, renames dontSubmitEmptyLogs and stores tracked values in attribute_changes; code and schema migration required.",
-        "owner": "Migrate Activitylog code and stored changes"
-    },
-    {
         "name": "guava/filament-icon-picker",
         "heldMajor": 4,
         "reason": "Version 5 compatibility with the Admin field subclass and its setUp override is unverified.",

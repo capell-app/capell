@@ -96,11 +96,11 @@ session's uncommitted work.
 `scripts/init-worktree.sh` avoids this by keeping the parts that determine `$baseDir`
 real, and sharing only what is safe to share:
 
-| Path | Treatment | Why |
-| --- | --- | --- |
-| `vendor/composer/`, `vendor/autoload.php` | real copy | `$baseDir` must resolve to this worktree |
-| `vendor/bin/` | real copy | binary proxies must point at this worktree's autoloader |
-| `vendor/<vendor>/<package>/` | symlink | third-party code, identical in both trees |
+| Path                                                                                                       | Treatment | Why                                                                                           |
+| ---------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------- |
+| `vendor/composer/`, `vendor/autoload.php`                                                                  | real copy | `$baseDir` must resolve to this worktree                                                      |
+| `vendor/bin/`                                                                                              | real copy | binary proxies must point at this worktree's autoloader                                       |
+| `vendor/<vendor>/<package>/`                                                                               | symlink   | third-party code, identical in both trees                                                     |
 | `pestphp/pest`, `phpunit/phpunit`, `laravel/pint`, `phpstan/phpstan`, `rector/rector`, `brianium/paratest` | real copy | their bin scripts walk `__DIR__` upward to find an autoloader, and would find the primary one |
 
 ### Known limitation — verify before trusting a full-suite run
@@ -118,6 +118,13 @@ later tests silently exercise the wrong code. Confirmed 2026-07-23 by printing
 Practical rule: use the script for fast, targeted runs, and check that the classes you
 changed resolve inside the worktree before believing a result. If you need an
 authoritative full-suite run, do a real `composer install` in the worktree.
+
+Pest's architecture presets also follow symlinks before excluding the checkout's
+`vendor/` directory, so external dependency roots can be mistaken for application
+source. This can fatally load optional integrations such as Symfony Serializer's
+`SerializerPass` without its optional `PriorityTaggedServiceTrait`. Use an independent
+vendor tree for authoritative architecture gates. A process-only bootstrap restoring
+the intended vendor exclusion is a diagnostic workaround, not clean-vendor evidence.
 
 Do not run `composer test` in a hybrid worktree. Its `clear` step runs
 `testbench package:purge-skeleton` and removes

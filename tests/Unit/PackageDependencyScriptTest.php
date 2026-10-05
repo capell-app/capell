@@ -272,7 +272,7 @@ it('enforces each audited hold at major four and requires a decision at major fi
             'scripts/composer-major-exceptions.json: ' . $name . ' is held at major 4 but locked ' . $version . '; review or remove the audited hold.',
         ]);
     }, $name, $version, $exception);
-})->with(['spatie/laravel-activitylog', 'guava/filament-icon-picker', 'openspout/openspout'])->with([
+})->with(['guava/filament-icon-picker', 'openspout/openspout'])->with([
     'held' => ['v4.12.3', true],
     'bumped' => ['5.0.0', false],
 ]);
@@ -420,3 +420,11 @@ it('rejects automatic baseline rewrites', function (): void {
     expect($exitCode)->toBe(2)
         ->and($output)->toContain('Baseline files are never written by this gate');
 });
+
+it('admits both activitylog majors without an audited hold', function (string $version): void {
+    withComposerConstraintFixture(function (string $root): void {
+        file_put_contents($root . '/composer.json', json_encode(['require' => ['spatie/laravel-activitylog' => '^4.0 || ^5.0']], JSON_THROW_ON_ERROR));
+
+        expect(ComposerMajorConstraints::failures($root))->toBe([]);
+    }, 'spatie/laravel-activitylog', $version);
+})->with(['v4.12.3', '5.1.1']);

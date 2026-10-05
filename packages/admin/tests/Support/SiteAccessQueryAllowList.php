@@ -76,7 +76,10 @@ final class SiteAccessQueryAllowList
             ],
             // Global existence checks prevent deleting still-referenced definitions.
             // Their notification counts are separately scoped through SiteAccess.
-            'packages/admin/src/Filament/Concerns/Validate/LanguageValidation.php' => ['validateDelete|$record->sites()->exists()'],
+            'packages/admin/src/Filament/Concerns/Validate/LanguageValidation.php' => [
+                'validateDelete|$record->sites()->exists()',
+                'validateDelete|$record->sitesLanguage()->exists()',
+            ],
             'packages/admin/src/Filament/Concerns/Validate/LayoutValidation.php' => ['validateDelete|$record->pages()->exists()'],
             'packages/admin/src/Filament/Concerns/Validate/PageValidation.php' => ['validateDelete|$record->canonicalPages()->exists()'],
             'packages/admin/src/Filament/Concerns/Validate/ThemeValidation.php' => ['validateDelete|$record->sites()->exists()'],

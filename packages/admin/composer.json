@@ -44,6 +44,7 @@
         "laravel/serializable-closure": "^2.0.10",
         "lorisleiva/laravel-actions": "^2.8",
         "saade/filament-adjacency-list": "^4.0.2",
+        "spatie/laravel-activitylog": "^4.0 || ^5.0",
         "spatie/laravel-package-tools": "^1.15",
         "stechstudio/filament-impersonate": "^5.3",
         "tanmuhittin/laravel-google-translate": "^2.4"

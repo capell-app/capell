@@ -10,6 +10,7 @@ use Capell\Admin\Data\Activity\ActivityChangedFieldData;
 use Capell\Admin\Data\Activity\ActivityChangedResourceData;
 use Capell\Admin\Data\Activity\ActivityChangeSetData;
 use Capell\Admin\Data\Activity\ActivityResourceLinkData;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
 
@@ -28,8 +29,8 @@ final class DefaultActivityChangeSetBuilder implements ActivityChangeSetBuilder
     public function build(Activity $activity): ActivityChangeSetData
     {
         $presentation = DescribeActivityAction::run($activity);
-        $oldValues = $this->propertiesArray($activity, 'old');
-        $newValues = $this->propertiesArray($activity, 'attributes');
+        $oldValues = ActivityLogCompat::attributeValues($activity, 'old');
+        $newValues = ActivityLogCompat::attributeValues($activity, 'attributes');
         $fieldPaths = array_values(array_unique(array_merge(array_keys($oldValues), array_keys($newValues))));
 
         return new ActivityChangeSetData(
@@ -56,7 +57,7 @@ final class DefaultActivityChangeSetBuilder implements ActivityChangeSetBuilder
                 : (string) __('capell-admin::dashboard.activity_system'),
             event: $activity->event,
             occurredAt: $activity->created_at,
-            workspaceId: $activity->properties?->get('workspace_id'),
+            workspaceId: (ActivityLogCompat::properties($activity)['workspace_id'] ?? null),
             emptyMessage: $fieldPaths === [] ? 'capell-admin::activity.no_field_changes' : null,
         );
     }
@@ -127,7 +128,7 @@ final class DefaultActivityChangeSetBuilder implements ActivityChangeSetBuilder
             return 'unsupported_event';
         }
 
-        if ($activity->properties?->get('workspace_id') !== null) {
+        if ((ActivityLogCompat::properties($activity)['workspace_id'] ?? null) !== null) {
             return 'workspace_context';
         }
 
@@ -146,15 +147,5 @@ final class DefaultActivityChangeSetBuilder implements ActivityChangeSetBuilder
         }
 
         return null;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function propertiesArray(Activity $activity, string $key): array
-    {
-        $values = $activity->properties?->get($key, []) ?? [];
-
-        return is_array($values) ? $values : [];
     }
 }

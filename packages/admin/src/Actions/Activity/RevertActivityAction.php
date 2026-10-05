@@ -9,6 +9,7 @@ use Capell\Admin\Data\Activity\ActivityRevertResultData;
 use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Support\Activity\ActivityRevertHandlerResolver;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -76,7 +77,7 @@ final class RevertActivityAction
             subjectClass: $this->subjectClass($activity),
             subjectId: $activity->subject_id,
             stableIdentifier: $this->stableIdentifier($activity),
-            workspaceId: $activity->properties?->get('workspace_id'),
+            workspaceId: (ActivityLogCompat::properties($activity)['workspace_id'] ?? null),
         );
 
         $handler = resolve(ActivityRevertHandlerResolver::class)->resolve($selection);
@@ -89,9 +90,7 @@ final class RevertActivityAction
      */
     private function oldValues(Activity $activity): array
     {
-        $oldValues = $activity->properties?->get('old', []) ?? [];
-
-        return is_array($oldValues) ? $oldValues : [];
+        return ActivityLogCompat::attributeValues($activity, 'old');
     }
 
     private function actorCanRevert(): bool
