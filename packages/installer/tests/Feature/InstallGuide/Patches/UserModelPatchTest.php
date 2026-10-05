@@ -5,6 +5,9 @@ declare(strict_types=1);
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\UserModelPatch;
 use Illuminate\Support\Facades\File;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     $this->originalBasePath = $this->app->basePath();
@@ -48,6 +51,37 @@ function cleanupSetupUserModelForPatchTest(): void
         exec('rm -rf ' . escapeshellarg($backupPath));
     }
 }
+
+function loadPatchedUserModelForTest(string $path): array
+{
+    $root = dirname(__DIR__, 6);
+    $process = new Process([PHP_BINARY, '-d', 'auto_prepend_file=', $root . '/packages/core/tests/fixtures/activitylog-runtime.php', $root, $path]);
+    $process->mustRun();
+
+    return json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+}
+
+it('adopts existing vendor logging by resolved name and produces a loadable user', function (string $imports, string $trait, string $options): void {
+    $path = writeSetupUserModelForPatchTest("<?php\ndeclare(strict_types=1);\nnamespace App\\Models;\nuse Illuminate\\Foundation\\Auth\\User as Authenticatable;\n" . $imports . "\nclass User extends Authenticatable {\nuse " . $trait . ";\npublic function getActivitylogOptions(): " . $options . ' { return ' . $options . "::defaults()->logAll(); }\n}\n");
+    $patch = new UserModelPatch;
+
+    expect($patch->probe())->toBe(PatchStatus::Applicable);
+    $patch->apply();
+
+    expect(loadPatchedUserModelForTest($path))->toMatchArray(['activities' => true, 'trait' => true])
+        ->and($patch->probe())->toBe(PatchStatus::AlreadyApplied)
+        ->and(file_get_contents($path))->toContain('::defaults()->logAll()');
+})->with([
+    'v4 direct' => ['', LogsActivity::class, LogOptions::class],
+    'v4 import' => ['use Spatie\\Activitylog\\Traits\\LogsActivity; use Spatie\\Activitylog\\LogOptions;', 'LogsActivity', 'LogOptions'],
+    'v5 import' => ['use Spatie\\Activitylog\\Models\\Concerns\\LogsActivity; use Spatie\\Activitylog\\Support\\LogOptions;', 'LogsActivity', 'LogOptions'],
+    'v5 aliases' => ['use Spatie\\Activitylog\\Models\\Concerns\\LogsActivity as Audit; use Spatie\\Activitylog\\Support\\LogOptions as AuditOptions;', 'Audit', 'AuditOptions'],
+    'v5 grouped imports' => ['use Spatie\\Activitylog\\Models\\Concerns\\{LogsActivity as Audit}; use Spatie\\Activitylog\\Support\\{LogOptions as AuditOptions};', 'Audit', 'AuditOptions'],
+    'v5 direct' => ['', '\\Spatie\\Activitylog\\Models\\Concerns\\LogsActivity', '\\Spatie\\Activitylog\\Support\\LogOptions'],
+    'v5 namespace alias' => ['use Spatie\\Activitylog as Audit;', 'Audit\\Models\\Concerns\\LogsActivity', 'Audit\\Support\\LogOptions'],
+    'unrelated imported short name' => ['use Illuminate\\Notifications\\Notifiable as LogsActivity;', 'LogsActivity', '\\Capell\\Core\\Support\\Activity\\LogOptions'],
+    'unrelated local short name' => ['trait LogsActivity { public function localAudit(): bool { return true; } }', 'LogsActivity', '\\Capell\\Core\\Support\\Activity\\LogOptions'],
+]);
 
 it('can apply missing Capell admin role support to an existing Filament user model', function (): void {
     $path = writeSetupUserModelForPatchTest(<<<'PHP'
@@ -248,7 +282,7 @@ PHP);
 });
 
 it('does not apply over an already patched user model', function (): void {
-    writeSetupUserModelForPatchTest(<<<'PHP'
+    $path = writeSetupUserModelForPatchTest(<<<'PHP'
 <?php
 
 declare(strict_types=1);
@@ -278,11 +312,55 @@ PHP);
     $patch = new UserModelPatch;
 
     expect($patch->probe())->toBe(PatchStatus::AlreadyApplied);
+    expect(loadPatchedUserModelForTest($path))->toMatchArray(['activities' => true, 'trait' => true]);
 
     expect(function () use ($patch): void {
         $patch->apply();
     })
         ->toThrow(RuntimeException::class, 'Cannot apply patch when status is: already_applied');
+
+    file_put_contents($path, str_replace('getActivitylogOptions(): LogOptions', 'getActivitylogOptions(): \\stdClass', file_get_contents($path)));
+
+    expect($patch->probe())->toBe(PatchStatus::Customised);
+});
+
+it('does not report a colliding vendor and core trait as already applied', function (): void {
+    $path = writeSetupUserModelForPatchTest(<<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
+use Capell\Admin\Models\Concerns\HasImpersonation;
+use Capell\Core\Models\Concerns\HasSitePermissions;
+use Capell\Core\Support\Activity\LogOptions;
+use Capell\Core\Support\Activity\LogsActivity;
+use Filament\Models\Contracts\FilamentUser;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Spatie\Permission\Traits\HasRoles;
+
+class User extends Authenticatable implements FilamentUser
+{
+    use HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;
+    use \Spatie\Activitylog\Traits\LogsActivity {
+        enableLogging as enableAudit;
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults();
+    }
+}
+PHP);
+    $patch = new UserModelPatch;
+
+    expect($patch->probe())->toBe(PatchStatus::Applicable);
+    $patch->apply();
+
+    expect(loadPatchedUserModelForTest($path))->toMatchArray(['activities' => true, 'trait' => true, 'audit_alias' => true])
+        ->and($patch->probe())->toBe(PatchStatus::AlreadyApplied);
 });
 
 it('can patch a minimal user model without any existing trait use block', function (): void {

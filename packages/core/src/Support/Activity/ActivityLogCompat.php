@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use JsonException;
 use LogicException;
+use Spatie\Activitylog\Contracts\Activity as ActivityContract;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -29,12 +30,12 @@ final class ActivityLogCompat
             : LogsActivity::class;
     }
 
-    /** @return class-string<Activity> */
+    /** @return class-string<Model&ActivityContract> */
     public static function activityModelClass(): string
     {
         $model = config('activitylog.activity_model', Activity::class);
 
-        throw_if(! is_string($model) || ! is_a($model, Activity::class, true), LogicException::class, 'The configured activity model must extend the Activity model.');
+        throw_if(! is_string($model) || ! is_a($model, Model::class, true) || ! is_a($model, ActivityContract::class, true), LogicException::class, 'The configured activity model must be an Eloquent model implementing the activity contract.');
 
         return $model;
     }

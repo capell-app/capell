@@ -7,6 +7,7 @@ namespace Capell\Admin\Support\Activity;
 use Capell\Admin\Contracts\Activity\ActivityDecorator;
 use Capell\Admin\Data\Activity\ActivityPresentationData;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
@@ -60,9 +61,7 @@ final class TranslationActivityDecorator implements ActivityDecorator
      */
     private function values(Activity $activity, string $key): array
     {
-        $values = $activity->properties?->get($key, []) ?? [];
-
-        return is_array($values) ? $values : [];
+        return ActivityLogCompat::attributeValues($activity, $key);
     }
 
     private function canRevert(Activity $activity): bool

@@ -14,11 +14,20 @@ use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use Filament\Models\Contracts\FilamentUser;
+use Illuminate\Foundation\Auth\User;
 use PhpParser\Node;
+use PhpParser\Node\Expr;
 use PhpParser\Node\Name;
+use PhpParser\Node\Name\FullyQualified;
+use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\GroupUse;
 use PhpParser\Node\Stmt\TraitUse;
+use PhpParser\Node\Stmt\Use_;
+use PhpParser\NodeFinder;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
@@ -41,7 +50,12 @@ class UserModelPatch implements Patch
         LogsActivity::class,
     ];
 
-    private const string FILAMENT_USER_INTERFACE = 'FilamentUser';
+    private const string FILAMENT_USER_INTERFACE = FilamentUser::class;
+
+    private const array VENDOR_LOGGING_TRAITS = [
+        \Spatie\Activitylog\Traits\LogsActivity::class,
+        'Spatie\\Activitylog\\Models\\Concerns\\LogsActivity',
+    ];
 
     public function id(): string
     {
@@ -83,6 +97,7 @@ class UserModelPatch implements Patch
 
         try {
             $editor = new PhpFileEditor($userModelPath);
+            $this->resolveNames($editor);
             $classNode = $editor->findClass(self::CLASS_NAME);
 
             if (! $classNode instanceof Class_) {
@@ -92,7 +107,7 @@ class UserModelPatch implements Patch
             // Check if extends a non-stock base class
             if ($classNode->extends instanceof Name) {
                 $extendsName = $this->getNodeName($classNode->extends);
-                if ($extendsName !== 'Authenticatable') {
+                if ($extendsName !== User::class) {
                     return PatchStatus::Customised;
                 }
             }
@@ -101,9 +116,17 @@ class UserModelPatch implements Patch
             $requiredTraits = $this->requiredTraits();
             $presentTraits = $this->countPresentTraits($classNode, $requiredTraits);
             $totalRequiredTraits = count($requiredTraits);
-            $hasActivitylogMethod = $editor->findMethodInClass(self::CLASS_NAME, 'getActivitylogOptions') instanceof ClassMethod;
+            $activitylogMethod = $editor->findMethodInClass(self::CLASS_NAME, 'getActivitylogOptions');
+            if ($activitylogMethod instanceof ClassMethod && ! $this->canAdaptActivitylogOptions($activitylogMethod)) {
+                return PatchStatus::Customised;
+            }
 
-            if ($hasFilamentUser && $presentTraits === $totalRequiredTraits && $hasActivitylogMethod) {
+            $hasActivitylogMethod = $activitylogMethod instanceof ClassMethod;
+            $hasCompatibleReturnType = $activitylogMethod?->returnType instanceof Name
+                && in_array(strtolower($this->getNodeName($activitylogMethod->returnType)), [strtolower(LogOptions::class), strtolower(ActivityLogCompat::logOptionsClass())], true);
+
+            $hasVendorLogging = $this->countPresentTraits($classNode, self::VENDOR_LOGGING_TRAITS) > 0;
+            if ($hasFilamentUser && $presentTraits === $totalRequiredTraits && $hasActivitylogMethod && $hasCompatibleReturnType && ! $hasVendorLogging) {
                 return PatchStatus::AlreadyApplied;
             }
 
@@ -134,6 +157,9 @@ class UserModelPatch implements Patch
         try {
             $editor = new PhpFileEditor($userModelPath);
             $backupPath = $editor->backup();
+            $this->resolveNames($editor);
+            $traverser = new NodeTraverser(new ActivityLogNameVisitor);
+            $editor->setAst($traverser->traverse($editor->getAst()));
 
             // Add use statements for the traits and interface
             $usesToAdd = [
@@ -144,20 +170,21 @@ class UserModelPatch implements Patch
                 ActivityLogCompat::class,
             ];
 
-            $editor->addUseStatements($usesToAdd);
+            $editor->addUseStatements(array_values(array_filter($usesToAdd, fn (string $use): bool => $this->canImport($editor, $use))));
+            $this->resolveNames($editor);
 
             // Find the class and add interface + traits
             $classNode = $editor->findClass(self::CLASS_NAME);
             throw_unless($classNode instanceof Class_, RuntimeException::class, 'Could not find User class in the file');
 
             // Add FilamentUser to implements
-            $this->addInterfaceToClass($classNode, self::FILAMENT_USER_INTERFACE);
+            $this->addInterfaceToClass($editor, $classNode);
 
             // Add traits to the class
-            $this->addTraitsToClass($classNode);
+            $this->addTraitsToClass($editor);
 
             // Add the getActivitylogOptions method
-            $this->addActivitylogOptionsMethod($classNode);
+            $this->addActivitylogOptionsMethod($editor);
 
             $editor->save();
             clearstatcache(true, $userModelPath);
@@ -177,7 +204,9 @@ class UserModelPatch implements Patch
     private function getNodeName(Node $node): string
     {
         if ($node instanceof Name) {
-            return $node->toString();
+            $resolved = $node->getAttribute('resolvedName');
+
+            return $resolved instanceof Name ? $resolved->toString() : $node->toString();
         }
 
         if (property_exists($node, 'name') && is_string($node->name)) {
@@ -195,7 +224,7 @@ class UserModelPatch implements Patch
 
         foreach ($classNode->implements as $implement) {
             $implementedName = $this->getNodeName($implement);
-            if ($implementedName === $interfaceName || str_ends_with($implementedName, '\\' . $interfaceName)) {
+            if (strcasecmp($implementedName, $interfaceName) === 0) {
                 return true;
             }
         }
@@ -226,9 +255,8 @@ class UserModelPatch implements Patch
             if ($stmt instanceof TraitUse) {
                 foreach ($stmt->traits as $traitNode) {
                     $traitName = $this->getNodeName($traitNode);
-                    // Match short names ('HasRoles') or fully-qualified names
                     foreach ($requiredTraits as $requiredTrait) {
-                        if ($requiredTrait === $traitName || str_ends_with($requiredTrait, '\\' . $traitName)) {
+                        if (strcasecmp($requiredTrait, $traitName) === 0) {
                             $presentTraits[$requiredTrait] = true;
                             break;
                         }
@@ -240,7 +268,7 @@ class UserModelPatch implements Patch
         return count($presentTraits);
     }
 
-    private function addInterfaceToClass(Class_ $classNode, string $interfaceName): void
+    private function addInterfaceToClass(PhpFileEditor $editor, Class_ $classNode, string $interfaceName): void
     {
         if ($classNode->implements === null) {
             $classNode->implements = [];
@@ -248,30 +276,52 @@ class UserModelPatch implements Patch
 
         // Check if already present
         foreach ($classNode->implements as $implement) {
-            if ($this->getNodeName($implement) === $interfaceName) {
+            if (strcasecmp($this->getNodeName($implement), $interfaceName) === 0) {
                 return;
             }
         }
 
-        $classNode->implements[] = new Name($interfaceName);
+        $classNode->implements[] = $this->referenceName($editor, $interfaceName);
     }
 
-    private function addTraitsToClass(Class_ $classNode): void
+    private function addTraitsToClass(PhpFileEditor $editor, Class_ $classNode): void
     {
         if ($classNode->stmts === null) {
             $classNode->stmts = [];
         }
 
         // Find existing trait uses to know where to insert
-        $traitUseIndex = null;
+        $traitUse = null;
+        $loggingTraitUse = null;
         $existingTraitNames = [];
 
         foreach ($classNode->stmts as $index => $stmt) {
             if ($stmt instanceof TraitUse) {
-                $traitUseIndex = $index;
-                foreach ($stmt->traits as $traitNode) {
-                    $traitName = $this->getNodeName($traitNode);
+                foreach ($stmt->traits as $traitIndex => $traitNode) {
+                    $traitName = strtolower($this->getNodeName($traitNode));
+                    if ($traitName === strtolower(LogsActivity::class) && isset($existingTraitNames[$traitName])) {
+                        if ($loggingTraitUse instanceof TraitUse && $loggingTraitUse !== $stmt) {
+                            $loggingTraitUse->adaptations = [...$loggingTraitUse->adaptations, ...$stmt->adaptations];
+                            $stmt->adaptations = [];
+                        }
+
+                        unset($stmt->traits[$traitIndex]);
+
+                        continue;
+                    }
+
+                    if ($traitName === strtolower(LogsActivity::class)) {
+                        $loggingTraitUse = $stmt;
+                    }
+
                     $existingTraitNames[$traitName] = true;
+                }
+
+                $stmt->traits = array_values($stmt->traits);
+                if ($stmt->traits === []) {
+                    unset($classNode->stmts[$index]);
+                } else {
+                    $traitUse = $stmt;
                 }
             }
         }
@@ -279,26 +329,19 @@ class UserModelPatch implements Patch
         // Build the list of traits to add
         $traitsToAdd = [];
         foreach ($this->requiredTraits() as $requiredTrait) {
-            $parts = explode('\\', $requiredTrait);
-            $shortName = end($parts);
-            if (! isset($existingTraitNames[$shortName])) {
-                $traitsToAdd[] = new Name($shortName);
+            if (! isset($existingTraitNames[strtolower($requiredTrait)])) {
+                $traitsToAdd[] = $this->referenceName($editor, $requiredTrait);
             }
         }
 
+        $classNode->stmts = array_values($classNode->stmts);
         if ($traitsToAdd === []) {
             return;
         }
 
-        if ($traitUseIndex !== null) {
+        if ($traitUse instanceof TraitUse) {
             // Append to existing trait use
-            $traitUseStmt = $classNode->stmts[$traitUseIndex];
-            if ($traitUseStmt instanceof TraitUse) {
-                $traitUseStmt->traits = array_merge(
-                    $traitUseStmt->traits,
-                    $traitsToAdd,
-                );
-            }
+            $traitUse->traits = array_merge($traitUse->traits, $traitsToAdd);
         } else {
             // Create a new TraitUse statement at the beginning of the class body
             $newTraitUse = new TraitUse($traitsToAdd);
@@ -306,7 +349,7 @@ class UserModelPatch implements Patch
         }
     }
 
-    private function addActivitylogOptionsMethod(Class_ $classNode): void
+    private function addActivitylogOptionsMethod(PhpFileEditor $editor, Class_ $classNode): void
     {
         if ($classNode->stmts === null) {
             $classNode->stmts = [];
@@ -319,10 +362,12 @@ class UserModelPatch implements Patch
         }
 
         // Create the method using raw PHP code parsing
-        $methodCode = <<<'PHP'
-public function getActivitylogOptions(): LogOptions
+        $optionsName = $this->referenceName($editor, LogOptions::class)->toCodeString();
+        $compatName = $this->referenceName($editor, ActivityLogCompat::class)->toCodeString();
+        $methodCode = <<<PHP
+public function getActivitylogOptions(): {$optionsName}
 {
-    return ActivityLogCompat::options('user', ['email_verified_at', 'password', 'remember_token', 'updated_at', 'created_at']);
+    return {$compatName}::options('user', ['email_verified_at', 'password', 'remember_token', 'updated_at', 'created_at']);
 }
 PHP;
 
@@ -338,5 +383,55 @@ PHP;
         ) {
             $classNode->stmts[] = $wrapperAst[0]->stmts[0];
         }
+    }
+
+    private function resolveNames(PhpFileEditor $editor): void
+    {
+        $traverser = new NodeTraverser(new NameResolver(options: ['replaceNodes' => false]));
+        $editor->setAst($traverser->traverse($editor->getAst()));
+    }
+
+    private function canAdaptActivitylogOptions(ClassMethod $method): bool
+    {
+        return $method->isPublic() && ! $method->isStatic() && ! $method->isAbstract()
+            && $method->returnType instanceof Name
+            && in_array(strtolower($this->getNodeName($method->returnType)), [
+                strtolower(LogOptions::class),
+                'spatie\\activitylog\\logoptions',
+                'spatie\\activitylog\\support\\logoptions',
+            ], true)
+            && ! array_any($method->params, static fn (Param $parameter): bool => ! $parameter->default instanceof Expr && ! $parameter->variadic);
+    }
+
+    private function referenceName(PhpFileEditor $editor, string $class): Name
+    {
+        foreach ((new NodeFinder)->find($editor->getAst(), static fn (Node $node): bool => $node instanceof Use_ || $node instanceof GroupUse) as $statement) {
+            if (! $statement instanceof Use_ && ! $statement instanceof GroupUse) {
+                continue;
+            }
+
+            foreach ($statement->uses as $use) {
+                $name = $statement instanceof GroupUse ? $statement->prefix->toString() . '\\' . $use->name->toString() : $use->name->toString();
+                if (($statement->type | $use->type) === Use_::TYPE_NORMAL && strcasecmp($name, $class) === 0) {
+                    return new Name($use->getAlias()->toString());
+                }
+            }
+        }
+
+        return new FullyQualified($class);
+    }
+
+    private function canImport(PhpFileEditor $editor, string $class): bool
+    {
+        if (! $this->referenceName($editor, $class) instanceof FullyQualified) {
+            return false;
+        }
+
+        $shortName = class_basename($class);
+        $collision = (new NodeFinder)->findFirst($editor->getAst(), fn (Node $node): bool => $node instanceof Name
+            && strcasecmp($node->toString(), $shortName) === 0
+            && strcasecmp($this->getNodeName($node), $class) !== 0);
+
+        return ! $collision instanceof Node;
     }
 }
