@@ -272,7 +272,7 @@ it('enforces each audited hold at major four and requires a decision at major fi
             'scripts/composer-major-exceptions.json: ' . $name . ' is held at major 4 but locked ' . $version . '; review or remove the audited hold.',
         ]);
     }, $name, $version, $exception);
-})->with(['guava/filament-icon-picker', 'openspout/openspout'])->with([
+})->with(['openspout/openspout'])->with([
     'held' => ['v4.12.3', true],
     'bumped' => ['5.0.0', false],
 ]);

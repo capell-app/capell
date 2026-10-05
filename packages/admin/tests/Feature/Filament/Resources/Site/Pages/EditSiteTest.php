@@ -73,6 +73,7 @@ it('can save', function (): void {
 });
 
 it('can edit database-backed site fields from the admin form', function (): void {
+    // The default social icons use the `fab` set, which this suite never registers: saving must not depend on it.
     $language = Language::factory()->english()->create();
     $newLanguage = Language::factory()->german()->create();
     $theme = Theme::factory()->createOne();
@@ -94,7 +95,7 @@ it('can edit database-backed site fields from the admin form', function (): void
                     [
                         'type' => 'facebook',
                         'url' => 'https://facebook.com',
-                        'icon' => 'fab-square-facebook',
+                        'icon' => config('capell-admin.social_types.facebook.icon'),
                     ],
                 ],
                 'related' => [],
@@ -140,7 +141,7 @@ it('can edit database-backed site fields from the admin form', function (): void
                     [
                         'type' => 'instagram',
                         'url' => 'https://instagram.com/capell',
-                        'icon' => 'fab-square-instagram',
+                        'icon' => config('capell-admin.social_types.instagram.icon'),
                         'title' => 'Instagram',
                     ],
                 ],
@@ -172,7 +173,7 @@ it('can edit database-backed site fields from the admin form', function (): void
                 [
                     'type' => 'instagram',
                     'url' => 'https://instagram.com/capell',
-                    'icon' => 'fab-square-instagram',
+                    'icon' => config('capell-admin.social_types.instagram.icon'),
                     'title' => 'Instagram',
                 ],
             ],

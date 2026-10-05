@@ -1,11 +1,5 @@
 [
     {
-        "name": "guava/filament-icon-picker",
-        "heldMajor": 4,
-        "reason": "Version 5 compatibility with the Admin field subclass and its setUp override is unverified.",
-        "owner": "Verify Icon Picker field compatibility"
-    },
-    {
         "name": "openspout/openspout",
         "heldMajor": 4,
         "reason": "Filament Actions requires ^4.23; major 5 cannot resolve alongside that dependency.",
