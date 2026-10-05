@@ -119,14 +119,44 @@ it('covers the declared site-owned and polymorphic Core relationship origins', f
             }
 
             preg_match('/@return\s+[\\\\\w]+<([^,>]+)/', $method->getDocComment() ?: '', $target);
-            $targetModel = basename(str_replace('\\', '/', $target[1] ?? ''));
+            $targetModels = array_map(
+                static fn (string $target): string => basename(str_replace('\\', '/', trim($target, ' ()?'))),
+                preg_split('/[&|]/', $target[1] ?? '') ?: [],
+            );
             if (is_a($type->getName(), MorphTo::class, true)
-                || in_array($targetModel, [...$models, 'Activity', 'TMedia'], true)) {
-                expect(SiteAccessQueryGuard::violations('<?php $record->' . $method->getName() . '()->cursor();'))->not->toBeEmpty();
+                || array_intersect($targetModels, [...$models, 'Activity', 'TMedia']) !== []) {
+                Assert::assertNotEmpty(
+                    SiteAccessQueryGuard::violations('<?php $record->' . $method->getName() . '()->cursor();'),
+                    $class . '::' . $method->getName() . ' must be covered by the site-access query guard',
+                );
             }
         }
     }
 });
+
+it('guards activity relation queries and eager or lazy reads', function (string $expression): void {
+    $relations = ['activities'];
+    if (method_exists(Page::class, 'activitiesAsSubject')) {
+        $relations[] = 'activitiesAsSubject';
+    }
+
+    foreach ($relations as $relation) {
+        $expressionForRelation = str_replace('RELATION', $relation, $expression);
+        foreach (['', 'use Capell\\Core\\Models\\Page; function read(Page $record) { '] as $prefix) {
+            $source = '<?php ' . $prefix . $expressionForRelation . ';' . ($prefix === '' ? '' : ' }');
+            expect(SiteAccessQueryGuard::violations($source))->not->toBeEmpty();
+        }
+
+        $source = '<?php use Capell\\Core\\Models\\Page; use Capell\\Core\\Support\\Permissions\\SiteAccess; function read(Page $record) { return SiteAccess::current()->scope($record->' . $relation . '()->getQuery())->cursor(); }';
+        expect(SiteAccessQueryGuard::violations($source))->toBe([]);
+    }
+})->with([
+    '$record->RELATION()->cursor()',
+    '$query = $record->RELATION(); $query->get()',
+    '$record->RELATION',
+    '$record->load("RELATION")',
+    '$record->withCount("RELATION")',
+]);
 
 it('detects Eloquent query shortcuts including soft deleted queries', function (string $method): void {
     expect(SiteAccessQueryGuard::violations('<?php ' . Page::class . '::' . $method . '();'))->toHaveCount(1);
@@ -144,6 +174,7 @@ it('reports raw relation instance dynamic and indirect ownership bypasses', func
     'raw site health alerts' => "use Illuminate\\Support\\Facades\\DB; DB::table('capell_extension_health_alerts')->get();",
     'dynamic raw' => 'use Illuminate\\Support\\Facades\\DB; DB::table($table)->get();',
     'relation cursor' => '$site->pages()->cursor();',
+    'derived relation cursor' => '$record->sitesLanguage()->cursor();',
     'relation chunk' => '$site->pages()->chunk(10, fn ($pages) => null);',
     'singular owner relation' => '$record->site()->cursor();',
     'media owner relation' => '$media->model()->get();',

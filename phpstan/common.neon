@@ -2,6 +2,8 @@ includes:
     - ignore-errors.neon
 
 parameters:
+    bootstrapFiles:
+        - activitylog-bootstrap.php
     parallel:
         processTimeout: 1800.0
     level: 8

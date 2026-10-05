@@ -1982,7 +1982,7 @@ PHP);
         )
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['user_model'])
-            ->assertJsonPath('message', 'The installer could not automatically update app/Models/User.php for Capell admin roles because the user model patch status is "customised". Apply the user model install guide patch, then rerun the installer.');
+            ->assertJsonPath('message', __('capell-installer::install-guide.user_model_admin_not_ready', ['status' => 'customised']) . ' ' . __('capell-installer::install-guide.user_model_patch_customised'));
     } finally {
         if (is_dir(base_path('app'))) {
             exec('rm -rf ' . escapeshellarg(base_path('app')));

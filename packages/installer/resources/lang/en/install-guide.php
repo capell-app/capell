@@ -57,6 +57,10 @@ return [
     'theme_sources_patch_label' => 'Theme Sources Patch',
     'vite_theme_input_patch_description' => 'Registers the Capell Filament theme in the Laravel Vite input array',
     'vite_theme_input_patch_label' => 'Vite Theme Input Patch',
+    'user_model_admin_not_ready' => 'The installer could not automatically update app/Models/User.php for Capell admin roles because the user model patch status is ":status". Apply the user model install guide patch, then rerun the installer.',
+    'user_model_admin_preparing' => 'Patching user model for Capell admin roles…',
+    'user_model_admin_ready' => '✓ User model supports Capell admin roles.',
     'user_model_patch_description' => 'Adds the required Capell traits and interfaces to the User model.',
+    'user_model_patch_customised' => 'Review this User model manually. Use one Capell\\Core\\Support\\Activity\\LogsActivity trait and the Core LogOptions alias. Use ActivityLogCompat::options() or ActivityLogCompat::withoutEmptyLogs() instead of vendor-only empty-log methods. Resolve trait adaptations, custom hooks and option logic against both activitylog 4 and 5 before enabling logging.',
     'user_model_patch_label' => 'User model patch',
 ];

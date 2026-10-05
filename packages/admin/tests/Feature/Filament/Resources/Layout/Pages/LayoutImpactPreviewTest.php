@@ -8,6 +8,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -95,11 +96,11 @@ it('records a reconciliation after a layout save', function (): void {
         ->firstOrFail();
 
     expect($activity->event)->toBe('reconciled')
-        ->and($activity->properties?->get('predictedSurfaces'))->toBe([
+        ->and((ActivityLogCompat::properties($activity)['predictedSurfaces'] ?? null))->toBe([
             'url:http://example.test/landing',
         ])
-        ->and($activity->properties?->get('actualSurfaces'))->toBe([
+        ->and((ActivityLogCompat::properties($activity)['actualSurfaces'] ?? null))->toBe([
             'url:http://example.test/landing',
         ])
-        ->and($activity->properties?->get('drifted'))->toBeFalse();
+        ->and((ActivityLogCompat::properties($activity)['drifted'] ?? null))->toBeFalse();
 });

@@ -23,6 +23,9 @@ use Capell\Core\Models\Contracts\Statusable;
 use Capell\Core\Models\Contracts\Translatable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Observers\SiteObserver;
+use Capell\Core\Support\Activity\ActivityLogCompat;
+use Capell\Core\Support\Activity\LogOptions;
+use Capell\Core\Support\Activity\LogsActivity;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -37,9 +40,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as AuthenticatableUser;
 use Illuminate\Support\Collection;
 use Override;
-use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Models\Activity;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Collections\MediaCollection;
 use Staudenmeir\EloquentJsonRelations\HasJsonRelationships;
@@ -243,19 +244,14 @@ class Site extends Model implements Blueprintable, Defaultable, HasMedia, HasMed
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('site')
-            ->logAll()
-            ->logExcept([
-                'updated_at',
-                'created_at',
-                'deleted_at',
-                'created_by',
-                'updated_by',
-                'deleted_by',
-            ])
-            ->logOnlyDirty()
-            ->dontSubmitEmptyLogs();
+        return ActivityLogCompat::options('site', [
+            'updated_at',
+            'created_at',
+            'deleted_at',
+            'created_by',
+            'updated_by',
+            'deleted_by',
+        ]);
     }
 
     /** @return BelongsTo<Theme, $this> */

@@ -507,7 +507,8 @@ it('restores real published migrations and preserves existing file bytes across 
         File::chmod($existing, 0640);
         $snapshot = snapshotRunInstallPublishedMigrations();
         PublishVendorMigrationsAction::run(new NullProgressReporter);
-        expect(File::exists(database_path('migrations/2026_05_10_190828_add_event_column_to_activity_log_table.php')))->toBeTrue();
+        $eventStubExists = is_file(dirname(__DIR__, 5) . '/vendor/spatie/laravel-activitylog/database/migrations/add_event_column_to_activity_log_table.php.stub');
+        expect(File::exists(database_path('migrations/2026_05_10_190828_add_event_column_to_activity_log_table.php')))->toBe($eventStubExists);
         File::put($existing, '<?php /* changed by fixture */');
         restoreRunInstallPublishedMigrations($snapshot);
         expect(snapshotRunInstallPublishedMigrations())->toBe($snapshot);

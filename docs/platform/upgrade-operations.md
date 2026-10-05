@@ -93,6 +93,8 @@ Admin execution uses `QueueCapellUpgradeAction`, which returns structured queue 
 
 `RunCapellUpgradeAction` remains the pipeline owner. It still handles the database-backed coordination lock, version audit, migrations, tagged upgrade steps, legacy per-package commands, version snapshots, and cache clearing. Installations upgrading from a version before the lock table existed use the configured cache lock for that one migration boundary. The reporter boundary lets the same pipeline write console output, durable database events, or both.
 
+The activity-log compatibility migration uses Laravel's `Migration::shouldRun()` to defer adding `attribute_changes` while the configured activity table is absent. Laravel leaves that migration pending rather than recording a no-op as completed. Normal installation publishes the vendor create migration first; if a host publishes it later with a newer timestamp, run `php artisan migrate` again after the table is created. The column addition is idempotent, supports host-owned Eloquent activity models implementing Spatie's activity contract, and retains audit values on rollback.
+
 Readiness checks cover:
 
 - upgrade operation table availability;
