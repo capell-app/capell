@@ -9,6 +9,7 @@ use Capell\Core\Octane\Resettable;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
 use InvalidArgumentException;
+use RuntimeException;
 use Throwable;
 
 final class ComponentRegistry implements Resettable
@@ -182,7 +183,18 @@ final class ComponentRegistry implements Resettable
     {
         resolve(Filesystem::class)->delete($this->getComponentCachePath());
         $this->hasCachedComponents = false;
-        $this->clearCachedFilamentComponents();
+        resolve(Filesystem::class)->deleteDirectory(base_path('bootstrap/cache/filament'));
+        $this->resetCachedFilamentComponents();
+    }
+
+    /** @internal Install, enable and explicit runtime refresh only. */
+    public function clearCachedComponentsOrFail(): void
+    {
+        $this->removePersistedCache($this->getComponentCachePath());
+        $cachePath = config('filament.cache_path');
+        $this->removePersistedCache(is_string($cachePath) ? $cachePath : base_path('bootstrap/cache/filament'), directory: true);
+        $this->resetCachedFilamentComponents();
+        $this->hasCachedComponents = false;
     }
 
     /** @internal */
@@ -237,14 +249,25 @@ final class ComponentRegistry implements Resettable
         }
     }
 
-    private function clearCachedFilamentComponents(): void
+    private function resetCachedFilamentComponents(): void
     {
-        resolve(Filesystem::class)->deleteDirectory(base_path('bootstrap/cache/filament'));
-
         try {
             Artisan::call('filament:clear-cached-components');
         } catch (Throwable) {
-            // Cache cleanup is best-effort because Filament may not be registered in every host application.
+            // Filament may not be registered in every host application.
+        }
+    }
+
+    private function removePersistedCache(string $path, bool $directory = false): void
+    {
+        $files = resolve(Filesystem::class);
+        if (! $files->exists($path)) {
+            return;
+        }
+
+        $removed = $directory ? $files->deleteDirectory($path) : $files->delete($path);
+        if (! $removed || ! $files->missing($path)) {
+            throw new RuntimeException(__('capell::runtime-refresh.cache_refresh_required') . ' ' . __('capell::runtime-refresh.cache_removal_failed', ['path' => $path]));
         }
     }
 }

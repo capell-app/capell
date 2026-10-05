@@ -7,9 +7,10 @@ namespace Capell\Admin\Observers;
 use Capell\Admin\Enums\CacheEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Support\Facades\Cache;
 
-final class PageObserver
+final class PageObserver implements ShouldHandleEventsAfterCommit
 {
     public function saved(Page $page): void
     {

@@ -7,6 +7,9 @@
     <x-filament::dropdown
         placement="bottom-end"
         width="md"
+        :teleport="$inSidebar"
+        :shift="$inSidebar"
+        :size="$inSidebar"
     >
         <x-slot name="trigger">
             <x-filament::icon-button
@@ -15,7 +18,7 @@
             />
         </x-slot>
 
-        <div class="w-80 p-3">
+        <div class="w-80 max-w-full p-3">
             <div class="mb-3 flex flex-wrap gap-1">
                 @foreach ($workspaces as $candidate)
                     <x-filament::button
@@ -37,13 +40,13 @@
                 wire:target="search"
             >
                 <label
-                    for="admin-workspace-search"
+                    for="admin-workspace-search-{{ $this->getId() }}"
                     class="sr-only"
                 >
                     {{ __('capell-admin::workspace.switcher_tools.search') }}
                 </label>
                 <x-filament::input
-                    id="admin-workspace-search"
+                    id="admin-workspace-search-{{ $this->getId() }}"
                     wire:model.live.debounce.150ms="search"
                     aria-label="{{ __('capell-admin::workspace.switcher_tools.search') }}"
                     :placeholder="__('capell-admin::workspace.switcher_tools.search')"

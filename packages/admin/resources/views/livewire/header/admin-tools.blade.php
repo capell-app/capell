@@ -11,6 +11,9 @@
     @if ($this->canViewTools())
         <x-filament::dropdown
             placement="bottom-end"
+            :teleport="$inSidebar"
+            :shift="$inSidebar"
+            :size="$inSidebar"
             x-on:close-dropdown="if ($event.detail.id === 'admin-tools-dropdown') close();"
         >
             <x-slot name="trigger">
@@ -51,7 +54,7 @@
 
             <x-filament::dropdown.list>
                 @if (CapellAdmin::settings()->enable_header_navigation_tree)
-                    @livewire('capell-admin::header.navigation-tree', ['rowTrigger' => true])
+                    @livewire('capell-admin::header.navigation-tree', ['rowTrigger' => true, 'inSidebar' => $inSidebar])
                 @endif
 
                 <button

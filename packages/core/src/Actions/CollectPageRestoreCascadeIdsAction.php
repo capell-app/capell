@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Models\DeletionBatchRecord;
 use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -11,10 +12,9 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * Collect a conservative superset of the restore cascade, independently of author visibility.
- * Recursive ancestor restoration overwrites the nested-set hook's shared deletion
- * timestamp. Using each root's own timestamp can therefore over-collect descendants
- * that native hooks leave trashed; authorisation deliberately fails closed for them.
+ * Collect the recorded restore cascade, independently of author visibility.
+ * Untracked legacy trash restores only explicitly selected pages and ancestors:
+ * a deletion timestamp cannot establish membership of a cascade.
  * Locking also covers live candidates and requires the caller's transaction.
  */
 final class CollectPageRestoreCascadeIdsAction
@@ -54,22 +54,21 @@ final class CollectPageRestoreCascadeIdsAction
                 return [];
             }
 
-            $deletedAt = $root->deleted_at;
-            if ($deletedAt === null) {
+            if (! $root->trashed()) {
                 return [];
             }
 
             $restoredIds[(int) $root->getKey()] = true;
-            $restoreRanges[] = ['root' => $root, 'deleted_at' => $deletedAt->copy()->startOfSecond()];
+            $restoreRanges[] = $root;
         }
 
         // One query over the ranges avoids repeatedly reading overlapping subtrees.
         $descendantsQuery = $page->newQuery()->onlyTrashed()->where(function (Builder $query) use ($restoreRanges): void {
-            foreach ($restoreRanges as $restoreRange) {
-                $root = $restoreRange['root'];
-                $deletedAt = $restoreRange['deleted_at'];
-                $query->orWhere(fn (Builder $range): Builder => $range->whereDescendantOf($root)
-                    ->where($root->getDeletedAtColumn(), '>=', $deletedAt));
+            foreach ($restoreRanges as $root) {
+                $query->orWhere(function (Builder $range) use ($root): void {
+                    $range->whereDescendantOf($root)
+                        ->whereIn($root->getQualifiedKeyName(), $this->batchMemberIdsQuery($root));
+                });
             }
         });
         // Locking reads see current rows even when an ability check established an older transaction snapshot.
@@ -83,5 +82,37 @@ final class CollectPageRestoreCascadeIdsAction
         }
 
         return array_keys($restoredIds);
+    }
+
+    /**
+     * Collect exclusions without author visibility; the caller must hold the restore transaction.
+     *
+     * @param  list<int>  $restoredIds
+     * @return list<int>
+     */
+    public function collectExcludedDescendantIds(Page $root, array $restoredIds): array
+    {
+        $ids = $root->newQuery()->onlyTrashed()
+            ->whereDescendantOf($root)->whereNotIn($root->getQualifiedKeyName(), $restoredIds)
+            ->lockForUpdate()->toBase()->pluck($root->getKeyName())->all();
+
+        return array_values(array_map(intval(...), $ids));
+    }
+
+    /** @return Builder<DeletionBatchRecord> */
+    private function batchMemberIdsQuery(Page $root): Builder
+    {
+        $records = DeletionBatchRecord::on($root->getConnectionName())
+            ->where('model_type', $root::class)
+            ->whereHas('batch', fn (Builder $batch): Builder => $batch->where('root_type', $root::class)->whereNull('restored_at'));
+        $rootBatch = (clone $records)->select('deletion_batch_id')
+            ->where('model_id', $root->getKey())->latest('id')->limit(1);
+        // A later independent deletion supersedes membership in an older parent cascade.
+        $latestRecords = (clone $records)->selectRaw('MAX(id)')->groupBy('model_id');
+
+        return (clone $records)->select('model_id')
+            ->where('deletion_batch_id', $rootBatch)
+            ->whereIn('id', $latestRecords)
+            ->whereHas('batch', fn (Builder $batch): Builder => $batch->whereNull('restored_at'));
     }
 }

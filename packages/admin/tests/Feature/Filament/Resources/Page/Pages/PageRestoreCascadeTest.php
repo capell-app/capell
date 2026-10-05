@@ -18,7 +18,7 @@ beforeEach(function (): void {
     view()->getFinder()->prependNamespace('capell-admin', __DIR__ . '/../../../../../Fixtures/views/restore');
 });
 
-it('refuses the whole restore cascade from page resources for role restricted relatives', function (string $surface, string $deniedRelation): void {
+it('refuses the whole restore cascade from page resources for role restricted relatives', function (string $surface, string $deniedRelation, bool $crossesSecond): void {
     test()->actingAsAdmin();
     $parent = Page::factory()->createOne();
     $child = Page::factory()->site($parent->site)->createOne(['layout_id' => $parent->layout_id]);
@@ -31,6 +31,9 @@ it('refuses the whole restore cascade from page resources for role restricted re
     $restrictedType->roleRestrictions()->create(['role_id' => Role::findOrCreate('restricted-restorer', 'web')->id]);
     $denied->update(['blueprint_id' => $restrictedType->id]);
     $parent->delete();
+    if ($crossesSecond) {
+        Page::withTrashed()->whereKey($parent->id)->update(['deleted_at' => $child->fresh()->deleted_at->addSecond()]);
+    }
 
     test()->actingAsUser();
     $actor = test()->authenticatedUser();
@@ -62,14 +65,17 @@ it('refuses the whole restore cascade from page resources for role restricted re
     }
 
     expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id, $sibling->id])->count())->toBe(3);
-})->with(['list', 'edit'])->with(['child', 'ancestor']);
+})->with(['list', 'edit'])->with(['child', 'ancestor'])->with(['ordinary deletion' => false, 'second boundary' => true]);
 
-it('restores an authorised whole cascade from page resources', function (string $surface): void {
+it('restores an authorised whole cascade from page resources', function (string $surface, bool $crossesSecond): void {
     test()->actingAsAdmin();
     $parent = Page::factory()->createOne();
     $child = Page::factory()->site($parent->site)->createOne(['blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
     $child->appendToNode($parent)->save();
     $parent->delete();
+    if ($crossesSecond) {
+        Page::withTrashed()->whereKey($parent->id)->update(['deleted_at' => $child->fresh()->deleted_at->addSecond()]);
+    }
 
     if ($surface === 'list') {
         Livewire::test(ListPages::class)->filterTable('trashed', true)->callTableBulkAction('restore', [$parent]);
@@ -78,7 +84,7 @@ it('restores an authorised whole cascade from page resources', function (string 
     }
 
     expect(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(0);
-})->with(['list', 'edit']);
+})->with(['list', 'edit'])->with(['ordinary deletion' => false, 'second boundary' => true]);
 
 it('counts overlapping bulk restore selections as successes while retaining cascade refusals', function (bool $includeRefused): void {
     test()->actingAsAdmin();
@@ -123,11 +129,7 @@ it('counts overlapping bulk restore selections as successes while retaining casc
                 2,
                 ['count' => 2, 'total' => 3],
             ))
-            ->body('<p>' . trans_choice(
-                'filament-actions::restore.multiple.notifications.restored_partial.missing_processing_failure_message',
-                1,
-                ['count' => 1],
-            ) . '</p>'));
+            ->body('<p>' . __('capell-admin::message.restore_cascade_failed_selection') . '</p>'));
     } else {
         $component->assertNotified(Notification::make()->success()->title(__('filament-actions::restore.multiple.notifications.restored.title')));
     }

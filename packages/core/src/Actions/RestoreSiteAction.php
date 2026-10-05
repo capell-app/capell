@@ -6,7 +6,8 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
-use Capell\Core\Events\PageSaved;
+use Capell\Core\Exceptions\PageRestoreCancelledException;
+use Capell\Core\Exceptions\PageUrlCollisionException;
 use Capell\Core\Models\DeletionBatch;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -16,7 +17,6 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\CapellCoreHelper;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -30,30 +30,64 @@ final class RestoreSiteAction
 
     public function handle(Site $site): bool
     {
-        return DB::transaction(function () use ($site): bool {
-            $batch = DeletionBatch::query()
-                ->with('records')
-                ->where('root_type', Site::class)
-                ->where('root_id', $site->getKey())
-                ->open()
-                ->latest()
-                ->first();
+        try {
+            return $site->getConnection()->transaction(function () use ($site): bool {
+                $current = $site->newQuery()->onlyTrashed()->whereKey($site->getKey())->lockForUpdate()->first();
+                if (! $current instanceof Site) {
+                    return false;
+                }
 
-            if (! $batch instanceof DeletionBatch) {
-                return (bool) $site->restore();
-            }
+                $site = $current;
+                $batch = DeletionBatch::on($site->getConnectionName())
+                    ->with('records')
+                    ->where('root_type', Site::class)
+                    ->where('root_id', $site->getKey())
+                    ->open()
+                    ->latest()
+                    ->lockForUpdate()->first();
 
-            $this->restoreModels(Site::class, collect([$site->getKey()]));
-            $this->restoreBatchRecords($batch, Layout::class);
-            $this->restoreBatchRecords($batch, Page::class);
-            $this->restoreBatchRecords($batch, SiteDomain::class);
-            $this->restoreBatchRecords($batch, PageUrl::class);
-            $this->flushRestoredBatchSideEffects($batch, $site);
+                if (! $batch instanceof DeletionBatch) {
+                    return (bool) $site->restore();
+                }
 
-            $batch->update(['restored_at' => now()]);
+                $ids = $batch->records->where('model_type', Page::class)->pluck('model_id')->map(intval(...))->all();
+                $pages = Page::on($site->getConnectionName())->onlyTrashed()->whereKey($ids)->orderBy('_lft')->lockForUpdate()->get();
+                foreach ($pages as $page) {
+                    $cascade = CollectPageRestoreCascadeIdsAction::run($page, lockForUpdate: true);
+                    throw_if(array_diff($cascade, $ids) !== [], PageRestoreCancelledException::class);
+                }
 
-            return true;
-        });
+                throw_unless(CanRestorePageMembersAction::run($pages), PageRestoreCancelledException::class);
+                AssertPageRestoreUrlsAvailableAction::run($pages);
+                $urlIds = $batch->records->where('model_type', PageUrl::class)->pluck('model_id')->all();
+                $urls = PageUrl::on($site->getConnectionName())->onlyTrashed()->whereKey($urlIds)->lockForUpdate()->get();
+                $conflict = FindPageUrlRestorationConflictAction::run($urls);
+                if ($conflict instanceof PageUrl) {
+                    throw new PageUrlCollisionException($conflict->url, $conflict->site_id, $conflict->language_id);
+                }
+
+                $this->restoreModels(Site::class, collect([$site->getKey()]));
+                $this->restoreBatchRecords($batch, Layout::class);
+                foreach ($pages as $page) {
+                    if ($page->fresh()?->trashed() === true) {
+                        throw_unless($page->restoreForSite(), PageRestoreCancelledException::class);
+                    }
+                }
+
+                $currentPages = Page::on($site->getConnectionName())->withTrashed()->whereKey($ids)->lockForUpdate()->get();
+                throw_unless($currentPages->count() === count($ids) && CanRestorePageMembersAction::run($currentPages), PageRestoreCancelledException::class);
+
+                $this->restoreBatchRecords($batch, SiteDomain::class);
+                $this->restoreBatchRecords($batch, PageUrl::class);
+                $site->getConnection()->afterCommit(fn () => $this->flushRestoredBatchSideEffects($site));
+
+                $batch->newQuery()->whereKey($batch->getKey())->update(['restored_at' => now()]);
+
+                return true;
+            });
+        } catch (PageRestoreCancelledException) {
+            return false;
+        }
     }
 
     private function restoreBatchRecords(DeletionBatch $batch, string $modelType): void
@@ -84,7 +118,6 @@ final class RestoreSiteAction
 
         match ($modelType) {
             Layout::class => Layout::withTrashed()->whereKey($modelIds->all())->restore(),
-            Page::class => Page::withTrashed()->whereKey($modelIds->all())->restore(),
             PageUrl::class => PageUrl::withTrashed()->whereKey($modelIds->all())->restore(),
             Site::class => Site::withTrashed()->whereKey($modelIds->all())->restore(),
             SiteDomain::class => SiteDomain::withTrashed()->whereKey($modelIds->all())->restore(),
@@ -92,7 +125,7 @@ final class RestoreSiteAction
         };
     }
 
-    private function flushRestoredBatchSideEffects(DeletionBatch $batch, Site $site): void
+    private function flushRestoredBatchSideEffects(Site $site): void
     {
         CapellCoreHelper::flushCache([
             CacheEnum::FirstPageByTypeForSite,
@@ -104,21 +137,5 @@ final class RestoreSiteAction
 
         event(new FrontendSurrogateKeysInvalidated(['site-' . $site->getKey()]));
 
-        $pageIds = $batch->records
-            ->where('model_type', Page::class)
-            ->pluck('model_id')
-            ->unique()
-            ->values();
-
-        if ($pageIds->isEmpty()) {
-            return;
-        }
-
-        Page::query()
-            ->whereKey($pageIds->all())
-            ->get()
-            ->each(function (Page $page): void {
-                event(new PageSaved($page));
-            });
     }
 }

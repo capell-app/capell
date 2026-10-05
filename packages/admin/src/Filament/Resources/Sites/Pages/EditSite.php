@@ -115,6 +115,7 @@ class EditSite extends EditRecord
         return [
             ...$extenderActions,
             RestoreAction::make()
+                ->failureNotificationTitle(__('capell-admin::message.recently_deleted_restore_cascade_denied'))
                 ->using(fn (Site $record): bool => RestoreSiteAction::run($record)),
             DeleteAction::make()
                 ->modalDescription(fn (Site $record): string => BuildSiteDeletionImpactDescriptionAction::run(

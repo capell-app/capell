@@ -23,6 +23,8 @@ class NavigationTree extends Component
 
     public bool $rowTrigger = false;
 
+    public bool $inSidebar = false;
+
     public string $search = '';
 
     /** @var list<array{id: int, name: string, edit_url: ?string, public_url: ?string}> */
