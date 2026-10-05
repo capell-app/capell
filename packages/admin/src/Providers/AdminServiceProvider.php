@@ -236,6 +236,7 @@ use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -275,6 +276,7 @@ use Livewire\Mechanisms\DataStore;
 use Override;
 use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
+use Throwable;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
 {
@@ -361,10 +363,17 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             }
         });
         Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
-        $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (): void {
+        $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (InstalledRuntimeRefreshed $event): void {
             foreach (Filament::getPanels() as $panel) {
                 if ($panel->hasPlugin(CapellAdminPlugin::ID)) {
-                    resolve(CapellAdminPlugin::class)->synchronizePanelAdminSurface($panel);
+                    try {
+                        resolve(CapellAdminPlugin::class)->synchronizePanelAdminSurface($panel);
+                    } catch (Throwable $throwable) {
+                        // A new failure belongs to this activation; an earlier denial is deferred.
+                        resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, $event->package->name, self::class, 'admin', 'panel-refresh');
+
+                        throw $throwable;
+                    }
                 }
             }
         });

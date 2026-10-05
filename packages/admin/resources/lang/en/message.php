@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 return [
     'extension_panel_topology_refresh' => 'Panel topology changes require a fresh application.',
+    'extension_panel_refresh_deferred' => 'Panel :panel remains unavailable; new surfaces are deferred until a fresh application.',
     'extension_panel_middleware_removal' => 'Panel middleware removal requires a fresh application.',
     'extension_panel_authentication_ambiguous' => 'Cannot identify authenticated panel routes; a fresh application is required.',
     'extension_panel_authentication_excluded' => 'Excluded panel authentication or tenancy requires a fresh application.',

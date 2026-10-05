@@ -107,6 +107,7 @@ final class InstalledRuntimeLifecycle
 
     public function recordFailure(Throwable $exception, string $package, string $provider, string $bucket, string $step, ?string $panel = null): void
     {
+        $reported = $this->wasReported($exception);
         $this->reported[$exception] = true;
         $key = $panel === null ? $package : 'panel:' . $panel;
         if (isset($this->failures[$key])) {
@@ -114,7 +115,9 @@ final class InstalledRuntimeLifecycle
         }
 
         $this->failures[$key] = ['package' => $package, 'provider' => $provider, 'bucket' => $bucket, 'step' => $step, 'panel' => $panel, 'message' => $exception->getMessage()];
-        Log::error('Installed runtime registration failed.', [...$this->failures[$key], 'exception' => (string) $exception]);
+        if (! $reported) {
+            Log::error('Installed runtime registration failed.', [...$this->failures[$key], 'exception' => (string) $exception]);
+        }
     }
 
     /** @return list<array{package: string, provider: string, bucket: string, step: string, panel: ?string, message: string}> */

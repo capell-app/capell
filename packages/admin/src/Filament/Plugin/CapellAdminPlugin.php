@@ -36,6 +36,7 @@ use Filament\Contracts\Plugin;
 use Filament\Facades\Filament as FilamentFacade;
 use Filament\FilamentManager;
 use Filament\Navigation\NavigationManager;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page as FilamentPage;
 use Filament\Pages\SettingsPage as FilamentSettingsPage;
 use Filament\Panel;
@@ -52,6 +53,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
 use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
@@ -240,7 +242,22 @@ class CapellAdminPlugin implements Plugin
 
     public function synchronizePanelAdminSurface(Panel $panel): void
     {
-        resolve(InstalledPanelRuntime::class)->guard($panel, function () use ($panel): void {
+        $runtime = resolve(InstalledPanelRuntime::class);
+        if (new ReflectionProperty($panel, 'id')->isInitialized($panel) && $runtime->isUnavailable($panel->getId())) {
+            // Lifecycle callers may finish unrelated work without replaying denied wiring.
+            $message = __('capell-admin::message.extension_panel_refresh_deferred', ['panel' => $panel->getId()]);
+            Log::warning($message, ['panel' => $panel->getId()]);
+            Notification::make('extension-panel-refresh-deferred-' . $panel->getId())
+                ->title($message)
+                ->body(__('capell::runtime-refresh.application_unavailable'))
+                ->warning()
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        $runtime->guard($panel, function () use ($panel): void {
             $this->registerInstalledPackageAdminProviders()->registerConfigurators();
             // Route topology and Livewire component membership belong to bootstrap.
             if (! app()->isBooted()) {
