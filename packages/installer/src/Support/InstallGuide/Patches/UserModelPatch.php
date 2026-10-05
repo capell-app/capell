@@ -21,11 +21,21 @@ use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
+use PhpParser\Node\Expr\Assign;
+use PhpParser\Node\Expr\ClassConstFetch;
+use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\New_;
+use PhpParser\Node\Expr\NullsafeMethodCall;
+use PhpParser\Node\Expr\PropertyFetch;
 use PhpParser\Node\Expr\StaticCall;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Identifier;
+use PhpParser\Node\IntersectionType;
 use PhpParser\Node\Name;
 use PhpParser\Node\Name\FullyQualified;
+use PhpParser\Node\NullableType;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassLike;
@@ -38,9 +48,11 @@ use PhpParser\Node\Stmt\Nop;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\Node\Stmt\TraitUse;
 use PhpParser\Node\Stmt\Use_;
+use PhpParser\Node\UnionType;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
+use PhpParser\NodeVisitor\ParentConnectingVisitor;
 use PhpParser\ParserFactory;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
@@ -202,7 +214,8 @@ class UserModelPatch implements Patch
             $options = $class->getMethod('getActivitylogOptions');
 
             return $presentLoggingTraits === 1 && $options instanceof ClassMethod
-                && $this->hasValidActivitylogOptions($options, installedMajor: true);
+                && $this->hasValidActivitylogOptions($options, installedMajor: true)
+                && ! $this->hasLoggingReferences($editor->getAst(), installedMajor: true);
         } catch (RuntimeException) {
             return false;
         }
@@ -436,8 +449,22 @@ PHP;
 
     private function resolveNames(PhpFileEditor $editor): void
     {
-        $traverser = new NodeTraverser(new NameResolver(options: ['replaceNodes' => false]));
+        $traverser = new NodeTraverser(new NameResolver(options: ['replaceNodes' => false]), new ParentConnectingVisitor);
         $editor->setAst($traverser->traverse($editor->getAst()));
+
+        // NameResolver leaves import names untouched, including grouped prefixes.
+        foreach ((new NodeFinder)->findInstanceOf($editor->getAst(), GroupUse::class) as $group) {
+            $group->prefix->setAttribute('loggingNamespacePrefix', true);
+            foreach ($group->uses as $use) {
+                $use->name->setAttribute('resolvedName', new FullyQualified($group->prefix->toString() . '\\' . $use->name->toString()));
+            }
+        }
+
+        foreach ((new NodeFinder)->findInstanceOf($editor->getAst(), FuncCall::class) as $call) {
+            if ($call->name instanceof Name) {
+                $call->name->setAttribute('loggingFunctionReference', true);
+            }
+        }
     }
 
     private function hasPortableUserShape(Class_ $class): bool
@@ -661,20 +688,161 @@ PHP;
             || $node instanceof Use_ || $node instanceof GroupUse || $node instanceof Nop);
     }
 
-    /** @param Node|Node[] $nodes */
-    private function hasLoggingReferences(Node|array $nodes): bool
+    /**
+     * The same file-wide scanner refuses edits to host logging and rejects
+     * readiness when a reference cannot resolve on the installed major.
+     *
+     * @param  Node|Node[]  $nodes
+     */
+    private function hasLoggingReferences(Node|array $nodes, bool $installedMajor = false): bool
     {
-        return (new NodeFinder)->findFirst($nodes, function (Node $node): bool {
+        return (new NodeFinder)->findFirst($nodes, function (Node $node) use ($installedMajor): bool {
             if ($node instanceof Name) {
-                return $this->isLoggingName($this->getNodeName($node));
+                if ($node->getAttribute('loggingNamespacePrefix') === true) {
+                    return false;
+                }
+
+                $name = $this->getNodeName($node);
+
+                return $this->isLoggingName($name) && (! $installedMajor || ! $this->isInstalledLoggingName($name, $node));
             }
 
             if ($node instanceof Identifier) {
-                return $this->isLoggingName($node->name);
+                return ! $installedMajor && $this->isLoggingName($node->name);
             }
 
-            return $node instanceof String_ && $this->isLoggingName($node->value);
+            if ($node instanceof StaticCall || $node instanceof ClassConstFetch || $node instanceof MethodCall || $node instanceof NullsafeMethodCall) {
+                $class = $node instanceof MethodCall || $node instanceof NullsafeMethodCall ? $this->loggingExpressionClass($node->var)
+                    : ($node->class instanceof Name ? $this->getNodeName($node->class) : $this->loggingExpressionClass($node->class));
+                if ($class !== null && $this->isLoggingName($class)) {
+                    return ! $installedMajor || ! $node->name instanceof Identifier
+                        || ($node instanceof ClassConstFetch
+                            ? strcasecmp($node->name->name, 'class') !== 0 && ! defined($class . '::' . $node->name->name)
+                            : ! method_exists($class, $node->name->name));
+                }
+            }
+
+            return $node instanceof String_ && $this->isLoggingName($node->value)
+                && (! $installedMajor || (str_contains($node->value, '\\') && ! $this->isInstalledLoggingName($node->value, $node)));
         }) instanceof Node;
+    }
+
+    private function isInstalledLoggingName(string $name, Node $node): bool
+    {
+        if ($node instanceof Name && $node->getAttribute('loggingFunctionReference') === true) {
+            return function_exists($name) || (! $node instanceof FullyQualified && function_exists($node->toString()));
+        }
+
+        return class_exists($name) || interface_exists($name) || trait_exists($name);
+    }
+
+    private function loggingExpressionClass(Expr $expression): ?string
+    {
+        if ($expression instanceof MethodCall || $expression instanceof NullsafeMethodCall) {
+            if ($expression->var instanceof Variable && $expression->var->name === 'this' && $expression->name instanceof Identifier) {
+                $scope = $expression->getAttribute('parent');
+                while ($scope instanceof Node) {
+                    if ($scope instanceof Class_) {
+                        return $this->declaredLoggingClass($scope->getMethod($expression->name->name)?->returnType);
+                    }
+
+                    $scope = $scope->getAttribute('parent');
+                }
+            }
+
+            return $this->loggingExpressionClass($expression->var);
+        }
+
+        if ($expression instanceof Variable && is_string($expression->name)) {
+            $scope = $expression->getAttribute('parent');
+            while ($scope instanceof Node) {
+                if ($scope instanceof FunctionLike) {
+                    // A local assignment takes precedence over a parameter type.
+                    $assignments = (new NodeFinder)->findInstanceOf($scope->getStmts() ?? [], Assign::class);
+                    foreach (array_reverse($assignments) as $assignment) {
+                        if ($assignment->var instanceof Variable && $assignment->var->name === $expression->name
+                            && $assignment->getEndFilePos() < $expression->getStartFilePos()) {
+                            return $this->loggingExpressionClass($assignment->expr);
+                        }
+                    }
+
+                    foreach ($scope->getParams() as $parameter) {
+                        if ($parameter->var instanceof Variable && $parameter->var->name === $expression->name) {
+                            return $this->declaredLoggingClass($parameter->type);
+                        }
+                    }
+
+                    return null;
+                }
+
+                $scope = $scope->getAttribute('parent');
+            }
+        }
+
+        if ($expression instanceof PropertyFetch && $expression->var instanceof Variable
+            && $expression->var->name === 'this' && $expression->name instanceof Identifier) {
+            $scope = $expression->getAttribute('parent');
+            while ($scope instanceof Node) {
+                if ($scope instanceof Class_) {
+                    foreach ($scope->getProperties() as $property) {
+                        foreach ($property->props as $item) {
+                            if ($item->name->name === $expression->name->name) {
+                                return $this->declaredLoggingClass($property->type);
+                            }
+                        }
+                    }
+
+                    return null;
+                }
+
+                $scope = $scope->getAttribute('parent');
+            }
+        }
+
+        if ($expression instanceof String_) {
+            return $this->isLoggingName($expression->value) ? $expression->value : null;
+        }
+
+        if ($expression instanceof ClassConstFetch && $expression->class instanceof Name
+            && $expression->name instanceof Identifier && strcasecmp($expression->name->name, 'class') === 0) {
+            return $this->declaredLoggingClass($expression->class);
+        }
+
+        if (($expression instanceof StaticCall || $expression instanceof New_) && $expression->class instanceof Name) {
+            $class = $this->getNodeName($expression->class);
+            if ($class === ActivityLogCompat::class && $expression instanceof StaticCall && $expression->name instanceof Identifier) {
+                return match (strtolower($expression->name->name)) {
+                    'options' => LogOptions::class,
+                    'withoutemptylogs' => isset($expression->args[0]) && $expression->args[0] instanceof Arg
+                        ? $this->loggingExpressionClass($expression->args[0]->value) : null,
+                    default => null,
+                };
+            }
+
+            return $this->isLoggingName($class) ? $class : null;
+        }
+
+        return null;
+    }
+
+    private function declaredLoggingClass(?Node $type): ?string
+    {
+        if ($type instanceof NullableType) {
+            $type = $type->type;
+        }
+
+        if ($type instanceof UnionType || $type instanceof IntersectionType) {
+            foreach ($type->types as $member) {
+                $class = $this->declaredLoggingClass($member);
+                if ($class !== null) {
+                    return $class;
+                }
+            }
+
+            return null;
+        }
+
+        return $type instanceof Name && $this->isLoggingName($this->getNodeName($type)) ? $this->getNodeName($type) : null;
     }
 
     private function isLoggingName(string $name): bool

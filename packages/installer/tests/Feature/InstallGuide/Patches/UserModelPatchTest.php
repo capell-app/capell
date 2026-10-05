@@ -331,6 +331,51 @@ it('accepts a prepared Core User through the real admin guard without writes on 
     expect(File::get($path))->toBe($contents);
 });
 
+it('checks legacy logging references throughout the unchanged User against the installed major', function (string $imports, string $members, bool $vendorTrait): void {
+    $contents = preparedUserForAdminReadinessTest(
+        $vendorTrait ? 'Spatie\\Activitylog\\Traits\\LogsActivity' : 'Capell\\Core\\Support\\Activity\\LogsActivity',
+        'Capell\\Core\\Support\\Activity\\LogOptions',
+        sprintf("\\%s::options('user', [])", ActivityLogCompat::class),
+    );
+    $contents = str_replace('class User extends', $imports . ' class User extends', $contents);
+    $contents = substr_replace($contents, $members, strrpos($contents, '}'), 0);
+
+    $path = writeSetupUserModelForPatchTest($contents);
+    $legacyInstalled = method_exists(ActivityLogCompat::logOptionsClass(), 'dontSubmitEmptyLogs');
+    $patch = new UserModelPatch;
+
+    expect($patch->isReadyForAdmin())->toBe($legacyInstalled);
+    if ($legacyInstalled) {
+        expect(loadPatchedUserModelForTest($path))->toMatchArray(['logged_name' => 'After', 'relation_count' => 2]);
+        (new AdminUserModelGuard)->ensureUserModelSupportsAdminPackage(adminSelectionForReadinessTest(), new NullProgressReporter);
+    } else {
+        expect(fn () => (new AdminUserModelGuard)->ensureUserModelSupportsAdminPackage(adminSelectionForReadinessTest(), new NullProgressReporter))
+            ->toThrow(RuntimeException::class, __('capell-installer::install-guide.user_model_patch_customised'));
+    }
+
+    expect($patch->probe())->toBe(PatchStatus::Customised);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'customised');
+    expect(File::get($path))->toBe($contents);
+})->with([
+    'Core trait with legacy property' => ['', 'protected ?\\Spatie\\Activitylog\\LogOptions $activitylogOptions;', false],
+    'vendor trait with legacy property' => ['', 'protected ?\\Spatie\\Activitylog\\LogOptions $activitylogOptions;', true],
+    'legacy static call in casts' => ['', <<<'PHP'
+#[\Override] protected function casts(): array { \Spatie\Activitylog\LogOptions::defaults()->dontSubmitEmptyLogs(); return []; }
+PHP, false],
+    'legacy parameter type' => ['', 'public function audit(\\Spatie\\Activitylog\\LogOptions $options): void {}', false],
+    'legacy class constant' => ['', <<<'PHP'
+private const string OPTIONS = \Spatie\Activitylog\LogOptions::class;
+PHP, false],
+    'unused legacy import' => ['use Spatie\\Activitylog\\LogOptions as AuditOptions;', '', false],
+    'unused grouped legacy import' => ['use Spatie\\Activitylog\\{LogOptions as AuditOptions};', '', false],
+    'Core alias with legacy method in casts' => ['', '#[\\Override] protected function casts(): array { \\Capell\\Core\\Support\\Activity\\LogOptions::defaults()->dontSubmitEmptyLogs(); return []; }', false],
+    'Core alias parameter with legacy method' => ['', 'public function audit(\\Capell\\Core\\Support\\Activity\\LogOptions $options): void { $options->dontSubmitEmptyLogs(); }', false],
+    'Core alias union parameter with legacy method' => ['', 'public function audit(\\Capell\\Core\\Support\\Activity\\LogOptions|\\stdClass $options): void { $options->dontSubmitEmptyLogs(); }', false],
+    'Core options method result with legacy method' => ['', '#[\\Override] protected function casts(): array { $this->getActivitylogOptions()->dontSubmitEmptyLogs(); return []; }', false],
+    'Core alias variable with legacy method' => ['', '#[\\Override] protected function casts(): array { $options = \\Capell\\Core\\Support\\Activity\\LogOptions::defaults(); $options->dontSubmitEmptyLogs(); return []; }', false],
+    'legacy reference outside User' => ['', '} function audit(\\Spatie\\Activitylog\\LogOptions $options): void {', false],
+]);
+
 it('rejects installed-major vendor Users with invalid options through the real admin guard unchanged', function (string $expression): void {
     $options = ActivityLogCompat::logOptionsClass();
     $contents = preparedUserForAdminReadinessTest(ActivityLogCompat::logsActivityTrait(), $options, sprintf('\\%s::defaults()->%s', $options, $expression));
