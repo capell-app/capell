@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests\Unit\Filament\Plugin;
 
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
-use Capell\Admin\Data\AdminSurfaceContributionData;
-use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\Extensions\Tables\ExtensionRecord;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
@@ -15,6 +13,7 @@ use Capell\Admin\Tests\AdminTestCase;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\LatePanelRuntimeProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateRuntimePage;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateSecurityMiddleware;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\UnrelatedLegacyAvailabilityProvider;
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\EnablePackageAction;
 use Capell\Core\Actions\InstallPackageAction;
@@ -23,7 +22,6 @@ use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
-use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -34,7 +32,6 @@ use Mockery\MockInterface;
 use Override;
 use PHPUnit\Framework\Attributes\TestWith;
 use RuntimeException;
-use Spatie\LaravelPackageTools\Package;
 
 final class InstalledPanelRuntimeAvailabilityTest extends AdminTestCase
 {
@@ -218,32 +215,5 @@ final class InstalledPanelRuntimeAvailabilityTest extends AdminTestCase
     private function persistedStatus(string $package): ?string
     {
         return CapellExtension::query()->where('composer_name', $package)->first()?->status->value;
-    }
-}
-
-final class UnrelatedLegacyAvailabilityProvider extends AbstractPackageServiceProvider
-{
-    public static string $name = 'unrelated-legacy-availability';
-
-    public static string $packageName = 'test/panel-runtime';
-
-    #[Override]
-    public function configurePackage(Package $package): void
-    {
-        $package->name(self::$name);
-    }
-
-    #[Override]
-    protected function registerPackageMetadata(): static
-    {
-        return $this;
-    }
-
-    #[Override]
-    protected function bootInstalledPackage(): self
-    {
-        CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(LateRuntimePage::class));
-
-        return $this;
     }
 }
