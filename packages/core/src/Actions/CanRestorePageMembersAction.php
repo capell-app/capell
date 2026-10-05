@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Models\Page;
-use Capell\Core\Support\PageRestoreReadOnlyScope;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -30,17 +29,15 @@ final class CanRestorePageMembersAction
             return app()->runningInConsole();
         }
 
-        return PageRestoreReadOnlyScope::run($page->getConnection(), static function () use ($members): bool {
-            $actorId = auth()->id();
-            $access = SiteAccess::current();
-            $members->loadMissing(['blueprint.roleRestrictions', 'site']);
-            foreach ($members as $member) {
-                if (! $access->canUseRecord($member) || Gate::denies('restore', $member)) {
-                    return false;
-                }
+        $actorId = auth()->id();
+        $access = SiteAccess::current();
+        $members->loadMissing(['blueprint.roleRestrictions', 'site']);
+        foreach ($members as $member) {
+            if (! $access->canUseRecord($member) || Gate::denies('restore', $member)) {
+                return false;
             }
+        }
 
-            return $actorId === auth()->id() && $access->allowedSiteIds() === SiteAccess::current()->allowedSiteIds();
-        });
+        return $actorId === auth()->id() && $access->allowedSiteIds() === SiteAccess::current()->allowedSiteIds();
     }
 }

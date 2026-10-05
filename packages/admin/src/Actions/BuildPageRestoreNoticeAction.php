@@ -6,7 +6,6 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Models\Page;
-use Capell\Core\Support\PageRestoreReadOnlyScope;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -28,7 +27,7 @@ final class BuildPageRestoreNoticeAction
         $excludedIds = CollectPageRestoreCascadeIdsAction::make()->collectExcludedDescendantIds($root, $ids);
         $excluded = SiteAccess::current()->query($page::class)->onlyTrashed()->whereKey($excludedIds)
             ->with(['blueprint.roleRestrictions', 'site'])->orderBy($page->getLftName())->lockForUpdate()->get();
-        $excluded = PageRestoreReadOnlyScope::run($page->getConnection(), fn () => $excluded->filter(fn (Page $candidate): bool => Gate::allows('view', $candidate)));
+        $excluded = $excluded->filter(fn (Page $candidate): bool => Gate::allows('view', $candidate));
 
         $notices = [];
         if ($excluded->isNotEmpty()) {

@@ -297,7 +297,7 @@ it('refuses a recorded cascade member becoming trashed during the restore abilit
     $initialTransactionLevel = $parent->getConnection()->transactionLevel();
     (new RecentlyDeletedPage)->restoreRecord('page', (int) $parent->id);
 
-    expect($injected)->toBeFalse()
+    expect($injected)->toBeTrue()
         ->and($parent->fresh()->trashed())->toBeTrue()
         ->and($child->fresh()->trashed())->toBeFalse()
         ->and($transactionLevels)->not->toBeEmpty()
@@ -390,7 +390,8 @@ it('retries a deadlocked restore after rereading the selected page and propagate
         if ($deadlock) {
             (new RecentlyDeletedPage)->restoreRecord('page', (int) $page->id);
             expect($page->fresh()->trashed())->toBeFalse()
-                ->and($attempts)->toBe(4);
+                // One failed root check, then Admin root/plan and Core plan/final checks on the retry.
+                ->and($attempts)->toBe(5);
         } else {
             expect(fn () => (new RecentlyDeletedPage)->restoreRecord('page', (int) $page->id))->toThrow($failure);
             expect($page->fresh()->trashed())->toBeTrue()

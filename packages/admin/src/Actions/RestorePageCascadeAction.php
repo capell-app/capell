@@ -8,7 +8,6 @@ use Capell\Admin\Data\PageRestoreResultData;
 use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Exceptions\PageRestoreCancelledException;
 use Capell\Core\Models\Page;
-use Capell\Core\Support\PageRestoreReadOnlyScope;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -35,15 +34,15 @@ final class RestorePageCascadeAction
                     return new PageRestoreResultData(false);
                 }
 
-                PageRestoreReadOnlyScope::run($locked->getConnection(), fn () => Gate::authorize('restore', $locked));
-                if (! CanRestorePageCascadeAction::run($locked, lockForUpdate: true)) {
-                    return new PageRestoreResultData(false);
-                }
+                Gate::authorize('restore', $locked);
+                throw_unless(CanRestorePageCascadeAction::run($locked, lockForUpdate: true), PageRestoreCancelledException::class);
 
                 $ids = CollectPageRestoreCascadeIdsAction::run($locked, lockForUpdate: true);
                 $notice = BuildPageRestoreNoticeAction::run($locked, $ids);
 
-                return new PageRestoreResultData($locked->restore(), $notice);
+                throw_unless($locked->restore(), PageRestoreCancelledException::class);
+
+                return new PageRestoreResultData(true, $notice);
             }, attempts: 3);
         } catch (PageRestoreCancelledException) {
             return new PageRestoreResultData(false);

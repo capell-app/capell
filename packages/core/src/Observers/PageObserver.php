@@ -63,8 +63,10 @@ class PageObserver
             $page->translations()->delete();
         }
 
-        $this->clearCache();
-        event(new PageDeleted($page));
+        $page->getConnection()->afterCommit(function () use ($page): void {
+            $this->clearCache();
+            event(new PageDeleted($page));
+        });
     }
 
     public function restoring(Page $page): void
@@ -77,45 +79,49 @@ class PageObserver
 
     public function restored(Page $page): void
     {
-        $page->getConnection()->transaction(function () use ($page): void {
-            // Restore everything that cascaded on the soft-delete. Previously
-            // only pageUrls were restored, leaving widgets/sections and
-            // translations orphaned. After this hook a restored page has the
-            // same authoring surface it had before deletion.
-            if (! $page->isPageRestoreCascadePrepared()) {
+        if (! $page->isPageRestoreCascadePrepared()) {
+            $page->getConnection()->transaction(function () use ($page): void {
                 $page->pageUrls()->onlyTrashed()->restore();
-                $this->restoreSoftDeletedRelation($page, 'translations');
-            }
-
-            if (! $page->isPageRestoreCascadePrepared()) {
                 $this->restoreSoftDeletedRelations($page, [
+                    'translations',
                     'widgets',
                     'sections',
                     'assetAttachments',
                 ]);
-            }
-        });
+            });
+        }
 
-        $this->clearCache();
-        event(new PageSaved($page));
+        $this->notifySaved($page, restored: true);
     }
 
     public function saved(Page $page): void
     {
-        $this->clearCache();
-        event(new PageSaved($page));
+        // SoftDeletes saves each member before firing restored; notify once from restored.
+        if ($page->isPageRestoreCascadePrepared()) {
+            return;
+        }
 
-        defer(
-            function () use ($page): void {
-                $freshPage = Page::query()->find($page->getKey());
+        $this->notifySaved($page);
+    }
 
-                if ($freshPage instanceof Page) {
-                    RebuildContentGraphForModelAction::run($freshPage);
-                }
-            },
-            'content-graph:' . $page::class . ':' . $page->getKey(),
-            always: true,
-        );
+    private function notifySaved(Page $page, bool $restored = false): void
+    {
+        $page->getConnection()->afterCommit(function () use ($page, $restored): void {
+            $this->clearCache();
+            event(new PageSaved($page, $restored ? ['_restored' => true] : []));
+
+            defer(
+                function () use ($page): void {
+                    $freshPage = Page::query()->find($page->getKey());
+
+                    if ($freshPage instanceof Page) {
+                        RebuildContentGraphForModelAction::run($freshPage);
+                    }
+                },
+                'content-graph:' . $page::class . ':' . $page->getKey(),
+                always: true,
+            );
+        });
     }
 
     private function restoreTrashedAncestors(Page $page): void

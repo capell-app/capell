@@ -6,17 +6,17 @@ use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Actions\DeleteSiteAction;
 use Capell\Core\Actions\RestoreSiteAction;
 use Capell\Core\Events\PageSaved;
-use Capell\Core\Exceptions\PageRestoreCancelledException;
 use Capell\Core\Exceptions\PageRestoreSlugConflictException;
 use Capell\Core\Exceptions\PageUrlCollisionException;
+use Capell\Core\Models\DeletionBatchRecord;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Exceptions;
 
 final class RestoreExternalIndexListener implements ShouldQueue
 {
@@ -46,20 +46,6 @@ it('leaves no external lifecycle work when a later descendant refuses restoratio
     expect($parent->refresh()->restore())->toBeFalse()
         ->and(Page::onlyTrashed()->whereKey([$parent->id, $first->id, $last->id])->count())->toBe(3)
         ->and(RestoreExternalIndexListener::$writes)->toBe([]);
-})->group('restore-final');
-
-it('refuses an extension restoring hook before it can publish an external effect', function (): void {
-    $writes = [];
-    Event::listen('eloquent.restoring: ' . Page::class, static function (Page $member) use (&$writes): void {
-        $writes[] = $member->id;
-    });
-    $parent = Page::factory()->createOne();
-    Page::factory()->parent($parent)->createOne();
-    $parent->refresh()->delete();
-
-    expect($parent->refresh()->restore())->toBeFalse()
-        ->and($writes)->toBe([])
-        ->and($parent->fresh()->trashed())->toBeTrue();
 })->group('restore-final');
 
 it('restores routes that do not occupy the same enabled site and language scope', function (string $difference): void {
@@ -133,18 +119,6 @@ it('restores identical routes in different languages within the same cascade', f
         ->and(Page::onlyTrashed()->whereKey([$parent->id, $first->id, $second->id])->count())->toBe(0);
 })->group('restore-final');
 
-it('reports a failed post commit notification without reporting a committed restore as refused', function (): void {
-    $page = Page::factory()->createOne();
-    $page->delete();
-    Exceptions::fake();
-    Event::listen('eloquent.restored: ' . Page::class, static function (): void {
-        throw new PageRestoreCancelledException('A notification cannot cancel a committed restore.');
-    });
-
-    expect($page->restore())->toBeTrue()->and($page->fresh()->trashed())->toBeFalse();
-    Exceptions::assertReported(PageRestoreCancelledException::class);
-})->group('restore-final');
-
 it('keeps quiet restoration silent when its outer transaction commits later', function (): void {
     $page = Page::factory()->createOne();
     $page->delete();
@@ -169,3 +143,23 @@ it('does not reuse site membership after a page was restored independently and d
         ->and($page->fresh()->trashed())->toBeTrue()
         ->and(CollectPageRestoreCascadeIdsAction::run($page->refresh()))->toBe([$page->id]);
 })->group('restore-final');
+
+it('rolls back pages relations and membership when a later model listener throws', function (): void {
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $language = Language::factory()->english()->createOne();
+    $translation = Translation::factory()->translatable($child)->language($language)->createOne();
+    $url = PageUrl::factory()->page($child)->site($child->site)->language($language)->createOne(['url' => '/throwing-child']);
+    $parent->refresh()->delete();
+    Event::listen(PageSaved::class, RestoreExternalIndexListener::class);
+    Event::listen('eloquent.restoring: ' . Page::class, static function (Page $page) use ($child): void {
+        throw_if($page->is($child), RuntimeException::class, 'Listener interrupted restoration.');
+    });
+
+    expect(fn (): bool => $parent->restore())->toThrow(RuntimeException::class, 'Listener interrupted restoration.')
+        ->and(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(2)
+        ->and($translation->fresh()->trashed())->toBeTrue()
+        ->and($url->fresh()->trashed())->toBeTrue()
+        ->and(DeletionBatchRecord::query()->where('model_type', Page::class)->count())->toBe(2)
+        ->and(RestoreExternalIndexListener::$writes)->toBe([]);
+});

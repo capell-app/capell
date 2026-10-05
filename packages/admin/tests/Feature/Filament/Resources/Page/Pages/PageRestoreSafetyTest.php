@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\RestorePageCascadeAction;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
+use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
+use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
 use Capell\Core\Actions\DeleteSiteAction;
 use Capell\Core\Actions\RestoreSiteAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function (): void {
     $this->freezeTime();
@@ -88,7 +92,23 @@ it('refuses every restore entry point when a callback revokes an earlier member'
     if ($surface === 'site') {
         expect(Site::withTrashed()->whereKey($parent->site_id)->firstOrFail()->trashed())->toBeTrue();
     }
-})->with(['edit', 'list bulk', 'recently deleted', 'admin action', 'model', 'quiet model', 'site'])->with(['site', 'role'])->with(['ability', 'listener'])->group('restore-final');
+})->with((static function (): array {
+    $scenarios = [];
+    foreach (['edit', 'list bulk', 'recently deleted', 'admin action', 'model', 'quiet model', 'site'] as $surface) {
+        foreach (['site', 'role'] as $revocation) {
+            foreach (['ability', 'listener'] as $phase) {
+                // Quiet restore intentionally does not run the restoring listener.
+                if ($surface === 'quiet model' && $phase === 'listener') {
+                    continue;
+                }
+
+                $scenarios[$surface . ' ' . $revocation . ' ' . $phase] = [$surface, $revocation, $phase];
+            }
+        }
+    }
+
+    return $scenarios;
+})())->group('restore-final');
 
 it('withholds restricted historical titles and existence from restore notices and recently deleted', function (): void {
     $parent = Page::factory()->createOne(['name' => 'Accessible parent']);
@@ -120,3 +140,57 @@ it('withholds restricted historical titles and existence from restore notices an
     });
     Livewire::test(ListPages::class)->filterTable('trashed', true)->assertDontSee('Confidential acquisition plan');
 })->group('restore-final');
+
+it('supports a cold database permission cache when restoring or listing trash', function (string $operation): void {
+    $page = Page::factory()->createOne();
+    $page->delete();
+    $this->actingAsUser();
+    $actor = $this->authenticatedUser();
+    $actor->assignedSiteIds = collect([$page->site_id]);
+    foreach (['ViewAny:Page', 'View:Page', 'Restore:Page'] as $name) {
+        $actor->givePermissionTo(Permission::findOrCreate($name, 'web'));
+    }
+
+    config()->set('cache.stores.restore-permissions', [
+        'driver' => 'database',
+        'connection' => DB::connection()->getName(),
+        'table' => 'cache',
+        'prefix' => 'restore-permissions-',
+    ]);
+    config()->set('permission.cache.store', 'restore-permissions');
+
+    $registrar = resolve(PermissionRegistrar::class);
+    $registrar->initializeCache();
+    $registrar->forgetCachedPermissions();
+
+    if ($operation === 'restore') {
+        expect($page->refresh()->restore())->toBeTrue()
+            ->and($page->fresh()->trashed())->toBeFalse();
+    } else {
+        $records = PageResource::getEloquentQuery()->onlyTrashed()->paginate(15);
+        expect($records->total())->toBe(1)
+            ->and($records->getCollection()->modelKeys())->toBe([$page->id]);
+    }
+
+    expect(DB::table('cache')->where('key', 'like', '%spatie.permission.cache')->exists())->toBeTrue();
+})->with(['restore', 'trash list']);
+
+it('keeps hidden trash out of limited projections pagination and navigation totals', function (): void {
+    $type = Blueprint::factory()->page()->createOne();
+    $type->roleRestrictions()->create(['role_id' => Role::findOrCreate('private-counts', 'web')->id]);
+    $hidden = Page::factory()->createOne(['blueprint_id' => $type->id]);
+    $secondHidden = Page::factory()->site($hidden->site)->createOne(['blueprint_id' => $type->id]);
+    $visible = Page::factory()->site($hidden->site)->createOne();
+    Page::query()->whereKey([$hidden->id, $secondHidden->id, $visible->id])->update(['deleted_at' => now()]);
+    $this->actingAsUser();
+    $actor = $this->authenticatedUser();
+    $actor->assignedSiteIds = collect([$hidden->site_id]);
+    foreach (['ViewAny:Page', 'View:Page'] as $name) {
+        $actor->givePermissionTo(Permission::findOrCreate($name, 'web'));
+    }
+
+    $records = PageResource::getEloquentQuery()->onlyTrashed()->orderBy('id')->select('pages.id')->limit(1)->get();
+    expect($records->modelKeys())->toBe([$visible->id])
+        ->and(PageResource::getEloquentQuery()->onlyTrashed()->paginate(1)->total())->toBe(1)
+        ->and(resolve(AdminNavigationBadgeCountCache::class)->count(PageResource::class))->toBe(1);
+});
