@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Activity\BuildActivityChangeSetAction;
 use Capell\Admin\Actions\EnsureCapellPermissionsAction;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Filament\Resources\Roles\Pages\EditRole;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
 use PHPUnit\Framework\Assert;
@@ -101,8 +102,8 @@ it('logs role permission changes after saving the role form', function (): void 
 
     expect($activity)->not->toBeNull()
         ->and($activity->event)->toBe('updated')
-        ->and($activity->changes()->get('old'))->toBe(['permissions' => []])
-        ->and($activity->changes()->get('attributes'))->toBe(['permissions' => [$permissionName]]);
+        ->and(ActivityLogCompat::attributeValues($activity, 'old'))->toBe(['permissions' => []])
+        ->and(ActivityLogCompat::attributeValues($activity, 'attributes'))->toBe(['permissions' => [$permissionName]]);
 
     $changeSet = BuildActivityChangeSetAction::run($activity);
 
@@ -154,8 +155,8 @@ it('logs role permission identity changes when the role guard changes', function
 
     expect($activity)->not->toBeNull()
         ->and($activity->event)->toBe('updated')
-        ->and($activity->changes()->get('old'))->toBe(['permissions' => ['web:View:Page']])
-        ->and($activity->changes()->get('attributes'))->toBe(['permissions' => ['admin:View:Page']]);
+        ->and(ActivityLogCompat::attributeValues($activity, 'old'))->toBe(['permissions' => ['web:View:Page']])
+        ->and(ActivityLogCompat::attributeValues($activity, 'attributes'))->toBe(['permissions' => ['admin:View:Page']]);
 
     $changeSet = BuildActivityChangeSetAction::run($activity);
 
@@ -278,11 +279,11 @@ it('resets built-in role permissions from the edit page', function (): void {
         ->where('subject_id', $role->getKey())
         ->firstOrFail();
 
-    $attributes = $activity->changes()->get('attributes');
+    $attributes = ActivityLogCompat::attributeValues($activity, 'attributes');
 
     expect($attributes)->toBeArray()
         ->and($activity)->not->toBeNull()
         ->and($activity->event)->toBe('updated')
-        ->and($activity->changes()->get('old'))->toBe(['permissions' => ['custom.permission']])
+        ->and(ActivityLogCompat::attributeValues($activity, 'old'))->toBe(['permissions' => ['custom.permission']])
         ->and($attributes['permissions'])->toContain(CapellPermission::ManageSitePermissions->name());
 });

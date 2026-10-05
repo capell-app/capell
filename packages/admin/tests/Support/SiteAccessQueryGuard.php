@@ -41,7 +41,10 @@ use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Function_;
+use PhpParser\Node\Stmt\GroupUse;
+use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\Property;
+use PhpParser\Node\Stmt\Use_;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
@@ -52,6 +55,7 @@ use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionUnionType;
+use Spatie\Activitylog\Contracts\Activity as ActivityContract;
 use Spatie\Activitylog\Models\Activity;
 
 /** Reject authoring query origins unless the access boundary is visible. */
@@ -206,7 +210,7 @@ final class SiteAccessQueryGuard
                 if (self::unknownModelClass($class) || self::siteModel($class) !== null) {
                     $violations[] = 'unscoped instance ' . $method . ' at line ' . $call->getStartLine() . ' [' . $origin . ']';
                 }
-            } elseif (in_array($method, self::RELATIONS, true)
+            } elseif ((in_array($method, self::RELATIONS, true) || self::crossSiteRelation(null, $method))
                 && (self::unknownModelClass(self::className($call->var, $call, $finder, $nodes))
                     || self::crossSiteRelation(self::className($call->var, $call, $finder, $nodes), $method)) && ! self::localHelper($call)
                 && ! self::nonRelationHelper($call, $finder, $nodes)) {
@@ -399,11 +403,58 @@ final class SiteAccessQueryGuard
                     }
                 }
 
+                // Configured model resolvers are not class constants. Their
+                // declared relation target must still retain its access boundary.
+                $target ??= self::declaredRelationTarget($method, $sources[$file]);
                 $relations[$class][$method->getName()] = ['target' => $target, 'foreignKey' => $foreignKey, 'childKey' => $childKey, 'many' => $many, 'ownerRelation' => $ownerRelation];
             }
         }
 
         return self::$modelRelations = $relations;
+    }
+
+    /** @param array<Node> $source */
+    private static function declaredRelationTarget(ReflectionMethod $method, array $source): ?string
+    {
+        if (preg_match('/@return\s+[\\\\\w]+<([^,>]+)/', $method->getDocComment() ?: '', $match) !== 1) {
+            return null;
+        }
+
+        $namespace = (new NodeFinder)->findFirst($source, static fn (Node $node): bool => $node instanceof Namespace_
+            && $node->getStartLine() <= $method->getStartLine() && $node->getEndLine() >= $method->getEndLine());
+        $imports = [];
+        foreach ($namespace instanceof Namespace_ ? $namespace->stmts : $source as $statement) {
+            if (! $statement instanceof Use_ && ! $statement instanceof GroupUse) {
+                continue;
+            }
+
+            foreach ($statement->uses as $use) {
+                if ($statement->type !== Use_::TYPE_NORMAL) {
+                    continue;
+                }
+
+                if ($use->type !== Use_::TYPE_UNKNOWN && $use->type !== Use_::TYPE_NORMAL) {
+                    continue;
+                }
+
+                $prefix = $statement instanceof GroupUse ? $statement->prefix->toString() . '\\' : '';
+                $imports[strtolower($use->getAlias()->toString())] = $prefix . $use->name->toString();
+            }
+        }
+
+        foreach (preg_split('/[&|]/', $match[1]) ?: [] as $target) {
+            $target = trim($target, ' ()?');
+            $parts = explode('\\', $target, 2);
+            $import = $imports[strtolower($parts[0])] ?? null;
+            $class = str_starts_with($target, '\\') ? ltrim($target, '\\')
+                : ($import !== null ? $import . (isset($parts[1]) ? '\\' . $parts[1] : '')
+                    : ($namespace instanceof Namespace_ && $namespace->name instanceof Name ? $namespace->name->toString() . '\\' : '') . $target);
+            if (self::siteModel($class) !== null) {
+                return $class;
+            }
+        }
+
+        return null;
     }
 
     /** @return array{target: ?string, foreignKey: ?string, childKey: ?string, many: bool, ownerRelation: ?string}|null */
@@ -491,6 +542,10 @@ final class SiteAccessQueryGuard
     /** @param array{target: ?string, foreignKey: ?string, childKey: ?string, many: bool, ownerRelation: ?string} $relation */
     private static function spansSites(array $relation): bool
     {
+        if (self::siteModel($relation['target']) === 'Activity') {
+            return true;
+        }
+
         if (! $relation['many'] || self::siteModel($relation['target']) === null) {
             return false;
         }
@@ -505,7 +560,8 @@ final class SiteAccessQueryGuard
     private static function ownedChild(string $class, array $relation): bool
     {
         $target = $relation['target'];
-        if ($target === null || ! class_exists($target) || ! self::singleSite($class)) {
+        // Activity subjects are polymorphic, with no enforced site-match invariant.
+        if ($target === null || self::siteModel($target) === 'Activity' || ! class_exists($target) || ! self::singleSite($class)) {
             return false;
         }
 
@@ -541,7 +597,7 @@ final class SiteAccessQueryGuard
 
     private static function siteModel(?string $class): ?string
     {
-        if ($class !== null && is_a($class, Activity::class, true)) {
+        if ($class !== null && (is_a($class, Activity::class, true) || is_a($class, ActivityContract::class, true))) {
             return 'Activity';
         }
 

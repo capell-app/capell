@@ -178,7 +178,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         );
 
         $installPatchRegistry->register(
-            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')
+            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin') && ! (new UserModelPatch)->isReadyForAdmin()
                 ? new UserModelPatch
                 : null,
             key: 'installer.user-model',

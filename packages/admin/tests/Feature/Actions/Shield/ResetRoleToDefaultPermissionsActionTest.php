@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Actions\EnsureCapellPermissionsAction;
 use Capell\Admin\Actions\Shield\ResetRoleToDefaultPermissionsAction;
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -79,15 +80,14 @@ it('logs reset permission changes using the existing role permission activity sh
 
     $activity = expectPresent($activity);
 
-    $properties = expectPresent($activity->properties);
-    $attributes = $properties->get('attributes');
+    $attributes = ActivityLogCompat::attributeValues($activity, 'attributes');
 
     expect($attributes)->toBeArray()
         ->and($activity)->not->toBeNull()
         ->and($activity->event)->toBe('updated')
         ->and($activity->causer_id)->toBe($actor->getKey())
         ->and($activity->causer?->is($actor))->toBeTrue()
-        ->and($properties->get('old'))->toBe(['permissions' => ['custom.permission']])
+        ->and(ActivityLogCompat::attributeValues($activity, 'old'))->toBe(['permissions' => ['custom.permission']])
         ->and($attributes['permissions'])->toContain(CapellPermission::ManageSitePermissions->name())
         ->and($attributes['permissions'])->not->toContain('custom.permission');
 });

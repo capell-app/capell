@@ -262,11 +262,11 @@ it('publishes activity log column migrations when the base activity log migratio
         $newFiles = array_values(array_diff($currentFiles, $existingFiles));
         $newFilenames = array_map(basename(...), $newFiles);
 
-        expect(implode("\n", $newFilenames))
-            ->toContain(
-                'add_event_column_to_activity_log_table.php',
-                'add_batch_uuid_column_to_activity_log_table.php',
-            );
+        foreach (['add_event_column_to_activity_log_table', 'add_batch_uuid_column_to_activity_log_table'] as $name) {
+            $stubExists = is_file(dirname(__DIR__, 6) . '/vendor/spatie/laravel-activitylog/database/migrations/' . $name . '.php.stub');
+
+            expect(array_any($newFilenames, fn (string $filename): bool => str_ends_with($filename, $name . '.php')))->toBe($stubExists);
+        }
     } finally {
         $currentFiles = File::glob($migrationDirectory . '/*.php') ?? [];
         $filesToDelete = array_diff($currentFiles, $existingFiles);

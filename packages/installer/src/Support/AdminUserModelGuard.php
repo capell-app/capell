@@ -22,24 +22,23 @@ final class AdminUserModelGuard
         }
 
         $patch = new UserModelPatch;
-        $status = $patch->probe();
-
-        if ($status === PatchStatus::AlreadyApplied) {
-            $reporter->report('✓ User model supports Capell admin roles.');
+        if ($patch->isReadyForAdmin()) {
+            $reporter->report(__('capell-installer::install-guide.user_model_admin_ready'));
 
             return;
         }
 
+        $status = $patch->probe();
         if ($status !== PatchStatus::Applicable) {
-            throw new RuntimeException(sprintf(
-                'The installer could not automatically update app/Models/User.php for Capell admin roles because the user model patch status is "%s". Apply the user model install guide patch, then rerun the installer.',
-                $status->value,
+            throw new RuntimeException(trim(
+                __('capell-installer::install-guide.user_model_admin_not_ready', ['status' => $status->value])
+                . ' ' . ($patch->reason() ?? ''),
             ));
         }
 
-        $reporter->step('Patching user model for Capell admin roles…');
+        $reporter->step(__('capell-installer::install-guide.user_model_admin_preparing'));
         $patch->apply();
-        $reporter->report('✓ User model supports Capell admin roles.');
+        $reporter->report(__('capell-installer::install-guide.user_model_admin_ready'));
     }
 
     public function hasInstalledAdminPackageSelection(InstallInputData $inputData): bool

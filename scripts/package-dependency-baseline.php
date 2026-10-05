@@ -34,7 +34,6 @@ return [
             'nesbot/carbon',
             'nikic/php-parser',
             'pboivin/filament-peek',
-            'spatie/laravel-activitylog',
             'spatie/laravel-data',
             'spatie/laravel-medialibrary',
             'spatie/laravel-permission',

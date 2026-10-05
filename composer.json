@@ -206,7 +206,7 @@
         "michaloravec/laravel-paginateroute": "^1.0",
         "pboivin/filament-peek": "^4.1",
         "saade/filament-adjacency-list": "^4.0.2",
-        "spatie/laravel-activitylog": "^4.0",
+        "spatie/laravel-activitylog": "^4.0 || ^5.0",
         "spatie/laravel-data": "^4.5",
         "spatie/laravel-event-sourcing": "^7.15",
         "spatie/laravel-medialibrary": "^11.0|^12.0",
@@ -271,6 +271,10 @@
         "spatie/laravel-ray": "^1.36"
     },
     "autoload": {
+        "files": [
+            "packages/core/src/Support/Activity/LogOptions.php",
+            "packages/core/src/Support/Activity/VendorLogsActivity.php"
+        ],
         "psr-4": {
             "Capell\\Admin\\": "packages/admin/src",
             "Capell\\Core\\": "packages/core/src",

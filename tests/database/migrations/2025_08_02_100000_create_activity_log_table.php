@@ -10,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::connection(config('activitylog.database_connection'))->create(config('activitylog.table_name'), function (Blueprint $table): void {
+        Schema::connection(config('activitylog.database_connection'))->create(config('activitylog.table_name', 'activity_log'), function (Blueprint $table): void {
             $table->bigIncrements('id');
             $table->string('log_name')->nullable();
             $table->text('description');
@@ -26,6 +26,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection(config('activitylog.database_connection'))->dropIfExists(config('activitylog.table_name'));
+        Schema::connection(config('activitylog.database_connection'))->dropIfExists(config('activitylog.table_name', 'activity_log'));
     }
 };

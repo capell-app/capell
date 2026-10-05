@@ -7,6 +7,9 @@ namespace Capell\Tests\Fixtures\Models;
 use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
 use Capell\Admin\Models\Concerns\HasImpersonation;
 use Capell\Core\Database\Factories\UserFactory;
+use Capell\Core\Support\Activity\ActivityLogCompat;
+use Capell\Core\Support\Activity\LogOptions;
+use Capell\Core\Support\Activity\LogsActivity;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -15,8 +18,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Override;
-use Spatie\Activitylog\LogOptions;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\Permission\Traits\HasRoles;
@@ -71,18 +72,13 @@ class User extends Authenticatable implements FilamentUser, HasMedia
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('user')
-            ->logAll()
-            ->logExcept([
-                'email_verified_at',
-                'password',
-                'remember_token',
-                'updated_at',
-                'created_at',
-            ])
-            ->logOnlyDirty()
-            ->dontSubmitEmptyLogs();
+        return ActivityLogCompat::options('user', [
+            'email_verified_at',
+            'password',
+            'remember_token',
+            'updated_at',
+            'created_at',
+        ]);
     }
 
     public function isGlobalAdmin(): bool

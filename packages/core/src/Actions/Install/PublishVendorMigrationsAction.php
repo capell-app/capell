@@ -53,7 +53,7 @@ final class PublishVendorMigrationsAction
             $stubPath = $this->resolveStubPath($stubRelativePath);
 
             if ($stubPath === null) {
-                // Package not installed yet — will be published in a later step.
+                // A later install step may supply this stub; v5 also consolidates the v4 activity column stubs.
                 continue;
             }
 

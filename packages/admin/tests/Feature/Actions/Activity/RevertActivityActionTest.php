@@ -12,6 +12,7 @@ use Capell\Admin\Tests\Fixtures\Autoload\CapturingActivityRevertHandlerForTest;
 use Capell\Admin\Tests\Fixtures\Autoload\PermissiveActivityRevertHandlerForTest;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Illuminate\Auth\Access\AuthorizationException;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -242,11 +243,11 @@ it('deletes activity log entries for permitted actors', function (): void {
 
     $deletionAudit = expectPresent($deletionAudit);
 
-    $properties = expectPresent($deletionAudit->properties);
+    $properties = ActivityLogCompat::properties($deletionAudit);
 
     expect($deletionAudit)->toBeInstanceOf(Activity::class)
-        ->and($properties->get('deleted_activity_id'))->toBe($activity->getKey())
-        ->and($properties->get('deleted_activity_subject_type'))->toBe($activity->subject_type);
+        ->and($properties['deleted_activity_id'])->toBe($activity->getKey())
+        ->and($properties['deleted_activity_subject_type'])->toBe($activity->subject_type);
 });
 
 function createActivityLogPermittedUser(CapellPermission $permission, bool $globalAudit = true): object

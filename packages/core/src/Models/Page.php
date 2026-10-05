@@ -44,6 +44,9 @@ use Capell\Core\Models\Contracts\Translatable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Observers\PageObserver;
+use Capell\Core\Support\Activity\ActivityLogCompat;
+use Capell\Core\Support\Activity\LogOptions;
+use Capell\Core\Support\Activity\LogsActivity;
 use Capell\Core\Support\PageRestoreLifecycle;
 use Capell\Core\Support\PageRestoreReadOnlyScope;
 use Carbon\Carbon;
@@ -66,9 +69,7 @@ use Illuminate\Events\NullDispatcher;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Arr;
 use Override;
-use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Models\Activity;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Collections\MediaCollection;
 use Staudenmeir\EloquentJsonRelations\HasJsonRelationships;
@@ -444,21 +445,16 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()
-            ->useLogName('page')
-            ->logAll()
-            ->logExcept([
-                'updated_at',
-                'created_at',
-                'deleted_at',
-                '_lft',
-                '_rgt',
-                'created_by',
-                'updated_by',
-                'deleted_by',
-            ])
-            ->logOnlyDirty()
-            ->dontSubmitEmptyLogs();
+        return ActivityLogCompat::options('page', [
+            'updated_at',
+            'created_at',
+            'deleted_at',
+            '_lft',
+            '_rgt',
+            'created_by',
+            'updated_by',
+            'deleted_by',
+        ]);
     }
 
     /**
