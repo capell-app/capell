@@ -8,6 +8,7 @@ use Rector\CodeQuality\Rector\Catch_\ThrowWithPreviousExceptionRector;
 use Rector\CodeQuality\Rector\FuncCall\InlineIsAInstanceOfRector;
 use Rector\CodingStyle\Rector\ArrowFunction\ArrowFunctionDelegatingCallToFirstClassCallableRector;
 use Rector\CodingStyle\Rector\PostInc\PostIncDecToPreIncDecRector;
+use Rector\CodingStyle\Rector\String_\UseClassKeywordForClassNameResolutionRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPublicMethodParameterRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
@@ -137,6 +138,11 @@ return RectorConfig::configure()
         // fragment capture during rehydration instead of suppressing it.
         RemoveExtraParametersRector::class => [
             __DIR__ . '/packages/frontend/src/Support/Render/RenderHookRegistry.php',
+        ],
+        UseClassKeywordForClassNameResolutionRector::class => [
+            // These strings are PHP source for generated User fixtures: a
+            // ::class concatenation would change the source under test.
+            __DIR__ . '/packages/installer/tests/Feature/InstallGuide/Patches/UserModelPatchTest.php',
         ],
         StringClassNameToClassConstantRector::class => [
             // Only one activitylog major exists at runtime. Keep absent-major
