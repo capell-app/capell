@@ -69,6 +69,7 @@ use Capell\Admin\Filament\Pages\Reports\DemoInstallHealthReport;
 use Capell\Admin\Filament\Pages\Reports\PackageReadinessReport;
 use Capell\Admin\Filament\Pages\Reports\PublicRenderSafetyReport;
 use Capell\Admin\Filament\Pages\Reports\PublishingReadinessReport;
+use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
 use Capell\Admin\Filament\Resources\Redirects\Pages\ManageRedirects;
 use Capell\Admin\Filament\Resources\Redirects\RedirectResource;
@@ -101,6 +102,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioLaunchReadiness
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
+use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
@@ -177,6 +179,7 @@ use Capell\Admin\Support\Icons\FlagIconRenderer;
 use Capell\Admin\Support\ImportEntryRegistry;
 use Capell\Admin\Support\Install\AdminPermissionSynchronizer;
 use Capell\Admin\Support\Install\FilamentAdminPanelUrlResolver;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\DefaultPageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\HomePageBlueprintInterceptor;
 use Capell\Admin\Support\Interceptors\Blueprints\Pages\MaintenancePageBlueprintInterceptor;
@@ -216,6 +219,7 @@ use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PageTypeEnum;
+use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
@@ -232,6 +236,7 @@ use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Redirects\PageUrlRedirectUrlRecorder;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
@@ -258,9 +263,11 @@ use Filament\Support\Livewire\Partials\DataStoreOverride;
 use Filament\Tables\Columns\Column;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Features\SupportTesting\Testable;
@@ -269,6 +276,7 @@ use Livewire\Mechanisms\DataStore;
 use Override;
 use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
+use Throwable;
 
 class AdminServiceProvider extends AbstractPackageServiceProvider
 {
@@ -345,6 +353,30 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         );
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
+        $this->app->singleton(InstalledPanelRuntime::class);
+        $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
+            $name = (string) $event->route->getName();
+            if (str_starts_with($name, 'filament.')) {
+                $panel = explode('.', $name)[1];
+                $event->route->middleware(EnsureInstalledPanelAvailable::class . ':' . $panel);
+                $event->route->computedMiddleware = null;
+            }
+        });
+        Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
+        $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (InstalledRuntimeRefreshed $event): void {
+            foreach (Filament::getPanels() as $panel) {
+                if ($panel->hasPlugin(CapellAdminPlugin::ID)) {
+                    try {
+                        resolve(CapellAdminPlugin::class)->synchronizePanelAdminSurface($panel);
+                    } catch (Throwable $throwable) {
+                        // A new failure belongs to this activation; an earlier denial is deferred.
+                        resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, $event->package->name, self::class, 'admin', 'panel-refresh');
+
+                        throw $throwable;
+                    }
+                }
+            }
+        });
         $this->app->singleton(EnumPresentationRegistry::class);
         $this->app->tag([CoreEnumPresentationContributor::class], EnumPresentationContributor::TAG);
         $this->app->bind(

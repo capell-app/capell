@@ -23,6 +23,7 @@ use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Admin\Support\ImportEntryRegistry;
 use Capell\Admin\Support\Install\AdminPermissionSynchronizer;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Reports\ReportRegistry;
@@ -57,6 +58,7 @@ use Capell\Core\Support\Metrics\MetricsManager;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
@@ -129,6 +131,7 @@ final class SingletonLifetimeInventory
         return [
             // Core boot registration state.
             CapellPackageRegistry::class => self::boot('Package manifests are discovered once and invalidated only by explicit package mutation.'),
+            InstalledRuntimeLifecycle::class => self::boot('Provider activation belongs to application wiring and must survive request and job resets; failures are referenced weakly.'),
             RuntimeRolePackageManifest::class => self::boot('The selected package graph and its lazy manifest cache are immutable process boot metadata.'),
             ModelInterceptorRegistry::class => self::boot('Model interceptors are package boot registrations.'),
             SubscriberRegistry::class => self::boot('Subscribers are package boot registrations.'),
@@ -163,6 +166,7 @@ final class SingletonLifetimeInventory
             MetricsManager::class => self::stateless('The manager delegates to the boot metric registry and event storage action.'),
 
             // Admin boot registration state.
+            InstalledPanelRuntime::class => self::boot('Applied extender entries and route middleware snapshots belong to each panel bootstrap, held through weak panel keys.'),
             AgentAdminToolRegistry::class => self::boot('Admin agent tools are package boot registrations and resolve actor scope per invocation.'),
             AgentAdminToolInvocationService::class => self::stateless('The invocation service retains only readonly registries and cache-backed confirmation collaborators.'),
             ExtensionPageRegistry::class => self::boot('Extension pages are package boot registrations.'),

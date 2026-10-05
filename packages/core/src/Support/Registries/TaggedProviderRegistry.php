@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Registries;
 
+use Illuminate\Container\RewindableGenerator;
 use Illuminate\Contracts\Foundation\Application;
 
 /**
@@ -26,7 +27,15 @@ class TaggedProviderRegistry
      */
     public static function tagged(Application $application, string $tag): iterable
     {
-        return $application->tagged($tag);
+        // Even an initially empty tag must remain live after package installation.
+        return new RewindableGenerator(
+            static function () use ($application, $tag): iterable {
+                yield from $application->tagged($tag);
+            },
+            static fn (): int => count(iterator_to_array((static function () use ($application, $tag): iterable {
+                yield from $application->tagged($tag);
+            })())),
+        );
     }
 
     /** @return list<TProvider> */

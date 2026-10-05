@@ -15,6 +15,7 @@ use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Closure;
 use Illuminate\Support\Collection;
@@ -252,6 +253,11 @@ trait ManagesPackages
 
     public function isPackageInstalled(string $name): bool
     {
+        if (app()->resolved(InstalledRuntimeLifecycle::class)
+            && resolve(InstalledRuntimeLifecycle::class)->packageFailed($name)) {
+            return false;
+        }
+
         if (! $this->hasPackage($name)) {
             return false;
         }
@@ -279,6 +285,11 @@ trait ManagesPackages
 
     public function isPackageEnabled(string $name): bool
     {
+        if (app()->resolved(InstalledRuntimeLifecycle::class)
+            && resolve(InstalledRuntimeLifecycle::class)->packageFailed($name)) {
+            return false;
+        }
+
         if (! $this->hasPackage($name)) {
             return false;
         }

@@ -49,6 +49,15 @@ it('supports direct construction with an iterable of providers', function (): vo
     ))->toBe(['first', 'second']);
 });
 
+it('sees the first contributor added after the registry was resolved with an empty tag', function (): void {
+    $registry = new TaggedProviderTestRegistry(TaggedProviderRegistry::tagged(app(), 'test.late-contributor'));
+    expect($registry->all())->toBe([]);
+    app()->instance('test.late-provider', new TaggedProviderTestImplementation('late'));
+    app()->tag(['test.late-provider'], 'test.late-contributor');
+
+    expect(array_map(fn (TaggedProviderTestContract $provider): string => $provider->name(), $registry->all()))->toBe(['late']);
+});
+
 interface TaggedProviderTestContract
 {
     public function name(): string;

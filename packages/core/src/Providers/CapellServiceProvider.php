@@ -175,6 +175,7 @@ use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Presentation\PresentationPresetRegistry;
@@ -212,12 +213,14 @@ use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
+use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -227,6 +230,7 @@ use Override;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\Permission\Models\Role;
+use Throwable;
 
 class CapellServiceProvider extends AbstractPackageServiceProvider
 {
@@ -542,6 +546,14 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(CapellCacheManager::class);
         $this->app->singleton(ModelInterceptorRegistry::class);
         $this->app->singletonIf(CapellPackageRegistry::class);
+        $this->app->singletonIf(InstalledRuntimeLifecycle::class);
+
+        $runtime = $this->app->make(InstalledRuntimeLifecycle::class);
+        $this->app->afterResolving(ExceptionHandler::class, static function (ExceptionHandler $handler) use ($runtime): void {
+            if ($handler instanceof Handler) {
+                $handler->reportable(static fn (Throwable $exception): bool => ! $runtime->wasReported($exception));
+            }
+        });
         $this->app->singleton(ExtensionContributionReceiptRegistry::class);
         $this->app->singleton(ExtensionOrderingAudit::class);
         $this->app->alias(ExtensionContributionReceiptRegistry::class, RecordsExtensionContributionReceipt::class);

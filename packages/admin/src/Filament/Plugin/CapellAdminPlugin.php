@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Plugin;
 
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
-use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
@@ -25,9 +24,11 @@ use Capell\Admin\Http\Middleware\ProfileAdminRequest;
 use Capell\Admin\Http\Middleware\RedirectToInstallerWhenCapellIsNotInstalled;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Closure;
 use CmsMulti\FilamentClearCache\FilamentClearCachePlugin;
 use Filament\Actions\Action;
@@ -35,6 +36,7 @@ use Filament\Contracts\Plugin;
 use Filament\Facades\Filament as FilamentFacade;
 use Filament\FilamentManager;
 use Filament\Navigation\NavigationManager;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page as FilamentPage;
 use Filament\Pages\SettingsPage as FilamentSettingsPage;
 use Filament\Panel;
@@ -46,15 +48,19 @@ use Filament\Tables\Columns\Column;
 use Filament\Tables\Table;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\Widget;
+use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\View;
 use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
+use Override;
 use ReflectionClass;
 use ReflectionProperty;
+use Throwable;
 
 class CapellAdminPlugin implements Plugin
 {
@@ -70,11 +76,13 @@ class CapellAdminPlugin implements Plugin
         return filament(resolve(static::class)->getId());
     }
 
+    #[Override]
     public function getId(): string
     {
         return static::ID;
     }
 
+    #[Override]
     public function boot(Panel $panel): void
     {
         $this->registerNavigationGroups($panel);
@@ -104,8 +112,13 @@ class CapellAdminPlugin implements Plugin
         return $this;
     }
 
+    #[Override]
     public function register(Panel $panel): void
     {
+        if (! app()->isBooted()) {
+            resolve(InstalledRuntimeLifecycle::class)->refreshForBootstrap();
+        }
+
         /** @var view-string $logoView */
         $logoView = 'capell-admin::img.logo';
         /** @var view-string $sitesView */
@@ -164,9 +177,12 @@ class CapellAdminPlugin implements Plugin
             ->registerSettings($panel);
 
         app()->booted(function () use ($panel): void {
-            $this->registerInstalledPackageAdminProviders()
-                ->registerConfigurators()
-                ->synchronizeAdminSurface($panel);
+            try {
+                $this->synchronizePanelAdminSurface($panel);
+            } catch (Throwable $throwable) {
+                // The panel guard recorded the cause; bootstrap must still serve public routes.
+                throw_unless(resolve(InstalledPanelRuntime::class)->isUnavailable($panel->getId()), $throwable);
+            }
         });
 
         $panel->renderHook(
@@ -230,21 +246,48 @@ class CapellAdminPlugin implements Plugin
             return;
         }
 
-        $this->registerInstalledPackageAdminProviders()
-            ->registerConfigurators()
-            ->synchronizeAdminSurface($panel);
+        $this->synchronizePanelAdminSurface($panel);
+    }
 
-        app()->forgetInstance(NavigationManager::class);
+    public function synchronizePanelAdminSurface(Panel $panel): void
+    {
+        $runtime = resolve(InstalledPanelRuntime::class);
+        if (new ReflectionProperty($panel, 'id')->isInitialized($panel) && $runtime->isUnavailable($panel->getId())) {
+            // Lifecycle callers may finish unrelated work without replaying denied wiring.
+            $message = __('capell-admin::message.extension_panel_refresh_deferred', ['panel' => $panel->getId()]);
+            Log::warning($message, ['panel' => $panel->getId()]);
+            Notification::make('extension-panel-refresh-deferred-' . $panel->getId())
+                ->title($message)
+                ->body(__('capell::runtime-refresh.application_unavailable'))
+                ->warning()
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
+        $runtime->guard($panel, function () use ($panel): void {
+            $this->registerInstalledPackageAdminProviders()->registerConfigurators();
+            // Route topology and Livewire component membership belong to bootstrap.
+            if (! app()->isBooted()) {
+                $this->synchronizeAdminSurface($panel);
+            }
+
+            resolve(InstalledPanelRuntime::class)->extend($panel);
+            if (new ReflectionProperty($panel, 'id')->isInitialized($panel)) {
+                $panel->register();
+            }
+
+            app()->forgetInstance(NavigationManager::class);
+        });
     }
 
     protected function registerPages(Panel $panel): self
     {
-        $pages = array_merge(
-            CapellAdmin::getAdminSurfaceRegistry()->pages(),
-            $this->discoverInstalledPackageFilamentPages(),
-        );
+        // Discovery contributes into the registry and returns its complete page list.
+        $pages = $this->discoverInstalledPackageFilamentPages();
 
-        $panel->pages(array_values(array_unique($pages)));
+        $panel->pages(array_values(array_diff($pages, $panel->getPages())));
 
         return $this;
     }
@@ -327,12 +370,7 @@ class CapellAdminPlugin implements Plugin
             $panel->plugin(FilamentClearCachePlugin::make());
         }
 
-        /** @var iterable<AdminPanelExtender> $extenders */
-        $extenders = app()->tagged(AdminPanelExtender::TAG);
-
-        foreach ($extenders as $extender) {
-            $extender->extend($panel);
-        }
+        resolve(InstalledPanelRuntime::class)->extend($panel);
 
         return $this;
     }
@@ -421,7 +459,11 @@ class CapellAdminPlugin implements Plugin
         /** @var list<class-string<Widget>> $widgets */
         $widgets = CapellAdmin::getAdminSurfaceRegistry()->widgets();
 
-        $panel->widgets($widgets);
+        $existing = array_map(
+            static fn (string|WidgetConfiguration $widget): string => is_string($widget) ? $widget : $widget->widget,
+            $panel->getWidgets(),
+        );
+        $panel->widgets(array_values(array_diff($widgets, $existing)));
 
         return $this;
     }

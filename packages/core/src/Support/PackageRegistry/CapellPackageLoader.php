@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\PackageRegistry;
 
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Bootstrap\CloudInstallContext;
@@ -11,10 +12,12 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Illuminate\Contracts\Foundation\Application;
+use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Throwable;
 
 final class CapellPackageLoader
@@ -45,6 +48,36 @@ final class CapellPackageLoader
      * @return list<class-string>
      */
     public function loadProviders(): array
+    {
+        return $this->app->make(InstalledRuntimeLifecycle::class)->duringProviderRegistration($this->registerProviders(...));
+    }
+
+    /** Refresh only eligible runtime buckets; preserve legacy provider callbacks. */
+    public function refreshPackage(PackageData $package, bool $replayBootedCallbacks = true): void
+    {
+        $this->app->make(InstalledRuntimeLifecycle::class)->duringProviderRegistration(function () use ($package, $replayBootedCallbacks): void {
+            $this->registerPackageProviders($package, $replayBootedCallbacks);
+        }, $package->name);
+    }
+
+    /** @return list<string> */
+    public function collectProviders(): array
+    {
+        $providers = [];
+
+        foreach ($this->registry->all() as $manifest) {
+            foreach ($this->resolveProviders($manifest) as $provider) {
+                if (class_exists($provider)) {
+                    $providers[] = $provider;
+                }
+            }
+        }
+
+        return $providers;
+    }
+
+    /** @return list<class-string> */
+    private function registerProviders(): array
     {
         $loadedProviders = [];
 
@@ -77,7 +110,12 @@ final class CapellPackageLoader
                         }
                     }
                 } catch (Throwable $throwable) {
-                    throw_if(TrustedCorePackages::contains($manifest->name), $throwable);
+                    throw_if(
+                        TrustedCorePackages::contains($manifest->name)
+                        || ($this->app->resolved(InstalledRuntimeLifecycle::class)
+                            && $this->app->make(InstalledRuntimeLifecycle::class)->failed($throwable)),
+                        $throwable,
+                    );
 
                     CapellCore::markPackageProviderQuarantined(
                         name: $manifest->name,
@@ -93,20 +131,49 @@ final class CapellPackageLoader
         return $loadedProviders;
     }
 
-    /** @return list<string> */
-    public function collectProviders(): array
+    private function registerPackageProviders(PackageData $package, bool $replayBootedCallbacks): void
     {
-        $providers = [];
+        if (! CapellCore::isPackageEnabled($package->name)) {
+            return;
+        }
 
-        foreach ($this->registry->all() as $manifest) {
-            foreach ($this->resolveProviders($manifest) as $provider) {
-                if (class_exists($provider)) {
-                    $providers[] = $provider;
+        $manifest = $package->manifest;
+        if ($manifest instanceof CapellManifestData) {
+            $selected = $this->resolveProviders($manifest, true);
+            foreach (['auth', 'runtime', 'admin', 'frontend'] as $bucket) {
+                foreach ($package->getProviderClasses($bucket) as $provider) {
+                    if (! in_array($provider, $selected, true)) {
+                        continue;
+                    }
+
+                    if (! in_array($bucket, $this->selectedProviderBuckets($manifest, $provider, true), true)) {
+                        continue;
+                    }
+
+                    if (! $replayBootedCallbacks && ! $this->app->providerIsLoaded($provider) && ! InstalledRuntimeLifecycle::adopts($provider)) {
+                        continue;
+                    }
+
+                    $context = TrustedCorePackages::contains($manifest->name)
+                        ? ExtensionContributionReceiptContext::foundation($manifest->name, $bucket, $provider)
+                        : ExtensionContributionReceiptContext::forPackage($manifest->name, $bucket, $provider);
+                    $this->receipts->rememberProviderContext($provider, $context);
+                    $this->receipts->withContexts([$context], function () use ($provider, $replayBootedCallbacks): void {
+                        $this->app->register($provider);
+                        if ($replayBootedCallbacks) {
+                            $this->app->getProvider($provider)?->callBootedCallbacks();
+                        }
+                    });
                 }
             }
         }
 
-        return $providers;
+        if ($replayBootedCallbacks && $package->serviceProviderClass !== null) {
+            $provider = $this->app->getProvider($package->serviceProviderClass);
+            if ($provider instanceof PackageServiceProvider) {
+                $provider->callBootedCallbacks();
+            }
+        }
     }
 
     /** @return list<string> */

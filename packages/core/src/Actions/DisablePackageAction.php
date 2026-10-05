@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -20,5 +21,6 @@ class DisablePackageAction
     public function handle(PackageData $package): void
     {
         CapellCore::markPackageDisabled($package->name);
+        RestartQueueWorkersAction::run();
     }
 }
