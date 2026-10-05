@@ -14,7 +14,7 @@ use RuntimeException;
 /** @extends AbstractKeyedRegistry<ProjectBuildArtifactHandler> */
 final class ProjectBuildArtifactHandlerRegistry extends AbstractKeyedRegistry
 {
-    private bool $taggedHandlersDiscovered = false;
+    private int $taggedHandlerCount = 0;
 
     public function __construct(private readonly Container $container) {}
 
@@ -63,14 +63,11 @@ final class ProjectBuildArtifactHandlerRegistry extends AbstractKeyedRegistry
 
     private function discoverTaggedHandlers(): void
     {
-        if ($this->taggedHandlersDiscovered) {
-            return;
-        }
-
-        $this->taggedHandlersDiscovered = true;
-        foreach ($this->container->tagged(ProjectBuildArtifactHandler::TAG) as $handler) {
+        $tagged = iterator_to_array($this->container->tagged(ProjectBuildArtifactHandler::TAG));
+        foreach (array_slice($tagged, $this->taggedHandlerCount) as $handler) {
             throw_unless($handler instanceof ProjectBuildArtifactHandler, LogicException::class, 'Tagged project build artifact handlers must implement the project build artifact handler contract.');
             $this->register($handler);
+            $this->taggedHandlerCount++;
         }
     }
 }

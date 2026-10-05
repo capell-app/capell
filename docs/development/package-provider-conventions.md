@@ -4,23 +4,11 @@ Package providers are composition roots. They bind services and register extensi
 
 ## Boot Lifecycle
 
-`AbstractPackageServiceProvider` runs two hooks after the application has booted:
+Use `bootInstalledRuntime(): void` for new installed-only wiring. It is centrally guarded and runs once per application bootstrap, both on normal boot and after an in-process install. Ordinary Laravel and child providers use the `RegistersInstalledRuntime` trait.
 
-- `bootPackage()` always runs, including package discovery and before installation. Use it only for work genuinely required to discover or install the package.
-- `bootInstalledPackage()` runs only when discovery is not active and the package is installed. Ordinary runtime, admin, frontend, and settings registrations belong here.
+`bootPackage()` is an ungated provider booted callback for discovery/install plumbing. The legacy `bootInstalledPackage(): self` callback keeps its existing installed/discovery gate and replay semantics for providers that have not opted into the new hook. Overriding the new hook suppresses the old installed callback, while Spatie hooks keep their normal semantics.
 
-Do not reproduce the installed-package check inside every provider. Override the narrow hook and return `$this`:
-
-```php
-protected function bootInstalledPackage(): self
-{
-    $this->surface()->settingsClass('example', ExampleSettings::class);
-
-    return $this;
-}
-```
-
-Late registration of surfaces such as Blueprint subjects and outbound events is only legal inside `PackageSurfaceRegistrar::duringPackageInstallation()`, which reopens the registries the container froze on `booted` and treats an identical re-registration as a no-op (a conflicting one still throws). A provider whose surfaces must survive the mid-install re-boot registers them in `bootInstalledPackage()`, which runs inside a booted callback that `InstallPackageAction` re-runs through `callBootedCallbacks()` once the package is installed. Test the install path on a freshly migrated, empty database: a repeat run on leftover rows can hide a surface that was never registered.
+See [Installed runtime lifecycle](installed-runtime-lifecycle.md) for the API, compatibility rules, dependency ordering, retry limitations, surface refresh boundaries and reusable contract test. Runtime activation opens boot-frozen registries through `PackageSurfaceRegistrar::duringPackageInstallation()`; package authors do not need another replay callback or flag.
 
 Implement the real registration path first. Provider wiring does not require a special `capell.test` hostname or a mandatory testing-environment gate; tests should exercise the same container registrations as the application.
 
@@ -47,7 +35,7 @@ Choose the container lifetime from the state the service holds:
 
 - Use a singleton for immutable or application-lifetime services.
 - Use a scoped binding for request/job-local mutable state.
-- If mutable state must remain singleton-scoped, implement `Resettable`, tag it with `Resettable::TAG`, and clear all request-derived state in `flushOctaneState()`.
+- If request-derived state must remain singleton-scoped, implement `Resettable`, tag it with `Resettable::TAG`, and clear that request-derived state in `flushOctaneState()`. Application bootstrap guards are not request-derived state and must not be reset.
 
 This applies to registries and bridge services as well as ordinary services. A singleton must not retain a request, user, tenant, model, or site between Octane requests.
 

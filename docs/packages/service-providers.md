@@ -9,7 +9,7 @@ Manifest v3 separates lifecycle-safe providers from runtime providers:
 - `metadata` and `install` providers are lifecycle-safe. Public processes load `metadata`, but deliberately exclude `install`.
 - `runtime`, `admin`, and `frontend` providers are active-runtime providers and only load for enabled packages.
 - `admin` providers also load in console context for enabled packages so admin-owned commands can resolve their dependencies.
-- `frontend` providers load only in frontend context.
+- `frontend` providers load in every enabled role, including authoring previews.
 
 The immutable `public` runtime role loads enabled `runtime`, `frontend`, and `auth` buckets plus `metadata`; it excludes `install` and `admin`. The `combined` and `authoring` roles load every bucket, and authoring retains Frontend for real previews. See [Runtime roles](../operations/runtime-roles.md).
 
@@ -19,7 +19,7 @@ Do not put Filament resources, dashboard Filament widgets, render hooks, fronten
 
 Use the runtime provider for models, config, routes shared across enabled contexts, and container bindings. Normal package metadata belongs in `capell.json`; provider-side `CapellCore::registerPackage()` is only for trusted first-party bootstrap and compatibility paths.
 
-Providers extending `AbstractPackageServiceProvider` should put ordinary package registrations in `bootInstalledPackage()`. `bootPackage()` is ungated and is reserved for work genuinely needed before installation or during discovery.
+Providers extending `AbstractPackageServiceProvider` should put ordinary installed registrations in `bootInstalledRuntime(): void`. See [Installed runtime lifecycle](../development/installed-runtime-lifecycle.md) for migration and refresh boundaries. `bootPackage()` is ungated and is reserved for work genuinely needed before installation or during discovery.
 
 ```php
 <?php
@@ -30,6 +30,7 @@ namespace Capell\Example\Providers;
 
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Spatie\LaravelPackageTools\Package;
+use Override;
 
 final class ExampleServiceProvider extends AbstractPackageServiceProvider
 {
@@ -37,6 +38,7 @@ final class ExampleServiceProvider extends AbstractPackageServiceProvider
 
     public static string $packageName = 'capell-app/example';
 
+    #[Override]
     public function configurePackage(Package $package): void
     {
         $package
@@ -46,11 +48,10 @@ final class ExampleServiceProvider extends AbstractPackageServiceProvider
             ->hasViews(self::$name);
     }
 
-    protected function bootInstalledPackage(): self
+    #[Override]
+    protected function bootInstalledRuntime(): void
     {
         // Bind runtime services and register installed package surfaces here.
-
-        return $this;
     }
 }
 ```
@@ -72,10 +73,20 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Example\Filament\Pages\ExamplePage;
 use Capell\Example\Filament\Widgets\ExampleWidget;
 use Illuminate\Support\ServiceProvider;
+use Capell\Core\Support\Packages\RegistersInstalledRuntime;
+use Override;
 
 final class AdminServiceProvider extends ServiceProvider
 {
+    use RegistersInstalledRuntime;
+
+    #[Override]
     public function register(): void
+    {
+        $this->registerInstalledRuntime('capell-app/example', 'admin');
+    }
+
+    protected function bootInstalledRuntime(): void
     {
         CapellAdmin::contributeToAdminSurface(
             AdminSurfaceContributionData::page(ExamplePage::class),
@@ -106,7 +117,7 @@ public function boot(): void
 
 - Keep providers small.
 - Call Actions for derived setup work.
-- Use `bootInstalledPackage()` for installed-only behavior; do not repeat that lifecycle gate in each provider.
+- Use `bootInstalledRuntime()` for installed-only behaviour; do not repeat that lifecycle gate or add another once-only flag.
 - Use contract `TAG` constants for focused contributors and `AdminBridgeRegistry` / `AdminBridgeRegistrar` for grouped admin integration.
 - Register package-owned settings through `surface()` / `PackageSurfaceRegistrar`; register settings supplied by an external admin integration through `AdminBridgeRegistrar`.
 - Choose singleton or scoped bindings from the state lifetime. Mutable singletons must implement and be tagged as `Resettable`.

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
+use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -19,12 +22,17 @@ class EnablePackageAction
 
     public function handle(PackageData $package, ?string $actor = null): void
     {
+        resolve(InstalledRuntimeLifecycle::class)->assertCanActivate($package->name);
+
         if ($package->getKind() === 'bundle') {
             foreach ($package->getRequirements() as $memberName) {
                 CapellCore::markPackageInstalled($memberName, $actor);
+                RefreshInstalledPackageRuntimeAction::run(CapellCore::getPackage($memberName), replayBootedCallbacks: false);
             }
         }
 
         CapellCore::markPackageInstalled($package->name, $actor);
+        RefreshInstalledPackageRuntimeAction::run($package, replayBootedCallbacks: false);
+        RestartQueueWorkersAction::run();
     }
 }

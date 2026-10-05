@@ -14,7 +14,7 @@ final class HealthCheckRegistry
     /** @var array<string, HealthCheck> */
     private array $checks = [];
 
-    private bool $discovered = false;
+    private int $discoveredCount = 0;
 
     public function __construct(private readonly Container $container) {}
 
@@ -45,11 +45,8 @@ final class HealthCheckRegistry
 
     private function discover(): void
     {
-        if ($this->discovered) {
-            return;
-        }
-
-        $tagged = iterator_to_array($this->container->tagged(HealthCheck::TAG));
+        $all = iterator_to_array($this->container->tagged(HealthCheck::TAG));
+        $tagged = array_slice($all, $this->discoveredCount);
         usort($tagged, static fn (mixed $left, mixed $right): int => get_debug_type($left) <=> get_debug_type($right));
         $discovered = [];
         foreach ($tagged as $check) {
@@ -60,7 +57,7 @@ final class HealthCheckRegistry
         }
 
         $this->checks = [...$this->checks, ...$discovered];
-        $this->discovered = true;
+        $this->discoveredCount = count($all);
     }
 
     private function validate(HealthCheck $check): void

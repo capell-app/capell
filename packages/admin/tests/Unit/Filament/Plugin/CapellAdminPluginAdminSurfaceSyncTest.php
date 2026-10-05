@@ -79,7 +79,7 @@ PHP);
     }
 });
 
-it('can resynchronize late admin-surface contributions onto the panel', function (): void {
+it('can populate panel membership from contributions before route construction', function (): void {
     CapellAdmin::clearAdminSurfaceContributions();
 
     $plugin = CapellAdminPlugin::make();
@@ -95,10 +95,8 @@ it('can resynchronize late admin-surface contributions onto the panel', function
         ->and($panel->getResources())->not->toContain(TestLateResource::class);
 
     /*
-     * Packages can contribute pages/resources from boot(), booted(), or
-     * afterResolving() callbacks. When that happens after the initial panel
-     * build, the registry is correct but Filament's panel stays stale unless
-     * we project the final registry back onto the panel.
+     * This internal projection belongs to initial route construction. Public
+     * runtime synchronisation defers new membership to a fresh application.
      */
     CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::page(TestLatePage::class));
     CapellAdmin::contributeToAdminSurface(AdminSurfaceContributionData::resource(TestLateResource::class, group: 'Late'));
