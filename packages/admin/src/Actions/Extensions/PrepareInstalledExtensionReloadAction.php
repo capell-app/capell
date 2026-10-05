@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Extensions;
 
+use Capell\Core\Actions\RuntimeRefresh\PreparePackageRuntimeReloadAction;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Filament\Facades\Filament;
 use Illuminate\Filesystem\Filesystem;
@@ -23,6 +24,7 @@ final class PrepareInstalledExtensionReloadAction
     public function handle(): void
     {
         try {
+            PreparePackageRuntimeReloadAction::run();
             // Rebuilding routes in this application would preserve its old panel topology.
             // The next ordinary request constructs routes from the installed package state.
             $paths = [$this->app->getCachedRoutesPath()];

@@ -102,6 +102,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioLaunchReadiness
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
+use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
@@ -265,6 +266,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Features\SupportTesting\Testable;
@@ -350,6 +352,15 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bind(AdminPanelUrlResolver::class, FilamentAdminPanelUrlResolver::class);
         $this->app->tag([AdminUserAccessCheck::class], DoctorCheck::TAG);
         $this->app->singleton(InstalledPanelRuntime::class);
+        $this->app->make(Dispatcher::class)->listen(RouteMatched::class, static function (RouteMatched $event): void {
+            $name = (string) $event->route->getName();
+            if (str_starts_with($name, 'filament.')) {
+                $panel = explode('.', $name)[1];
+                $event->route->middleware(EnsureInstalledPanelAvailable::class . ':' . $panel);
+                $event->route->computedMiddleware = null;
+            }
+        });
+        Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
         $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, static function (): void {
             foreach (Filament::getPanels() as $panel) {
                 if ($panel->hasPlugin(CapellAdminPlugin::ID)) {

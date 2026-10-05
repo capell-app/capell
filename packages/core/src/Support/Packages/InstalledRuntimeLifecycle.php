@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Packages;
 
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Http\Middleware\EnsureInstalledRuntimeAvailable;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
@@ -13,9 +14,13 @@ use Closure;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Routing\Route;
+use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Log;
 use ReflectionMethod;
 use RuntimeException;
 use Throwable;
+use WeakMap;
 use WeakReference;
 
 /** Application-bootstrap state: never reset this service at request/job boundaries. */
@@ -27,9 +32,15 @@ final class InstalledRuntimeLifecycle
     /** @var array<class-string, 'activating'|'active'|'failed'> */
     private array $states = [];
 
+    /** @var array<string, list<Route>> */
+    private array $packageRoutes = [];
+
     private bool $refreshing = false;
 
     private bool $unavailable = false;
+
+    /** @var array<string, array{package: string, provider: string, bucket: string, step: string, panel: ?string, message: string}> */
+    private array $failures = [];
 
     private bool $bootRefreshScheduled = false;
 
@@ -47,13 +58,24 @@ final class InstalledRuntimeLifecycle
     /** @var array<string, true> */
     private array $activatedPackages = [];
 
-    public function __construct(private readonly Application $app) {}
+    /** @var WeakMap<Throwable, true> */
+    private WeakMap $reported;
+
+    public function __construct(private readonly Application $app)
+    {
+        $this->reported = new WeakMap;
+    }
 
     /** @param class-string $provider */
     public static function adopts(string $provider): bool
     {
         return in_array(RegistersInstalledRuntime::class, class_uses_recursive($provider), true)
             && new ReflectionMethod($provider, 'bootInstalledRuntime')->getDeclaringClass()->getName() !== AbstractPackageServiceProvider::class;
+    }
+
+    public function wasReported(Throwable $exception): bool
+    {
+        return isset($this->reported[$exception]);
     }
 
     /**
@@ -70,14 +92,49 @@ final class InstalledRuntimeLifecycle
         $this->pending[$package][$provider] = true;
     }
 
-    public function assertCanActivate(): void
+    public function assertCanActivate(?string $package = null): void
     {
         if (Container::getInstance() !== $this->app) {
             throw new RuntimeException(__('capell::runtime-refresh.owning_application_required'));
         }
 
-        if ($this->unavailable) {
+        if ($package !== null) {
+            $this->assertPackageAvailable($package);
+        } elseif ($this->unavailable) {
             throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
+        }
+    }
+
+    public function recordFailure(Throwable $exception, string $package, string $provider, string $bucket, string $step, ?string $panel = null): void
+    {
+        $this->reported[$exception] = true;
+        $key = $panel === null ? $package : 'panel:' . $panel;
+        if (isset($this->failures[$key])) {
+            return;
+        }
+
+        $this->failures[$key] = ['package' => $package, 'provider' => $provider, 'bucket' => $bucket, 'step' => $step, 'panel' => $panel, 'message' => $exception->getMessage()];
+        Log::error('Installed runtime registration failed.', [...$this->failures[$key], 'exception' => (string) $exception]);
+    }
+
+    /** @return list<array{package: string, provider: string, bucket: string, step: string, panel: ?string, message: string}> */
+    public function failures(): array
+    {
+        return array_values($this->failures);
+    }
+
+    public function packageFailed(string $package): bool
+    {
+        return isset($this->failures[$package]);
+    }
+
+    /** Bootstrap failures deny protected surfaces, never the application's entry points. */
+    public function refreshForBootstrap(?string $package = null): void
+    {
+        try {
+            $this->refresh($package);
+        } catch (Throwable $throwable) {
+            throw_if(! $this->failed($throwable) && ! $this->unavailable, $throwable);
         }
     }
 
@@ -94,24 +151,22 @@ final class InstalledRuntimeLifecycle
     /** @param class-string $provider */
     public function providerBooted(string $provider): void
     {
-        if ($this->unavailable) {
-            throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
-        }
-
         if (isset($this->bootedProviders[$provider])) {
             return;
         }
 
         $this->bootedProviders[$provider] = true;
         if ($this->app->isBooted()) {
-            $this->refresh();
+            $this->refreshForBootstrap($this->providers[$provider]['package']);
 
             return;
         }
 
         if (! $this->bootRefreshScheduled) {
             $this->bootRefreshScheduled = true;
-            $this->app->booted($this->refresh(...));
+            $this->app->booted(function (): void {
+                $this->refreshForBootstrap();
+            });
         }
     }
 
@@ -121,7 +176,7 @@ final class InstalledRuntimeLifecycle
      * @param  Closure(): T  $callback
      * @return T
      */
-    public function duringProviderRegistration(Closure $callback): mixed
+    public function duringProviderRegistration(Closure $callback, ?string $package = null): mixed
     {
         $this->registrationDepth++;
         try {
@@ -131,19 +186,19 @@ final class InstalledRuntimeLifecycle
         }
 
         if ($this->app->isBooted()) {
-            $this->refresh();
+            $this->refresh($package);
         }
 
         return $result;
     }
 
-    public function refresh(): void
+    public function refresh(?string $package = null): void
     {
         if ($this->refreshing || $this->registrationDepth > 0 || $this->discovering()) {
             return;
         }
 
-        if ($this->unavailable) {
+        if ($this->unavailable && $package === null) {
             throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
         }
 
@@ -151,16 +206,21 @@ final class InstalledRuntimeLifecycle
             return;
         }
 
-        $this->assertCanActivate();
+        $this->assertCanActivate($package);
         $this->refreshing = true;
 
         try {
             $this->app->make(PackageSurfaceRegistrar::class)->duringPackageInstallation(function (): void {
+                $failure = null;
                 do {
                     $known = count($this->providers);
                     $completed = [];
                     foreach (array_keys($this->pending) as $package) {
-                        $this->activatePackage($package, [], $completed);
+                        try {
+                            $this->activatePackage($package, [], $completed);
+                        } catch (Throwable $exception) {
+                            $failure ??= $exception;
+                        }
                     }
                 } while (count($this->providers) !== $known);
 
@@ -172,11 +232,16 @@ final class InstalledRuntimeLifecycle
 
                     unset($this->activatedPackages[$package]);
                 }
+
+                if (! $failure instanceof Throwable) {
+                    return;
+                }
+
+                throw $failure;
             });
         } catch (Throwable $throwable) {
             // Preserve identity for the loader without retaining a failed job's trace.
             $this->lastFailure = WeakReference::create($throwable);
-            $this->unavailable = true;
 
             throw $throwable;
         } finally {
@@ -187,6 +252,25 @@ final class InstalledRuntimeLifecycle
     public function failed(Throwable $throwable): bool
     {
         return $this->lastFailure?->get() === $throwable;
+    }
+
+    /** @param list<string> $checked */
+    private function assertPackageAvailable(string $package, array $checked = []): void
+    {
+        if ($this->packageFailed($package)) {
+            throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
+        }
+
+        if (in_array($package, $checked, true) || ! CapellCore::hasPackage($package)) {
+            return;
+        }
+
+        $data = CapellCore::getPackage($package);
+        if ($data->getKind() === 'bundle') {
+            foreach ($data->getRequirements() as $member) {
+                $this->assertPackageAvailable($member, [...$checked, $package]);
+            }
+        }
     }
 
     /**
@@ -208,6 +292,12 @@ final class InstalledRuntimeLifecycle
         }
 
         $data = CapellCore::getPackage($package);
+        // Composer discovery can preload a main provider absent from every bucket.
+        $main = $data->serviceProviderClass;
+        if ($ancestors !== [] && $main !== null && self::adopts($main) && ! isset($this->providers[$main])) {
+            return $completed[$package] = false;
+        }
+
         foreach (['auth', 'runtime', 'admin', 'frontend'] as $bucket) {
             if (! $this->selected($bucket)) {
                 continue;
@@ -240,6 +330,8 @@ final class InstalledRuntimeLifecycle
                 }
 
                 $this->states[$provider] = 'activating';
+                $routes = $this->app->make(Router::class)->getRoutes();
+                $before = array_map(spl_object_id(...), $routes->getRoutes());
 
                 try {
                     $receipts = $this->app->make(ExtensionContributionReceiptRegistry::class);
@@ -258,8 +350,22 @@ final class InstalledRuntimeLifecycle
                     // An opaque hook cannot roll back partially registered wiring.
                     $this->states[$provider] = 'failed';
                     $this->unavailable = true;
+                    $this->recordFailure($throwable, $package, $provider, $registration['bucket'], 'installed-runtime-hook');
 
                     throw $throwable;
+                } finally {
+                    foreach ($routes->getRoutes() as $route) {
+                        if (! in_array(spl_object_id($route), $before, true)) {
+                            $this->packageRoutes[$package][] = $route;
+                        }
+                    }
+
+                    if ($this->packageFailed($package)) {
+                        foreach ($this->packageRoutes[$package] ?? [] as $route) {
+                            $route->middleware(EnsureInstalledRuntimeAvailable::class . ':' . $package);
+                            $route->computedMiddleware = null;
+                        }
+                    }
                 }
             }
         } while (count($this->providers) !== $known);

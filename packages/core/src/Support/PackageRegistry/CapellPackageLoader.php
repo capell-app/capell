@@ -57,7 +57,7 @@ final class CapellPackageLoader
     {
         $this->app->make(InstalledRuntimeLifecycle::class)->duringProviderRegistration(function () use ($package, $replayBootedCallbacks): void {
             $this->registerPackageProviders($package, $replayBootedCallbacks);
-        });
+        }, $package->name);
     }
 
     /** @return list<string> */

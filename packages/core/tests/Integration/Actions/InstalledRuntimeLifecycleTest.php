@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\EnablePackageAction;
 use Capell\Core\Actions\InstallPackageAction;
+use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Contracts\PackageLifecycleAction;
@@ -25,8 +26,11 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Foundation\Application;
+use Illuminate\Routing\RouteCollection;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Spatie\LaravelPackageTools\Package;
@@ -546,3 +550,134 @@ final class FailingBundleRuntimeFixture implements PackageLifecycleAction
         throw new RuntimeException('member failed');
     }
 }
+
+it('round three waits for Composer main adopters outside manifest buckets', function (): void {
+    LoaderDependentRuntimeFixture::$order = [];
+    foreach (['test/loader-dependent' => ComposerDependentRuntimeFixture::class, 'test/loader-dependency' => ComposerDependencyRuntimeFixture::class] as $name => $provider) {
+        CapellCore::registerPackage($name, serviceProviderClass: $provider);
+        CapellCore::markPackageInstalled($name);
+    }
+
+    CapellCore::getPackage('test/loader-dependent')->requirements = ['test/loader-dependency'];
+    app()->register(ComposerDependentRuntimeFixture::class);
+    expect(LoaderDependentRuntimeFixture::$order)->toBe([]);
+    app()->register(ComposerDependencyRuntimeFixture::class);
+    expect(LoaderDependentRuntimeFixture::$order)->toBe(['dependency', 'dependent']);
+});
+
+it('round three clears persisted activation caches before success for every operation', function (string $operation): void {
+    $package = CapellCore::getPackage(RuntimeLifecycleFixture::$packageName);
+    app()->register(RuntimeLifecycleFixture::class);
+    $routes = resolve(Router::class)->getRoutes();
+    throw_unless($routes instanceof RouteCollection, RuntimeException::class, 'Expected uncached fixture routes.');
+    $paths = [app()->getCachedRoutesPath(), app()->getCachedConfigPath()];
+    foreach ($paths as $path) {
+        file_put_contents($path, '<?php return ' . var_export($path === app()->getCachedRoutesPath() ? $routes->compile() : config()->all(), true) . ';');
+    }
+
+    try {
+        match ($operation) {
+            'install' => InstallPackageAction::run($package),
+            'enable' => EnablePackageAction::run($package),
+            'refresh' => RefreshInstalledPackageRuntimeAction::run($package),
+            default => throw new LogicException('Unknown runtime operation.'),
+        };
+        foreach ($paths as $path) {
+            expect(file_exists($path))->toBeFalse();
+        }
+    } finally {
+        foreach ($paths as $path) {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+    }
+})->with(['install', 'enable', 'refresh']);
+
+it('round three logs a caught hook cause once with diagnostic context', function (): void {
+    $provider = app()->register(RuntimeLifecycleFixture::class);
+    $provider->fail = true;
+    CapellCore::markPackageInstalled(RuntimeLifecycleFixture::$packageName);
+    $logger = Log::spy();
+    $runtime = resolve(InstalledRuntimeLifecycle::class);
+    expect(fn () => $runtime->refresh())->toThrow(RuntimeException::class, 'fixture failure');
+    expect(fn () => $runtime->refresh())->toThrow(RuntimeException::class);
+    $logger->shouldHaveReceived('error')->once()->withArgs(static fn (string $message, array $context): bool => $context['package'] === RuntimeLifecycleFixture::$packageName
+        && $context['provider'] === RuntimeLifecycleFixture::class && $context['step'] === 'installed-runtime-hook'
+        && is_string($context['exception']) && str_contains($context['exception'], 'fixture failure'));
+});
+
+it('reports pending retained process activation through the install progress channel', function (): void {
+    config(['octane.server' => 'swoole']);
+    $reporter = Mockery::mock(ProgressReporter::class);
+    $reporter->shouldReceive('report')->once()->with(__('capell::runtime-refresh.retained_reload_required'));
+    InstallPackageAction::run(CapellCore::getPackage(RuntimeLifecycleFixture::$packageName), reporter: $reporter);
+});
+
+it('continues independent bootstrap activation after a hook fails', function (): void {
+    $runtime = resolve(InstalledRuntimeLifecycle::class);
+    CapellCore::markPackageInstalled(RuntimeLifecycleFixture::$packageName);
+    CapellCore::registerPackage('test/independent-runtime');
+    CapellCore::markPackageInstalled('test/independent-runtime');
+    $runtime->register(RuntimeLifecycleFixture::class, RuntimeLifecycleFixture::$packageName, 'runtime', static function (): void {
+        throw new RuntimeException('one failed package');
+    });
+    $ran = false;
+    $runtime->register(OrdinaryRuntimeChildFixture::class, 'test/independent-runtime', 'runtime', static function () use (&$ran): void {
+        $ran = true;
+    });
+    $runtime->refreshForBootstrap();
+    expect($ran)->toBeTrue()->and(CapellCore::isPackageInstalled(RuntimeLifecycleFixture::$packageName))->toBeFalse();
+});
+
+it('does not log the original hook exception again through the exception handler', function (): void {
+    $provider = app()->register(RuntimeLifecycleFixture::class);
+    $provider->fail = true;
+    CapellCore::markPackageInstalled(RuntimeLifecycleFixture::$packageName);
+    $logger = Log::spy();
+    try {
+        resolve(InstalledRuntimeLifecycle::class)->refresh();
+    } catch (RuntimeException $runtimeException) {
+        report($runtimeException);
+    }
+
+    $logger->shouldHaveReceived('error')->once();
+});
+
+final class ComposerDependentRuntimeFixture extends RuntimeLifecycleFixture
+{
+    public static string $packageName = 'test/loader-dependent';
+
+    #[Override]
+    protected function bootInstalledRuntime(): void
+    {
+        LoaderDependentRuntimeFixture::$order[] = 'dependent';
+    }
+}
+
+final class ComposerDependencyRuntimeFixture extends RuntimeLifecycleFixture
+{
+    public static string $packageName = 'test/loader-dependency';
+
+    #[Override]
+    protected function bootInstalledRuntime(): void
+    {
+        LoaderDependentRuntimeFixture::$order[] = 'dependency';
+    }
+}
+
+it('keeps unrelated lifecycle commands available after a package hook failure', function (string $operation): void {
+    $provider = app()->register(RuntimeLifecycleFixture::class);
+    $provider->fail = true;
+    CapellCore::markPackageInstalled(RuntimeLifecycleFixture::$packageName);
+    expect(fn () => resolve(InstalledRuntimeLifecycle::class)->refresh())->toThrow(RuntimeException::class);
+    CapellCore::registerPackage('test/unrelated-operation');
+    $package = CapellCore::getPackage('test/unrelated-operation');
+    match ($operation) {
+        'install' => InstallPackageAction::run($package),
+        'enable' => EnablePackageAction::run($package),
+        'refresh' => RefreshInstalledPackageRuntimeAction::run($package),
+        default => throw new LogicException('Unknown runtime operation.'),
+    };
+    expect(resolve(InstalledRuntimeLifecycle::class)->packageFailed($package->name))->toBeFalse();
+})->with(['install', 'enable', 'refresh']);

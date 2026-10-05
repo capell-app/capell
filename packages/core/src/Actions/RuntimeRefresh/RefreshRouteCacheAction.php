@@ -19,9 +19,10 @@ class RefreshRouteCacheAction
         private readonly RunArtisanRuntimeRefreshStageAction $runArtisanStage,
     ) {}
 
-    public function handle(): RuntimeRefreshStageResultData
+    public function handle(bool $rebuild = true): RuntimeRefreshStageResultData
     {
-        if (! $this->application->routesAreCached()) {
+        // Laravel memoises bootstrap cache mode; activation must inspect the actual file.
+        if (! ($rebuild ? $this->application->routesAreCached() : is_file($this->application->getCachedRoutesPath()))) {
             return new RuntimeRefreshStageResultData(
                 key: 'routes',
                 label: 'Laravel route cache',
@@ -31,6 +32,6 @@ class RefreshRouteCacheAction
             );
         }
 
-        return $this->runArtisanStage->handle('routes', 'Laravel route cache', 'route:cache');
+        return $this->runArtisanStage->handle('routes', 'Laravel route cache', $rebuild ? 'route:cache' : 'route:clear');
     }
 }

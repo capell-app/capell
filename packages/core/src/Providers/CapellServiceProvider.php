@@ -84,7 +84,6 @@ use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Events\ServingCapell;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Http\Middleware\EnsureInstalledRuntimeAvailable;
 use Capell\Core\Http\Middleware\EnsureMultiNodeUploadsUseSharedStorage;
 use Capell\Core\Listeners\CreateRedirectsForChangedPageUrls;
 use Capell\Core\Listeners\PageTranslationCreatingListener;
@@ -214,13 +213,14 @@ use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Schema\Blueprint as SchemaBlueprint;
+use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -230,6 +230,7 @@ use Override;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\Permission\Models\Role;
+use Throwable;
 
 class CapellServiceProvider extends AbstractPackageServiceProvider
 {
@@ -546,9 +547,12 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(ModelInterceptorRegistry::class);
         $this->app->singletonIf(CapellPackageRegistry::class);
         $this->app->singletonIf(InstalledRuntimeLifecycle::class);
-        $this->app->make(InstalledRuntimeLifecycle::class);
-        $this->callAfterResolving(Kernel::class, static function (\Illuminate\Foundation\Http\Kernel $kernel): void {
-            $kernel->prependMiddleware(EnsureInstalledRuntimeAvailable::class);
+
+        $runtime = $this->app->make(InstalledRuntimeLifecycle::class);
+        $this->app->afterResolving(ExceptionHandler::class, static function (ExceptionHandler $handler) use ($runtime): void {
+            if ($handler instanceof Handler) {
+                $handler->reportable(static fn (Throwable $exception): bool => ! $runtime->wasReported($exception));
+            }
         });
         $this->app->singleton(ExtensionContributionReceiptRegistry::class);
         $this->app->singleton(ExtensionOrderingAudit::class);

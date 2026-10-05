@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
+use Capell\Admin\Contracts\Extenders\DeclaresFullPageOnlyMiddleware;
 use Capell\Admin\Enums\SidebarCollapseEnum;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Providers\AdminServiceProvider;
@@ -17,11 +18,17 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateSecurityPanelExtender;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeAllowMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeBlockMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeFullPageOnlyMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeTenantMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeWireBlockMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestAdminPanelExtender;
+use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\InstallPackageAction;
+use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
+use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
+use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\IdentifyTenant;
 use Filament\Http\Middleware\SetUpPanel;
@@ -29,9 +36,14 @@ use Filament\Panel;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\View\View;
+use Illuminate\Foundation\Configuration\ApplicationBuilder;
+use Illuminate\Queue\QueueManager;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
@@ -369,7 +381,7 @@ it('denies excluded panel authentication instead of classifying the route as pub
     $this->get('/runtime-coverage/probe')->assertStatus(503);
 });
 
-it('denies Livewire updates after a partial panel refresh even if its route was not synchronised', function (): void {
+it('denies Livewire updates after a partial runtime failure even if its route was not synchronised', function (string $failure): void {
     $panel = Panel::make()->id('failed-wire');
     Livewire::component('runtime.failed-counter', RuntimeCounterComponent::class);
     Route::get('/runtime-failed-wire', static fn (): string => Livewire::mount('runtime.failed-counter'))->name('filament.failed-wire.counter');
@@ -392,10 +404,21 @@ it('denies Livewire updates after a partial panel refresh even if its route was 
     app()->instance('runtime.failed-wire', $extender);
     app()->tag(['runtime.failed-wire'], AdminPanelExtender::TAG);
 
-    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    if ($failure === 'hook') {
+        CapellCore::registerPackage('test/wire-hook-failure');
+        CapellCore::markPackageInstalled('test/wire-hook-failure');
+        $runtime = resolve(InstalledRuntimeLifecycle::class);
+        $runtime->register(LatePanelRuntimeProvider::class, 'test/wire-hook-failure', 'runtime', static function (): void {
+            throw new RuntimeException('incomplete hook');
+        });
+        expect(fn () => $runtime->refresh())->toThrow(RuntimeException::class);
+    } else {
+        expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    }
+
     Livewire::flushState();
     $this->postJson($uri, $payload, ['X-Livewire' => 'true'])->assertStatus(503);
-});
+})->with(['hook', 'panel']);
 
 it('denies the current response when an install caller catches a partial panel failure', function (): void {
     $panel = Panel::make()->id('caught-failure');
@@ -417,6 +440,153 @@ it('denies the current response when an install caller catches a partial panel f
         }
 
         return 'ready';
-    });
+    })->name('filament.caught-failure.install');
     $this->get('/runtime-caught-failure')->assertStatus(503);
+});
+
+it('round three confines failures to admin while unrelated entry points run', function (string $failure): void {
+    $panel = Filament::getPanel('admin');
+    Route::get('/runtime-public', static fn (): string => 'public');
+    $builder = new ApplicationBuilder(app());
+    $routes = new ReflectionMethod($builder, 'buildRoutingCallback')->invoke($builder, null, null, null, '/up', 'api', null);
+    $routes();
+    if ($failure === 'hook') {
+        CapellCore::registerPackage('test/failed-runtime');
+        CapellCore::markPackageInstalled('test/failed-runtime');
+        $runtime = resolve(InstalledRuntimeLifecycle::class);
+        $runtime->register(LatePanelRuntimeProvider::class, 'test/failed-runtime', 'runtime', static function (): void {
+            throw new RuntimeException('hook failure');
+        });
+        expect(fn () => $runtime->refresh())->toThrow(RuntimeException::class);
+    } else {
+        $extender = new class implements AdminPanelExtender
+        {
+            #[Override]
+            public function extend(Panel $panel): void
+            {
+                throw new RuntimeException('panel failure');
+            }
+        };
+        app()->instance('runtime.failure-scope', $extender);
+        app()->tag(['runtime.failure-scope'], AdminPanelExtender::TAG);
+        expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    }
+
+    $this->get('/runtime-public')->assertOk();
+    $this->get('/up')->assertOk();
+    expect(Artisan::call('list'))->toBe(0);
+    resolve(QueueManager::class)->connection('sync')->push(static function (): void {
+        app()->instance('runtime.job-ran', true);
+    });
+    expect(resolve('runtime.job-ran'))->toBeTrue();
+    $scheduled = false;
+    $event = resolve(Schedule::class)->call(static function () use (&$scheduled): void {
+        $scheduled = true;
+    });
+    $event->run(app());
+
+    expect($scheduled)->toBeTrue();
+    $this->get('/admin/login')->assertStatus(503);
+    $inherited = clone app();
+    expect($inherited->make(InstalledRuntimeLifecycle::class)->isUnavailable()
+        || $inherited->make(InstalledPanelRuntime::class)->isUnavailable('admin'))->toBeTrue();
+    $this->refreshApplication();
+    Route::get('/admin/runtime-recovered', static fn (): string => 'recovered')->name('filament.admin.recovered');
+    $this->get('/admin/runtime-recovered')->assertOk();
+})->with(['hook', 'panel']);
+
+it('round three permits inherited panel synchronisation after deactivation', function (string $operation): void {
+    $panel = Filament::getPanel('admin');
+    CapellCore::registerPackage('test/removed-runtime');
+    CapellCore::markPackageInstalled('test/removed-runtime');
+    CapellAdminPlugin::make()->synchronizePanelAdminSurface($panel);
+    $owner = app();
+    Container::setInstance(clone $owner);
+    try {
+        $package = CapellCore::getPackage('test/removed-runtime');
+        if ($operation === 'uninstall') {
+            UninstallPackageAction::run($package);
+        } else {
+            DisablePackageAction::run($package);
+        }
+
+        CapellAdminPlugin::make()->synchronizePanelAdminSurface($panel);
+        expect(CapellCore::isPackageEnabled($package->name))->toBeFalse();
+    } finally {
+        Container::setInstance($owner);
+    }
+})->with(['disable', 'uninstall']);
+
+it('round three honours an explicit full page only declaration during Livewire replay', function (): void {
+    $panel = Panel::make()->id('full-page');
+    Livewire::component('runtime.full-page-counter', RuntimeCounterComponent::class);
+    Route::get('/runtime-full-page', static fn (): string => Livewire::mount('runtime.full-page-counter'))->name('filament.full-page.counter');
+    $html = $this->get('/runtime-full-page')->assertOk()->getContent();
+    preg_match('/wire:snapshot="([^"]+)"/', (string) $html, $matches);
+    $snapshot = html_entity_decode($matches[1] ?? throw new RuntimeException('Missing Livewire snapshot.'), ENT_QUOTES);
+    $payload = ['components' => [['snapshot' => $snapshot, 'updates' => [], 'calls' => [['path' => '', 'method' => 'increment', 'params' => []]]]]];
+    $extender = new class implements AdminPanelExtender, DeclaresFullPageOnlyMiddleware
+    {
+        #[Override]
+        public function extend(Panel $panel): void
+        {
+            $panel->middleware([RuntimeFullPageOnlyMiddleware::class], isPersistent: false);
+        }
+
+        #[Override]
+        public function fullPageOnlyMiddleware(): array
+        {
+            return [RuntimeFullPageOnlyMiddleware::class];
+        }
+    };
+    app()->instance('runtime.full-page', $extender);
+    app()->tag(['runtime.full-page'], AdminPanelExtender::TAG);
+
+    resolve(InstalledPanelRuntime::class)->extend($panel);
+    $this->get('/runtime-full-page')->assertForbidden();
+    Livewire::flushState();
+    $this->postJson(resolve(HandleRequests::class)->getUpdateUri(), $payload, ['X-Livewire' => 'true'])->assertOk();
+});
+
+it('keeps an unrelated panel available after a panel-only refresh fails', function (): void {
+    $panel = Panel::make()->id('one-panel');
+    Route::get('/runtime-other-panel', static fn (): string => 'other')->name('filament.other-panel.probe');
+    $extender = new class implements AdminPanelExtender
+    {
+        #[Override]
+        public function extend(Panel $panel): void
+        {
+            throw new RuntimeException('one panel only');
+        }
+    };
+    app()->instance('runtime.one-panel', $extender);
+    app()->tag(['runtime.one-panel'], AdminPanelExtender::TAG);
+
+    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class);
+    $this->get('/runtime-other-panel')->assertOk();
+});
+
+it('reconciles a real compiled cache for a non-interactive Marketplace installation', function (): void {
+    $panel = Filament::getPanel('admin');
+    CapellCore::registerPackage('test/panel-runtime');
+    CapellCore::forcePackageInstalled('test/panel-runtime', false);
+    app()->register(LatePanelRuntimeProvider::class);
+    $path = app()->getCachedRoutesPath();
+    $routes = resolve(Router::class)->getRoutes();
+    throw_unless($routes instanceof RouteCollection, RuntimeException::class, 'Expected uncached fixture routes.');
+    file_put_contents($path, '<?php return ' . var_export($routes->compile(), true) . ';');
+    $panel->cacheComponents();
+    try {
+        InstallPackageAction::run(CapellCore::getPackage('test/panel-runtime'));
+        config(['capell.multi_node' => false, 'octane.server' => null]);
+        $notice = PropagateMarketplaceRuntimeStateAction::run(new MarketplaceInstallAttempt);
+        expect($notice)->toBeNull()->and(file_exists($path))->toBeFalse()
+            ->and(file_exists($panel->getComponentCachePath()))->toBeFalse();
+    } finally {
+        if (file_exists($path)) {
+            unlink($path);
+        }
+
+        $panel->clearCachedComponents();
+    }
 });

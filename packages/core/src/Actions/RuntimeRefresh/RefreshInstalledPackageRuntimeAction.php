@@ -26,7 +26,7 @@ final class RefreshInstalledPackageRuntimeAction
 
     public function handle(PackageData $package, bool $replayBootedCallbacks = true): void
     {
-        $this->app->make(InstalledRuntimeLifecycle::class)->assertCanActivate();
+        $this->app->make(InstalledRuntimeLifecycle::class)->assertCanActivate($package->name);
         $this->app->make(PackageSurfaceRegistrar::class)->duringPackageInstallation(function () use ($package, $replayBootedCallbacks): void {
             new CapellPackageLoader(
                 $this->app,
@@ -34,10 +34,11 @@ final class RefreshInstalledPackageRuntimeAction
                 runtimeRoleResolver: $this->app->make(RuntimeRoleResolver::class),
                 receipts: $this->app->make(ExtensionContributionReceiptRegistry::class),
             )->refreshPackage($package, $replayBootedCallbacks);
-            $this->app->make(InstalledRuntimeLifecycle::class)->refresh();
+            $this->app->make(InstalledRuntimeLifecycle::class)->refresh($package->name);
             if ($replayBootedCallbacks) {
                 $this->app->make(Dispatcher::class)->dispatch(new InstalledRuntimeRefreshed($package));
             }
         });
+        PreparePackageRuntimeReloadAction::run();
     }
 }

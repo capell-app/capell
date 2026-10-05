@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Support;
 
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
+use Capell\Admin\Contracts\Extenders\DeclaresFullPageOnlyMiddleware;
+use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Closure;
 use Filament\Http\Middleware\IdentifyTenant;
@@ -28,30 +31,63 @@ final class InstalledPanelRuntime
     /** @var WeakMap<Panel, array{middleware: array<string>, auth: array<string>, tenant: array<string>}> */
     private WeakMap $routeMiddleware;
 
+    /** @var array<string, true> */
+    private array $unavailable = [];
+
+    /** @var WeakMap<Panel, list<class-string>> */
+    private WeakMap $fullPageOnly;
+
     public function __construct(private readonly Router $router)
     {
         $this->applied = new WeakMap;
+        $this->fullPageOnly = new WeakMap;
         $this->routeMiddleware = new WeakMap;
     }
 
-    /** @param Closure(): void $callback */
-    public function guard(Closure $callback): void
+    public function isUnavailable(string $panel): bool
     {
-        $lifecycle = resolve(InstalledRuntimeLifecycle::class);
-        $lifecycle->assertCanActivate();
+        return isset($this->unavailable[$panel]);
+    }
+
+    /** @param Closure(): void $callback */
+    public function guard(Panel $panel, Closure $callback): void
+    {
+        $id = new ReflectionProperty($panel, 'id')->isInitialized($panel) ? $panel->getId() : 'admin';
+        if ($this->isUnavailable($id)) {
+            throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
+        }
+
+        $this->protectRoutes($panel, $id);
         try {
             $callback();
         } catch (Throwable $throwable) {
-            // A partially changed security pipeline cannot safely serve another request.
-            $lifecycle->invalidate();
-
-            throw $throwable;
+            $this->unavailable[$id] = true;
+            resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-refresh', $id);
+            throw_if(app()->isBooted(), $throwable);
         }
     }
 
     public function extend(Panel $panel): void
     {
-        $this->guard(fn () => $this->apply($panel));
+        $this->guard($panel, fn () => $this->apply($panel));
+    }
+
+    private function protectRoutes(Panel $panel, string $id): void
+    {
+        $middleware = EnsureInstalledPanelAvailable::class . ':' . $id;
+        if (new ReflectionProperty($panel, 'id')->isInitialized($panel) && ! in_array($middleware, $panel->getMiddleware(), true)) {
+            $panel->middleware([$middleware], isPersistent: true);
+        }
+
+        Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
+        foreach ($this->router->getRoutes()->getRoutes() as $route) {
+            $declared = $this->router->resolveMiddleware($route->gatherMiddleware());
+            if (str_starts_with((string) $route->getName(), 'filament.' . $id . '.')
+                || in_array(SetUpPanel::class . ':' . $id, $declared, true)) {
+                $route->middleware($middleware);
+                $route->computedMiddleware = null;
+            }
+        }
     }
 
     private function apply(Panel $panel): void
@@ -75,7 +111,22 @@ final class InstalledPanelRuntime
                 continue;
             }
 
-            $extender->extend($panel);
+            // Unchanged cleanup synchronisation is legal in an inherited sandbox.
+            resolve(InstalledRuntimeLifecycle::class)->assertCanActivate();
+            try {
+                $extender->extend($panel);
+            } catch (Throwable $exception) {
+                $id = $hasId ? $panel->getId() : 'admin';
+                $receipt = collect(resolve(ExtensionContributionReceiptRegistry::class)->all())
+                    ->first(fn ($receipt): bool => $receipt->implementation === $extender::class);
+                resolve(InstalledRuntimeLifecycle::class)->recordFailure($exception, $receipt->ownerPackage ?? 'capell-app/admin', $receipt->sourceClass ?? $extender::class, 'admin', 'panel-extender', $id);
+                throw $exception;
+            }
+
+            if ($extender instanceof DeclaresFullPageOnlyMiddleware) {
+                $this->fullPageOnly[$panel] = [...($this->fullPageOnly[$panel] ?? []), ...$extender->fullPageOnlyMiddleware()];
+            }
+
             $applied[$entry] = true;
             $this->applied[$panel] = $applied;
         }
@@ -103,7 +154,8 @@ final class InstalledPanelRuntime
         // Livewire filters the real route pipeline, preserving its order and arguments.
         $persistent = $this->router->resolveMiddleware([...$added['middleware'], ...$added['auth'], ...$added['tenant']]);
         $security = $this->router->resolveMiddleware([...$current['auth'], ...$current['tenant']]);
-        Livewire::addPersistentMiddleware(array_map(static fn (string $middleware): string => explode(':', $middleware, 2)[0], [...$persistent, ...$security]));
+        $replayed = array_diff(array_map(static fn (string $middleware): string => explode(':', $middleware, 2)[0], [...$persistent, ...$security]), $this->fullPageOnly[$panel] ?? []);
+        Livewire::addPersistentMiddleware(array_values($replayed));
 
         if ($persistent !== []) {
             $routes = $this->router->getRoutes();

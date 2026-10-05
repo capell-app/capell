@@ -58,6 +58,7 @@ use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
 use Override;
 use ReflectionClass;
 use ReflectionProperty;
+use Throwable;
 
 class CapellAdminPlugin implements Plugin
 {
@@ -113,7 +114,7 @@ class CapellAdminPlugin implements Plugin
     public function register(Panel $panel): void
     {
         if (! app()->isBooted()) {
-            resolve(InstalledRuntimeLifecycle::class)->refresh();
+            resolve(InstalledRuntimeLifecycle::class)->refreshForBootstrap();
         }
 
         /** @var view-string $logoView */
@@ -172,7 +173,12 @@ class CapellAdminPlugin implements Plugin
             ->registerSettings($panel);
 
         app()->booted(function () use ($panel): void {
-            $this->synchronizePanelAdminSurface($panel);
+            try {
+                $this->synchronizePanelAdminSurface($panel);
+            } catch (Throwable $throwable) {
+                // The panel guard recorded the cause; bootstrap must still serve public routes.
+                throw_unless(resolve(InstalledPanelRuntime::class)->isUnavailable($panel->getId()), $throwable);
+            }
         });
 
         $panel->renderHook(
@@ -234,7 +240,7 @@ class CapellAdminPlugin implements Plugin
 
     public function synchronizePanelAdminSurface(Panel $panel): void
     {
-        resolve(InstalledPanelRuntime::class)->guard(function () use ($panel): void {
+        resolve(InstalledPanelRuntime::class)->guard($panel, function () use ($panel): void {
             $this->registerInstalledPackageAdminProviders()->registerConfigurators();
             // Route topology and Livewire component membership belong to bootstrap.
             if (! app()->isBooted()) {

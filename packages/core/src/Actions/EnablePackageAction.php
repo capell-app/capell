@@ -22,7 +22,7 @@ class EnablePackageAction
 
     public function handle(PackageData $package, ?string $actor = null): void
     {
-        resolve(InstalledRuntimeLifecycle::class)->assertCanActivate();
+        resolve(InstalledRuntimeLifecycle::class)->assertCanActivate($package->name);
 
         if ($package->getKind() === 'bundle') {
             foreach ($package->getRequirements() as $memberName) {
