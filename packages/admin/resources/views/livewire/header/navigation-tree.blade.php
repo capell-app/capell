@@ -7,6 +7,9 @@
     <x-filament::dropdown
         placement="left-start"
         width="xl"
+        :teleport="$inSidebar"
+        :shift="$inSidebar"
+        :size="$inSidebar"
     >
         <x-slot name="trigger">
             <button
@@ -33,13 +36,13 @@
             >
                 <label
                     class="sr-only"
-                    for="capell-header-navigation-search"
+                    for="capell-header-navigation-search-{{ $this->getId() }}"
                 >
                     {{ __('capell-admin::navigation_tree.search_label') }}
                 </label>
                 <div class="relative">
                     <input
-                        id="capell-header-navigation-search"
+                        id="capell-header-navigation-search-{{ $this->getId() }}"
                         class="focus:border-primary-500 focus:ring-primary-500 dark:focus:border-primary-500 block h-10 w-full rounded-lg border-gray-200 bg-white ps-3 pe-10 text-sm text-gray-900 shadow-sm shadow-gray-950/5 transition duration-75 outline-none placeholder:text-gray-400 focus:ring-1 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500"
                         type="search"
                         placeholder="{{ __('capell-admin::navigation_tree.search_placeholder') }}"

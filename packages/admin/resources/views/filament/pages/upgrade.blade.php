@@ -328,7 +328,7 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <div class="hidden text-right sm:block">
+                    <div class="block text-right max-sm:hidden">
                         <p class="text-xs font-medium text-gray-500 uppercase dark:text-gray-400">
                             {{ __('capell-admin::generic.readiness_checks') }}
                         </p>

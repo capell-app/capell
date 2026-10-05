@@ -20,6 +20,8 @@ final class AdminWorkspaceSwitcher extends Component
 
     public string $search = '';
 
+    public bool $inSidebar = false;
+
     public function setWorkspace(string $workspace): void
     {
         if (AdminWorkspaceEnum::tryFrom($workspace) === null) {

@@ -9,14 +9,24 @@
     $currentSite = $currentSiteId > 0 ? $sites->firstWhere('id', $currentSiteId) : null;
 @endphp
 
-<x-filament::dropdown placement="bottom-end">
+<x-filament::dropdown
+    placement="bottom-end"
+    :teleport="$inSidebar ?? false"
+    :shift="$inSidebar ?? false"
+    :size="$inSidebar ?? false"
+    :class="($inSidebar ?? false) ? 'min-w-0 max-w-full' : 'block max-lg:hidden'"
+    data-capell-site-switcher
+>
     <x-slot name="trigger">
         <x-filament::button
             :icon="Heroicon::OutlinedBuildingStorefront"
             color="info"
             type="button"
+            :class="($inSidebar ?? false) ? 'max-w-full' : null"
         >
-            {{ $currentSite?->name ?? __('capell-admin::generic.all_sites') }}
+            <span @class(['block max-w-40 truncate' => $inSidebar ?? false])>
+                {{ $currentSite?->name ?? __('capell-admin::generic.all_sites') }}
+            </span>
         </x-filament::button>
     </x-slot>
     @foreach ($sites as $site)
