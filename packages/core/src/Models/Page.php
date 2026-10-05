@@ -38,6 +38,7 @@ use Capell\Core\Models\Concerns\HasPageOrdering;
 use Capell\Core\Models\Concerns\HasPublishDates;
 use Capell\Core\Models\Concerns\HasTranslations;
 use Capell\Core\Models\Concerns\HasUserstamps;
+use Capell\Core\Models\Concerns\PageNestedSet;
 use Capell\Core\Models\Contracts\Blueprintable;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Contracts\Translatable;
@@ -47,7 +48,6 @@ use Capell\Core\Observers\PageObserver;
 use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Activity\LogOptions;
 use Capell\Core\Support\Activity\LogsActivity;
-use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -249,8 +249,13 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     use HasUserstamps;
     use IsEventSourced;
     use LogsActivity;
+
+    // NodeTrait must remain directly used: NestedSet::isNode() checks non-recursive class_uses().
     use NodeTrait {
-        deleteDescendants as private deleteNestedSetDescendants;
+        NodeTrait::deleteDescendants as private deleteNestedSetDescendants;
+    }
+    use PageNestedSet {
+        PageNestedSet::bootNodeTrait insteadof NodeTrait;
     }
     use SoftDeletes {
         restore as private restoreSoftDeletedPage;
@@ -676,11 +681,6 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
         }
 
         $this->deleteNestedSetDescendants();
-    }
-
-    protected function restoreDescendants(Carbon $deletedAt): void
-    {
-        // The cascade action already plans and restores every member; never use the vendor timestamp.
     }
 
     /**
