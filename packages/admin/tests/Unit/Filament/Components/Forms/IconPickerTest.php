@@ -50,7 +50,7 @@ it('renders the picker and exposes its callbacks through the schema dispatcher',
         ->and($component->verifyState('unregistered-icon'))->toBeNull();
 
     // Version 4 serves the picker through Livewire callbacks; version 5 serves it over HTTP routes.
-    if (method_exists($component, 'getSetJs')) {
+    if (in_array('getSetJs', get_class_methods($component), true)) {
         expect($instance->callSchemaComponentMethod($key, 'getSetJs', ['state' => 'heroicon-o-home']))->toBe('heroicons')
             ->and(collect($instance->callSchemaComponentMethod($key, 'getIconsJs', ['set' => 'heroicons']))->pluck('id')->all())->toContain('heroicon-o-home')
             ->and($instance->callSchemaComponentMethod($key, 'getIconSvgJs', ['id' => 'heroicon-o-home']))->toContain('<svg');
