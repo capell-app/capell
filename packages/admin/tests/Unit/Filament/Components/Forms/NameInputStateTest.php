@@ -59,7 +59,7 @@ it('seeds only blank page titles and preserves existing and manual slugs on the 
     $field = mountedNameInputForTest(PageNameInput::make('name')->withTitleUpdater(), $data, $operation);
     $field->callAfterStateUpdated();
 
-    $translations = $field->getGetCallback()('translations');
+    $translations = $field->makeGetUtility()('translations');
 
     expect($translations)->toMatchArray([
         'english' => $data['translations']['english'],
@@ -109,7 +109,7 @@ it('leaves page titles alone when editing the name or clearing it', function (st
     $field = mountedNameInputForTest(PageNameInput::make('name')->withTitleUpdater(), $data, $operation);
     $field->callAfterStateUpdated();
 
-    expect($field->getGetCallback()('translations'))->toBe($data['translations'])
+    expect($field->makeGetUtility()('translations'))->toBe($data['translations'])
         ->and(runNameUpdaterJsForTest(PageNameInput::make('name')->withTitleUpdater(), $data, $operation))->toBe($data);
 })->with([['edit', 'Changed internal name'], ['create', '']]);
 
@@ -122,7 +122,7 @@ it('preserves a distinct public title in both page settings schema variants', fu
     $field = mountedNameInputForTest($field, $data, 'replicate');
     $field->callAfterStateUpdated();
 
-    expect($field->getGetCallback()('translations'))->toBe($data['translations'])
+    expect($field->makeGetUtility()('translations'))->toBe($data['translations'])
         ->and(runNameUpdaterJsForTest($field, $data, 'replicate'))->toBe($data);
 })->with(['legacy', 'page-configuration']);
 
@@ -149,7 +149,7 @@ it('seeds a generic title on deferred submit without a client change event', fun
     $field->callAfterStateUpdated();
 
     expect($field->getState())->toBe('Completed internal name')
-        ->and($field->getGetCallback()('translations'))->toBe([
+        ->and($field->makeGetUtility()('translations'))->toBe([
             'english' => ['title' => 'Completed internal name', 'meta' => ['slug' => 'manual-url'], 'slug_auto_update_disabled' => true],
             'french' => ['title' => 'Titre français'],
         ]);
@@ -161,7 +161,7 @@ it('preserves an explicit generic title on deferred submit without a client chan
     $field->callAfterStateUpdated();
 
     expect($field->getState())->toBe('Internal reference')
-        ->and($field->getGetCallback()('translations'))->toBe($data['translations']);
+        ->and($field->makeGetUtility()('translations'))->toBe($data['translations']);
 });
 
 /** @param class-string<NameInput> $fieldClass */
