@@ -41,7 +41,8 @@ including manual routes without a Page owner, receive collision checks.
 
 ## Model listeners and transaction boundary
 
-Eloquent listeners run with the framework's normal semantics. Additional
+Ordinary Eloquent model events and database auditing run inside the restoration
+transaction with the framework's normal semantics. Additional
 `restoring`, `saving` and `updating` listeners are supported, including Publishing
 Studio's draftable-model saving listener. A `restoring` listener returning
 `false` cancels restoration as Eloquent defines. A cancellation or exception
@@ -53,8 +54,10 @@ Standard translation and URL restoration is batched; every Page still runs its
 model restore lifecycle in parent-first order. Core emits one `PageSaved`
 notification per restored member after commit. Availability-only restoration
 does not create a duplicate content revision; listener changes to captured
-Page attributes still create a revision. Core's cache invalidation and
-content-graph work use the connection's `afterCommit` facility; an outer rollback
+Page attributes still create a revision. Ordinary saves continue to emit
+`PageSaved` synchronously, recording each content state within their transaction.
+Core's restoration cache invalidation and content-graph work use the connection's
+`afterCommit` facility; an outer rollback
 also discards that work. Listeners' side effects outside the transaction's
 database are their responsibility. Use the framework's `afterCommit` callbacks,
 `ShouldHandleEventsAfterCommit` for listeners/observers, or queued after-commit

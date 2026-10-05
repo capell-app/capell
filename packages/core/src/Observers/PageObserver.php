@@ -91,7 +91,9 @@ class PageObserver
             });
         }
 
-        $this->notifySaved($page, restored: true);
+        $page->getConnection()->afterCommit(function () use ($page): void {
+            $this->notifySaved($page, restored: true);
+        });
     }
 
     public function saved(Page $page): void
@@ -106,22 +108,21 @@ class PageObserver
 
     private function notifySaved(Page $page, bool $restored = false): void
     {
-        $page->getConnection()->afterCommit(function () use ($page, $restored): void {
-            $this->clearCache();
-            event(new PageSaved($page, $restored ? ['_restored' => true] : []));
+        // Ordinary saves must record their state before another operation in the transaction uses it.
+        $this->clearCache();
+        event(new PageSaved($page, $restored ? ['_restored' => true] : []));
 
-            defer(
-                function () use ($page): void {
-                    $freshPage = Page::query()->find($page->getKey());
+        defer(
+            function () use ($page): void {
+                $freshPage = Page::query()->find($page->getKey());
 
-                    if ($freshPage instanceof Page) {
-                        RebuildContentGraphForModelAction::run($freshPage);
-                    }
-                },
-                'content-graph:' . $page::class . ':' . $page->getKey(),
-                always: true,
-            );
-        });
+                if ($freshPage instanceof Page) {
+                    RebuildContentGraphForModelAction::run($freshPage);
+                }
+            },
+            'content-graph:' . $page::class . ':' . $page->getKey(),
+            always: true,
+        );
     }
 
     private function restoreTrashedAncestors(Page $page): void

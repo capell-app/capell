@@ -57,6 +57,28 @@ it('records the first revision after a page owns its authoring relationships', f
     expect(PageRevision::query()->where('page_uuid', $page->uuid)->exists())->toBeTrue();
 });
 
+it('records distinct ordinary saves before an enclosing transaction commits', function (): void {
+    $page = Page::factory()->createOne();
+    Translation::factory()->translatable($page)->language($page->site->language)->createOne();
+    $rollbackService = resolve(RollbackService::class);
+
+    DB::transaction(function () use ($page, $rollbackService): void {
+        $page->forceFill(['name' => 'First saved state'])->save();
+
+        expect($rollbackService->currentVersion($page->uuid))->toBe(1)
+            ->and($rollbackService->targetStateAt($page->uuid, 1)['attributes']['name'])->toBe('First saved state')
+            ->and(PageWorkflowState::query()->where('page_uuid', $page->uuid)->firstOrFail()->aggregate_version)->toBe(1);
+
+        $page->forceFill(['name' => 'Second saved state'])->save();
+
+        expect($rollbackService->currentVersion($page->uuid))->toBe(2)
+            ->and($rollbackService->targetStateAt($page->uuid, 1)['attributes']['name'])->toBe('First saved state')
+            ->and($rollbackService->targetStateAt($page->uuid, 2)['attributes']['name'])->toBe('Second saved state')
+            ->and(PageRevision::query()->where('page_uuid', $page->uuid)->orderBy('version')->pluck('version')->all())->toBe([1, 2])
+            ->and(PageWorkflowState::query()->where('page_uuid', $page->uuid)->firstOrFail()->aggregate_version)->toBe(2);
+    });
+});
+
 it('round-trips a page with translations and urls through the serializer', function (): void {
     $page = Page::factory()->create();
     $language = Language::factory()->create();

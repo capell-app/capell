@@ -123,10 +123,11 @@ retaining its own Site history.
 
 Restoration checks every member's old URLs before writes using the router's enabled,
 site-and-language scope and the database's collation. It restores standard URL and
-translation relations in two statements. Members are written parent-first; their
-post-write model events, auditing and cache notifications run after the outermost
-transaction commits. Refusal or rollback discards those notifications. The vendor
-timestamp hook performs no second restore. See [page restoration](page-restoration.md)
+translation relations in two statements. Members are written parent-first; ordinary
+Eloquent model events and database auditing run inside the transaction. Only Core's
+restore notification, cache invalidation and content-graph work wait until the
+outermost transaction commits. Refusal or rollback discards that deferred work.
+The vendor timestamp hook performs no second restore. See [page restoration](page-restoration.md)
 for the authorisation boundary, extension restrictions and Site restoration.
 
 Historical trash without a recorded page batch must be restored explicitly; its
