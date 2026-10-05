@@ -136,6 +136,7 @@ class SitesTable implements TableConfigurator
                         ->modalDescription(fn (Site $record): string => static::deletionImpactDescription($record))
                         ->using(fn (Site $record): bool => DeleteSiteAction::run($record)),
                     RestoreAction::make()
+                        ->failureNotificationTitle(__('capell-admin::message.recently_deleted_restore_cascade_denied'))
                         ->using(fn (Site $record): bool => RestoreSiteAction::run($record)),
                     ...collect(app()->tagged(SiteRecordActionExtender::TAG))
                         ->flatMap(fn (SiteRecordActionExtender $extender): array => $extender->actions())
@@ -149,6 +150,7 @@ class SitesTable implements TableConfigurator
                     ->modalDescription(fn (EloquentCollection|Collection|LazyCollection $records): string => static::bulkDeletionImpactDescription($records))
                     ->using(static::deleteBulk(...)),
                 RestoreBulkAction::make()
+                    ->missingBulkProcessingFailureNotificationMessage(__('capell-admin::message.restore_cascade_failed_selection'))
                     ->using(static::restoreBulk(...)),
                 ForceDeleteBulkAction::make(),
             ])

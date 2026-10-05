@@ -6,7 +6,9 @@ namespace Capell\Admin\Actions;
 
 use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Models\Page;
+use Capell\Core\Support\PageRestoreReadOnlyScope;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -25,17 +27,14 @@ final class BuildPageRestoreNoticeAction
 
         $excludedIds = CollectPageRestoreCascadeIdsAction::make()->collectExcludedDescendantIds($root, $ids);
         $excluded = SiteAccess::current()->query($page::class)->onlyTrashed()->whereKey($excludedIds)
-            ->orderBy($page->getLftName())->lockForUpdate()->get();
+            ->with(['blueprint.roleRestrictions', 'site'])->orderBy($page->getLftName())->lockForUpdate()->get();
+        $excluded = PageRestoreReadOnlyScope::run($page->getConnection(), fn () => $excluded->filter(fn (Page $candidate): bool => Gate::allows('view', $candidate)));
+
         $notices = [];
         if ($excluded->isNotEmpty()) {
             $notices[] = __('capell-admin::message.page_restore_excluded_descendants', [
                 'pages' => $excluded->map(fn (Page $excludedPage): string => $excludedPage->name ?? '#' . $excludedPage->getKey())->implode(', '),
             ]);
-        }
-
-        $inaccessibleCount = count($excludedIds) - $excluded->count();
-        if ($inaccessibleCount > 0) {
-            $notices[] = trans_choice('capell-admin::message.page_restore_inaccessible_descendants', $inaccessibleCount, ['count' => $inaccessibleCount]);
         }
 
         return $notices === [] ? null : implode(' ', $notices);

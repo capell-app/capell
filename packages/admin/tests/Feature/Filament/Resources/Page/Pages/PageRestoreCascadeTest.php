@@ -129,11 +129,7 @@ it('counts overlapping bulk restore selections as successes while retaining casc
                 2,
                 ['count' => 2, 'total' => 3],
             ))
-            ->body('<p>' . trans_choice(
-                'filament-actions::restore.multiple.notifications.restored_partial.missing_processing_failure_message',
-                1,
-                ['count' => 1],
-            ) . '</p>'));
+            ->body('<p>' . __('capell-admin::message.restore_cascade_failed_selection') . '</p>'));
     } else {
         $component->assertNotified(Notification::make()->success()->title(__('filament-actions::restore.multiple.notifications.restored.title')));
     }

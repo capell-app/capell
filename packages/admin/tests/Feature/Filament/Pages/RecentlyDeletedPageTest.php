@@ -122,6 +122,7 @@ it('lists only accessible deleted pages and media', function (): void {
 
     $actor = User::factory()->create();
     $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+    $actor->givePermissionTo(Permission::findOrCreate('View:Page', 'web'));
 
     test()->actingAs($actor);
 
@@ -296,8 +297,9 @@ it('refuses a recorded cascade member becoming trashed during the restore abilit
     $initialTransactionLevel = $parent->getConnection()->transactionLevel();
     (new RecentlyDeletedPage)->restoreRecord('page', (int) $parent->id);
 
-    expect($injected)->toBeTrue()
-        ->and(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(2)
+    expect($injected)->toBeFalse()
+        ->and($parent->fresh()->trashed())->toBeTrue()
+        ->and($child->fresh()->trashed())->toBeFalse()
         ->and($transactionLevels)->not->toBeEmpty()
         ->and(array_all($transactionLevels, fn (int $level): bool => $level > $initialTransactionLevel))->toBeTrue();
 });
@@ -388,7 +390,7 @@ it('retries a deadlocked restore after rereading the selected page and propagate
         if ($deadlock) {
             (new RecentlyDeletedPage)->restoreRecord('page', (int) $page->id);
             expect($page->fresh()->trashed())->toBeFalse()
-                ->and($attempts)->toBe(3);
+                ->and($attempts)->toBe(4);
         } else {
             expect(fn () => (new RecentlyDeletedPage)->restoreRecord('page', (int) $page->id))->toThrow($failure);
             expect($page->fresh()->trashed())->toBeTrue()
@@ -514,7 +516,7 @@ it('explains historical exclusions in recently deleted and the restore notificat
         ->assertSee(__('capell-admin::message.page_restore_historical_notice'));
 })->group('restore-review');
 
-it('warns about inaccessible historical descendants without disclosing their names', function (): void {
+it('withholds inaccessible historical descendants without disclosing their existence', function (): void {
     $this->freezeTime();
     $parent = Page::factory()->createOne();
     $child = Page::factory()->parent($parent)->createOne(['name' => 'Private foreign child']);
@@ -528,9 +530,8 @@ it('warns about inaccessible historical descendants without disclosing their nam
     (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
     $notification = array_values(session('filament.notifications', []))[0];
 
-    expect($notification['status'])->toBe('warning')
-        ->and($notification['body'])->toBe(trans_choice('capell-admin::message.page_restore_inaccessible_descendants', 1, ['count' => 1]))
-        ->and($notification['body'])->not->toContain('Private foreign child')
+    expect($notification['status'])->toBe('success')
+        ->and($notification['body'])->toBeNull()
         ->and($parent->fresh()->trashed())->toBeFalse()
         ->and($child->fresh()->trashed())->toBeTrue();
 })->group('restore-review');

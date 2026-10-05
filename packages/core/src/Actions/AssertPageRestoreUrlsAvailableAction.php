@@ -28,32 +28,17 @@ final class AssertPageRestoreUrlsAvailableAction
         $previousUrls = PageUrl::on($page->getConnectionName())->onlyTrashed()
             ->where('pageable_type', $page->getMorphClass())
             ->whereIn('pageable_id', $pages->modelKeys())
-            ->lockForUpdate()->get();
-        $urls = $previousUrls->pluck('url')->filter()->unique()->all();
+            ->enabled()->lockForUpdate()->get();
+        $urls = $previousUrls->pluck('url')->unique()->all();
         if ($urls === []) {
             return;
         }
 
-        $liveUrls = PageUrl::on($page->getConnectionName())->whereIn('url', $urls)->lockForUpdate()->get();
-        $owners = $liveUrls->concat($previousUrls)->groupBy('url');
-        $pagesById = $pages->keyBy('id');
-        foreach ($previousUrls as $previousUrl) {
-            if ($previousUrl->url === '') {
-                continue;
-            }
-
-            $collisions = [];
-            foreach ($owners->get($previousUrl->url, collect()) as $owner) {
-                if ($owner->pageable_type !== $previousUrl->pageable_type || $owner->pageable_id !== $previousUrl->pageable_id) {
-                    $collisions[$previousUrl->url] = (int) $owner->pageable_id;
-                }
-            }
-
-            if ($collisions !== []) {
-                $ownerPage = $pagesById->get($previousUrl->pageable_id);
-                throw_unless($ownerPage instanceof Page, LogicException::class, 'A restore URL has no planned page owner.');
-                throw new PageRestoreSlugConflictException($ownerPage, $collisions);
-            }
+        $conflict = FindPageUrlRestorationConflictAction::run($previousUrls);
+        if ($conflict instanceof PageUrl) {
+            $ownerPage = $pages->firstWhere('id', $conflict->pageable_id);
+            throw_unless($ownerPage instanceof Page, LogicException::class, 'A restore URL has no planned page owner.');
+            throw new PageRestoreSlugConflictException($ownerPage, [$conflict->url => (int) $conflict->getAttribute('conflicting_page_id')]);
         }
     }
 }

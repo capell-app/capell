@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Capell\Core\Actions\CanRestorePageMembersAction;
 use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -34,7 +33,7 @@ final class CanRestorePageCascadeAction
 
         // A page omitted by site scoping is still restored by the model hooks.
         if ($restoredPages->count() !== count($restoredIds)
-            || ! array_all($restoredPages->all(), fn (Model $restoredPage): bool => ! Gate::denies('restore', $restoredPage))) {
+            || ! CanRestorePageMembersAction::run($restoredPages)) {
             return false;
         }
 

@@ -121,16 +121,17 @@ member only. It preserves Site-owned membership recorded before the Site cascade
 Site restoration consumes Page-owned membership for the pages it restores while
 retaining its own Site history.
 
-Restoration checks every member's old URLs before writes and restores standard URL
-and translation relations in two statements. Members then traverse their model
-lifecycle in parent-first order, preserving events, auditing, extension observers
-and cache invalidation. A collision or a refused restoring event rolls back pages,
-relations and membership together. The vendor timestamp hook performs no second
-restore.
+Restoration checks every member's old URLs before writes using the router's enabled,
+site-and-language scope and the database's collation. It restores standard URL and
+translation relations in two statements. Members are written parent-first; their
+post-write model events, auditing and cache notifications run after the outermost
+transaction commits. Refusal or rollback discards those notifications. The vendor
+timestamp hook performs no second restore. See [page restoration](page-restoration.md)
+for the authorisation boundary, extension restrictions and Site restoration.
 
 Historical trash without a recorded page batch must be restored explicitly; its
 trashed ancestors are restored too, while descendant membership is never guessed
-from `deleted_at`. Admin recovery warns which accessible descendants remain in
-trash and explains how to restore them separately. Inaccessible descendants are
-reported by count with administrator guidance, without disclosing their names. Recently Deleted displays the
-same recovery guidance before any action.
+from `deleted_at`. Admin recovery names only descendants allowed by the page view
+policy and explains separate recovery. Inaccessible descendants are neither named
+nor counted. Recently Deleted applies the same view policy before rendering names
+or totals and displays the recovery guidance before any action.

@@ -153,7 +153,7 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
     private function collectGroups(): array
     {
         /** @var Collection<int, Model> $deletedPages */
-        $deletedPages = new Collection(SiteAccess::current()->query(Page::class)->onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());
+        $deletedPages = new Collection(SiteAccess::current()->query(Page::class)->onlyTrashed()->with(['blueprint.roleRestrictions', 'site'])->latest('deleted_at')->limit(50)->get()->filter(fn (Page $page): bool => Gate::allows('view', $page))->all());
 
         /** @var Collection<int, Model> $deletedMedia */
         $deletedMedia = new Collection(SiteAccess::current()->query(Media::class)->onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());

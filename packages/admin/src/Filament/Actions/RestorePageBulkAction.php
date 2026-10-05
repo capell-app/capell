@@ -20,6 +20,7 @@ final class RestorePageBulkAction extends RestoreBulkAction
     protected function setUp(): void
     {
         parent::setUp();
+        $this->missingBulkProcessingFailureNotificationMessage(__('capell-admin::message.restore_cascade_failed_selection'));
 
         $this->action(function (): void {
             $this->process(function (EloquentCollection|Collection|LazyCollection $records): void {

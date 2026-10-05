@@ -44,6 +44,8 @@ use Capell\Core\Models\Contracts\Translatable;
 use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Observers\PageObserver;
+use Capell\Core\Support\PageRestoreLifecycle;
+use Capell\Core\Support\PageRestoreReadOnlyScope;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
@@ -60,6 +62,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Events\NullDispatcher;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Arr;
 use Override;
@@ -674,6 +677,42 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             ->orderByDesc('version');
     }
 
+    #[Override]
+    protected static function boot(): void
+    {
+        resolve(PageRestoreLifecycle::class)->beginModelBoot(static::class);
+        parent::boot();
+    }
+
+    #[Override]
+    protected static function booted(): void
+    {
+        parent::booted();
+        static::whenBooted(static fn () => resolve(PageRestoreLifecycle::class)->rememberNativeListeners(static::class));
+    }
+
+    #[Override]
+    protected function fireModelEvent($event, $halt = true): mixed
+    {
+        if (! $this->pageRestoreCascadePrepared) {
+            return parent::fireModelEvent($event, $halt);
+        }
+
+        if ($halt) {
+            return PageRestoreReadOnlyScope::run($this->getConnection(), fn (): mixed => resolve(PageRestoreLifecycle::class)->fireGuard($this, $event));
+        }
+
+        if (static::getEventDispatcher() instanceof NullDispatcher) {
+            return null;
+        }
+
+        // Capture each event's model state; later saves must not rewrite a queued notification.
+        $snapshot = clone $this;
+        resolve(PageRestoreLifecycle::class)->afterCommit($this->getConnection(), static fn (): mixed => $snapshot->fireCommittedRestoreEvent($event));
+
+        return null;
+    }
+
     protected function deleteDescendants(): void
     {
         if (! $this->isForceDeleting() && ! $this->trashed()) {
@@ -778,5 +817,10 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             'visible_from' => 'datetime',
             'visible_until' => 'datetime',
         ];
+    }
+
+    private function fireCommittedRestoreEvent(string $event): mixed
+    {
+        return parent::fireModelEvent($event, false);
     }
 }

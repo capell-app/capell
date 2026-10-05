@@ -87,11 +87,13 @@ class PageObserver
                 $this->restoreSoftDeletedRelation($page, 'translations');
             }
 
-            $this->restoreSoftDeletedRelations($page, [
-                'widgets',
-                'sections',
-                'assetAttachments',
-            ]);
+            if (! $page->isPageRestoreCascadePrepared()) {
+                $this->restoreSoftDeletedRelations($page, [
+                    'widgets',
+                    'sections',
+                    'assetAttachments',
+                ]);
+            }
         });
 
         $this->clearCache();
