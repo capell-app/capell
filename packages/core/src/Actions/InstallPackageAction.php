@@ -13,6 +13,7 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ListenerEnum;
 use Capell\Core\Events\PackageInstalled;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Components\ComponentRegistry;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Core\Support\Packages\PackageLifecycleRunner;
@@ -118,7 +119,7 @@ class InstallPackageAction
             throw $throwable;
         }
 
-        CapellCore::clearCachedComponents();
+        resolve(ComponentRegistry::class)->clearCachedComponentsOrFail();
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::PackageInstalled, $package);
         Event::dispatch(new PackageInstalled($package));
     }

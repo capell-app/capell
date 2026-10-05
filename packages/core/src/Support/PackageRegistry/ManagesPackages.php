@@ -11,6 +11,7 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Extensions\ExtensionLifecycleRepository;
 use Capell\Core\Support\Extensions\InstalledExtensionRepository;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
@@ -21,6 +22,7 @@ use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 use InvalidArgumentException;
+use RuntimeException;
 
 trait ManagesPackages
 {
@@ -593,14 +595,21 @@ trait ManagesPackages
     {
         $this->removeCacheKey(CacheEnum::ExtensionInstalledNames->value);
         $this->removeCacheKey(CacheEnum::ExtensionPackages->value);
+        $this->resetExtensionCacheState();
+    }
 
-        foreach ($this->packages as $packageData) {
-            $packageData->installed = null;
+    /** @internal Install, enable and explicit runtime refresh only. */
+    public function clearExtensionCacheOrFail(): void
+    {
+        try {
+            $cache = resolve(CapellCacheManager::class);
+            $cache->removeCacheKeyOrFail(CacheEnum::ExtensionInstalledNames->value);
+            $cache->removeCacheKeyOrFail(CacheEnum::ExtensionPackages->value);
+        } catch (RuntimeException $runtimeException) {
+            throw new RuntimeException(__('capell::runtime-refresh.cache_refresh_required') . ' ' . $runtimeException->getMessage(), $runtimeException->getCode(), previous: $runtimeException);
         }
 
-        $this->installedExtensionNamesCache = null;
-        $this->clearPackageMemoization();
-        $this->extensionLifecycle()->clear();
+        $this->resetExtensionCacheState();
     }
 
     /**
@@ -630,6 +639,17 @@ trait ManagesPackages
         $this->installedExtensionNamesCache = $names;
 
         return $names;
+    }
+
+    private function resetExtensionCacheState(): void
+    {
+        foreach ($this->packages as $packageData) {
+            $packageData->installed = null;
+        }
+
+        $this->installedExtensionNamesCache = null;
+        $this->clearPackageMemoization();
+        $this->extensionLifecycle()->clear();
     }
 
     private function manifestFromPackagePath(?string $packagePath, string $packageName): ?CapellManifestData
