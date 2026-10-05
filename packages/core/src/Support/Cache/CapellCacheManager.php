@@ -535,7 +535,8 @@ final class CapellCacheManager
      * another's request when several hosts/apps share the store. Mirrors
      * App\Support\AppHostInvariant::configuredHostFingerprint() in the
      * consuming app, without depending on it — Core has no dependency on
-     * app-layer classes.
+     * app-layer classes. Standard ports retain the existing fingerprint;
+     * non-standard request origins need separate entries for origin-bound HTML.
      */
     private function hostFingerprint(): string
     {
@@ -547,6 +548,18 @@ final class CapellCacheManager
         }
 
         $host = rtrim(strtolower(trim($host)), '.');
+
+        $request = app()->bound('request') ? resolve('request') : null;
+        $request = $request instanceof Request ? $request : Request::create($url);
+
+        $scheme = $request->getScheme();
+        $port = $request->getPort();
+
+        // Request accessors honour trusted proxies; the backend port is not the
+        // public origin. Keep the legacy hash input unchanged on standard ports.
+        if ($port !== ($scheme === 'https' ? 443 : 80)) {
+            $host .= ':' . $scheme . ':' . $port;
+        }
 
         return substr(hash('xxh128', $host), 0, 8);
     }

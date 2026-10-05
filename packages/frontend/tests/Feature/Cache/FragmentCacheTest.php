@@ -7,6 +7,37 @@ use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\FileStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\Request;
+
+it('separates origin-bound fragments by port and invalidates every port through its surrogate', function (): void {
+    $repository = new Repository(new ArrayStore);
+    $fragments = new FragmentCache($repository);
+
+    foreach ([8080, 8081] as $port) {
+        app()->instance('request', Request::create('http://cache.example.test:' . $port));
+        expect($fragments->remember('form', static fn (): string => 'form on ' . $port, surrogateKeys: ['page:1']))
+            ->toBe('form on ' . $port);
+    }
+
+    $fragments->invalidateBySurrogateKey('page:1');
+
+    foreach ([8080, 8081] as $port) {
+        app()->instance('request', Request::create('http://cache.example.test:' . $port));
+        expect($fragments->remember('form', static fn (): string => 'fresh on ' . $port))
+            ->toBe('fresh on ' . $port);
+    }
+});
+
+it('reuses legacy fragment keys on explicit and implicit standard ports', function (string $origin): void {
+    $repository = new Repository(new ArrayStore);
+    $repository->put('fragment:namespace', 'existing-namespace', 3600);
+    $repository->put('fragment:existing-namespace:value:form', 'existing form', 3600);
+
+    app()->instance('request', Request::create($origin));
+
+    expect(new FragmentCache($repository)->remember('form', static fn (): string => 'unexpected miss'))
+        ->toBe('existing form');
+})->with(['http://cache.example.test', 'http://cache.example.test:80', 'https://cache.example.test', 'https://cache.example.test:443']);
 
 it('flushes only fragments including fragments without surrogate keys', function (bool $supportsTags): void {
     $directory = sys_get_temp_dir() . '/capell-fragment-test-' . bin2hex(random_bytes(8));
