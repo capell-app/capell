@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
+use Capell\Core\Support\Cache\CacheOrigin;
 use Illuminate\Contracts\Cache\Repository;
-use Illuminate\Http\Request;
 use UnexpectedValueException;
 
 final class FragmentCache
@@ -26,19 +26,12 @@ final class FragmentCache
         array $surrogateKeys = [],
     ): mixed {
         $namespace = $this->namespace();
-        $cacheKey = 'fragment:' . $namespace . ':value:' . $key;
-        $request = app()->bound('request') ? resolve('request') : null;
-
-        if ($request instanceof Request) {
-            $scheme = $request->getScheme();
-            $port = $request->getPort();
-
-            // Preserve existing standard-port entries and keep surrogate metadata
-            // shared so invalidation removes every origin's fragment variant.
-            if ($port !== ($scheme === 'https' ? 443 : 80)) {
-                $cacheKey .= ':origin:' . $scheme . ':' . $port;
-            }
-        }
+        $origin = CacheOrigin::discriminator();
+        // Keep standard-port keys byte-identical. A separate physical prefix
+        // prevents arbitrary logical keys from aliasing non-standard variants.
+        $cacheKey = $origin === ''
+            ? 'fragment:' . $namespace . ':value:' . $key
+            : 'fragment:' . $namespace . ':origin-value:' . hash('sha256', serialize([$key, $origin]));
 
         $result = $this->cache->remember($cacheKey, $ttlSeconds, $callback);
 

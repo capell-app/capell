@@ -250,6 +250,7 @@ final class CapellCacheManager
         $this->getCacheInstance()->forget($normalizedKey);
     }
 
+    /** Bulk invalidation is origin-wide: every port shares tags and generations. */
     public function flushCache(): void
     {
         $this->flushLocalCache();
@@ -549,17 +550,7 @@ final class CapellCacheManager
 
         $host = rtrim(strtolower(trim($host)), '.');
 
-        $request = app()->bound('request') ? resolve('request') : null;
-        $request = $request instanceof Request ? $request : Request::create($url);
-
-        $scheme = $request->getScheme();
-        $port = $request->getPort();
-
-        // Request accessors honour trusted proxies; the backend port is not the
-        // public origin. Keep the legacy hash input unchanged on standard ports.
-        if ($port !== ($scheme === 'https' ? 443 : 80)) {
-            $host .= ':' . $scheme . ':' . $port;
-        }
+        $host .= CacheOrigin::discriminator();
 
         return substr(hash('xxh128', $host), 0, 8);
     }
@@ -583,6 +574,8 @@ final class CapellCacheManager
         return $generation;
     }
 
+    // Generation keys intentionally omit the origin discriminator: safe
+    // over-invalidation across ports prevents stale content after bulk purges.
     private function cacheInvalidationPatternGenerationKey(string $pattern): string
     {
         return 'capell.cache.pattern-generation.' . hash('sha256', $pattern);

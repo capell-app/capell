@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Cache\CapellCacheManager;
+use Capell\Core\Tests\Unit\Support\Cache\Fixtures\CacheOriginContexts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 
 $trustedProxies = [];
@@ -108,3 +110,96 @@ it('does not trust forwarded ports from an untrusted client', function (): void 
     $this->get('http://cache.example.test:8080/cached-page')->assertContent('actual origin');
     $this->get('http://cache.example.test:8081/cached-page')->assertContent('<p>http://cache.example.test:8081</p>');
 });
+
+it('retains the literal pre-change key and agrees on standard-port warm serve and forget', function (array|string|null $context, bool $trusted): void {
+    $literalKey = '4dafeefc662294e49ad7291b80d33ca9f1f1b712ca8aec588d09de9124a6805c';
+    CacheOriginContexts::bind('console');
+    (new CapellCacheManager)->setToCache('html:public', 'warmed');
+
+    CacheOriginContexts::bind($context, $trusted);
+    $manager = new CapellCacheManager;
+    expect(new ReflectionMethod($manager, 'normalizeCacheKey')->invoke($manager, 'html:public'))->toBe($literalKey)
+        ->and($manager->rememberCache('html:public', static fn (): string => 'miss'))->toBe('warmed');
+    $manager->setToCache('html:public', 'served');
+
+    CacheOriginContexts::bind(null);
+    (new CapellCacheManager)->removeCacheKey('html:public');
+    CacheOriginContexts::bind($context, $trusted);
+    expect((new CapellCacheManager)->getFromCache('html:public'))->toBeNull();
+    (new CapellCacheManager)->rememberCache('html:public', static fn (): string => 'refilled');
+    CacheOriginContexts::bind('console');
+    expect((new CapellCacheManager)->getFromCache('html:public'))->toBe('refilled');
+})->with(CacheOriginContexts::standard());
+
+it('agrees on non-standard-port warm serve and forget through APP_URL fallback', function (array|string|null $context, bool $trusted): void {
+    config(['app.url' => 'https://cache.example.test:8443']);
+    CacheOriginContexts::bind(null);
+    $manager = new CapellCacheManager;
+    $warmedKey = new ReflectionMethod($manager, 'normalizeCacheKey')->invoke($manager, 'html:public');
+    $manager->setToCache('html:public', 'warmed');
+
+    CacheOriginContexts::bind($context, $trusted);
+    $manager = new CapellCacheManager;
+    expect(new ReflectionMethod($manager, 'normalizeCacheKey')->invoke($manager, 'html:public'))->toBe($warmedKey)
+        ->and($manager->rememberCache('html:public', static fn (): string => 'miss'))->toBe('warmed');
+    $manager->setToCache('html:public', 'served');
+
+    foreach (['https://cache.example.test:8444', 'http://cache.example.test:8443', 'https://cache.example.test'] as $other) {
+        CacheOriginContexts::bind($other);
+        expect((new CapellCacheManager)->getFromCache('html:public'))->toBeNull();
+        (new CapellCacheManager)->setToCache('html:public', 'unrelated');
+    }
+
+    CacheOriginContexts::bind('console');
+    expect((new CapellCacheManager)->getFromCache('html:public'))->toBe('served');
+    (new CapellCacheManager)->removeCacheKey('html:public');
+    CacheOriginContexts::bind($context, $trusted);
+    expect((new CapellCacheManager)->getFromCache('html:public'))->toBeNull();
+    foreach (['https://cache.example.test:8444', 'http://cache.example.test:8443', 'https://cache.example.test'] as $other) {
+        CacheOriginContexts::bind($other);
+        expect((new CapellCacheManager)->getFromCache('html:public'))->toBe('unrelated');
+    }
+})->with(CacheOriginContexts::nonStandard());
+
+it('invalidates all ports through tags or fallback namespace and pattern generations', function (bool $taggable, bool $pattern): void {
+    $directory = sys_get_temp_dir() . '/capell-core-origins-' . bin2hex(random_bytes(8));
+    if (! $taggable) {
+        config(['cache.default' => 'file', 'cache.stores.file.driver' => 'file', 'cache.stores.file.path' => $directory]);
+        Cache::purge('file');
+    }
+
+    $origins = ['https://cache.example.test', 'https://cache.example.test:8443', 'https://cache.example.test:8444'];
+    try {
+        Cache::store()->put('unrelated-store-key', 'sentinel', 60);
+        foreach ($origins as $origin) {
+            CacheOriginContexts::bind($origin);
+            $manager = new CapellCacheManager;
+            $manager->registerCacheInvalidationPattern('html:*');
+            $manager->setToCache('html:public', 'served');
+            $manager->setToCache('unmatched', 'keep');
+        }
+
+        CacheOriginContexts::bind(null);
+        $manager = new CapellCacheManager;
+        if ($pattern) {
+            $manager->invalidateCachePattern('html:*');
+        } else {
+            $manager->flushCache();
+        }
+
+        foreach ($origins as $origin) {
+            CacheOriginContexts::bind($origin);
+            $manager = new CapellCacheManager;
+            $manager->registerCacheInvalidationPattern('html:*');
+            expect($manager->getFromCache('html:public'))->toBeNull()
+                ->and($manager->getFromCache('unmatched'))->toBe($pattern ? 'keep' : null);
+        }
+
+        expect(Cache::store()->get('unrelated-store-key'))->toBe('sentinel');
+    } finally {
+        if (! $taggable) {
+            Cache::purge('file');
+            File::deleteDirectory($directory);
+        }
+    }
+})->with(['tag flush' => [true, false], 'fallback namespace' => [false, false], 'taggable pattern' => [true, true], 'fallback pattern' => [false, true]]);
