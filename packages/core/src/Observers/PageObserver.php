@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
+use Capell\Core\Actions\AssertPageRestoreUrlsAvailableAction;
 use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
+use Capell\Core\Actions\PrunePageDeletionMembershipAction;
 use Capell\Core\Actions\SetupPageUrlsAction;
 use Capell\Core\Concerns\RestoresSoftDeletedRelations;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
-use Capell\Core\Exceptions\PageRestoreSlugConflictException;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
-use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\CapellCoreHelper;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -51,6 +51,7 @@ class PageObserver
     public function deleted(Page $page): void
     {
         if ($page->isForceDeleting()) {
+            PrunePageDeletionMembershipAction::run($page, [(int) $page->getKey()]);
             $page->pageUrls()->withTrashed()->forceDelete();
             // Translations are MorphMany — force-delete any soft-deleted rows too.
             $page->translations()->withTrashed()->forceDelete();
@@ -62,41 +63,54 @@ class PageObserver
             $page->translations()->delete();
         }
 
-        $this->clearCache();
-        event(new PageDeleted($page));
+        $page->getConnection()->afterCommit(function () use ($page): void {
+            $this->clearCache();
+            event(new PageDeleted($page));
+        });
     }
 
     public function restoring(Page $page): void
     {
-        $this->restoreTrashedAncestors($page);
-        $this->assertNoSlugCollision($page);
+        if (! $page->isPageRestoreCascadePrepared()) {
+            $this->restoreTrashedAncestors($page);
+            AssertPageRestoreUrlsAvailableAction::run(new Collection([$page]));
+        }
     }
 
     public function restored(Page $page): void
     {
-        DB::transaction(function () use ($page): void {
-            // Restore everything that cascaded on the soft-delete. Previously
-            // only pageUrls were restored, leaving widgets/sections and
-            // translations orphaned. After this hook a restored page has the
-            // same authoring surface it had before deletion.
-            $page->pageUrls()->onlyTrashed()->restore();
+        if (! $page->isPageRestoreCascadePrepared()) {
+            $page->getConnection()->transaction(function () use ($page): void {
+                $page->pageUrls()->onlyTrashed()->restore();
+                $this->restoreSoftDeletedRelations($page, [
+                    'translations',
+                    'widgets',
+                    'sections',
+                    'assetAttachments',
+                ]);
+            });
+        }
 
-            $this->restoreSoftDeletedRelations($page, [
-                'translations',
-                'widgets',
-                'sections',
-                'assetAttachments',
-            ]);
+        $page->getConnection()->afterCommit(function () use ($page): void {
+            $this->notifySaved($page, restored: true);
         });
-
-        $this->clearCache();
-        event(new PageSaved($page));
     }
 
     public function saved(Page $page): void
     {
+        // SoftDeletes saves each member before firing restored; notify once from restored.
+        if ($page->isPageRestoreCascadePrepared()) {
+            return;
+        }
+
+        $this->notifySaved($page);
+    }
+
+    private function notifySaved(Page $page, bool $restored = false): void
+    {
+        // Ordinary saves must record their state before another operation in the transaction uses it.
         $this->clearCache();
-        event(new PageSaved($page));
+        event(new PageSaved($page, $restored ? ['_restored' => true] : []));
 
         defer(
             function () use ($page): void {
@@ -129,44 +143,6 @@ class PageObserver
             }
 
             $parentId = $parent->parent_id;
-        }
-    }
-
-    /**
-     * Ensure no live (non-trashed) PageUrl now owns a URL this page used to
-     * own. A restore that creates a routing duplicate would silently break
-     * one or both pages on the public frontend.
-     *
-     * @throws PageRestoreSlugConflictException
-     */
-    private function assertNoSlugCollision(Page $page): void
-    {
-        $morph = $page->getMorphClass();
-        $key = $page->getKey();
-
-        $previousUrls = PageUrl::query()
-            ->onlyTrashed()
-            ->where('pageable_type', $morph)
-            ->where('pageable_id', $key)
-            ->pluck('url')
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($previousUrls->isEmpty()) {
-            return;
-        }
-
-        $colliding = PageUrl::query()
-            ->whereIn('url', $previousUrls)
-            ->where(function ($q) use ($morph, $key): void {
-                $q->where('pageable_type', '!=', $morph)
-                    ->orWhere('pageable_id', '!=', $key);
-            })
-            ->pluck('pageable_id', 'url');
-
-        if ($colliding->isNotEmpty()) {
-            throw new PageRestoreSlugConflictException($page, $colliding->all());
         }
     }
 

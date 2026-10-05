@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Cache;
 
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Database\Eloquent\Model;
 
-final class FrontendCacheInvalidationObserver
+final class FrontendCacheInvalidationObserver implements ShouldHandleEventsAfterCommit
 {
     public function saved(Model $model): void
     {

@@ -5,9 +5,13 @@ declare(strict_types=1);
 use Capell\Admin\Actions\CanRestorePageCascadeAction;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
 use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
+use Capell\Core\Exceptions\PageRestoreSlugConflictException;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\DeletionBatchRecord;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Media as CapellMedia;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -118,6 +122,7 @@ it('lists only accessible deleted pages and media', function (): void {
 
     $actor = User::factory()->create();
     $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+    $actor->givePermissionTo(Permission::findOrCreate('View:Page', 'web'));
 
     test()->actingAs($actor);
 
@@ -211,15 +216,14 @@ it('refuses the whole restore cascade when a related page is denied', function (
     $component->assertNotified(__('capell-admin::message.recently_deleted_restore_cascade_denied'));
 })->with(['child', 'ancestor', 'sibling']);
 
-it('restores an authorised cascade without requiring permission for older unrelated trash', function (): void {
+it('restores an authorised cascade without requiring permission for independent trash in the same second', function (): void {
     $parent = Page::factory()->createOne();
     $child = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
     $child->appendToNode($parent)->save();
     $older = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
     $older->appendToNode($parent)->save();
-    $this->travel(-2)->minutes();
+    $this->freezeTime();
     $older->delete();
-    $this->travelBack();
     $parent->delete();
 
     test()->actingAsUser();
@@ -264,12 +268,13 @@ it('refuses the whole restore cascade when a related page is outside site access
     $component->assertNotified(__('capell-admin::message.recently_deleted_restore_cascade_denied'));
 })->with(['child', 'ancestor']);
 
-it('refuses a child deleted during the restore ability checks without restoring any page', function (): void {
+it('refuses a recorded cascade member becoming trashed during the restore ability checks without restoring any page', function (): void {
     $parent = Page::factory()->createOne();
     $child = Page::factory()->createOne(['site_id' => $parent->site_id, 'blueprint_id' => $parent->blueprint_id, 'layout_id' => $parent->layout_id]);
     $child->appendToNode($parent)->save();
-    // Keep the child live until the candidate snapshot has been collected.
-    Page::query()->whereKey($parent->id)->update(['deleted_at' => now()]);
+    $parent->delete();
+    // Simulate a recorded member becoming live before the candidate snapshot.
+    Page::withTrashed()->whereKey($child->id)->update(['deleted_at' => null]);
     test()->actingAsUser();
     test()->authenticatedUser()->assignedSiteIds = collect([$parent->site_id]);
     $parentChecks = 0;
@@ -282,7 +287,7 @@ it('refuses a child deleted during the restore ability checks without restoring 
 
         $transactionLevels[] = $parent->getConnection()->transactionLevel();
         if ($arguments[0]->is($parent) && ++$parentChecks === 2) {
-            $child->delete();
+            Page::query()->whereKey($child->id)->update(['deleted_at' => now()]);
             $injected = true;
         }
 
@@ -293,12 +298,13 @@ it('refuses a child deleted during the restore ability checks without restoring 
     (new RecentlyDeletedPage)->restoreRecord('page', (int) $parent->id);
 
     expect($injected)->toBeTrue()
-        ->and(Page::onlyTrashed()->whereKey([$parent->id, $child->id])->count())->toBe(2)
+        ->and($parent->fresh()->trashed())->toBeTrue()
+        ->and($child->fresh()->trashed())->toBeFalse()
         ->and($transactionLevels)->not->toBeEmpty()
         ->and(array_all($transactionLevels, fn (int $level): bool => $level > $initialTransactionLevel))->toBeTrue();
 });
 
-it('collects a conservative superset of the native restore with different deletion times', function (): void {
+it('collects the exact restore cascade across independent ancestor deletion operations', function (): void {
     $ancestor = Page::factory()->createOne();
     $child = Page::factory()->createOne(['site_id' => $ancestor->site_id, 'blueprint_id' => $ancestor->blueprint_id, 'layout_id' => $ancestor->layout_id]);
     $child->appendToNode($ancestor)->save();
@@ -318,9 +324,9 @@ it('collects a conservative superset of the native restore with different deleti
     $restored = Page::query()->whereKey([$ancestor->id, $child->id, $grandchild->id, $sibling->id])->pluck('id')->all();
 
     expect($collected)->toContain($ancestor->id, $child->id, $grandchild->id, $sibling->id)
-        ->and($restored)->toEqualCanonicalizing([$ancestor->id, $child->id, $sibling->id])
+        ->and($restored)->toEqualCanonicalizing([$ancestor->id, $child->id, $grandchild->id, $sibling->id])
         ->and(array_diff($restored, $collected))->toBe([])
-        ->and($grandchild->fresh()->trashed())->toBeTrue();
+        ->and($grandchild->fresh()->trashed())->toBeFalse();
 });
 
 it('collects a deep restore cascade with one descendant query', function (): void {
@@ -384,7 +390,8 @@ it('retries a deadlocked restore after rereading the selected page and propagate
         if ($deadlock) {
             (new RecentlyDeletedPage)->restoreRecord('page', (int) $page->id);
             expect($page->fresh()->trashed())->toBeFalse()
-                ->and($attempts)->toBe(3);
+                // One failed root check, then Admin root/plan and Core plan/final checks on the retry.
+                ->and($attempts)->toBe(5);
         } else {
             expect(fn () => (new RecentlyDeletedPage)->restoreRecord('page', (int) $page->id))->toThrow($failure);
             expect($page->fresh()->trashed())->toBeTrue()
@@ -392,7 +399,7 @@ it('retries a deadlocked restore after rereading the selected page and propagate
         }
 
         $grammar = $retry->getQueryGrammar();
-        $selectedReads = array_filter($retry->getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'select * from ' . $grammar->wrapTable('pages')) && str_contains($query['query'], $grammar->wrap('pages.id') . ' = ?'));
+        $selectedReads = array_filter($retry->getQueryLog(), fn (array $query): bool => str_contains($query['query'], 'select * from ' . $grammar->wrapTable('pages')) && str_contains($query['query'], $grammar->wrap('pages.id') . ' = ?') && str_contains($query['query'], $grammar->wrap('pages.deleted_at') . ' is not null'));
         expect(count($selectedReads))->toBe($deadlock ? 3 : 2);
     } finally {
         DB::setDefaultConnection($original);
@@ -458,3 +465,74 @@ it('eager loads site and blueprint once for restore cascade gates', function ():
 
     expect($loaded)->toHaveCount(6)->each->toBeTrue();
 });
+
+it('restores the whole admin cascade after a stale child deletes following its ancestor', function (): void {
+    $this->freezeTime();
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $grandchild = Page::factory()->parent($child)->createOne();
+    $stale = Page::query()->whereKey($child->id)->firstOrFail();
+    $parent->refresh()->delete();
+    $stale->delete();
+    (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
+
+    expect($child->fresh()->trashed())->toBeFalse()
+        ->and($grandchild->fresh()->trashed())->toBeFalse()
+        ->and(Page::isBroken())->toBeFalse();
+})->group('restore-review');
+
+it('refuses an admin cascade atomically when a replacement owns the child url', function (): void {
+    $this->freezeTime();
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne();
+    $language = Language::factory()->english()->createOne();
+    $url = PageUrl::factory()->page($child)->site($child->site)->language($language)->createOne(['url' => '/child-collision']);
+    $parent->refresh()->delete();
+    $replacement = Page::factory()->site($parent->site)->createOne();
+    PageUrl::factory()->page($replacement)->site($replacement->site)->language($language)->createOne(['url' => '/child-collision']);
+
+    expect(fn () => (new RecentlyDeletedPage)->restoreRecord('page', $parent->id))->toThrow(PageRestoreSlugConflictException::class)
+        ->and($parent->fresh()->trashed())->toBeTrue()
+        ->and($child->fresh()->trashed())->toBeTrue()
+        ->and($url->fresh()->trashed())->toBeTrue()
+        ->and(DeletionBatchRecord::query()->where('model_type', Page::class)->whereIn('model_id', [$parent->id, $child->id])->count())->toBe(2)
+        ->and(Page::isBroken())->toBeFalse();
+})->group('restore-review');
+
+it('explains historical exclusions in recently deleted and the restore notification', function (): void {
+    $this->freezeTime();
+    $parent = Page::factory()->createOne(['name' => 'Historical parent']);
+    $child = Page::factory()->parent($parent)->createOne(['name' => 'Historical child']);
+    Page::query()->whereKey([$parent->id, $child->id])->update(['deleted_at' => now()]);
+
+    (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
+    $notification = array_values(session('filament.notifications', []))[0];
+
+    expect($notification['status'])->toBe('warning')
+        ->and($notification['body'])->toBe(__('capell-admin::message.page_restore_excluded_descendants', ['pages' => 'Historical child']))
+        ->and($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeTrue();
+    Page::query()->whereKey($parent->id)->update(['deleted_at' => now()]);
+    Livewire::test(RecentlyDeletedPage::class)
+        ->assertSee(__('capell-admin::message.page_restore_historical_notice'));
+})->group('restore-review');
+
+it('withholds inaccessible historical descendants without disclosing their existence', function (): void {
+    $this->freezeTime();
+    $parent = Page::factory()->createOne();
+    $child = Page::factory()->parent($parent)->createOne(['name' => 'Private foreign child']);
+    $foreign = Site::factory()->createOne();
+    Page::query()->whereKey([$parent->id, $child->id])->update(['deleted_at' => now()]);
+    Page::withTrashed()->whereKey($child->id)->update(['site_id' => $foreign->id]);
+    test()->actingAsUser();
+    test()->authenticatedUser()->assignedSiteIds = collect([$parent->site_id]);
+    Gate::before(static fn (mixed $user, string $ability): ?bool => $ability === 'restore' ? true : null);
+
+    (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
+    $notification = array_values(session('filament.notifications', []))[0];
+
+    expect($notification['status'])->toBe('success')
+        ->and($notification['body'])->toBeNull()
+        ->and($parent->fresh()->trashed())->toBeFalse()
+        ->and($child->fresh()->trashed())->toBeTrue();
+})->group('restore-review');

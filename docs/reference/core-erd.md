@@ -108,3 +108,31 @@ The extension and marketplace tables intentionally use stable string keys such a
 | `content_graph_edges.source_*` / `target_*`                  | Logical polymorphic | Derived graph edges for impact analysis, scoped optionally by site/language.                |
 | `content_locks.model_*`                                      | Logical polymorphic | One active lock per model record.                                                           |
 | `deletion_batches.root_*` / `deletion_batch_records.model_*` | Logical polymorphic | Tracks restore groups without coupling to package tables.                                   |
+
+Page soft deletion records the live subtree in these batch tables before deleting
+descendants. Restoration and its permission checks use the same recorded membership,
+so crossing a clock second cannot lose a child or include independently deleted trash.
+Deletion re-reads current page state and nested-set bounds under row locks; a stale
+instance of an already-trashed page cannot record a second cascade. Membership is
+consumed per restored or permanently purged member, and empty Page batches are
+pruned. A moved subtree retains its own membership until it is restored or purged;
+a later genuine Page deletion supersedes earlier Page-batch membership for that
+member only. It preserves Site-owned membership recorded before the Site cascade.
+Site restoration consumes Page-owned membership for the pages it restores while
+retaining its own Site history.
+
+Restoration checks every member's old URLs before writes using the router's enabled,
+site-and-language scope and the database's collation. It restores standard URL and
+translation relations in two statements. Members are written parent-first; ordinary
+Eloquent model events and database auditing run inside the transaction. Only Core's
+restore notification, cache invalidation and content-graph work wait until the
+outermost transaction commits. Refusal or rollback discards that deferred work.
+The vendor timestamp hook performs no second restore. See [page restoration](page-restoration.md)
+for the authorisation boundary, extension restrictions and Site restoration.
+
+Historical trash without a recorded page batch must be restored explicitly; its
+trashed ancestors are restored too, while descendant membership is never guessed
+from `deleted_at`. Admin recovery names only descendants allowed by the page view
+policy and explains separate recovery. Inaccessible descendants are neither named
+nor counted. Recently Deleted applies the same view policy before rendering names
+or totals and displays the recovery guidance before any action.

@@ -68,8 +68,9 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
             return;
         }
 
-        $restored = $model instanceof Page
-            ? RestorePageCascadeAction::run($model)
+        $result = $model instanceof Page ? RestorePageCascadeAction::make()->restoreWithResult($model) : null;
+        $restored = $result !== null
+            ? $result->restored
             : $model->getConnection()->transaction(function () use ($model): bool {
                 $locked = SiteAccess::current()->query($model::class)->onlyTrashed()->whereKey($model->getKey())->lockForUpdate()->first();
                 if ($locked === null) {
@@ -90,10 +91,14 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
             return;
         }
 
-        Notification::make()
-            ->title(__('capell-admin::message.recently_deleted_restored'))
-            ->success()
-            ->send();
+        $notification = Notification::make()->title(__('capell-admin::message.recently_deleted_restored'));
+        if ($result?->notice !== null) {
+            $notification->body($result->notice)->warning();
+        } else {
+            $notification->success();
+        }
+
+        $notification->send();
     }
 
     public function forceDeleteRecord(string $resource, int $id): void
@@ -148,7 +153,7 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
     private function collectGroups(): array
     {
         /** @var Collection<int, Model> $deletedPages */
-        $deletedPages = new Collection(SiteAccess::current()->query(Page::class)->onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());
+        $deletedPages = new Collection(SiteAccess::current()->query(Page::class)->onlyTrashed()->with(['blueprint.roleRestrictions', 'site'])->latest('deleted_at')->limit(50)->get()->filter(fn (Page $page): bool => Gate::allows('view', $page))->all());
 
         /** @var Collection<int, Model> $deletedMedia */
         $deletedMedia = new Collection(SiteAccess::current()->query(Media::class)->onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());

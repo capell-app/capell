@@ -8,6 +8,7 @@ use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User as FixtureUser;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 it('records creator editor and destroyer users through the page lifecycle', function (): void {
     $userModel = config('auth.providers.users.model');
@@ -48,7 +49,9 @@ it('records creator editor and destroyer users through the page lifecycle', func
         ->and($page->destroyerUser()?->is($destroyer))->toBeTrue()
         ->and($page->deleted_at)->not->toBeNull();
 
-    $page->restore();
+    $destroyer->assignedSiteIds = collect([$site->id]);
+    Gate::define('restore', static fn (User $actor, Page $candidate): bool => $actor->is($destroyer) && $candidate->site_id === $site->id);
+    expect($page->restore())->toBeTrue();
     $page->refresh();
 
     expect($page->deleted_by)->toBeNull()

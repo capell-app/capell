@@ -14,6 +14,8 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 
 it('hydrates public page model behavior across publish windows urls ordering and metadata', function (): void {
@@ -192,7 +194,10 @@ it('exposes blueprint site theme translation and userstamp behavior through pers
     $stampedPage = Page::factory()->site($site)->type($blueprint)->createOne(['created_by' => null, 'updated_by' => null]);
     $stampedPage->update(['name' => 'Updated by admin']);
     $stampedPage->delete();
-    $stampedPage->restore();
+
+    $admin->assignedSiteIds = collect([$site->id]);
+    Gate::define('restore', static fn (User $actor, Page $candidate): bool => $actor->is($admin) && $candidate->site_id === $site->id);
+    expect($stampedPage->restore())->toBeTrue();
 
     Storage::fake('public');
     $signature = $theme->generatedImageSignature();

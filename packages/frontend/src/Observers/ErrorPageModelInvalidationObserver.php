@@ -13,6 +13,7 @@ use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\RegenerateSiteErrorPagesAction;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationScope;
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 
@@ -23,7 +24,7 @@ use Throwable;
  * a tight relevance gate for accepted models and Translation owners so
  * unrelated saves never trigger regeneration. Never throws out of the observer.
  */
-final class ErrorPageModelInvalidationObserver
+final class ErrorPageModelInvalidationObserver implements ShouldHandleEventsAfterCommit
 {
     /**
      * @param  array<int, mixed>  $payload

@@ -216,7 +216,7 @@ it('rejects every non-public publication state', function (Closure $mutate): voi
         'visible_from' => CarbonImmutable::now()->subWeek(),
         'visible_until' => CarbonImmutable::now()->subSecond(),
     ])->save(),
-    'deleted' => fn (Page $page) => $page->delete(),
+    'deleted' => fn (Page $page): ?bool => $page->delete(),
 ]);
 
 it('rejects a missing page identity', function (): void {

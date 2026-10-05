@@ -9,7 +9,9 @@ use Aimeos\Nestedset\NodeTrait;
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Actions\GetPageUrlPathAction;
 use Capell\Core\Actions\Properties\ResolveAgentPropertyValuesAction;
+use Capell\Core\Actions\RecordPageDeletionCascadeAction;
 use Capell\Core\Actions\ResolveFirstPageByTypeAction;
+use Capell\Core\Actions\RestorePageCascadeRecordsAction;
 use Capell\Core\Actions\ValidatePageHierarchyAction;
 use Capell\Core\Concerns\HasCapellMedia;
 use Capell\Core\Concerns\WhenBootedShim;
@@ -45,6 +47,7 @@ use Capell\Core\Observers\PageObserver;
 use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Activity\LogOptions;
 use Capell\Core\Support\Activity\LogsActivity;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -246,8 +249,12 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     use HasUserstamps;
     use IsEventSourced;
     use LogsActivity;
-    use NodeTrait;
-    use SoftDeletes;
+    use NodeTrait {
+        deleteDescendants as private deleteNestedSetDescendants;
+    }
+    use SoftDeletes {
+        restore as private restoreSoftDeletedPage;
+    }
     use WhenBootedShim;
 
     /**
@@ -276,6 +283,8 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
     ];
 
     protected static string $factory = PageFactory::class;
+
+    private bool $pageRestoreCascadePrepared = false;
 
     public static function hasPageHierarchy(): bool
     {
@@ -381,6 +390,38 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
         }
 
         $pageUrl->setRelation('siteDomain', $matchingSiteDomain);
+    }
+
+    #[Override]
+    public function delete(): ?bool
+    {
+        return $this->getConnection()->transaction(function (): ?bool {
+            $current = $this->newQuery()->withTrashed()->whereKey($this->getKey())->lockForUpdate()->first();
+            if (! $current instanceof self || (! $this->isForceDeleting() && $current->trashed())) {
+                return false;
+            }
+
+            // Bounds and deletion state may have changed since this instance was loaded.
+            $this->setRawAttributes($current->getAttributes(), sync: true);
+
+            return parent::delete();
+        });
+    }
+
+    public function restore(): bool
+    {
+        return RestorePageCascadeRecordsAction::run($this, $this->restoreCascadeMember(...));
+    }
+
+    /** Restore a Site member without consuming the Site's own deletion history. */
+    public function restoreForSite(): bool
+    {
+        return RestorePageCascadeRecordsAction::run($this, $this->restoreCascadeMember(...), true);
+    }
+
+    public function isPageRestoreCascadePrepared(): bool
+    {
+        return $this->pageRestoreCascadePrepared;
     }
 
     /**
@@ -628,6 +669,20 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             ->orderByDesc('version');
     }
 
+    protected function deleteDescendants(): void
+    {
+        if (! $this->isForceDeleting() && ! $this->trashed()) {
+            RecordPageDeletionCascadeAction::run($this);
+        }
+
+        $this->deleteNestedSetDescendants();
+    }
+
+    protected function restoreDescendants(Carbon $deletedAt): void
+    {
+        // The cascade action already plans and restores every member; never use the vendor timestamp.
+    }
+
     /**
      * The effective content structure for this page.
      *
@@ -718,5 +773,15 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
             'visible_from' => 'datetime',
             'visible_until' => 'datetime',
         ];
+    }
+
+    private function restoreCascadeMember(self $member): bool
+    {
+        $member->pageRestoreCascadePrepared = true;
+        try {
+            return $member->restoreSoftDeletedPage();
+        } finally {
+            $member->pageRestoreCascadePrepared = false;
+        }
     }
 }
