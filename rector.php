@@ -207,6 +207,8 @@ return RectorConfig::configure()
             __DIR__ . '/packages/core/tests/Integration/Actions/RemovePackageActionComposerConsumerTest.php',
             __DIR__ . '/packages/core/tests/fixtures/cold-cloud-install-provider.php',
             __DIR__ . '/scripts',
+            // Reads the PHPUnit command line before any application exists, so the Request facade is unavailable.
+            __DIR__ . '/tests/Support/ComposerLockedConstraintGuard.php',
         ],
         ThrowIfRector::class => [
             __DIR__ . '/packages/core/tests/fixtures/cold-cloud-install-provider.php',
