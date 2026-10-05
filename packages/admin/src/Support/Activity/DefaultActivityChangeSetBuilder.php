@@ -10,6 +10,7 @@ use Capell\Admin\Data\Activity\ActivityChangedFieldData;
 use Capell\Admin\Data\Activity\ActivityChangedResourceData;
 use Capell\Admin\Data\Activity\ActivityChangeSetData;
 use Capell\Admin\Data\Activity\ActivityResourceLinkData;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
 
@@ -28,8 +29,8 @@ final class DefaultActivityChangeSetBuilder implements ActivityChangeSetBuilder
     public function build(Activity $activity): ActivityChangeSetData
     {
         $presentation = DescribeActivityAction::run($activity);
-        $oldValues = $this->propertiesArray($activity, 'old');
-        $newValues = $this->propertiesArray($activity, 'attributes');
+        $oldValues = ActivityLogCompat::attributeValues($activity, 'old');
+        $newValues = ActivityLogCompat::attributeValues($activity, 'attributes');
         $fieldPaths = array_values(array_unique(array_merge(array_keys($oldValues), array_keys($newValues))));
 
         return new ActivityChangeSetData(
@@ -146,15 +147,5 @@ final class DefaultActivityChangeSetBuilder implements ActivityChangeSetBuilder
         }
 
         return null;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function propertiesArray(Activity $activity, string $key): array
-    {
-        $values = $activity->properties?->get($key, []) ?? [];
-
-        return is_array($values) ? $values : [];
     }
 }

@@ -7,6 +7,9 @@ namespace Capell\Installer\Support\InstallGuide\Patches;
 use BezhanSalleh\FilamentShield\Traits\HasPanelShield;
 use Capell\Admin\Models\Concerns\HasImpersonation;
 use Capell\Core\Models\Concerns\HasSitePermissions;
+use Capell\Core\Support\Activity\ActivityLogCompat;
+use Capell\Core\Support\Activity\LogOptions;
+use Capell\Core\Support\Activity\LogsActivity;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
@@ -18,9 +21,7 @@ use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\TraitUse;
 use PhpParser\ParserFactory;
 use RuntimeException;
-use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Models\Activity;
-use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 use Throwable;
 
@@ -140,6 +141,7 @@ class UserModelPatch implements Patch
                 ...($this->requiredTraits()),
                 Activity::class,
                 LogOptions::class,
+                ActivityLogCompat::class,
             ];
 
             $editor->addUseStatements($usesToAdd);
@@ -320,12 +322,7 @@ class UserModelPatch implements Patch
         $methodCode = <<<'PHP'
 public function getActivitylogOptions(): LogOptions
 {
-    return LogOptions::defaults()
-        ->useLogName('user')
-        ->logAll()
-        ->logExcept(['email_verified_at', 'password', 'remember_token', 'updated_at', 'created_at'])
-        ->logOnlyDirty()
-        ->dontSubmitEmptyLogs();
+    return ActivityLogCompat::options('user', ['email_verified_at', 'password', 'remember_token', 'updated_at', 'created_at']);
 }
 PHP;
 

@@ -85,7 +85,8 @@ PHP);
         expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
             ->and($contents)->toContain('use BezhanSalleh\FilamentShield\Traits\HasPanelShield;')
             ->and($contents)->toContain('use Capell\Admin\Models\Concerns\HasImpersonation;')
-            ->and($contents)->toContain('use Spatie\Activitylog\LogOptions;')
+            ->and($contents)->toContain('use Capell\Core\Support\Activity\LogOptions;')
+            ->and($contents)->toContain('use Capell\Core\Support\Activity\ActivityLogCompat;')
             ->and($contents)->toContain('use Spatie\Activitylog\Models\Activity;')
             ->and($contents)->toContain('use Spatie\Permission\Traits\HasRoles;')
             ->and($contents)->toContain('use Capell\Core\Models\Concerns\HasSitePermissions;')
@@ -95,7 +96,9 @@ PHP);
             ->and($contents)->toContain('use Notifiable, HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;')
             ->and($contents)->not->toContain('LoginAuditgable')
             ->and($contents)->not->toContain('Capell\Admin\Models\Concerns\HasImpersonation, BezhanSalleh\FilamentShield\Traits\HasPanelShield')
-            ->and($contents)->toContain('public function getActivitylogOptions(): LogOptions');
+            ->and($contents)->toContain('public function getActivitylogOptions(): LogOptions')
+            ->and($contents)->toContain("return ActivityLogCompat::options('user',")
+            ->and($contents)->not->toContain('dontSubmitEmptyLogs');
     } finally {
         cleanupSetupUserModelForPatchTest();
     }
@@ -137,7 +140,7 @@ PHP);
         expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
             ->and($contents)->toContain('use BezhanSalleh\FilamentShield\Traits\HasPanelShield;')
             ->and($contents)->toContain('use Spatie\Permission\Traits\HasRoles;')
-            ->and($contents)->toContain('use Spatie\Activitylog\Traits\LogsActivity;')
+            ->and($contents)->toContain('use Capell\Core\Support\Activity\LogsActivity;')
             ->and($contents)->toContain('use Notifiable, HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;')
             ->and($contents)->not->toContain('LoginAuditgable')
             ->and($contents)->not->toContain('Rappasoft\LaravelLoginAudit');
@@ -158,7 +161,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Spatie\Activitylog\LogOptions;
+use Capell\Core\Support\Activity\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser
@@ -190,7 +193,7 @@ PHP);
         expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
             ->and($contents)->toContain('use BezhanSalleh\FilamentShield\Traits\HasPanelShield;')
             ->and($contents)->toContain('use Capell\Admin\Models\Concerns\HasImpersonation;')
-            ->and($contents)->toContain('use Spatie\Activitylog\Traits\LogsActivity;')
+            ->and($contents)->toContain('use Capell\Core\Support\Activity\LogsActivity;')
             ->and($contents)->toContain('use Notifiable;')
             ->and($contents)->toContain('use HasRoles, HasImpersonation, HasPanelShield, HasSitePermissions, LogsActivity;')
             ->and(substr_count($contents, 'public function getActivitylogOptions(): LogOptions'))->toBe(1)
@@ -257,8 +260,8 @@ use Capell\Admin\Models\Concerns\HasImpersonation;
 use Capell\Core\Models\Concerns\HasSitePermissions;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Spatie\Activitylog\LogOptions;
-use Spatie\Activitylog\Traits\LogsActivity;
+use Capell\Core\Support\Activity\LogOptions;
+use Capell\Core\Support\Activity\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser

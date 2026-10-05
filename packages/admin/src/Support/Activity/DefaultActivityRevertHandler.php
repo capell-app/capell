@@ -12,6 +12,7 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Term;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
@@ -80,8 +81,8 @@ final class DefaultActivityRevertHandler implements ActivityRevertHandler
             );
         }
 
-        $oldValues = $this->propertiesArray($activity, 'old');
-        $newValues = $this->propertiesArray($activity, 'attributes');
+        $oldValues = ActivityLogCompat::attributeValues($activity, 'old');
+        $newValues = ActivityLogCompat::attributeValues($activity, 'attributes');
         $fillable = array_flip($subject->getFillable());
         $updates = [];
         $skippedFields = [];
@@ -172,16 +173,6 @@ final class DefaultActivityRevertHandler implements ActivityRevertHandler
             messageKey: 'capell-admin::activity.reverted',
             skippedFields: $skippedFields,
         );
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function propertiesArray(Activity $activity, string $key): array
-    {
-        $values = $activity->properties?->get($key, []) ?? [];
-
-        return is_array($values) ? $values : [];
     }
 
     private function actorCanRevert(): bool
