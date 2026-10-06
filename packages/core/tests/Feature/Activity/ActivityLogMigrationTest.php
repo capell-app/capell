@@ -10,6 +10,7 @@ use Symfony\Component\Process\Process;
 
 it('adds the modern column once without changing legacy audit data', function (): void {
     $table = 'activity_log_upgrade_fixture';
+    Config::set('activitylog.activity_model');
     Config::set('activitylog.database_connection');
     Config::set('activitylog.table_name', $table);
     Schema::create($table, function (Blueprint $blueprint): void {
@@ -46,6 +47,7 @@ it('keeps a missing-table upgrade pending and repairs a later vendor create thro
 })->with(['vendor first' => '2025_08_02_100000', 'vendor later' => '2026_10_06_000001']);
 
 it('defers a missing table and rejects bypassing the migrator deferral', function (): void {
+    Config::set('activitylog.activity_model');
     Config::set('activitylog.database_connection');
     Config::set('activitylog.table_name', 'activity_log_missing_fixture');
     $migration = require dirname(__DIR__, 3) . '/database/migrations/2026_10_05_000001_add_attribute_changes_to_activity_log_table.php';
