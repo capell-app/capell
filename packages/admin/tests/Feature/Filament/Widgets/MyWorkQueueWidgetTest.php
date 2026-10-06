@@ -9,7 +9,6 @@ use Capell\Admin\Filament\Widgets\Dashboard\MyWorkQueueFilamentWidget;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Livewire\Livewire;
-use Override;
 use Spatie\LaravelData\DataCollection;
 use Spatie\Permission\Models\Role;
 

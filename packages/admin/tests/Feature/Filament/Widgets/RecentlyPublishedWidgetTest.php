@@ -8,7 +8,6 @@ use Capell\Admin\Data\Dashboard\RecentlyPublishedItemData;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
-use Override;
 use Spatie\LaravelData\DataCollection;
 use Spatie\Permission\Models\Role;
 
