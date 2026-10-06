@@ -225,7 +225,7 @@ it('correctly detects cycles with deep parent chains', function (): void {
     $level2 = Page::factory()->recycle($site)->parent($level1)->create();
     $level3 = Page::factory()->recycle($site)->parent($level2)->create();
 
-    $otherPage = Page::factory()->recycle($site)->create();
+    Page::factory()->recycle($site)->create();
 
     // Try to move root under level3 (would create cycle through the deep chain)
     $result = BulkMovePagesAction::run(new Collection([$root]), $level3, $actor);
@@ -244,7 +244,7 @@ it('moves pages to unrelated pages in the same site', function (): void {
     $branch1Child = Page::factory()->recycle($site)->parent($branch1Root)->create();
 
     $branch2Root = Page::factory()->recycle($site)->create();
-    $branch2Child = Page::factory()->recycle($site)->parent($branch2Root)->create();
+    Page::factory()->recycle($site)->parent($branch2Root)->create();
 
     // Move branch1Child under branch2Root (should succeed, no cycle)
     $result = BulkMovePagesAction::run(
@@ -308,7 +308,7 @@ it('correctly walks parent chain when parent() relationship has constraints', fu
     $intermediate = Page::factory()->recycle($site)->withTranslations()->parent($root)->create();
     $target = Page::factory()->recycle($site)->withTranslations()->parent($intermediate)->create();
 
-    $unrelatedPage = Page::factory()->recycle($site)->create();
+    Page::factory()->recycle($site)->create();
 
     // Try to move root under target
     // This tests that cycle detection walks the parent chain correctly

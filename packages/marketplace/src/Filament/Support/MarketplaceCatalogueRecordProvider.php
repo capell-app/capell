@@ -480,8 +480,6 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         $hiddenSeen = 0;
         $records = [];
         $remotePageNumber = 1;
-        $lastRemotePage = null;
-        $nextPageUrl = null;
         $stale = false;
 
         do {

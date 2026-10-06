@@ -87,7 +87,7 @@ final class OutboundHttpRetry
     {
         return $request->retry(
             $this->retryTimes,
-            $this->delay(...),
+            fn (int $_attempt, ?Throwable $exception): int => $this->delay($exception),
             $this->shouldRetry(...),
             throw: false,
         );
@@ -105,10 +105,8 @@ final class OutboundHttpRetry
         return is_numeric($value) ? (int) $value : $default;
     }
 
-    private function delay(int $attempt, ?Throwable $exception): int
+    private function delay(?Throwable $exception): int
     {
-        unset($attempt);
-
         if ($exception instanceof RequestException && in_array($exception->response->status(), self::RETRY_AFTER_STATUSES, true)) {
             return $this->retryAfterDelay($exception) ?? $this->retryDelayMs;
         }

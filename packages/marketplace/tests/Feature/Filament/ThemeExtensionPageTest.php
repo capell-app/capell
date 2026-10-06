@@ -226,7 +226,7 @@ it('rejects a supplied foreign site for apply and preview', function (): void {
 });
 
 it('denies direct marketplace theme writes without an actor', function (): void {
-    $site = Site::factory()->create();
+    Site::factory()->create();
     auth()->logout();
 
     ApplyMarketplaceThemeToSitesAction::run('guest-theme', 'Guest Theme');

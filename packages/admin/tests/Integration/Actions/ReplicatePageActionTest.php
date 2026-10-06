@@ -9,7 +9,7 @@ use Capell\Core\Models\Site;
 
 it('replicates a page with relations', function (): void {
     $site = Site::factory()->createOne();
-    $lang = Language::factory()->createOne();
+    Language::factory()->createOne();
     $page = Page::factory()->createOne([
         'site_id' => $site->id,
         'name' => 'Original',

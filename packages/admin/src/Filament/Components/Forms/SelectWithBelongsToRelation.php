@@ -57,9 +57,15 @@ class SelectWithBelongsToRelation extends Select
 
         // Re-instantiate relation with temporarily set morph type so Laravel builds the proper related instance.
         if ($record instanceof Model) {
+            $relationshipName = $this->getRelationshipName();
+
+            if (! is_string($relationshipName)) {
+                return $relationship;
+            }
+
             $originalType = $record->getAttribute($morphBlueprintColumn);
             $record->setAttribute($morphBlueprintColumn, $morphTypeValue);
-            $relationship = $record->{$this->getRelationshipName()}();
+            $relationship = $record->{$relationshipName}();
             // Restore original (null) to avoid side-effects if it was previously unset.
             if ($originalType === null) {
                 $record->setAttribute($morphBlueprintColumn, $originalType);

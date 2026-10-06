@@ -10,9 +10,6 @@ use Illuminate\Support\Facades\File;
 afterEach(fn () => Mockery::close());
 
 it('publishes resources interactively and by option', function (): void {
-    $resourcePath = app_path('Filament/Resources/Pages');
-    $testFile = $resourcePath . '/PageResource.php';
-
     CapellAdmin::contributeToAdminSurface(
         AdminSurfaceContributionData::resource(PageResource::class, group: 'Page', name: 'PageResource'),
     );

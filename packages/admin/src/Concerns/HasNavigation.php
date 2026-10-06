@@ -353,6 +353,6 @@ trait HasNavigation
 
     private function resolveNavigationGroupLabel(string $label): string
     {
-        return str_contains($label, '::') ? (string) __($label) : $label;
+        return str_contains((string) $label, '::') ? (string) __($label) : $label;
     }
 }

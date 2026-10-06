@@ -45,7 +45,7 @@ afterEach(function (): void {
 });
 
 it('fails incomplete static exports without replacing the previous manifest', function (bool $includeSuccessfulPage): void {
-    [, $site] = staticPageArtifactsRenderData('/failed-static-test');
+    staticPageArtifactsRenderData('/failed-static-test');
     $urls = ['/failed-static-test'];
 
     if ($includeSuccessfulPage) {
@@ -530,7 +530,7 @@ it('skips urls without an enabled site domain or writable html response', functi
 
 it('generates static HTML from hydrated contributor data without public-view queries or internals', function (): void {
     config()->set('cache.default', 'array');
-    [$page, $site, $seedRenderData] = staticPageArtifactsRenderData('/catalogue-static-test');
+    [, $site, $seedRenderData] = staticPageArtifactsRenderData('/catalogue-static-test');
 
     resolve(PublicRenderDataContributorRegistry::class)->register(new class implements PublicRenderDataContributor
     {

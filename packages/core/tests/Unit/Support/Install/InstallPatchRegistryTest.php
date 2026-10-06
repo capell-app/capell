@@ -337,6 +337,8 @@ final class InstallPatchReceiptCapturedState
         return function (InstallPatchContext $context): Patch {
             $literal = '$this';
             $thisValue = 'not-bound-state';
+            expect($literal)->toBe('$this')
+                ->and($thisValue)->toBe('not-bound-state');
 
             return makeInstallPatchRegistryTestPatch('unused-bound');
         };
@@ -347,6 +349,8 @@ final class InstallPatchReceiptCapturedState
         return function (InstallPatchContext $context): Patch {
             $literal = '$this';
             $thisValue = 'not-bound-state';
+            expect($literal)->toBe('$this')
+                ->and($thisValue)->toBe('not-bound-state');
 
             return makeInstallPatchRegistryTestPatch('literal-bound');
         };

@@ -64,7 +64,7 @@ class SiteSelect extends Select
                 },
             ])
             ->options(
-                fn (self $component): SupportCollection => $this->getSites($this->modifyQueryUsing ?? null)
+                fn (self $component): SupportCollection => $this->getSites($this->modifyQueryUsing)
                     ->pluck($component->optionLabel, $component->optionKey),
             )
             ->default(function (Select $component): mixed {

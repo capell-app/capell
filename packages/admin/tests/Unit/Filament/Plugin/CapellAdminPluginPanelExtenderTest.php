@@ -94,7 +94,7 @@ it('refuses ambiguous late authentication middleware on existing panel routes', 
 
 it('denies requests and refuses retry after an extender partially fails', function (): void {
     $panel = Panel::make()->id('runtime-retry')->authMiddleware([RuntimeAllowMiddleware::class]);
-    $route = Route::get('runtime-retry/probe', static fn (): string => 'probe')
+    Route::get('runtime-retry/probe', static fn (): string => 'probe')
         ->middleware([RuntimeAllowMiddleware::class])->name('filament.runtime-retry.probe');
     $extender = new class implements AdminPanelExtender
     {

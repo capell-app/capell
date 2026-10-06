@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 it('creates default pages for a site', function (): void {
     $site = Site::factory()->createOne();
-    $lang = Language::factory()->createOne();
+    Language::factory()->createOne();
 
     CreateDefaultPagesAction::run($site);
 

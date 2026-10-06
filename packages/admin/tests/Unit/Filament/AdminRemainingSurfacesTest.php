@@ -79,7 +79,7 @@ it('selects dashboard Filament widgets from install state and available sites', 
 
     expect((new CapellDashboard)->getWidgets())->toBe(['not-installed-widget']);
 
-    $site = Site::factory()->createOne();
+    Site::factory()->createOne();
 
     expect((new CapellDashboard)->getWidgets())
         ->toContain('main-widget')

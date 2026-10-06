@@ -28,7 +28,7 @@ it('renders the selected site language through the optional sitemap builder', fu
     grantSitemapPageAccessForPageTests();
     SitemapPageFakeSitemapBuilder::reset();
 
-    [$site, $english, $french] = createSiteWithSitemapLanguages(
+    [$site, , $french] = createSiteWithSitemapLanguages(
         siteName: 'Main site',
         englishDomain: 'main.test',
         frenchDomain: 'fr.main.test',

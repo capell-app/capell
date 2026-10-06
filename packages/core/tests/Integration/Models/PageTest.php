@@ -76,7 +76,7 @@ it('creates AssetAttachment via factory and resolves HasAssets relations', funct
 it('scopeWithAssets returns pages that have assets and eager-loads asset morph', function (): void {
     // Arrange: one page with an asset relation and one without
     $withAssets = Page::factory()->createOne();
-    $withoutAssets = Page::factory()->createOne();
+    Page::factory()->createOne();
 
     AssetAttachmentFactory::new()
         ->related($withAssets)

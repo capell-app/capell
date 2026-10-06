@@ -420,7 +420,7 @@ describe('from list page', function (): void {
         ]);
 
     it('required fields are required', function (): void {
-        $language = Language::factory()->createOne();
+        Language::factory()->createOne();
         Blueprint::factory()->page()->default()->create();
 
         Livewire::test(ListPages::class)

@@ -218,7 +218,7 @@ it('renders once for repeated change-driven triggers while the inputs are unchan
     $writesAfterFirst = $store->writes;
     expect($writesAfterFirst)->toBeGreaterThan(0);
 
-    foreach (range(1, 9) as $ignoredAttempt) {
+    foreach (range(1, 9) as $_) {
         RegenerateSiteErrorPagesAction::run($siteDomain->site_id, false);
     }
 

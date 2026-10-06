@@ -223,7 +223,6 @@ class ColorConverterAction
         $max = max($r, $g, $b);
         $min = min($r, $g, $b);
         $h = ($max + $min) / 2;
-        $s = ($max + $min) / 2;
         $l = ($max + $min) / 2;
         if ($max === $min) {
             $h = 0;
