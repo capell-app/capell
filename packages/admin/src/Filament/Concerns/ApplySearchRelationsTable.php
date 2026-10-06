@@ -38,7 +38,7 @@ trait ApplySearchRelationsTable
         $search = mb_trim($search);
 
         $query->where(function (Builder $query) use ($search): void {
-            foreach (explode(' ', $search) as $searchWord) {
+            foreach (explode(' ', (string) $search) as $searchWord) {
                 $query->where(function (Builder $query) use ($searchWord): void {
                     $isFirst = true;
 
@@ -85,10 +85,10 @@ trait ApplySearchRelationsTable
             $searchParent = null;
 
             if (Str::contains($searchColumn, '->')) {
-                [$searchParent, $searchColumn] = explode('->', $searchColumn, 2);
+                [$searchParent, $searchColumn] = explode('->', (string) $searchColumn, 2);
             }
 
-            $searchColumn = preg_replace('/[^a-zA-Z0-9]+/', '', $searchColumn) ?? '';
+            $searchColumn = preg_replace('/[^a-zA-Z0-9]+/', '', (string) $searchColumn) ?? '';
 
             $grammar = $query->getQuery()->getGrammar();
             $searchColumnFragment = in_array($searchParent, [null, '', '0'], true)

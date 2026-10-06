@@ -126,7 +126,7 @@ trait HasPageVariation
             return;
         }
 
-        $qualifiedAlias = Str::snake(str_replace('\\', '', Str::before(ltrim($model, '\\'), '\\Models\\')))
+        $qualifiedAlias = Str::snake(str_replace('\\', '', Str::before(ltrim((string) $model, '\\'), '\\Models\\')))
             . '_' . $preferredAlias;
 
         if (array_key_exists($qualifiedAlias, $morphMap)) {

@@ -86,7 +86,7 @@ trait HasPageOrdering
      */
     private static function sortDirection(string $direction): string
     {
-        return mb_strtolower($direction) === 'desc' ? 'desc' : 'asc';
+        return mb_strtolower((string) $direction) === 'desc' ? 'desc' : 'asc';
     }
 
     /**

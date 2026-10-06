@@ -38,7 +38,7 @@ trait HasWidgets
         $this->widgetDiscovery()->registerDiscoverableWidgets($directory, $namespace);
         $this->adminReceipt(
             ExtensionContributionType::DashboardFilamentWidget,
-            'discoverable-widgets:' . trim($namespace, '\\') . ':' . $directory,
+            'discoverable-widgets:' . trim((string) $namespace, '\\') . ':' . $directory,
             $namespace,
         );
 

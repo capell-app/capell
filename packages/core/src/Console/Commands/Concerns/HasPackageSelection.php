@@ -90,7 +90,7 @@ trait HasPackageSelection
 
         if (! ($packageOptions instanceof Collection)) {
             $packageOptions = collect($packageOptions)
-                ->map(fn (string $packageName): string => trim($packageName))
+                ->map(fn (string $packageName): string => trim((string) $packageName))
                 ->filter(fn (string $packageName): bool => $packageName !== '');
         }
 
