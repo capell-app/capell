@@ -13,7 +13,7 @@ it('pins the dependency-gated next-major decision without changing the 1.x line'
     expect($decision['status'])->toBe('preparation-only')
         ->and($decision['gate'])->toContain('CAP-0270')
         ->and($baseline['status'])->toBe('draft')
-        ->and($composer['require']['filament/support'] ?? null)->toBe('^5.7.6');
+        ->and($composer['require']['filament/support'] ?? null)->toBe('^5.9.0');
 });
 
 it('keeps the future old-package failure wording as a consumer fixture', function (): void {

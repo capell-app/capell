@@ -181,7 +181,7 @@ it('defines the public v1 split package release contract', function (): void {
         ->not->toContain('pull_request:')
         ->toContain('"pestphp/pest:^5.0"')
         ->toContain('"pestphp/pest-plugin-phpstan:^5.0"')
-        ->toContain('"filament/filament:^5.7.6"')
+        ->toContain('"filament/filament:^5.9.0"')
         ->not->toContain('filament/filament:^4.7')
         ->and($fullTestWorkflow)
         ->toContain('- main');

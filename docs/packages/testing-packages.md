@@ -21,7 +21,7 @@ composer require --dev \
   pestphp/pest-plugin-laravel:^5.0
 ```
 
-Match the Capell line you target: Capell 1.x runs PHP 8.4+, Laravel 13, Filament `^5.7.6`, PHPUnit 13, and Pest 5. Pest 4 and Pest 5 are not interchangeable here.
+Match the Capell line you target: Capell 1.x runs PHP 8.4+, Laravel 13, Filament `^5.9.0`, PHPUnit 13, and Pest 5. Pest 4 and Pest 5 are not interchangeable here.
 
 ### 2. `phpunit.xml.dist`
 
