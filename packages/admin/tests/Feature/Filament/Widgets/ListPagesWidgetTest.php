@@ -218,7 +218,7 @@ it('eager-loads the real pageUrl relation when a language filter is set', functi
     test()->actingAsAdmin();
 
     $language = Language::factory()->createOne();
-    $page = Page::factory()
+    Page::factory()
         ->withTranslations()
         ->create();
 

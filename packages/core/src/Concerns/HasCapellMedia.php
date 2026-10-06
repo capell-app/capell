@@ -42,7 +42,7 @@ trait HasCapellMedia
 
     public function registerMediaConversions(?Media $media = null): void
     {
-        if (! $media instanceof Media || ! str_starts_with($media->mime_type, 'image/')) {
+        if (! $media instanceof Media || ! str_starts_with((string) $media->mime_type, 'image/')) {
             return;
         }
 

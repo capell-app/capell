@@ -18,12 +18,14 @@ final class DispatchMarketplaceInstallAttemptAction
         MarketplaceInstallAttempt $attempt,
         string $queueConnection,
         string $queue,
+        bool $afterResponse = false,
     ): MarketplaceInstallAttempt {
         return DispatchMarketplaceAttemptAction::run(
             attempt: $attempt,
             queueConnection: $queueConnection,
             queue: $queue,
             jobClass: RunMarketplaceInstallAttemptJob::class,
+            afterResponse: $afterResponse,
         );
     }
 }

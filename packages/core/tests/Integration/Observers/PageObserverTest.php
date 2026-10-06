@@ -51,7 +51,7 @@ it('preserves an explicitly assigned uuid when creating a page', function (): vo
 
 it('flushes specific cache keys on saved/deleted/restored', function (): void {
     $site = Site::factory()->createOne();
-    $lang = Language::factory()->createOne();
+    Language::factory()->createOne();
 
     $page = Page::factory()->createOne([
         'site_id' => $site->id,
@@ -93,15 +93,13 @@ it('updates page and descendant URLs on parent change', function (): void {
     ]);
 
     // Add translations with slugs
-    /** @var Translation $parentTrans */
-    $parentTrans = Translation::factory()
+    Translation::factory()
         ->translatable($parent)
         ->language($lang)
         ->slug('/parent')
         ->create();
 
-    /** @var Translation $childTrans */
-    $childTrans = Translation::factory()
+    Translation::factory()
         ->translatable($child)
         ->language($lang)
         ->slug('/child')

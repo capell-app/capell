@@ -29,8 +29,8 @@ it('getDefaultType returns the first enabled visible accessible page type ordere
     Blueprint::factory()->site()->create(['group' => $group, 'default' => false]);
 
     // Page blueprints with ordering via created_at; we will ensure the first ordered one is returned
-    $t1 = Blueprint::factory()->page()->create(['group' => $group, 'default' => false, 'created_at' => now()->subDays(5)]);
-    $t2 = Blueprint::factory()->page()->create(['group' => $group, 'default' => false, 'created_at' => now()->subDays(10)]);
+    Blueprint::factory()->page()->create(['group' => $group, 'default' => false, 'created_at' => now()->subDays(5)]);
+    Blueprint::factory()->page()->create(['group' => $group, 'default' => false, 'created_at' => now()->subDays(10)]);
 
     // Act
     $found = Page::getDefaultType($group);

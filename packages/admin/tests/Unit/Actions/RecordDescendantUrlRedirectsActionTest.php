@@ -131,7 +131,7 @@ it('ignores pages that are not descendants of the edited page', function (): voi
 it('skips descendant urls that did not change', function (): void {
     $site = Site::factory()->withTranslations()->create();
     $parent = Page::factory()->recycle($site)->withTranslations()->create();
-    $child = Page::factory()->recycle($site)->parent($parent)->withTranslations()->create();
+    Page::factory()->recycle($site)->parent($parent)->withTranslations()->create();
 
     $snapshot = CollectDescendantPageUrlsAction::run($parent);
 

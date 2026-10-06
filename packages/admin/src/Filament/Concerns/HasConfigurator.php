@@ -44,7 +44,7 @@ trait HasConfigurator
 
         $suffix = static::getConfiguratorType()->getName() . 'Configurator';
 
-        return preg_replace(sprintf('/%s$/', $suffix), '', $key) ?? $key;
+        return preg_replace(sprintf('/%s$/', $suffix), '', (string) $key) ?? $key;
     }
 
     public static function getConfiguratorType(): ConfiguratorTypeEnumInterface

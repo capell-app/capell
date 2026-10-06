@@ -134,7 +134,6 @@ class ReplaceMediaFileAction
             throw_unless($original->save(), RuntimeException::class, __('capell-admin::media.replacement_metadata_failed'));
             throw_unless($staged->newQuery()->whereKey($staged->getKey())->forceDelete() === 1, RuntimeException::class, __('capell-admin::media.replacement_metadata_failed'));
             $connection->commit();
-            $transactionStarted = false;
         } catch (Throwable $throwable) {
             $failure = $throwable;
 

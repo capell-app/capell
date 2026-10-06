@@ -290,7 +290,7 @@ class ParseWildcardPageUrlAction
 
     private function resolvePaginationMode(?string $paginationMode): string
     {
-        $mode = strtolower(trim($paginationMode ?? config('paginateroute.mode', 'normal')));
+        $mode = strtolower(trim((string) ($paginationMode ?? config('paginateroute.mode', 'normal'))));
 
         return in_array($mode, ['normal', 'simple', 'dash', 'dashed'], true) ? $mode : 'normal';
     }

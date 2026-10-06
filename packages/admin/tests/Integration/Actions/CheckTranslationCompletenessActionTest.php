@@ -20,7 +20,7 @@ it('returns 100% for fully complete translation', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'title' => 'Hello',
         'content' => 'World',
     ]);
@@ -37,7 +37,7 @@ it('returns 0% for completely blank translation', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'title' => 'Hello',
         'content' => 'World',
     ]);
@@ -54,7 +54,7 @@ it('returns 50% for half complete translation', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'title' => 'Hello',
         'content' => 'World',
     ]);
@@ -71,7 +71,7 @@ it('returns null if all default values are blank', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'title' => '',
         'content' => '',
     ]);
@@ -88,7 +88,7 @@ it('handles nested JSON completeness', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'meta' => ['subtitle' => 'A', 'summary' => 'B'],
     ]);
     $fr = Translation::factory()->translatable($page)->for($frLang)->create([
@@ -103,7 +103,7 @@ it('returns null if no keys are provided', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'title' => 'Hello',
     ]);
     $fr = Translation::factory()->translatable($page)->for($frLang)->create([
@@ -118,7 +118,7 @@ it('returns 100% if translated values match default but are not blank', function
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'title' => 'Hello',
         'content' => 'World',
     ]);
@@ -135,7 +135,7 @@ it('ignores nonexistent keys', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'title' => 'Hello',
     ]);
     $fr = Translation::factory()->translatable($page)->for($frLang)->create([
@@ -150,7 +150,7 @@ it('handles missing subkey in translation', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'meta' => ['subtitle' => 'A', 'summary' => 'B'],
     ]);
     $fr = Translation::factory()->translatable($page)->for($frLang)->create([
@@ -165,7 +165,7 @@ it('handles null JSON field', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'meta' => ['subtitle' => 'A', 'summary' => 'B'],
     ]);
     $fr = Translation::factory()->translatable($page)->for($frLang)->create([
@@ -180,7 +180,7 @@ it('handles empty array JSON field', function (): void {
     $defaultLang = Language::factory()->createOne(['default' => true]);
     $frLang = Language::factory()->createOne(['default' => false, 'code' => 'fr']);
     $page = Page::factory()->createOne();
-    $default = Translation::factory()->translatable($page)->for($defaultLang)->create([
+    Translation::factory()->translatable($page)->for($defaultLang)->create([
         'meta' => ['subtitle' => 'A', 'summary' => 'B'],
     ]);
     $fr = Translation::factory()->translatable($page)->for($frLang)->create([

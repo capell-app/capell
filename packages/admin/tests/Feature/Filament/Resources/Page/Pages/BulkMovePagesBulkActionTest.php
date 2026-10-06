@@ -225,7 +225,7 @@ it('bulk move pages correctly detects cycles with deep parent chains', function 
 it('bulk move mixed valid and invalid pages reports correct counts', function (): void {
     $site = Site::factory()->withTranslations()->create();
 
-    $validTarget = Page::factory()->recycle($site)->create();
+    Page::factory()->recycle($site)->create();
     $validPage = Page::factory()->recycle($site)->create();
 
     // Create a cycle scenario: ancestor and its child

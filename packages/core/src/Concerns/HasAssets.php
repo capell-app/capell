@@ -48,7 +48,7 @@ trait HasAssets
             $name = $name->name;
         }
 
-        $name = ucfirst($name);
+        $name = ucfirst((string) $name);
 
         throw_unless(isset($this->assets[$name]), InvalidArgumentException::class, sprintf("Asset with name '%s' does not exist.", $name));
 

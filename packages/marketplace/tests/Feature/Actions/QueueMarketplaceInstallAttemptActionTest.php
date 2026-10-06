@@ -63,6 +63,7 @@ it('returns the durable operation when an idempotent browser request is repeated
         ),
         'actor' => MarketplaceInstallActorData::system('browser-test'),
         'source' => MarketplaceInstallSource::Programmatic,
+        'afterResponse' => false,
         'idempotencyKey' => 'browser-request-123',
     ];
 

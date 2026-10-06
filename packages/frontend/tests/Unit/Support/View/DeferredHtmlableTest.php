@@ -24,7 +24,7 @@ it('evaluates closure when toHtml is called', function (): void {
     });
 
     expect($called)->toBeFalse();
-    $html = $deferrable->toHtml();
+    $deferrable->toHtml();
     expect($called)->toBeTrue();
 });
 

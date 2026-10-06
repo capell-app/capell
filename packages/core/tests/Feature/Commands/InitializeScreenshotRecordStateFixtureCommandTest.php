@@ -216,7 +216,7 @@ it('fails closed when the stable media identity belongs to another site', functi
 
 it('fails closed when fixture media has an attachment', function (): void {
     Storage::fake('public');
-    $site = Site::factory()->withTranslations()->create();
+    Site::factory()->withTranslations()->create();
     Blueprint::factory()->page()->create();
     putenv('CAPELL_SCREENSHOT_FIXTURE=record-state');
     putenv('CAPELL_SCREENSHOT_APP_PATH=' . base_path());

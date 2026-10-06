@@ -55,7 +55,7 @@ class CreateDefaultPagesAction
                     $pageCreator->createWelcomePage($site, $languages);
                     break;
                 default:
-                    $callback = CapellCore::getDefaultPage($type)->callback ?? null;
+                    $callback = CapellCore::getDefaultPage($type)->callback;
 
                     try {
                         throw_unless(

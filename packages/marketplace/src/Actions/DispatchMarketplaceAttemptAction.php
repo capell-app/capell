@@ -22,8 +22,9 @@ final class DispatchMarketplaceAttemptAction
         string $queueConnection,
         string $queue,
         string $jobClass,
+        bool $afterResponse = false,
     ): MarketplaceInstallAttempt {
-        return DB::transaction(function () use ($attempt, $queueConnection, $queue, $jobClass): MarketplaceInstallAttempt {
+        return DB::transaction(function () use ($attempt, $queueConnection, $queue, $jobClass, $afterResponse): MarketplaceInstallAttempt {
             $lockedAttempt = MarketplaceInstallAttempt::query()
                 ->whereKey((int) $attempt->getKey())
                 ->lockForUpdate()
@@ -33,9 +34,13 @@ final class DispatchMarketplaceAttemptAction
                 return $lockedAttempt;
             }
 
-            dispatch(new $jobClass((int) $lockedAttempt->getKey()))
+            $pendingDispatch = dispatch(new $jobClass((int) $lockedAttempt->getKey()))
                 ->onConnection($queueConnection)
                 ->onQueue($queue);
+
+            if ($afterResponse) {
+                $pendingDispatch->afterResponse();
+            }
 
             return $lockedAttempt;
         });

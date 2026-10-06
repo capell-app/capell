@@ -36,7 +36,6 @@ it('records only confirmed page url changes with one language lookup', function 
     $page = Page::factory()->createOne();
     $language = Language::factory()->createOne();
     $otherLanguage = Language::factory()->createOne();
-    $recorded = [];
     $languageQueries = 0;
 
     $recorder = new class implements RedirectUrlRecorder

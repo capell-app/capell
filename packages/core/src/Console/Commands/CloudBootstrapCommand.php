@@ -54,7 +54,6 @@ class CloudBootstrapCommand extends Command
         }
 
         $instanceId = $this->instanceId($appUrl);
-        $bootstrap = null;
 
         try {
             if (! $installed) {

@@ -336,7 +336,7 @@ it('cannot create an available theme without theme create permission', function 
 });
 
 it('installed theme details render the active preset label', function (): void {
-    $theme = Theme::factory()->createOne([
+    Theme::factory()->createOne([
         'key' => 'agency',
         'name' => 'Agency',
         'meta' => [

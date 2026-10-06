@@ -48,6 +48,7 @@ use Capell\Tests\Fixtures\Filament\Pages\ExampleExtensionPage;
 use Capell\Tests\Fixtures\Filament\Pages\PlainRegisteredExtensionPage;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -1769,8 +1770,15 @@ it('keeps the extensions hub free of sub navigation and moves sibling extension 
 
     $page = resolve(ExampleExtensionPage::class);
     $headerActionGroups = (fn (): array => $this->getHeaderActions())->call($page);
-    $headerActions = collect($headerActionGroups[0]->getActions())
-        ->map(fn (Action $action): string => filamentText($action->getLabel()))
+    $headerActionGroup = $headerActionGroups[0];
+    throw_unless($headerActionGroup instanceof ActionGroup, LogicException::class, 'Expected extension header actions to be grouped.');
+
+    $headerActions = collect($headerActionGroup->getActions())
+        ->map(static function (Action|ActionGroup $action): string {
+            throw_unless($action instanceof Action, LogicException::class, 'Expected an extension page action.');
+
+            return filamentText($action->getLabel());
+        })
         ->values()
         ->all();
 

@@ -262,6 +262,7 @@
         "pestphp/pest-plugin-livewire": "^5.0",
         "pestphp/pest-plugin-phpstan": "^5.0",
         "pestphp/pest-plugin-type-coverage": "^5.0",
+        "phpstan/phpstan": "2.3.0",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-mockery": "^2.0",
         "rector/rector": "^2.0",

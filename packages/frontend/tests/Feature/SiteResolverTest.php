@@ -59,8 +59,8 @@ it('throws SiteDomainNotFoundException if sites collection is empty', function (
 });
 
 it('throws if no siteDomain found', function (): void {
-    $language = Language::factory()->createOne();
-    $site = Site::factory()->createOne();
+    Language::factory()->createOne();
+    Site::factory()->createOne();
     $sites = Site::query()->get();
     $url = '/not-matching';
     $fullUrl = 'https://not-a-real-domain.com' . $url;

@@ -60,14 +60,12 @@ final class VerifyMarketplaceSignedActivationAction
 
     private function signingSecretForInstance(string $instanceId): ?string
     {
-        $marketplaceInstance = null;
-
         try {
             $marketplaceInstance = MarketplaceInstance::query()
                 ->where('instance_id', $instanceId)
                 ->first();
         } catch (Throwable) {
-            $marketplaceInstance = null;
+            return null;
         }
 
         $signingSecret = $marketplaceInstance?->signing_secret_encrypted;

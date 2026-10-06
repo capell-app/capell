@@ -44,7 +44,7 @@ it('scope steps()/versionSnapshots() filter by type', function (): void {
 });
 
 it('allows multiple failed rows for the same step key', function (): void {
-    foreach (range(1, 3) as $attempt) {
+    foreach (range(1, 3) as $_) {
         UpgradeLogEntry::query()->create([
             'type' => 'step', 'key' => 'core.retry-me', 'package' => 'capell-app/capell',
             'status' => 'failed', 'ran_at' => now(),

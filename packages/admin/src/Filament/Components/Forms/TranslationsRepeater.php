@@ -346,8 +346,6 @@ class TranslationsRepeater extends RepeaterTabs
                 if ($related instanceof Blueprint) {
                     $admin = $related->getAttribute('admin');
                     $requiredTranslations = is_array($admin) ? ($admin['require_translations'] ?? null) : null;
-                } else {
-                    $requiredTranslations = null;
                 }
             } else {
                 $rawState = RawState::array($component->getRootContainer()->getRawState());
