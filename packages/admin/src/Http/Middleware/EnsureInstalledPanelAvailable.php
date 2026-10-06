@@ -25,6 +25,6 @@ final class EnsureInstalledPanelAvailable
 
     private function assertAvailable(string $panel): void
     {
-        abort_if($this->lifecycle->isUnavailable() || $this->panels->isUnavailable($panel), 503, __('capell::runtime-refresh.application_unavailable'));
+        abort_if($this->lifecycle->isUnavailable() || $this->panels->isUnavailable($panel), 503, __('capell-core::runtime-refresh.application_unavailable'));
     }
 }

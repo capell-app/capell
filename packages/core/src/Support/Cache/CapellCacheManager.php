@@ -261,7 +261,7 @@ final class CapellCacheManager
         // A concurrent writer may repopulate the key after removal; a re-read cannot prove deletion failed.
         unset($this->localCache[$normalizedKey]);
         if ($existed && ! $cache->forget($normalizedKey)) {
-            throw new RuntimeException(__('capell::runtime-refresh.cache_key_removal_failed', ['key' => $key]));
+            throw new RuntimeException(__('capell-core::runtime-refresh.cache_key_removal_failed', ['key' => $key]));
         }
     }
 

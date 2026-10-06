@@ -57,7 +57,7 @@ it('fails the compiled view stage when cache files remain after a successful com
         $stage = new RunArtisanRuntimeRefreshStageAction(resolve(Kernel::class))->handle('views', 'Compiled views', 'view:clear');
 
         expect($stage->passed)->toBeFalse()
-            ->and($stage->message)->toContain(__('capell::runtime-refresh.cache_refresh_required'))
+            ->and($stage->message)->toContain(__('capell-core::runtime-refresh.cache_refresh_required'))
             ->and($files->exists($path))->toBeTrue();
     } finally {
         app()->instance('files', $files);

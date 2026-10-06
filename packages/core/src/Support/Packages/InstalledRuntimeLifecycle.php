@@ -95,13 +95,13 @@ final class InstalledRuntimeLifecycle
     public function assertCanActivate(?string $package = null): void
     {
         if (Container::getInstance() !== $this->app) {
-            throw new RuntimeException(__('capell::runtime-refresh.owning_application_required'));
+            throw new RuntimeException(__('capell-core::runtime-refresh.owning_application_required'));
         }
 
         if ($package !== null) {
             $this->assertPackageAvailable($package);
         } elseif ($this->unavailable) {
-            throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
+            throw new RuntimeException(__('capell-core::runtime-refresh.failed_application'));
         }
     }
 
@@ -202,7 +202,7 @@ final class InstalledRuntimeLifecycle
         }
 
         if ($this->unavailable && $package === null) {
-            throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
+            throw new RuntimeException(__('capell-core::runtime-refresh.failed_application'));
         }
 
         if ($this->pending === [] && $this->activatedPackages === []) {
@@ -261,7 +261,7 @@ final class InstalledRuntimeLifecycle
     private function assertPackageAvailable(string $package, array $checked = []): void
     {
         if ($this->packageFailed($package)) {
-            throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
+            throw new RuntimeException(__('capell-core::runtime-refresh.failed_application'));
         }
 
         if (in_array($package, $checked, true) || ! CapellCore::hasPackage($package)) {
