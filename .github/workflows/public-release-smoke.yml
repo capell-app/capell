@@ -108,6 +108,60 @@ jobs:
             test -s "${RUNNER_TEMP}/response.html"
           done
 
+      - name: Fresh installer-only Laravel consumer
+        env:
+          RELEASE_PLAN: ${{ runner.temp }}/approved-plan/${{ inputs.plan_path }}
+        run: |
+          installer_requirement="$(jq -er '.packages[] | select(.name == "capell-app/installer") | "\(.name):\(.proposed_version)"' "${RELEASE_PLAN}")"
+          cd "$(mktemp -d)"
+          composer create-project --no-interaction --no-progress --prefer-dist laravel/laravel consumer
+          cd consumer
+          composer require --no-interaction --no-progress --prefer-dist "${installer_requirement}"
+          php <<'PHP'
+          <?php
+          require 'vendor/autoload.php';
+          foreach (['capell-app/admin', 'capell-app/frontend'] as $package) {
+              if (Composer\InstalledVersions::isInstalled($package)) {
+                  throw new RuntimeException('Installer-only fixture unexpectedly preinstalls ' . $package);
+              }
+          }
+          PHP
+          php artisan capell:install --no-interaction --url=http://127.0.0.1:8000 --name='Installer Smoke' --email=installer@example.test --password='installer-smoke-password' --install-welcome-route
+          php artisan capell:doctor --install-summary --skip-package-doctors --json > "${RUNNER_TEMP}/installer-only-health.json"
+          jq -e '.status == "passed"' "${RUNNER_TEMP}/installer-only-health.json"
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build
+          php artisan serve --no-reload --host=127.0.0.1 --port=8000 > "${RUNNER_TEMP}/installer-only.log" 2>&1 &
+          server_pid=$!
+          trap 'status=$?; if [ "${status}" -ne 0 ]; then cat "${RUNNER_TEMP}/installer-only.log"; tail -200 storage/logs/laravel.log || true; fi; kill "${server_pid}" || true; exit "${status}"' EXIT
+          for path in / /admin/login; do
+            for attempt in {1..15}; do
+              curl --max-time 10 --fail --silent --show-error "http://127.0.0.1:8000${path}" >/dev/null && break
+              if [ "$attempt" -eq 15 ]; then exit 1; fi
+              sleep 1
+            done
+            curl --max-time 10 --location --fail --silent --show-error "http://127.0.0.1:8000${path}" > "${RUNNER_TEMP}/installer-only-response.html"
+            test -s "${RUNNER_TEMP}/installer-only-response.html"
+            python3 - "${RUNNER_TEMP}/installer-only-response.html" <<'PYTHON'
+          import sys
+          from html.parser import HTMLParser
+          from urllib.parse import urljoin, urlparse
+          from urllib.request import urlopen
+
+          class Stylesheets(HTMLParser):
+              def handle_starttag(self, tag, attributes):
+                  attrs = dict(attributes)
+                  if tag == 'link' and attrs.get('rel') == 'stylesheet':
+                      url = urljoin('http://127.0.0.1:8000', attrs['href'])
+                      if urlparse(url).netloc == '127.0.0.1:8000':
+                          with urlopen(url, timeout=10) as response:
+                              assert response.status == 200, url
+
+          with open(sys.argv[1]) as response:
+              Stylesheets().feed(response.read())
+          PYTHON
+          done
+
   n-minus-one-upgrade:
     needs: product-contracts
     runs-on: ubuntu-latest

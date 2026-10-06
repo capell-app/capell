@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Override;
 
-final class ExtensionHealthFilamentWidget extends Widget implements CapellFilamentWidgetContract
+class ExtensionHealthFilamentWidget extends Widget implements CapellFilamentWidgetContract
 {
     use GatedByRoleAndSettings;
 

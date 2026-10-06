@@ -163,3 +163,47 @@ it('inserts newly available package work before finalization when the initial pl
     expect($keys)->toContain(InstallPlan::packageInstallStepKey('vendor/theme'))
         ->and(array_search(InstallPlan::packageInstallStepKey('vendor/theme'), $keys, true))->toBeLessThan(array_search(InstallPlan::STEP_RUN_MIGRATIONS_POST, $keys, true));
 });
+
+it('includes foundation lifecycles and panel scaffolding when only the installer existed before the theme download', function (): void {
+    CapellCore::clearPackages();
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        seedDefaultData: true,
+        extraPackages: ['capell-app/theme-foundation'],
+    );
+    $initialPlan = InstallPlan::build($input);
+    $completed = [InstallPlan::packageRequireStepKey('capell-app/theme-foundation')];
+    foreach ([
+        'capell-app/core' => [],
+        'capell-app/admin' => ['capell-app/core'],
+        'capell-app/frontend' => ['capell-app/core'],
+        'capell-app/layout-builder' => ['capell-app/admin', 'capell-app/frontend'],
+        'capell-app/theme-foundation' => ['capell-app/frontend', 'capell-app/layout-builder'],
+    ] as $name => $requirements) {
+        CapellCore::registerManifestPackage(CapellManifestData::fromArray(capellManifestV3Array(name: $name, overrides: [
+            'dependencies' => ['requires' => $requirements, 'supports' => [], 'conflicts' => []],
+            'commands' => ['install' => 'fixture:install', 'setup' => 'fixture:setup', 'afterInstall' => 'fixture:after'],
+        ])));
+    }
+
+    $refreshed = InstallPlan::refreshPackageSteps($input, $initialPlan, $completed);
+    $keys = array_column($refreshed, 'key');
+    expect($keys)->toContain(
+        InstallPlan::STEP_INSTALL_FILAMENT_PANEL,
+        InstallPlan::packageInstallStepKey('capell-app/admin'),
+        InstallPlan::packageSetupStepKey('capell-app/admin'),
+        InstallPlan::packageInstallStepKey('capell-app/frontend'),
+        InstallPlan::packageAfterInstallStepKey('capell-app/frontend'),
+    )->not->toContain(InstallPlan::packageInstallStepKey('capell-app/core'));
+    expect(array_search(InstallPlan::STEP_INSTALL_FILAMENT_PANEL, $keys, true))
+        ->toBeLessThan(array_search(InstallPlan::packageInstallStepKey('capell-app/admin'), $keys, true));
+    expect(array_search(InstallPlan::packageSetupStepKey('capell-app/admin'), $keys, true))
+        ->toBeLessThan(array_search(InstallPlan::STEP_RUN_DOCTOR_SUMMARY, $keys, true));
+    expect(InstallPlan::refreshPackageSteps($input, $refreshed, $completed))->toBe($refreshed);
+});

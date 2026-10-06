@@ -26,7 +26,6 @@ providers:
   - BladeUI\Icons\BladeIconsServiceProvider
   - BladeUI\Heroicons\BladeHeroiconsServiceProvider
   - Spatie\Permission\PermissionServiceProvider
-  - Awcodes\BadgeableColumn\BadgeableColumnServiceProvider
   - LaraZeus\SpatieTranslatable\SpatieTranslatableServiceProvider
   - AmidEsfahani\FilamentTinyEditor\TinyeditorServiceProvider
   - Saade\FilamentAdjacencyList\FilamentAdjacencyListServiceProvider
