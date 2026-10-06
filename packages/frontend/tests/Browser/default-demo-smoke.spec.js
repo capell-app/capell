@@ -75,6 +75,18 @@ async function expectAnonymousPublicHtmlIsSafe(page) {
     const html = await page.content()
     const forbiddenLiterals = [
         'window.beaconData',
+        'page_id',
+        'site_id',
+        'language_id',
+        'pageId',
+        'siteId',
+        'languageId',
+        'data-page-id',
+        'data-site-id',
+        'data-language-id',
+        'permissions',
+        'field_path',
+        'model_id',
         'data-capell-authoring',
         'data-capell-editor',
         'data-capell-editor-url',

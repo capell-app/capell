@@ -197,7 +197,7 @@
         "aimeos/laravel-nestedset": "^7.0",
         "awobaz/compoships": "^2.3 || ^3.0",
         "bkwld/cloner": "^3.10",
-        "filament/support": "^5.9.0",
+        "filament/support": "^5.7.6",
         "illuminate/database": "^13.0",
         "illuminate/support": "^13.0",
         "laravel/prompts": "^0.2|^0.3",

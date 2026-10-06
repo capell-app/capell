@@ -35,7 +35,7 @@ it('can list domains', function (): void {
         ->assertSuccessful()
         ->assertCountTableRecords(10)
         ->assertCanSeeTableRecords($site->siteDomains)
-        ->assertTableColumnStateSet('full_url', [$siteDomain->full_url], record: $siteDomain);
+        ->assertTableColumnStateSet('full_url', $siteDomain->full_url, record: $siteDomain);
 
     expect($component->instance()->getTable()->getRecordTitle($siteDomain))
         ->toBe($siteDomain->full_url);

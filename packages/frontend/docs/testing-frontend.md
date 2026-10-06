@@ -90,13 +90,19 @@ $this->get($page->pageUrl->full_url)
     ->assertOk()
     ->assertDontSee('wire:navigate', false)
     ->assertDontSee('x-data=', false)
-    ->assertDontSee('window.beaconData', false)
+    ->assertDontSee('page_id', false)
+    ->assertDontSee('site_id', false)
+    ->assertDontSee('language_id', false)
+    ->assertDontSee('permissions', false)
+    ->assertDontSee('signedEditorUrl', false)
+    ->assertDontSee('editor_url', false)
+    ->assertDontSee('signature=', false)
     ->assertDontSee('/livewire/', false)
     ->assertDontSee('capell-editor', false)
     ->assertDontSee('authoring-surface', false);
 ```
 
-That mirrors Capell's own static public page tests: the important contract is that a normal public page does not ship Livewire, Alpine, beacon data, or authoring controls unless a package deliberately provides a public runtime.
+That mirrors Capell's own static public page tests: the important contract is that a normal public page does not ship Livewire, Alpine, page-specific beacon data, or authoring controls unless a package deliberately provides a public runtime.
 
 ## View-Level Component Tests
 

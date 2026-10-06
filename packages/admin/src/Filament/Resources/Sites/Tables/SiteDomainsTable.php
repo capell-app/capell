@@ -111,7 +111,7 @@ class SiteDomainsTable implements TableConfigurator
                 ->weight(FontWeight::Medium)
                 ->searchable(query: self::applyFullUrlSearch(...))
                 ->sortable(['scheme', 'domain', 'path'])
-                ->url(fn (string|array $state): string => is_array($state) ? $state[0] : $state, shouldOpenInNewTab: true)
+                ->url(fn (string $state): string => $state, shouldOpenInNewTab: true)
                 ->defaultBadge(),
             LanguageColumn::make('language')
                 ->toggleable(),

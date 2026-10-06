@@ -735,6 +735,7 @@ it('builds correct InstallInputData and delegates to RunInstallAction without ca
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -777,6 +778,7 @@ it('dispatches CapellInstalled with the resolved spec path when --spec is given'
             '--spec' => $specPath,
         ])
             ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+            ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
             ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
             ->assertExitCode(Command::SUCCESS);
     } finally {
@@ -804,6 +806,7 @@ it('does not dispatch CapellInstalled when --spec is omitted', function (): void
         '--clear-cache' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1042,6 +1045,7 @@ it('prompts for packages when no --packages option is given', function (): void 
             'capell-app/marketplace',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1078,6 +1082,7 @@ it('allows packages to be skipped from the package checklist', function (): void
             'capell-app/admin',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1144,6 +1149,7 @@ it('allows related packages to be selected from the package checklist', function
             'capell-app/admin-extra',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1181,6 +1187,7 @@ it('selects packages from the interactive package checklist', function (): void 
             'vendor/composer-installed-plugin',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1222,6 +1229,7 @@ it('preselects available packages in the interactive extra package checklist', f
             'vendor/support-plugin',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1263,6 +1271,7 @@ it('logs package selection defaults when install package selection debugging is 
             'vendor/composer-installed-plugin',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1305,6 +1314,7 @@ it('preselects demo packages in the interactive extra package checklist for demo
             'vendor/demo-package',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1337,6 +1347,7 @@ it('allows demo packages to be deselected from the interactive extra package che
         ])
         ->expectsQuestion('Would you like to install any extra extensions?', [])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1367,6 +1378,7 @@ it('keeps theme packages out of the interactive package checklist', function ():
         ])
         ->expectsQuestion('Which starter theme should be installed?', 'default')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1402,6 +1414,7 @@ it('selects every registered package when --all-packages is given', function ():
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -1448,6 +1461,7 @@ it('includes registered package requirements before selected packages', function
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1471,6 +1485,7 @@ it('allows selected packages when their requirements are also selected', functio
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1495,6 +1510,7 @@ it('prompts for the first user when the users table does not exist yet', functio
         ->expectsQuestion('Email', 'new@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1520,6 +1536,7 @@ it('creates the first user from cli options without prompting', function (): voi
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1551,6 +1568,7 @@ it('creates the first user from installer admin defaults without prompting', fun
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1585,6 +1603,7 @@ it('creates the first user from core setup admin defaults when installer config 
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1613,6 +1632,7 @@ it('adds example role users from cli options', function (): void {
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1671,6 +1691,7 @@ it('allows creating a new admin user when users already exist', function (): voi
         ->expectsQuestion('Email', 'admin@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1700,6 +1721,7 @@ it('forces creating a new admin user during a fresh install', function (): void 
         ->expectsQuestion('Email', 'fresh@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1729,6 +1751,7 @@ it('bypasses the fresh install confirmation when fresh is forced', function (): 
         ->doesntExpectOutput('Fresh install cancelled.')
         ->doesntExpectOutput('Warning: this will delete all your data. Are you sure?')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1809,6 +1832,7 @@ it('forces creating a new admin user when reinstall confirmation enables a fresh
         ->expectsQuestion('Email', 'reinstall@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1869,6 +1893,7 @@ it('allows selecting an existing admin user from the search prompt', function ()
         )
         ->doesntExpectOutput('The selected user does not exist.')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1907,6 +1932,7 @@ it('allows selecting an existing admin user from the search prompt after filteri
         )
         ->doesntExpectOutput('The selected user does not exist.')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2083,6 +2109,7 @@ it('asks which caches to clear after the install has run', function (): void {
         ->expectsQuestion('Email', 'new@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsQuestion('Which caches would you like to clear?', ['page', 'views'])
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -2109,6 +2136,7 @@ it('does not ask for cache selection after a fresh seeded install', function ():
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2279,6 +2307,7 @@ it('passes sitemap option to InstallInputData when requested', function (): void
         '--generate-sitemap' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2301,6 +2330,7 @@ it('passes developer tooling options to InstallInputData when requested', functi
         '--theme' => 'foundation',
         '--developer-tooling' => true,
     ])
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2324,6 +2354,7 @@ it('can install developer tooling without running boost install', function (): v
         '--developer-tooling' => true,
         '--no-boost-install' => true,
     ])
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2346,6 +2377,7 @@ it('does not rerun boost install when developer tooling is already installed', f
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2369,6 +2401,7 @@ it('defaults interactive developer tooling to disabled', function (): void {
         ->expectsQuestion('Email', 'new@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsQuestion('Which caches would you like to clear?', ['page', 'views'])
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -2394,7 +2427,7 @@ it('defaults interactive cache clearing to every specific cache option', functio
 
 it('passes demoContent=true to InstallInputData when --demo is given', function (): void {
     setupInstallTest();
-    $user = createTestUser();
+    createTestUser();
     $fake = bindFakeRunInstallAction();
 
     artisanCommand('capell:install', [
@@ -2406,6 +2439,7 @@ it('passes demoContent=true to InstallInputData when --demo is given', function 
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2435,6 +2469,7 @@ it('puts english first in the default demo language list', function (): void {
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2455,6 +2490,7 @@ it('does not install demo content when --demo is omitted', function (): void {
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2484,6 +2520,7 @@ it('includes available demo packages when demo content is requested', function (
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
@@ -2506,6 +2543,7 @@ it('seeds default data by default from the console install command', function ()
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2527,6 +2565,7 @@ it('allows default data to be skipped from the console install command', functio
         '--no-seed-default-data' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2548,6 +2587,7 @@ it('runs the application database seeder when requested from the console install
         '--seed' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2569,6 +2609,7 @@ it('does not run the application database seeder by default from the console ins
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2592,6 +2633,7 @@ it('passes freshInstall=true to InstallInputData when --fresh and --demo are giv
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2628,7 +2670,7 @@ it('returns FAILURE when no packages are selected', function (): void {
 
 it('passes multiple packages to InstallInputData', function (): void {
     setupInstallTest(['test1', 'test2']);
-    $user = createTestUser();
+    createTestUser();
     $fake = bindFakeRunInstallAction();
 
     artisanCommand('capell:install', [
@@ -2639,6 +2681,7 @@ it('passes multiple packages to InstallInputData', function (): void {
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 

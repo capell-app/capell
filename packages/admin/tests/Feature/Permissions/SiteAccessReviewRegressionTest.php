@@ -39,6 +39,7 @@ use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Tests\Fixtures\Models\User;
+use Filament\Resources\Pages\EditRecord;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\Translation\Translator;
@@ -260,7 +261,16 @@ it('denies a mounted editor update when its page moves out of scope before hydra
     reviewActorWithPermissions($this->actor, ['ViewAny:Page', 'View:Page', 'Update:Page']);
     $editor = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])->assertSuccessful();
     $page->forceFill(['site_id' => $this->beta->id])->saveQuietly();
-    $editor->set('data.name', 'A stale editor write')->assertForbidden();
+    $editor->set('data.name', 'A stale editor write');
+
+    // Filament 5.10 re-resolves hydrated records through the scoped resource query.
+    // Earlier versions retain the record and deny it at the policy check instead.
+    if (new ReflectionClass(EditRecord::class)->hasProperty('hasResolvedRecordForRequest')) {
+        $editor->assertNotFound();
+    } else {
+        $editor->assertForbidden();
+    }
+
     expect($page->refresh()->name)->not->toBe('A stale editor write');
     expect(EditorScratchDraft::query()->where('record_id', $page->id)->count())->toBe(0);
 });

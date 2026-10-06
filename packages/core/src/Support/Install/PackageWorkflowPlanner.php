@@ -161,7 +161,7 @@ final class PackageWorkflowPlanner
      */
     private function shouldSkipRequirement(string $packageName, Collection $availablePackages, bool $includeInstalledRequirements): bool
     {
-        if (TrustedCorePackages::contains($packageName)) {
+        if ($this->isComposerOnlyCorePackageName($packageName)) {
             return true;
         }
 
@@ -169,7 +169,11 @@ final class PackageWorkflowPlanner
             return true;
         }
 
-        return ! $includeInstalledRequirements && CapellCore::isPackageInstalled($packageName);
+        // Foundation packages report installed from Composer availability, which
+        // does not mean their install/setup lifecycles have run in this host.
+        return ! TrustedCorePackages::contains($packageName)
+            && ! $includeInstalledRequirements
+            && CapellCore::isPackageInstalled($packageName);
     }
 
     /**

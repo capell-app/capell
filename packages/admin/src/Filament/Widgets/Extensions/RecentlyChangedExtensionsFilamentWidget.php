@@ -10,6 +10,7 @@ use Capell\Admin\Data\Extensions\ExtensionAuditEventData;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
+use Override;
 
 final class RecentlyChangedExtensionsFilamentWidget extends Widget implements CapellFilamentWidgetContract
 {
@@ -25,6 +26,12 @@ final class RecentlyChangedExtensionsFilamentWidget extends Widget implements Ca
     protected int|string|array $columnSpan = ['default' => null, 'md' => 12, 'lg' => 6, 'xl' => 6];
 
     protected static ?int $sort = 26;
+
+    #[Override]
+    public static function canView(): bool
+    {
+        return self::canViewCheck() && ListExtensionAuditEventsAction::run() !== [];
+    }
 
     /** @return list<ExtensionAuditEventData> */
     #[Computed(persist: true, seconds: 60)]

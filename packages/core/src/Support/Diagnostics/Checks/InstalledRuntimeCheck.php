@@ -20,10 +20,10 @@ final class InstalledRuntimeCheck implements DoctorCheck
         $failures = $this->runtime->failures();
 
         return new DoctorCheckResultData(
-            label: __('capell::runtime-refresh.diagnostic_label'),
+            label: __('capell-core::runtime-refresh.diagnostic_label'),
             passed: $failures === [],
-            message: $failures === [] ? __('capell::runtime-refresh.diagnostic_ok') : __('capell::runtime-refresh.diagnostic_failed', ['packages' => implode(', ', array_column($failures, 'package'))]),
-            remediation: $failures === [] ? null : (string) __('capell::runtime-refresh.diagnostic_remediation'),
+            message: $failures === [] ? __('capell-core::runtime-refresh.diagnostic_ok') : __('capell-core::runtime-refresh.diagnostic_failed', ['packages' => implode(', ', array_column($failures, 'package'))]),
+            remediation: $failures === [] ? null : (string) __('capell-core::runtime-refresh.diagnostic_remediation'),
             id: 'core.packages.installed-runtime',
             severity: DoctorCheckSeverity::Critical,
             evidence: ['failures' => $failures],

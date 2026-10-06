@@ -109,7 +109,7 @@ function docsRequirementsFixture(): string
         'require' => [
             'php' => '^8.4',
             'laravel/framework' => '^13.0',
-            'filament/filament' => '^5.9.0',
+            'filament/filament' => '^5.7.6',
         ],
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
 
