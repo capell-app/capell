@@ -112,11 +112,11 @@ jobs:
         env:
           RELEASE_PLAN: ${{ runner.temp }}/approved-plan/${{ inputs.plan_path }}
         run: |
-          installer_version="$(jq -er '.packages[] | select(.name == "capell-app/installer") | .proposed_version' "${RELEASE_PLAN}")"
+          installer_requirement="$(jq -er '.packages[] | select(.name == "capell-app/installer") | "\(.name):\(.proposed_version)"' "${RELEASE_PLAN}")"
           cd "$(mktemp -d)"
           composer create-project --no-interaction --no-progress --prefer-dist laravel/laravel consumer
           cd consumer
-          composer require --no-interaction --no-progress --prefer-dist "capell-app/installer:${installer_version}"
+          composer require --no-interaction --no-progress --prefer-dist "${installer_requirement}"
           php <<'PHP'
           <?php
           require 'vendor/autoload.php';
