@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Support\Activity\ActivityLogCompat;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -39,9 +39,12 @@ return new class extends Migration
     /** @return array{Builder, string} */
     private function activityTable(): array
     {
-        $model = ActivityLogCompat::activityModelClass();
-        $activity = new $model;
+        $connection = Config::get('activitylog.database_connection');
+        $table = Config::get('activitylog.table_name', 'activity_log');
 
-        return [Schema::connection($activity->getConnectionName()), $activity->getTable()];
+        return [
+            Schema::connection(is_string($connection) ? $connection : null),
+            is_string($table) ? $table : 'activity_log',
+        ];
     }
 };
