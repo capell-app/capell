@@ -267,7 +267,7 @@ final class ComponentRegistry implements Resettable
 
         $removed = $directory ? $files->deleteDirectory($path) : $files->delete($path);
         if (! $removed || ! $files->missing($path)) {
-            throw new RuntimeException(__('capell::runtime-refresh.cache_refresh_required') . ' ' . __('capell::runtime-refresh.cache_removal_failed', ['path' => $path]));
+            throw new RuntimeException(__('capell-core::runtime-refresh.cache_refresh_required') . ' ' . __('capell-core::runtime-refresh.cache_removal_failed', ['path' => $path]));
         }
     }
 }

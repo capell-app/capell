@@ -74,7 +74,7 @@ it('refuses a failed deletion result even when the component cache disappears', 
     app()->instance(Filesystem::class, $failingFiles);
 
     try {
-        expect(fn () => $registry->clearCachedComponentsOrFail())->toThrow(RuntimeException::class, __('capell::runtime-refresh.cache_refresh_required'));
+        expect(fn () => $registry->clearCachedComponentsOrFail())->toThrow(RuntimeException::class, __('capell-core::runtime-refresh.cache_refresh_required'));
         expect($files->exists($path))->toBeFalse()
             ->and($registry->hasCachedComponents())->toBeTrue();
     } finally {

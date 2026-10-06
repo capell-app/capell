@@ -72,7 +72,7 @@ final class InstalledPanelRuntimeAvailabilityTest extends AdminTestCase
         CapellAdminPlugin::make()->synchronizeCurrentPanelAdminSurface();
         Notification::assertNotified(Notification::make()
             ->title(__('capell-admin::message.extension_panel_refresh_deferred', ['panel' => 'admin']))
-            ->body(__('capell::runtime-refresh.application_unavailable'))
+            ->body(__('capell-core::runtime-refresh.application_unavailable'))
             ->warning()
             ->persistent());
         $logger->shouldHaveReceived('warning')->with(
