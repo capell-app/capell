@@ -9,6 +9,8 @@ use Capell\Frontend\Contracts\AdminAccessCheckerInterface;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendRuntimeManifestContributor;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
+use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
@@ -91,9 +93,67 @@ it('renders blade-only public pages without livewire or frontend runtime scripts
         ->assertDontSee('x-data=', false)
         ->assertDontSee('Alpine.data', false)
         ->assertDontSee('window.beaconData', false)
+        ->assertDontSee('page_id', false)
+        ->assertDontSee('site_id', false)
+        ->assertDontSee('language_id', false)
+        ->assertDontSee('pageId', false)
+        ->assertDontSee('siteId', false)
+        ->assertDontSee('languageId', false)
+        ->assertDontSee('data-page-id', false)
+        ->assertDontSee('data-site-id', false)
+        ->assertDontSee('data-language-id', false)
+        ->assertDontSee('permissions', false)
+        ->assertDontSee('field_path', false)
+        ->assertDontSee('model_id', false)
+        ->assertDontSee('signedEditorUrl', false)
+        ->assertDontSee('editor_url', false)
+        ->assertDontSee('signature=', false)
+        ->assertDontSee('data-capell-authoring', false)
+        ->assertDontSee('data-capell-editor', false)
         ->assertDontSee('frontend-resource-debug-overlay', false)
         ->assertDontSee('/livewire/', false)
         ->assertDontSee('@livewireScripts', false);
+});
+
+it('keeps registered BodyEnd extensions in the canonical public layout', function (): void {
+    config()->set('capell-frontend.html_cache', false);
+    config()->set('capell-frontend.write_html_cache', false);
+    Cache::flush();
+
+    $site = Site::factory()->withTranslations(siteDomainData: [
+        'domain' => 'localhost',
+        'scheme' => 'http',
+        'path' => null,
+        'default' => true,
+    ])->create();
+
+    Page::factory()
+        ->site($site)
+        ->home()
+        ->withTranslations(data: ['title' => 'BodyEnd extension page'], slug: '/')
+        ->create(['meta' => null]);
+
+    resolve(RenderHookRegistry::class)->registerCallable(
+        RenderHookLocation::BodyEnd,
+        static fn (): string => '<meta data-test-body-end-extension="present">',
+    );
+
+    $response = $this->followingRedirects()->get('/', ['HTTP_HOST' => 'localhost']);
+
+    $response
+        ->assertOk()
+        ->assertSee('data-test-body-end-extension="present"', false)
+        ->assertDontSee('window.beaconData', false);
+});
+
+it('does not render BodyEnd extensions in the minimal error view', function (): void {
+    resolve(RenderHookRegistry::class)->registerCallable(
+        RenderHookLocation::BodyEnd,
+        static fn (): string => '<script data-test-minimal-error-hook>throw new Error();</script>',
+    );
+
+    expect(view('capell::errors.minimal')->render())
+        ->not->toContain('data-test-minimal-error-hook');
 });
 
 it('does not expose the beacon runtime just because a beacon route exists', function (): void {
@@ -234,18 +294,6 @@ it('does not expose the beacon runtime to anonymous visitors when a contributor 
         ->assertDontSee('/capell-test-beacon', false);
 });
 
-it('renders page data with a same origin beacon path', function (): void {
-    Route::post('/capell-test-beacon', fn () => response()->json(['scripts' => []]))
-        ->name('capell-test.beacon');
-    Route::getRoutes()->refreshNameLookups();
-
-    config()->set('capell-page.frontend.route_name', 'capell-test.beacon');
-
-    $rendered = view('capell::components.page-data')->render();
-
-    expect($rendered)
-        ->toContain('"url":"\/capell-test-beacon"')
-        ->toContain('new URL(beacon.url, window.location.origin)')
-        ->toContain('requestIdleCallback')
-        ->not->toContain('http:\/\/localhost\/capell-test-beacon');
+it('keeps the legacy page-data component as an empty compatibility shim', function (): void {
+    expect(view('capell::components.page-data')->render())->toBe('');
 });
