@@ -9,10 +9,12 @@ use Capell\Core\Data\InstallInputData;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
 use JsonException;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ReviewInstallerInputAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return array{items: array<string, string>, token: string} */

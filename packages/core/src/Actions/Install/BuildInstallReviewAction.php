@@ -15,11 +15,13 @@ use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /** Builds the redacted review from the same resolved input used for execution. */
 final class BuildInstallReviewAction
 {
+    use AsFake;
     use AsObject;
 
     /**
