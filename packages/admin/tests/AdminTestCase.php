@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Admin\Tests;
 
 use AmidEsfahani\FilamentTinyEditor\TinyeditorServiceProvider;
-use Awcodes\BadgeableColumn\BadgeableColumnServiceProvider;
 use BezhanSalleh\FilamentShield\FilamentShieldServiceProvider;
 use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use Capell\Admin\Facades\CapellAdmin;
@@ -64,7 +63,6 @@ class AdminTestCase extends AbstractTestCase
     {
         return [
             ActionsServiceProvider::class,
-            BadgeableColumnServiceProvider::class,
             SpatieTranslatableServiceProvider::class,
             TinyeditorServiceProvider::class,
             FilamentServiceProvider::class,

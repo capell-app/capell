@@ -28,7 +28,6 @@
         "ext-intl": "*",
         "ext-simplexml": "*",
         "amidesfahani/filament-tinyeditor": "^4.0|^5.0",
-        "awcodes/filament-badgeable-column": "^3.0|^4.0",
         "bezhansalleh/filament-shield": "^4.1",
         "capell-app/core": "^1.0",
         "cms-multi/filament-clear-cache": "^3.0",
