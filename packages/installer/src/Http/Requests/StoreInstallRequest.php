@@ -32,6 +32,9 @@ final class StoreInstallRequest extends FormRequest
         $userRules = $options->adminUserValidationRules((string) ($input['admin_user_mode'] ?? 'create'));
 
         return [
+            'review_only' => ['nullable', 'boolean'],
+            'review_token' => ['nullable', 'string'],
+            'installation_confirmed' => ['nullable', 'boolean'],
             'site_url' => ['required', 'url'],
             'language' => ['required', 'string', Rule::in(array_merge(array_keys($options->languageOptions()), ['__custom']))],
             'custom_language_code' => [

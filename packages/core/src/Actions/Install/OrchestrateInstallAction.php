@@ -30,11 +30,11 @@ final class OrchestrateInstallAction
         InstallOrchestrationHost $host,
     ): void {
         PreflightExtraPackagesAction::run($inputData->extraPackages, $reporter);
-        $host->prepareApplication($inputData, $reporter);
-
         if ($orchestration->outputPlan) {
             $host->outputPlan($inputData);
         }
+
+        $host->prepareApplication($inputData, $reporter);
 
         $result = $this->runInstall->runWithResult($inputData, $reporter);
         $host->upgradeFilament();

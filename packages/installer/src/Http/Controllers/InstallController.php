@@ -16,6 +16,7 @@ use Capell\Installer\Actions\BuildInstallerRunReportAction;
 use Capell\Installer\Actions\CancelInstallerRunAction;
 use Capell\Installer\Actions\ReadInstallerRunProgressAction;
 use Capell\Installer\Actions\RemoveSetupPackageAction;
+use Capell\Installer\Actions\ReviewInstallerInputAction;
 use Capell\Installer\Actions\StartInstallerRunAction;
 use Capell\Installer\Data\InstallerRunStartData;
 use Capell\Installer\Enums\InstallerRunMode;
@@ -121,8 +122,23 @@ final class InstallController
             defaultPackageNames: $this->options->configuredDefaultPackageNames(),
         );
 
-        $installId = $validated['install_id'] ?? (string) Str::uuid();
+        $reviewer = resolve(ReviewInstallerInputAction::class);
+        $reviewContext = hash('sha256', $request->session()->getId() . '|' . ($validated['install_id'] ?? ''));
         $runAsJob = (bool) ($validated['run_as_job'] ?? false);
+        if ($request->boolean('review_only')) {
+            return response()->json(['review' => $reviewer->handle($inputData, $runAsJob, $reviewContext)], headers: $this->installerSessionHeaders());
+        }
+
+        if (! $request->boolean('installation_confirmed') || ! $reviewer->accepts($inputData, (string) $request->input('review_token', ''), $runAsJob, $reviewContext)) {
+            $message = __('capell-installer::installer.review_required');
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message, 'errors' => ['installation_confirmed' => [$message]]], 422);
+            }
+
+            return back()->withErrors(['installation_confirmed' => $message]);
+        }
+
+        $installId = $validated['install_id'] ?? (string) Str::uuid();
 
         try {
             $this->topologyGuard->assertCacheStoreIsShared('The web installer');

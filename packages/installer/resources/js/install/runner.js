@@ -195,6 +195,15 @@
                         return
                     }
                     if (result.httpStatus === 422) {
+                        if (
+                            result.payload.errors &&
+                            result.payload.errors.installation_confirmed &&
+                            reviewToken
+                        ) {
+                            reviewToken.value = ''
+                            reviewAccepted.checked = false
+                            reviewPanel.hidden = true
+                        }
                         progress.showFormView()
                         wizard.setFlowStep(wizard.currentStep())
                         wizard.showFieldErrors(result.payload.errors || {})
@@ -248,7 +257,114 @@
                 })
         }
 
+        var reviewRevision = 0
+        var reviewPanel = document.getElementById('installation-review')
+        var reviewToken = form.querySelector('[name="review_token"]')
+        var reviewAccepted = form.querySelector('[data-installation-confirmed]')
+
+        function invalidateReview(event) {
+            if (
+                !reviewPanel ||
+                event.target === reviewAccepted ||
+                event.target === reviewToken
+            )
+                return
+            reviewRevision += 1
+            reviewToken.value = ''
+            reviewAccepted.checked = false
+            reviewPanel.hidden = true
+            packages.updateSubmitButtonLabel(false)
+        }
+        form.addEventListener('change', invalidateReview)
+        form.addEventListener('input', invalidateReview)
+
+        function review() {
+            var revision = reviewRevision
+            setSubmitting(true)
+            submitButton.querySelector('[data-submit-label]').textContent =
+                messages.reviewLoading || messages.reviewButton
+            var formData = new FormData(form)
+            formData.set('review_only', '1')
+            formData.set('_token', csrf.token())
+            return csrf
+                .refresh()
+                .catch(function () {
+                    return null
+                })
+                .then(function () {
+                    formData.set('_token', csrf.token())
+                    return fetch(form.action, {
+                        method: 'POST',
+                        headers: {
+                            Accept: 'application/json',
+                            'X-CSRF-TOKEN': csrf.token(),
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: formData,
+                        credentials: 'same-origin',
+                    })
+                })
+                .then(responseResult)
+                .then(function (result) {
+                    setSubmitting(false)
+                    if (revision !== reviewRevision) {
+                        wizard.showGlobalError(messages.reviewChanged)
+                        return
+                    }
+                    if (result.httpStatus === 419) {
+                        return csrf.refresh().then(function () {
+                            wizard.showGlobalError(messages.sessionExpired)
+                        })
+                    }
+                    if (result.httpStatus !== 200 || !result.payload.review) {
+                        wizard.showFieldErrors(result.payload.errors || {})
+                        wizard.showGlobalError(
+                            result.payload.message || messages.unknownError,
+                        )
+                        return
+                    }
+                    var list = reviewPanel.querySelector(
+                        '[data-installation-review-items]',
+                    )
+                    list.replaceChildren()
+                    Object.keys(result.payload.review.items).forEach(
+                        function (label) {
+                            var term = document.createElement('dt')
+                            term.textContent = label
+                            var detail = document.createElement('dd')
+                            detail.textContent =
+                                result.payload.review.items[label]
+                            list.appendChild(term)
+                            list.appendChild(detail)
+                        },
+                    )
+                    reviewToken.value = result.payload.review.token
+                    reviewAccepted.checked = false
+                    reviewPanel.hidden = false
+                    reviewPanel.focus()
+                    reviewPanel.scrollIntoView({
+                        block: 'start',
+                        behavior: 'smooth',
+                    })
+                    submitButton.querySelector(
+                        '[data-submit-label]',
+                    ).textContent = messages.reviewInstallButton
+                })
+                .catch(function () {
+                    setSubmitting(false)
+                    wizard.showGlobalError(messages.networkError)
+                })
+        }
+
         function start() {
+            if (reviewPanel && !reviewToken.value) {
+                return review()
+            }
+            if (reviewPanel && !reviewAccepted.checked) {
+                wizard.showGlobalError(messages.reviewRequired)
+                reviewAccepted.focus()
+                return
+            }
             setSubmitting(true)
             wizard.beginInstallingFlow()
             progress.reset()

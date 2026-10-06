@@ -41,7 +41,7 @@ uses(CreatesAdminUser::class)->group('installer');
 
 function installPostPayload(array $overrides = []): array
 {
-    return array_merge([
+    $payload = array_merge([
         'site_url' => 'https://example.com',
         'language' => 'en',
         'package_selection_mode' => 'custom',
@@ -59,6 +59,14 @@ function installPostPayload(array $overrides = []): array
         'configure_boost_developer_tooling' => null,
         'run_as_job' => null,
     ], $overrides);
+    $review = test()->postJson(route('capell-installer.store'), [...$payload, 'review_only' => true]);
+    if ($review->status() === 200 && is_string($review->json('review.token'))) {
+        test()->withCookie((string) config('session.cookie'), session()->getId());
+        $payload['review_token'] = $review->json('review.token');
+        $payload['installation_confirmed'] = true;
+    }
+
+    return $payload;
 }
 
 function installerAccessSessionData(string $installId): array
@@ -755,10 +763,10 @@ it('shows the admin installer docs link with the manual admin panel changes opti
         ->assertOk()
         ->assertSee('href="https://docs.capell.app/admin-setup/"', false)
         ->assertSee('Manual setup guide')
-        ->assertSee('Adds CapellAdminPlugin::make() to your panel and discovers Capell schemas from your resources directory.')
-        ->assertSee('Adds FilamentColorEnum::colors() so Capell resources use the standard admin palette.')
-        ->assertSee('Adds CapellAdmin::getWidgets() to the panel dashboard.')
-        ->assertSee('Adds CapellAdmin::getNavigationItems() and CapellAdmin::getNavigationGroups().');
+        ->assertSee('Connect the selected Filament panel to Capell and discover its authoring resources.')
+        ->assertSee('Use the Capell colour palette in the selected admin panel.')
+        ->assertSee('Add Capell dashboard widgets to the selected admin panel.')
+        ->assertSee('Add Capell navigation items and groups to the selected admin panel.');
 });
 
 it('hides the admin panel changes fieldset when the admin package is not selected', function (): void {
@@ -2626,13 +2634,19 @@ it('uses configured admin user defaults when create-admin fields are omitted', f
 
     $spy = RunInstallAction::spy();
 
-    post(route('capell-installer.store'), [
+    $payload = [
         'site_url' => 'https://example.com',
         'language' => 'en',
         'package_selection_mode' => 'custom',
         'packages' => [],
         'seed_default_data' => '1',
-    ])->assertRedirect();
+    ];
+    $review = $this->postJson(route('capell-installer.store'), [...$payload, 'review_only' => true]);
+    $review->assertOk();
+    $this->withCookie((string) config('session.cookie'), session()->getId());
+    post(route('capell-installer.store'), [
+        ...$payload, 'review_token' => $review->json('review.token'), 'installation_confirmed' => true,
+    ])->assertRedirect()->assertSessionHasNoErrors();
 
     $spy->shouldHaveReceived('handle')->once()->withArgs(
         fn (InstallInputData $input, ProgressReporter $reporter): bool => $input->newUser instanceof NewUserData
@@ -2863,4 +2877,20 @@ it('cancel does not clear another install lock', function (): void {
         ->assertRedirect(route('capell-installer.show'));
 
     expect(Cache::get('capell.install.lock'))->toBe(['installId' => $otherInstallId]);
+});
+
+it('does not start a run before the resolved installation has been reviewed and accepted', function (): void {
+    $payload = installPostPayload();
+    unset($payload['review_token'], $payload['installation_confirmed']);
+    $sessions = resolve(InstallerSessionRepository::class);
+    $before = $sessions->activeInstallId();
+    $review = $this->postJson(route('capell-installer.store'), [...$payload, 'review_only' => true]);
+    $review->assertOk()->assertJsonStructure(['review' => ['items', 'token']]);
+    expect($sessions->activeInstallId())->toBe($before);
+    $this->postJson(route('capell-installer.store'), $payload)->assertUnprocessable()->assertJsonValidationErrors('installation_confirmed');
+    $this->postJson(route('capell-installer.store'), [
+        ...$payload, 'review_token' => $review->json('review.token'), 'installation_confirmed' => true,
+        'site_url' => 'https://different.example.test',
+    ])->assertUnprocessable()->assertJsonValidationErrors('installation_confirmed');
+    expect($sessions->activeInstallId())->toBe($before);
 });

@@ -14,17 +14,11 @@ use Throwable;
 
 final class InstallPostInstallOptionResolver
 {
-    /**
-     * @param  Closure(string): void  $recordManualInstallChange
-     * @param  Closure(string): void  $writeWarning
-     */
     public function resolveWelcomeRoute(
         bool $hasFrontend,
         bool $installWelcomeRouteOption,
         bool $interactive,
         WelcomeRouteInstaller $welcomeRouteInstaller,
-        Closure $recordManualInstallChange,
-        Closure $writeWarning,
     ): bool {
         if (! $hasFrontend) {
             return false;
@@ -38,20 +32,11 @@ final class InstallPostInstallOptionResolver
             return false;
         }
 
-        $removeExistingHomeRoute = confirm(
-            label: 'Remove existing home route?',
+        return confirm(
+            label: __('capell-core::install.review.homepage_label'),
             default: true,
-            hint: "Removes Laravel's default welcome route so Capell CMS can handle the homepage.",
+            hint: __('capell-core::install.review.homepage_hint'),
         );
-
-        $this->configureWelcomeRoute(
-            $welcomeRouteInstaller,
-            $removeExistingHomeRoute,
-            $recordManualInstallChange,
-            $writeWarning,
-        );
-
-        return $removeExistingHomeRoute;
     }
 
     public function resolveDeveloperToolingChoice(
@@ -115,7 +100,7 @@ final class InstallPostInstallOptionResolver
             return false;
         }
 
-        return confirm('Would you like to run an npm build after this command completes?', default: true);
+        return confirm(label: __('capell-core::install.review.build_label'), default: true, hint: __('capell-core::install.review.build_hint'));
     }
 
     public function shouldRemoveInstallerPackage(
@@ -137,8 +122,8 @@ final class InstallPostInstallOptionResolver
         }
 
         return confirm(
-            label: 'Delete the installer after installing?',
-            hint: 'You can download again by composer require `capell-app/installer`',
+            label: __('capell-core::install.review.remove_label'),
+            hint: __('capell-core::install.review.remove_hint'),
         );
     }
 
@@ -146,7 +131,7 @@ final class InstallPostInstallOptionResolver
      * @param  Closure(string): void  $recordManualInstallChange
      * @param  Closure(string): void  $writeWarning
      */
-    private function configureWelcomeRoute(
+    public function configureWelcomeRoute(
         WelcomeRouteInstaller $welcomeRouteInstaller,
         bool $removeExistingHomeRoute,
         Closure $recordManualInstallChange,

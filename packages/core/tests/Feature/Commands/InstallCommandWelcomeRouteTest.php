@@ -98,9 +98,10 @@ PHP);
         '--clear-cache' => true,
         '--theme' => 'none',
     ])
-        ->expectsConfirmation('Remove existing home route?', 'no')
+        ->expectsConfirmation('Let Capell handle the homepage?', 'no')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -131,7 +132,8 @@ it('does not ask to remove a home route when the application has no root route',
         '--theme' => 'none',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -173,9 +175,10 @@ PHP);
         '--clear-cache' => true,
         '--theme' => 'none',
     ])
-        ->expectsConfirmation('Remove existing home route?', 'yes')
+        ->expectsConfirmation('Let Capell handle the homepage?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -217,9 +220,10 @@ PHP);
         '--clear-cache' => true,
         '--theme' => 'none',
     ])
-        ->expectsConfirmation('Remove existing home route?', 'no')
+        ->expectsConfirmation('Let Capell handle the homepage?', 'no')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 

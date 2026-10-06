@@ -33,23 +33,12 @@ it('resolves explicit and non-interactive post-install decisions without prompts
 });
 
 it('does not resolve welcome-route changes without a frontend package', function (): void {
-    $manualChanges = [];
-    $warnings = [];
-
     $installWelcomeRoute = (new InstallPostInstallOptionResolver)->resolveWelcomeRoute(
         hasFrontend: false,
         installWelcomeRouteOption: false,
         interactive: true,
         welcomeRouteInstaller: resolve(WelcomeRouteInstaller::class),
-        recordManualInstallChange: function (string $message) use (&$manualChanges): void {
-            $manualChanges[] = $message;
-        },
-        writeWarning: function (string $message) use (&$warnings): void {
-            $warnings[] = $message;
-        },
     );
 
-    expect($installWelcomeRoute)->toBeFalse()
-        ->and($manualChanges)->toBe([])
-        ->and($warnings)->toBe([]);
+    expect($installWelcomeRoute)->toBeFalse();
 });
