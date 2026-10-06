@@ -100,8 +100,11 @@ class PageResource extends SiteScopedResource implements ValidatesDelete
             ])
             ->whereHas('blueprint', static::applyBaseTypeAdminResourceConstraint(...));
 
-        $query = collect(app()->tagged(PageTableExtender::TAG))
-            ->reduce(fn (Builder $carry, PageTableExtender $extender): Builder => $extender->modifyQuery($carry), $query);
+        foreach (app()->tagged(PageTableExtender::TAG) as $extender) {
+            if ($extender instanceof PageTableExtender) {
+                $query = $extender->modifyQuery($query);
+            }
+        }
 
         return ScopePageRestoreVisibilityAction::run($query);
     }

@@ -457,7 +457,7 @@ final class MarketplaceExtensionDetailPage extends Page
             return (string) __('capell-marketplace::marketplace.install.free');
         }
 
-        return (string) Number::currency($priceCents / 100, $detail?->currency ?? 'USD');
+        return (string) Number::currency($priceCents / 100, $detail->currency);
     }
 
     /**

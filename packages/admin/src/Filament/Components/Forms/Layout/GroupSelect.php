@@ -22,9 +22,6 @@ class GroupSelect extends Select
         $this->label(__('capell-admin::form.group'))
             ->native()
             ->options(function (?string $state): array {
-                /** @var class-string<Layout> $model */
-                $model = Layout::class;
-
                 $options = SiteAccess::current()->layoutGroups();
 
                 if (is_string($state) && $state !== '' && ! isset($options[$state])) {

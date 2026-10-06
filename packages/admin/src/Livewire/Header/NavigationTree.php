@@ -152,7 +152,7 @@ class NavigationTree extends Component
 
     public function loadMoreSearchResults(): void
     {
-        $nextPage = $this->searchResults['next_page'] ?? null;
+        $nextPage = $this->searchResults['next_page'];
 
         if (! is_int($nextPage)) {
             return;

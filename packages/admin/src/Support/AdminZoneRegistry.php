@@ -219,6 +219,7 @@ final class AdminZoneRegistry
         }
     }
 
+    /** @param ReflectionObject<AdminZoneContributionData> $reflection */
     private function privateProperty(ReflectionObject $reflection, AdminZoneContributionData $contribution, string $name): mixed
     {
         return $reflection->getProperty($name)->getValue($contribution);

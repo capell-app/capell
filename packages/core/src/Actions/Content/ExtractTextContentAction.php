@@ -107,13 +107,6 @@ class ExtractTextContentAction
 
     private function mbLastWhitespacePos(string $text): ?int
     {
-        // Normalize whitespace to spaces for consistent detection
-        $normalized = preg_replace('/\s+/u', ' ', $text);
-        if ($normalized === null) {
-            $normalized = $text;
-        }
-
-        // If normalized differs in length, we still search in original using regex
         $matches = [];
         if (preg_match_all('/\s/u', $text, $matches, PREG_OFFSET_CAPTURE)) {
             $last = array_pop($matches[0]);

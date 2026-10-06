@@ -157,7 +157,7 @@ final class RollupMetricEventsAction
                 ->first();
 
             if ($rollup === null) {
-                $rollup = $this->storeRollup->execute(
+                $this->storeRollup->execute(
                     run: $run,
                     definition: $definition,
                     day: $day,

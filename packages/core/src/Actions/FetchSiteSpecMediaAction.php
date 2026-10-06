@@ -326,7 +326,9 @@ final class FetchSiteSpecMediaAction
 
     private function isPublicAddress(string $address): bool
     {
-        return filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE) !== false;
+        $validatedAddress = filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE);
+
+        return is_string($validatedAddress) && $validatedAddress === $address;
     }
 
     private function safeUrlLabel(string $url): string

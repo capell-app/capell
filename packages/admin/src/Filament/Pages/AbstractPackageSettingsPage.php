@@ -258,7 +258,6 @@ abstract class AbstractPackageSettingsPage extends AbstractAdminSettingsPage
             ] : [])
             ->action(function (array $data): void {
                 $package = $this->lifecyclePackage();
-                $availability = $this->uninstallAvailability();
 
                 if (! $package instanceof PackageData || ! $this->settingsUninstallCanRun()) {
                     return;

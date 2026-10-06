@@ -45,7 +45,6 @@ class FieldMacro
                 $record = $component->getRootContainer()->getRecord();
                 $rawState = RawState::array($component->getRootContainer()->getRawState());
 
-                $blueprint = null;
                 if ($record instanceof Model && $record->relationLoaded('blueprint')) {
                     $relatedBlueprint = $record->getRelation('blueprint');
                     $blueprint = $relatedBlueprint instanceof Blueprint ? $relatedBlueprint : null;
@@ -65,7 +64,6 @@ class FieldMacro
                     return false;
                 }
 
-                $site = null;
                 if ($record instanceof Model && $record->relationLoaded('site')) {
                     /** @var Model $record */
                     $site = $record->getAttribute('site');
