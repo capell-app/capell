@@ -9,7 +9,7 @@
         },
         "admin.dto.admin-zone-context": {
             "identifier": "Capell\\Admin\\Data\\AdminZoneContextData",
-            "signature": "1e745c1e34f1d27c7dfcb27dc5af214172aed4b009f2159d897509964b29421c",
+            "signature": "31364217f6b21c313bbb5cb2db0f5b4c7d711d33d9163acbfeed86bdc35eeb81",
             "contractTestId": "admin.admin-zone-registry"
         },
         "admin.dto.admin-zone-contribution": {
@@ -147,6 +147,16 @@
             "signature": "94407a0d9f11315b075f2b3386acfbcf7176ad13bb2bdfe2a7eaa39a346ebe4a",
             "contractTestId": "core.project-build-manifest-data"
         },
+        "core.enum.failure-category": {
+            "identifier": "Capell\\Core\\Enums\\Reporting\\FailureCategory",
+            "signature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "contractTestId": "core.reporting-signal"
+        },
+        "core.enum.reporting-severity": {
+            "identifier": "Capell\\Core\\Enums\\Reporting\\Severity",
+            "signature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "contractTestId": "core.reporting-signal"
+        },
         "core.event.package-installed": {
             "identifier": "Capell\\Core\\Events\\PackageInstalled",
             "signature": "9791d008a221f76abdf3bd0e7c8f5da09d16901defbaa456e009a71b27636672",
@@ -185,19 +195,21 @@
         "php": "^8.4",
         "ext-intl": "*",
         "aimeos/laravel-nestedset": "^7.0",
-        "awobaz/compoships": "^2.3",
+        "awobaz/compoships": "^2.3 || ^3.0",
         "bkwld/cloner": "^3.10",
-        "filament/support": "^5.7.6",
+        "filament/support": "^5.9.0",
         "illuminate/database": "^13.0",
         "illuminate/support": "^13.0",
         "laravel/prompts": "^0.2|^0.3",
         "livewire/blaze": "^1.0",
         "lorisleiva/laravel-actions": "^2.8",
-        "spatie/laravel-activitylog": "^4.0",
+        "monolog/monolog": "^3.10",
+        "psr/log": "^1.0|^2.0|^3.0",
+        "spatie/laravel-activitylog": "^4.0 || ^5.0",
         "spatie/laravel-data": "^4.5",
         "spatie/laravel-event-sourcing": "^7.15",
         "spatie/laravel-medialibrary": "^11.0|^12.0",
-        "spatie/laravel-permission": "^5.0|^6.0",
+        "spatie/laravel-permission": "^5.0|^6.0|^8.0",
         "spatie/laravel-settings": "^3.0",
         "spatie/laravel-tags": "^4.11",
         "staudenmeir/eloquent-has-many-deep": "^1.7",
@@ -261,7 +273,19 @@
         "2026_08_13_000001_create_editor_scratch_drafts_table.php",
         "2026_08_13_000002_add_admin_workspace_preferences_to_users_table.php",
         "2026_08_14_000001_add_provider_recovery_to_capell_extensions.php",
-        "2026_08_18_000001_create_activity_visitors_table.php"
+        "2026_08_18_000001_create_activity_visitors_table.php",
+        "2026_09_04_000001_create_property_sets_table.php",
+        "2026_09_04_000002_create_property_definitions_table.php",
+        "2026_09_04_000003_create_blueprint_property_sets_table.php",
+        "2026_09_04_000004_create_taxonomies_table.php",
+        "2026_09_04_000005_create_terms_table.php",
+        "2026_09_04_000006_create_page_term_table.php",
+        "2026_09_04_000007_create_page_property_values_table.php",
+        "2026_09_04_000008_create_term_property_values_table.php",
+        "2026_09_04_000009_sync_builtin_property_sets.php",
+        "2026_09_26_000001_create_reporting_incidents_table.php",
+        "2026_09_29_000001_remove_implicit_timestamp_updates.php",
+        "2026_10_05_000001_add_attribute_changes_to_activity_log_table.php"
     ],
     "configKeys": []
 }

@@ -50,7 +50,7 @@ Static analysis loads the actual compatibility aliases before symbol discovery. 
 
 Compatibility fixtures load the actual installed vendor sources; they do not synthesise a missing major. Run the focused activity coverage in separate dependency environments for 4 and 5. Installer coverage executes each accepted User's options method, persists created/updated activities and queries `activities()` in a subprocess, so a reflection-only check cannot hide a runtime failure.
 
-Icon Picker 5 remains held pending inspection of its field API: Admin subclasses `Guava\IconPicker\Forms\Components\IconPicker` and overrides its protected `setUp()` hook. Version 5 metadata alone cannot establish that this extension remains compatible. OpenSpout 5 also remains held: Filament Actions 5.7.6 and 5.9.0 require `openspout/openspout:^4.23`, so admitting major 5 in a CI override cannot make it resolvable.
+Icon Picker 5 remains held pending inspection of its field API: Admin subclasses `Guava\IconPicker\Forms\Components\IconPicker` and overrides its protected `setUp()` hook. Version 5 metadata alone cannot establish that this extension remains compatible. OpenSpout 5 also remains held: Filament Actions 5.9.0 requires `openspout/openspout:^4.23`, so admitting major 5 in a CI override cannot make it resolvable.
 
 ## Optional Capell Packages
 
