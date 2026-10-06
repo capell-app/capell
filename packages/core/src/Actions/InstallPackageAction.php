@@ -46,7 +46,7 @@ class InstallPackageAction
         self::install($package, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess);
         RestartQueueWorkersAction::run();
         if (config('capell.multi_node', false) === true || is_string(config('octane.server'))) {
-            $reporter?->report(__('capell::runtime-refresh.retained_reload_required'));
+            $reporter?->report(__('capell-core::runtime-refresh.retained_reload_required'));
         }
     }
 

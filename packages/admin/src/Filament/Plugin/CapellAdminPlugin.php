@@ -258,7 +258,7 @@ class CapellAdminPlugin implements Plugin
             Log::warning($message, ['panel' => $panel->getId()]);
             Notification::make('extension-panel-refresh-deferred-' . $panel->getId())
                 ->title($message)
-                ->body(__('capell::runtime-refresh.application_unavailable'))
+                ->body(__('capell-core::runtime-refresh.application_unavailable'))
                 ->warning()
                 ->persistent()
                 ->send();

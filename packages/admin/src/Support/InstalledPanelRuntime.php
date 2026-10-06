@@ -54,7 +54,7 @@ final class InstalledPanelRuntime
     {
         $id = new ReflectionProperty($panel, 'id')->isInitialized($panel) ? $panel->getId() : 'admin';
         if ($this->isUnavailable($id)) {
-            throw new RuntimeException(__('capell::runtime-refresh.failed_application'));
+            throw new RuntimeException(__('capell-core::runtime-refresh.failed_application'));
         }
 
         $this->protectRoutes($panel, $id);
