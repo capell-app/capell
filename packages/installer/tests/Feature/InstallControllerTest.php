@@ -30,6 +30,8 @@ use Illuminate\Support\Facades\Queue;
 
 use function Pest\Laravel\get;
 use function Pest\Laravel\post;
+use function Pest\Laravel\postJson;
+use function Pest\Laravel\withCookie;
 use function Pest\Laravel\withSession;
 
 use Spatie\Permission\Models\Role;
@@ -59,9 +61,9 @@ function installPostPayload(array $overrides = []): array
         'configure_boost_developer_tooling' => null,
         'run_as_job' => null,
     ], $overrides);
-    $review = test()->postJson(route('capell-installer.store'), [...$payload, 'review_only' => true]);
+    $review = postJson(route('capell-installer.store'), [...$payload, 'review_only' => true]);
     if ($review->status() === 200 && is_string($review->json('review.token'))) {
-        test()->withCookie((string) config('session.cookie'), session()->getId());
+        withCookie((string) config('session.cookie'), session()->getId());
         $payload['review_token'] = $review->json('review.token');
         $payload['installation_confirmed'] = true;
     }
