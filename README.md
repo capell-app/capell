@@ -192,7 +192,7 @@ Read these before production:
 | -------- | ------------------------------------------------------------- |
 | PHP      | 8.4+                                                          |
 | Laravel  | 13.x                                                          |
-| Filament | 5.7.6+ (`^5.7.6`)                                             |
+| Filament | 5.9.0+ (`^5.9.0`)                                             |
 | Database | MySQL 8+, MariaDB 10.5+, PostgreSQL 16+, or SQLite            |
 | Node.js  | 20+                                                           |
 | Composer | 2.7+                                                          |

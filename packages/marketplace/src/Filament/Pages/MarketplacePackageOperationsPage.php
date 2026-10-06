@@ -458,7 +458,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
         ];
     }
 
-    protected function loadDefaultActiveTab(): void
+    private function loadDefaultActiveTab(): void
     {
         if (filled($this->activeTab)) {
             return;
@@ -467,7 +467,7 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
         $this->activeTab = $this->getDefaultActiveTab();
     }
 
-    protected function modifyQueryWithActiveTab(Builder $query, bool $isResolvingRecord = false): Builder
+    private function modifyQueryWithActiveTab(Builder $query, bool $isResolvingRecord = false): Builder
     {
         if (blank($this->activeTab)) {
             return $query;
