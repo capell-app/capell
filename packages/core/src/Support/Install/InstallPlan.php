@@ -90,8 +90,9 @@ final class InstallPlan
      */
     public static function refreshPackageSteps(InstallInputData $inputData, array $plan, array $completedSteps): array
     {
+        $rebuiltPlan = self::build($inputData);
         $packageSteps = [];
-        foreach ([...self::build($inputData), ...$plan] as $step) {
+        foreach ([...$rebuiltPlan, ...$plan] as $step) {
             if (self::isPackageLifecycleStep($step['key']) && ! in_array($step['key'], $completedSteps, true)) {
                 $packageSteps[$step['key']] = $step;
             }
@@ -107,6 +108,15 @@ final class InstallPlan
             ...array_map(fn (array $step): string => self::packageNameFromStep($step['key']), array_values($packageSteps)),
         ]));
         $pendingSteps = [];
+        if (! in_array(self::STEP_INSTALL_FILAMENT_PANEL, [...array_column($plan, 'key'), ...$completedSteps], true)) {
+            foreach ($rebuiltPlan as $step) {
+                if ($step['key'] === self::STEP_INSTALL_FILAMENT_PANEL) {
+                    $pendingSteps[] = $step;
+                    break;
+                }
+            }
+        }
+
         // Setup can resolve any selected theme, so every install must finish first.
         foreach ([self::STEP_INSTALL_PACKAGE_PREFIX, self::STEP_SETUP_PACKAGE_PREFIX, self::STEP_DEMO_PACKAGE_PREFIX, self::STEP_AFTER_INSTALL_PACKAGE_PREFIX] as $prefix) {
             foreach ($orderedPackageNames as $packageName) {
@@ -151,8 +161,11 @@ final class InstallPlan
      */
     public static function steps(InstallInputData $inputData): Collection
     {
-        $shouldInstallFilamentPanel = self::shouldInstallFilamentPanel($inputData->packages);
-        $shouldInstallFilamentPanelAfterRequiringPackages = self::shouldInstallFilamentPanel($inputData->extraPackages);
+        $selectedPackageNames = self::selectedPackages($inputData)->keys()->all();
+        $shouldInstallFilamentPanel = $inputData->extraPackages === []
+            && self::shouldInstallFilamentPanel($selectedPackageNames);
+        $shouldInstallFilamentPanelAfterRequiringPackages = ! $shouldInstallFilamentPanel
+            && self::shouldInstallFilamentPanel([...$selectedPackageNames, ...$inputData->extraPackages]);
         $hasSelectedPackages = self::hasSelectedPackages($inputData);
 
         $steps = collect();

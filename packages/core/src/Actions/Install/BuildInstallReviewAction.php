@@ -118,10 +118,20 @@ final class BuildInstallReviewAction
             'after_install' => implode('; ', $after),
             'steps' => implode('; ', array_column(InstallPlan::build($input), 'label')),
         ];
-        $labelled = [];
-        foreach ($items as $key => $value) {
-            $labelled[__('capell-core::install.review.' . $key)] = $value;
-        }
+        $labelled = [
+            __('capell-core::install.review.site') => $items['site'],
+            __('capell-core::install.review.database') => $items['database'],
+            __('capell-core::install.review.packages') => $items['packages'],
+            __('capell-core::install.review.downloads') => $items['downloads'],
+            __('capell-core::install.review.theme') => $items['theme'],
+            __('capell-core::install.review.content') => $items['content'],
+            __('capell-core::install.review.administrator') => $items['administrator'],
+            __('capell-core::install.review.additional_accounts') => $items['additional_accounts'],
+            __('capell-core::install.review.application_changes') => $items['application_changes'],
+            __('capell-core::install.review.developer_tooling') => $items['developer_tooling'],
+            __('capell-core::install.review.after_install') => $items['after_install'],
+            __('capell-core::install.review.steps') => $items['steps'],
+        ];
 
         return new InstallReviewData($labelled);
     }
@@ -139,7 +149,9 @@ final class BuildInstallReviewAction
                 }
             }
 
-            return __('capell-core::install.review.' . ($existing ? 'update_account' : 'create_account'), ['email' => $input->newUser->email, 'name' => $input->newUser->name]);
+            return $existing
+                ? __('capell-core::install.review.update_account', ['email' => $input->newUser->email, 'name' => $input->newUser->name])
+                : __('capell-core::install.review.create_account', ['email' => $input->newUser->email, 'name' => $input->newUser->name]);
         }
 
         if ($input->userId !== null) {

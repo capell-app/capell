@@ -47,7 +47,9 @@ final class ReviewInstallerInputAction
     private function items(InstallInputData $input, bool $runAsJob): array
     {
         return [...BuildInstallReviewAction::run($input)->items,
-            __('capell-installer::installer.review_mode') => __('capell-installer::installer.' . ($runAsJob ? 'review_mode_queue' : 'review_mode_browser')),
+            __('capell-installer::installer.review_mode') => $runAsJob
+                ? __('capell-installer::installer.review_mode_queue')
+                : __('capell-installer::installer.review_mode_browser'),
         ];
     }
 

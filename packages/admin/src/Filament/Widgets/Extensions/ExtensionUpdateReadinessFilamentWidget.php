@@ -10,6 +10,7 @@ use Capell\Admin\Data\Extensions\ExtensionUpdateReadinessData;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
+use Override;
 
 final class ExtensionUpdateReadinessFilamentWidget extends Widget implements CapellFilamentWidgetContract
 {
@@ -25,6 +26,13 @@ final class ExtensionUpdateReadinessFilamentWidget extends Widget implements Cap
     protected int|string|array $columnSpan = ['default' => null, 'md' => 12, 'lg' => 6, 'xl' => 6];
 
     protected static ?int $sort = 22;
+
+    #[Override]
+    public static function canView(): bool
+    {
+        return self::canViewCheck() && collect((new self)->updates())
+            ->contains(fn (ExtensionUpdateReadinessData $update): bool => $update->state !== 'none');
+    }
 
     /** @return list<ExtensionUpdateReadinessData> */
     #[Computed(persist: true, seconds: 60)]

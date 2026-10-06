@@ -6,9 +6,11 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
+use Capell\Core\Support\Install\PackageWorkflowPlanner;
 use Capell\Core\Support\Patching\PatchStatus;
 use Closure;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -32,10 +34,20 @@ final class PrepareInstallApplicationAction
         ProgressReporter $reporter,
         Closure $confirmPatch,
         Closure $recordManualInstallChange,
+        bool $requiredPatchesOnly = false,
     ): void {
         $selectedPackageNames = array_values(array_unique([
             ...$inputData->packages,
             ...$inputData->extraPackages,
+        ]));
+
+        $selectedPackageNames = array_values(array_unique([
+            ...$selectedPackageNames,
+            ...resolve(PackageWorkflowPlanner::class)->expandAndOrder(
+                CapellCore::getPackages(),
+                $selectedPackageNames,
+                $inputData->freshInstall,
+            )->keys()->all(),
         ]));
 
         $patchContext = new InstallPatchContext(
@@ -44,6 +56,10 @@ final class PrepareInstallApplicationAction
         );
 
         foreach (resolve(InstallPatchRegistry::class)->patchesFor($patchContext) as $registeredPatch) {
+            if ($requiredPatchesOnly && $registeredPatch->confirmation instanceof InstallPatchConfirmation) {
+                continue;
+            }
+
             $patch = $registeredPatch->patch;
             $status = $patch->probe();
 

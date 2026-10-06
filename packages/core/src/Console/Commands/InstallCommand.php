@@ -152,7 +152,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $generateSitemap = $this->option('generate-sitemap');
         $seedDatabase = (bool) $this->option('seed');
         $seedDefaultData = ! $this->option('no-seed-default-data');
-        $freshInstallConfirmed = false;
 
         $this->writeCommandIntro(
             'install Capell',
@@ -252,7 +251,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'sites' => $siteOptions,
         ]);
 
-        $hasFrontend = $packages->filter(fn (PackageData $package): bool => $package->hasFrontendScope())->isNotEmpty();
+        $hasFrontend = $packages->filter(fn (PackageData $package): bool => $package->hasFrontendScope())->isNotEmpty()
+            || $themeExtraPackages !== [];
         $this->configureHomepage = ! $planOnly && $hasFrontend && ! $this->option('install-welcome-route')
             && $this->input->isInteractive() && resolve(WelcomeRouteInstaller::class)->canInstall();
         $installWelcomeRoute = $planOnly
@@ -658,7 +658,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $patchLabels[] = $registeredPatch->patch->label() . ' — ' . ($status === PatchStatus::Applicable
                 ? ($accepted ? __('capell-core::install.review.apply') : __('capell-core::install.review.skip'))
                 : ($creatingPanel && $confirmation !== null
-                    ? __('capell-core::install.review.' . ($accepted ? 'apply_after_panel' : 'skip'))
+                    ? ($accepted ? __('capell-core::install.review.apply_after_panel') : __('capell-core::install.review.skip'))
                     : __('capell-core::install.review.manual_patch', ['status' => $status->getLabel()])));
         }
 

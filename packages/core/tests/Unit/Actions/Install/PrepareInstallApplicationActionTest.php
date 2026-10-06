@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
@@ -220,3 +221,55 @@ final class PrepareInstallApplicationTestReporter implements ProgressReporter
         $this->errors[] = $line;
     }
 }
+
+it('prepares required patches for newly discovered foundation dependencies without overriding optional patch choices', function (): void {
+    CapellCore::clearPackages();
+    CapellCore::registerPackage(name: 'vendor/theme');
+    CapellCore::getPackage('vendor/theme')->requirements = ['capell-app/admin'];
+    CapellCore::registerPackage(name: 'capell-app/admin');
+    $requiredApplied = false;
+    $optionalApplied = false;
+    $registry = new InstallPatchRegistry;
+    $registry->register(function (InstallPatchContext $context) use (&$requiredApplied): ?Patch {
+        return $context->hasPackage('capell-app/admin') ? prepareInstallApplicationTestPatch(
+            label: 'Required user model',
+            status: PatchStatus::Applicable,
+            apply: function () use (&$requiredApplied): void {
+                $requiredApplied = true;
+            },
+        ) : null;
+    });
+    $registry->register(function (InstallPatchContext $context) use (&$optionalApplied): Patch {
+        return prepareInstallApplicationTestPatch(
+            label: 'Optional panel theme',
+            status: PatchStatus::Applicable,
+            apply: function () use (&$optionalApplied): void {
+                $optionalApplied = true;
+            },
+        );
+    }, new InstallPatchConfirmation('Apply optional theme?'));
+    app()->instance(InstallPatchRegistry::class, $registry);
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        extraPackages: ['vendor/theme'],
+    );
+
+    PrepareInstallApplicationAction::run(
+        inputData: $input,
+        hasFilamentAdminPanelProvider: false,
+        interactive: false,
+        useFreshDemoDefaults: false,
+        reporter: new PrepareInstallApplicationTestReporter,
+        confirmPatch: static fn (InstallPatchConfirmation $confirmation): never => throw new RuntimeException('No optional confirmations during package discovery.'),
+        recordManualInstallChange: static function (string $message): void {},
+        requiredPatchesOnly: true,
+    );
+
+    expect($requiredApplied)->toBeTrue()->and($optionalApplied)->toBeFalse();
+});

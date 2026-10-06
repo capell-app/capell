@@ -606,7 +606,7 @@ trait ManagesPackages
             $cache->removeCacheKeyOrFail(CacheEnum::ExtensionInstalledNames->value);
             $cache->removeCacheKeyOrFail(CacheEnum::ExtensionPackages->value);
         } catch (RuntimeException $runtimeException) {
-            throw new RuntimeException(__('capell::runtime-refresh.cache_refresh_required') . ' ' . $runtimeException->getMessage(), $runtimeException->getCode(), previous: $runtimeException);
+            throw new RuntimeException(__('capell-core::runtime-refresh.cache_refresh_required') . ' ' . $runtimeException->getMessage(), $runtimeException->getCode(), previous: $runtimeException);
         }
 
         $this->resetExtensionCacheState();

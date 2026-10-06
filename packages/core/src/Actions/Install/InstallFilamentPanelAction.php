@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Install;
 
+use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\PanelRegistry;
@@ -72,6 +74,37 @@ class InstallFilamentPanelAction
 
     public function handle(ProgressReporter $reporter): void
     {
+        $this->installPanel($reporter);
+
+        // Fresh Artisan children must see a newly scaffolded panel, including
+        // retries whose role manifests were built before the panel existed.
+        if (is_file(resolve(RuntimeRoleCachePaths::class)->metadata())) {
+            BuildRuntimeRoleProviderManifestsAction::run();
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function panelProviderPaths(): array
+    {
+        $providersDir = app_path('Providers/Filament');
+
+        if (! is_dir($providersDir)) {
+            return [];
+        }
+
+        $paths = glob($providersDir . '/*PanelProvider.php');
+
+        if ($paths === false) {
+            return [];
+        }
+
+        return array_values(array_filter($paths, is_file(...)));
+    }
+
+    private function installPanel(ProgressReporter $reporter): void
+    {
         $panelProviderPaths = self::panelProviderPaths();
 
         if ($panelProviderPaths !== []) {
@@ -112,26 +145,6 @@ class InstallFilamentPanelAction
         self::registerPanelProviders();
         $this->ensureDefaultThemeStylesheetExists();
         $this->reportMissingThemeConfiguration(self::panelProviderPaths(), $reporter);
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private static function panelProviderPaths(): array
-    {
-        $providersDir = app_path('Providers/Filament');
-
-        if (! is_dir($providersDir)) {
-            return [];
-        }
-
-        $paths = glob($providersDir . '/*PanelProvider.php');
-
-        if ($paths === false) {
-            return [];
-        }
-
-        return array_values(array_filter($paths, is_file(...)));
     }
 
     private function installFilamentInFreshProcess(ProgressReporter $reporter, ?Throwable $previous): void

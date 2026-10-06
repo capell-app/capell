@@ -41,7 +41,7 @@ it('refuses activation when persisted component cache removal fails', function (
             'enable' => EnablePackageAction::run($package),
             'refresh' => RefreshInstalledPackageRuntimeAction::run($package),
             default => throw new LogicException('Unknown runtime operation.'),
-        })->toThrow(RuntimeException::class, __('capell::runtime-refresh.cache_refresh_required'));
+        })->toThrow(RuntimeException::class, __('capell-core::runtime-refresh.cache_refresh_required'));
 
         expect($files->exists($path))->toBeTrue()
             ->and(Cache::get('illuminate:queue:restart'))->toBeNull();

@@ -7,6 +7,8 @@ use Capell\Admin\Contracts\Diagnostics\SiteHealthReportExtender;
 use Capell\Admin\Data\Diagnostics\DiagnosticCheckData;
 use Capell\Admin\Data\Diagnostics\DiagnosticSectionData;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
+use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthFilamentWidget;
+use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthStatusFilamentWidget;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
 use Capell\Admin\Support\SiteScope;
 use Capell\Core\Models\Site;
@@ -237,4 +239,14 @@ it('renders a useful optimizer artifact location without a local home directory'
         app()->useStoragePath($originalStorage);
         File::deleteDirectory($directory);
     }
+});
+
+it('authorises the healthy status widget through the health page without adding it to dashboard discovery', function (): void {
+    expect(ExtensionHealthStatusFilamentWidget::canView())->toBeFalse();
+
+    grantSiteHealthPageAccess();
+
+    expect(ExtensionHealthStatusFilamentWidget::canView())->toBeTrue()
+        ->and(ExtensionHealthStatusFilamentWidget::isDiscovered())->toBeFalse()
+        ->and(ExtensionHealthFilamentWidget::canView())->toBeFalse();
 });
