@@ -2427,7 +2427,7 @@ it('defaults interactive cache clearing to every specific cache option', functio
 
 it('passes demoContent=true to InstallInputData when --demo is given', function (): void {
     setupInstallTest();
-    $user = createTestUser();
+    createTestUser();
     $fake = bindFakeRunInstallAction();
 
     artisanCommand('capell:install', [
@@ -2670,7 +2670,7 @@ it('returns FAILURE when no packages are selected', function (): void {
 
 it('passes multiple packages to InstallInputData', function (): void {
     setupInstallTest(['test1', 'test2']);
-    $user = createTestUser();
+    createTestUser();
     $fake = bindFakeRunInstallAction();
 
     artisanCommand('capell:install', [

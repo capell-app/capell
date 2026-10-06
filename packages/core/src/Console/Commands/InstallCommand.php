@@ -139,7 +139,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $generateSitemap = $this->option('generate-sitemap');
         $seedDatabase = (bool) $this->option('seed');
         $seedDefaultData = ! $this->option('no-seed-default-data');
-        $freshInstallConfirmed = false;
 
         $this->writeCommandIntro(
             'install Capell',
