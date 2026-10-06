@@ -848,3 +848,174 @@ test('downloaded dependencies refresh progress labels and totals without losing 
     )
     expect(result.finalCount).toBe('5 of 5 complete')
 })
+
+test('runner reviews settings before execution and invalidates acceptance after edits', async ({
+    page,
+}) => {
+    await setRunnerHarness(page)
+    await page.locator('#install-form').evaluate((form) => {
+        form.insertAdjacentHTML(
+            'beforeend',
+            `
+            <input name="site_url" value="https://example.test">
+            <section id="installation-review" hidden tabindex="-1">
+                <dl data-installation-review-items></dl>
+                <input type="checkbox" name="installation_confirmed" value="1" data-installation-confirmed>
+                <input type="hidden" name="review_token" value="">
+            </section>
+        `,
+        )
+    })
+    await page.evaluate(() => {
+        window.reviewEvents = []
+        window.reviewRequests = []
+        window.fetch = async (url, options) => {
+            const input = Object.fromEntries(options.body.entries())
+            window.reviewRequests.push(input)
+            return new Response(
+                JSON.stringify(
+                    input.review_only
+                        ? {
+                              review: {
+                                  items: {
+                                      Packages: 'vendor/example',
+                                      Site: '<script>window.unsafeReview = true</script>',
+                                  },
+                                  token: 'review-token',
+                              },
+                          }
+                        : { message: 'Test execution blocked', errors: {} },
+                ),
+                { status: input.review_only ? 200 : 422 },
+            )
+        }
+        const runner = window.CapellInstaller.createInstallRunner({
+            form: document.getElementById('install-form'),
+            wizard: {
+                beginInstallingFlow: () => window.reviewEvents.push('execute'),
+                currentStep: () => 'options',
+                setFlowStep: () => {},
+                showFieldErrors: () => {},
+                showGlobalError: (message) => window.reviewEvents.push(message),
+            },
+            packages: { updateSubmitButtonLabel: () => {} },
+            progress: {
+                reset: () => {},
+                showProgressView: () => {},
+                showFormView: () => {},
+                setStatus: () => {},
+            },
+            csrf: {
+                token: () => 'token',
+                setToken: () => {},
+                refresh: async () => 'token',
+            },
+            messages: {
+                reviewInstallButton: 'Install with these settings',
+                reviewRequired: 'Confirm the review',
+            },
+        })
+        document
+            .getElementById('submit-button')
+            .addEventListener('click', () => runner.start())
+    })
+    await page.locator('#submit-button').click()
+    await expect(page.locator('#installation-review')).toBeVisible()
+    await expect(
+        page.locator('[data-installation-review-items]'),
+    ).toContainText('vendor/example')
+    await expect(
+        page.locator('[data-installation-review-items]'),
+    ).toContainText('<script>')
+    expect(await page.evaluate(() => window.unsafeReview)).toBeUndefined()
+    expect(await page.evaluate(() => window.reviewEvents)).toEqual([])
+    await page.locator('#submit-button').click()
+    expect(await page.evaluate(() => window.reviewEvents)).toEqual([
+        'Confirm the review',
+    ])
+    expect(await page.evaluate(() => window.reviewRequests)).toHaveLength(1)
+    await page.locator('[data-installation-confirmed]').check()
+    await page.locator('[name="site_url"]').fill('https://changed.test')
+    await expect(page.locator('#installation-review')).toBeHidden()
+    await expect(page.locator('[name="review_token"]')).toHaveValue('')
+    await expect(
+        page.locator('[data-installation-confirmed]'),
+    ).not.toBeChecked()
+    await page.locator('#submit-button').click()
+    await expect(page.locator('#installation-review')).toBeVisible()
+    await page.locator('[data-installation-confirmed]').check()
+    await page.locator('#submit-button').click()
+    await expect
+        .poll(() => page.evaluate(() => window.reviewRequests.length))
+        .toBe(3)
+    expect(await page.evaluate(() => window.reviewRequests[2])).toMatchObject({
+        site_url: 'https://changed.test',
+        review_token: 'review-token',
+        installation_confirmed: '1',
+    })
+    expect(await page.evaluate(() => window.reviewEvents)).toContain('execute')
+})
+
+test('runner discards a review when settings change while it is loading', async ({
+    page,
+}) => {
+    await setRunnerHarness(page)
+    await page.locator('#install-form').evaluate((form) => {
+        form.insertAdjacentHTML(
+            'beforeend',
+            `
+            <input name="site_url" value="https://example.test">
+            <section id="installation-review" hidden tabindex="-1">
+                <dl data-installation-review-items></dl>
+                <input type="checkbox" data-installation-confirmed>
+                <input name="review_token" value="">
+            </section>
+        `,
+        )
+    })
+    await page.evaluate(() => {
+        window.reviewErrors = []
+        window.fetch = () =>
+            new Promise((resolve) => {
+                window.resolveReview = () =>
+                    resolve(
+                        new Response(
+                            JSON.stringify({
+                                review: {
+                                    items: { Site: 'https://example.test' },
+                                    token: 'stale-review',
+                                },
+                            }),
+                            { status: 200 },
+                        ),
+                    )
+            })
+        const runner = window.CapellInstaller.createInstallRunner({
+            form: document.getElementById('install-form'),
+            wizard: {
+                showGlobalError: (message) => window.reviewErrors.push(message),
+            },
+            packages: { updateSubmitButtonLabel: () => {} },
+            progress: {},
+            csrf: { token: () => 'token', refresh: async () => 'token' },
+            messages: {
+                reviewChanged: 'Review again',
+                reviewLoading: 'Preparing review',
+            },
+        })
+        runner.start()
+    })
+    await expect
+        .poll(() => page.evaluate(() => typeof window.resolveReview))
+        .toBe('function')
+    await expect(page.locator('[data-submit-label]')).toHaveText(
+        'Preparing review',
+    )
+    await page.locator('[name="site_url"]').fill('https://changed.test')
+    await page.evaluate(() => window.resolveReview())
+    await expect
+        .poll(() => page.evaluate(() => window.reviewErrors))
+        .toEqual(['Review again'])
+    await expect(page.locator('#installation-review')).toBeHidden()
+    await expect(page.locator('[name="review_token"]')).toHaveValue('')
+})

@@ -715,7 +715,7 @@ it('exits when filament installation is declined for the admin package', functio
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
-        ->expectsConfirmation('The Capell admin package requires a Filament panel. Would you like to install Filament now?', 'no')
+        ->expectsConfirmation('Create the required Filament admin panel during installation?', 'no')
         ->expectsOutput('Filament must be installed before installing the Capell admin package.')
         ->assertExitCode(Command::FAILURE);
 
@@ -735,7 +735,8 @@ it('builds correct InstallInputData and delegates to RunInstallAction without ca
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -778,7 +779,8 @@ it('dispatches CapellInstalled with the resolved spec path when --spec is given'
             '--spec' => $specPath,
         ])
             ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-            ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+            ->expectsConfirmation('Build production frontend assets now?', 'no')
+            ->expectsConfirmation('Install Capell with these settings?', 'yes')
             ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
             ->assertExitCode(Command::SUCCESS);
     } finally {
@@ -806,7 +808,8 @@ it('does not dispatch CapellInstalled when --spec is omitted', function (): void
         '--clear-cache' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -827,8 +830,9 @@ it('can remove the installer package at the end of an interactive install', func
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Delete the installer after installing?', 'yes')
+        ->expectsConfirmation('Remove the browser installer package after a successful install?', 'yes')
         ->expectsOutput('Capell installer package removed successfully.')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -851,12 +855,13 @@ it('installs filament for the admin package before completing and removing the i
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
-        ->expectsConfirmation('The Capell admin package requires a Filament panel. Would you like to install Filament now?', 'yes')
+        ->expectsConfirmation('Create the required Filament admin panel during installation?', 'yes')
         ->expectsOutput('Filament panel installed')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Delete the installer after installing?', 'yes')
+        ->expectsConfirmation('Remove the browser installer package after a successful install?', 'yes')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
         ->expectsOutput('Capell installer package removed successfully.')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -934,8 +939,9 @@ it('does not remove the installer package when the install fails', function (): 
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Delete the installer after installing?', 'yes')
+        ->expectsConfirmation('Remove the browser installer package after a successful install?', 'yes')
         ->expectsOutputToContain('Capell installation failed.')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->assertExitCode(Command::FAILURE);
 
     expect($fake->callCount)->toBe(1);
@@ -1016,7 +1022,8 @@ it('leaves the installer package installed when removal is declined', function (
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Delete the installer after installing?', 'no')
+        ->expectsConfirmation('Remove the browser installer package after a successful install?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1045,8 +1052,9 @@ it('prompts for packages when no --packages option is given', function (): void 
             'capell-app/marketplace',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1082,8 +1090,9 @@ it('allows packages to be skipped from the package checklist', function (): void
             'capell-app/admin',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1114,6 +1123,7 @@ it('allows custom package selection to install no packages', function (): void {
     ])
         ->expectsOutput('No packages selected.')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1149,8 +1159,9 @@ it('allows related packages to be selected from the package checklist', function
             'capell-app/admin-extra',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1187,8 +1198,9 @@ it('selects packages from the interactive package checklist', function (): void 
             'vendor/composer-installed-plugin',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1229,8 +1241,9 @@ it('preselects available packages in the interactive extra package checklist', f
             'vendor/support-plugin',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1271,8 +1284,9 @@ it('logs package selection defaults when install package selection debugging is 
             'vendor/composer-installed-plugin',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1314,8 +1328,9 @@ it('preselects demo packages in the interactive extra package checklist for demo
             'vendor/demo-package',
         ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1347,8 +1362,9 @@ it('allows demo packages to be deselected from the interactive extra package che
         ])
         ->expectsQuestion('Would you like to install any extra extensions?', [])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1378,8 +1394,9 @@ it('keeps theme packages out of the interactive package checklist', function ():
         ])
         ->expectsQuestion('Which starter theme should be installed?', 'default')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1414,8 +1431,9 @@ it('selects every registered package when --all-packages is given', function ():
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1461,7 +1479,8 @@ it('includes registered package requirements before selected packages', function
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1485,7 +1504,8 @@ it('allows selected packages when their requirements are also selected', functio
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1510,7 +1530,8 @@ it('prompts for the first user when the users table does not exist yet', functio
         ->expectsQuestion('Email', 'new@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1536,7 +1557,8 @@ it('creates the first user from cli options without prompting', function (): voi
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1568,7 +1590,8 @@ it('creates the first user from installer admin defaults without prompting', fun
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1603,7 +1626,8 @@ it('creates the first user from core setup admin defaults when installer config 
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1632,7 +1656,8 @@ it('adds example role users from cli options', function (): void {
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1691,7 +1716,8 @@ it('allows creating a new admin user when users already exist', function (): voi
         ->expectsQuestion('Email', 'admin@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1721,7 +1747,8 @@ it('forces creating a new admin user during a fresh install', function (): void 
         ->expectsQuestion('Email', 'fresh@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1751,7 +1778,8 @@ it('bypasses the fresh install confirmation when fresh is forced', function (): 
         ->doesntExpectOutput('Fresh install cancelled.')
         ->doesntExpectOutput('Warning: this will delete all your data. Are you sure?')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1824,7 +1852,7 @@ it('forces creating a new admin user when reinstall confirmation enables a fresh
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
-        ->expectsConfirmation('Capell is already installed. Refresh the database and reinstall?', 'yes')
+        ->expectsConfirmation('Capell is already installed. Delete all tables and data, then reinstall?', 'yes')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->doesntExpectOutput('Which admin user should we use?')
         ->doesntExpectOutput('Search for an existing admin user')
@@ -1832,7 +1860,8 @@ it('forces creating a new admin user when reinstall confirmation enables a fresh
         ->expectsQuestion('Email', 'reinstall@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1856,7 +1885,7 @@ it('stops when reinstall confirmation enables a fresh install and destructive co
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
-        ->expectsConfirmation('Capell is already installed. Refresh the database and reinstall?', 'yes')
+        ->expectsConfirmation('Capell is already installed. Delete all tables and data, then reinstall?', 'yes')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'no')
         ->expectsOutput('Fresh install cancelled.')
         ->assertExitCode(Command::FAILURE);
@@ -1893,7 +1922,8 @@ it('allows selecting an existing admin user from the search prompt', function ()
         )
         ->doesntExpectOutput('The selected user does not exist.')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -1932,7 +1962,8 @@ it('allows selecting an existing admin user from the search prompt after filteri
         )
         ->doesntExpectOutput('The selected user does not exist.')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2004,9 +2035,10 @@ it('does not prompt for frontend asset paths during interactive installs', funct
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
-        ->expectsConfirmation('Remove existing home route?', 'yes')
+        ->expectsConfirmation('Let Capell handle the homepage?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2045,11 +2077,12 @@ it('can run an npm build after installing a frontend package', function (): void
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
-        ->expectsConfirmation('Remove existing home route?', 'yes')
+        ->expectsConfirmation('Let Capell handle the homepage?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'yes')
+        ->expectsConfirmation('Build production frontend assets now?', 'yes')
         ->expectsOutput('Running: npm run build')
         ->expectsOutput('Production build completed successfully.')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2086,16 +2119,17 @@ it('fails instead of reporting a completed install when the requested npm build 
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
-        ->expectsConfirmation('Remove existing home route?', 'yes')
+        ->expectsConfirmation('Let Capell handle the homepage?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'yes')
+        ->expectsConfirmation('Build production frontend assets now?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsOutput('npm build failed.')
         ->assertExitCode(Command::FAILURE);
 
     expect($fake->callCount)->toBe(1);
 });
 
-it('asks which caches to clear after the install has run', function (): void {
+it('collects cache choices before confirming the installation', function (): void {
     setupInstallTest();
     dropUsersTableForInstallTest();
     $fake = bindFakeRunInstallAction();
@@ -2109,8 +2143,9 @@ it('asks which caches to clear after the install has run', function (): void {
         ->expectsQuestion('Email', 'new@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsQuestion('Which caches would you like to clear?', ['page', 'views'])
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2136,7 +2171,8 @@ it('does not ask for cache selection after a fresh seeded install', function ():
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2190,6 +2226,7 @@ it('asks for package selection during interactive fresh demo installs', function
         ->expectsQuestion('Would you like to install any extra extensions?', [
             'capell-app/demo-kit',
         ])
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->assertExitCode(Command::SUCCESS);
 
     $capturedInput = expectPresent($capturedInput);
@@ -2247,6 +2284,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
     ])
         ->expectsOutput('You are about to install Capell with a fresh database refresh and demo content.')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->assertExitCode(Command::SUCCESS);
 
     $capturedInput = expectPresent($capturedInput);
@@ -2307,7 +2345,8 @@ it('passes sitemap option to InstallInputData when requested', function (): void
         '--generate-sitemap' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2330,7 +2369,8 @@ it('passes developer tooling options to InstallInputData when requested', functi
         '--theme' => 'foundation',
         '--developer-tooling' => true,
     ])
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2354,7 +2394,8 @@ it('can install developer tooling without running boost install', function (): v
         '--developer-tooling' => true,
         '--no-boost-install' => true,
     ])
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2377,7 +2418,8 @@ it('does not rerun boost install when developer tooling is already installed', f
         '--clear-cache' => true,
         '--theme' => 'foundation',
     ])
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2401,8 +2443,9 @@ it('defaults interactive developer tooling to disabled', function (): void {
         ->expectsQuestion('Email', 'new@example.test')
         ->expectsQuestion('Password', 'password')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsQuestion('Which caches would you like to clear?', ['page', 'views'])
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2439,7 +2482,8 @@ it('passes demoContent=true to InstallInputData when --demo is given', function 
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2469,7 +2513,8 @@ it('puts english first in the default demo language list', function (): void {
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2490,7 +2535,8 @@ it('does not install demo content when --demo is omitted', function (): void {
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2520,8 +2566,9 @@ it('includes available demo packages when demo content is requested', function (
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2543,7 +2590,8 @@ it('seeds default data by default from the console install command', function ()
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2565,7 +2613,8 @@ it('allows default data to be skipped from the console install command', functio
         '--no-seed-default-data' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2587,7 +2636,8 @@ it('runs the application database seeder when requested from the console install
         '--seed' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2609,7 +2659,8 @@ it('does not run the application database seeder by default from the console ins
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2633,7 +2684,8 @@ it('passes freshInstall=true to InstallInputData when --fresh and --demo are giv
     ])
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2681,7 +2733,8 @@ it('passes multiple packages to InstallInputData', function (): void {
         '--theme' => 'foundation',
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
-        ->expectsConfirmation('Would you like to run an npm build after this command completes?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2704,6 +2757,7 @@ it('passes explicit selected theme key into InstallInputData', function (): void
         '--clear-cache' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2723,6 +2777,7 @@ it('lets interactive installs choose no starter theme', function (): void {
     ])
         ->expectsQuestion('Which starter theme should be installed?', 'none')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2755,6 +2810,7 @@ it('uses install profile defaults when explicit install options are omitted', fu
         '--clear-cache' => true,
     ])
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2772,4 +2828,48 @@ it('refuses the production fresh demo shortcut before executing installation', f
         ->expectsOutputToContain(__('capell-core::install.demo.production_credentials_refused'))
         ->assertExitCode(Command::FAILURE);
     $spy->shouldNotHaveReceived('handle');
+});
+
+it('leaves application files and install actions untouched when the final review is declined', function (): void {
+    setupInstallTest(['capell-app/admin', 'capell-app/frontend', 'capell-app/installer']);
+    CapellCore::getPackage('capell-app/frontend')->scopes = [PackageScopeEnum::Frontend];
+    unlink(base_path('app/Providers/Filament/AdminPanelProvider.php'));
+    $fake = bindFakeRunInstallAction();
+    $routesPath = tempnam(sys_get_temp_dir(), 'install-review-routes-');
+    $envPath = tempnam(sys_get_temp_dir(), 'install-review-env-');
+    file_put_contents($routesPath, "<?php\nRoute::get('/', fn () => view('welcome'));\n");
+    file_put_contents($envPath, "APP_NAME=Example\n");
+    config(['capell.install.welcome_routes_web_path' => $routesPath, 'capell.install.welcome_env_path' => $envPath]);
+    $routesBefore = file_get_contents($routesPath);
+    $envBefore = file_get_contents($envPath);
+    $modelBefore = file_get_contents(base_path('app/Models/User.php'));
+    $composerBefore = file_get_contents(base_path('composer.json'));
+    try {
+        artisanCommand('capell:install', [
+            '--packages' => 'capell-app/admin,capell-app/frontend',
+            '--url' => 'https://example.test',
+            '--name' => 'Review Admin', '--email' => 'review@example.test', '--password' => 'private-review-password',
+            '--theme' => 'none', '--clear-cache' => true,
+        ])
+            ->expectsConfirmation('Create the required Filament admin panel during installation?', 'yes')
+            ->expectsConfirmation('Let Capell handle the homepage?', 'yes')
+            ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+            ->expectsConfirmation('Build production frontend assets now?', 'no')
+            ->expectsConfirmation('Remove the browser installer package after a successful install?', 'no')
+            ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+            ->expectsOutputToContain('Review your installation')
+            ->expectsOutputToContain('Create and register a Filament admin panel')
+            ->expectsConfirmation('Install Capell with these settings?', 'no')
+            ->expectsOutput('Installation cancelled. No installation changes were applied.')
+            ->assertExitCode(Command::SUCCESS);
+        expect($fake->callCount)->toBe(0)
+            ->and(file_get_contents($routesPath))->toBe($routesBefore)
+            ->and(file_get_contents($envPath))->toBe($envBefore)
+            ->and(file_get_contents(base_path('app/Models/User.php')))->toBe($modelBefore)
+            ->and(file_get_contents(base_path('composer.json')))->toBe($composerBefore)
+            ->and(is_file(base_path('app/Providers/Filament/AdminPanelProvider.php')))->toBeFalse();
+    } finally {
+        unlink($routesPath);
+        unlink($envPath);
+    }
 });

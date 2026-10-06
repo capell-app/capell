@@ -94,8 +94,8 @@ it('coordinates the complete console install sequence through a presentation hos
     );
 
     expect($calls)->toBe([
-        'prepare',
         'plan',
+        'prepare',
         'filament',
         'npm',
         'remove',

@@ -1858,3 +1858,34 @@ a:focus-visible,
         width: 100%;
     }
 }
+
+#installation-review {
+    display: block;
+    grid-column: 1 / -1;
+}
+
+#installation-review dl {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr);
+    gap: 12px 20px;
+    margin: 20px 0;
+}
+
+#installation-review dt {
+    font-weight: 600;
+}
+
+#installation-review dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+    #installation-review dl {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+    }
+    #installation-review dd {
+        margin-bottom: 12px;
+    }
+}

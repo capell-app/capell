@@ -1263,6 +1263,36 @@
                             </fieldset>
                         </div>
 
+                        <section
+                            id="installation-review"
+                            class="panel-body"
+                            hidden
+                            aria-labelledby="installation-review-title"
+                            tabindex="-1"
+                        >
+                            <h2 id="installation-review-title">
+                                {{ __('capell-core::install.review.title') }}
+                            </h2>
+                            <p>{{ __('capell-installer::installer.review_help') }}</p>
+                            <dl data-installation-review-items></dl>
+                            <label class="checkbox-row">
+                                <input
+                                    type="checkbox"
+                                    name="installation_confirmed"
+                                    value="1"
+                                    data-installation-confirmed
+                                />
+                                <span
+                                    >{{ __('capell-installer::installer.review_confirm') }}</span
+                                >
+                            </label>
+                            <input
+                                type="hidden"
+                                name="review_token"
+                                value=""
+                            />
+                        </section>
+
                         <footer class="panel-footer installer-actions">
                             <div class="panel-footer-inner">
                                 <button
@@ -1292,7 +1322,7 @@
                                         class="label"
                                         data-submit-label
                                     >
-                                        {{ __('capell-installer::installer.submit') }}
+                                        {{ __('capell-installer::installer.review_button') }}
                                     </span>
                                     <span
                                         class="submit-arrow"
@@ -1481,7 +1511,12 @@
                         'requiredByPackages' => __('capell-installer::installer.required_by_packages'),
                         'packageSelectAll' => __('capell-installer::installer.package_select_all'),
                         'packageUnselectAll' => __('capell-installer::installer.package_unselect_all'),
-                        'submitLabel' => __('capell-installer::installer.submit'),
+                        'submitLabel' => __('capell-installer::installer.review_button'),
+                        'reviewButton' => __('capell-installer::installer.review_button'),
+                        'reviewInstallButton' => __('capell-installer::installer.review_install_button'),
+                        'reviewLoading' => __('capell-installer::installer.review_loading'),
+                        'reviewChanged' => __('capell-installer::installer.review_changed'),
+                        'reviewRequired' => __('capell-installer::installer.review_required'),
                         'installPackageLabel' => __('capell-installer::installer.install_package', ['count' => '__count__']),
                         'installPackagesLabel' => __('capell-installer::installer.install_packages', ['count' => '__count__']),
                         'installingPackageLabel' => __('capell-installer::installer.installing_package', ['count' => '__count__']),

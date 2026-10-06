@@ -62,9 +62,16 @@ For a normal evaluation, accept the full foundation selection and the default th
 | Site URL                              | `http://localhost:8000`                            |
 | Administrator                         | Create one with an email and strong local password |
 | Which caches would you like to clear? | Accept the preselected defaults                    |
-| Welcome route                         | Yes for a fresh demo application                   |
+| Let Capell handle the homepage?       | Yes for a fresh demo application                   |
+| Install Capell with these settings?   | Review the complete summary, then confirm          |
 
-The cache prompt is a multiselect of individual cache keys, not a yes/no question. Passing `--clear-cache` selects all of them and skips the prompt.
+The cache prompt is a multiselect of individual cache keys, not a yes/no question. Passing `--clear-cache` skips the prompt, runs Laravel’s optimisation cache clear, and refreshes the Capell HTML and package discovery caches. This also clears application data in the default cache store.
+
+Before applying changes, the CLI prints **Review your installation** with the resolved packages, Composer downloads, database operations, theme, content, administrator, host-file changes and final operations. The final confirmation defaults to No. Declining it applies no installation changes, including Filament panel creation and homepage configuration.
+
+`--plan` prints the same redacted summary and execution steps without applying changes. It uses supplied options and defaults; choices made in a later interactive run can change its final review. `--no-interaction` and `--production` print the review before execution and retain their existing unattended behaviour. Fresh unattended installs still require `--fresh=force`.
+
+The browser installer also shows a server-generated review before starting a run. Confirm the reviewed settings to continue; editing settings requires another review. Acceptance expires after 30 minutes and is checked against the resolved settings and browser session before execution.
 
 The final output is part of the install contract. A healthy run ends in this order:
 

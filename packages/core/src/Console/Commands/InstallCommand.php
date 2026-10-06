@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Actions\Install\BuildAndAnnounceInstallSpecAction;
 use Capell\Core\Actions\Install\BuildInstallHandoffAction;
+use Capell\Core\Actions\Install\BuildInstallReviewAction;
 use Capell\Core\Actions\Install\CanCreateInstallAdministratorAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
 use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
@@ -43,11 +44,14 @@ use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
+use Capell\Core\Support\Install\InstallPatchContext;
+use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
+use Capell\Core\Support\Patching\PatchStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -57,9 +61,11 @@ use InvalidArgumentException;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\text;
 
+use Override;
 use RuntimeException;
 use Spatie\LaravelPackageTools\Commands\Concerns\AskToStarRepoOnGitHub;
 use Symfony\Component\Console\Command\Command as CommandAlias;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Throwable;
 
 class InstallCommand extends Command implements InstallOrchestrationHost
@@ -117,8 +123,15 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private bool $orchestratedSeedDefaultData = true;
 
+    /** @var array<int, bool> */
+    private array $reviewedPatchChoices = [];
+
+    private bool $configureHomepage = false;
+
     public function handle(): int
     {
+        $this->reviewedPatchChoices = [];
+        $this->configureHomepage = false;
         $bootExitCode = $this->bootInstallCommand();
         if ($bootExitCode !== null) {
             return $bootExitCode;
@@ -174,7 +187,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         if ($this->isInstalled()
             && ! $freshInstall
-            && confirm('Capell is already installed. Refresh the database and reinstall?', false)
+            && confirm(__('capell-core::install.review.reinstall_label'), false)
         ) {
             $freshInstall = true;
             $this->logInstallDebug('existing install converted to fresh install');
@@ -198,16 +211,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $reporter = new ConsoleProgressReporter($this);
 
-        if (! $planOnly && ! resolve(FilamentAdminInstallPreflight::class)->ensureReady(
-            packages: $packages,
-            interactive: $this->input->isInteractive(),
-            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
-            reporter: $reporter,
-            writeError: function (string $message): void {
-                $this->error($message);
-            },
-        )) {
-            $this->logInstallDebug('filament admin panel check failed');
+        if (! $planOnly && $packages->has('capell-app/admin')
+            && ! resolve(FilamentAdminInstallPreflight::class)->hasInstalledPanelProvider()
+            && $this->input->isInteractive() && ! $this->shouldUseFreshDemoDefaults()
+            && ! confirm(label: __('capell-core::install.review.panel_label'), default: true, hint: __('capell-core::install.review.panel_hint'))
+        ) {
+            $this->error('Filament must be installed before installing the Capell admin package.');
 
             return CommandAlias::FAILURE;
         }
@@ -242,8 +251,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'sites' => $siteOptions,
         ]);
 
-        $hasFrontend = $packages->contains(fn (PackageData $package): bool => $package->hasFrontendScope())
+        $hasFrontend = $packages->filter(fn (PackageData $package): bool => $package->hasFrontendScope())->isNotEmpty()
             || $themeExtraPackages !== [];
+        $this->configureHomepage = ! $planOnly && $hasFrontend && ! $this->option('install-welcome-route')
+            && $this->input->isInteractive() && resolve(WelcomeRouteInstaller::class)->canInstall();
         $installWelcomeRoute = $planOnly
             ? $hasFrontend && $this->option('install-welcome-route')
             : resolve(InstallPostInstallOptionResolver::class)->resolveWelcomeRoute(
@@ -251,12 +262,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 installWelcomeRouteOption: (bool) $this->option('install-welcome-route'),
                 interactive: $this->input->isInteractive(),
                 welcomeRouteInstaller: resolve(WelcomeRouteInstaller::class),
-                recordManualInstallChange: function (string $message): void {
-                    $this->recordManualInstallChange($message);
-                },
-                writeWarning: function (string $message): void {
-                    $this->warn($message);
-                },
             );
         $this->logInstallDebug('resolved welcome route option', [
             'has_frontend' => $hasFrontend,
@@ -270,6 +275,23 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 skipBoostInstall: (bool) $this->option('no-boost-install'),
                 developerToolingInstalled: resolve(DeveloperToolingInstallationState::class)->isInstalled(),
             );
+
+            $planUserId = null;
+            if ($userEmailOption !== null || $newUser instanceof NewUserData || ($freshInstall && $this->shouldUseFreshDemoDefaults())) {
+                [$planUserId, $newUser, $userExitCode] = $userPrompter->resolveUserInput(
+                    $userEmailOption,
+                    $newUser,
+                    $freshInstall,
+                    $this->shouldUseFreshDemoDefaults(),
+                );
+                if ($userExitCode !== null) {
+                    return $userExitCode;
+                }
+            }
+
+            $planAdditionalUsers = $this->option('role-users')
+                ? resolve(InstallInputFactory::class)->exampleRoleUsers((string) ($this->option('role-user-password') ?? ''))
+                : [];
 
             $inputData = $this->buildInstallInput(
                 siteUrl: $siteUrl,
@@ -286,7 +308,20 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 selectedThemeKey: $selectedThemeKey,
                 extraPackages: array_values(array_unique([...$installTimePackageNames, ...$themeExtraPackages])),
                 generateSitemap: $generateSitemap,
+                userId: $planUserId,
+                additionalUsers: $planAdditionalUsers,
             );
+
+            $this->outputInstallReview(
+                $inputData,
+                false,
+                (bool) $this->option('remove-installer'),
+                $clearCache || $freshInstall ? ['all'] : resolve(InstallCacheOptionResolver::class)->defaultKeys(
+                    resolve(InstallCacheOptionResolver::class)->availableOptions(fn (string $command): bool => $this->getApplication()?->has($command) === true),
+                ),
+            );
+
+            $this->info(__('capell-core::install.review.plan_hint'));
 
             return $this->finishPlanOnlyInstall($inputData);
         }
@@ -385,6 +420,47 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             additionalUsers: $additionalUsers,
         );
 
+        $this->reviewedPatchChoices = [];
+        $this->outputInstallReview($inputData, $runNpmBuild, $removeInstallerPackage, $cachesToClear);
+        $this->outputPlan($inputData);
+
+        if ($this->input->isInteractive() && ! confirm(
+            label: __('capell-core::install.review.confirm_label'),
+            default: false,
+            hint: __('capell-core::install.review.confirm_hint'),
+        )) {
+            $this->info(__('capell-core::install.review.cancelled'));
+
+            return CommandAlias::SUCCESS;
+        }
+
+        if (! resolve(FilamentAdminInstallPreflight::class)->ensureReady(
+            packages: $packages,
+            interactive: false,
+            useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
+            reporter: $reporter,
+            writeError: function (string $message): void {
+                $this->error($message);
+            },
+        )) {
+            $this->logInstallDebug('filament admin panel check failed');
+
+            return CommandAlias::FAILURE;
+        }
+
+        if ($this->configureHomepage) {
+            resolve(InstallPostInstallOptionResolver::class)->configureWelcomeRoute(
+                resolve(WelcomeRouteInstaller::class),
+                $installWelcomeRoute,
+                function (string $message): void {
+                    $this->recordManualInstallChange($message);
+                },
+                function (string $message): void {
+                    $this->warn($message);
+                },
+            );
+        }
+
         return $this->runInstallOrchestration(
             inputData: $inputData,
             reporter: $reporter,
@@ -395,6 +471,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         );
     }
 
+    #[Override]
     public function outputPlan(InstallInputData $inputData): void
     {
         $steps = InstallPlan::steps($inputData);
@@ -410,6 +487,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->newLine();
     }
 
+    #[Override]
     public function buildFrontendAssets(): void
     {
         $this->line('Running: npm run build');
@@ -425,6 +503,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
     }
 
+    #[Override]
     public function removeInstaller(): void
     {
         try {
@@ -436,6 +515,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
     }
 
+    #[Override]
     public function prepareApplication(InstallInputData $inputData, ProgressReporter $reporter): void
     {
         PrepareInstallApplicationAction::run(
@@ -444,17 +524,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             interactive: $this->input->isInteractive(),
             useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
             reporter: $reporter,
-            confirmPatch: fn (InstallPatchConfirmation $confirmation): bool => confirm(
-                label: $confirmation->label,
-                default: $confirmation->default,
-                hint: $confirmation->hint ?? '',
-            ),
+            confirmPatch: fn (InstallPatchConfirmation $confirmation): bool => $this->reviewedPatchChoices[spl_object_id($confirmation)] ?? false,
             recordManualInstallChange: function (string $message): void {
                 $this->recordManualInstallChange($message);
             },
         );
     }
 
+    #[Override]
     public function reportManualChanges(): void
     {
         $changes = array_values(array_unique($this->manualInstallChanges));
@@ -473,6 +550,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->line('Review the install-time write permissions and manual patch list: ' . self::INSTALL_PERMISSIONS_DOC_URL);
     }
 
+    #[Override]
     public function upgradeFilament(): void
     {
         if (! $this->getApplication()?->has('filament:upgrade')) {
@@ -484,6 +562,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->logInstallDebug('filament upgrade finished');
     }
 
+    #[Override]
     public function finalizeInstall(InstallInputData $inputData, InstallRunResultData $result): void
     {
         if ($this->input->isInteractive() && ! $this->shouldUseFreshDemoDefaults()) {
@@ -549,6 +628,50 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             ->all();
     }
 
+    /** @param array<string> $cachesToClear */
+    private function outputInstallReview(InstallInputData $inputData, bool $runNpmBuild, bool $removeInstaller, array $cachesToClear): void
+    {
+        $patchLabels = $this->configureHomepage
+            ? [__('capell-core::install.review.homepage_env', ['value' => $inputData->installWelcomeRoute ? 'true' : 'false'])]
+            : [];
+        $hasPanel = resolve(FilamentAdminInstallPreflight::class)->hasInstalledPanelProvider();
+        $creatingPanel = ! $hasPanel && in_array('capell-app/admin', $inputData->packages, true);
+        $context = new InstallPatchContext(
+            array_values(array_unique([...$inputData->packages, ...$inputData->extraPackages])),
+            $hasPanel || $creatingPanel,
+        );
+        foreach (resolve(InstallPatchRegistry::class)->patchesFor($context) as $registeredPatch) {
+            $status = $registeredPatch->patch->probe();
+            if ($status === PatchStatus::AlreadyApplied) {
+                continue;
+            }
+
+            $confirmation = $registeredPatch->confirmation;
+            $accepted = true;
+            if ($confirmation !== null) {
+                $accepted = ! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults() || $this->option('plan')
+                    ? $confirmation->default
+                    : confirm(label: $confirmation->label, default: $confirmation->default, hint: $confirmation->hint ?? '');
+                $this->reviewedPatchChoices[spl_object_id($confirmation)] = $accepted;
+            }
+
+            $patchLabels[] = $registeredPatch->patch->label() . ' — ' . ($status === PatchStatus::Applicable
+                ? ($accepted ? __('capell-core::install.review.apply') : __('capell-core::install.review.skip'))
+                : ($creatingPanel && $confirmation !== null
+                    ? ($accepted ? __('capell-core::install.review.apply_after_panel') : __('capell-core::install.review.skip'))
+                    : __('capell-core::install.review.manual_patch', ['status' => $status->getLabel()])));
+        }
+
+        $review = BuildInstallReviewAction::run($inputData, $runNpmBuild, $removeInstaller, $cachesToClear, $patchLabels);
+        $this->newLine();
+        $this->line('<fg=blue;options=bold>' . __('capell-core::install.review.title') . '</>');
+        foreach ($review->items as $label => $value) {
+            $this->line(OutputFormatter::escape($label . ': ' . $value));
+        }
+
+        $this->newLine();
+    }
+
     private function finishPlanOnlyInstall(InstallInputData $inputData): int
     {
         $this->outputPlan($inputData);
@@ -573,7 +696,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             OrchestrateInstallAction::run(
                 $inputData,
                 new InstallOrchestrationData(
-                    outputPlan: ! $this->input->isInteractive(),
+                    outputPlan: false,
                     runNpmBuild: $runNpmBuild,
                     removeInstaller: $removeInstallerPackage,
                     cachesToClear: $cachesToClear,

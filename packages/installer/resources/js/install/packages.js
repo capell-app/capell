@@ -114,6 +114,12 @@
         }
 
         function submitButtonText(isSubmitting) {
+            var reviewToken = document.querySelector('[name="review_token"]')
+            if (reviewToken && !isSubmitting) {
+                return reviewToken.value
+                    ? messages.reviewInstallButton
+                    : messages.reviewButton
+            }
             var packageCount = selectedPackageCount()
 
             if (packageCount < 1) {
