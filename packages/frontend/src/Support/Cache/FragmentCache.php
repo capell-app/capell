@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Cache;
 
 use Capell\Core\Support\Cache\CacheOrigin;
+use Closure;
+use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository;
+use RuntimeException;
+use stdClass;
+use Throwable;
 use UnexpectedValueException;
 
 final class FragmentCache
@@ -33,12 +38,23 @@ final class FragmentCache
             ? 'fragment:' . $namespace . ':value:' . $key
             : 'fragment:' . $namespace . ':origin-value:' . hash('sha256', serialize([$key, $origin]));
 
-        $result = $this->cache->remember($cacheKey, $ttlSeconds, $callback);
-
-        // Store surrogate keys for this fragment so it can be invalidated
-        if ($surrogateKeys !== []) {
-            $this->storeSurrogateKeysForFragment($namespace, $cacheKey, $surrogateKeys);
+        if ($surrogateKeys === []) {
+            return $this->cache->remember($cacheKey, $ttlSeconds, $callback);
         }
+
+        $missing = new stdClass;
+        $result = $this->cache->get($cacheKey, $missing);
+        if ($result !== $missing) {
+            $surrogateMap = $this->surrogateMap($this->mapKey($namespace));
+            if ($this->hasSurrogateMembership($surrogateMap, $cacheKey, $surrogateKeys)) {
+                return $result;
+            }
+
+        } else {
+            $result = $callback();
+        }
+
+        $this->publishTrackedFragment($namespace, $cacheKey, $result, $ttlSeconds, $surrogateKeys, $missing);
 
         return $result;
     }
@@ -46,35 +62,48 @@ final class FragmentCache
     public function invalidateBySurrogateKey(string $surrogateKey): void
     {
         $mapKey = $this->mapKey($this->namespace());
-        $surrogateMap = $this->surrogateMap($mapKey);
-        $fragmentKeys = $surrogateMap[$surrogateKey] ?? [];
-
-        foreach ($fragmentKeys as $fragmentKey) {
-            $this->cache->forget($fragmentKey);
-        }
-
-        foreach ($surrogateMap as $surrogate => $keys) {
-            $remaining = array_values(array_diff($keys, $fragmentKeys));
-
-            if ($remaining === []) {
-                unset($surrogateMap[$surrogate]);
-            } else {
-                $surrogateMap[$surrogate] = $remaining;
+        $fragmentKeys = [];
+        if (! $this->withSurrogateMapLock($mapKey, function () use ($mapKey, $surrogateKey, &$fragmentKeys): void {
+            $surrogateMap = $this->surrogateMap($mapKey);
+            $fragmentKeys = $surrogateMap[$surrogateKey] ?? [];
+            if ($fragmentKeys === []) {
+                return;
             }
+
+            foreach ($surrogateMap as $surrogate => $keys) {
+                $remaining = array_values(array_diff($keys, $fragmentKeys));
+
+                if ($remaining === []) {
+                    unset($surrogateMap[$surrogate]);
+                } else {
+                    $surrogateMap[$surrogate] = $remaining;
+                }
+            }
+
+            if ($surrogateMap === []) {
+                $this->cache->forget($mapKey);
+            } else {
+                throw_unless($this->cache->put($mapKey, $surrogateMap, self::METADATA_TTL), RuntimeException::class, 'Unable to update the fragment surrogate map.');
+            }
+        })) {
+            return;
         }
 
-        if ($surrogateMap === []) {
-            $this->cache->forget($mapKey);
-        } else {
-            $this->cache->put($mapKey, $surrogateMap, self::METADATA_TTL);
+        // The map is detached before values are forgotten so the lock never spans
+        // an unbounded number of cache deletions.
+        foreach ($fragmentKeys as $fragmentKey) {
+            try {
+                $this->cache->forget($fragmentKey);
+            } catch (Throwable) {
+                // Cache invalidation is best effort; the next purge can retry it.
+            }
         }
     }
 
     public function flush(): void
     {
         $namespace = $this->namespace();
-        // Rotating the namespace also invalidates untagged and concurrently written
-        // fragments without a store-wide flush or a racy global key inventory.
+        // No lock is needed because the new namespace makes late old-namespace writes unreachable.
         $this->cache->put(self::NAMESPACE_KEY, bin2hex(random_bytes(16)), self::METADATA_TTL);
         $this->cache->forget($this->mapKey($namespace));
     }
@@ -88,12 +117,44 @@ final class FragmentCache
         return $namespace;
     }
 
-    /** @param list<string> $surrogateKeys */
-    private function storeSurrogateKeysForFragment(string $namespace, string $fragmentKey, array $surrogateKeys): void
+    /**
+     * Publish a rendered surrogate-bearing fragment by updating its membership
+     * before writing the value under the shared map lock. A failed map write
+     * therefore cannot leave a value that surrogate invalidation cannot find.
+     *
+     * @param  list<string>  $surrogateKeys
+     */
+    private function publishTrackedFragment(string $namespace, string $fragmentKey, mixed &$result, int $ttlSeconds, array $surrogateKeys, stdClass $missing): void
     {
         $mapKey = $this->mapKey($namespace);
-        $surrogateMap = $this->surrogateMap($mapKey);
+        $this->withSurrogateMapLock($mapKey, function () use ($mapKey, $fragmentKey, &$result, $ttlSeconds, $surrogateKeys, $missing): void {
+            $existing = $this->cache->get($fragmentKey, $missing);
+            $newFragment = $existing === $missing;
+            if (! $newFragment) {
+                $result = $existing;
+            }
 
+            try {
+                $surrogateMap = $this->surrogateMap($mapKey);
+                if (! $this->hasSurrogateMembership($surrogateMap, $fragmentKey, $surrogateKeys)) {
+                    $this->registerSurrogateKeys($mapKey, $fragmentKey, $surrogateKeys, $surrogateMap);
+                }
+
+                if ($newFragment) {
+                    throw_unless($this->cache->put($fragmentKey, $result, $ttlSeconds), RuntimeException::class, 'Unable to store the fragment value.');
+                }
+            } catch (Throwable) {
+                // Do not turn a cache publication failure into a render failure.
+            }
+        });
+    }
+
+    /**
+     * @param  list<string>  $surrogateKeys
+     * @param  array<array-key, list<string>>  $surrogateMap
+     */
+    private function registerSurrogateKeys(string $mapKey, string $fragmentKey, array $surrogateKeys, array $surrogateMap): void
+    {
         foreach ($surrogateKeys as $surrogate) {
             if (! isset($surrogateMap[$surrogate])) {
                 $surrogateMap[$surrogate] = [];
@@ -104,7 +165,32 @@ final class FragmentCache
             }
         }
 
-        $this->cache->put($mapKey, $surrogateMap, self::METADATA_TTL);
+        throw_unless($this->cache->put($mapKey, $surrogateMap, self::METADATA_TTL), RuntimeException::class, 'Unable to update the fragment surrogate map.');
+    }
+
+    /** @param list<string> $surrogateKeys */
+    private function hasSurrogateMembership(array $surrogateMap, string $fragmentKey, array $surrogateKeys): bool
+    {
+        return array_all($surrogateKeys, fn (string $surrogate): bool => in_array($fragmentKey, $surrogateMap[$surrogate] ?? [], true));
+    }
+
+    private function withSurrogateMapLock(string $mapKey, Closure $callback): bool
+    {
+        $store = $this->cache->getStore();
+        if (! $store instanceof LockProvider) {
+            return false;
+        }
+
+        try {
+            $store->lock('fragment:surrogate:lock:' . hash('sha256', $mapKey), 30)->block(1, $callback);
+
+            return true;
+        } catch (Throwable) {
+            // Fragment caching must fail open for the public response. Callers
+            // publish only from inside this section, so a failed lock cannot
+            // leave a value that the surrogate map does not enumerate.
+            return false;
+        }
     }
 
     private function mapKey(string $namespace): string
