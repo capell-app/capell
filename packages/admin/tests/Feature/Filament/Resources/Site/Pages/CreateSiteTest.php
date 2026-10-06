@@ -338,7 +338,7 @@ it('auto creates pages', function (): void {
         ->for(Blueprint::factory()->site()->default())
         ->make();
 
-    $livewire = Livewire::test(CreateSite::class)
+    Livewire::test(CreateSite::class)
         ->assertSuccessful()
         ->fillForm([
             'blueprint_id' => $newData->blueprint->getKey(),

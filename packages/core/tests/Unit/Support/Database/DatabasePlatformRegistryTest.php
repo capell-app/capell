@@ -76,7 +76,7 @@ it('discovers platforms tagged after boot resolution in subsequent Octane operat
             ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [custom].');
     });
 
-    foreach (range(1, 2) as $operation) {
+    foreach (range(1, 2) as $_) {
         duringDatabasePlatformOperation($application, function (Application $sandbox) use ($registry, $platform): void {
             $resolved = $sandbox->make(DatabasePlatformRegistry::class);
 

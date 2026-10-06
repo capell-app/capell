@@ -346,7 +346,6 @@ it('covers non-interactive install command branch decisions and manual-change re
 });
 
 it('fails existing-user resolution when the application user table is missing', function (): void {
-    $command = installCommandForOptions([]);
     $userTable = (new User)->getTable();
 
     Schema::drop($userTable);

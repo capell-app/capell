@@ -126,7 +126,7 @@ it('never exposes a hidden (agent_visible false) property', function (): void {
     $page = Page::factory()->create(['visible_from' => now()->subDay()]);
     $blueprint = Blueprint::query()->findOrFail($page->blueprint_id);
     $set = PropertySet::factory()->create(['key' => 'test.hidden']);
-    $definition = PropertyDefinition::factory()->create([
+    PropertyDefinition::factory()->create([
         'property_set_id' => $set->id,
         'key' => 'internalNote',
         'type' => PropertyType::Text,
@@ -148,7 +148,7 @@ it('resolves the value for the requested language when a localised value exists 
     $language = Language::factory()->create();
     Translation::factory()->translatable($page)->language($language)->create();
 
-    $definition = attachedProductDefinition($page, ['key' => 'tagline', 'localised' => true, 'semantic' => null]);
+    attachedProductDefinition($page, ['key' => 'tagline', 'localised' => true, 'semantic' => null]);
 
     SetPagePropertyValuesAction::run($page, [
         new PropertyValueData(propertyKey: 'tagline', type: PropertyType::Text, value: 'English tagline', translationId: $page->translations()->first()->id),
@@ -257,7 +257,7 @@ it('round trips reference identifiers through the typed page value writer', func
     $blueprint = Blueprint::query()->findOrFail($page->blueprint_id);
     $set = PropertySet::factory()->create(['key' => 'test.reference-round-trip']);
     BlueprintPropertySet::factory()->create(['blueprint_id' => $blueprint->id, 'property_set_id' => $set->id]);
-    $definitions = collect([
+    collect([
         ['key' => 'termRef', 'type' => PropertyType::TermReference],
         ['key' => 'entryRef', 'type' => PropertyType::EntryReference],
         ['key' => 'mediaRef', 'type' => PropertyType::Media],

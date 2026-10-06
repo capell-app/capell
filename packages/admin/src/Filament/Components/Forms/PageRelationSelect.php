@@ -17,7 +17,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
 class PageRelationSelect extends SelectTree
@@ -120,8 +119,8 @@ class PageRelationSelect extends SelectTree
     }
 
     /**
-     * @param  Builder<Model>  $query
-     * @return Builder<Model>
+     * @param  Builder<Page>  $query
+     * @return Builder<Page>
      */
     protected function modifyRelationQuery(Builder $query, string $operation, ?int $siteId): Builder
     {

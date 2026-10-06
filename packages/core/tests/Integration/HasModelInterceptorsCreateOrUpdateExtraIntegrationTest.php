@@ -66,7 +66,7 @@ it('createOrUpdateModel updates existing model with new merged data and intercep
     $trait->registerModelInterceptor($model, $interceptorClass, $key);
 
     // Create initial model
-    $initial = IntegrationTestModel::query()->create(['name' => 'initial', 'type' => 'site', 'key' => 'default']);
+    IntegrationTestModel::query()->create(['name' => 'initial', 'type' => 'site', 'key' => 'default']);
 
     $persist = fn (array $data): array => array_merge($defaults, $data);
 

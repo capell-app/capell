@@ -51,7 +51,6 @@ it('returns original URL if domain base is empty', function (): void {
     $routes = new RouteCollection;
     $request = Request::create('https://example.test/', \Symfony\Component\HttpFoundation\Request::METHOD_GET);
 
-    $state = resolve(FrontendState::class);
     // Simulate no domain by not calling withDomain
 
     $generator = new SiteUrlGenerator($routes, $request);

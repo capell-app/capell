@@ -100,12 +100,12 @@ it('only exposes the hint edit action for persisted selected pages', function ()
 function pageRelationSelectModifiedQuery(PageRelationSelect $component, Builder $query, string $operation, ?int $siteId): Builder
 {
     $callback = Closure::bind(
-        fn (Builder $query, string $operation, ?int $siteId): Builder => $this->modifyRelationQuery($query, $operation, $siteId),
+        fn (string $operation, ?int $siteId): Builder => $this->modifyRelationQuery($query, $operation, $siteId),
         $component,
         PageRelationSelect::class,
     );
 
-    return $callback($query, $operation, $siteId);
+    return $callback($operation, $siteId);
 }
 
 /**
