@@ -9,14 +9,17 @@ use Capell\Frontend\Contracts\FrontendResourceContributor;
 use Capell\Frontend\Data\Assets\FrontendResourceContributionData;
 use Capell\Frontend\Data\Assets\FrontendResourceData;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
+use Capell\Frontend\Data\Assets\ViteResourceSourceData;
 use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Support\View\PublicModelMeta;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Override;
 
 final class ThemeMetaAssetContributor implements FrontendResourceContributor
 {
+    #[Override]
     public function resources(FrontendResourceContextData $context): array
     {
         $theme = $context->theme;
@@ -43,12 +46,21 @@ final class ThemeMetaAssetContributor implements FrontendResourceContributor
 
         try {
             $source = new PublicResourceSourceData($asset);
+            $path = $source->path;
+            if (str_starts_with($path, 'resources/')) {
+                // Installer assets are source entries, not files beneath public/.
+                $buildDirectory = PublicModelMeta::get($context->theme, 'assets_path', 'build');
+                $source = new ViteResourceSourceData(
+                    entry: $path,
+                    buildDirectory: is_string($buildDirectory) && $buildDirectory !== '' ? $buildDirectory : 'build',
+                );
+            }
         } catch (InvalidArgumentException) {
             return null;
         }
 
-        $handle = 'capell-app/theme-metadata:' . hash('xxh128', $source->path);
-        $resource = Str::endsWith($source->path, '.js')
+        $handle = 'capell-app/theme-metadata:' . hash('xxh128', $path);
+        $resource = Str::endsWith($path, '.js')
             ? FrontendResourceData::moduleScript($handle, 'capell-app/theme-metadata', $source)
             : FrontendResourceData::style(
                 $handle,

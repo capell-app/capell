@@ -76,7 +76,7 @@ it('can list pages for a layout', function (): void {
         ->assertSuccessful()
         ->assertCountTableRecords(5)
         ->assertCanSeeTableRecords($layout->pages)
-        ->assertTableColumnStateSet('name', [$page->name], record: $page);
+        ->assertTableColumnStateSet('name', $page->name, record: $page);
 });
 
 it('shows page guidance when no pages use the layout', function (): void {

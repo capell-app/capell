@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Tests;
 
 use AmidEsfahani\FilamentTinyEditor\TinyeditorServiceProvider;
-use Awcodes\BadgeableColumn\BadgeableColumnServiceProvider;
 use BezhanSalleh\FilamentShield\FilamentShieldServiceProvider;
 use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use Capell\Admin\Providers\AdminServiceProvider;
@@ -60,7 +59,6 @@ abstract class MarketplaceTestCase extends AbstractTestCase
         return [
             ...parent::getDefaultPackageProviders(),
             ActionsServiceProvider::class,
-            BadgeableColumnServiceProvider::class,
             SpatieTranslatableServiceProvider::class,
             TinyeditorServiceProvider::class,
             FilamentServiceProvider::class,

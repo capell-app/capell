@@ -36,7 +36,7 @@ it('can list page URLs', function (): void {
         ->assertSuccessful()
         ->assertCountTableRecords(10)
         ->assertCanSeeTableRecords($page->pageUrls)
-        ->assertTableColumnStateSet('url', [$pageUrl->full_url], record: $pageUrl);
+        ->assertTableColumnStateSet('url', $pageUrl->full_url, record: $pageUrl);
 });
 
 it('shows URL guidance when the page has no URLs', function (): void {

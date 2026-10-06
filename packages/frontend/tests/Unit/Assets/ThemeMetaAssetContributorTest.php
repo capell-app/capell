@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Data\Assets\PublicResourceSourceData;
+use Capell\Frontend\Data\Assets\ViteResourceSourceData;
 use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\FrontendResourceKind;
@@ -53,3 +54,22 @@ function themeResourceContext(Theme $theme): FrontendResourceContextData
         runtime: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
     );
 }
+
+it('resolves installer theme source assets through the Vite manifest', function (): void {
+    $theme = new Theme;
+    $theme->meta = ['assets' => ['resources/css/app.css'], 'assets_path' => 'custom-build'];
+
+    $contributions = (new ThemeMetaAssetContributor)->resources(themeResourceContext($theme));
+
+    expect($contributions)->toHaveCount(1)
+        ->and($contributions[0]->resource->source)->toBeInstanceOf(ViteResourceSourceData::class)
+        ->and($contributions[0]->resource->source->entry)->toBe('resources/css/app.css')
+        ->and($contributions[0]->resource->source->buildDirectory)->toBe('custom-build');
+});
+
+it('rejects an unsafe theme Vite build directory', function (): void {
+    $theme = new Theme;
+    $theme->meta = ['assets' => ['resources/css/app.css'], 'assets_path' => '../private'];
+
+    expect((new ThemeMetaAssetContributor)->resources(themeResourceContext($theme)))->toBe([]);
+});
