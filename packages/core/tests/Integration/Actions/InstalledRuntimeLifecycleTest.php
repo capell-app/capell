@@ -610,7 +610,7 @@ it('round three logs a caught hook cause once with diagnostic context', function
 it('reports pending retained process activation through the install progress channel', function (): void {
     config(['octane.server' => 'swoole']);
     $reporter = Mockery::mock(ProgressReporter::class);
-    $reporter->shouldReceive('report')->once()->with(__('capell::runtime-refresh.retained_reload_required'));
+    $reporter->shouldReceive('report')->once()->with(__('capell-core::runtime-refresh.retained_reload_required'));
     InstallPackageAction::run(CapellCore::getPackage(RuntimeLifecycleFixture::$packageName), reporter: $reporter);
 });
 

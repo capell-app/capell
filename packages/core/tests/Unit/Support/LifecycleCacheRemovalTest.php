@@ -22,7 +22,7 @@ it('refuses lifecycle cache invalidation when a persisted cache key cannot be re
 
     try {
         expect(fn () => resolve(CapellPackageRegistry::class)->clearExtensionCacheOrFail())
-            ->toThrow(RuntimeException::class, __('capell::runtime-refresh.cache_refresh_required'));
+            ->toThrow(RuntimeException::class, __('capell-core::runtime-refresh.cache_refresh_required'));
     } finally {
         $store->refuseRemoval = false;
         Cache::purge('removal-fixture');
@@ -116,7 +116,7 @@ it('refuses install enable and refresh when an existing lifecycle key cannot be 
             'enable' => EnablePackageAction::run($package),
             'refresh' => RefreshInstalledPackageRuntimeAction::run($package),
             default => throw new LogicException('Unknown runtime operation.'),
-        })->toThrow(RuntimeException::class, __('capell::runtime-refresh.cache_refresh_required'));
+        })->toThrow(RuntimeException::class, __('capell-core::runtime-refresh.cache_refresh_required'));
     } finally {
         $store->refuseRemoval = false;
         Cache::purge('removal-fixture');

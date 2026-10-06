@@ -29,7 +29,7 @@ class RunArtisanRuntimeRefreshStageAction
             if ($exitCode === 0 && $command === 'view:clear') {
                 $path = config('view.compiled');
                 if (is_string($path) && resolve(Filesystem::class)->glob($path . '/*') !== []) {
-                    throw new RuntimeException(__('capell::runtime-refresh.cache_refresh_required') . ' ' . __('capell::runtime-refresh.cache_removal_failed', ['path' => $path]));
+                    throw new RuntimeException(__('capell-core::runtime-refresh.cache_refresh_required') . ' ' . __('capell-core::runtime-refresh.cache_removal_failed', ['path' => $path]));
                 }
             }
         } catch (Throwable $throwable) {

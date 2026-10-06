@@ -27,13 +27,13 @@ final class PreparePackageRuntimeReloadAction
         // Rebuilding in this process would preserve its pre-install panel topology.
         foreach ([RefreshRouteCacheAction::run(rebuild: false), RefreshConfigurationCacheAction::run(rebuild: false)] as $stage) {
             if (! $stage->passed) {
-                throw new RuntimeException(__('capell::runtime-refresh.cache_refresh_required') . ' ' . $stage->message);
+                throw new RuntimeException(__('capell-core::runtime-refresh.cache_refresh_required') . ' ' . $stage->message);
             }
         }
 
         foreach ([$this->app->getCachedRoutesPath(), $this->app->getCachedConfigPath()] as $path) {
             if ($this->files->exists($path)) {
-                throw new RuntimeException(__('capell::runtime-refresh.cache_refresh_required'));
+                throw new RuntimeException(__('capell-core::runtime-refresh.cache_refresh_required'));
             }
         }
 
