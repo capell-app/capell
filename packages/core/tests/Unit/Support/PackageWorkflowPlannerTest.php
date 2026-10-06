@@ -36,6 +36,7 @@ it('expands selected packages with registered requirements before ordering main 
     );
 
     expect($orderedPackages->keys()->all())->toBe([
+        'capell-app/admin',
         'capell-app/tags',
         'capell-app/foundation-theme',
         'capell-app/blog',
@@ -87,7 +88,7 @@ it('excludes composer-only core packages from selected workflow packages', funct
     ]);
 });
 
-it('excludes trusted core packages when they are only selected as package requirements', function (): void {
+it('includes foundation package lifecycles when they are required by a selected package', function (): void {
     registerWorkflowPackage('capell-app/admin', sort: 10);
     registerWorkflowPackage('vendor/admin-addon', ['capell-app/admin'], 20);
 
@@ -97,6 +98,7 @@ it('excludes trusted core packages when they are only selected as package requir
     );
 
     expect($orderedPackages->keys()->all())->toBe([
+        'capell-app/admin',
         'vendor/admin-addon',
     ]);
 });
@@ -157,6 +159,8 @@ it('installs workflow packages before packages that require them', function (): 
     );
 
     expect($orderedPackages->keys()->all())->toBe([
+        'capell-app/admin',
+        'capell-app/frontend',
         'capell-app/publishing-studio',
         'capell-app/foundation-theme',
     ]);

@@ -6,7 +6,6 @@ namespace Capell\Benchmark;
 
 use Aimeos\Nestedset\NestedSetServiceProvider;
 use AmidEsfahani\FilamentTinyEditor\TinyeditorServiceProvider;
-use Awcodes\BadgeableColumn\BadgeableColumnServiceProvider;
 use BezhanSalleh\FilamentShield\FilamentShieldServiceProvider;
 use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use BladeUI\Icons\BladeIconsServiceProvider;
@@ -236,7 +235,6 @@ final class BootProfiles
             BladeIconsServiceProvider::class,
             BladeHeroiconsServiceProvider::class,
             PermissionServiceProvider::class,
-            BadgeableColumnServiceProvider::class,
             SpatieTranslatableServiceProvider::class,
             TinyeditorServiceProvider::class,
             FilamentAdjacencyListServiceProvider::class,

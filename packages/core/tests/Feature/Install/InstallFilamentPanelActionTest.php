@@ -3,12 +3,19 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Install\InstallFilamentPanelAction;
+use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
+use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
+use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Tests\Support\Install\RecordingInstallProgressReporter;
 use Filament\PanelProvider;
 use Filament\PanelRegistry;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process as SymfonyProcess;
@@ -376,3 +383,49 @@ it('throws when the fresh filament process fails', function (): void {
 
     InstallFilamentPanelAction::run(new NullProgressReporter);
 })->throws(RuntimeException::class, 'Failed to scaffold Filament panel: Composer could not load Filament.');
+
+it('refreshes existing runtime role manifests before a subsequent admin subprocess on retry', function (): void {
+    File::ensureDirectoryExists(app_path('Providers/Filament'));
+    File::put(app_path('Providers/Filament/FilamentInstallRetryPanelProvider.php'), <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Providers\Filament;
+
+use Filament\Panel;
+use Filament\PanelProvider;
+use Override;
+
+class FilamentInstallRetryPanelProvider extends PanelProvider
+{
+    #[Override]
+    public function panel(Panel $panel): Panel
+    {
+        return $panel->id('admin')->default();
+    }
+}
+PHP);
+    $originalApplication = app();
+    $application = new Application($this->temporaryBasePath);
+    Container::setInstance($originalApplication);
+    $paths = new RuntimeRoleCachePaths($application);
+    app()->instance(RuntimeRoleCachePaths::class, $paths);
+    File::ensureDirectoryExists(dirname($paths->metadata()));
+    File::put($paths->metadata(), '<?php return [];');
+    File::put($application->bootstrapPath('cache/packages.php'), '<?php return [];');
+    $provider = 'App\\Providers\\Filament\\FilamentInstallRetryPanelProvider';
+    File::put($application->bootstrapPath('providers.php'), '<?php return ' . var_export([$provider], true) . ';');
+    require_once app_path('Providers/Filament/FilamentInstallRetryPanelProvider.php');
+    app()->instance(BuildRuntimeRoleProviderManifestsAction::class, new BuildRuntimeRoleProviderManifestsAction(
+        $application,
+        new Filesystem,
+        $paths,
+        new RuntimeRoleProviderPolicy,
+    ));
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(require $paths->providers(RuntimeRole::Combined))->toContain($provider)
+        ->and(require $paths->providers(RuntimeRole::Public))->not->toContain($provider);
+});

@@ -24,6 +24,14 @@ Start with the symptom you can see:
 
 ## Install and hosting
 
+### Health summary reports missing sites, languages, theme and admin access
+
+If Composer installed the theme and its dependencies but the health summary says `No sites found; No languages found`, check the numbered install log for `Install Capell Admin`, `Set up Capell Admin`, and `Install Capell Frontend`. Composer availability alone does not establish that these lifecycles ran. The installer expands downloaded theme dependencies into the remaining plan, prepares their required host patches, and creates the Filament panel before Admin setup.
+
+To recover an interrupted installation, rerun `php artisan capell:install`, keep Capell Admin and Capell Frontend selected, and reuse the existing administrator. Keep default content setup enabled. Do not use `--fresh`: it deletes existing data and is unnecessary for this recovery. Then run `php artisan capell:doctor --install-summary --skip-package-doctors` and build the frontend with `npm run build`.
+
+Regression coverage must start with only `capell-app/installer` installed and discover Admin and Frontend during the theme download. A consumer that preinstalls every package, or tests using only `vendor/*` dependency fixtures, bypasses this path. The public release smoke workflow covers both starting states.
+
 <a id="browser-install-timeout"></a>
 
 ### The browser installer times out during a step
@@ -608,3 +616,9 @@ Use this shape:
 2. Explain the cause in plain language.
 3. Give the command or edit to make.
 4. Say what the user should see after the fix.
+
+### A completed install requests `/resources/css/app.css` and receives 404
+
+**Why:** Installer theme metadata stores Vite source entry paths. Those entries must resolve through the build manifest; treating them as public files requests the unbuilt source path even after `npm run build` succeeds.
+
+**Fix:** Use the release containing the theme metadata Vite resolver fix, install the frontend dependencies, and run `npm run build`. Verify that the homepage stylesheet URLs point into `/build/assets/` and return HTTP 200. Public theme assets under `vendor/` remain ordinary public files. The installer-only release smoke test checks linked local stylesheets as well as page responses.

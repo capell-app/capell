@@ -102,3 +102,49 @@ it('persists discovered dependency steps and resumes a failed hook without repea
         ->and(array_search(InstallPlan::packageInstallStepKey('vendor/navigation'), $calls, true))->toBeLessThan(array_search(InstallPlan::packageInstallStepKey('vendor/theme'), $calls, true))
         ->and(array_search(InstallPlan::packageAfterInstallStepKey('vendor/navigation'), $calls, true))->toBeLessThan(array_search(InstallPlan::packageAfterInstallStepKey('vendor/theme'), $calls, true));
 });
+
+it('persists foundation dependency lifecycles and panel setup after an installer-only theme download', function (): void {
+    config(['cache.default' => 'array']);
+    CapellCore::clearPackages();
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        seedDefaultData: true,
+        extraPackages: ['capell-app/theme-foundation'],
+    );
+    $installId = '76767676-7676-4676-a676-767676767676';
+    $key = InstallPlan::packageRequireStepKey('capell-app/theme-foundation');
+    $initialPlan = array_values(array_filter(InstallPlan::build($input), fn (array $step): bool => $step['key'] === $key || $step['key'] === InstallPlan::STEP_RUN_MIGRATIONS_POST));
+    $sessions = resolve(InstallerSessionRepository::class);
+    $sessions->run($installId)->startBrowserSteps(inputData: $input, plan: $initialPlan, firstStepKey: $key, preflight: []);
+    RunInstallStepAction::mock()->shouldReceive('handle')->once()->andReturnUsing(function (): RunInstallStepResultData {
+        foreach ([
+            'capell-app/admin' => [],
+            'capell-app/frontend' => [],
+            'capell-app/theme-foundation' => ['capell-app/admin', 'capell-app/frontend'],
+        ] as $name => $requirements) {
+            CapellCore::registerPackage(name: $name, setupCommand: 'fixture:setup', installCommand: 'fixture:install');
+            $package = CapellCore::getPackage($name);
+            $package->requirements = $requirements;
+            $package->afterInstallCommand = 'fixture:after';
+        }
+
+        return new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: true);
+    });
+
+    $result = AdvanceInstallerRunAction::run($installId, $key);
+    $keys = array_column($sessions->plan($installId), 'key');
+    expect($result->code)->toBe(InstallerRunStepResultCode::Running)
+        ->and($result->nextStep)->toBe(InstallPlan::STEP_INSTALL_FILAMENT_PANEL)
+        ->and($keys)->toContain(
+            InstallPlan::packageInstallStepKey('capell-app/admin'),
+            InstallPlan::packageSetupStepKey('capell-app/admin'),
+            InstallPlan::packageInstallStepKey('capell-app/frontend'),
+            InstallPlan::packageAfterInstallStepKey('capell-app/frontend'),
+        )->and($sessions->completedSteps($installId))->toBe([$key]);
+});

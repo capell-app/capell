@@ -139,7 +139,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $generateSitemap = $this->option('generate-sitemap');
         $seedDatabase = (bool) $this->option('seed');
         $seedDefaultData = ! $this->option('no-seed-default-data');
-        $freshInstallConfirmed = false;
 
         $this->writeCommandIntro(
             'install Capell',
@@ -243,7 +242,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             'sites' => $siteOptions,
         ]);
 
-        $hasFrontend = $packages->filter(fn (PackageData $package): bool => $package->hasFrontendScope())->isNotEmpty();
+        $hasFrontend = $packages->contains(fn (PackageData $package): bool => $package->hasFrontendScope())
+            || $themeExtraPackages !== [];
         $installWelcomeRoute = $planOnly
             ? $hasFrontend && $this->option('install-welcome-route')
             : resolve(InstallPostInstallOptionResolver::class)->resolveWelcomeRoute(

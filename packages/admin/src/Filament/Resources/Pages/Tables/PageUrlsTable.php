@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Resources\Pages\Tables;
 
-use Awcodes\BadgeableColumn\Components\BadgeableColumn;
 use Capell\Admin\Filament\Components\Tables\Actions\CreateAction;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
@@ -17,13 +16,16 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\PageUrl;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Override;
 
 class PageUrlsTable implements TableConfigurator
 {
+    #[Override]
     public static function configure(Table $table): Table
     {
         return $table
@@ -44,14 +46,13 @@ class PageUrlsTable implements TableConfigurator
             ->emptyStateIcon('heroicon-o-link')
             ->columns([
                 IdentifierColumn::make('id'),
-                BadgeableColumn::make('url')
+                TextColumn::make('url')
                     ->label(__('capell-admin::table.url'))
                     ->sortable()
                     ->size('sm')
                     ->color('primary')
                     ->url(fn (PageUrl $record): ?string => PageUrlPresenter::fullUrl($record), shouldOpenInNewTab: true)
-                    ->getStateUsing(fn (PageUrl $record): string => PageUrlPresenter::displayUrl($record))
-                    ->suffixBadges([]),
+                    ->getStateUsing(fn (PageUrl $record): string => PageUrlPresenter::displayUrl($record)),
                 LanguageColumn::make('language'),
                 IconColumn::make('type')
                     ->label(__('capell-admin::table.type'))
