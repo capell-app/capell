@@ -18,6 +18,17 @@ use Capell\Frontend\Contracts\PublicWidgetInteractionLocatorBuilder;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
+use Illuminate\Support\Facades\File;
+
+beforeEach(function (): void {
+    $manifestPath = public_path('vendor/capell-frontend/manifest.json');
+
+    if (! File::exists($manifestPath)) {
+        File::ensureDirectoryExists(dirname($manifestPath));
+        File::copy(dirname(__DIR__, 3) . '/publishes/build/manifest.json', $manifestPath);
+        test()->beforeApplicationDestroyed(fn (): bool => File::delete($manifestPath));
+    }
+});
 
 it('builds public page render data from the resolved frontend render context', function (): void {
     app()->bind(BladeComponentResolverInterface::class, fn (): BladeComponentResolverInterface => new class implements BladeComponentResolverInterface
@@ -40,6 +51,20 @@ it('builds public page render data from the resolved frontend render context', f
         type: 'layout-block',
         blade: 'capell::widget.default',
     ));
+
+    $manifestPath = public_path('build/manifest.json');
+    $originalManifest = File::exists($manifestPath) ? File::get($manifestPath) : null;
+    test()->beforeApplicationDestroyed(function () use ($manifestPath, $originalManifest): void {
+        if ($originalManifest === null) {
+            File::delete($manifestPath);
+        } else {
+            File::put($manifestPath, $originalManifest);
+        }
+    });
+    File::ensureDirectoryExists(public_path('build'));
+    File::put(public_path('build/manifest.json'), json_encode([
+        'resources/css/app.css' => ['file' => 'assets/app-test.css', 'isEntry' => true],
+    ], JSON_THROW_ON_ERROR));
 
     $language = Language::factory()->createOne(['code' => 'en']);
     $site = Site::factory()->createOne(['language_id' => $language->id]);
@@ -88,7 +113,7 @@ it('builds public page render data from the resolved frontend render context', f
         ->and($renderData->runtimeManifest->usesLivewire)->toBeFalse()
         ->and($renderData->resourcePlan->headResources)->toHaveCount(2)
         ->and(collect($renderData->resourcePlan->headResources)
-            ->first(fn (object $resource): bool => str_ends_with($resource->url, '/resources/css/app.css')))
+            ->first(fn (object $resource): bool => str_ends_with($resource->url, '/build/assets/app-test.css')))
         ->not->toBeNull()
         ->and($renderData->surrogateKeys)->toBe([
             'page-' . $page->getKey(),

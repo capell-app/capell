@@ -75,6 +75,8 @@ it('is hidden when settings key is disabled', function (): void {
 });
 
 it('renders without errors for editor role', function (): void {
+    app()->instance(RecentlyPublishedDataProvider::class, recentlyPublishedProviderWithItems());
+
     $user = User::factory()->createOne();
     $user->assignRole(config('capell.roles.editor', 'editor'));
     $this->actingAs($user);

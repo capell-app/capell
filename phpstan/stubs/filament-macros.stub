@@ -134,6 +134,7 @@ namespace Livewire\Features\SupportTesting {
      * @method self assertSeeLivewire(class-string $component)
      * @method self assertSchemaComponentExists(string $key, ?string $schema = null, ?\Closure $checkComponentUsing = null)
      * @method self assertForbidden()
+     * @method self assertNotFound()
      * @method self assertSuccessful()
      * @method self call(mixed ...$arguments)
      * @method self fillForm(mixed ...$arguments)
