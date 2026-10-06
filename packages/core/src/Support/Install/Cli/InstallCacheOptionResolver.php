@@ -23,9 +23,10 @@ final class InstallCacheOptionResolver
         $options = $this->availableOptions($hasCommand);
 
         return array_map(static fn (int|string $cache): string => (string) $cache, multiselect(
-            label: 'Which caches would you like to clear?',
+            label: __('capell-core::install.cache.label'),
             options: $options,
             default: $this->defaultKeys($options),
+            hint: __('capell-core::install.cache.hint'),
         ));
     }
 

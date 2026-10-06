@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 return [
     'cache' => [
-        'all' => 'Laravel optimized caches',
-        'page' => 'Page cache',
-        'config' => 'Config cache',
-        'views' => 'Views cache',
-        'admin' => 'Capell admin cache',
-        'components' => 'Capell components cache',
-        'widgets' => 'Capell widgets cache',
-        'configurators' => 'Capell configurators cache',
-        'filament_components' => 'Filament components cache',
+        'label' => 'Which caches would you like to clear?',
+        'hint' => 'Keep the defaults to refresh Capell after installation. Laravel caches also clears application data stored in the default cache store.',
+        'all' => 'Laravel caches — includes application data, routes, config and views',
+        'page' => 'Page HTML — refresh cached public pages',
+        'config' => 'Configuration — reload settings from config files and .env',
+        'views' => 'Blade views — recompile templates on the next request',
+        'admin' => 'Capell admin — refresh cached admin and theme discovery',
+        'components' => 'Capell components — rediscover registered components',
+        'widgets' => 'Capell widgets — rediscover admin widgets',
+        'configurators' => 'Capell configurators — rediscover admin configurators',
+        'filament_components' => 'Filament components — rediscover resources, pages and widgets',
     ],
     'developer_tooling' => [
         'installation_label' => 'Install AI / Agent Bridge developer tooling?',
