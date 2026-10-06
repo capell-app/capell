@@ -13,6 +13,7 @@ use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Actions\Install\InstallPackagesAction;
 use Capell\Core\Actions\Install\PrepareEnvironmentAction;
 use Capell\Core\Actions\Install\PrepareFreshInstallAction;
+use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Actions\Install\PublishCapellMigrationsAction;
 use Capell\Core\Actions\Install\PublishPackageMigrationsAction;
 use Capell\Core\Actions\Install\PublishVendorMigrationsAction;
@@ -181,6 +182,17 @@ final class InstallStepExecutor
         $this->refreshInstalledPackageMetadata();
         CapellCore::clearExtensionCache();
         $state->refreshSelectedPackages()->markPackageMetadataRefreshed();
+
+        PrepareInstallApplicationAction::run(
+            inputData: $state->inputData,
+            hasFilamentAdminPanelProvider: false,
+            interactive: false,
+            useFreshDemoDefaults: false,
+            reporter: $state->reporter,
+            confirmPatch: static fn (InstallPatchConfirmation $confirmation): bool => false,
+            recordManualInstallChange: fn (string $message) => $state->reporter->error($message),
+            requiredPatchesOnly: true,
+        );
     }
 
     private function installDeveloperTooling(InstallRunState $state): void

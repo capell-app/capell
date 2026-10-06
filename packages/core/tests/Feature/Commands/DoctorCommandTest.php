@@ -15,6 +15,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Diagnostics\Checks\SeedDataCheck;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -153,7 +154,11 @@ it('reports seeded check failure when no records exist', function (): void {
 
     artisanCommand('capell:doctor')
         ->expectsOutputToContain('Seed data is present')
+        ->expectsOutputToContain('Default content setup has not completed.')
         ->assertExitCode(Command::FAILURE);
+
+    expect(resolve(SeedDataCheck::class)->check()->remediation)
+        ->toContain('Composer installing these packages does not run their setup lifecycles.');
 });
 
 it('reports and repairs page urls missing site domains', function (): void {
