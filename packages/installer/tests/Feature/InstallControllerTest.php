@@ -35,6 +35,7 @@ use function Pest\Laravel\withCookie;
 use function Pest\Laravel\withSession;
 
 use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Process\Process;
 
 require_once dirname(__DIR__, 4) . '/tests/Support/InstallFilesystemLock.php';
@@ -62,7 +63,7 @@ function installPostPayload(array $overrides = []): array
         'run_as_job' => null,
     ], $overrides);
     $review = postJson(route('capell-installer.store'), [...$payload, 'review_only' => true]);
-    if ($review->status() === 200 && is_string($review->json('review.token'))) {
+    if ($review->baseResponse->getStatusCode() === Response::HTTP_OK && is_string($review->json('review.token'))) {
         withCookie((string) config('session.cookie'), session()->getId());
         $payload['review_token'] = $review->json('review.token');
         $payload['installation_confirmed'] = true;
