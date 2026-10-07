@@ -72,6 +72,15 @@ jobs:
           extensions: curl, dom, fileinfo, intl, json, libxml, mbstring, phar, simplexml, zip
           tools: composer:v2, pint
 
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: '22.x'
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
       - name: Check Composer public files
         run: php scripts/check-composer-local-paths.php
 
@@ -116,11 +125,26 @@ jobs:
       - name: Check locked dependency versions and audited holds
         run: php scripts/check-composer-major-constraints.php
 
+      - name: Check queue contract
+        run: composer run check:queue-contract
+
+      - name: Check language key drift
+        run: composer run check:lang-keys
+
       - name: Check documented Artisan commands
         run: composer run check:docs-commands
 
       - name: Check package dependency contract
         run: composer run check:package-dependencies
+
+      - name: Check Agent Schema contract
+        run: composer run check:agent-schema
+
+      - name: Check Prettier formatting
+        run: composer prettier:check
+
+      - name: Run ESLint
+        run: composer eslint
 
       - name: Run Pint check
         run: composer cs:check

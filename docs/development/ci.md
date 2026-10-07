@@ -39,6 +39,15 @@ composer preflight:all -- docs-links phpstan-baseline
 
 An unknown stage exits with the available names. The final preflight exit remains non-zero when any selected gate fails.
 
+On pull requests, the required `PHP Quality (8.4)` job runs the quick static and
+formatting stages directly: Composer-major constraints, queue contract,
+language-key drift, package dependencies, split-repository health, Agent Schema,
+Prettier, ESLint, Pint, and PHPStan. It also runs the PHPStan baseline check,
+Composer audit, and the full Rector transformation followed by a clean-tree
+assertion. The expensive `tests` stage remains in the required Test All workflow,
+which runs the PR Pest shards and the repository's matrix cells rather than
+duplicating that work in PHP Quality.
+
 To apply Rector, Pint, and Prettier changes before rerunning the same checks, use:
 
 ```bash

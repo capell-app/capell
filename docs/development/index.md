@@ -22,16 +22,16 @@ Use Composer path repositories for local package development. Keep matching `1.x
 
 ## Daily Commands
 
-| Command                  | Use                                                                                      |
-| ------------------------ | ---------------------------------------------------------------------------------------- |
-| `composer prepare`       | Run Testbench package discovery.                                                         |
-| `composer test:fast`     | Run the sharded fast Pest command while developing.                                      |
-| `composer test`          | Run the full Pest test suite.                                                            |
-| `composer lint`          | Run changed-file Pint formatting.                                                        |
-| `composer analyze`       | Run the fast PHPStan configuration.                                                      |
-| `composer preflight`     | Run fast PHPStan and changed-file formatting.                                            |
-| `composer preflight:all` | Run Composer path checks, doc guards, Rector, Pint, Prettier, ESLint, PHPStan, and Pest. |
-| `composer serve`         | Build and serve the Testbench workbench.                                                 |
+| Command                  | Use                                                                                                                   |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `composer prepare`       | Run Testbench package discovery.                                                                                      |
+| `composer test:fast`     | Run the sharded fast Pest command while developing.                                                                   |
+| `composer test`          | Run the full Pest test suite.                                                                                         |
+| `composer lint`          | Run changed-file Pint formatting.                                                                                     |
+| `composer analyze`       | Run the fast PHPStan configuration.                                                                                   |
+| `composer preflight`     | Run the standard static, contract, formatting, analysis, and test gates.                                              |
+| `composer preflight:all` | Run Composer path and contract checks, doc guards, Rector, Pint, Prettier, ESLint, PHPStan, security audit, and Pest. |
+| `composer serve`         | Build and serve the Testbench workbench.                                                                              |
 
 Start narrow while developing:
 
