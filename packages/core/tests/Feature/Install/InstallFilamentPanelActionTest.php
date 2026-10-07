@@ -429,3 +429,48 @@ PHP);
     expect(require $paths->providers(RuntimeRole::Combined))->toContain($provider)
         ->and(require $paths->providers(RuntimeRole::Public))->not->toContain($provider);
 });
+
+it('does not rebuild a panel whose provider the application already registered', function (): void {
+    $providerPath = app_path('Providers/Filament/BootRegisteredTestPanelProvider.php');
+    File::ensureDirectoryExists(dirname($providerPath));
+    File::put($providerPath, <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Providers\Filament;
+
+use Filament\Panel;
+use Filament\PanelProvider;
+use Override;
+
+class BootRegisteredTestPanelProvider extends PanelProvider
+{
+    #[Override]
+    public function panel(Panel $panel): Panel
+    {
+        // Each build replays plugin registration, and with it every panel extender.
+        config()->set('capell-test.panel_builds', (int) config('capell-test.panel_builds', 0) + 1);
+
+        return $panel->id('boot-registered');
+    }
+}
+PHP);
+    require_once $providerPath;
+
+    // Mirror bootstrap: Filament shares one registry, and the provider registers
+    // before that registry first resolves.
+    app()->forgetInstance(PanelRegistry::class);
+    app()->singleton(PanelRegistry::class);
+    app()->register('App\\Providers\\Filament\\BootRegisteredTestPanelProvider');
+
+    $bootstrapPanel = resolve(PanelRegistry::class)->get('boot-registered');
+
+    expect($bootstrapPanel)->not->toBeNull()
+        ->and(config('capell-test.panel_builds'))->toBe(1);
+
+    InstallFilamentPanelAction::registerPanelProviders();
+
+    expect(config('capell-test.panel_builds'))->toBe(1)
+        ->and(resolve(PanelRegistry::class)->get('boot-registered'))->toBe($bootstrapPanel);
+});

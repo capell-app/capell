@@ -53,7 +53,15 @@ class InstallFilamentPanelAction
                 continue;
             }
 
-            $provider = app()->getProvider($class) ?? app()->register($class);
+            // A provider the application already registered has contributed its panel,
+            // through Filament's registry callback at bootstrap or an earlier pass here.
+            // Rebuilding it after boot would replay panel extenders on a discarded
+            // instance, which the installed panel runtime rejects as a topology change.
+            if (app()->getProvider($class) !== null) {
+                continue;
+            }
+
+            $provider = app()->register($class);
 
             if (! $provider instanceof PanelProvider) {
                 continue;
