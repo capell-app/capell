@@ -9,6 +9,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Testing\TestResponse;
 
 use function Pest\Laravel\get;
 
@@ -30,7 +31,10 @@ it('keeps mobile header controls in navigation and desktop controls in the topba
     $page = $editPage ? Page::factory()->site($site)->withTranslations()->createOne() : null;
     $url = $page instanceof Page ? EditPage::getUrl(['record' => $page->getRouteKey()]) : '/admin';
 
-    $response = get($url . '?site=' . $site->getKey())
+    $response = get($url . '?site=' . $site->getKey());
+    throw_unless($response instanceof TestResponse, RuntimeException::class, 'Expected the admin route to return an HTTP test response.');
+
+    $response
         ->assertOk()
         ->assertElementExists(
             '.fi-topbar-end',
