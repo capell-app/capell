@@ -9,14 +9,24 @@ use Symfony\Component\Process\Process;
 it('loads the exact vendor aliases with a generated Composer classmap', function (string $manifestPath, string $optimisation): void {
     $root = dirname(__DIR__, 6);
     $temporary = sys_get_temp_dir() . '/capell-activity-autoload-' . bin2hex(random_bytes(8));
-    File::ensureDirectoryExists($temporary . '/src/Support/Activity');
 
     try {
-        File::copyDirectory($root . '/packages/core/src/Support/Activity', $temporary . '/src/Support/Activity');
         $manifest = json_decode(File::get($root . '/' . $manifestPath), true, flags: JSON_THROW_ON_ERROR);
+        $manifestDirectory = dirname($root . '/' . $manifestPath);
+        $coreSource = rtrim($manifestDirectory . '/' . $manifest['autoload']['psr-4']['Capell\\Core\\'], '/');
+        File::copyDirectory($coreSource, $temporary . '/src');
         $source = getenv('CAPELL_ACTIVITYLOG_SOURCE') ?: $root . '/vendor/spatie/laravel-activitylog';
         $files = array_map(
-            static fn (string $path): string => 'src/' . explode('src/', $path, 2)[1],
+            static function (string $path) use ($coreSource, $manifestDirectory): string {
+                $sourcePath = $manifestDirectory . '/' . ltrim($path, '/');
+                $relativePath = str_starts_with($sourcePath, $coreSource . '/')
+                    ? substr($sourcePath, strlen($coreSource) + 1)
+                    : throw new RuntimeException('Composer autoload file is outside the Core PSR-4 source: ' . $path);
+
+                throw_unless(File::exists($sourcePath), RuntimeException::class, 'Composer autoload file does not exist: ' . $sourcePath);
+
+                return 'src/' . $relativePath;
+            },
             $manifest['autoload']['files'] ?? [],
         );
         File::put($temporary . '/composer.json', json_encode([
@@ -26,7 +36,13 @@ it('loads the exact vendor aliases with a generated Composer classmap', function
                 'files' => [$root . '/vendor/laravel/framework/src/Illuminate/Support/helpers.php', ...$files],
             ],
         ], JSON_THROW_ON_ERROR));
-        $dump = new Process(['composer', 'dump-autoload', $optimisation, '--no-plugins', '--no-scripts'], $temporary, ['COMPOSER_DISABLE_NETWORK' => '1']);
+        // A caller may select its own manifest or vendor directory through the
+        // environment; the temporary project must use the one written here.
+        $dump = new Process(['composer', 'dump-autoload', $optimisation, '--no-plugins', '--no-scripts'], $temporary, [
+            'COMPOSER_DISABLE_NETWORK' => '1',
+            'COMPOSER' => false,
+            'COMPOSER_VENDOR_DIR' => false,
+        ]);
         $dump->mustRun();
 
         File::put($temporary . '/check.php', <<<'PHP'
