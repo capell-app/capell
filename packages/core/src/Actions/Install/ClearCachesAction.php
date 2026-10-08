@@ -6,10 +6,12 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Process\ArtisanSubprocessRunner;
 use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
 use Throwable;
 
 class ClearCachesAction
@@ -146,6 +148,13 @@ class ClearCachesAction
         try {
             $exitCode = Artisan::call($cacheCommand['command']);
         } catch (Throwable $throwable) {
+            if ($cacheCommand['command'] === 'optimize:clear' && $throwable instanceof CommandNotFoundException) {
+                $this->clearOptimizeCachesInFreshProcess($reporter);
+                $reporter->report($cacheCommand['message']);
+
+                return;
+            }
+
             $message = sprintf('Unable to clear %s; %s', $cacheCommand['command'], $throwable->getMessage());
             $reporter->report($message);
 
@@ -163,6 +172,41 @@ class ClearCachesAction
         }
 
         $reporter->report($cacheCommand['message']);
+    }
+
+    private function clearOptimizeCachesInFreshProcess(ProgressReporter $reporter): void
+    {
+        // Providers installed during this process may register optimize hooks after
+        // the console application has already collected its available commands.
+        $lines = [];
+
+        try {
+            $exitCode = resolve(ArtisanSubprocessRunner::class)->run(
+                ['optimize:clear', '--no-interaction'],
+                function (string $line) use (&$lines): void {
+                    $lines[] = $line;
+                },
+                timeout: 120,
+            );
+        } catch (Throwable $throwable) {
+            $output = trim(implode("\n", [...$lines, $throwable->getMessage()]));
+            $message = sprintf('Unable to clear optimize:clear; %s', $output);
+            $reporter->report($message);
+
+            throw new RuntimeException($message, $throwable->getCode(), previous: $throwable);
+        }
+
+        if ($exitCode !== 0) {
+            $output = trim(implode("\n", $lines));
+            $message = $output === ''
+                ? sprintf('Unable to clear optimize:clear; command exited with status %d', $exitCode)
+                : sprintf('Unable to clear optimize:clear; %s', $output);
+            $reporter->report($message);
+
+            throw new RuntimeException($message);
+        }
+
+        $reporter->report('→ optimize:clear ran in a fresh process');
     }
 
     private function commandExists(string $command): bool
