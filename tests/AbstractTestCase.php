@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
+use Laravel\Prompts\Prompt;
 use Livewire\Livewire;
 use Lorisleiva\Actions\ActionServiceProvider;
 use Mockery\MockInterface;
@@ -98,6 +99,12 @@ abstract class AbstractTestCase extends TestCase
 
         // Direct mounts leave back-button cache state alive across Testbench application refreshes.
         Livewire::flushState();
+
+        // Laravel only routes Prompts through the mocked console when the app env is
+        // "testing", and Testbench flushes Prompt state after every test. A test that
+        // switches to "production" would otherwise get a silent non-interactive default
+        // (no TTY) unless an earlier command in the same test happened to set fallback.
+        Prompt::fallbackWhen(true);
 
         $configuredCacheStore = Env::get('CACHE_STORE');
 
@@ -202,7 +209,7 @@ abstract class AbstractTestCase extends TestCase
         }
 
         if ($filename === 'app.php' && getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true') {
-            return dirname(__DIR__) . '/tests/Support/runtime-role-testbench-bootstrap.php';
+            return __DIR__ . '/../tests/Support/runtime-role-testbench-bootstrap.php';
         }
 
         return parent::getApplicationBootstrapFile($filename);
@@ -333,12 +340,12 @@ abstract class AbstractTestCase extends TestCase
         // testbench-core ships default Laravel migrations (users, cache, jobs) in
         // laravel/migrations/, separate from laravel/database/migrations/ which gets
         // populated by package:discover with published stubs.
-        $testbenchMigrations = realpath(dirname(__DIR__) . '/vendor/orchestra/testbench-core/laravel/migrations');
+        $testbenchMigrations = realpath(__DIR__ . '/../vendor/orchestra/testbench-core/laravel/migrations');
         $paths = $testbenchMigrations !== false ? [$testbenchMigrations] : [];
         $paths[] = __DIR__ . '/database/migrations';
 
         $coreMigrations = CapellCore::getMigrations();
-        $corePath = realpath(dirname(__DIR__) . '/packages/core/database/migrations');
+        $corePath = realpath(__DIR__ . '/../packages/core/database/migrations');
 
         throw_unless($corePath, RuntimeException::class, 'Could not find core migrations path.');
 
@@ -426,7 +433,7 @@ abstract class AbstractTestCase extends TestCase
         if (getenv('CAPELL_TESTBENCH_RUNTIME_ROLE') === 'true') {
             $this->registerPackageConfig(
                 'capell',
-                require dirname(__DIR__) . '/packages/core/config/capell.php',
+                require __DIR__ . '/../packages/core/config/capell.php',
             );
         }
 
@@ -502,7 +509,7 @@ abstract class AbstractTestCase extends TestCase
 
     protected function getPublishConfigs(string $package): array
     {
-        $path = realpath(dirname(__DIR__) . '/packages/' . $package . '/publishes/config');
+        $path = realpath(__DIR__ . '/../packages/' . $package . '/publishes/config');
 
         if ($path === false) {
             return [];
@@ -665,12 +672,12 @@ abstract class AbstractTestCase extends TestCase
     {
         Config::set(
             'blade-heroicons',
-            require dirname(__DIR__) . '/vendor/blade-ui-kit/blade-heroicons/config/blade-heroicons.php',
+            require __DIR__ . '/../vendor/blade-ui-kit/blade-heroicons/config/blade-heroicons.php',
         );
 
         Config::set(
             'blade-icons',
-            require dirname(__DIR__) . '/vendor/blade-ui-kit/blade-icons/config/blade-icons.php',
+            require __DIR__ . '/../vendor/blade-ui-kit/blade-icons/config/blade-icons.php',
         );
     }
 
