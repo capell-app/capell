@@ -39,6 +39,7 @@ use Capell\Core\Support\Install\Cli\InstallCacheOptionResolver;
 use Capell\Core\Support\Install\Cli\InstallCommandPresenter;
 use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallPostInstallOptionResolver;
+use Capell\Core\Support\Install\Cli\InstallSuitePrompter;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
@@ -51,6 +52,7 @@ use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
+use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -128,9 +130,13 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private bool $configureHomepage = false;
 
+    /** @var list<string> Suite extensions that are not installed yet and must be downloaded with Composer. */
+    private array $suiteDownloadPackages = [];
+
     public function handle(): int
     {
         $this->reviewedPatchChoices = [];
+        $this->suiteDownloadPackages = [];
         $this->configureHomepage = false;
         $bootExitCode = $this->bootInstallCommand();
         if ($bootExitCode !== null) {
@@ -852,6 +858,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return $recommendationExitCode;
         }
 
+        $this->applyInteractiveSuiteSelection();
+
         $newUser = $this->userPrompter()->newUserFromOptions($this->option('name'), $this->option('email'), $this->option('password'));
         if (! $newUser instanceof NewUserData && $this->shouldUseFreshDemoDefaults()) {
             $newUser = FreshInstallDefaults::adminUser();
@@ -1141,6 +1149,48 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return null;
     }
 
+    /**
+     * Ask "What are you building?" only when nothing on the command line already decided the package list.
+     * Unregistered, non-core extensions cannot go through --packages, so they join the Composer downloads.
+     */
+    private function applyInteractiveSuiteSelection(): void
+    {
+        $alreadyDecided = $this->installProfile instanceof InstallProfileData
+            || $this->option('plan')
+            || $this->shouldUseFreshDemoDefaults()
+            || filled($this->option('recommendation'))
+            || filled($this->option('recommendation-action'))
+            || $this->optionWasProvidedOnCommandLine('packages')
+            || $this->optionWasProvidedOnCommandLine('package-mode')
+            || $this->optionWasProvidedOnCommandLine('all-packages');
+
+        if ($alreadyDecided || ! $this->input->isInteractive()) {
+            return;
+        }
+
+        $selection = resolve(InstallSuitePrompter::class)->prompt();
+        if ($selection === null) {
+            return;
+        }
+
+        $installable = fn (string $packageName): bool => CapellCore::hasPackage($packageName)
+            || TrustedCorePackages::contains($packageName);
+
+        $this->suiteDownloadPackages = array_values(array_filter(
+            $selection->packages,
+            fn (string $packageName): bool => ! $installable($packageName),
+        ));
+        $this->input->setOption('packages', implode(',', array_values(array_filter($selection->packages, $installable))));
+
+        if ($selection->theme !== null && ! $this->optionWasProvidedOnCommandLine('theme')) {
+            $this->input->setOption('theme', $selection->theme);
+        }
+
+        if ($selection->demo !== null && ! $this->optionWasProvidedOnCommandLine('demo')) {
+            $this->input->setOption('demo', $selection->demo);
+        }
+    }
+
     private function optionWasProvidedOnCommandLine(string $option): bool
     {
         if ($this->input->hasParameterOption('--' . $option)) {
@@ -1259,12 +1309,15 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function installTimePackageNamesFromSelection(): array
     {
-        return $this->packageSetComposer()->installTimePackageNames(
-            selectedPackageNames: $this->parseListOption('packages') ?? [],
-            packageMode: $this->option('package-mode'),
-            allPackages: (bool) $this->option('all-packages'),
-            useFreshDemoPackageDefaults: $this->shouldUseFreshDemoPackageDefaults(),
-        );
+        return array_values(array_unique([
+            ...$this->packageSetComposer()->installTimePackageNames(
+                selectedPackageNames: $this->parseListOption('packages') ?? [],
+                packageMode: $this->option('package-mode'),
+                allPackages: (bool) $this->option('all-packages'),
+                useFreshDemoPackageDefaults: $this->shouldUseFreshDemoPackageDefaults(),
+            ),
+            ...$this->suiteDownloadPackages,
+        ]));
     }
 
     private function installerPackageName(): string

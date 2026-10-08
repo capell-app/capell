@@ -2,9 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\ResolveInstallRecommendationAction;
 use Capell\Core\Data\Install\InstallRecommendationData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\InstallRecommendationAction;
+use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Illuminate\Support\Facades\File;
 
@@ -236,4 +240,66 @@ it('loads valid JSON recommendations when config is not provided', function (): 
         ], JSON_THROW_ON_ERROR));
 
     expect(resolve(InstallRecommendationRepository::class)->find('headless')?->label)->toBe('Headless');
+});
+
+it('keeps recommended and optional extensions only when they are installed, core or downloadable', function (): void {
+    CapellCore::clearPackages();
+    CapellCore::registerPackage(name: 'vendor/installed');
+    GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect([
+        'vendor/downloadable' => new PackageData(name: 'vendor/downloadable', type: PackageTypeEnum::Plugin),
+    ]));
+    config(['capell.install.recommendations' => [
+        'suite' => [
+            'label' => 'Suite',
+            'description' => 'A suite.',
+            'recommended' => [
+                'vendor/installed' => 'Already here.',
+                'vendor/downloadable' => ' Fetchable. ',
+                'vendor/ghost' => 'Nowhere.',
+                'capell-app/admin' => 'Trusted core.',
+                7 => 'Numeric keys are ignored.',
+            ],
+            'optional' => 'not a map',
+        ],
+    ]]);
+
+    $suite = resolve(InstallRecommendationRepository::class)->find('suite');
+
+    expect($suite?->recommended)->toBe([
+        'vendor/installed' => 'Already here.',
+        'vendor/downloadable' => 'Fetchable.',
+        'capell-app/admin' => 'Trusted core.',
+    ])->and($suite?->optional)->toBe([]);
+});
+
+it('offers only installed extensions when the marketplace catalogue cannot be reached', function (): void {
+    CapellCore::clearPackages();
+    CapellCore::registerPackage(name: 'vendor/installed');
+    GetPluginsAction::mock()->shouldReceive('handle')->andThrow(new RuntimeException('offline'));
+    config(['capell.install.recommendations' => [
+        'suite' => [
+            'label' => 'Suite',
+            'description' => 'A suite.',
+            'optional' => ['vendor/installed' => 'Here.', 'vendor/remote' => 'Unreachable.'],
+        ],
+    ]]);
+
+    expect(resolve(InstallRecommendationRepository::class)->find('suite')?->optional)->toBe(['vendor/installed' => 'Here.']);
+});
+
+it('ships a curated catalogue whose suites are labelled and ordered', function (): void {
+    $defaults = require dirname(__DIR__, 3) . '/config/capell.php';
+    $suites = $defaults['install']['recommendations'];
+
+    expect(array_keys($suites))->toContain('blog', 'marketing', 'docs', 'client', 'headless');
+
+    foreach ($suites as $key => $suite) {
+        expect($suite['label'] ?? '')->not->toBe('', $key . ' needs a label')
+            ->and($suite['description'] ?? '')->not->toBe('', $key . ' needs a description');
+
+        foreach ([...($suite['recommended'] ?? []), ...($suite['optional'] ?? [])] as $package => $reason) {
+            expect($package)->toMatch('/^capell-app\/[a-z0-9-]+$/')
+                ->and($reason)->not->toBe('', $package . ' needs a reason');
+        }
+    }
 });

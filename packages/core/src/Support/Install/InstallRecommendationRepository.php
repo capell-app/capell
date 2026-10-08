@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Data\Install\InstallRecommendationData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Json\JsonCodec;
@@ -28,6 +29,16 @@ final class InstallRecommendationRepository
     {
         $recommendations = $this->configuredRecommendations();
         $available = CapellCore::getPackages(sortByDependencies: true);
+        $downloadable = null;
+        $isInstallable = function (string $package) use ($available, &$downloadable): bool {
+            if ($available->has($package) || TrustedCorePackages::contains($package)) {
+                return true;
+            }
+
+            $downloadable ??= $this->downloadablePackageNames();
+
+            return in_array($package, $downloadable, true);
+        };
 
         $resolved = [];
         foreach ($recommendations as $key => $recommendation) {
@@ -59,6 +70,8 @@ final class InstallRecommendationRepository
                 theme: $this->nullableString($recommendation['theme'] ?? null),
                 demo: is_bool($recommendation['demo'] ?? null) ? $recommendation['demo'] : null,
                 order: is_int($recommendation['order'] ?? null) ? $recommendation['order'] : 0,
+                recommended: $this->reasonMap($recommendation['recommended'] ?? [], $isInstallable),
+                optional: $this->reasonMap($recommendation['optional'] ?? [], $isInstallable),
             );
         }
 
@@ -74,6 +87,52 @@ final class InstallRecommendationRepository
         }
 
         return collect($this->all())->first(fn (InstallRecommendationData $recommendation): bool => $recommendation->key === $key);
+    }
+
+    /**
+     * Package names the marketplace lists as downloadable. Offline or unreachable, this is empty,
+     * so a suite then offers only what is already installed rather than failing the install.
+     *
+     * @return list<string>
+     */
+    private function downloadablePackageNames(): array
+    {
+        try {
+            return array_values(GetPluginsAction::run('download')->keys()->map(fn (mixed $name): string => (string) $name)->all());
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  callable(string): bool  $isInstallable
+     * @return array<string, string>
+     */
+    private function reasonMap(mixed $value, callable $isInstallable): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $reasons = [];
+        foreach ($value as $package => $reason) {
+            if (! is_string($package)) {
+                continue;
+            }
+
+            $package = trim($package);
+            if ($package === '') {
+                continue;
+            }
+
+            if (! $isInstallable($package)) {
+                continue;
+            }
+
+            $reasons[$package] = $this->stringValue($reason);
+        }
+
+        return $reasons;
     }
 
     /** @return array<string, array<string, mixed>> */

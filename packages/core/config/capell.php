@@ -303,32 +303,93 @@ return [
         'welcome_routes_web_path' => env('CAPELL_INSTALL_WELCOME_ROUTES_WEB_PATH', base_path('routes/web.php')),
         'welcome_env_path' => env('CAPELL_INSTALL_WELCOME_ENV_PATH', base_path('.env')),
 
-        // Hosts may override these deterministic bundles in their own config
-        // or capell-install-recommendations.php/json. Keep package identities
-        // source-backed: the repository drops names not in the package registry.
+        // Install suites, offered as "What are you building?" in the CLI installer.
+        // `packages` always install; `recommended` entries are pre-ticked and `optional`
+        // entries are offered unticked, each with a one-line reason (package => reason).
+        // Hosts may override these in their own config or capell-install-recommendations.php/json.
+        // Keep package identities source-backed: the repository drops names that are neither
+        // installed nor listed as downloadable, so a stale entry never reaches Composer.
         'recommendations' => [
             'blog' => [
                 'label' => 'Blog',
-                'description' => 'A public site with the admin workspace and frontend rendering.',
+                'description' => 'Publish articles with archives and tags, and be found in search.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
+                'recommended' => [
+                    'capell-app/blog' => 'Article publishing, archive pages and article widgets.',
+                    'capell-app/seo-suite' => 'SEO scoring, structured data and redirect management.',
+                    'capell-app/search' => 'A themeable results page and header search field.',
+                ],
+                'optional' => [
+                    'capell-app/tags' => 'Shared tags across pages and articles.',
+                    'capell-app/newsletter' => 'Collect and segment subscribers with double opt-in.',
+                    'capell-app/comments' => 'Moderated, threaded discussion on articles.',
+                    'capell-app/ga4-reports' => 'Google Analytics 4 traffic on the admin dashboard.',
+                ],
                 'theme' => 'default',
                 'demo' => true,
                 'order' => 10,
             ],
             'marketing' => [
                 'label' => 'Marketing site',
-                'description' => 'A content-managed marketing site with the admin workspace and frontend rendering.',
+                'description' => 'A content-managed site with forms, navigation and SEO tooling.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
+                'recommended' => [
+                    'capell-app/form-builder' => 'Spam-filtered forms with a submissions inbox.',
+                    'capell-app/navigation' => 'A visual menu builder for every site and language.',
+                    'capell-app/seo-suite' => 'SEO scoring, structured data and redirect management.',
+                ],
+                'optional' => [
+                    'capell-app/hero' => 'A responsive home hero with video or overlay backgrounds.',
+                    'capell-app/newsletter' => 'Collect and segment subscribers with double opt-in.',
+                    'capell-app/ga4-reports' => 'Google Analytics 4 traffic on the admin dashboard.',
+                    'capell-app/html-cache' => 'Full-page static HTML cache for faster delivery.',
+                ],
                 'theme' => 'default',
                 'demo' => true,
                 'order' => 20,
+            ],
+            'docs' => [
+                'label' => 'Help centre or documentation',
+                'description' => 'A structured knowledge base that readers can search and browse.',
+                'packages' => ['capell-app/admin', 'capell-app/frontend'],
+                'recommended' => [
+                    'capell-app/knowledge-base' => 'Collections of articles grouped into a public help centre.',
+                    'capell-app/search' => 'A themeable results page and header search field.',
+                    'capell-app/navigation' => 'A visual menu builder for every site and language.',
+                ],
+                'optional' => [
+                    'capell-app/publishing-studio' => 'Review-first release workflow with isolated workspaces.',
+                    'capell-app/seo-suite' => 'SEO scoring, structured data and redirect management.',
+                    'capell-app/html-cache' => 'Full-page static HTML cache for faster delivery.',
+                ],
+                'theme' => 'default',
+                'demo' => true,
+                'order' => 30,
+            ],
+            'client' => [
+                'label' => 'Client or agency site',
+                'description' => 'Visual page building with a media library and safe publishing.',
+                'packages' => ['capell-app/admin', 'capell-app/frontend'],
+                'recommended' => [
+                    'capell-app/layout-builder' => 'Compose pages visually from reusable widgets and areas.',
+                    'capell-app/media-library' => 'One consistent media field and a media-health dashboard.',
+                    'capell-app/form-builder' => 'Spam-filtered forms with a submissions inbox.',
+                ],
+                'optional' => [
+                    'capell-app/publishing-studio' => 'Review-first release workflow with isolated workspaces.',
+                    'capell-app/site-monitor' => 'Uptime, SSL and domain-expiry monitoring.',
+                    'capell-app/privacy-center' => 'A system of record for consent and privacy obligations.',
+                ],
+                'theme' => 'default',
+                'demo' => true,
+                'order' => 40,
             ],
             'headless' => [
                 'label' => 'Headless API',
                 'description' => 'Core content and delivery APIs without the bundled public frontend.',
                 'packages' => [],
                 'demo' => false,
-                'order' => 30,
+                'order' => 50,
             ],
         ],
 

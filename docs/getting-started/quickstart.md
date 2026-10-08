@@ -55,19 +55,21 @@ php artisan capell:install --demo --url=http://localhost:8000
 
 For a normal evaluation, accept the full foundation selection and the default theme. The installer asks for:
 
-| Prompt                                | Local evaluation answer                            |
-| ------------------------------------- | -------------------------------------------------- |
-| Package selection                     | All foundation packages                            |
-| Theme                                 | Default                                            |
-| Site URL                              | `http://localhost:8000`                            |
-| Administrator                         | Create one with an email and strong local password |
-| Which caches would you like to clear? | Accept the preselected defaults                    |
-| Let Capell handle the homepage?       | Yes for a fresh demo application                   |
-| Install Capell with these settings?   | Review the complete summary, then confirm          |
+| Prompt                                | Local evaluation answer                             |
+| ------------------------------------- | --------------------------------------------------- |
+| What are you building?                | Pick the closest suite, or choose your own packages |
+| Theme                                 | Default                                             |
+| Site URL                              | `http://localhost:8000`                             |
+| Administrator                         | Create one with an email and strong local password  |
+| Which caches would you like to clear? | Accept the preselected defaults                     |
+| Let Capell handle the homepage?       | Yes for a fresh demo application                    |
+| Install Capell with these settings?   | Review the complete summary, then confirm           |
 
 The cache prompt is a multiselect of individual cache keys, not a yes/no question. Passing `--clear-cache` skips the prompt, runs Laravel’s optimisation cache clear, and refreshes the Capell HTML and package discovery caches. This also clears application data in the default cache store.
 
-Before applying changes, the CLI prints **Review your installation** with the resolved packages, Composer downloads, database operations, theme, content, administrator, host-file changes and final operations. The final confirmation defaults to No. Declining it applies no installation changes, including Filament panel creation and homepage configuration.
+The first question, **What are you building?**, offers install suites such as a blog, marketing site, help centre or client site. A suite fixes the foundation packages, then offers its recommended extensions (ticked) and optional ones (unticked), each with a one-line reason, and an autocomplete search for anything else. Extensions that are not installed yet join the Composer downloads. Choosing "I'll choose my own packages", or passing `--packages`, `--package-mode`, `--all-packages`, `--recommendation` or `--profile`, skips the question and uses the plain package checklist. Hosts can replace the suites with `capell.install.recommendations`, `config/capell-install-recommendations.php` or `capell-install-recommendations.json`.
+
+Before applying changes, the CLI prints **Review your installation**: first what you are setting up (site, database, packages, theme, content, administrator), then the Composer downloads, host-file changes and final operations as a bullet list. An interactive run summarises the execution plan as a step count; add `-v` to list every step. The final confirmation defaults to No. Declining it applies no installation changes, including Filament panel creation and homepage configuration.
 
 `--plan` prints the same redacted summary and execution steps without applying changes. It uses supplied options and defaults; choices made in a later interactive run can change its final review. `--no-interaction` and `--production` print the review before execution and retain their existing unattended behaviour. Fresh unattended installs still require `--fresh=force`.
 
