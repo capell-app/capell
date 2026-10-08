@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\CacheEnum;
+use Capell\Core\Enums\UrlTypeEnum;
+use Capell\Core\Exceptions\PageUrlCollisionException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -44,3 +46,16 @@ it('flushes caches on saved/deleted and deletes its cache on delete', function (
 
     expect($registryAfter)->not()->toContain(CacheEnum::FirstPageByTypeForSite->value);
 });
+
+it('still rejects a typed URL colliding with its own canonical URL', function (UrlTypeEnum $type): void {
+    $page = Page::factory()->createOne();
+    $canonical = PageUrl::factory()->page($page)->site($page->site)->language($page->site->language)
+        ->createOne(['url' => '/canonical', 'type' => null]);
+    $typedUrl = PageUrl::factory()->page($page)->site($page->site)->language($page->site->language)
+        ->createOne(['url' => '/previous', 'type' => $type]);
+
+    expect(fn (): bool => $typedUrl->fill(['url' => '/canonical'])->save())
+        ->toThrow(PageUrlCollisionException::class)
+        ->and($canonical->fresh()->url)->toBe('/canonical')
+        ->and($typedUrl->fresh()->url)->toBe('/previous');
+})->with([UrlTypeEnum::Alias, UrlTypeEnum::Redirect]);

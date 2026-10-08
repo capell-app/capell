@@ -30,6 +30,18 @@ class PageUrlObserver
             ->where('url', $pageUrl->url)
             ->enabled()
             ->when($pageUrl->exists, fn (Builder $query): Builder => $query->whereKeyNot($pageUrl->getKey()))
+            ->when(
+                $pageUrl->type === null && $pageUrl->pageable_id !== null && $pageUrl->pageable_type !== null,
+                function (Builder $query) use ($pageUrl): void {
+                    // Restoring a canonical path must not collide with this page's own redirects.
+                    $query->where(function (Builder $query) use ($pageUrl): void {
+                        $query->whereNull('pageable_id')
+                            ->orWhereNull('pageable_type')
+                            ->orWhere('pageable_id', '!=', $pageUrl->pageable_id)
+                            ->orWhere('pageable_type', '!=', $pageUrl->pageable_type);
+                    });
+                },
+            )
             ->exists();
 
         if ($duplicateExists) {
