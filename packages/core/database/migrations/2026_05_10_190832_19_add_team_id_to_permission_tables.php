@@ -344,7 +344,7 @@ return new class extends Migration
     private function columnIsNullable(string $tableName, string $columnName): bool
     {
         foreach (Schema::getColumns($tableName) as $column) {
-            if (($column['name'] ?? null) === $columnName) {
+            if (($column['name']) === $columnName) {
                 return ($column['nullable'] ?? false) === true;
             }
         }
@@ -356,7 +356,7 @@ return new class extends Migration
      * Drop every foreign key on $tableName whose referencing columns include
      * $pivotColumn, and return their definitions so they can be restored later.
      *
-     * @return list<array{name: string, columns: list<string>, foreign_schema: string|null, foreign_table: string, foreign_columns: list<string>, on_update: string, on_delete: string}>
+     * @return list<array{name: string|null, columns: list<string>, foreign_schema: string|null, foreign_table: string, foreign_columns: list<string>, on_update: string|null, on_delete: string|null}>
      */
     private function dropForeignKeysForColumn(string $tableName, string $pivotColumn): array
     {
@@ -383,23 +383,35 @@ return new class extends Migration
     }
 
     /**
-     * @param  list<array{name: string, columns: list<string>, foreign_schema: string|null, foreign_table: string, foreign_columns: list<string>, on_update: string, on_delete: string}>  $foreignKeyDefinitions
+     * @param  list<array{name: string|null, columns: list<string>, foreign_schema: string|null, foreign_table: string, foreign_columns: list<string>, on_update: string|null, on_delete: string|null}>  $foreignKeyDefinitions
      */
     private function restoreForeignKeys(string $tableName, array $foreignKeyDefinitions): void
     {
-        $existingForeignKeyNames = array_column(Schema::getForeignKeys($tableName), 'name');
+        $existingForeignKeys = Schema::getForeignKeys($tableName);
 
         foreach ($foreignKeyDefinitions as $foreignKeyDefinition) {
-            if (in_array($foreignKeyDefinition['name'], $existingForeignKeyNames, true)) {
+            $exists = array_any(
+                $existingForeignKeys,
+                static fn (array $existing): bool => $foreignKeyDefinition['name'] !== null
+                    ? $existing['name'] === $foreignKeyDefinition['name']
+                    : $existing['columns'] === $foreignKeyDefinition['columns'],
+            );
+            if ($exists) {
                 continue;
             }
 
             Schema::table($tableName, static function (Blueprint $table) use ($foreignKeyDefinition): void {
-                $table->foreign($foreignKeyDefinition['columns'], $foreignKeyDefinition['name'])
+                $foreign = $table->foreign($foreignKeyDefinition['columns'], $foreignKeyDefinition['name'])
                     ->references($foreignKeyDefinition['foreign_columns'])
-                    ->on($foreignKeyDefinition['foreign_table'])
-                    ->onDelete($foreignKeyDefinition['on_delete'])
-                    ->onUpdate($foreignKeyDefinition['on_update']);
+                    ->on($foreignKeyDefinition['foreign_table']);
+
+                if ($foreignKeyDefinition['on_delete'] !== null) {
+                    $foreign->onDelete($foreignKeyDefinition['on_delete']);
+                }
+
+                if ($foreignKeyDefinition['on_update'] !== null) {
+                    $foreign->onUpdate($foreignKeyDefinition['on_update']);
+                }
             });
         }
     }
