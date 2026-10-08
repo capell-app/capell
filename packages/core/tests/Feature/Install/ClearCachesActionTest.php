@@ -7,7 +7,52 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
 use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
+use Symfony\Component\Process\Process;
+
+beforeEach(function (): void {
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->never();
+    $this->app->instance(ProcessFactoryInterface::class, $factory);
+});
+
+function fakeClearCachesArtisanSubprocess(
+    int $exitCode,
+    string $output = '',
+    string $errorOutput = '',
+    ?Throwable $exception = null,
+): void {
+    $process = Mockery::mock(Process::class);
+    $process->shouldReceive('setTimeout')->with(120)->once()->andReturnSelf();
+    $process->shouldReceive('run')->once()->andReturnUsing(
+        function (callable $callback) use ($exitCode, $output, $errorOutput, $exception): int {
+            $callback(Process::OUT, $output);
+            $callback(Process::ERR, $errorOutput);
+
+            throw_if($exception instanceof Throwable, $exception);
+
+            return $exitCode;
+        },
+    );
+
+    if (! $exception instanceof Throwable) {
+        $process->shouldReceive('getExitCode')->once()->andReturn($exitCode);
+    }
+
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->once()->withArgs(
+        fn (array $command, string $cwd, ?array $environment): bool => $command === [
+            ...new RuntimeBinaryResolver()->php(),
+            'artisan',
+            'optimize:clear',
+            '--no-interaction',
+        ] && $cwd === base_path() && is_array($environment),
+    )->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+}
 
 final class RecordingClearCachesProgressReporter implements ProgressReporter
 {
@@ -204,6 +249,130 @@ it('runs optimize:clear outside testbench and reports success', function (): voi
 
     expect($reporter->reports)
         ->toContain('✓ All caches cleared');
+});
+
+it('retries optimize:clear in a fresh process when a hook command is undefined', function (): void {
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $this->app->useBootstrapPath(__DIR__);
+    $reporter = new RecordingClearCachesProgressReporter;
+    fakeClearCachesArtisanSubprocess(0, 'All caches cleared.');
+
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->twice()->andReturn([]);
+    $kernel->shouldReceive('call')->with('optimize:clear')->once()
+        ->andThrow(new CommandNotFoundException('Command "filament:clear-cached-components" is not defined.'));
+
+    $this->app->instance(ConsoleKernel::class, $kernel);
+
+    try {
+        ClearCachesAction::run(['all'], $reporter);
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+    }
+
+    expect($reporter->reports)
+        ->toContain('→ optimize:clear ran in a fresh process')
+        ->toContain('✓ All caches cleared');
+});
+
+it('reports the fresh process output when retrying optimize:clear fails', function (): void {
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $this->app->useBootstrapPath(__DIR__);
+    $reporter = new RecordingClearCachesProgressReporter;
+    fakeClearCachesArtisanSubprocess(1, 'Clearing compiled views.', 'Fresh process cache store is offline.');
+
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->never();
+    $kernel->shouldReceive('call')->with('optimize:clear')->once()
+        ->andThrow(new CommandNotFoundException('Command "filament:clear-cached-components" is not defined.'));
+
+    $this->app->instance(ConsoleKernel::class, $kernel);
+    $message = "Unable to clear optimize:clear; Clearing compiled views.\nFresh process cache store is offline.";
+
+    try {
+        expect(fn (): mixed => ClearCachesAction::run(['all'], $reporter))
+            ->toThrow(RuntimeException::class, $message);
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+    }
+
+    expect($reporter->reports)
+        ->toContain($message)
+        ->not->toContain('✓ All caches cleared');
+});
+
+it('does not retry ordinary optimize:clear failures in a fresh process', function (): void {
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $this->app->useBootstrapPath(__DIR__);
+    $reporter = new RecordingClearCachesProgressReporter;
+
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->never();
+    $kernel->shouldReceive('call')->with('optimize:clear')->once()->andReturn(1);
+    $kernel->shouldReceive('output')->once()->andReturn('Unable to delete bootstrap/cache/config.php');
+    $this->app->instance(ConsoleKernel::class, $kernel);
+    $message = 'Unable to clear optimize:clear; Unable to delete bootstrap/cache/config.php';
+
+    try {
+        expect(fn (): mixed => ClearCachesAction::run(['all'], $reporter))
+            ->toThrow(RuntimeException::class, $message);
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+    }
+
+    expect($reporter->reports)->toContain($message)->not->toContain('✓ All caches cleared');
+});
+
+it('reports a failing fresh process status when its output is blank', function (): void {
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $this->app->useBootstrapPath(__DIR__);
+    $reporter = new RecordingClearCachesProgressReporter;
+    fakeClearCachesArtisanSubprocess(12, " \n\t");
+
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('call')->with('optimize:clear')->once()->andThrow(new CommandNotFoundException('Missing hook command'));
+    $this->app->instance(ConsoleKernel::class, $kernel);
+
+    try {
+        expect(fn (): mixed => ClearCachesAction::run(['all'], $reporter))
+            ->toThrow(RuntimeException::class, 'Unable to clear optimize:clear; command exited with status 12');
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+    }
+
+    expect($reporter->reports)->not->toContain('✓ All caches cleared');
+});
+
+it('reports captured output and exceptions from the fresh process', function (): void {
+    $originalBootstrapPath = $this->app->bootstrapPath();
+    $this->app->useBootstrapPath(__DIR__);
+    $reporter = new RecordingClearCachesProgressReporter;
+    fakeClearCachesArtisanSubprocess(1, 'Clearing compiled views.', exception: new RuntimeException('Process timed out'));
+
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('call')->with('optimize:clear')->once()->andThrow(new CommandNotFoundException('Missing hook command'));
+    $this->app->instance(ConsoleKernel::class, $kernel);
+
+    try {
+        expect(fn (): mixed => ClearCachesAction::run(['all'], $reporter))
+            ->toThrow(RuntimeException::class, "Unable to clear optimize:clear; Clearing compiled views.\nProcess timed out");
+    } finally {
+        $this->app->useBootstrapPath($originalBootstrapPath);
+    }
+
+    expect($reporter->reports)->not->toContain('✓ All caches cleared');
+});
+
+it('does not retry undefined commands for other cache steps', function (): void {
+    $reporter = new RecordingClearCachesProgressReporter;
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('call')->with('config:clear')->once()
+        ->andThrow(new CommandNotFoundException('Command "config:clear" is not defined.'));
+
+    $this->app->instance(ConsoleKernel::class, $kernel);
+
+    expect(fn (): mixed => ClearCachesAction::run(['config'], $reporter))
+        ->toThrow(RuntimeException::class, 'Unable to clear config:clear;');
 });
 
 it('does not report all caches cleared after optimize clear fails', function (): void {

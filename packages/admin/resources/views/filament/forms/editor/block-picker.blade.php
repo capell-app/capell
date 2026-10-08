@@ -97,6 +97,7 @@
                                 :x-show="'matches(' . Js::from($item->searchHaystack) . ')'"
                                 x-on:click="close"
                                 :wire:click="$item->wireClickAction"
+                                tabindex="0"
                             >
                                 <span
                                     class="fi-capell-block-picker-item-label block font-medium"
