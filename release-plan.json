@@ -2,39 +2,39 @@
     "schema_version": 1,
     "source": {
         "repository": "https://github.com/capell-app/capell.git",
-        "commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-        "ref": "refs/commits/e74d55574812f3daaabd72b8f0a8ac2af0a14d84"
+        "commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+        "ref": "refs/commits/ae20ceb94678a87a7d20127f25aa25115e8bb60b"
     },
     "inventory": [
         {
             "name": "capell-app/core",
             "path": "packages/core",
             "repository": "capell-app/core",
-            "version": "1.0.66"
+            "version": "1.0.67"
         },
         {
             "name": "capell-app/admin",
             "path": "packages/admin",
             "repository": "capell-app/admin",
-            "version": "1.0.66"
+            "version": "1.0.67"
         },
         {
             "name": "capell-app/frontend",
             "path": "packages/frontend",
             "repository": "capell-app/frontend",
-            "version": "1.0.66"
+            "version": "1.0.67"
         },
         {
             "name": "capell-app/installer",
             "path": "packages/installer",
             "repository": "capell-app/installer",
-            "version": "1.0.66"
+            "version": "1.0.67"
         },
         {
             "name": "capell-app/marketplace",
             "path": "packages/marketplace",
             "repository": "capell-app/marketplace",
-            "version": "1.0.66"
+            "version": "1.0.67"
         }
     ],
     "external_ledger": [],
@@ -43,10 +43,10 @@
             "name": "capell-app/core",
             "path": "packages/core",
             "repository": "capell-app/core",
-            "version": "1.0.66",
-            "previous_version": "1.0.65",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "subtree_hash": "2414e59ab3902ff419e0dfa3155cab3ef6aeaf3b",
+            "version": "1.0.67",
+            "previous_version": "1.0.66",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "subtree_hash": "2769e48baa78982eb7f071d2af6ac41bea567a9d",
             "direct_capell_dependencies": [],
             "resolved_minimum_versions": [],
             "maturity": "stable"
@@ -55,15 +55,15 @@
             "name": "capell-app/admin",
             "path": "packages/admin",
             "repository": "capell-app/admin",
-            "version": "1.0.66",
-            "previous_version": "1.0.65",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
+            "version": "1.0.67",
+            "previous_version": "1.0.66",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
             "subtree_hash": "6ec2eea99f95f5167a9e45156f31ce6e6f3eb18b",
             "direct_capell_dependencies": [
                 "capell-app/core"
             ],
             "resolved_minimum_versions": {
-                "capell-app/core": "1.0.66"
+                "capell-app/core": "1.0.67"
             },
             "maturity": "stable"
         },
@@ -71,15 +71,15 @@
             "name": "capell-app/frontend",
             "path": "packages/frontend",
             "repository": "capell-app/frontend",
-            "version": "1.0.66",
-            "previous_version": "1.0.65",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
+            "version": "1.0.67",
+            "previous_version": "1.0.66",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
             "subtree_hash": "26069c9475de08b6028669b7aee9fa5a433cdeb5",
             "direct_capell_dependencies": [
                 "capell-app/core"
             ],
             "resolved_minimum_versions": {
-                "capell-app/core": "1.0.66"
+                "capell-app/core": "1.0.67"
             },
             "maturity": "stable"
         },
@@ -87,15 +87,15 @@
             "name": "capell-app/installer",
             "path": "packages/installer",
             "repository": "capell-app/installer",
-            "version": "1.0.66",
-            "previous_version": "1.0.65",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
+            "version": "1.0.67",
+            "previous_version": "1.0.66",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
             "subtree_hash": "f19fc552dbc933026cf4ac0c0ce155e58abc79ff",
             "direct_capell_dependencies": [
                 "capell-app/core"
             ],
             "resolved_minimum_versions": {
-                "capell-app/core": "1.0.66"
+                "capell-app/core": "1.0.67"
             },
             "maturity": "stable"
         },
@@ -103,17 +103,17 @@
             "name": "capell-app/marketplace",
             "path": "packages/marketplace",
             "repository": "capell-app/marketplace",
-            "version": "1.0.66",
-            "previous_version": "1.0.65",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
+            "version": "1.0.67",
+            "previous_version": "1.0.66",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
             "subtree_hash": "63c5c79a6c1b28ca9aeceac519ec035d82124d02",
             "direct_capell_dependencies": [
                 "capell-app/admin",
                 "capell-app/core"
             ],
             "resolved_minimum_versions": {
-                "capell-app/admin": "1.0.66",
-                "capell-app/core": "1.0.66"
+                "capell-app/admin": "1.0.67",
+                "capell-app/core": "1.0.67"
             },
             "maturity": "stable"
         }
@@ -123,12 +123,12 @@
             "name": "capell-app/core",
             "path": "packages/core",
             "split_repository": "capell-app/core",
-            "current_version": "1.0.65",
-            "proposed_version": "1.0.66",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_ref": "refs/commits/e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_tag": "core/v1.0.66",
-            "subtree_hash": "2414e59ab3902ff419e0dfa3155cab3ef6aeaf3b",
+            "current_version": "1.0.66",
+            "proposed_version": "1.0.67",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_ref": "refs/commits/ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_tag": "core/v1.0.67",
+            "subtree_hash": "2769e48baa78982eb7f071d2af6ac41bea567a9d",
             "direct_capell_dependencies": [],
             "resolved_minimum_versions": [],
             "reason": "Lockstep patch foundation release.",
@@ -141,17 +141,17 @@
             "name": "capell-app/admin",
             "path": "packages/admin",
             "split_repository": "capell-app/admin",
-            "current_version": "1.0.65",
-            "proposed_version": "1.0.66",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_ref": "refs/commits/e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_tag": "admin/v1.0.66",
+            "current_version": "1.0.66",
+            "proposed_version": "1.0.67",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_ref": "refs/commits/ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_tag": "admin/v1.0.67",
             "subtree_hash": "6ec2eea99f95f5167a9e45156f31ce6e6f3eb18b",
             "direct_capell_dependencies": [
                 "capell-app/core"
             ],
             "resolved_minimum_versions": {
-                "capell-app/core": "1.0.66"
+                "capell-app/core": "1.0.67"
             },
             "reason": "Lockstep patch foundation release.",
             "release_type": "patch",
@@ -163,17 +163,17 @@
             "name": "capell-app/frontend",
             "path": "packages/frontend",
             "split_repository": "capell-app/frontend",
-            "current_version": "1.0.65",
-            "proposed_version": "1.0.66",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_ref": "refs/commits/e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_tag": "frontend/v1.0.66",
+            "current_version": "1.0.66",
+            "proposed_version": "1.0.67",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_ref": "refs/commits/ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_tag": "frontend/v1.0.67",
             "subtree_hash": "26069c9475de08b6028669b7aee9fa5a433cdeb5",
             "direct_capell_dependencies": [
                 "capell-app/core"
             ],
             "resolved_minimum_versions": {
-                "capell-app/core": "1.0.66"
+                "capell-app/core": "1.0.67"
             },
             "reason": "Lockstep patch foundation release.",
             "release_type": "patch",
@@ -185,17 +185,17 @@
             "name": "capell-app/installer",
             "path": "packages/installer",
             "split_repository": "capell-app/installer",
-            "current_version": "1.0.65",
-            "proposed_version": "1.0.66",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_ref": "refs/commits/e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_tag": "installer/v1.0.66",
+            "current_version": "1.0.66",
+            "proposed_version": "1.0.67",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_ref": "refs/commits/ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_tag": "installer/v1.0.67",
             "subtree_hash": "f19fc552dbc933026cf4ac0c0ce155e58abc79ff",
             "direct_capell_dependencies": [
                 "capell-app/core"
             ],
             "resolved_minimum_versions": {
-                "capell-app/core": "1.0.66"
+                "capell-app/core": "1.0.67"
             },
             "reason": "Lockstep patch foundation release.",
             "release_type": "patch",
@@ -207,19 +207,19 @@
             "name": "capell-app/marketplace",
             "path": "packages/marketplace",
             "split_repository": "capell-app/marketplace",
-            "current_version": "1.0.65",
-            "proposed_version": "1.0.66",
-            "source_commit": "e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_ref": "refs/commits/e74d55574812f3daaabd72b8f0a8ac2af0a14d84",
-            "source_tag": "marketplace/v1.0.66",
+            "current_version": "1.0.66",
+            "proposed_version": "1.0.67",
+            "source_commit": "ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_ref": "refs/commits/ae20ceb94678a87a7d20127f25aa25115e8bb60b",
+            "source_tag": "marketplace/v1.0.67",
             "subtree_hash": "63c5c79a6c1b28ca9aeceac519ec035d82124d02",
             "direct_capell_dependencies": [
                 "capell-app/admin",
                 "capell-app/core"
             ],
             "resolved_minimum_versions": {
-                "capell-app/admin": "1.0.66",
-                "capell-app/core": "1.0.66"
+                "capell-app/admin": "1.0.67",
+                "capell-app/core": "1.0.67"
             },
             "reason": "Lockstep patch foundation release.",
             "release_type": "patch",
