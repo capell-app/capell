@@ -32,12 +32,16 @@ it('admin render page urls page with redirect filter', function (): void {
     $site = Site::factory()->recycle($language)->create();
     SiteDomain::factory()->default()->recycle($site)->recycle($language)->create();
     $page = Page::factory()->recycle($site)->create();
-    PageUrl::factory()->site($site)->language($language)->page($page)->redirect()->create();
+    $redirect = PageUrl::factory()->site($site)->language($language)->page($page)->redirect()->create();
     Translation::factory()->language($language)->translatable($page)->create();
+    $canonical = PageUrl::query()->where('pageable_id', $page->getKey())->whereNull('type')->firstOrFail();
 
-    get(PageUrlResource::getUrl(parameters: ['filters' => ['filters[type][value]' => 'redirect']]))
-        ->assertOk()
-        ->assertSeeText('Showing 1 result');
+    Livewire::test(ManagePageUrls::class)
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords([$redirect, $canonical])
+        ->filterTable('type', 'redirect')
+        ->assertCanSeeTableRecords([$redirect])
+        ->assertCanNotSeeTableRecords([$canonical]);
 });
 
 it('filters page URLs by both pageable type and identifier', function (): void {
