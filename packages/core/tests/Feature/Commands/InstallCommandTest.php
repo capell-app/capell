@@ -6,7 +6,7 @@ use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\BuildInstallRunResultAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\RunInstallAction;
-use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
+use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
@@ -1113,12 +1113,7 @@ it('describes each package in the checklist so newcomers can see what they add',
     setupInstallTest(['vendor/described', 'vendor/undescribed']);
     CapellCore::getPackage('vendor/described')->description = 'Adds a described feature to your site.';
 
-    $command = new class extends LaravelCommand
-    {
-        use HasPackageSelection;
-
-        protected $signature = 'test:package-prompt-labels';
-    };
+    $command = resolve(InstallCommand::class);
 
     $options = new ReflectionMethod($command, 'packagePromptOptions')->invoke(
         $command,
