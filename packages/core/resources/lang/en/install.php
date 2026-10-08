@@ -16,6 +16,11 @@ return [
         'configurators' => 'Capell configurators — rediscover admin configurators',
         'filament_components' => 'Filament components — rediscover resources, pages and widgets',
     ],
+    'packages' => [
+        'core_hint' => 'Each line says what the package adds. Space toggles, Ctrl+A selects all. Anything a package needs is added for you.',
+        'extra_hint' => 'Optional extras: each line says what it adds. Space toggles, Ctrl+A selects all. Leave empty to add none; you can install more later.',
+        'also_adding' => 'Also adding, because your selection needs them: :packages',
+    ],
     'review' => [
         'panel_label' => 'Create the required Filament admin panel during installation?',
         'panel_hint' => 'Creates a panel provider and registers it with Laravel after you confirm the installation.',
@@ -29,6 +34,9 @@ return [
         'apply_after_panel' => 'will apply if supported after panel creation',
         'manual_patch' => 'requires a manual change (:status)',
         'title' => 'Review your installation',
+        'essentials_title' => 'What you are setting up',
+        'details_title' => 'Also happening along the way',
+        'plan_collapsed' => ':count steps will run in order. Re-run with -v to list every step.',
         'confirm_label' => 'Install Capell with these settings?',
         'confirm_hint' => 'Review the packages, database changes and application changes above. Choose No to exit without applying them.',
         'cancelled' => 'Installation cancelled. No installation changes were applied.',

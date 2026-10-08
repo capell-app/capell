@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\BuildInstallRunResultAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\RunInstallAction;
+use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Enums\PackageScopeEnum;
@@ -21,6 +22,7 @@ use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
 use Capell\Core\Tests\Feature\Commands\Fixtures\TestInstallCommand;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
@@ -287,7 +289,7 @@ function registerInstallTestFilamentInstallCommand(): void
     // a later Artisan::all() call cannot replace it with the real interactive command.
     Artisan::all();
 
-    Artisan::registerCommand(new class extends Illuminate\Console\Command
+    Artisan::registerCommand(new class extends LaravelCommand
     {
         protected $signature = 'filament:install {--panels}';
 
@@ -1068,6 +1070,59 @@ it('prompts for packages when no --packages option is given', function (): void 
             'capell-app/frontend',
             'capell-app/marketplace',
         ]);
+});
+
+it('leads the interactive review with the essentials and collapses the step list', function (): void {
+    setupInstallTest([
+        'capell-app/core',
+        'capell-app/admin',
+        'capell-app/frontend',
+        'capell-app/marketplace',
+    ]);
+    createTestUser();
+    bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+    ])
+        ->expectsQuestion('What core Capell packages should be installed?', [
+            'capell-app/admin',
+            'capell-app/frontend',
+            'capell-app/marketplace',
+        ])
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsOutputToContain('What you are setting up')
+        ->expectsOutputToContain('Also happening along the way')
+        ->expectsOutputToContain('steps will run in order. Re-run with -v to list every step.')
+        ->doesntExpectOutputToContain('Execution steps')
+        ->doesntExpectOutputToContain('Run preflight checks')
+        ->expectsConfirmation('Install Capell with these settings?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+});
+
+it('describes each package in the checklist so newcomers can see what they add', function (): void {
+    setupInstallTest(['vendor/described', 'vendor/undescribed']);
+    CapellCore::getPackage('vendor/described')->description = 'Adds a described feature to your site.';
+
+    $command = new class extends LaravelCommand
+    {
+        use HasPackageSelection;
+
+        protected $signature = 'test:package-prompt-labels';
+    };
+
+    $options = new ReflectionMethod($command, 'packagePromptOptions')->invoke(
+        $command,
+        CapellCore::getPackages()->only(['vendor/described', 'vendor/undescribed']),
+    );
+
+    expect($options['vendor/described'])->toBe('Described — Adds a described feature to your site.')
+        ->and($options['vendor/undescribed'])->toBe('Undescribed');
 });
 
 it('allows packages to be skipped from the package checklist', function (): void {

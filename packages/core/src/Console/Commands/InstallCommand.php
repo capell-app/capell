@@ -422,7 +422,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $this->reviewedPatchChoices = [];
         $this->outputInstallReview($inputData, $runNpmBuild, $removeInstallerPackage, $cachesToClear);
-        $this->outputPlan($inputData);
+        $this->outputPlan($inputData, collapseWhenInteractive: true);
 
         if ($this->input->isInteractive() && ! confirm(
             label: __('capell-core::install.review.confirm_label'),
@@ -472,13 +472,20 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     }
 
     #[Override]
-    public function outputPlan(InstallInputData $inputData): void
+    public function outputPlan(InstallInputData $inputData, bool $collapseWhenInteractive = false): void
     {
         $steps = InstallPlan::steps($inputData);
 
         $this->newLine();
         $this->line('<fg=blue;options=bold>Capell Install Plan</>');
         $this->newLine();
+
+        if ($collapseWhenInteractive && $this->input->isInteractive() && ! $this->output->isVerbose()) {
+            $this->line(__('capell-core::install.review.plan_collapsed', ['count' => $steps->count()]));
+            $this->newLine();
+
+            return;
+        }
 
         $steps->each(function (InstallStepData $step, int $index): void {
             $this->line(sprintf('%d. %s', $index + 1, $step->label));
@@ -664,12 +671,54 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $review = BuildInstallReviewAction::run($inputData, $runNpmBuild, $removeInstaller, $cachesToClear, $patchLabels);
         $this->newLine();
+        $this->renderInstallReview($review->items);
+        $this->newLine();
+    }
+
+    /**
+     * Lead with the handful of facts a newcomer needs, then list the mechanical detail as bullets.
+     * The execution steps are omitted because the plan printed straight after the review lists them.
+     *
+     * @param  array<string, string>  $items
+     */
+    private function renderInstallReview(array $items): void
+    {
+        $none = __('capell-core::install.review.none');
+        $essentialLabels = array_map(
+            fn (string $key): string => __('capell-core::install.review.' . $key),
+            ['site', 'database', 'packages', 'theme', 'content', 'administrator'],
+        );
+        $detailLabels = array_map(
+            fn (string $key): string => __('capell-core::install.review.' . $key),
+            ['downloads', 'additional_accounts', 'application_changes', 'developer_tooling', 'after_install'],
+        );
+
         $this->line('<fg=blue;options=bold>' . __('capell-core::install.review.title') . '</>');
-        foreach ($review->items as $label => $value) {
-            $this->line(OutputFormatter::escape($label . ': ' . $value));
+        $this->newLine();
+        $this->line('<options=bold>' . __('capell-core::install.review.essentials_title') . '</>');
+
+        foreach ($essentialLabels as $label) {
+            if (isset($items[$label]) && $items[$label] !== $none) {
+                $this->line(OutputFormatter::escape('  ' . $label . ': ' . $items[$label]));
+            }
         }
 
         $this->newLine();
+        $this->line('<options=bold>' . __('capell-core::install.review.details_title') . '</>');
+
+        $presentDetailLabels = array_filter(
+            $detailLabels,
+            static fn (string $label): bool => isset($items[$label]) && $items[$label] !== $none,
+        );
+
+        foreach ($presentDetailLabels as $label) {
+            $this->line(OutputFormatter::escape('  ' . $label));
+
+            // The review builder joins these list-valued entries with "; " and never inside one entry.
+            foreach (explode('; ', $items[$label]) as $entry) {
+                $this->line(OutputFormatter::escape('    • ' . $entry));
+            }
+        }
     }
 
     private function finishPlanOnlyInstall(InstallInputData $inputData): int
