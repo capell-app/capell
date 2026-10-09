@@ -695,10 +695,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     private function renderInstallReview(array $items, array $lists): void
     {
         $none = __('capell-core::install.review.none');
-        $essentialLabels = array_map(
-            fn (string $key): string => __('capell-core::install.review.' . $key),
-            ['site', 'database', 'packages', 'theme', 'content', 'administrator'],
-        );
+        $essentialLabels = [
+            __('capell-core::install.review.site'),
+            __('capell-core::install.review.database'),
+            __('capell-core::install.review.packages'),
+            __('capell-core::install.review.theme'),
+            __('capell-core::install.review.content'),
+            __('capell-core::install.review.administrator'),
+        ];
 
         $this->line('<fg=blue;options=bold>' . __('capell-core::install.review.title') . '</>');
         $this->newLine();

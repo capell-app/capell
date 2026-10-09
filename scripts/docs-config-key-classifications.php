@@ -47,26 +47,6 @@ $internalDefaultColors = [
     'capell.default_colors.white',
 ];
 
-$installRecommendationLeaves = [
-    'capell.install.recommendations.blog.demo',
-    'capell.install.recommendations.blog.description',
-    'capell.install.recommendations.blog.label',
-    'capell.install.recommendations.blog.order',
-    'capell.install.recommendations.blog.packages',
-    'capell.install.recommendations.blog.theme',
-    'capell.install.recommendations.headless.demo',
-    'capell.install.recommendations.headless.description',
-    'capell.install.recommendations.headless.label',
-    'capell.install.recommendations.headless.order',
-    'capell.install.recommendations.headless.packages',
-    'capell.install.recommendations.marketing.demo',
-    'capell.install.recommendations.marketing.description',
-    'capell.install.recommendations.marketing.label',
-    'capell.install.recommendations.marketing.order',
-    'capell.install.recommendations.marketing.packages',
-    'capell.install.recommendations.marketing.theme',
-];
-
 return [
     ...array_fill_keys(
         $internalAdminPresentation,
@@ -83,10 +63,6 @@ return [
     ...array_fill_keys(
         $internalDefaultColors,
         'Internal seed palette consumed through DefaultColorEnum; themes expose their own color contract.',
-    ),
-    ...array_fill_keys(
-        $installRecommendationLeaves,
-        'Internal deterministic installer bundle metadata; hosts override the recommendation contract through the supported installer configuration surface.',
     ),
     'capell.agent.audit_severity' => 'Public Agent Schema audit policy covered by the documented agent tool mandate configuration.',
     'capell.agent.rate_limit' => 'Public Agent Schema request limit covered by the documented agent read API configuration.',
