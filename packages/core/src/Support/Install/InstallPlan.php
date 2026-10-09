@@ -172,6 +172,15 @@ final class InstallPlan
 
         $steps->push(new InstallStepData(self::STEP_PREFLIGHT_CHECKS, 'Run preflight checks'));
 
+        if ($inputData->extraPackages !== []) {
+            foreach (array_values(array_unique($inputData->extraPackages)) as $packageName) {
+                $steps->push(new InstallStepData(
+                    self::packageRequireStepKey($packageName),
+                    'Download ' . $packageName,
+                ));
+            }
+        }
+
         if ($inputData->freshInstall) {
             $steps->push(new InstallStepData(self::STEP_PREPARE_FRESH_INSTALL, __('capell-core::install.review.database_fresh')));
         }
@@ -187,15 +196,6 @@ final class InstallPlan
 
         if ($shouldInstallFilamentPanel) {
             $steps->push(new InstallStepData(self::STEP_INSTALL_FILAMENT_PANEL, 'Install Filament panel'));
-        }
-
-        if ($inputData->extraPackages !== []) {
-            foreach (array_values(array_unique($inputData->extraPackages)) as $packageName) {
-                $steps->push(new InstallStepData(
-                    self::packageRequireStepKey($packageName),
-                    'Download ' . $packageName,
-                ));
-            }
         }
 
         if ($shouldInstallFilamentPanelAfterRequiringPackages) {

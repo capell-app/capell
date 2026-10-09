@@ -8,6 +8,7 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Composer\InstallPackageArguments;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -33,9 +34,7 @@ class RequireExtraPackagesAction
 
         $reporter->step('Requiring extra packages via Composer…');
 
-        $packageArgs = app()->isLocal()
-            ? array_map(fn (string $name): string => str_contains($name, ':') ? $name : $name . ':*', $packages)
-            : $packages;
+        $packageArgs = resolve(InstallPackageArguments::class)->resolve(array_values($packages));
 
         /** @var list<string> $command */
         $command = array_merge(['composer', 'require', '--no-interaction', '--prefer-dist', '--with-all-dependencies'], $packageArgs);

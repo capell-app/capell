@@ -16,7 +16,7 @@ beforeEach(function (): void {
 
 it('returns plugin list with none installed', function (): void {
     Http::fake([
-        'https://plugin.capell.app/packages.json' => Http::response(['packages' => []], 200),
+        config('capell.plugins_source_url') => Http::response(['packages' => []], 200),
     ]);
 
     $plugins = GetPluginsAction::run();

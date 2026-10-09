@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Composer\InstallPackageArguments;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -31,9 +32,7 @@ final class PreflightExtraPackagesAction
 
         $reporter->step('Checking selected packages can be installed via Composer…');
 
-        $packageArgs = app()->isLocal()
-            ? array_map(fn (string $name): string => str_contains($name, ':') ? $name : $name . ':*', $packages)
-            : $packages;
+        $packageArgs = resolve(InstallPackageArguments::class)->resolve(array_values($packages));
 
         $command = array_merge([
             'composer',

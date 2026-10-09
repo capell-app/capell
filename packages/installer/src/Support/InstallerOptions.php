@@ -9,6 +9,7 @@ use Capell\Core\Data\Install\ThemeInstallOptionData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Composer\InstallPackageArguments;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Database\Eloquent\Model;
@@ -254,7 +255,8 @@ final class InstallerOptions
         $trusted = TrustedCorePackages::contains($packageName);
         $resolver = function () use ($packageName): bool {
             $process = new Process([
-                (string) config('capell-installer.composer_binary', 'composer'), 'require', $packageName . ':*',
+                (string) config('capell-installer.composer_binary', 'composer'), 'require',
+                ...resolve(InstallPackageArguments::class)->resolve([$packageName]),
                 '--dry-run', '--no-audit', '--no-interaction', '--no-progress', '--no-scripts', '--with-all-dependencies',
             ], base_path(), ComposerProcessEnvironment::forInstall($_SERVER));
             $process->setTimeout(120);

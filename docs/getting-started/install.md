@@ -141,6 +141,8 @@ All checks passed.
 Capell Install Handoff
 ```
 
+The extension selector uses the current marketplace catalogue, including package names, licence tiers and advertised versions. Selected packages that are absent from Composer are required before fresh-install data deletion, migrations or account creation. The Composer preflight and download use the same constraints; a published beta is requested explicitly for that package rather than lowering the application’s minimum stability. Custom catalogues remain configurable with `CAPELL_PLUGINS_SOURCE_URL`; changing the source invalidates the old catalogue cache.
+
 Required lifecycle, asset, permission, and health failures stop the command with a non-zero exit code. The installer prints a separate `Fix:` line for actionable failures and does not print the final success message.
 
 Rerunning `capell:install` is supported after correcting a failed step. Keep the Installer package present until the health summary is green.
