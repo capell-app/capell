@@ -52,7 +52,7 @@ it('shows activity history for the owning page only', function (): void {
         ->assertSuccessful()
         ->assertCanSeeTableRecords([$pageActivity])
         ->assertCanNotSeeTableRecords([$otherActivity])
-        ->assertSee(__('capell-admin::tab.history'))
+        ->assertSee(__('capell-admin::navigation.activity_trail'))
         ->assertSee(__('capell-admin::activity.resource_history_description'));
 });
 

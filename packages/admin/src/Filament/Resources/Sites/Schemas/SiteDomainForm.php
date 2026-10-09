@@ -61,6 +61,18 @@ class SiteDomainForm implements FormConfigurator
                                 ->columnSpan(['lg' => 2]),
                         ]),
                 ]),
+            Section::make(__('capell-admin::button.advanced'))
+                ->columnSpanFull()
+                ->collapsible()
+                ->collapsed(fn (?SiteDomain $record): bool => $record?->port === null)
+                ->schema([
+                    TextInput::make('port')
+                        ->label(__('capell-admin::form.site_domain_port'))
+                        ->numeric()
+                        ->integer()
+                        ->minValue(1)
+                        ->maxValue(65535),
+                ]),
             Section::make(__('capell-admin::form.site_domain_availability'))
                 ->description(__('capell-admin::generic.site_domain_availability_description'))
                 ->columnSpanFull()

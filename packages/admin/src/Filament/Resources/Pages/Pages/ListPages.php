@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Pages;
 
 use Capell\Admin\Actions\Pages\BuildPageListingQueryAction;
+use Capell\Admin\Actions\Pages\ResolvePageCreationSiteAction;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\Page\CreatePageAction;
 use Capell\Admin\Filament\Concerns\ApplySearchRelationsTable;
@@ -176,6 +177,9 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
     private function pageTypeChoices(): Collection
     {
         $resource = static::getResource();
+        $site = ResolvePageCreationSiteAction::run(
+            is_numeric($this->activeTab) ? $this->activeTab : ($this->getTableFilterState('site_id')['value'] ?? null),
+        );
 
         return Blueprint::query()
             ->enabled()
@@ -186,7 +190,10 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
             ->get()
             ->each(fn (Blueprint $pageType): Blueprint => $pageType->setAttribute(
                 'create_url',
-                $resource::getUrl('create', ['type' => $pageType->key]),
+                $resource::getUrl('create', array_filter([
+                    'type' => $pageType->key,
+                    'site_id' => $site?->id,
+                ])),
             ));
     }
 }

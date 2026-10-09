@@ -12,7 +12,6 @@ return [
     'display' => 'Display',
     'domains' => 'Domains',
     'fonts' => 'Fonts',
-    'history' => 'History',
     'layout' => 'Layout',
     'media' => 'Media',
     'navigation' => 'Navigation',
