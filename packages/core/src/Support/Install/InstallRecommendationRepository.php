@@ -23,9 +23,41 @@ use Throwable;
 final class InstallRecommendationRepository
 {
     /**
+     * Suites without their extension lists. Cheap: no marketplace lookup, so the browser installer
+     * and `--recommendation` can call it on every request.
+     *
      * @return list<InstallRecommendationData>
      */
     public function all(): array
+    {
+        return $this->resolve(withExtensions: false);
+    }
+
+    /**
+     * Suites including `recommended` and `optional` extensions, each kept only if it is installed,
+     * trusted core or listed as downloadable. That check may reach the marketplace, so only the
+     * interactive CLI prompter asks for it.
+     *
+     * @return list<InstallRecommendationData>
+     */
+    public function suites(): array
+    {
+        return $this->resolve(withExtensions: true);
+    }
+
+    public function find(?string $key): ?InstallRecommendationData
+    {
+        if ($key === null || trim($key) === '') {
+            return null;
+        }
+
+        return collect($this->all())->first(fn (InstallRecommendationData $recommendation): bool => $recommendation->key === $key);
+    }
+
+    /**
+     * @return list<InstallRecommendationData>
+     */
+    private function resolve(bool $withExtensions): array
     {
         $recommendations = $this->configuredRecommendations();
         $available = CapellCore::getPackages(sortByDependencies: true);
@@ -70,23 +102,14 @@ final class InstallRecommendationRepository
                 theme: $this->nullableString($recommendation['theme'] ?? null),
                 demo: is_bool($recommendation['demo'] ?? null) ? $recommendation['demo'] : null,
                 order: is_int($recommendation['order'] ?? null) ? $recommendation['order'] : 0,
-                recommended: $this->reasonMap($recommendation['recommended'] ?? [], $isInstallable),
-                optional: $this->reasonMap($recommendation['optional'] ?? [], $isInstallable),
+                recommended: $withExtensions ? $this->reasonMap($recommendation['recommended'] ?? [], $isInstallable) : [],
+                optional: $withExtensions ? $this->reasonMap($recommendation['optional'] ?? [], $isInstallable) : [],
             );
         }
 
         usort($resolved, static fn (InstallRecommendationData $left, InstallRecommendationData $right): int => [$left->order, $left->key] <=> [$right->order, $right->key]);
 
         return $resolved;
-    }
-
-    public function find(?string $key): ?InstallRecommendationData
-    {
-        if ($key === null || trim($key) === '') {
-            return null;
-        }
-
-        return collect($this->all())->first(fn (InstallRecommendationData $recommendation): bool => $recommendation->key === $key);
     }
 
     /**

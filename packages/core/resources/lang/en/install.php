@@ -27,6 +27,7 @@ return [
         'search_confirm' => 'Search for more extensions?',
         'search_label' => 'Search extensions by name or by what they do',
         'search_placeholder' => 'e.g. forms, seo, newsletter',
+        'nothing_to_search' => 'There are no other extensions to search right now. You can add more later from the Marketplace.',
         'search_hint' => 'Type to filter, Space to select, Enter when you are done.',
     ],
     'packages' => [

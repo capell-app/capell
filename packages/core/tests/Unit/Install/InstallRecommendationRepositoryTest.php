@@ -263,7 +263,7 @@ it('keeps recommended and optional extensions only when they are installed, core
         ],
     ]]);
 
-    $suite = resolve(InstallRecommendationRepository::class)->find('suite');
+    $suite = collect(resolve(InstallRecommendationRepository::class)->suites())->firstWhere('key', 'suite');
 
     expect($suite?->recommended)->toBe([
         'vendor/installed' => 'Already here.',
@@ -284,7 +284,7 @@ it('offers only installed extensions when the marketplace catalogue cannot be re
         ],
     ]]);
 
-    expect(resolve(InstallRecommendationRepository::class)->find('suite')?->optional)->toBe(['vendor/installed' => 'Here.']);
+    expect(collect(resolve(InstallRecommendationRepository::class)->suites())->firstWhere('key', 'suite')?->optional)->toBe(['vendor/installed' => 'Here.']);
 });
 
 it('ships a curated catalogue whose suites are labelled and ordered', function (): void {
@@ -302,4 +302,22 @@ it('ships a curated catalogue whose suites are labelled and ordered', function (
                 ->and($reason)->not->toBe('', $package . ' needs a reason');
         }
     }
+});
+
+it('keeps the cheap lookups free of marketplace calls so the browser installer can use them on every request', function (): void {
+    CapellCore::clearPackages();
+    GetPluginsAction::mock()->shouldNotReceive('handle');
+    config(['capell.install.recommendations' => [
+        'suite' => [
+            'label' => 'Suite',
+            'description' => 'A suite.',
+            'recommended' => ['vendor/remote' => 'Needs the marketplace to verify.'],
+        ],
+    ]]);
+
+    $repository = resolve(InstallRecommendationRepository::class);
+
+    expect($repository->all())->toHaveCount(1)
+        ->and($repository->all()[0]->recommended)->toBe([])
+        ->and($repository->find('suite')?->key)->toBe('suite');
 });

@@ -133,10 +133,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     /** @var list<string> Suite extensions that are not installed yet and must be downloaded with Composer. */
     private array $suiteDownloadPackages = [];
 
+    /** The chosen suite's theme, offered as the default of the theme question rather than forced. */
+    private ?string $suiteThemeKey = null;
+
     public function handle(): int
     {
         $this->reviewedPatchChoices = [];
         $this->suiteDownloadPackages = [];
+        $this->suiteThemeKey = null;
         $this->configureHomepage = false;
         $bootExitCode = $this->bootInstallCommand();
         if ($bootExitCode !== null) {
@@ -677,7 +681,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $review = BuildInstallReviewAction::run($inputData, $runNpmBuild, $removeInstaller, $cachesToClear, $patchLabels);
         $this->newLine();
-        $this->renderInstallReview($review->items);
+        $this->renderInstallReview($review->items, $review->lists);
         $this->newLine();
     }
 
@@ -686,17 +690,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      * The execution steps are omitted because the plan printed straight after the review lists them.
      *
      * @param  array<string, string>  $items
+     * @param  array<string, list<string>>  $lists
      */
-    private function renderInstallReview(array $items): void
+    private function renderInstallReview(array $items, array $lists): void
     {
         $none = __('capell-core::install.review.none');
         $essentialLabels = array_map(
             fn (string $key): string => __('capell-core::install.review.' . $key),
             ['site', 'database', 'packages', 'theme', 'content', 'administrator'],
-        );
-        $detailLabels = array_map(
-            fn (string $key): string => __('capell-core::install.review.' . $key),
-            ['downloads', 'additional_accounts', 'application_changes', 'developer_tooling', 'after_install'],
         );
 
         $this->line('<fg=blue;options=bold>' . __('capell-core::install.review.title') . '</>');
@@ -712,16 +713,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->newLine();
         $this->line('<options=bold>' . __('capell-core::install.review.details_title') . '</>');
 
-        $presentDetailLabels = array_filter(
-            $detailLabels,
-            static fn (string $label): bool => isset($items[$label]) && $items[$label] !== $none,
-        );
-
-        foreach ($presentDetailLabels as $label) {
+        foreach (array_filter($lists) as $label => $entries) {
             $this->line(OutputFormatter::escape('  ' . $label));
 
-            // The review builder joins these list-valued entries with "; " and never inside one entry.
-            foreach (explode('; ', $items[$label]) as $entry) {
+            foreach ($entries as $entry) {
                 $this->line(OutputFormatter::escape('    • ' . $entry));
             }
         }
@@ -1182,11 +1177,12 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         ));
         $this->input->setOption('packages', implode(',', array_values(array_filter($selection->packages, $installable))));
 
-        if ($selection->theme !== null && ! $this->optionWasProvidedOnCommandLine('theme')) {
-            $this->input->setOption('theme', $selection->theme);
-        }
+        $this->suiteThemeKey = $selection->theme;
 
-        if ($selection->demo !== null && ! $this->optionWasProvidedOnCommandLine('demo')) {
+        // A fresh install with --demo takes the unattended known-credentials path, so a suite
+        // must never opt a fresh install into it; sample content stays an explicit --demo choice there.
+        [$freshInstall] = $this->freshInstallOptions();
+        if ($selection->demo !== null && ! $freshInstall && ! $this->optionWasProvidedOnCommandLine('demo')) {
             $this->input->setOption('demo', $selection->demo);
         }
     }
@@ -1371,6 +1367,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             writeError: function (string $message): void {
                 $this->error($message);
             },
+            preferredThemeKey: $this->suiteThemeKey,
         );
     }
 

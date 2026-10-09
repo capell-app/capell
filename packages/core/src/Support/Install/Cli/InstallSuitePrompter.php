@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\multisearch;
 use function Laravel\Prompts\multiselect;
+use function Laravel\Prompts\note;
 use function Laravel\Prompts\select;
 
 use Throwable;
@@ -36,7 +37,7 @@ final class InstallSuitePrompter
     /** Returns null when no suite fits, so the caller falls back to the plain package checklist. */
     public function prompt(): ?InstallSuiteSelectionData
     {
-        $suites = collect($this->suites->all())->keyBy(fn (InstallRecommendationData $suite): string => $suite->key);
+        $suites = collect($this->suites->suites())->keyBy(fn (InstallRecommendationData $suite): string => $suite->key);
 
         if ($suites->isEmpty()) {
             return null;
@@ -80,7 +81,6 @@ final class InstallSuitePrompter
         }
 
         return new InstallSuiteSelectionData(
-            suiteKey: $suite->key,
             packages: array_values(array_unique($selected)),
             theme: $suite->theme,
             demo: $suite->demo,
@@ -119,6 +119,8 @@ final class InstallSuitePrompter
         $candidates = $this->searchableExtensions($alreadySelected);
 
         if ($candidates->isEmpty()) {
+            note(__('capell-core::install.suites.nothing_to_search'));
+
             return [];
         }
 
