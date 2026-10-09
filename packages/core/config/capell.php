@@ -306,13 +306,17 @@ return [
         // Install suites, offered as "What are you building?" in the CLI installer.
         // `packages` always install; `recommended` entries are pre-ticked and `optional`
         // entries are offered unticked, each with a one-line reason (package => reason).
+        // `description` is shown by the browser installer and `--recommendation`, which install only
+        // `packages`, so it must not promise extensions; `suite_description` is the CLI suite line.
+        // Downloads the catalogue does not mark free are never pre-ticked: they may need a licence.
         // Hosts may override these in their own config or capell-install-recommendations.php/json.
         // Keep package identities source-backed: the repository drops names that are neither
         // installed nor listed as downloadable, so a stale entry never reaches Composer.
         'recommendations' => [
             'blog' => [
                 'label' => 'Blog',
-                'description' => 'Publish articles with archives and tags, and be found in search.',
+                'description' => 'A public site with the admin workspace and frontend rendering.',
+                'suite_description' => 'Publish articles with archives and tags, and be found in search.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
                 'recommended' => [
                     'capell-app/blog' => 'Article publishing, archive pages and article widgets.',
@@ -331,7 +335,8 @@ return [
             ],
             'marketing' => [
                 'label' => 'Marketing site',
-                'description' => 'A content-managed site with forms, navigation and SEO tooling.',
+                'description' => 'A content-managed marketing site with the admin workspace and frontend rendering.',
+                'suite_description' => 'A content-managed site with forms, navigation and SEO tooling.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
                 'recommended' => [
                     'capell-app/form-builder' => 'Spam-filtered forms with a submissions inbox.',
@@ -350,7 +355,8 @@ return [
             ],
             'docs' => [
                 'label' => 'Help centre or documentation',
-                'description' => 'A structured knowledge base that readers can search and browse.',
+                'description' => 'A help centre starting point with the admin workspace and frontend rendering.',
+                'suite_description' => 'A structured knowledge base that readers can search and browse.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
                 'recommended' => [
                     'capell-app/knowledge-base' => 'Collections of articles grouped into a public help centre.',
@@ -368,7 +374,8 @@ return [
             ],
             'client' => [
                 'label' => 'Client or agency site',
-                'description' => 'Visual page building with a media library and safe publishing.',
+                'description' => 'A client site with the admin workspace and frontend rendering.',
+                'suite_description' => 'Visual page building with a media library and safe publishing.',
                 'packages' => ['capell-app/admin', 'capell-app/frontend'],
                 'recommended' => [
                     'capell-app/layout-builder' => 'Compose pages visually from reusable widgets and areas.',

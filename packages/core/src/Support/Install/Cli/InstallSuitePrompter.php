@@ -34,8 +34,11 @@ final class InstallSuitePrompter
 
     public function __construct(private readonly InstallRecommendationRepository $suites) {}
 
-    /** Returns null when no suite fits, so the caller falls back to the plain package checklist. */
-    public function prompt(): ?InstallSuiteSelectionData
+    /**
+     * Returns null when no suite fits, so the caller falls back to the plain package checklist.
+     * A fresh install wipes the current install state, so installed extensions stay searchable.
+     */
+    public function prompt(bool $freshInstall = false): ?InstallSuiteSelectionData
     {
         $suites = collect($this->suites->suites())->keyBy(fn (InstallRecommendationData $suite): string => $suite->key);
 
@@ -46,7 +49,7 @@ final class InstallSuitePrompter
         $suiteKey = (string) select(
             label: __('capell-core::install.suites.goal_label'),
             options: [
-                ...$suites->map(fn (InstallRecommendationData $suite): string => $suite->label . ' — ' . $suite->description)->all(),
+                ...$suites->map(fn (InstallRecommendationData $suite): string => $suite->label . ' — ' . $this->suiteDescription($suite))->all(),
                 self::CUSTOM_KEY => __('capell-core::install.suites.custom_option'),
             ],
             default: (string) $suites->keys()->first(),
@@ -61,23 +64,25 @@ final class InstallSuitePrompter
         $suite = $suites->get($suiteKey);
 
         $selected = [
-            ...$suite->packages,
+            ...$this->foundationPackages($suite->packages),
             ...$this->tick(
                 $suite->recommended,
                 __('capell-core::install.suites.recommended_label', ['suite' => $suite->label]),
                 __('capell-core::install.suites.recommended_hint'),
-                preselected: true,
+                preselected: $suite->preselectedRecommended(),
+                mayNeedLicence: $suite->mayNeedLicence,
             ),
             ...$this->tick(
                 $suite->optional,
                 __('capell-core::install.suites.optional_label', ['suite' => $suite->label]),
                 __('capell-core::install.suites.optional_hint'),
-                preselected: false,
+                preselected: [],
+                mayNeedLicence: $suite->mayNeedLicence,
             ),
         ];
 
         if (confirm(label: __('capell-core::install.suites.search_confirm'), default: false)) {
-            $selected = [...$selected, ...$this->search($selected)];
+            $selected = [...$selected, ...$this->search($selected, $freshInstall)];
         }
 
         return new InstallSuiteSelectionData(
@@ -88,10 +93,49 @@ final class InstallSuitePrompter
     }
 
     /**
-     * @param  array<string, string>  $reasons
+     * The suite's packages plus the defaults the plain checklist pre-ticks that build on them, so
+     * choosing a suite never drops the Marketplace or the welcome tour. A default joins only when
+     * the suite installs everything it needs, so a suite without the admin (headless) gets none.
+     *
+     * @param  list<string>  $suitePackages
      * @return list<string>
      */
-    private function tick(array $reasons, string $label, string $hint, bool $preselected): array
+    public function foundationPackages(array $suitePackages): array
+    {
+        $defaults = CapellCore::getPackages(sortByDependencies: true)
+            ->filter(fn (PackageData $package): bool => TrustedCorePackages::isDefaultInstallSelection($package->name)
+                && $package->isVisibleInCatalogue()
+                && ! in_array($package->name, $suitePackages, true))
+            ->filter(function (PackageData $package) use ($suitePackages): bool {
+                $requirements = array_values(array_filter(
+                    $package->getRequirements(),
+                    fn (string $requirement): bool => ! TrustedCorePackages::isCoreRuntimePackage($requirement),
+                ));
+
+                return $requirements !== [] && array_diff($requirements, $suitePackages) === [];
+            })
+            ->keys()
+            ->map(fn (int|string $packageName): string => (string) $packageName)
+            ->all();
+
+        return array_values(array_unique([...$suitePackages, ...$defaults]));
+    }
+
+    /** The richer CLI line only when this run can offer the extensions it describes. */
+    private function suiteDescription(InstallRecommendationData $suite): string
+    {
+        return $suite->suiteDescription !== null && $suite->hasExtensions()
+            ? $suite->suiteDescription
+            : $suite->description;
+    }
+
+    /**
+     * @param  array<string, string>  $reasons
+     * @param  list<string>  $preselected
+     * @param  list<string>  $mayNeedLicence
+     * @return list<string>
+     */
+    private function tick(array $reasons, string $label, string $hint, array $preselected, array $mayNeedLicence): array
     {
         if ($reasons === []) {
             return [];
@@ -99,13 +143,15 @@ final class InstallSuitePrompter
 
         $options = [];
         foreach ($reasons as $package => $reason) {
-            $options[$package] = $this->displayName($package) . ($reason === '' ? '' : ' — ' . $reason);
+            $options[$package] = $this->displayName($package)
+                . ($reason === '' ? '' : ' — ' . $reason)
+                . (in_array($package, $mayNeedLicence, true) ? ' ' . __('capell-core::install.suites.may_need_licence') : '');
         }
 
         return array_values(array_map(strval(...), multiselect(
             label: $label,
             options: $options,
-            default: $preselected ? array_keys($reasons) : [],
+            default: array_values(array_intersect($preselected, array_keys($reasons))),
             hint: $hint,
         )));
     }
@@ -114,9 +160,9 @@ final class InstallSuitePrompter
      * @param  list<string>  $alreadySelected
      * @return list<string>
      */
-    private function search(array $alreadySelected): array
+    private function search(array $alreadySelected, bool $freshInstall): array
     {
-        $candidates = $this->searchableExtensions($alreadySelected);
+        $candidates = $this->searchableExtensions($alreadySelected, $freshInstall);
 
         if ($candidates->isEmpty()) {
             note(__('capell-core::install.suites.nothing_to_search'));
@@ -126,7 +172,8 @@ final class InstallSuitePrompter
 
         return array_values(array_map(strval(...), multisearch(
             label: __('capell-core::install.suites.search_label'),
-            options: fn (string $typed): array => $this->matching($candidates, $typed),
+            // The non-interactive fallback (Windows) passes null for an empty answer.
+            options: fn (?string $typed): array => $this->matching($candidates, $typed ?? ''),
             placeholder: __('capell-core::install.suites.search_placeholder'),
             hint: __('capell-core::install.suites.search_hint'),
         )));
@@ -149,12 +196,13 @@ final class InstallSuitePrompter
     }
 
     /**
-     * Everything installable that is not a theme, a foundation package or already chosen.
+     * Everything installable that is not a theme, a foundation package or already chosen. Installed
+     * extensions are hidden, except on a fresh install, which wipes that state and reinstalls.
      *
      * @param  list<string>  $alreadySelected
      * @return Collection<string, PackageData>
      */
-    private function searchableExtensions(array $alreadySelected): Collection
+    private function searchableExtensions(array $alreadySelected, bool $freshInstall): Collection
     {
         try {
             $downloadable = GetPluginsAction::run('download');
@@ -167,7 +215,7 @@ final class InstallSuitePrompter
             ->filter(fn (PackageData $package): bool => $package->isVisibleInCatalogue())
             ->reject(fn (PackageData $package): bool => $package->getThemeKey() !== null)
             ->reject(fn (PackageData $package): bool => TrustedCorePackages::contains($package->name))
-            ->reject(fn (PackageData $package): bool => $package->isInstalled())
+            ->reject(fn (PackageData $package): bool => ! $freshInstall && $package->isInstalled())
             ->reject(fn (PackageData $package): bool => in_array($package->name, $alreadySelected, true))
             ->sortBy(fn (PackageData $package): string => $package->getLabel());
     }
@@ -175,10 +223,13 @@ final class InstallSuitePrompter
     private function describe(PackageData $package): string
     {
         $description = trim((string) $package->getDescription());
+        $note = ! CapellCore::hasPackage($package->name) && $this->suites->downloadMayNeedLicence($package)
+            ? ' ' . __('capell-core::install.suites.may_need_licence')
+            : '';
 
-        return $description === ''
+        return ($description === ''
             ? $package->getLabel()
-            : $package->getLabel() . ' — ' . Str::limit($description, 80);
+            : $package->getLabel() . ' — ' . Str::limit($description, 80)) . $note;
     }
 
     private function displayName(string $package): string

@@ -1167,7 +1167,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return;
         }
 
-        $selection = resolve(InstallSuitePrompter::class)->prompt();
+        [$freshInstall] = $this->freshInstallOptions();
+        $selection = resolve(InstallSuitePrompter::class)->prompt($freshInstall);
         if ($selection === null) {
             return;
         }
@@ -1185,7 +1186,6 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         // A fresh install with --demo takes the unattended known-credentials path, so a suite
         // must never opt a fresh install into it; sample content stays an explicit --demo choice there.
-        [$freshInstall] = $this->freshInstallOptions();
         if ($selection->demo !== null && ! $freshInstall && ! $this->optionWasProvidedOnCommandLine('demo')) {
             $this->input->setOption('demo', $selection->demo);
         }

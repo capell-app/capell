@@ -321,3 +321,63 @@ it('keeps the cheap lookups free of marketplace calls so the browser installer c
         ->and($repository->all()[0]->recommended)->toBe([])
         ->and($repository->find('suite')?->key)->toBe('suite');
 });
+
+it('never pre-ticks a download the catalogue does not mark free, so a paid extension cannot abort an install without licence access', function (): void {
+    CapellCore::clearPackages();
+    CapellCore::registerPackage(name: 'vendor/installed');
+    GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect([
+        'vendor/free' => new PackageData(name: 'vendor/free', type: PackageTypeEnum::Plugin, tier: 'free'),
+        'vendor/premium' => new PackageData(name: 'vendor/premium', type: PackageTypeEnum::Plugin, tier: 'premium'),
+        'vendor/untiered' => new PackageData(name: 'vendor/untiered', type: PackageTypeEnum::Plugin),
+    ]));
+    config(['capell.install.recommendations' => [
+        'suite' => [
+            'label' => 'Suite',
+            'description' => 'A suite.',
+            'recommended' => [
+                'vendor/installed' => 'Already here.',
+                'vendor/free' => 'Free download.',
+                'vendor/premium' => 'Paid download.',
+                'vendor/untiered' => 'Tier unknown.',
+                'capell-app/admin' => 'Trusted core.',
+            ],
+            'optional' => ['vendor/premium' => 'Paid download.'],
+        ],
+    ]]);
+
+    $suite = collect(resolve(InstallRecommendationRepository::class)->suites())->firstWhere('key', 'suite');
+
+    expect($suite?->mayNeedLicence)->toBe(['vendor/premium', 'vendor/untiered'])
+        ->and($suite?->preselectedRecommended())->toBe(['vendor/installed', 'vendor/free', 'capell-app/admin']);
+});
+
+it('keeps the browser installer description separate from the richer CLI suite description', function (): void {
+    CapellCore::clearPackages();
+    GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect());
+    config(['capell.install.recommendations' => [
+        'suite' => [
+            'label' => 'Suite',
+            'description' => 'The admin workspace and public frontend.',
+            'suite_description' => 'Everything a suite adds when its extensions are ticked.',
+        ],
+    ]]);
+
+    $repository = resolve(InstallRecommendationRepository::class);
+
+    expect($repository->find('suite')?->description)->toBe('The admin workspace and public frontend.')
+        ->and($repository->find('suite')?->suiteDescription)->toBeNull()
+        ->and($repository->suites()[0]->suiteDescription)->toBe('Everything a suite adds when its extensions are ticked.');
+});
+
+it('ships plain-path descriptions that differ from the CLI suite descriptions for every suite with extensions', function (): void {
+    $defaults = require dirname(__DIR__, 3) . '/config/capell.php';
+
+    foreach ($defaults['install']['recommendations'] as $key => $suite) {
+        if (($suite['recommended'] ?? []) === [] && ($suite['optional'] ?? []) === []) {
+            continue;
+        }
+
+        expect($suite['suite_description'] ?? '')->not->toBe('', $key . ' needs a CLI suite description')
+            ->and($suite['description'])->not->toBe($suite['suite_description'] ?? '', $key . ' must not promise its extensions on the plain path');
+    }
+});
