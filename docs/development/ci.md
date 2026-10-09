@@ -10,6 +10,16 @@ Run `composer test:shards` when the timing manifest needs refreshing. Pest write
 
 Pest 4.7 requires a small sharding compatibility patch for this monorepo. It supports package namespaces, preserves the discovery process memory limit, and prevents parallel-worker PHP options from leaking into PHPUnit test discovery. Composer applies it after autoload refreshes, and `composer check:pest-shards` fails on unsupported Pest versions so the patch is reviewed and removed once upstream behavior is sufficient.
 
+## Immutable lock admission
+
+The release-environment Composer constraint checks read sibling locks from the
+measured source commits. Set `CAPELL_RELEASE_APP_COMMIT` and
+`CAPELL_RELEASE_PACKAGES_COMMIT` to full 40-character commit hashes, alongside
+`CAPELL_APPLICATION_ROOT` and `CAPELL_PACKAGES_REPO_PATH`, when running that group
+locally. Moving fetched refs or editing a sibling lock cannot change its input.
+The App release verifier supplies these pins and includes all three repository
+commits in Core's lane cache key; missing or mutable pins fail admission.
+
 ## Composer Refresh For Screenshot Fixtures
 
 Composer install and autoload refresh matter for screenshot and docs checks because generated Filament/admin fixtures depend on package discovery and Testbench state. CI runs Composer validation and dependency install before quality checks so package providers, screenshot fixtures, and generated docs state use the current lock file rather than stale vendor metadata.
