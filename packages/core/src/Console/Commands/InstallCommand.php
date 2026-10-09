@@ -39,6 +39,7 @@ use Capell\Core\Support\Install\Cli\InstallCacheOptionResolver;
 use Capell\Core\Support\Install\Cli\InstallCommandPresenter;
 use Capell\Core\Support\Install\Cli\InstallPackageSetComposer;
 use Capell\Core\Support\Install\Cli\InstallPostInstallOptionResolver;
+use Capell\Core\Support\Install\Cli\InstallSuitePrompter;
 use Capell\Core\Support\Install\Cli\InstallUserPrompter;
 use Capell\Core\Support\Install\ConsoleProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
@@ -51,6 +52,7 @@ use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
+use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Patching\PatchStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -128,9 +130,17 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private bool $configureHomepage = false;
 
+    /** @var list<string> Suite extensions that are not installed yet and must be downloaded with Composer. */
+    private array $suiteDownloadPackages = [];
+
+    /** The chosen suite's theme, offered as the default of the theme question rather than forced. */
+    private ?string $suiteThemeKey = null;
+
     public function handle(): int
     {
         $this->reviewedPatchChoices = [];
+        $this->suiteDownloadPackages = [];
+        $this->suiteThemeKey = null;
         $this->configureHomepage = false;
         $bootExitCode = $this->bootInstallCommand();
         if ($bootExitCode !== null) {
@@ -422,7 +432,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $this->reviewedPatchChoices = [];
         $this->outputInstallReview($inputData, $runNpmBuild, $removeInstallerPackage, $cachesToClear);
-        $this->outputPlan($inputData);
+        $this->outputPlan($inputData, collapseWhenInteractive: true);
 
         if ($this->input->isInteractive() && ! confirm(
             label: __('capell-core::install.review.confirm_label'),
@@ -472,13 +482,20 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     }
 
     #[Override]
-    public function outputPlan(InstallInputData $inputData): void
+    public function outputPlan(InstallInputData $inputData, bool $collapseWhenInteractive = false): void
     {
         $steps = InstallPlan::steps($inputData);
 
         $this->newLine();
         $this->line('<fg=blue;options=bold>Capell Install Plan</>');
         $this->newLine();
+
+        if ($collapseWhenInteractive && $this->input->isInteractive() && ! $this->output->isVerbose()) {
+            $this->line(__('capell-core::install.review.plan_collapsed', ['count' => $steps->count()]));
+            $this->newLine();
+
+            return;
+        }
 
         $steps->each(function (InstallStepData $step, int $index): void {
             $this->line(sprintf('%d. %s', $index + 1, $step->label));
@@ -664,12 +681,49 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         $review = BuildInstallReviewAction::run($inputData, $runNpmBuild, $removeInstaller, $cachesToClear, $patchLabels);
         $this->newLine();
+        $this->renderInstallReview($review->items, $review->lists);
+        $this->newLine();
+    }
+
+    /**
+     * Lead with the handful of facts a newcomer needs, then list the mechanical detail as bullets.
+     * The execution steps are omitted because the plan printed straight after the review lists them.
+     *
+     * @param  array<string, string>  $items
+     * @param  array<string, list<string>>  $lists
+     */
+    private function renderInstallReview(array $items, array $lists): void
+    {
+        $none = __('capell-core::install.review.none');
+        $essentialLabels = [
+            __('capell-core::install.review.site'),
+            __('capell-core::install.review.database'),
+            __('capell-core::install.review.packages'),
+            __('capell-core::install.review.theme'),
+            __('capell-core::install.review.content'),
+            __('capell-core::install.review.administrator'),
+        ];
+
         $this->line('<fg=blue;options=bold>' . __('capell-core::install.review.title') . '</>');
-        foreach ($review->items as $label => $value) {
-            $this->line(OutputFormatter::escape($label . ': ' . $value));
+        $this->newLine();
+        $this->line('<options=bold>' . __('capell-core::install.review.essentials_title') . '</>');
+
+        foreach ($essentialLabels as $label) {
+            if (isset($items[$label]) && $items[$label] !== $none) {
+                $this->line(OutputFormatter::escape('  ' . $label . ': ' . $items[$label]));
+            }
         }
 
         $this->newLine();
+        $this->line('<options=bold>' . __('capell-core::install.review.details_title') . '</>');
+
+        foreach (array_filter($lists) as $label => $entries) {
+            $this->line(OutputFormatter::escape('  ' . $label));
+
+            foreach ($entries as $entry) {
+                $this->line(OutputFormatter::escape('    • ' . $entry));
+            }
+        }
     }
 
     private function finishPlanOnlyInstall(InstallInputData $inputData): int
@@ -802,6 +856,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         if ($recommendationExitCode !== null) {
             return $recommendationExitCode;
         }
+
+        $this->applyInteractiveSuiteSelection();
 
         $newUser = $this->userPrompter()->newUserFromOptions($this->option('name'), $this->option('email'), $this->option('password'));
         if (! $newUser instanceof NewUserData && $this->shouldUseFreshDemoDefaults()) {
@@ -1092,6 +1148,49 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         return null;
     }
 
+    /**
+     * Ask "What are you building?" only when nothing on the command line already decided the package list.
+     * Unregistered, non-core extensions cannot go through --packages, so they join the Composer downloads.
+     */
+    private function applyInteractiveSuiteSelection(): void
+    {
+        $alreadyDecided = $this->installProfile instanceof InstallProfileData
+            || $this->option('plan')
+            || $this->shouldUseFreshDemoDefaults()
+            || filled($this->option('recommendation'))
+            || filled($this->option('recommendation-action'))
+            || $this->optionWasProvidedOnCommandLine('packages')
+            || $this->optionWasProvidedOnCommandLine('package-mode')
+            || $this->optionWasProvidedOnCommandLine('all-packages');
+
+        if ($alreadyDecided || ! $this->input->isInteractive()) {
+            return;
+        }
+
+        [$freshInstall] = $this->freshInstallOptions();
+        $selection = resolve(InstallSuitePrompter::class)->prompt($freshInstall);
+        if ($selection === null) {
+            return;
+        }
+
+        $installable = fn (string $packageName): bool => CapellCore::hasPackage($packageName)
+            || TrustedCorePackages::contains($packageName);
+
+        $this->suiteDownloadPackages = array_values(array_filter(
+            $selection->packages,
+            fn (string $packageName): bool => ! $installable($packageName),
+        ));
+        $this->input->setOption('packages', implode(',', array_values(array_filter($selection->packages, $installable))));
+
+        $this->suiteThemeKey = $selection->theme;
+
+        // A fresh install with --demo takes the unattended known-credentials path, so a suite
+        // must never opt a fresh install into it; sample content stays an explicit --demo choice there.
+        if ($selection->demo !== null && ! $freshInstall && ! $this->optionWasProvidedOnCommandLine('demo')) {
+            $this->input->setOption('demo', $selection->demo);
+        }
+    }
+
     private function optionWasProvidedOnCommandLine(string $option): bool
     {
         if ($this->input->hasParameterOption('--' . $option)) {
@@ -1210,12 +1309,15 @@ class InstallCommand extends Command implements InstallOrchestrationHost
      */
     private function installTimePackageNamesFromSelection(): array
     {
-        return $this->packageSetComposer()->installTimePackageNames(
-            selectedPackageNames: $this->parseListOption('packages') ?? [],
-            packageMode: $this->option('package-mode'),
-            allPackages: (bool) $this->option('all-packages'),
-            useFreshDemoPackageDefaults: $this->shouldUseFreshDemoPackageDefaults(),
-        );
+        return array_values(array_unique([
+            ...$this->packageSetComposer()->installTimePackageNames(
+                selectedPackageNames: $this->parseListOption('packages') ?? [],
+                packageMode: $this->option('package-mode'),
+                allPackages: (bool) $this->option('all-packages'),
+                useFreshDemoPackageDefaults: $this->shouldUseFreshDemoPackageDefaults(),
+            ),
+            ...$this->suiteDownloadPackages,
+        ]));
     }
 
     private function installerPackageName(): string
@@ -1269,6 +1371,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             writeError: function (string $message): void {
                 $this->error($message);
             },
+            preferredThemeKey: $this->suiteThemeKey,
         );
     }
 

@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\BuildInstallRunResultAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\RunInstallAction;
+use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Events\CapellInstalled;
@@ -21,6 +24,7 @@ use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
 use Capell\Core\Tests\Feature\Commands\Fixtures\TestInstallCommand;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
@@ -58,6 +62,8 @@ afterEach(function (): void {
 function setupInstallTest(array $packageNames = ['test'], bool $foundationThemeAvailable = false): array
 {
     Storage::fake();
+    // Tests drive the plain package checklist unless they configure install suites themselves.
+    config(['capell.install.recommendations' => []]);
     bindInstallCommandHermeticProcessFactory();
     CapellCore::clearPackages();
     bindDeveloperToolingInstallationState(false);
@@ -287,7 +293,7 @@ function registerInstallTestFilamentInstallCommand(): void
     // a later Artisan::all() call cannot replace it with the real interactive command.
     Artisan::all();
 
-    Artisan::registerCommand(new class extends Illuminate\Console\Command
+    Artisan::registerCommand(new class extends LaravelCommand
     {
         protected $signature = 'filament:install {--panels}';
 
@@ -1068,6 +1074,322 @@ it('prompts for packages when no --packages option is given', function (): void 
             'capell-app/frontend',
             'capell-app/marketplace',
         ]);
+});
+
+it('leads the interactive review with the essentials and collapses the step list', function (): void {
+    setupInstallTest([
+        'capell-app/core',
+        'capell-app/admin',
+        'capell-app/frontend',
+        'capell-app/marketplace',
+    ]);
+    createTestUser();
+    bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+    ])
+        ->expectsQuestion('What core Capell packages should be installed?', [
+            'capell-app/admin',
+            'capell-app/frontend',
+            'capell-app/marketplace',
+        ])
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsOutputToContain('What you are setting up')
+        ->expectsOutputToContain('Also happening along the way')
+        ->expectsOutputToContain('steps will run in order. Re-run with -v to list every step.')
+        ->doesntExpectOutputToContain('Execution steps')
+        ->doesntExpectOutputToContain('Run preflight checks')
+        ->expectsConfirmation('Install Capell with these settings?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+});
+
+it('describes each package in the checklist so newcomers can see what they add', function (): void {
+    setupInstallTest(['vendor/described', 'vendor/undescribed']);
+    CapellCore::getPackage('vendor/described')->description = 'Adds a described feature to your site.';
+
+    $command = resolve(InstallCommand::class);
+
+    $options = new ReflectionMethod($command, 'packagePromptOptions')->invoke(
+        $command,
+        CapellCore::getPackages()->only(['vendor/described', 'vendor/undescribed']),
+    );
+
+    expect($options['vendor/described'])->toBe('Described — Adds a described feature to your site.')
+        ->and($options['vendor/undescribed'])->toBe('Undescribed');
+});
+
+function configureInstallSuiteForTest(bool $demo = false): void
+{
+    config(['capell.install.recommendations' => [
+        'site' => [
+            'label' => 'Test site',
+            'description' => 'A site for testing.',
+            'packages' => ['capell-app/admin', 'capell-app/frontend'],
+            'recommended' => [
+                'capell-app/form-builder' => 'Forms with an inbox.',
+                'unknown/ghost' => 'Not installable anywhere.',
+            ],
+            'optional' => ['capell-app/newsletter' => 'Collect subscribers.'],
+            'theme' => 'default',
+            'demo' => $demo,
+        ],
+    ]]);
+
+    GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect([
+        'capell-app/form-builder' => new PackageData(name: 'capell-app/form-builder', type: PackageTypeEnum::Plugin),
+        'capell-app/newsletter' => new PackageData(name: 'capell-app/newsletter', type: PackageTypeEnum::Plugin),
+        'capell-app/events' => new PackageData(name: 'capell-app/events', type: PackageTypeEnum::Plugin, description: 'Recurring events.', tier: 'free'),
+    ]));
+}
+
+it('turns a chosen suite into installed packages plus Composer downloads for extensions not installed yet', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace']);
+    CapellCore::getPackage('capell-app/marketplace')->requirements = ['capell-app/admin', 'capell-app/core'];
+    configureInstallSuiteForTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+    ])
+        ->expectsQuestion('What are you building?', 'site')
+        ->expectsChoice('Recommended for Test site', ['capell-app/form-builder'], [
+            'capell-app/form-builder' => 'Form Builder — Forms with an inbox. (may need a Capell licence to download)',
+        ])
+        ->expectsQuestion('Optional extras for Test site', ['capell-app/newsletter'])
+        ->expectsConfirmation('Search for more extensions?', 'no')
+        ->expectsQuestion('Which starter theme should be installed?', 'default')
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsOutputToContain('• capell-app/form-builder')
+        ->expectsOutputToContain('• Composer also resolves required dependencies; these may change composer.json and composer.lock')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($fake->capturedInput->packages)->toEqualCanonicalizing(['capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace'])
+        ->and($fake->capturedInput->extraPackages)->toContain('capell-app/form-builder', 'capell-app/newsletter')
+        ->and($fake->capturedInput->extraPackages)->not->toContain('unknown/ghost')
+        ->and($fake->capturedInput->demoContent)->toBeFalse();
+});
+
+it('lets the user search the catalogue for an extension the suite did not suggest', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace']);
+    configureInstallSuiteForTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+    ])
+        ->expectsQuestion('What are you building?', 'site')
+        ->expectsQuestion('Recommended for Test site', ['capell-app/form-builder'])
+        ->expectsQuestion('Optional extras for Test site', [])
+        ->expectsConfirmation('Search for more extensions?', 'yes')
+        ->expectsSearch(
+            'Search extensions by name or by what they do',
+            ['capell-app/events'],
+            'recurring',
+            ['capell-app/events' => 'Events — Recurring events.'],
+        )
+        ->expectsQuestion('Which starter theme should be installed?', 'default')
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($fake->capturedInput->extraPackages)->toContain('capell-app/form-builder', 'capell-app/events')
+        ->and($fake->capturedInput->extraPackages)->not->toContain('capell-app/newsletter');
+});
+
+it('lists every candidate when the search is submitted empty, as the non-interactive fallback does on Windows', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace']);
+    configureInstallSuiteForTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+    ])
+        ->expectsQuestion('What are you building?', 'site')
+        ->expectsQuestion('Recommended for Test site', [])
+        ->expectsQuestion('Optional extras for Test site', [])
+        ->expectsConfirmation('Search for more extensions?', 'yes')
+        ->expectsSearch(
+            'Search extensions by name or by what they do',
+            ['capell-app/events'],
+            null,
+            [
+                'capell-app/events' => 'Events — Recurring events.',
+                'capell-app/form-builder' => 'Form Builder (may need a Capell licence to download)',
+                'capell-app/newsletter' => 'Newsletter (may need a Capell licence to download)',
+            ],
+        )
+        ->expectsQuestion('Which starter theme should be installed?', 'default')
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($fake->capturedInput->extraPackages)->toContain('capell-app/events');
+});
+
+it('lets a fresh reinstall search for an extension that is installed now but about to be wiped', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace', 'vendor/reselect']);
+    CapellCore::getPackage('vendor/reselect')->description = 'Reselectable extension.';
+    CapellCore::forcePackageInstalled('vendor/reselect');
+    configureInstallSuiteForTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--fresh' => true,
+        '--clear-cache' => true,
+    ])
+        ->expectsQuestion('What are you building?', 'site')
+        ->expectsQuestion('Recommended for Test site', [])
+        ->expectsQuestion('Optional extras for Test site', [])
+        ->expectsConfirmation('Search for more extensions?', 'yes')
+        ->expectsSearch(
+            'Search extensions by name or by what they do',
+            ['vendor/reselect'],
+            'reselect',
+            ['vendor/reselect' => 'Reselect — Reselectable extension.'],
+        )
+        ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
+        ->expectsQuestion('Which starter theme should be installed?', 'default')
+        ->expectsQuestion('Name', 'Fresh Admin')
+        ->expectsQuestion('Email', 'fresh@example.test')
+        ->expectsQuestion('Password', 'password')
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($fake->capturedInput->packages)->toContain('vendor/reselect');
+});
+
+it('does not opt a fresh install into the known-credentials demo path when the suite includes demo content', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace']);
+    configureInstallSuiteForTest(demo: true);
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--fresh' => true,
+        '--clear-cache' => true,
+    ])
+        ->expectsQuestion('What are you building?', 'site')
+        ->expectsQuestion('Recommended for Test site', [])
+        ->expectsQuestion('Optional extras for Test site', [])
+        ->expectsConfirmation('Search for more extensions?', 'no')
+        ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
+        ->expectsQuestion('Which starter theme should be installed?', 'default')
+        ->expectsQuestion('Name', 'Fresh Admin')
+        ->expectsQuestion('Email', 'fresh@example.test')
+        ->expectsQuestion('Password', 'password')
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($fake->capturedInput->demoContent)->toBeFalse()
+        ->and($fake->capturedInput->newUser?->email)->toBe('fresh@example.test');
+});
+
+it('does not ask what is being built for unattended or recommendation-driven installs', function (array $arguments): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace']);
+    configureInstallSuiteForTest();
+    createTestUser();
+    bindFakeRunInstallAction();
+
+    $command = artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        ...$arguments,
+    ]);
+
+    if (! array_key_exists('--no-interaction', $arguments)) {
+        $command
+            ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+            ->expectsConfirmation('Build production frontend assets now?', 'no')
+            ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+            ->expectsConfirmation('Install Capell with these settings?', 'yes')
+            ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no');
+    }
+
+    $command->doesntExpectOutputToContain('What are you building?')->assertExitCode(Command::SUCCESS);
+})->with([
+    'unattended' => [['--no-interaction' => true, '--theme' => 'foundation']],
+    'a named recommendation' => [['--recommendation' => 'site', '--theme' => 'foundation']],
+]);
+
+it('falls back to the plain package checklist when the user will choose their own packages', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace']);
+    configureInstallSuiteForTest();
+    createTestUser();
+    bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+    ])
+        ->expectsQuestion('What are you building?', '__custom')
+        ->expectsQuestion('What core Capell packages should be installed?', ['capell-app/admin', 'capell-app/frontend'])
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+});
+
+it('does not ask what is being built when the package list was already decided on the command line', function (): void {
+    setupInstallTest(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace']);
+    configureInstallSuiteForTest();
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+        '--packages' => 'capell-app/admin,capell-app/frontend',
+    ])
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'yes')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($fake->capturedInput->extraPackages)->not->toContain('capell-app/form-builder');
 });
 
 it('allows packages to be skipped from the package checklist', function (): void {

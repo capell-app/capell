@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Data\Install\InstallRecommendationData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Packages\TrustedCorePackages;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Throwable;
 
@@ -22,12 +25,72 @@ use Throwable;
 final class InstallRecommendationRepository
 {
     /**
+     * Suites without their extension lists. Cheap: no marketplace lookup, so the browser installer
+     * and `--recommendation` can call it on every request.
+     *
      * @return list<InstallRecommendationData>
      */
     public function all(): array
     {
+        return $this->resolve(withExtensions: false);
+    }
+
+    /**
+     * Suites including `recommended` and `optional` extensions, each kept only if it is installed,
+     * trusted core or listed as downloadable, plus the CLI `suiteDescription` and the downloads that
+     * may need a licence. That check may reach the marketplace, so only the interactive CLI prompter
+     * asks for it.
+     *
+     * @return list<InstallRecommendationData>
+     */
+    public function suites(): array
+    {
+        return $this->resolve(withExtensions: true);
+    }
+
+    public function find(?string $key): ?InstallRecommendationData
+    {
+        if ($key === null || trim($key) === '') {
+            return null;
+        }
+
+        return collect($this->all())->first(fn (InstallRecommendationData $recommendation): bool => $recommendation->key === $key);
+    }
+
+    /**
+     * Whether downloading this catalogue entry may need a Capell licence. Only an explicit `free`
+     * tier proves it does not: paid extensions install through the licensed Composer repository,
+     * and a catalogue entry without a tier gives no evidence either way.
+     */
+    public function downloadMayNeedLicence(PackageData $package): bool
+    {
+        return $package->tier !== 'free';
+    }
+
+    /**
+     * @return list<InstallRecommendationData>
+     */
+    private function resolve(bool $withExtensions): array
+    {
         $recommendations = $this->configuredRecommendations();
         $available = CapellCore::getPackages(sortByDependencies: true);
+        $downloadable = null;
+        $download = function (string $package) use (&$downloadable): ?PackageData {
+            $downloadable ??= $this->downloadablePackages();
+
+            return $downloadable->get($package);
+        };
+        $isLocal = fn (string $package): bool => $available->has($package) || TrustedCorePackages::contains($package);
+        $isInstallable = fn (string $package): bool => $isLocal($package) || $download($package) instanceof PackageData;
+        $mayNeedLicence = function (string $package) use ($isLocal, $download): bool {
+            if ($isLocal($package)) {
+                return false;
+            }
+
+            $catalogueEntry = $download($package);
+
+            return $catalogueEntry instanceof PackageData && $this->downloadMayNeedLicence($catalogueEntry);
+        };
 
         $resolved = [];
         foreach ($recommendations as $key => $recommendation) {
@@ -51,6 +114,9 @@ final class InstallRecommendationRepository
                 continue;
             }
 
+            $recommended = $withExtensions ? $this->reasonMap($recommendation['recommended'] ?? [], $isInstallable) : [];
+            $optional = $withExtensions ? $this->reasonMap($recommendation['optional'] ?? [], $isInstallable) : [];
+
             $resolved[] = new InstallRecommendationData(
                 key: (string) $key,
                 label: $label,
@@ -59,6 +125,13 @@ final class InstallRecommendationRepository
                 theme: $this->nullableString($recommendation['theme'] ?? null),
                 demo: is_bool($recommendation['demo'] ?? null) ? $recommendation['demo'] : null,
                 order: is_int($recommendation['order'] ?? null) ? $recommendation['order'] : 0,
+                recommended: $recommended,
+                optional: $optional,
+                suiteDescription: $withExtensions ? $this->nullableString($recommendation['suite_description'] ?? null) : null,
+                mayNeedLicence: array_values(array_unique(array_filter(
+                    [...array_keys($recommended), ...array_keys($optional)],
+                    $mayNeedLicence,
+                ))),
             );
         }
 
@@ -67,13 +140,51 @@ final class InstallRecommendationRepository
         return $resolved;
     }
 
-    public function find(?string $key): ?InstallRecommendationData
+    /**
+     * Packages the marketplace lists as downloadable, keyed by name. Offline or unreachable, this
+     * is empty, so a suite then offers only what is already installed rather than failing the install.
+     *
+     * @return Collection<string, PackageData>
+     */
+    private function downloadablePackages(): Collection
     {
-        if ($key === null || trim($key) === '') {
-            return null;
+        try {
+            return GetPluginsAction::run('download')
+                ->keyBy(fn (PackageData $package): string => $package->name);
+        } catch (Throwable) {
+            return collect();
+        }
+    }
+
+    /**
+     * @param  callable(string): bool  $isInstallable
+     * @return array<string, string>
+     */
+    private function reasonMap(mixed $value, callable $isInstallable): array
+    {
+        if (! is_array($value)) {
+            return [];
         }
 
-        return collect($this->all())->first(fn (InstallRecommendationData $recommendation): bool => $recommendation->key === $key);
+        $reasons = [];
+        foreach ($value as $package => $reason) {
+            if (! is_string($package)) {
+                continue;
+            }
+
+            $package = trim($package);
+            if ($package === '') {
+                continue;
+            }
+
+            if (! $isInstallable($package)) {
+                continue;
+            }
+
+            $reasons[$package] = $this->stringValue($reason);
+        }
+
+        return $reasons;
     }
 
     /** @return array<string, array<string, mixed>> */
