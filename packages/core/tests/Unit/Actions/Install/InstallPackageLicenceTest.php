@@ -46,15 +46,18 @@ it('checks the chosen site domain through the existing entitlement contract', fu
     $entitlements = Mockery::mock(ExtensionEntitlements::class);
     $entitlements->shouldReceive('licenceDecision')->with('licensed', 'install', 'example.test')->once()->andReturn($decision);
     $package = new PackageData(name: 'vendor/licensed', type: PackageTypeEnum::Plugin, slug: 'licensed', isPaid: true);
-    expect(new CheckInstallPackageAccessAction($entitlements)->handle($package, 'https://example.test:8443/blog'))->toBe($decision);
+    app()->instance(ExtensionEntitlements::class, $entitlements);
+    expect(CheckInstallPackageAccessAction::run($package, 'https://example.test:8443/blog'))->toBe($decision);
 });
 
 it('keeps unverified account access distinct from a licence denial', function (): void {
     $entitlements = Mockery::mock(ExtensionEntitlements::class);
     $entitlements->shouldReceive('licenceDecision')->once()->andThrow(new RuntimeException('Account unavailable'));
     $package = new PackageData(name: 'vendor/licensed', type: PackageTypeEnum::Plugin, slug: 'licensed', isPaid: true);
-    expect(new CheckInstallPackageAccessAction($entitlements)->handle($package, 'https://example.test'))->toBeNull();
+    app()->instance(ExtensionEntitlements::class, $entitlements);
+    expect(CheckInstallPackageAccessAction::run($package, 'https://example.test'))->toBeNull();
     Http::fake();
-    expect(new CheckInstallPackageAccessAction(new NullExtensionEntitlements)->handle($package, 'https://example.test'))->toBeNull();
+    app()->instance(ExtensionEntitlements::class, new NullExtensionEntitlements);
+    expect(CheckInstallPackageAccessAction::run($package, 'https://example.test'))->toBeNull();
     Http::assertNothingSent();
 });

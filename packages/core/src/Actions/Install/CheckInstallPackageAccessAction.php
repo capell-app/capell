@@ -8,11 +8,13 @@ use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Marketplace\NullExtensionEntitlements;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class CheckInstallPackageAccessAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly ExtensionEntitlements $entitlements) {}

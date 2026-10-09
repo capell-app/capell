@@ -6,10 +6,12 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Support\Install\InstallSiteUrl;
 use Capell\Core\Support\Patching\EnvFileEditor;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class UpdateInstallAppUrlAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(string $siteUrl, ?string $path = null): void

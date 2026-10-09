@@ -9,10 +9,12 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallSiteUrl;
 use Illuminate\Support\Facades\Artisan;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ReportInstallFailureAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param list<string> $completedSteps */

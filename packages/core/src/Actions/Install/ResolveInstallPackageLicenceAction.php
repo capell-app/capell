@@ -6,10 +6,12 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\InstallPackageLicenceState;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveInstallPackageLicenceAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PackageData $package): InstallPackageLicenceState

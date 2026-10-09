@@ -7,11 +7,13 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\InstallSiteUrl;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class SaveInstallProfileAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(InstallInputData $input, string $name, bool $buildAssets = false): void
@@ -45,12 +47,21 @@ final class SaveInstallProfileAction
             'languages' => $input->languages,
             'sites' => $input->demoSites ?? [],
         ];
-        $temporary = tempnam(dirname($path), '.capell-profile-');
-        throw_if($temporary === false, RuntimeException::class, 'Unable to create the installation profile file.');
+        $json = json_encode($profiles, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
+        // Exclusive creation keeps a collision from overwriting another writer's file.
+        $temporary = dirname($path) . '/.capell-profile-' . bin2hex(random_bytes(16));
+        $stream = fopen($temporary, 'x');
+        throw_if($stream === false, RuntimeException::class, 'Unable to create the installation profile file.');
         try {
-            $json = json_encode($profiles, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
-            throw_if(file_put_contents($temporary, $json, LOCK_EX) === false || ! rename($temporary, $path), RuntimeException::class, 'Unable to save the installation profile file.');
+            throw_unless(chmod($temporary, 0600), RuntimeException::class, 'Unable to secure the installation profile file.');
+            throw_if(fwrite($stream, $json) !== strlen($json) || ! fflush($stream), RuntimeException::class, 'Unable to save the installation profile file.');
+            fclose($stream);
+            throw_unless(rename($temporary, $path), RuntimeException::class, 'Unable to save the installation profile file.');
         } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+
             if (is_file($temporary)) {
                 unlink($temporary);
             }
