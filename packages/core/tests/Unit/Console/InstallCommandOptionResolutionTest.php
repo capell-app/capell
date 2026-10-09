@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Data\Install\DeveloperToolingChoiceData;
 use Capell\Core\Data\Install\InstallHandoffData;
+use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
@@ -561,3 +562,32 @@ it('rejects site addresses that cannot be persisted as a site origin and path', 
     expect(fn (): mixed => callInstallCommandMethod(installCommandForOptions(['--url' => $url]), 'resolveSiteUrl'))
         ->toThrow(InvalidArgumentException::class, 'absolute HTTP or HTTPS');
 })->with(['example.test/blog', 'ftp://example.test/blog', 'https://', 'https://example.test:99999', 'https://invalid host.test']);
+
+it('defaults the basic review to confirm all and honours Cancel', function (array $keys, bool $expected): void {
+    $command = installCommandForOptions([], true);
+    new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
+    $previousFallback = $fallback->getValue();
+    Prompt::fake($keys);
+    $fallback->setValue(null, false);
+    try {
+        expect(callInstallCommandMethod($command, 'reviewInstallation', $input))->toBe($expected);
+        Prompt::assertStrippedOutputContains('Confirm all basics and install');
+    } finally {
+        $fallback->setValue(null, $previousFallback);
+    }
+})->with(['Enter confirms all' => [[Key::ENTER], true], 'Cancel' => [[Key::DOWN, Key::DOWN, Key::ENTER], false]]);
+
+it('keeps explicitly empty package selections out of the basic defaults', function (): void {
+    expect(callInstallCommandMethod(installCommandForOptions(['--packages' => ''], true), 'usesBasicInstall'))->toBeFalse();
+});
+
+it('restores the saved site URL and downloads missing profile packages through Composer', function (): void {
+    config(['capell.install_profiles' => ['owned-profile' => ['packages' => ['capell-app/admin', 'vendor/not-yet-downloaded'], 'site_url' => 'https://example.test:8443/blog']]]);
+    $command = installCommandForOptions(['--profile' => 'owned-profile', '--plan' => true]);
+    expect(callInstallCommandMethod($command, 'bootInstallCommand'))->toBeNull()
+        ->and($command->option('url'))->toBe('https://example.test:8443/blog')
+        ->and($command->option('packages'))->toBe('capell-app/admin')
+        ->and(callInstallCommandMethod($command, 'installTimePackageNamesFromSelection'))->toContain('vendor/not-yet-downloaded');
+});

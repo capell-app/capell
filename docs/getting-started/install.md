@@ -93,6 +93,33 @@ Do not run `filament:install --panels` first. The Installer requires and configu
 php artisan capell:install
 ```
 
+The default interactive flow installs the basic Admin/Frontend foundation and default
+theme. It asks for the site address and missing administrator details, then offers
+**Confirm all basics and install**, **Customise settings**, or **Cancel**. The basic
+flow keeps existing data and homepage routes, skips demo/application seeders and
+installer removal, and refreshes Capell caches without clearing application data.
+Existing installations do not offer a database reset in this flow.
+
+Customisation lets you change the site or administrator, choose packages and a theme,
+opt into frontend dependency installation/building, choose whether to update `APP_URL`,
+or save a reusable profile. Changes return to the review with previous answers retained.
+Choose the full questionnaire or pass `--customise` for every setting. Explicit package,
+profile, demo, fresh-install and other advanced flags retain their detailed flow;
+`--fresh` always requires its destructive confirmation unless explicitly forced.
+
+When the first-site URL differs from `APP_URL`, the review shows that the application
+URL will remain unchanged. Opt into `--update-app-url` or its customisation choice to
+update it after confirmation. Profiles saved with `--save-profile=my-settings` go into
+`capell-install-profiles.json`, can be reused with `--profile=my-settings`, and exclude
+administrator credentials, URL credentials, query strings and fragments. Config/PHP
+profiles retain precedence over JSON profiles; existing named profiles are never replaced.
+
+Frontend builds use the existing frontend installation workflow to detect npm, pnpm,
+Yarn or Bun, install required dependencies and build assets. Failed installation steps
+report completed work and a read-only inspection command. An asset failure gives a
+frontend-only retry command, without repeating package or demo setup. Where Frontend
+is unavailable, the existing npm build fallback retains its npm recovery command.
+
 Interactive installation asks for the first site's full URL when `--url` is omitted,
 using `APP_URL` as the default. Include any port and mount path, for example
 `https://example.test:8443/blog`; site creation stores the scheme, hostname, port and
@@ -112,7 +139,9 @@ counts requested downloads, and lists database, administrator and application ch
 **Install Capell with these settings?** defaults to **Yes**; choosing **No** exits
 without applying the installation. Composer checks downloads before application
 preparation or database changes, with its diagnostic output retained below actionable
-access, licence, compatibility or connectivity guidance.
+access, licence, compatibility or connectivity guidance. For a local Core path
+repository, targeted downloads explicitly include Core with the application's
+existing constraint so Composer can resolve the path package during its partial update.
 
 For a fresh full-foundation install, select:
 
@@ -280,6 +309,10 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 
 | Option                             | Purpose                                                          |
 | ---------------------------------- | ---------------------------------------------------------------- |
+| `--customise`                      | Open the full installation questionnaire                          |
+| `--build-assets`                   | Install frontend dependencies and build with the detected manager |
+| `--update-app-url`                 | Update APP_URL to the reviewed site URL after confirmation         |
+| `--save-profile=name`              | Save reusable settings without administrator credentials          |
 | `--plan`                           | Print the resolved install plan without changing the application |
 | `--demo`                           | Seed the verified evaluation content                             |
 | `--package-mode=core\|all\|custom` | Select the distribution scope                                    |

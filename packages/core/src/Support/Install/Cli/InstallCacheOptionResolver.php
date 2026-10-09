@@ -49,7 +49,7 @@ final class InstallCacheOptionResolver
 
     /**
      * @param  array<string, string>  $options
-     * @return array<string>
+     * @return list<string>
      */
     public function defaultKeys(array $options): array
     {

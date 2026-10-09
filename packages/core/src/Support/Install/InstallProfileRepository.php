@@ -31,6 +31,10 @@ final class InstallProfileRepository
             demo: is_bool($profile['demo'] ?? null) ? $profile['demo'] : null,
             languages: $this->stringList($profile['languages'] ?? []),
             sites: $this->stringList($profile['sites'] ?? []),
+            siteUrl: is_string($profile['site_url'] ?? null) ? $profile['site_url'] : null,
+            seedDefaultData: is_bool($profile['seed_default_data'] ?? null) ? $profile['seed_default_data'] : null,
+            seedDatabase: is_bool($profile['seed_database'] ?? null) ? $profile['seed_database'] : null,
+            buildAssets: is_bool($profile['build_assets'] ?? null) ? $profile['build_assets'] : null,
         );
     }
 
@@ -39,35 +43,29 @@ final class InstallProfileRepository
      */
     public function profiles(): array
     {
-        $configProfiles = config('capell.install_profiles');
-
-        if (is_array($configProfiles)) {
-            return $this->normaliseProfiles($configProfiles);
-        }
-
-        $phpPath = base_path('config/capell-install-profiles.php');
-
-        if (File::exists($phpPath)) {
-            $profiles = require $phpPath;
-
-            if (is_array($profiles)) {
-                return $this->normaliseProfiles($profiles);
+        $jsonPath = base_path('capell-install-profiles.json');
+        $profiles = [];
+        if (File::exists($jsonPath)) {
+            try {
+                $profiles = $this->normaliseProfiles(JsonCodec::decodeArray((string) File::get($jsonPath)));
+            } catch (Throwable) {
+                // Invalid JSON does not hide configured PHP profiles.
             }
         }
 
-        $jsonPath = base_path('capell-install-profiles.json');
-
-        if (! File::exists($jsonPath)) {
-            return [];
+        $phpPath = base_path('config/capell-install-profiles.php');
+        if (File::exists($phpPath)) {
+            $phpProfiles = require $phpPath;
+            if (is_array($phpProfiles)) {
+                $profiles = array_replace($profiles, $this->normaliseProfiles($phpProfiles));
+            }
         }
 
-        try {
-            $profiles = JsonCodec::decodeArray((string) File::get($jsonPath));
-        } catch (Throwable) {
-            return [];
-        }
+        $configProfiles = config('capell.install_profiles');
 
-        return $this->normaliseProfiles($profiles);
+        return is_array($configProfiles)
+            ? array_replace($profiles, $this->normaliseProfiles($configProfiles))
+            : $profiles;
     }
 
     /**

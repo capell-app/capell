@@ -336,3 +336,12 @@ it('publishes tag tables before package tag migrations run', function (): void {
         }
     }
 });
+
+it('does not borrow a missing stub from another installed version of a host vendor package', function (): void {
+    $relativePath = 'vendor/spatie/laravel-activitylog/database/migrations/add_event_column_to_activity_log_table.php.stub';
+    File::shouldReceive('exists')->once()->with(base_path($relativePath))->andReturn(false);
+    File::shouldReceive('isDirectory')->zeroOrMoreTimes()->with(base_path('vendor/spatie/laravel-activitylog'))->andReturn(true);
+
+    $method = new ReflectionMethod(PublishVendorMigrationsAction::class, 'resolveStubPath');
+    expect($method->invoke(new PublishVendorMigrationsAction, $relativePath))->toBeNull();
+});

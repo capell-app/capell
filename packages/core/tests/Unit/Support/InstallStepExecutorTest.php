@@ -315,7 +315,7 @@ it('fails the install step when npm cannot build frontend resources', function (
 
     expect($lines)
         ->toContain(['type' => 'error', 'line' => '⚠ Frontend resources were not rebuilt.'])
-        ->toContain(['type' => 'error', 'line' => 'The installer tried to run npm but the build failed. Log in to the server and run npm install, then npm run build.']);
+        ->toContain(['type' => 'error', 'line' => 'Frontend dependency installation or build failed.']);
 });
 
 it('reports successful npm rebuilds through the install step reporter', function (): void {
