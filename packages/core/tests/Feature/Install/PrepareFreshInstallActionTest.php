@@ -41,7 +41,7 @@ it('wipes the database without running migrations during fresh install preparati
 
         public function all(): array
         {
-            return [];
+            return ['db:wipe' => true];
         }
 
         public function output(): string
@@ -99,7 +99,7 @@ it('deletes published package migrations before wiping a fresh install database'
 
         public function all(): array
         {
-            return [];
+            return ['db:wipe' => true];
         }
 
         public function output(): string

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Install\CallArtisanCommandAction;
+use Capell\Core\Data\Install\ArtisanCommandResultData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -33,6 +35,23 @@ it('fans out to each package faker command with count and filters', function ():
     expect(TestFakerCommand::$lastCount)->toBe(7)
         ->and(TestFakerCommand::$lastSites)->toBe(['Main Site'])
         ->and(TestFakerCommand::$lastLanguages)->toBe(['en', 'fr']);
+});
+
+it('routes package faker dispatch through the shared helper with count and filters', function (): void {
+    CapellCore::registerPackage(
+        name: 'test',
+        path: realpath(__DIR__ . '/../../../../../tests/fixtures/extension-package'),
+    );
+    $spy = bindFakeAction(CallArtisanCommandAction::class, new ArtisanCommandResultData(0, 'Fake data seeded.'));
+
+    artisanCommand('capell:faker', [
+        '--count' => 7, '--packages' => 'test', '--sites' => 'Main Site',
+        '--languages' => 'en,fr', '--force' => true,
+    ])->expectsOutput('Fake data seeded.')->assertExitCode(0);
+
+    expect($spy->args)->toBe(['test:faker', [
+        '--count' => 7, '--force' => true, '--sites' => ['Main Site'], '--languages' => ['en', 'fr'],
+    ]]);
 });
 
 it('seeds fake pages via the core-faker command', function (): void {

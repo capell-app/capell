@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Diagnostics;
 
+use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Contracts\DoctorCheck;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Data\Diagnostics\DoctorReportData;
@@ -28,10 +29,8 @@ use Capell\Core\Support\Diagnostics\Checks\SharedCacheStoreCheck;
 use Capell\Core\Support\Diagnostics\Checks\StorageDisksWritableCheck;
 use Capell\Core\Support\Diagnostics\Checks\ViteInputsCheck;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Symfony\Component\Console\Output\BufferedOutput;
 use Throwable;
 
 /**
@@ -91,8 +90,7 @@ final class BuildDoctorReportAction
             ->map(fn (PackageData $package): ?string => $package->getDoctorCommand())
             ->filter(fn (?string $command): bool => is_string($command)
                 && $command !== ''
-                && $command !== 'capell:doctor'
-                && array_key_exists($command, Artisan::all()))
+                && $command !== 'capell:doctor')
             ->flatMap(fn (string $command): array => $this->runPackageDoctorCommand($command))
             ->values();
     }
@@ -101,9 +99,8 @@ final class BuildDoctorReportAction
     private function runPackageDoctorCommand(string $command): array
     {
         try {
-            $output = new BufferedOutput;
-            Artisan::call($command, ['--json' => true], $output);
-            $decoded = json_decode($output->fetch(), true, 512, JSON_THROW_ON_ERROR);
+            $result = CallArtisanCommandAction::run($command, ['--json' => true]);
+            $decoded = json_decode((string) $result->output, true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable $throwable) {
             return [new DoctorCheckResultData(
                 label: sprintf('Package doctor: %s', $command),

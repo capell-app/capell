@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Console\Commands;
 
+use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Console\Commands\Concerns\HasPackageSelection;
 use Capell\Core\Console\Commands\Concerns\PromptsWithOptionFallback;
@@ -147,7 +148,11 @@ class FakerCommand extends Command
                 $params['--languages'] = $languages;
             }
 
-            $this->call($command, $params);
+            $result = CallArtisanCommandAction::run($command, $params);
+
+            if ($result->combinedOutput() !== '') {
+                $this->line($result->combinedOutput());
+            }
 
             $this->comment(sprintf('Finished seeding: %s', $package->name));
             $this->newLine();
