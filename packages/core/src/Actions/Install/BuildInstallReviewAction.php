@@ -102,9 +102,13 @@ final class BuildInstallReviewAction
         }
 
         $tooling = $input->installDeveloperTooling ? __('capell-core::install.review.tooling_selected') : $none;
+        $toolingEntries = $input->installDeveloperTooling ? [__('capell-core::install.review.tooling_selected')] : [];
         if ($input->configureBoostDeveloperTooling) {
             $tooling .= '; boost:install --guidelines --skills --mcp';
+            $toolingEntries[] = 'boost:install --guidelines --skills --mcp';
         }
+
+        $additionalAccounts = array_values(array_map(fn (NewUserData $user): string => $user->email . ' (' . ($user->roleName ?? 'admin') . ')', $input->additionalUsers));
 
         $items = [
             'site' => $input->siteUrl,
@@ -114,7 +118,7 @@ final class BuildInstallReviewAction
             'theme' => $input->selectedThemeKey ?? $none,
             'content' => implode('; ', $content) ?: $none,
             'administrator' => $this->administrator($input),
-            'additional_accounts' => implode('; ', array_map(fn (NewUserData $user): string => $user->email . ' (' . ($user->roleName ?? 'admin') . ')', $input->additionalUsers)) ?: $none,
+            'additional_accounts' => implode('; ', $additionalAccounts) ?: $none,
             'application_changes' => implode('; ', $changes),
             'developer_tooling' => $tooling,
             'after_install' => implode('; ', $after),
@@ -135,7 +139,15 @@ final class BuildInstallReviewAction
             __('capell-core::install.review.steps') => $items['steps'],
         ];
 
-        return new InstallReviewData($labelled);
+        return new InstallReviewData($labelled, [
+            __('capell-core::install.review.downloads') => $this->entries($input->extraPackages === []
+                ? []
+                : [...$input->extraPackages, __('capell-core::install.review.composer_dependencies')]),
+            __('capell-core::install.review.additional_accounts') => $this->entries($additionalAccounts),
+            __('capell-core::install.review.application_changes') => $this->entries($changes),
+            __('capell-core::install.review.developer_tooling') => $this->entries($toolingEntries),
+            __('capell-core::install.review.after_install') => $this->entries($after),
+        ]);
     }
 
     private function administrator(InstallInputData $input): string
@@ -167,5 +179,16 @@ final class BuildInstallReviewAction
         }
 
         return __('capell-core::install.review.account_unspecified');
+    }
+
+    /**
+     * Translation lookups are typed `string|array`; a review entry is only ever text.
+     *
+     * @param  array<int|string, mixed>  $entries
+     * @return list<string>
+     */
+    private function entries(array $entries): array
+    {
+        return array_values(array_filter($entries, is_string(...)));
     }
 }

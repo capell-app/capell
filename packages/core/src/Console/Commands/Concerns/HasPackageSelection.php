@@ -11,6 +11,7 @@ use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 use function Laravel\Prompts\multiselect;
@@ -107,6 +108,7 @@ trait HasPackageSelection
         ]);
 
         $this->validateSelectedPackageRequirements($selectedPackages);
+        $this->announceAutomaticallyAddedPackages($packageOptions->values()->all(), $selectedPackages);
 
         return $selectedPackages;
     }
@@ -192,6 +194,7 @@ trait HasPackageSelection
                 label: 'What core Capell packages should be installed?',
                 options: $this->packagePromptOptions($corePackages),
                 default: $corePackages->keys()->all(),
+                hint: __('capell-core::install.packages.core_hint'),
             );
         }
 
@@ -248,7 +251,7 @@ trait HasPackageSelection
 
     private function extraPackagePromptHint(): string
     {
-        return 'Use space to select options, Ctrl+A to select or unselect all.';
+        return __('capell-core::install.packages.extra_hint');
     }
 
     /**
@@ -310,8 +313,43 @@ trait HasPackageSelection
     private function packagePromptOptions(Collection $packages): array
     {
         return $packages
-            ->mapWithKeys(fn (PackageData $package): array => [$package->name => $package->getLabel()])
+            ->mapWithKeys(fn (PackageData $package): array => [$package->name => $this->packagePromptLabel($package)])
             ->all();
+    }
+
+    /** A name alone does not tell a newcomer what a package does, so pair it with its manifest description. */
+    private function packagePromptLabel(PackageData $package): string
+    {
+        $description = trim((string) $package->getDescription());
+
+        return $description === ''
+            ? $package->getLabel()
+            : $package->getLabel() . ' — ' . Str::limit($description, 90);
+    }
+
+    /**
+     * Tell the user which packages were added only because another selection requires them,
+     * so the final install list never contains a surprise.
+     *
+     * @param  array<int, string>  $requestedPackageNames
+     * @param  Collection<string, PackageData>  $selectedPackages
+     */
+    private function announceAutomaticallyAddedPackages(array $requestedPackageNames, Collection $selectedPackages): void
+    {
+        if (! $this->input->isInteractive()) {
+            return;
+        }
+
+        $addedLabels = $selectedPackages
+            ->reject(fn (PackageData $package, string $packageName): bool => in_array($packageName, $requestedPackageNames, true))
+            ->map(fn (PackageData $package): string => $package->getLabel())
+            ->values();
+
+        if ($addedLabels->isEmpty()) {
+            return;
+        }
+
+        $this->components->info(__('capell-core::install.packages.also_adding', ['packages' => $addedLabels->implode(', ')]));
     }
 
     /**
