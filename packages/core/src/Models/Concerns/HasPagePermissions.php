@@ -36,12 +36,16 @@ trait HasPagePermissions
      */
     public function getRestrictedRoleIds(): Collection
     {
+        $this->loadMissing('roleRestrictions');
+
         return $this->roleRestrictions->pluck('role_id');
     }
 
     /** Returns true when this type has any role restrictions configured. */
     public function isRoleRestricted(): bool
     {
+        $this->loadMissing('roleRestrictions');
+
         return $this->roleRestrictions->isNotEmpty();
     }
 
@@ -62,6 +66,8 @@ trait HasPagePermissions
         if ($site instanceof Site) {
             return $this->userHasRestrictedRoleForSite($user, $restrictedRoleIds, $site);
         }
+
+        $user->loadMissing('roles');
 
         return $user->roles
             ->pluck('id')

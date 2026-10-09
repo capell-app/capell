@@ -11,6 +11,7 @@ use Capell\Core\Models\PageRoleRestriction;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Spatie\Permission\Models\Role;
 
 it('has many pages', function (): void {
@@ -162,6 +163,91 @@ it('can scope accessible', function (): void {
 });
 
 // --- HasPagePermissions ---
+
+it('checks page type role restrictions without lazy loading', function (bool $checkRoleIdsFirst): void {
+    $unrestricted = Blueprint::factory()->page()->create();
+    $restricted = Blueprint::factory()->page()->create();
+    $role = Role::create(['name' => 'editor', 'guard_name' => 'web']);
+    $restricted->roleRestrictions()->create(['role_id' => $role->id]);
+    $preventedLazyLoading = Model::preventsLazyLoading();
+    Model::preventLazyLoading();
+
+    try {
+        // Hydrating multiple rows applies strict lazy loading to each existing model.
+        $types = Blueprint::query()->whereKey([$unrestricted->id, $restricted->id])->get();
+
+        expect($types)->toHaveCount(2);
+
+        foreach ($types as $type) {
+            $isRestricted = $type->id === $restricted->id;
+            $roleIds = $isRestricted ? [$role->id] : [];
+
+            expect($type->preventsLazyLoading)->toBeTrue()
+                ->and($type->relationLoaded('roleRestrictions'))->toBeFalse();
+
+            if ($checkRoleIdsFirst) {
+                expect($type->getRestrictedRoleIds()->all())->toBe($roleIds);
+            } else {
+                expect($type->isRoleRestricted())->toBe($isRestricted);
+            }
+
+            expect($type->isRoleRestricted())->toBe($isRestricted)
+                ->and($type->getRestrictedRoleIds()->all())->toBe($roleIds)
+                ->and($type->relationLoaded('roleRestrictions'))->toBeTrue();
+
+            $type->syncRoleRestrictions($isRestricted ? [] : [$role->id]);
+
+            expect($type->relationLoaded('roleRestrictions'))->toBeFalse()
+                ->and($type->isRoleRestricted())->toBe(! $isRestricted)
+                ->and($type->getRestrictedRoleIds()->all())->toBe($isRestricted ? [] : [$role->id]);
+        }
+    } finally {
+        Model::preventLazyLoading($preventedLazyLoading);
+    }
+})->with([
+    'restriction status first' => [false],
+    'restricted role IDs first' => [true],
+]);
+
+it('checks page type access without lazy loading', function (bool $siteScoped): void {
+    $unrestricted = Blueprint::factory()->page()->create();
+    $restricted = Blueprint::factory()->page()->create();
+    $role = Role::create(['name' => 'editor', 'guard_name' => 'web']);
+    $restricted->roleRestrictions()->create(['role_id' => $role->id]);
+    $allowedUser = User::factory()->createOne()->assignRole($role);
+    $deniedUser = User::factory()->createOne();
+    $site = $siteScoped ? Site::factory()->createOne() : null;
+    $preventedLazyLoading = Model::preventsLazyLoading();
+    Model::preventLazyLoading();
+
+    try {
+        $types = Blueprint::query()->whereKey([$unrestricted->id, $restricted->id])->get();
+        $users = User::query()->whereKey([$allowedUser->id, $deniedUser->id])->get();
+
+        expect($types)->toHaveCount(2)
+            ->and($users)->toHaveCount(2);
+
+        foreach ($types as $type) {
+            foreach ($users as $user) {
+                $type->unsetRelation('roleRestrictions');
+                $user->unsetRelation('roles');
+
+                expect($type->preventsLazyLoading)->toBeTrue()
+                    ->and($user->preventsLazyLoading)->toBeTrue()
+                    ->and($type->relationLoaded('roleRestrictions'))->toBeFalse()
+                    ->and($user->relationLoaded('roles'))->toBeFalse()
+                    ->and($type->isAccessibleByUser($user, $site))
+                    ->toBe($type->id === $unrestricted->id || $user->id === $allowedUser->id)
+                    ->and($type->isRoleRestricted())->toBe($type->id === $restricted->id);
+            }
+        }
+    } finally {
+        Model::preventLazyLoading($preventedLazyLoading);
+    }
+})->with([
+    'user roles' => [false],
+    'site-scoped roles' => [true],
+]);
 
 it('is not role restricted when it has no role restrictions', function (): void {
     $type = Blueprint::factory()->page()->create();
