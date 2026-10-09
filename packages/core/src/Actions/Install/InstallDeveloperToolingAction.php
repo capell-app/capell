@@ -11,7 +11,6 @@ use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Json\JsonCodec;
-use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -328,8 +327,8 @@ class InstallDeveloperToolingAction
             return (self::$artisanCaller)($command, $parameters);
         }
 
-        $exitCode = Artisan::call($command, $parameters);
+        $result = CallArtisanCommandAction::run($command, $parameters);
 
-        return [$exitCode, trim(Artisan::output())];
+        return [$result->exitCode, $result->combinedOutput()];
     }
 }

@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Exception;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
 /**
@@ -42,29 +43,17 @@ class DemoPackageAction
 
         $demoCommand = $package->getDemoCommand();
 
-        if (! array_key_exists($demoCommand, Artisan::all())) {
-            throw new Exception(sprintf("Demo command '%s' does not exist.", $package->getDemoCommand()));
-        }
-
         $command = [
-            self::resolvePhpCliBinary(),
+            ...new RuntimeBinaryResolver()->php(),
             base_path('artisan'),
             $demoCommand,
             ...self::commandArguments($arguments),
             '--no-interaction',
         ];
-        $process = self::makeProcess($command);
-
-        self::callProcessVoidMethod($process, 'setTimeout', null);
-
-        if (is_callable([$process, 'disableOutput'])) {
-            self::callProcessVoidMethod($process, 'disableOutput');
-        }
-
         $output = '';
         $lineBuffer = '';
 
-        self::callProcessVoidMethod($process, 'run', function (string $outputType, string $buffer) use (&$output, &$lineBuffer, $reporter): void {
+        $onOutput = function (string $outputType, string $buffer) use (&$output, &$lineBuffer, $reporter): void {
             $output = self::appendOutputTail($output, $buffer);
 
             if (! $reporter instanceof ProgressReporter) {
@@ -72,16 +61,47 @@ class DemoPackageAction
             }
 
             self::reportBufferedOutput($buffer, $lineBuffer, $reporter);
-        });
+        };
+
+        if (array_key_exists($demoCommand, Artisan::all())) {
+            $process = self::makeProcess($command);
+            self::callProcessVoidMethod($process, 'setTimeout', null);
+
+            if (is_callable([$process, 'disableOutput'])) {
+                self::callProcessVoidMethod($process, 'disableOutput');
+            }
+
+            self::callProcessVoidMethod($process, 'run', $onOutput);
+            $successful = self::callProcessBoolMethod($process, 'isSuccessful');
+            $exitCode = $successful ? 0 : self::callProcessNullableIntMethod($process, 'getExitCode');
+        } else {
+            // Demo commands accept comma-separated filters rather than repeated
+            // options. Preserve their existing CLI arguments in the fallback.
+            $processArguments = array_map(
+                static fn (mixed $value): mixed => is_array($value) ? implode(',', $value) : $value,
+                $arguments,
+            );
+            $processArguments = [...$processArguments, '--no-interaction' => true];
+            $result = CallArtisanCommandAction::run(
+                $demoCommand,
+                $processArguments,
+                freshProcess: true,
+                timeout: null,
+                captureOutput: false,
+                onOutput: $onOutput,
+            );
+            $successful = $result->exitCode === 0;
+            $exitCode = $result->exitCode;
+        }
 
         if ($reporter instanceof ProgressReporter) {
             self::flushBufferedOutput($lineBuffer, $reporter);
         }
 
-        if (! self::callProcessBoolMethod($process, 'isSuccessful')) {
+        if (! $successful) {
             $message = self::formatFailureMessage(
                 $demoCommand,
-                self::callProcessNullableIntMethod($process, 'getExitCode'),
+                $exitCode,
                 $output,
                 $command,
             );
@@ -117,36 +137,6 @@ class DemoPackageAction
         }
 
         return new Process($command, base_path(), ArtisanProcessEnvironment::prepare());
-    }
-
-    private static function resolvePhpCliBinary(): string
-    {
-        $finder = new ExecutableFinder;
-        $configuredBinary = config('capell-installer.php_binary');
-        $candidates = array_values(array_unique(array_filter([
-            is_string($configuredBinary) ? $configuredBinary : null,
-            'php',
-            PHP_BINARY,
-        ])));
-
-        foreach ($candidates as $candidate) {
-            $resolvedBinary = str_contains($candidate, DIRECTORY_SEPARATOR)
-                ? (is_file($candidate) && is_executable($candidate) ? $candidate : null)
-                : $finder->find($candidate);
-
-            if ($resolvedBinary !== null && ! self::looksLikePhpFpm($resolvedBinary)) {
-                return $resolvedBinary;
-            }
-        }
-
-        throw new Exception('Unable to locate a CLI PHP binary for the package demo command.');
-    }
-
-    private static function looksLikePhpFpm(string $binary): bool
-    {
-        $filename = basename($binary);
-
-        return str_contains($filename, 'php-fpm') || str_contains($filename, 'phpfpm');
     }
 
     private static function callProcessVoidMethod(object $process, string $method, mixed ...$arguments): void

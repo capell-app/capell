@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process as SymfonyProcess;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
@@ -79,6 +80,9 @@ PHP);
 
 function bindRunInstallTestConsoleKernel(array $commands = ['capell:doctor' => true]): MockInterface
 {
+    // The install flow runs commands registered in the running application
+    // in process, so the mocked kernel must still list the real commands.
+    $commands = [...resolve(ConsoleKernel::class)->all(), ...$commands];
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('all')->zeroOrMoreTimes()->andReturn($commands)->byDefault();
     $kernel->shouldReceive('call')->zeroOrMoreTimes()->andReturn(0)->byDefault();
@@ -363,7 +367,7 @@ it('clears capell data but preserves users for fresh installs', function (): voi
     $kernel = bindRunInstallTestConsoleKernel();
     $kernel->shouldReceive('call')
         ->once()
-        ->with('db:wipe', ['--force' => true])
+        ->with('db:wipe', ['--force' => true], Mockery::type(BufferedOutput::class))
         ->andReturnUsing(function (): int {
             Language::query()->delete();
 
@@ -435,7 +439,7 @@ it('fails the install when admin panel integration command fails', function (): 
 
     expect(User::query()->count())->toBe(0);
 
-    $kernel = bindRunInstallTestConsoleKernel(['filament:install' => true, 'capell:doctor' => true]);
+    $kernel = bindRunInstallTestConsoleKernel(['filament:install' => true, 'capell:doctor' => true, 'capell:admin-setup' => true]);
     $kernel->shouldReceive('call')->zeroOrMoreTimes()->andReturnUsing(
         fn (string $command): int => $command === 'capell:admin-setup' ? 1 : 0,
     );
@@ -468,9 +472,11 @@ it('fails an install step when admin panel integration command fails', function 
     CapellCore::registerPackage(name: 'capell-app/admin');
 
     $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->once()->andReturn(['capell:admin-setup' => true]);
     $kernel->shouldReceive('call')->once()->with(
         'capell:admin-setup',
         Mockery::on(fn (array $arguments): bool => ($arguments['--integration-only'] ?? false) === true),
+        Mockery::type(BufferedOutput::class),
     )->andReturn(1);
     $kernel->shouldReceive('output')->zeroOrMoreTimes()->andReturn('No Filament panels found.');
     $kernel->shouldReceive('registerCommand')->zeroOrMoreTimes();
