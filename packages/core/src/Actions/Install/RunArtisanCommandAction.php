@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
-use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -24,8 +23,9 @@ final class RunArtisanCommandAction
         ?ProgressReporter $reporter = null,
         bool $silent = false,
     ): void {
-        $exitCode = Artisan::call($command, $arguments);
-        $output = trim(Artisan::output());
+        $result = CallArtisanCommandAction::run($command, $arguments);
+        $exitCode = $result->exitCode;
+        $output = $result->combinedOutput();
 
         if ($output !== '' && ! $silent) {
             $reporter?->report($output);
@@ -39,11 +39,9 @@ final class RunArtisanCommandAction
             $reporter?->error($output);
         }
 
-        throw new RuntimeException(sprintf(
-            "Artisan command '%s' failed with exit code %d.%s",
-            $command,
-            $exitCode,
-            $output !== '' ? "\nOutput: " . $output : '',
-        ));
+        throw new RuntimeException(
+            __('capell-core::install.command.failed', ['command' => $command, 'exit_code' => $exitCode])
+            . ($output !== '' ? "\n" . __('capell-core::install.command.output', ['output' => $output]) : ''),
+        );
     }
 }

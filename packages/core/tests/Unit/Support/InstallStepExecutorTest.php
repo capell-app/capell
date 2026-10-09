@@ -8,11 +8,13 @@ use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Core\Actions\DemoPackageAction;
+use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\RequireExtraPackagesAction;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Contracts\AdminPermissionSynchronizer;
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\ArtisanCommandResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionStatusEnum;
@@ -46,6 +48,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process as SymfonyProcess;
 
 function installStepExecutorProcessResult(bool $wasSuccessful, string $output = '', string $errorOutput = ''): ProcessResult
@@ -940,6 +943,7 @@ it('runs the database seeder with force when the seed database step executes', f
 
 it('integrates the admin panel with resolved configurators and feature flags', function (): void {
     $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->once()->andReturn(['capell:admin-setup' => true]);
     $kernel->shouldReceive('call')
         ->once()
         ->with('capell:admin-setup', [
@@ -950,11 +954,12 @@ it('integrates the admin panel with resolved configurators and feature flags', f
             '--no-widgets' => true,
             '--no-navigation' => false,
             '--force' => true,
-        ])
-        ->andReturn(0);
-    $kernel->shouldReceive('output')
-        ->once()
-        ->andReturn('Admin panel integrated.');
+        ], Mockery::type(BufferedOutput::class))
+        ->andReturnUsing(function (string $command, array $arguments, BufferedOutput $output): int {
+            $output->writeln('Admin panel integrated.');
+
+            return 0;
+        });
     app()->instance(ConsoleKernel::class, $kernel);
     Facade::clearResolvedInstance('artisan');
 
@@ -990,6 +995,30 @@ it('integrates the admin panel with resolved configurators and feature flags', f
     expect($lines)
         ->toContain(['type' => 'step', 'line' => 'Integrating Capell Admin with Filament panel…'])
         ->toContain(['type' => 'info', 'line' => 'Admin panel integrated.']);
+});
+
+it('routes install admin integration through the shared helper and retains failure output', function (): void {
+    $spy = bindFakeAction(CallArtisanCommandAction::class, new ArtisanCommandResultData(23, 'Admin integration failed.'));
+    $lines = [];
+    $state = new InstallRunState(new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: ['capell-app/admin'],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        seedDefaultData: false,
+        integrateAdminPanel: true,
+    ), installStepExecutorReporter($lines));
+
+    expect(fn (): InstallRunState => resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_INTEGRATE_ADMIN_PANEL, $state))
+        ->toThrow(RuntimeException::class, "Command 'capell:admin-setup' failed with exit code 23.");
+
+    expect($spy->args[0])->toBe('capell:admin-setup')
+        ->and($spy->args[1]['--integration-only'])->toBeTrue()
+        ->and($spy->args[1]['--force'])->toBeTrue()
+        ->and($lines)->toContain(['type' => 'info', 'line' => 'Admin integration failed.']);
 });
 
 it('reports completion and rejects unknown install steps clearly', function (): void {

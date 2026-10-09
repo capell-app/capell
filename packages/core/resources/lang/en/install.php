@@ -31,6 +31,11 @@ return [
         'profile_change' => 'Save non-secret settings as profile :name after confirmation',
         'profile_name' => 'Name this installation profile',
     ],
+    'command' => [
+        'not_found' => "Artisan command ':command' is not registered in the running application or a fresh process. Check that its package is installed and its console provider is enabled.",
+        'failed' => "Artisan command ':command' failed with exit code :exit_code.",
+        'output' => 'Output: :output',
+    ],
     'cache' => [
         'label' => 'Which caches would you like to clear?',
         'hint' => 'Keep the defaults to refresh Capell after installation. Laravel caches also clears application data stored in the default cache store.',

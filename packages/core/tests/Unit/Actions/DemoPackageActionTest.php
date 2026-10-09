@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\DemoPackageAction;
+use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Contracts\ProgressReporter;
+use Capell\Core\Data\Install\ArtisanCommandResultData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Tests\Support\Install\RecordingConsoleKernel;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 
@@ -14,7 +17,33 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
+    RecordingConsoleKernel::release();
     DemoPackageAction::resetProcessFactory();
+});
+
+it('routes newly installed demo commands through the shared helper without stale registration', function (): void {
+    $kernel = RecordingConsoleKernel::bind();
+    $spy = bindFakeAction(CallArtisanCommandAction::class, new ArtisanCommandResultData(0, ''));
+    DemoPackageAction::setProcessFactory(function (): never {
+        throw new RuntimeException('The stale demo process path must not run.');
+    });
+
+    DemoPackageAction::run(new PackageData(
+        name: 'test/late-demo',
+        type: PackageTypeEnum::Plugin,
+        demoCommand: 'test:late-demo',
+    ), ['--languages' => ['en', 'fr'], '--force' => true]);
+
+    expect($spy->args[0])->toBe('test:late-demo')
+        ->and($spy->args[1])->toBe([
+            '--languages' => 'en,fr', '--force' => true, '--no-interaction' => true,
+        ])
+        ->and($spy->args['freshProcess'])->toBeTrue()
+        ->and($spy->args['timeout'])->toBeNull()
+        ->and($spy->args['captureOutput'])->toBeFalse()
+        ->and(is_callable($spy->args['onOutput']))->toBeTrue()
+        ->and($kernel->allCalls)->toBe(1)
+        ->and($kernel->calls)->toBe([]);
 });
 
 it('runs demo commands in a fresh artisan process', function (): void {

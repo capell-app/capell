@@ -18,6 +18,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process as SymfonyProcess;
 
 beforeEach(function (): void {
@@ -184,11 +185,11 @@ PHP);
 
 it('runs filament install with panel scaffolding when no panel provider exists', function (): void {
     $kernel = Mockery::mock(ConsoleKernel::class);
-    $kernel->shouldReceive('all')->once()->andReturn(['filament:install' => true]);
+    $kernel->shouldReceive('all')->twice()->andReturn(['filament:install' => true]);
     $kernel->shouldReceive('call')->once()->with('filament:install', [
         '--panels' => true,
         '--no-interaction' => true,
-    ])->andReturnUsing(function (): int {
+    ], Mockery::type(BufferedOutput::class))->andReturnUsing(function (): int {
         File::ensureDirectoryExists(app_path('Providers/Filament'));
         File::put(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php'), <<<'PHP'
 <?php
@@ -237,11 +238,12 @@ it('rejects a failed filament install even when it leaves a partial panel provid
     bindFilamentPanelInstallProcessFactory(false, '', 'Panel scaffolding failed.', scaffoldPanel: false);
 
     $kernel = Mockery::mock(ConsoleKernel::class);
-    $kernel->shouldReceive('all')->once()->andReturn(['filament:install' => true]);
+    $kernel->shouldReceive('all')->twice()->andReturn(['filament:install' => true]);
     $kernel->shouldReceive('call')->once()->with('filament:install', [
         '--panels' => true,
         '--no-interaction' => true,
-    ])->andReturnUsing(function (): int {
+    ], Mockery::type(BufferedOutput::class))->andReturnUsing(function (string $command, array $arguments, BufferedOutput $output): int {
+        $output->writeln('Panel scaffolding stopped before completion.');
         File::ensureDirectoryExists(app_path('Providers/Filament'));
         File::put(app_path('Providers/Filament/PartialPanelProvider.php'), '<?php');
 
@@ -281,7 +283,7 @@ it('falls back to a fresh process when in-process filament install fails', funct
     bindFilamentPanelInstallProcessFactory();
 
     $kernel = Mockery::mock(ConsoleKernel::class);
-    $kernel->shouldReceive('all')->once()->andReturn(['filament:install' => true]);
+    $kernel->shouldReceive('all')->twice()->andReturn(['filament:install' => true]);
     $kernel->shouldReceive('call')->once()->andThrow(new RuntimeException('Filament command failed.'));
     $kernel->shouldReceive('output')->zeroOrMoreTimes()->andReturn('');
     $this->app->instance(ConsoleKernel::class, $kernel);
@@ -318,11 +320,11 @@ PHP;
     app()->instance(PanelRegistry::class, new PanelRegistry);
 
     $kernel = Mockery::mock(ConsoleKernel::class);
-    $kernel->shouldReceive('all')->once()->andReturn(['filament:install' => true]);
+    $kernel->shouldReceive('all')->twice()->andReturn(['filament:install' => true]);
     $kernel->shouldReceive('call')->once()->with('filament:install', [
         '--panels' => true,
         '--no-interaction' => true,
-    ])->andReturnUsing(function () use ($providerPath, $providerContents): never {
+    ], Mockery::type(BufferedOutput::class))->andReturnUsing(function () use ($providerPath, $providerContents): never {
         File::ensureDirectoryExists(dirname($providerPath));
         File::put($providerPath, $providerContents);
         InstallFilamentPanelAction::registerPanelProviders();
