@@ -93,6 +93,27 @@ Do not run `filament:install --panels` first. The Installer requires and configu
 php artisan capell:install
 ```
 
+Interactive installation asks for the first site's full URL when `--url` is omitted,
+using `APP_URL` as the default. Include any port and mount path, for example
+`https://example.test:8443/blog`; site creation stores the scheme, hostname, port and
+path separately. Plan previews and unattended installs use `APP_URL` without a prompt.
+
+Extension choices show explicit catalogue states: **Free**, **Capell licence required**,
+**Licence status unavailable**, or **Currently unavailable**. **Already downloaded**
+is a separate status and does not imply that an extension is free. Recommended free
+or already downloaded extensions are selected by default; other downloads require a
+deliberate choice. For selected paid downloads, an available account connection checks
+licence coverage for the chosen hostname. An unverified connection can fall back to
+the Composer access check; a confirmed denial offers retry or deselection. Purchase
+links are shown for reference, without starting a purchase.
+
+The final review separates selected packages from already downloaded dependencies,
+counts requested downloads, and lists database, administrator and application changes.
+**Install Capell with these settings?** defaults to **Yes**; choosing **No** exits
+without applying the installation. Composer checks downloads before application
+preparation or database changes, with its diagnostic output retained below actionable
+access, licence, compatibility or connectivity guidance.
+
 For a fresh full-foundation install, select:
 
 - all foundation packages;

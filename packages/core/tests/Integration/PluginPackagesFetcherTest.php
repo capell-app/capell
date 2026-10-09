@@ -100,7 +100,10 @@ it('reads current catalogue identities tiers versions and all pages', function (
         'https://catalogue.capell.test/extensions' => Http::response([
             'data' => [[
                 'composer_name' => 'capell-app/address', 'latest_version' => '1.1.0-beta.45',
-                'product_tier' => 'free', 'kind' => 'field',
+                'product_tier' => 'premium', 'is_paid' => false, 'kind' => 'field',
+                'slug' => 'address', 'install_state' => 'free_available',
+                'install_eligibility' => ['state' => 'free_available', 'can_install' => true],
+                'purchase_url' => 'https://capell.app/marketplace/address',
                 'dependencies' => ['requires' => ['capell-app/admin']],
                 'manifest' => ['description' => 'Postal addresses.'],
             ]],
@@ -115,7 +118,12 @@ it('reads current catalogue identities tiers versions and all pages', function (
 
     expect($packages->keys()->all())->toBe(['capell-app/address', 'capell-app/seo-suite'])
         ->and($packages->pluck('version', 'name')->get('capell-app/address'))->toBe('1.1.0-beta.45')
-        ->and($packages->pluck('tier', 'name')->all())->toBe(['capell-app/address' => 'free', 'capell-app/seo-suite' => 'premium'])
+        ->and($packages->pluck('tier', 'name')->all())->toBe(['capell-app/address' => 'premium', 'capell-app/seo-suite' => 'premium'])
+        ->and($packages->get('capell-app/address'))->toMatchArray([
+            'isPaid' => false, 'slug' => 'address', 'installState' => 'free_available',
+            'installEligibility' => ['state' => 'free_available', 'can_install' => true],
+            'purchaseUrl' => 'https://capell.app/marketplace/address',
+        ])
         ->and($packages->pluck('requirements', 'name')->get('capell-app/address'))->toBe(['capell-app/admin']);
 });
 

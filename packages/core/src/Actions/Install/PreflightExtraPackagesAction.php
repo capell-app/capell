@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Composer\InstallComposerFailure;
 use Capell\Core\Support\Composer\InstallPackageArguments;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -70,7 +71,7 @@ final class PreflightExtraPackagesAction
         $message = $errorOutput !== '' ? $errorOutput : ($output !== '' ? $output : 'Unknown error.');
 
         throw new RuntimeException(
-            sprintf('Selected packages cannot be installed via Composer [%s]: %s', implode(', ', $packages), $message),
+            sprintf("Selected packages cannot be installed via Composer [%s]: %s\n\nComposer output:\n%s", implode(', ', $packages), InstallComposerFailure::explanation($message), $message),
         );
     }
 

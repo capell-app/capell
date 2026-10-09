@@ -19,6 +19,8 @@ use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\View\Components\Factory;
 use Illuminate\Support\Facades\Schema;
+use Laravel\Prompts\Key;
+use Laravel\Prompts\Prompt;
 use Symfony\Component\Console\Command\Command as SymfonyCommand;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -470,6 +472,29 @@ function installCommandForOptions(array $options, bool $interactive = false): In
     return $command;
 }
 
+it('asks for the first site URL and preserves its port and path', function (): void {
+    config(['app.url' => '']);
+    // fallbackWhen(false) cannot undo Laravel's sticky fallback flag.
+    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
+    $previousFallback = $fallback->getValue();
+    Prompt::fake(['https://example.test:8443/blog', Key::ENTER]);
+    $fallback->setValue(null, false);
+    try {
+        expect(callInstallCommandMethod(installCommandForOptions([], true), 'resolveSiteUrl'))
+            ->toBe('https://example.test:8443/blog');
+        Prompt::assertStrippedOutputContains('What is the URL of your first site?');
+    } finally {
+        $fallback->setValue(null, $previousFallback);
+    }
+});
+
+it('uses an explicit site URL and keeps plan and unattended runs free of URL prompts', function (): void {
+    config(['app.url' => 'https://default.test:8080/base']);
+    expect(callInstallCommandMethod(installCommandForOptions(['--url' => 'https://example.test:8443/blog'], true), 'resolveSiteUrl'))->toBe('https://example.test:8443/blog')
+        ->and(callInstallCommandMethod(installCommandForOptions([], false), 'resolveSiteUrl'))->toBe('https://default.test:8080/base')
+        ->and(callInstallCommandMethod(installCommandForOptions(['--plan' => true], true), 'resolveSiteUrl'))->toBe('https://default.test:8080/base');
+});
+
 /**
  * @param  array<string, mixed>  $options
  */
@@ -516,3 +541,23 @@ it('allows an explicit production demo credential grant and unique passwords', f
     $known = new NewUserData(name: 'Operator', email: 'ADMIN@example.test', password: 'password');
     expect(callInstallCommandMethod(installCommandForOptions([]), 'administratorCredentialsAreSafe', $known))->toBeFalse();
 });
+
+it('accepts Enter at the final installation review and still honours an explicit No', function (array $keys, bool $expected): void {
+    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
+    $previousFallback = $fallback->getValue();
+    Prompt::fake($keys);
+    $fallback->setValue(null, false);
+    try {
+        expect(callInstallCommandMethod(installCommandForOptions([], true), 'confirmInstallReview'))->toBe($expected);
+    } finally {
+        $fallback->setValue(null, $previousFallback);
+    }
+})->with([
+    'Enter accepts Yes' => [[Key::ENTER], true],
+    'No cancels' => [['n', Key::ENTER], false],
+]);
+
+it('rejects site addresses that cannot be persisted as a site origin and path', function (string $url): void {
+    expect(fn (): mixed => callInstallCommandMethod(installCommandForOptions(['--url' => $url]), 'resolveSiteUrl'))
+        ->toThrow(InvalidArgumentException::class, 'absolute HTTP or HTTPS');
+})->with(['example.test/blog', 'ftp://example.test/blog', 'https://', 'https://example.test:99999', 'https://invalid host.test']);

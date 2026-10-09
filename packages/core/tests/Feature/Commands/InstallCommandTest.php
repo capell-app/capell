@@ -924,7 +924,8 @@ it('fails before running the install when selected install-time packages cannot 
     expect($exitCode)->toBe(Command::FAILURE)
         ->and($fake->callCount)->toBe(0)
         ->and($output)->toContain('Capell installation failed.')
-        ->and($output)->toContain('Selected packages cannot be installed via Composer [capell-app/admin]: Package capell-app/admin was not found.');
+        ->and($output)->toContain('Selected packages cannot be installed via Composer [capell-app/admin]: Composer could not find a selected package.')
+        ->and($output)->toContain('Package capell-app/admin was not found.');
 });
 
 it('does not remove the installer package when the install fails', function (): void {
@@ -1142,8 +1143,8 @@ function configureInstallSuiteForTest(bool $demo = false): void
     ]]);
 
     GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect([
-        'capell-app/form-builder' => new PackageData(name: 'capell-app/form-builder', type: PackageTypeEnum::Plugin),
-        'capell-app/newsletter' => new PackageData(name: 'capell-app/newsletter', type: PackageTypeEnum::Plugin),
+        'capell-app/form-builder' => new PackageData(name: 'capell-app/form-builder', type: PackageTypeEnum::Plugin, isPaid: false),
+        'capell-app/newsletter' => new PackageData(name: 'capell-app/newsletter', type: PackageTypeEnum::Plugin, isPaid: false),
         'capell-app/events' => new PackageData(name: 'capell-app/events', type: PackageTypeEnum::Plugin, description: 'Recurring events.', tier: 'free'),
     ]));
 }
@@ -1162,7 +1163,7 @@ it('turns a chosen suite into installed packages plus Composer downloads for ext
     ])
         ->expectsQuestion('What are you building?', 'site')
         ->expectsChoice('Recommended for Test site', ['capell-app/form-builder'], [
-            'capell-app/form-builder' => 'Form Builder — Forms with an inbox. (may need a Capell licence to download)',
+            'capell-app/form-builder' => 'Form Builder — Forms with an inbox. [Free]',
         ])
         ->expectsQuestion('Optional extras for Test site', ['capell-app/newsletter'])
         ->expectsConfirmation('Search for more extensions?', 'no')
@@ -1201,7 +1202,7 @@ it('lets the user search the catalogue for an extension the suite did not sugges
             'Search extensions by name or by what they do',
             ['capell-app/events'],
             'recurring',
-            ['capell-app/events' => 'Events — Recurring events.'],
+            ['capell-app/events' => 'Events — Recurring events. [Free]'],
         )
         ->expectsQuestion('Which starter theme should be installed?', 'default')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
@@ -1235,9 +1236,9 @@ it('lists every candidate when the search is submitted empty, as the non-interac
             ['capell-app/events'],
             null,
             [
-                'capell-app/events' => 'Events — Recurring events.',
-                'capell-app/form-builder' => 'Form Builder (may need a Capell licence to download)',
-                'capell-app/newsletter' => 'Newsletter (may need a Capell licence to download)',
+                'capell-app/events' => 'Events — Recurring events. [Free]',
+                'capell-app/form-builder' => 'Form Builder [Free]',
+                'capell-app/newsletter' => 'Newsletter [Free]',
             ],
         )
         ->expectsQuestion('Which starter theme should be installed?', 'default')
@@ -1272,7 +1273,7 @@ it('lets a fresh reinstall search for an extension that is installed now but abo
             'Search extensions by name or by what they do',
             ['vendor/reselect'],
             'reselect',
-            ['vendor/reselect' => 'Reselect — Reselectable extension.'],
+            ['vendor/reselect' => 'Reselect — Reselectable extension. [Licence status unavailable; Already downloaded]'],
         )
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsQuestion('Which starter theme should be installed?', 'default')
@@ -2541,6 +2542,7 @@ it('asks for package selection during interactive fresh demo installs', function
     ])
         ->expectsOutput('You are about to install Capell with a fresh database refresh and demo content.')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
+        ->expectsQuestion('What is the URL of your first site?', 'https://demo.example.test')
         ->expectsQuestion('What core Capell packages should be installed?', [
             'capell-app/admin',
             'capell-app/frontend',
@@ -2606,6 +2608,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
     ])
         ->expectsOutput('You are about to install Capell with a fresh database refresh and demo content.')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
+        ->expectsQuestion('What is the URL of your first site?', 'https://demo.example.test')
         ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2636,7 +2639,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
         ->with('capell.install: starting command', Mockery::type('array'))
         ->once();
     Log::getFacadeRoot()->shouldHaveReceived('debug')
-        ->with('capell.install: using default site url', Mockery::on(
+        ->with('capell.install: resolved site url', Mockery::on(
             fn (array $context): bool => $context['site_url'] === 'https://demo.example.test',
         ))
         ->once();

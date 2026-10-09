@@ -50,6 +50,7 @@ use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
+use Capell\Core\Support\Install\InstallSiteUrl;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -98,7 +99,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         {--seed : Run the application database seeder after installing}
         {--no-seed-default-data : Skip default site, language, content type, and page setup}
         {--spec= : Path to a site spec requiring site, theme.key, and at least one page}
-        {--url= : Site URL (defaults to APP_URL)}
+        {--url= : First site URL, including an optional port and path (prompts interactively; otherwise defaults to APP_URL)}
         {--user= : User email or ID used as the default author for generated content}
         {--name= : Name for the first user created during install}
         {--email= : Email for the first user created during install}
@@ -136,11 +137,14 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     /** The chosen suite's theme, offered as the default of the theme question rather than forced. */
     private ?string $suiteThemeKey = null;
 
+    private ?string $resolvedSiteUrl = null;
+
     public function handle(): int
     {
         $this->reviewedPatchChoices = [];
         $this->suiteDownloadPackages = [];
         $this->suiteThemeKey = null;
+        $this->resolvedSiteUrl = null;
         $this->configureHomepage = false;
         $bootExitCode = $this->bootInstallCommand();
         if ($bootExitCode !== null) {
@@ -214,6 +218,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $siteUrl = $this->resolveSiteUrl();
+        $this->resolvedSiteUrl = $siteUrl;
         $packages = $this->resolveSelectedPackages($demo, $freshInstall);
         if (! $packages instanceof Collection) {
             return CommandAlias::FAILURE;
@@ -434,11 +439,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->outputInstallReview($inputData, $runNpmBuild, $removeInstallerPackage, $cachesToClear);
         $this->outputPlan($inputData, collapseWhenInteractive: true);
 
-        if ($this->input->isInteractive() && ! confirm(
-            label: __('capell-core::install.review.confirm_label'),
-            default: false,
-            hint: __('capell-core::install.review.confirm_hint'),
-        )) {
+        if (! $this->confirmInstallReview()) {
             $this->info(__('capell-core::install.review.cancelled'));
 
             return CommandAlias::SUCCESS;
@@ -685,6 +686,19 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->newLine();
     }
 
+    private function confirmInstallReview(): bool
+    {
+        if (! $this->input->isInteractive()) {
+            return true;
+        }
+
+        return confirm(
+            label: __('capell-core::install.review.confirm_label'),
+            default: true,
+            hint: __('capell-core::install.review.confirm_hint'),
+        );
+    }
+
     /**
      * Lead with the handful of facts a newcomer needs, then list the mechanical detail as bullets.
      * The execution steps are omitted because the plan printed straight after the review lists them.
@@ -696,6 +710,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     {
         $none = __('capell-core::install.review.none');
         $essentialLabels = [
+            __('capell-core::install.review.summary'),
             __('capell-core::install.review.site'),
             __('capell-core::install.review.database'),
             __('capell-core::install.review.packages'),
@@ -870,18 +885,28 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     private function resolveSiteUrl(): string
     {
         $siteUrl = $this->option('url');
-        if ($siteUrl === null) {
+        if ($siteUrl === null && (! $this->input->isInteractive() || $this->option('plan'))) {
             $siteUrl = $this->defaultSiteUrl();
             $this->logInstallDebug('using default site url', [
                 'site_url' => $siteUrl,
             ]);
         }
 
-        if ($siteUrl === '') {
+        if ($siteUrl === null || $siteUrl === '') {
             $this->logInstallDebug('prompting for site url');
             $this->requireInteractiveOrFail('Site URL', 'Pass --url=<url>.');
-            $siteUrl = text(label: 'What is the URL of the site?', default: $this->defaultSiteUrl(), required: true, validate: ['siteUrl' => 'url']);
+            $siteUrl = text(
+                label: __('capell-core::install.site.url_label'),
+                default: $this->defaultSiteUrl(),
+                required: true,
+                validate: InstallSiteUrl::validationError(...),
+                hint: __('capell-core::install.site.url_hint'),
+            );
         }
+
+        $siteUrl = trim($siteUrl);
+        $validationError = InstallSiteUrl::validationError($siteUrl);
+        throw_if($validationError !== null, InvalidArgumentException::class, $validationError ?? '');
 
         $this->logInstallDebug('resolved site url', [
             'site_url' => $siteUrl,
@@ -1168,7 +1193,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         [$freshInstall] = $this->freshInstallOptions();
-        $selection = resolve(InstallSuitePrompter::class)->prompt($freshInstall);
+        $selection = resolve(InstallSuitePrompter::class)->prompt($freshInstall, $this->resolvedSiteUrl);
         if ($selection === null) {
             return;
         }

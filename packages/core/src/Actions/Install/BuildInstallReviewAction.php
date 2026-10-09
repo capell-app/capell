@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Install;
 
+use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Data\Install\InstallReviewData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 /** Builds the redacted review from the same resolved input used for execution. */
 final class BuildInstallReviewAction
@@ -36,12 +38,32 @@ final class BuildInstallReviewAction
             $available,
             array_values(array_unique([...$input->packages, ...$input->extraPackages])),
             $input->freshInstall,
-        )->reject(fn (PackageData $package): bool => in_array($package->name, $input->extraPackages, true));
+        );
         $packageLabels = [];
+        $dependencyLabels = [];
+        $selected = [...$input->packages, ...$input->extraPackages];
         foreach ($packages as $package) {
-            $packageLabels[] = $package->name . ' (' . ($package->isInstalled()
+            $label = $package->name . ' (' . ($package->isInstalled()
                 ? __('capell-core::install.review.already_installed') : __('capell-core::install.review.downloaded'))
-                . ($packages->contains(fn (PackageData $other): bool => in_array($package->name, $other->getRequirements(), true)) ? '; ' . __('capell-core::install.review.dependency') : '') . ')';
+                . ')';
+            if (in_array($package->name, $selected, true)) {
+                $packageLabels[] = $label;
+            } else {
+                $dependencyLabels[] = $label;
+            }
+        }
+
+        $downloads = array_values(array_unique(array_filter($input->extraPackages, fn (string $name): bool => ! $available->has($name))));
+        $downloadLabels = [];
+        try {
+            $catalogue = $downloads === [] ? collect() : GetPluginsAction::run('download');
+        } catch (Throwable) {
+            $catalogue = collect();
+        }
+
+        foreach ($downloads as $name) {
+            $package = $catalogue->get($name);
+            $downloadLabels[] = $name . ($package instanceof PackageData ? ' [' . ResolveInstallPackageLicenceAction::run($package)->label() . ']' : '');
         }
 
         $connection = (string) config('database.default');
@@ -111,10 +133,12 @@ final class BuildInstallReviewAction
         $additionalAccounts = array_values(array_map(fn (NewUserData $user): string => $user->email . ' (' . ($user->roleName ?? 'admin') . ')', $input->additionalUsers));
 
         $items = [
+            'summary' => __('capell-core::install.review.summary_counts', ['downloads' => count($downloads), 'packages' => $packages->count()]),
             'site' => $input->siteUrl,
             'database' => $connection . ' / ' . $database . ' — ' . ($input->freshInstall ? __('capell-core::install.review.database_fresh') : __('capell-core::install.review.database_migrate')),
             'packages' => implode(', ', $packageLabels) ?: $none,
-            'downloads' => $input->extraPackages === [] ? $none : implode(', ', $input->extraPackages) . ' — ' . __('capell-core::install.review.composer_dependencies'),
+            'dependencies' => implode(', ', $dependencyLabels) ?: $none,
+            'downloads' => $downloads === [] ? $none : implode(', ', $downloadLabels) . ' — ' . __('capell-core::install.review.composer_dependencies'),
             'theme' => $input->selectedThemeKey ?? $none,
             'content' => implode('; ', $content) ?: $none,
             'administrator' => $this->administrator($input),
@@ -125,9 +149,11 @@ final class BuildInstallReviewAction
             'steps' => implode('; ', array_column(InstallPlan::build($input), 'label')),
         ];
         $labelled = [
+            __('capell-core::install.review.summary') => $items['summary'],
             __('capell-core::install.review.site') => $items['site'],
             __('capell-core::install.review.database') => $items['database'],
             __('capell-core::install.review.packages') => $items['packages'],
+            __('capell-core::install.review.dependencies') => $items['dependencies'],
             __('capell-core::install.review.downloads') => $items['downloads'],
             __('capell-core::install.review.theme') => $items['theme'],
             __('capell-core::install.review.content') => $items['content'],
@@ -140,9 +166,10 @@ final class BuildInstallReviewAction
         ];
 
         return new InstallReviewData($labelled, [
-            __('capell-core::install.review.downloads') => $this->entries($input->extraPackages === []
+            __('capell-core::install.review.dependencies') => $this->entries($dependencyLabels),
+            __('capell-core::install.review.downloads') => $this->entries($downloads === []
                 ? []
-                : [...$input->extraPackages, __('capell-core::install.review.composer_dependencies')]),
+                : [...$downloadLabels, __('capell-core::install.review.composer_dependencies')]),
             __('capell-core::install.review.additional_accounts') => $this->entries($additionalAccounts),
             __('capell-core::install.review.application_changes') => $this->entries($changes),
             __('capell-core::install.review.developer_tooling') => $this->entries($toolingEntries),

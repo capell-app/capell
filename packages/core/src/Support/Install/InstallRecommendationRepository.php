@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install;
 
 use Capell\Core\Actions\GetPluginsAction;
+use Capell\Core\Actions\Install\ResolveInstallPackageLicenceAction;
 use Capell\Core\Data\Install\InstallRecommendationData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\InstallPackageLicenceState;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -58,13 +60,14 @@ final class InstallRecommendationRepository
     }
 
     /**
-     * Whether downloading this catalogue entry may need a Capell licence. Only an explicit `free`
-     * tier proves it does not: paid extensions install through the licensed Composer repository,
-     * and a catalogue entry without a tier gives no evidence either way.
+     * Compatibility flag for older recommendation consumers. New UI uses the explicit licence
+     * states; both unknown metadata and known paid downloads require a deliberate choice.
+     *
+     * Prefer ResolveInstallPackageLicenceAction for new consumers.
      */
     public function downloadMayNeedLicence(PackageData $package): bool
     {
-        return $package->tier !== 'free';
+        return ResolveInstallPackageLicenceAction::run($package) !== InstallPackageLicenceState::Free;
     }
 
     /**
@@ -116,6 +119,17 @@ final class InstallRecommendationRepository
 
             $recommended = $withExtensions ? $this->reasonMap($recommendation['recommended'] ?? [], $isInstallable) : [];
             $optional = $withExtensions ? $this->reasonMap($recommendation['optional'] ?? [], $isInstallable) : [];
+            $licenceStates = [];
+            $downloadedPackages = [];
+            foreach (array_unique([...array_keys($recommended), ...array_keys($optional)]) as $name) {
+                $package = $available->get($name) ?? $download($name);
+                $licenceStates[$name] = $package instanceof PackageData
+                    ? ResolveInstallPackageLicenceAction::run($package)
+                    : (TrustedCorePackages::contains($name) ? InstallPackageLicenceState::Free : InstallPackageLicenceState::Unknown);
+                if ($available->has($name)) {
+                    $downloadedPackages[] = $name;
+                }
+            }
 
             $resolved[] = new InstallRecommendationData(
                 key: (string) $key,
@@ -132,6 +146,8 @@ final class InstallRecommendationRepository
                     [...array_keys($recommended), ...array_keys($optional)],
                     $mayNeedLicence,
                 ))),
+                packageLicenceStates: $licenceStates,
+                downloadedPackages: $downloadedPackages,
             );
         }
 

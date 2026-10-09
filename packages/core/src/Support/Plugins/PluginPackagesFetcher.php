@@ -15,6 +15,8 @@ class PluginPackagesFetcher
 {
     private const int MAX_RESPONSE_BYTES = 1048576;
 
+    private const int CACHE_SCHEMA = 2;
+
     /** @return Collection<int, array<string, mixed>> */
     public function fetch(bool $force = false): Collection
     {
@@ -86,6 +88,7 @@ class PluginPackagesFetcher
 
         CapellCore::setToCache($cacheKey, $packages, $ttl);
         CapellCore::setToCache($cacheKey . '-source', $url, $ttl);
+        CapellCore::setToCache($cacheKey . '-schema', self::CACHE_SCHEMA, $ttl);
 
         return $packages;
     }
@@ -93,7 +96,8 @@ class PluginPackagesFetcher
     /** @return Collection<int, array<string, mixed>> */
     public function getCached(): Collection
     {
-        if (CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-source') !== config('capell.plugins_source_url')) {
+        if (CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-source') !== config('capell.plugins_source_url')
+            || CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-schema') !== self::CACHE_SCHEMA) {
             return collect();
         }
 
@@ -124,6 +128,11 @@ class PluginPackagesFetcher
             'description' => $manifest['description'] ?? $item['description'] ?? null,
             'version' => $item['latest_version'] ?? null,
             'tier' => $item['product_tier'] ?? null,
+            'isPaid' => is_bool($item['is_paid'] ?? null) ? $item['is_paid'] : null,
+            'installState' => is_string($item['install_state'] ?? null) ? $item['install_state'] : null,
+            'installEligibility' => is_array($item['install_eligibility'] ?? null) ? $item['install_eligibility'] : null,
+            'purchaseUrl' => is_string($item['purchase_url'] ?? null) ? $item['purchase_url'] : null,
+            'slug' => is_string($item['slug'] ?? null) ? $item['slug'] : null,
             'productGroup' => $item['product_group'] ?? null,
             'bundle' => $item['product_bundle'] ?? null,
             'requirements' => $dependencies['requires'] ?? [],
