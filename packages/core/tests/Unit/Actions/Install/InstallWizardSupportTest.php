@@ -13,6 +13,7 @@ use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 function wizardInput(): InstallInputData
 {
@@ -44,9 +45,9 @@ it('exports a reusable profile without credentials and keeps configured profiles
 
 it('delegates dependency installation and builds to the existing frontend package manager workflow', function (): void {
     $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('all')->once()->andReturn(['capell:frontend-after-install' => new stdClass]);
-    $kernel->shouldReceive('call')->with('capell:frontend-after-install', ['--apply' => true, '--no-interaction' => true])->once()->andReturn(0);
-    $kernel->shouldReceive('output')->once()->andReturn('');
+    $kernel->shouldReceive('all')->twice()->andReturn(['capell:frontend-after-install' => new stdClass]);
+    $kernel->shouldReceive('call')->with('capell:frontend-after-install', ['--apply' => true, '--no-interaction' => true], Mockery::type(BufferedOutput::class))->once()->andReturn(0);
+    $kernel->shouldReceive('output')->never();
     app()->instance(Kernel::class, $kernel);
     Artisan::clearResolvedInstances();
     BuildInstallFrontendAssetsAction::run();
