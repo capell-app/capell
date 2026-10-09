@@ -9,12 +9,15 @@ use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
+use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Contracts\FrontendResourceSelectionPolicy;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
 use Capell\Frontend\Enums\CacheEnum;
+use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Carbon\CarbonInterface;
 use Closure;
@@ -39,6 +42,12 @@ final class PublicPageRenderDataCache
      */
     public function remember(FrontendRenderContextData $context, Closure $builder): PublicPageRenderData
     {
+        // Previews can include unpublished content and must never read or populate public entries.
+        if (app()->bound(FrontendContextReader::class)
+            && resolve(FrontendContextReader::class)->renderPayload()->renderAudience === FrontendRenderAudience::Preview) {
+            return $builder();
+        }
+
         $metadata = $this->contributors->metadata($context);
         $key = $this->keyForContext($context, $metadata);
 
@@ -121,6 +130,7 @@ final class PublicPageRenderDataCache
             $this->translationTimestamp($context->site),
             $this->payloadBuilderFingerprint(),
             $this->themePreviewFingerprint(),
+            $this->resourceSelectionFingerprint(),
             ($metadata ?? $this->contributors->metadata($context))->fingerprint,
         ];
 
@@ -128,6 +138,18 @@ final class PublicPageRenderDataCache
             fn (mixed $value): string => (string) ($value ?? '0'),
             $values,
         )));
+    }
+
+    private function resourceSelectionFingerprint(): string
+    {
+        $policies = [];
+        foreach (app()->tagged(FrontendResourceSelectionPolicy::TAG) as $policy) {
+            if ($policy instanceof FrontendResourceSelectionPolicy) {
+                $policies[] = $policy::class;
+            }
+        }
+
+        return hash('sha256', json_encode($policies, JSON_THROW_ON_ERROR));
     }
 
     private function payloadBuilderFingerprint(): string

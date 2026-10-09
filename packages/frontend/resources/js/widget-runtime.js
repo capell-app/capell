@@ -1,3 +1,8 @@
+import {
+    createDeferredFragments,
+    readDeferredFragmentResponse,
+} from './deferred-fragments.js'
+
 const resourceStates =
     window.__capellWidgetResourceStates instanceof Map
         ? window.__capellWidgetResourceStates
@@ -515,34 +520,20 @@ const initWidgetRuntime = (root = document) => {
     })
 }
 
-const loadFragment = async (element) => {
-    if (element.dataset.deferredFragmentLoaded === 'true') {
-        return
-    }
-
-    const url = element.dataset.deferredFragmentUrl
-    if (!url) {
-        return
-    }
-
-    element.dataset.deferredFragmentLoaded = 'true'
-    const response = await fetch(url, {
-        headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
-    })
-
-    if (!response.ok) {
-        throw new Error('Deferred fragment failed to load')
-    }
-
-    element.innerHTML = await response.text()
-    activateNestedRuntime(element)
-}
-
-const initFragments = (root = document) => {
-    root.querySelectorAll('[data-deferred-fragment]').forEach((element) => {
-        onVisible(element, () => loadFragment(element).catch(() => {}))
-    })
-}
+const initFragments = createDeferredFragments({
+    fetchHtmlFragment: async (url) => {
+        const response = await fetch(url, {
+            headers: {
+                Accept: 'text/html',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        if (!response.ok) throw new Error('Deferred fragment failed to load')
+        return readDeferredFragmentResponse(response)
+    },
+    initializeFragment: (element) => activateNestedRuntime(element),
+    onIdle,
+})
 
 const validInteractionPayload = (payload) =>
     payload &&

@@ -8,19 +8,24 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\ThemeStudio\Preview\ThemePreviewContext;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
+use Capell\Frontend\Contracts\FrontendResourceSelectionPolicy;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Contracts\PublicRenderDataContributor;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
+use Capell\Frontend\Data\Assets\FrontendResourceSelectionData;
 use Capell\Frontend\Data\FrontendRenderContextData;
+use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\PublicRenderDataCacheDependencyData;
 use Capell\Frontend\Data\PublicRenderDataContributionData;
 use Capell\Frontend\Data\PublicRenderDataContributionMetadataData;
+use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Capell\Frontend\Support\State\FrontendState;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 
@@ -381,3 +386,60 @@ function publicRenderDataGenerationFromKey(string $key): int
 
     return (int) ($matches[1] ?? 0);
 }
+
+it('never reads or populates public render data entries from the preview audience', function (): void {
+    config()->set('cache.default', 'array');
+    config()->set('capell-frontend.public_render_data_cache', true);
+
+    $page = Page::factory()->withTranslations()->createOne();
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $context = new FrontendRenderContextData($page, $site, $language, Layout::query()->find($page->layout_id), $site->theme, runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly));
+    $cache = resolve(PublicPageRenderDataCache::class);
+    $state = resolve(FrontendState::class);
+    $calls = 0;
+    $builder = function () use (&$calls, $context): PublicPageRenderData {
+        $calls++;
+
+        return new PublicPageRenderData(
+            page: $context->page,
+            site: $context->site,
+            language: $context->language,
+            layout: $context->layout,
+            theme: $context->theme,
+            layoutGraph: null,
+            runtimeManifest: $context->runtimeManifest,
+            resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', (string) $calls)),
+            surrogateKeys: [],
+        );
+    };
+    $public = $cache->remember($context, $builder);
+    $state->setFrontendData('renderAudience', FrontendRenderAudience::Preview);
+    $firstPreview = $cache->remember($context, $builder);
+    $secondPreview = $cache->remember($context, $builder);
+    expect($calls)->toBe(3)->and($firstPreview)->not->toBe($public)->and($secondPreview)->not->toBe($firstPreview);
+    $state->setFrontendData('renderAudience', FrontendRenderAudience::Public);
+    expect($cache->remember($context, $builder))->toEqual($public)->and($calls)->toBe(3);
+});
+
+it('changes render data cache identity when a resource selection policy is registered', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $context = new FrontendRenderContextData($page, $site, $language, Layout::query()->find($page->layout_id), $site->theme, runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly));
+    $cache = resolve(PublicPageRenderDataCache::class);
+    $before = $cache->keyForContext($context);
+    app()->instance('test-cache-selection-policy', new class implements FrontendResourceSelectionPolicy
+    {
+        #[Override]
+        public function select(FrontendResourceContextData $context, FrontendResourceSelectionData $selection): FrontendResourceSelectionData
+        {
+            return $selection;
+        }
+    });
+    app()->tag('test-cache-selection-policy', FrontendResourceSelectionPolicy::TAG);
+
+    $after = $cache->keyForContext($context);
+    expect($after)->not->toBe($before)
+        ->and($cache->keyForContext($context))->toBe($after);
+});
