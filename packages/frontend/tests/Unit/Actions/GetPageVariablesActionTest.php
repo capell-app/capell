@@ -12,7 +12,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\GetPageVariablesAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Data\FrontendRenderPayload;
+use Capell\Frontend\Tests\Fixtures\HasFrontendRenderData;
 
 it('builds page variables from the active frontend context when route params are unavailable', function (): void {
     $page = Page::factory()->make();
@@ -26,11 +26,13 @@ it('builds page variables from the active frontend context when route params are
         'title' => 'Context Site',
     ]));
 
-    app()->instance(FrontendContextReader::class, new readonly class($page, $site) implements FrontendContextReader
+    app()->instance(FrontendContextReader::class, new class($page, $site) implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function __construct(
-            private Pageable $page,
-            private Site $site,
+            private readonly Pageable $page,
+            private readonly Site $site,
         ) {}
 
         public function site(): Site
@@ -72,21 +74,6 @@ it('builds page variables from the active frontend context when route params are
         {
             return false;
         }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
-        }
     });
 
     $variables = GetPageVariablesAction::run();
@@ -123,8 +110,10 @@ it('adds archive date variables and parent labels from public route params', fun
 
     $site->load('translation');
 
-    app()->instance(FrontendContextReader::class, new readonly class implements FrontendContextReader
+    app()->instance(FrontendContextReader::class, new class implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function site(): ?Site
         {
             return null;
@@ -166,21 +155,6 @@ it('adds archive date variables and parent labels from public route params', fun
         public function isError(): bool
         {
             return false;
-        }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 

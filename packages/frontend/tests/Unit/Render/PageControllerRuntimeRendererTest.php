@@ -16,9 +16,11 @@ use Capell\Frontend\Contracts\FrontendResponseRenderer;
 use Capell\Frontend\Contracts\SystemPageResolver;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRenderPayload;
+use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
+use Capell\Frontend\Tests\Fixtures\HasFrontendRenderData;
 use Illuminate\Http\Request;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Routing\Route;
@@ -47,13 +49,15 @@ it('renders public pages through the active theme runtime renderer', function ()
         ),
     );
 
-    app()->instance(FrontendContextReader::class, new readonly class($page, $site, $language, $theme) implements FrontendContextReader
+    app()->instance(FrontendContextReader::class, new class($page, $site, $language, $theme) implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function __construct(
-            private Pageable $page,
-            private Site $site,
-            private Language $language,
-            private Theme $theme,
+            private readonly Pageable $page,
+            private readonly Site $site,
+            private readonly Language $language,
+            private readonly Theme $theme,
         ) {}
 
         public function site(): Site
@@ -95,21 +99,6 @@ it('renders public pages through the active theme runtime renderer', function ()
         {
             return false;
         }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
-        }
     });
 
     $renderer = new class implements FrontendResponseRenderer
@@ -138,6 +127,14 @@ it('renders public pages through the active theme runtime renderer', function ()
         ->and($renderer->context)->toBeInstanceOf(FrontendRenderContextData::class)
         ->and($renderer->context?->page)->toBe($page)
         ->and($renderer->context?->theme)->toBe($theme);
+
+    $reader = resolve(FrontendContextReader::class);
+    expect($reader->getFrontendData())->toHaveKey('runtimeManifest')
+        ->and($reader->renderPayload()->runtimeManifest)->toBe($reader->getFrontendData('runtimeManifest'))
+        ->and($reader->getFrontendData('unknown'))->toBeNull()
+        ->and($reader->setFrontendData('renderAudience', FrontendRenderAudience::Preview))->toBe($reader)
+        ->and($reader->renderPayload()->renderAudience)->toBe(FrontendRenderAudience::Preview);
+
 });
 
 it('preserves resolved frontend error context when the page is already set', function (): void {
@@ -148,12 +145,14 @@ it('preserves resolved frontend error context when the page is already set', fun
     $site = Site::factory()->make(['id' => 456]);
     $language = Language::factory()->make(['id' => 789]);
 
-    app()->instance(FrontendContextReader::class, new readonly class($page, $site, $language) implements FrontendContextReader
+    app()->instance(FrontendContextReader::class, new class($page, $site, $language) implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function __construct(
-            private Pageable $page,
-            private Site $site,
-            private Language $language,
+            private readonly Pageable $page,
+            private readonly Site $site,
+            private readonly Language $language,
         ) {}
 
         public function site(): Site
@@ -194,21 +193,6 @@ it('preserves resolved frontend error context when the page is already set', fun
         public function isError(): bool
         {
             return true;
-        }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 
@@ -261,13 +245,15 @@ it('returns a non-cacheable service unavailable response when no renderer is reg
         ),
     );
 
-    app()->instance(FrontendContextReader::class, new readonly class($page, $site, $language, $theme) implements FrontendContextReader
+    app()->instance(FrontendContextReader::class, new class($page, $site, $language, $theme) implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function __construct(
-            private Pageable $page,
-            private Site $site,
-            private Language $language,
-            private Theme $theme,
+            private readonly Pageable $page,
+            private readonly Site $site,
+            private readonly Language $language,
+            private readonly Theme $theme,
         ) {}
 
         public function site(): Site
@@ -308,21 +294,6 @@ it('returns a non-cacheable service unavailable response when no renderer is reg
         public function isError(): bool
         {
             return false;
-        }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 
@@ -467,6 +438,8 @@ it('returns safe path fallback blade views as public html', function (): void {
     app()->instance('request', Request::create('/safe-fallback'));
     app()->instance(FrontendContextReader::class, new class implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function site(): ?Site
         {
             return null;
@@ -505,21 +478,6 @@ it('returns safe path fallback blade views as public html', function (): void {
         public function isError(): bool
         {
             return false;
-        }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 
@@ -544,6 +502,8 @@ it('guards fallback blade views before returning public html', function (): void
     app()->instance('request', Request::create('/fallback-guard'));
     app()->instance(FrontendContextReader::class, new class implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function site(): ?Site
         {
             return null;
@@ -582,21 +542,6 @@ it('guards fallback blade views before returning public html', function (): void
         public function isError(): bool
         {
             return false;
-        }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 
@@ -626,6 +571,8 @@ it('guards named route fallback blade views before returning public html', funct
     app()->instance('request', $request);
     app()->instance(FrontendContextReader::class, new class implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function site(): ?Site
         {
             return null;
@@ -664,21 +611,6 @@ it('guards named route fallback blade views before returning public html', funct
         public function isError(): bool
         {
             return false;
-        }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 

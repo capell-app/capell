@@ -1,11 +1,22 @@
 import { expect, test } from '@playwright/test'
 import { createHash } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const runtimePath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../../resources/js/widget-runtime.js',
+)
+
+const fragmentSource = await readFile(
+    path.resolve(path.dirname(runtimePath), 'deferred-fragments.js'),
+    'utf8',
+)
+const fragmentModuleUrl = `data:text/javascript;base64,${Buffer.from(fragmentSource).toString('base64')}`
+const runtimeSource = (await readFile(runtimePath, 'utf8')).replace(
+    "'./deferred-fragments.js'",
+    JSON.stringify(fragmentModuleUrl),
 )
 
 const tokenFor = (value) =>
@@ -86,7 +97,7 @@ async function boot(page, html, assets = {}) {
             )
         })
     })
-    await page.addScriptTag({ path: runtimePath })
+    await page.addScriptTag({ content: runtimeSource, type: 'module' })
 }
 
 test('loads a shared resource once, shares promise state, and does not activate on hover or focus', async ({
@@ -174,7 +185,7 @@ test('recognizes an eager shared URL as ready without inserting a lazy duplicate
             </body>
         </html>
     `)
-    await page.addScriptTag({ path: runtimePath })
+    await page.addScriptTag({ content: runtimeSource, type: 'module' })
     await page.locator('#activate').click()
 
     expect(assetRequests).toBe(1)
@@ -632,4 +643,108 @@ test('announces and focuses inline and replace-region content', async ({
     ).toBeFocused()
     await expect(page.locator('#replace')).toHaveCount(0)
     await expect(page.getByText('replace content')).toBeVisible()
+})
+
+test('deferred fragments retry invalid documents and clear busy state after bounded failure', async ({
+    page,
+}) => {
+    let requests = 0
+    await page.route('https://capell.test/fragments/retry', (route) => {
+        requests += 1
+        return route.fulfill({
+            contentType: 'text/html',
+            body: '<!doctype html><html><body>Invalid fragment</body></html>',
+        })
+    })
+    await boot(
+        page,
+        '<section data-deferred-fragment data-deferred-fragment-url="/fragments/retry" data-deferred-fragment-strategy="idle" aria-busy="true">Placeholder</section>',
+    )
+    await expect(page.locator('[data-deferred-fragment]')).toHaveAttribute(
+        'data-deferred-fragment-state',
+        'error',
+    )
+    await expect(page.locator('[data-deferred-fragment]')).not.toHaveAttribute(
+        'aria-busy',
+    )
+    await expect(page.locator('[data-deferred-fragment]')).not.toHaveAttribute(
+        'data-deferred-fragment-loaded',
+        'true',
+    )
+    await expect(page.locator('[data-deferred-fragment]')).toHaveText(
+        'Placeholder',
+    )
+    expect(requests).toBe(2)
+})
+
+for (const cacheControl of ['private, max-age=60', 'public, no-store', '']) {
+    test(`never restores a private response for a later guest render (${cacheControl || 'unknown'})`, async ({
+        page,
+    }) => {
+        let requests = 0
+        await page.route('https://capell.test/fragments/account', (route) => {
+            requests += 1
+            return route.fulfill({
+                contentType: 'text/html',
+                headers: cacheControl ? { 'Cache-Control': cacheControl } : {},
+                body:
+                    requests === 1
+                        ? '<p>Private account balance</p>'
+                        : '<p>Guest content</p>',
+            })
+        })
+        const placeholder =
+            '<section data-deferred-fragment data-deferred-fragment-key="account-proof" data-deferred-fragment-url="/fragments/account" data-deferred-fragment-strategy="idle"></section>'
+        await boot(page, placeholder)
+        await expect(page.locator('[data-deferred-fragment]')).toHaveText(
+            'Private account balance',
+        )
+        await boot(page, placeholder)
+        await expect(page.locator('[data-deferred-fragment]')).toHaveText(
+            'Guest content',
+        )
+        expect(requests).toBe(2)
+        expect(
+            await page.evaluate(() =>
+                Object.values(sessionStorage).some((value) =>
+                    value.includes('Private account balance'),
+                ),
+            ),
+        ).toBe(false)
+    })
+}
+
+test('restores explicitly public responses within their declared lifetime', async ({
+    page,
+}) => {
+    let requests = 0
+    await page.route('https://capell.test/fragments/public', (route) => {
+        requests += 1
+        return route.fulfill({
+            contentType: 'text/html',
+            headers: { 'Cache-Control': 'public, max-age=60' },
+            body: '<p>Public content</p>',
+        })
+    })
+    const placeholder =
+        '<section data-deferred-fragment data-deferred-fragment-key="public-proof" data-deferred-fragment-url="/fragments/public" data-deferred-fragment-strategy="idle"></section>'
+    await boot(page, placeholder)
+    await expect(page.locator('[data-deferred-fragment]')).toHaveText(
+        'Public content',
+    )
+    await boot(page, placeholder)
+    await expect(page.locator('[data-deferred-fragment]')).toHaveText(
+        'Public content',
+    )
+    expect(requests).toBe(1)
+    expect(
+        await page.evaluate(
+            () =>
+                JSON.parse(
+                    sessionStorage.getItem(
+                        'capell:deferred-fragment:v2:public-proof',
+                    ),
+                ).cacheable,
+        ),
+    ).toBe(true)
 })

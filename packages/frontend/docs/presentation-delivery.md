@@ -196,3 +196,57 @@ Keep this runtime generic. Package-specific widget JavaScript belongs in registe
 | A fragment reference is invalid or replayed for another page scope | The endpoint returns a generic 404.                                                                   |
 | Rendered lazy HTML contains unsafe authoring surface               | The endpoint blocks the response.                                                                     |
 | A lazy fetch fails in the browser                                  | The runtime does not expose diagnostics in public HTML and may use a safe fallback URL if configured. |
+
+## Selecting Public Resources
+
+Tag a `FrontendResourceSelectionPolicy` with its `TAG` constant to select collected
+contributions and declared hints before graph resolution. Its
+`select(FrontendResourceContextData $context, FrontendResourceSelectionData $selection)`
+returns the retained `contributions` and `hints`. Preserve dependencies of retained
+resources: an excluded dependency remains an invalid graph, rather than being
+silently added back. Generated Vite hints, lazy activations, aliases, CSP origins
+and the plan fingerprint are derived from the selected declarations. Standalone
+hints have no resource owner, so a policy must explicitly retain or exclude them.
+Public render-data cache identities include registered policy classes in their
+application order, so introducing a policy cannot reuse a plan cached before its
+registration. Changes to a registered policy's configuration or implementation
+still require normal render-data cache invalidation.
+Do not filter rendered tags after resolving a plan: that leaves other graph outputs
+claiming resources that the page no longer includes.
+
+## Deferred Fragment Browser Hooks
+
+Import `createDeferredFragments` from `resources/js/deferred-fragments.js` to use
+Frontend's shared fragment lifecycle in a custom frontend entry point. Pass
+`fetchHtmlFragment(url)`, `initializeFragment(fragment)`, and an
+optional `onIdle(callback)` scheduler. The returned function scans a root:
+`initializeDeferredFragments(root = document)`. The generic widget runtime uses
+this same module and activates nested widgets and interactions after insertion.
+
+Return `readDeferredFragmentResponse(response)` from the fetch callback to retain
+server cache policy. It returns `{ html, cacheable, cacheControl }`. Session
+restoration requires explicit `public` and a positive `max-age`; `private`,
+`no-store`, `no-cache`, missing or malformed policy never enters session storage.
+The server lifetime is capped at 30 minutes. Plain HTML strings remain renderable
+but are not stored. Version 2 stored entries include privacy metadata; version 1
+entries are discarded because their response privacy was unknown.
+
+Optional `onLoaded(fragment)` and `onError(fragment)` callbacks own presentation:
+animations, placeholder collapse and application-specific fallback content. Loaded
+HTML and success attributes are set before `onLoaded`; error state and `aria-busy`
+cleanup are set before `onError`. The lifecycle validates partial HTML, restores
+valid session entries by `data-deferred-fragment-key` (or URL), retries one failed
+request, and rejects work belonging to detached elements. Use a content-versioned
+fragment key so browser restoration cannot reuse another content revision.
+
+Dynamic data contributors registered through `RenderableDynamicDataRegistry` are
+not fragment-cache-safe unless registration declares `cacheSafe: true`, or a
+`cacheSafe` closure returns true for the supplied asset, translation, metadata and
+renderable key. Every matching wildcard and specific contributor must agree; no
+contributors is safe. A closure lets a shared contributor distinguish cacheable
+content from personalised or time-sensitive subtypes without rendering its data.
+
+Theme previews use the selected runtime's normal preparation and rendering pipeline
+with the Preview audience, the explicitly supplied theme and domain, and hydrated
+language-specific page relationships. Preview preparation bypasses public render
+data caching so unpublished output cannot populate or reuse anonymous entries.
