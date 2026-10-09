@@ -9,10 +9,15 @@ the `Update Changelog` workflow.
 
 ### Added
 
+- Added a simple CLI installation flow with one confirmation for foundation defaults, editable customisation, reusable profiles, optional application URL updates and frontend dependency builds.
+
 - Added fail-closed Project Build target compatibility verification and a consumer-owned package installation boundary for applying signed manifests in exact release order.
 - Added the CAP-0270 Core Filament-neutrality seam and CAP-0271's draft 2.x compatibility decision, dependency baseline, consumer fixture, and old-package failure wording. The 1.x adapters and `filament/support` requirement remain active.
 
 ### Fixed
+
+- Resolved missing installer packages before application or database changes, clarified catalogue licensing and first-site URLs, and reported partial failures with focused recovery commands.
+- Preserved local Core path constraints during Composer downloads and avoided borrowing vendor migration stubs from a different installed version.
 
 - Avoided repeated admin contribution sorting and quadratic receipt deduplication during application boot, preserving registration order and cache invalidation.
 - Emitted declared package-specific theme identity tokens while rejecting malformed names, reserved core-property collisions, and values outside their declared vocabulary.
