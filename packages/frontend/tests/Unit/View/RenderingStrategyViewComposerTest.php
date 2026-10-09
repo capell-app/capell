@@ -9,10 +9,10 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\View\RenderingStrategyViewComposer;
+use Capell\Frontend\Tests\Fixtures\HasFrontendRenderData;
 use Illuminate\View\View;
 
 it('leaves existing runtime manifests untouched during public view composition', function (): void {
@@ -32,9 +32,11 @@ it('adds a livewire runtime manifest from the active frontend page strategy', fu
         'meta' => ['rendering_strategy' => RenderingStrategyEnum::FullLivewire->value],
     ]);
 
-    app()->instance(FrontendContextReader::class, new readonly class($page) implements FrontendContextReader
+    app()->instance(FrontendContextReader::class, new class($page) implements FrontendContextReader
     {
-        public function __construct(private Pageable $page) {}
+        use HasFrontendRenderData;
+
+        public function __construct(private readonly Pageable $page) {}
 
         public function site(): ?Site
         {
@@ -75,21 +77,6 @@ it('adds a livewire runtime manifest from the active frontend page strategy', fu
         {
             return false;
         }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
-        }
     });
 
     $view = Mockery::mock(View::class);
@@ -111,6 +98,8 @@ it('adds a livewire runtime manifest from the active frontend page strategy', fu
 it('falls back to blade only view data when frontend context cannot resolve a page', function (): void {
     app()->instance(FrontendContextReader::class, new class implements FrontendContextReader
     {
+        use HasFrontendRenderData;
+
         public function site(): ?Site
         {
             return null;
@@ -149,21 +138,6 @@ it('falls back to blade only view data when frontend context cannot resolve a pa
         public function isError(): bool
         {
             return false;
-        }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
         }
     });
 

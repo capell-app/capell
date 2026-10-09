@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions\Fragments;
 
 use Capell\Frontend\Data\Fragments\PublicFragmentReferenceData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolvePublicFragmentCacheIdentityAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PublicFragmentReferenceData $reference): string

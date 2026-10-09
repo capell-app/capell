@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions\Fragments;
 
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolvePublicFragmentAssetVersionAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(Model $asset): string

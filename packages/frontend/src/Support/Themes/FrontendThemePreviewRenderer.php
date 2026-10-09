@@ -60,7 +60,7 @@ final class FrontendThemePreviewRenderer implements ThemePreviewRendererInterfac
         $this->seedPreviewContext($theme, $site, $page, $language, $layout, $siteDomain);
         $this->registerThemeViews($theme);
 
-        $prepared = resolve(PrepareFrontendRenderAction::class)->handle(
+        $prepared = PrepareFrontendRenderAction::run(
             resolve(FrontendContextReader::class),
             new FrontendRenderContextData($page, $site, $language, $layout, $theme),
         );
