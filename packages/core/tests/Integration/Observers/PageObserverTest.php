@@ -17,6 +17,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Observers\PageObserver;
 use Capell\Core\Support\Lookup\ArrayCache;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -195,6 +196,48 @@ it('fails loudly when a page is created without default content contracts', func
         'site_id' => $site->getKey(),
     ]))->toThrow(InvalidArgumentException::class, 'Unable to create page without a type.');
 });
+
+it('loads the site before dispatching page deletion events with lazy loading prevented', function (bool $forceDelete): void {
+    Model::preventLazyLoading();
+
+    try {
+        $site = Site::factory()->createOne();
+        $createdPage = Page::factory()->site($site)->createOne();
+        $page = Page::query()->whereKey($createdPage->getKey())->firstOrFail();
+
+        // Single-row hydration does not inherit the global lazy-loading guard.
+        $page->preventsLazyLoading = true;
+
+        expect($page->relationLoaded('site'))->toBeFalse();
+
+        $dispatched = 0;
+
+        Event::listen(PageDeleted::class, function (PageDeleted $event) use ($page, $site, &$dispatched): void {
+            expect($event->page->is($page))->toBeTrue();
+
+            // Force-deleted models bypass violations, so check the state before reading.
+            $siteWasLoaded = $event->page->relationLoaded('site');
+
+            expect($event->page->site->is($site))->toBeTrue()
+                ->and($siteWasLoaded)->toBeTrue();
+
+            $dispatched++;
+        });
+
+        if ($forceDelete) {
+            $page->forceDelete();
+        } else {
+            $page->delete();
+        }
+
+        expect($dispatched)->toBe(1);
+    } finally {
+        Model::preventLazyLoading(false);
+    }
+})->with([
+    'soft deletion' => false,
+    'force deletion' => true,
+]);
 
 it('cascades page URL soft deletes, restores, force deletes, and domain events', function (): void {
     Page::observe(PageObserver::class);
