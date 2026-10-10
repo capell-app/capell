@@ -107,7 +107,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         {--seed : Run the application database seeder after installing}
         {--no-seed-default-data : Skip default site, language, content type, and page setup}
         {--spec= : Path to a site spec requiring site, theme.key, and at least one page}
-        {--url= : First site URL, including an optional port and path (prompts interactively; otherwise defaults to APP_URL)}
+        {--url= : First site URL, including localhost or a Docker published host port and optional path (prompts interactively; otherwise defaults to APP_URL)}
         {--user= : User email or ID used as the default author for generated content}
         {--name= : Name for the first user created during install}
         {--email= : Email for the first user created during install}

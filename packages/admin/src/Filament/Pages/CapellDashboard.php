@@ -23,10 +23,12 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
+use Filament\Pages\Page;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Widget;
@@ -114,37 +116,73 @@ class CapellDashboard extends Dashboard
     #[Override]
     public function getWidgetsContentComponent(): Grid
     {
-        $widgets = $this->getWidgets();
-        $widgetClasses = array_values(array_filter(
-            $widgets,
-            is_string(...),
+        $widgets = array_values(array_filter(
+            $this->getWidgets(),
+            fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget)::canView(),
         ));
         $dashboard = $this->dashboardEnum();
-        $regions = [];
         $registeredClasses = [];
+        $byRegion = [];
 
         foreach (DashboardRegionEnum::cases() as $region) {
-            $regionWidgets = array_values(array_intersect(
-                CapellAdmin::getDashboardFilamentWidgetsByRegion($dashboard, $region),
-                $widgetClasses,
+            $regionClasses = CapellAdmin::getDashboardFilamentWidgetsByRegion($dashboard, $region);
+            $regionWidgets = array_values(array_filter(
+                $widgets,
+                fn (string|WidgetConfiguration $widget): bool => in_array($this->normalizeWidgetClass($widget), $regionClasses, true),
             ));
+            $registeredClasses = [...$registeredClasses, ...$regionClasses];
+            $byRegion[$region->value] = $regionWidgets;
+        }
 
-            if ($regionWidgets === [] && $region === DashboardRegionEnum::Additional) {
+        $byRegion[DashboardRegionEnum::Additional->value] = [
+            ...$byRegion[DashboardRegionEnum::Additional->value],
+            ...array_values(array_filter(
+                $widgets,
+                fn (string|WidgetConfiguration $widget): bool => ! in_array($this->normalizeWidgetClass($widget), $registeredClasses, true),
+            )),
+        ];
+
+        $regions = [];
+        $leadWidgets = [
+            ...$byRegion[DashboardRegionEnum::Trends->value],
+            ...$byRegion[DashboardRegionEnum::Insights->value],
+        ];
+
+        if ($leadWidgets !== []) {
+            $regions[] = Grid::make(['default' => 1, 'lg' => min(2, count($leadWidgets))])
+                ->schema(array_map(
+                    fn (Component|Action|ActionGroup $component): Grid => Grid::make(1)
+                        ->schema([$component])
+                        ->columnSpan(1),
+                    $this->getWidgetsSchemaComponents($leadWidgets),
+                ))
+                ->columnSpanFull();
+        }
+
+        foreach ([DashboardRegionEnum::Pulse, DashboardRegionEnum::Activity, DashboardRegionEnum::Additional] as $region) {
+            $regionWidgets = $byRegion[$region->value];
+
+            if ($regionWidgets === []) {
                 continue;
             }
 
-            $registeredClasses = [...$registeredClasses, ...$regionWidgets];
-            $regions[] = Section::make($region->getLabel())
-                ->columnSpanFull()
-                ->schema($this->getWidgetsSchemaComponents($regionWidgets));
+            $components = $this->getWidgetsSchemaComponents($regionWidgets);
+            $regions[] = $region === DashboardRegionEnum::Additional
+                ? Section::make($region->getLabel())
+                    ->schema($components)
+                    ->columns($this->getColumns())
+                    ->collapsible()
+                    ->collapsed()
+                    ->columnSpanFull()
+                : Grid::make($this->getColumns())
+                    ->schema($components)
+                    ->columnSpanFull();
         }
 
-        $unregisteredWidgets = array_values(array_diff($widgetClasses, $registeredClasses));
-
-        if ($unregisteredWidgets !== []) {
-            $regions[] = Section::make(DashboardRegionEnum::Additional->getLabel())
-                ->columnSpanFull()
-                ->schema($this->getWidgetsSchemaComponents($unregisteredWidgets));
+        if ($regions === []) {
+            $regions[] = Section::make(__('capell-admin::dashboard.empty_heading'))
+                ->schema([Text::make(__('capell-admin::dashboard.empty_description'))])
+                ->columnSpanFull();
         }
 
         return Grid::make($this->getColumns())
@@ -202,14 +240,52 @@ class CapellDashboard extends Dashboard
     }
 
     /**
-     * @return array<int, Action>
+     * @return array<int, Action|ActionGroup>
      */
     #[Override]
     protected function getHeaderActions(): array
     {
         return array_values(array_filter([
+            $this->reportsAction(),
             $this->upgradeAction(),
         ]));
+    }
+
+    private function reportsAction(): ?ActionGroup
+    {
+        $actions = [];
+
+        if (SiteHealthPage::canAccess()) {
+            $actions[] = Action::make('siteHealth')
+                ->label(SiteHealthPage::getNavigationLabel())
+                ->icon(Heroicon::OutlinedHeart)
+                ->url(SiteHealthPage::getUrl());
+        }
+
+        foreach (CapellAdmin::getReports() as $report) {
+            $pageClass = $report->pageClass;
+            if (! is_subclass_of($pageClass, Page::class)) {
+                continue;
+            }
+
+            if (! $pageClass::canAccess()) {
+                continue;
+            }
+
+            if (! $pageClass::shouldRegisterNavigation()) {
+                continue;
+            }
+
+            $actions[] = Action::make('report_' . $report->key)
+                ->label($report->resolvedLabel())
+                ->url($pageClass::getUrl());
+        }
+
+        return $actions === [] ? null : ActionGroup::make($actions)
+            ->label(__('capell-admin::navigation.group_reports'))
+            ->icon(Heroicon::OutlinedChartBar)
+            ->button()
+            ->color('gray');
     }
 
     private function defaultDashboardPeriod(): string

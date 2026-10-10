@@ -50,8 +50,14 @@ Require the public Installer package first. Do not run `filament:install --panel
 
 ```bash
 composer require capell-app/installer
-php artisan capell:install --demo --url=http://localhost:8000
+php artisan capell:install --demo --url=http://localhost:8000 --update-app-url
 ```
+
+Choose the port you will use in the browser with `--url=http://localhost:8000`.
+`--update-app-url` also updates `APP_URL` to that address. For Docker, use the
+published host port in the URL; the container may still listen on port 8000.
+See [container development](../development/container-development.md) for the
+existing optional Docker setup.
 
 For a normal evaluation, accept the full foundation selection and the default theme. The installer asks for:
 

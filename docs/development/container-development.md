@@ -152,9 +152,12 @@ services:
       - .:/var/www/html
 ```
 
-Create the database file, build the PHP 8.4 image, and require the public Installer package:
+Choose and export the published host port so Compose, the installer and the
+verification commands use the same value. Then create the database file, build
+the PHP 8.4 image, and require the public Installer package:
 
 ```bash
+export CAPELL_HTTP_PORT=8000
 touch database/database.sqlite
 docker compose -f compose.sqlite.yaml build app
 docker compose -f compose.sqlite.yaml run --rm app composer require capell-app/installer
@@ -175,7 +178,8 @@ docker compose -f compose.sqlite.yaml run --rm app php artisan capell:install \
   --package-mode=all \
   --theme=default \
   --seed \
-  --url=http://localhost:8000 \
+  --url="http://localhost:${CAPELL_HTTP_PORT:-8000}" \
+  --update-app-url \
   --name="Capell owner" \
   --email=owner@example.test \
   --password='replace-this-local-password' \
@@ -189,11 +193,12 @@ Start the app and prove the install rather than treating a running container as 
 ```bash
 docker compose -f compose.sqlite.yaml up -d app
 docker compose -f compose.sqlite.yaml exec -T app php artisan capell:doctor
-curl --fail --location --show-error http://localhost:8000/ > /dev/null
-curl --fail --location --show-error http://localhost:8000/admin/login > /dev/null
+curl --fail --location --show-error "http://localhost:${CAPELL_HTTP_PORT:-8000}/" > /dev/null
+curl --fail --location --show-error "http://localhost:${CAPELL_HTTP_PORT:-8000}/admin/login" > /dev/null
 ```
 
-Open `http://localhost:8000/admin/login` and sign in with `owner@example.test` and the password supplied through `--password`. The `--name`, `--email`, and `--password` options create this first account together.
+Open `http://localhost:8000/admin/login` (or the host port selected with
+`CAPELL_HTTP_PORT`) and sign in with `owner@example.test` and the password supplied through `--password`. The `--name`, `--email`, and `--password` options create this first account together.
 
 ## Production-shaped topology
 

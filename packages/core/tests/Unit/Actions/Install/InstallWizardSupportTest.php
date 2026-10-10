@@ -88,3 +88,17 @@ it('updates APP_URL with the site port and path and preserves other environment 
         unlink($path);
     }
 });
+
+it('preserves the browser facing localhost port in install environment settings', function (string $url): void {
+    $path = tempnam(sys_get_temp_dir(), 'capell-local-env-');
+    throw_if($path === false, RuntimeException::class, 'Unable to create the owned environment fixture.');
+    file_put_contents($path, "APP_URL=http://localhost\nOTHER_SETTING=preserved\n");
+
+    try {
+        UpdateInstallAppUrlAction::run($url, $path);
+        expect(file_get_contents($path))->toContain('APP_URL=' . $url, 'OTHER_SETTING=preserved')
+            ->and(config('app.url'))->toBe($url);
+    } finally {
+        unlink($path);
+    }
+})->with(['host development server' => 'http://localhost:8000', 'Docker published port' => 'http://localhost:8080']);

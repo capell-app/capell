@@ -75,7 +75,7 @@ return [
     ],
     'site' => [
         'url_label' => 'What is the URL of your first site?',
-        'url_hint' => 'Include http:// or https://, plus any port and path, e.g. https://example.test:8443/blog.',
+        'url_hint' => 'Include http:// or https:// and any port or path. For local development use http://localhost:8000; with Docker use the published host port, e.g. http://localhost:8080.',
         'url_invalid' => 'Enter an absolute HTTP or HTTPS site URL, including any port and path.',
     ],
     'suites' => [
