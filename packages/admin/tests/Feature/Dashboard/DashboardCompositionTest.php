@@ -5,18 +5,17 @@ declare(strict_types=1);
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
-use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\CompositionDashboard;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\HiddenCompositionWidget;
+use Capell\Admin\Tests\Feature\Dashboard\Fixtures\VisibleCompositionWidget;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
-use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Widgets\Widget;
-use Filament\Widgets\WidgetConfiguration;
 
 uses(CreatesAdminUser::class);
 
@@ -127,40 +126,4 @@ function compositionChildren(Component $component): array
 
         return $child;
     }, $children));
-}
-
-class CompositionDashboard extends CapellDashboard
-{
-    /** @var list<class-string<Widget>|WidgetConfiguration> */
-    public array $widgets = [];
-
-    /** @return array<int, Action|ActionGroup> */
-    public function headerActionsForTest(): array
-    {
-        return $this->getHeaderActions();
-    }
-
-    #[Override]
-    public function getWidgets(): array
-    {
-        return $this->widgets;
-    }
-}
-
-class VisibleCompositionWidget extends Widget
-{
-    #[Override]
-    public static function canView(): bool
-    {
-        return true;
-    }
-}
-
-class HiddenCompositionWidget extends Widget
-{
-    #[Override]
-    public static function canView(): bool
-    {
-        return false;
-    }
 }
