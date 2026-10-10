@@ -50,7 +50,7 @@ it('dry-run does not execute steps or write any upgrade state', function (): voi
     artisanCommand('capell:upgrade', ['--dry-run' => true, '--force' => true, '--no-clear-cache' => true])
         ->expectsOutputToContain('DRY RUN')
         ->expectsOutputToContain('Backup prerequisite: unknown')
-        ->assertFailed();
+        ->assertSuccessful();
 
     expect(CmdTrackedStep::$runs)->toBe(0)
         ->and(UpgradeLogEntry::query()->count())->toBe(0)
@@ -58,7 +58,7 @@ it('dry-run does not execute steps or write any upgrade state', function (): voi
         ->and(UpgradeRunEvent::query()->count())->toBe(0);
 });
 
-it('reports a blocking preflight without creating upgrade state', function (): void {
+it('reports readiness warnings successfully without creating upgrade state', function (): void {
     app()->tag([ReportOnlyMutatingStep::class], 'capell.upgrade-steps');
     $cacheSpy = Cache::spy();
     Process::fake();
@@ -74,7 +74,7 @@ it('reports a blocking preflight without creating upgrade state', function (): v
         ->expectsOutputToContain('Manifest audit')
         ->expectsOutputToContain('Backup prerequisite: unknown')
         ->expectsOutputToContain('Migration irreversibility: unknown')
-        ->assertFailed();
+        ->assertSuccessful();
 
     expect(CmdTrackedStep::$runs)->toBe(0)
         ->and(ReportOnlyMutatingStep::$shouldRunCalls)->toBe(0)
@@ -99,7 +99,7 @@ it('reports an unregistered package source migration as pending', function (): v
     try {
         artisanCommand('capell:upgrade', ['--dry-run' => true])
             ->expectsOutputToContain('vendor/report-only-migration — schema: unknown pending status')
-            ->assertFailed();
+            ->assertSuccessful();
     } finally {
         @unlink($migrationPath);
         @rmdir($migrationDirectory);
@@ -139,7 +139,7 @@ it('audits manifest declarations without autoloading extension classes', functio
     try {
         artisanCommand('capell:upgrade', ['--dry-run' => true])
             ->expectsOutputToContain('capell-app/report-only-manifest: capellApiVersion does not include 1.1.0.')
-            ->assertFailed();
+            ->assertSuccessful();
 
         expect(file_exists($markerPath))->toBeFalse();
     } finally {
@@ -157,7 +157,7 @@ it('reports unknown version compatibility when the upgrade ledger is unavailable
 
     artisanCommand('capell:upgrade', ['--dry-run' => true])
         ->expectsOutputToContain('Version-ledger compatibility is unknown')
-        ->assertFailed();
+        ->assertSuccessful();
 });
 
 it('--only-migrations skips upgrade steps', function (): void {

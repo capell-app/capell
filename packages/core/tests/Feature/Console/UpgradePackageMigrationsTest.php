@@ -125,7 +125,7 @@ it('previews the same pending host and package migrations that apply runs', func
         DB::table('migrations')->where('migration', $pendingCore)->delete();
         writeUpgradePackageMigration($root . '/database/migrations/2099_01_01_000006_create_metric_events_table.php', 'redundant core copy');
 
-        expect(Artisan::call('capell:upgrade', ['--dry-run' => true]))->toBe(Command::FAILURE);
+        expect(Artisan::call('capell:upgrade', ['--dry-run' => true]))->toBe(Command::SUCCESS);
         preg_match_all('/^\s+(2099_01_01_\w+|2026_07_22_000003_create_metric_events_table)\s*$/m', Artisan::output(), $matches);
         $previewed = $matches[1];
 
@@ -320,7 +320,7 @@ it('keeps production dry runs read only without confirmation or force', function
 
         artisanCommand('capell:upgrade', ['--dry-run' => true, '--no-interaction' => true])
             ->expectsOutputToContain('2099_01_01_000001_production_preview')
-            ->assertFailed();
+            ->assertSuccessful();
 
         expect(DB::table('upgrade_package_migration_order')->count())->toBe(0)
             ->and(UpgradeRun::query()->count())->toBe(0);

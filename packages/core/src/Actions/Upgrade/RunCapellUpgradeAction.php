@@ -60,24 +60,35 @@ final class RunCapellUpgradeAction
     {
         $this->printHeader($options, $io);
 
-        $plan = BuildUpgradePlanAction::run(dryRun: $options->dryRun);
+        $audit = AuditInstalledVersionsAction::run(ResolveInstalledComposerVersionsAction::run());
+        if (! $this->validateAudit($audit, $options, $io)) {
+            return Command::FAILURE;
+        }
 
-        if (! $this->validateAudit($plan->versionAudit, $options, $io)) {
+        if (! ReconcileEnabledPackageRequirementsAction::run($options, $io, validateOnly: true)) {
+            return Command::FAILURE;
+        }
+
+        if (! $this->validateForcedStepIds($options->forceStepIds, $io)) {
             return Command::FAILURE;
         }
 
         $doMigrations = ! $options->skipMigrations && ! $options->onlySteps;
         $doSteps = ! $options->skipSteps && ! $options->onlyMigrations;
 
-        if (! $this->validateForcedStepIds($plan, $options->forceStepIds, $io)) {
-            return Command::FAILURE;
-        }
-
         if ($doMigrations && ! $this->runMigrationPhase($options->dryRun, $io)) {
             $io->error('Migration phase failed.');
 
             return Command::FAILURE;
         }
+
+        // Requirement install hooks need the upgraded schema. Enabling them
+        // can also register upgrade steps that were absent at application boot.
+        if (! ReconcileEnabledPackageRequirementsAction::run($options, $io)) {
+            return Command::FAILURE;
+        }
+
+        $plan = BuildUpgradePlanAction::run(dryRun: $options->dryRun);
 
         $stepsDeclined = false;
 
@@ -321,7 +332,7 @@ final class RunCapellUpgradeAction
     /**
      * @param  list<string>  $forcedIds
      */
-    private function validateForcedStepIds(UpgradePlanData $plan, array $forcedIds, UpgradePipelineIo $io): bool
+    private function validateForcedStepIds(array $forcedIds, UpgradePipelineIo $io): bool
     {
         if ($forcedIds === []) {
             return true;
@@ -329,10 +340,6 @@ final class RunCapellUpgradeAction
 
         /** @var array<string, true> $knownStepIds */
         $knownStepIds = [];
-
-        foreach ($plan->pendingSteps as $step) {
-            $knownStepIds[$step->id()] = true;
-        }
 
         foreach (app()->tagged('capell.upgrade-steps') as $candidate) {
             if (! $candidate instanceof UpgradeStepContract) {

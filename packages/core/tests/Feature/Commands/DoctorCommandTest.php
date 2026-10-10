@@ -117,6 +117,47 @@ it('exits successfully when all checks pass', function (): void {
         ->assertExitCode(Command::SUCCESS);
 })->group('database-portability');
 
+it('reports disabled requirements even when the enabled package has no pending runtime providers', function (): void {
+    seedHealthyDoctorInstall();
+    CapellCore::registerPackage('vendor/enabled-dependent');
+    CapellCore::registerPackage('vendor/disabled-requirement');
+    CapellCore::getPackage('vendor/enabled-dependent')->requirements = ['vendor/disabled-requirement'];
+    CapellCore::markPackageInstalled('vendor/enabled-dependent');
+    CapellCore::markPackageInstalled('vendor/disabled-requirement');
+    CapellCore::markPackageDisabled('vendor/disabled-requirement');
+
+    artisanCommand('capell:doctor')
+        ->expectsOutputToContain('vendor/enabled-dependent -> vendor/disabled-requirement')
+        ->assertExitCode(Command::FAILURE);
+
+    $report = BuildDoctorReportAction::run();
+    $check = $report->checks->firstWhere('id', 'core.packages.installed-runtime');
+    expect($check?->evidence['requirements'])->toBe([
+        ['package' => 'vendor/enabled-dependent', 'requirement' => 'vendor/disabled-requirement'],
+    ]);
+
+    CapellCore::markPackageInstalled('vendor/disabled-requirement');
+    expect(BuildDoctorReportAction::run()->checks->firstWhere('id', 'core.packages.installed-runtime')?->passed)->toBeTrue();
+});
+
+it('names every enabled package blocked by an unmet transitive requirement', function (): void {
+    foreach (['vendor/dependent', 'vendor/middle', 'vendor/disabled-requirement'] as $name) {
+        CapellCore::registerPackage($name);
+        CapellCore::markPackageInstalled($name);
+    }
+
+    CapellCore::getPackage('vendor/dependent')->requirements = ['vendor/middle'];
+    CapellCore::getPackage('vendor/middle')->requirements = ['vendor/disabled-requirement'];
+    CapellCore::markPackageDisabled('vendor/disabled-requirement');
+    $check = BuildDoctorReportAction::run()->checks->firstWhere('id', 'core.packages.installed-runtime');
+
+    expect($check?->passed)->toBeFalse()
+        ->and($check?->evidence['requirements'])->toBe([
+            ['package' => 'vendor/dependent', 'requirement' => 'vendor/middle'],
+            ['package' => 'vendor/middle', 'requirement' => 'vendor/disabled-requirement'],
+        ]);
+});
+
 it('reports required tables as present', function (): void {
     seedHealthyDoctorInstall();
 
