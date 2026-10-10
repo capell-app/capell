@@ -8,9 +8,12 @@ use Capell\Core\Models\ContentLock;
 use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route as RouteFacade;
 
 use function Pest\Laravel\post;
+
+use Spatie\Permission\PermissionRegistrar;
 
 it('applies site permission scope before content lock authorization', function (): void {
     foreach ([
@@ -62,4 +65,15 @@ it('authorizes the resolved record before refreshing its lock', function (): voi
     $page = Page::factory()->createOne();
     post(route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $page, 'type' => $page->getMorphClass()]))->assertForbidden();
     expect(ContentLock::query()->count())->toBe(0);
+});
+
+it('uses the resolved content site for permission scope instead of a caller supplied site', function (): void {
+    test()->actingAsUser();
+    $page = Page::factory()->createOne();
+    Gate::before(fn (): bool => resolve(PermissionRegistrar::class)->getPermissionsTeamId() === $page->site_id);
+    post(route('capell-admin.api.pages.content-lock.heartbeat', [
+        'page' => $page,
+        'type' => $page->getMorphClass(),
+        'site_id' => $page->site_id + 1000,
+    ]))->assertSuccessful();
 });
