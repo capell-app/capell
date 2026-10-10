@@ -40,5 +40,10 @@
     "dependencies": {
         "@tailwindcss/forms": "^0.5.11",
         "swiper": "^12.1.2"
+    },
+    "overrides": {
+        "@tailwindcss/cli": {
+            "@parcel/watcher": "2.6.0"
+        }
     }
 }

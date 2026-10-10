@@ -81,6 +81,25 @@ or site, or a disabled route, is not a conflict. Distinct enabled rows conflict
 even with the same Page owner. Parent and translation slugs do not define public
 route uniqueness.
 
+### Canonical URL saves and typed URLs
+
+Normal URL saves have one deliberate recovery exception: saving an untyped
+canonical URL may reclaim a path held by that same Page's own alias or redirect.
+The Page owner includes both the morph type and ID; a different owner still
+collides. This lets a slug change or revision rollback restore an older canonical
+path without replacing a historical redirect row.
+
+The exception does not apply when saving an alias or redirect. An enabled typed
+URL cannot take its own Page's canonical path, even when only unrelated metadata
+is being saved. Such a row is redundant or creates ambiguous routing; importers
+and seeders must avoid creating it, or disable it before saving. Updating a row
+excludes only that row's own key from the collision query. Restoration keeps the
+stricter distinct-row rule above and does not use the normal-save exception.
+
+The alias/redirect collision and unchanged persisted paths are covered by
+`PageUrlObserverTest`; canonical reclamation, rollback, owner identity and
+site/language isolation are covered by `UpdatePageUrlActionTest`.
+
 Locks protect the examined rows. Server-backed concurrency, absent-key locking
 and deadlock behaviour need server database verification; SQLite cannot prove
 them. This boundary does not cover another connection, raw PDO or external I/O.

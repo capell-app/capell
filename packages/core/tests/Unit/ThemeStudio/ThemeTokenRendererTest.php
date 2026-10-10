@@ -169,6 +169,7 @@ it('preserves theme identity tokens while repairing an unsafe contrast pair', fu
             ->and($runtime->tokenIssues[0])->toContain('accent/surface')
             ->and($css)->toContain('--theme-primary: #0a0a0a;')
             ->and($css)->toContain('--theme-accent: #0a0a0a;')
+            ->and($css)->toContain('--theme-accent-contrast: #ffffff;')
             ->and($css)->toContain('--theme-neutral: #4b4b4b;')
             ->and($css)->toContain('--theme-surface: #f4f3ef;')
             ->and($css)->toContain('--theme-radius: none;')
@@ -280,3 +281,15 @@ it('renders declared theme editor extras and rejects values outside their closed
         File::deleteDirectory($directory);
     }
 });
+
+it('pairs rendered accent and primary backgrounds with readable labels', function (string $background, string $expected): void {
+    $css = (new ThemeTokenRenderer)->css(new BrandProfileData(primaryColor: $background, accentColor: $background));
+
+    expect($css)->toContain('--theme-primary-contrast: ' . $expected . ';')
+        ->toContain('--theme-accent-contrast: ' . $expected . ';');
+})->with([
+    'dark replacement' => ['#1c2530', '#ffffff'],
+    'white background' => ['#ffffff', '#000000'],
+    'amber background' => ['#f59e0b', '#000000'],
+    'mid-tone background' => ['#777777', '#000000'],
+]);
