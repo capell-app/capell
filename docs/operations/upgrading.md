@@ -126,14 +126,17 @@ Capell treats upgrades as part of the product, not a pile of release-note errand
 entire duration, so concurrent runs against the same database fail fast even when
 application nodes do not share a cache. During the first upgrade from a version that
 predates `capell_upgrade_locks`, it falls back to the configured cache lock until the
-new table has been migrated. It then executes four phases:
+new table has been migrated. It then executes these phases:
 
 1. **Version audit.** Compares Composer's installed versions against the last-known values in the `capell_upgrade_log` table. Flags new packages, removed packages, and downgrades. Downgrades abort unless `--force-downgrade` is passed.
 2. **Migrations.** Publishes pending schema migrations into `database/migrations/` and settings migrations into `database/settings/`, then runs `migrate --force` and `settings:migrate --force`. Already-applied migrations are skipped by Laravel's and Spatie's own tracking.
-3. **Upgrade steps.** Each registered `UpgradeStepContract` is evaluated against the current `UpgradeContext`. Pending steps (not yet successfully applied, `shouldRun()` true, dependencies satisfied) run in priority order. Step body + log write happen atomically in one DB transaction.
-4. **Per-package commands.** Each `$package->getUpgradeCommand()` (e.g. asset publishing) is invoked for backward compatibility. These legacy manifest commands still run, but Capell records warnings and operation events so packages can migrate to tagged upgrade steps.
+3. **Package requirements.** Rechecks the current `capell.json` requirements of every enabled package, including transitive requirements added since installation. The entire requirement closure is validated before migrations or lifecycle writes; installation and enabling happen after migrations so lifecycle hooks can use the updated schema. A non-interactive run installs or enables available first-party Capell requirements in dependency order. Missing source, third-party requirements, interactive runs and failed, quarantined or entitlement-blocked requirements fail with the dependent package and requirement named. An already installed, disabled requirement is enabled without rerunning its install lifecycle. This check also applies to partial upgrades; skipping the migration phase does not suppress a new requirement's own install migrations. The CLI dry run reports unmet requirements without changing their state and returns exit 0 when the report is generated successfully; its warnings still describe upgrade readiness.
+4. **Upgrade steps.** Each registered `UpgradeStepContract` is evaluated against the current `UpgradeContext`. Pending steps (not yet successfully applied, `shouldRun()` true, dependencies satisfied) run in priority order. Step body + log write happen atomically in one DB transaction.
+5. **Per-package commands.** Each `$package->getUpgradeCommand()` (e.g. asset publishing) is invoked for backward compatibility. These legacy manifest commands still run, but Capell records warnings and operation events so packages can migrate to tagged upgrade steps.
 
 Finally, the current Composer versions are recorded as `type=version_snapshot` rows in the log for audit.
+
+Deployment scripts should pass `--no-interaction` explicitly when automatic requirement reconciliation is needed; `--force` alone only skips confirmations. Core does not download missing requirement source during an upgrade. Before enabling an installed, disabled requirement, Capell publishes and runs its declared pending migrations, which are excluded from the normal enabled-package pass, without rerunning its install command. `capell:doctor` reports enabled packages whose runtime is blocked by unmet requirements, and installed-runtime activation logs the skipped package and requirement.
 
 ## Ledger table
 

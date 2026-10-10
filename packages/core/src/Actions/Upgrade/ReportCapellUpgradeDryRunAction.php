@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Upgrade;
 
+use Capell\Core\Actions\Packages\FindUnmetPackageRequirementsAction;
 use Capell\Core\Contracts\UpgradeReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Data\VersionAudit;
@@ -34,6 +35,10 @@ final class ReportCapellUpgradeDryRunAction
         $versionAudit = $this->versionAudit($composerVersions);
 
         $reporter->warn('=== DRY RUN REPORT — no changes will be made ===');
+        foreach (FindUnmetPackageRequirementsAction::run() as $requirement) {
+            $reporter->error(__('capell-core::package-requirements.not_enabled', $requirement->toArray()));
+        }
+
         $this->reportInstalledVersions($composerVersions, $reporter);
         $this->reportPendingSchemaMigrations($reporter);
         $this->reportUnknownSettingsMigrations('Pending core settings migrations', $reporter);
@@ -43,7 +48,8 @@ final class ReportCapellUpgradeDryRunAction
         $reporter->error('Backup prerequisite: unknown — no verified backup health signal is available to Capell Core.');
         $reporter->error('Migration irreversibility: unknown — migrations do not declare reversibility metadata.');
 
-        return Command::FAILURE;
+        // The exit status describes report generation, not upgrade readiness.
+        return Command::SUCCESS;
     }
 
     /** @param array<string, string> $composerVersions */
