@@ -9,7 +9,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 
 afterEach(function (): void {
-    Date::use(Carbon::class);
+    Date::useDefault();
 });
 
 it('restores the authorised page cascade with the configured date class', function (bool $immutable): void {

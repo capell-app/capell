@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Event;
 
 afterEach(function (): void {
-    Date::use(Carbon::class);
+    Date::useDefault();
 });
 
 it('restores recorded page descendants with the configured date class', function (bool $immutable, int $seconds): void {
