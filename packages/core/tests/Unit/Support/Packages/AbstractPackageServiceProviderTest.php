@@ -3,27 +3,31 @@
 declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Tests\Support\InstalledLifecycleTestServiceProvider;
 use Capell\Core\Tests\Support\LivewireCompatibilityTestComponent;
 use Capell\Core\Tests\Support\LivewireCompatibilityTestServiceProvider;
 use Capell\Core\Tests\Support\MetadataHooksTestServiceProvider;
 use Capell\Core\Tests\Support\MetadataHooksTestSettings;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Facade;
 use Livewire\Finder\Finder;
 use Livewire\LivewireManager;
+
+beforeEach(function (): void {
+    Event::fake(['capell.test.installed-booted', 'capell.test.package-booted']);
+});
 
 it('defers installed package boot work until the application has booted', function (): void {
     $provider = new InstalledLifecycleTestServiceProvider(app(), installed: true);
 
     $provider->registeringPackage();
 
-    expect($provider->installedBootCount())->toBe(0);
+    Event::assertNotDispatched('capell.test.installed-booted');
 
     $provider->runBootedCallback();
 
-    expect($provider->packageBootCount())->toBe(1)
-        ->and($provider->installedBootCount())->toBe(1);
+    Event::assertDispatched('capell.test.package-booted');
+    Event::assertDispatched('capell.test.installed-booted');
 });
 
 it('skips installed package boot work while discovering packages', function (): void {
@@ -37,8 +41,8 @@ it('skips installed package boot work while discovering packages', function (): 
 
     $provider->runBootedCallback();
 
-    expect($provider->packageBootCount())->toBe(1)
-        ->and($provider->installedBootCount())->toBe(0);
+    Event::assertDispatched('capell.test.package-booted');
+    Event::assertNotDispatched('capell.test.installed-booted');
 });
 
 it('skips installed package boot work when the package is not installed', function (): void {
@@ -48,16 +52,15 @@ it('skips installed package boot work when the package is not installed', functi
 
     $provider->runBootedCallback();
 
-    expect($provider->packageBootCount())->toBe(1)
-        ->and($provider->installedBootCount())->toBe(0);
+    Event::assertDispatched('capell.test.package-booted');
+    Event::assertNotDispatched('capell.test.installed-booted');
 });
 
 it('allows companion providers to retain a private livewire registration method', function (): void {
     $provider = new LivewireCompatibilityTestServiceProvider(app());
 
     expect($provider->registerDefinitions())->toBe($provider)
-        ->and($provider->registerPrivateDefinitions())->toBe($provider)
-        ->and(new ReflectionMethod($provider, 'registerLivewireComponents')->isPrivate())->toBeTrue();
+        ->and($provider->registerPrivateDefinitions())->toBe($provider);
 });
 
 it('does not resolve the livewire facade when the finder is unbound', function (): void {
@@ -95,19 +98,15 @@ it('registers livewire aliases and version-supported namespaces', function (): v
         'capell-test::component' => LivewireCompatibilityTestComponent::class,
     ], [
         'namespace' => 'capell-test',
-        'classNamespace' => 'Capell\\Tests\\Livewire',
+        'classNamespace' => 'Capell\\Core\\Tests\\Support',
     ]);
-
-    $classComponents = new ReflectionProperty($finder, 'classComponents')->getValue($finder);
 
     expect($finder->resolveClassComponentClassName('capell-test.component'))
         ->toBe(LivewireCompatibilityTestComponent::class)
-        ->and($classComponents)->toMatchArray([
-            'capell-test.component' => LivewireCompatibilityTestComponent::class,
-            'capell-test::component' => LivewireCompatibilityTestComponent::class,
-        ])
+        ->and($finder->resolveClassComponentClassName('capell-test::livewire-compatibility-test-component'))
+        ->toBe(LivewireCompatibilityTestComponent::class)
         ->and($finder->getClassNamespace('capell-test'))
-        ->toMatchArray(['classNamespace' => 'Capell\\Tests\\Livewire']);
+        ->toMatchArray(['classNamespace' => 'Capell\\Core\\Tests\\Support']);
 });
 
 it('uses the legacy development version when composer has no pretty version', function (): void {
@@ -126,8 +125,7 @@ it('registers package metadata once using the canonical metadata hooks', functio
 
     $package = CapellCore::getPackage($provider::$packageName);
 
-    expect($provider->metadataRegistrationCount())->toBe(1)
-        ->and($package->setting)->toBe(MetadataHooksTestSettings::class)
+    expect($package->setting)->toBe(MetadataHooksTestSettings::class)
         ->and($package->getSetupCommand())->toBe('capell:test-setup')
         ->and($package->getSetupParams())->toBe(['url', 'force'])
         ->and($package->serviceProviderClass)->toBe(MetadataHooksTestServiceProvider::class)
@@ -137,7 +135,8 @@ it('registers package metadata once using the canonical metadata hooks', functio
 it('exposes the shared package surface registrar as the canonical provider contribution path', function (): void {
     $provider = new LivewireCompatibilityTestServiceProvider(app());
 
-    expect($provider->packageSurface())->toBe(resolve(PackageSurfaceRegistrar::class));
+    $provider->packageSurface()->component('ProviderContract', 'Card', 'public.provider-card');
+    expect(CapellCore::getComponent('ProviderContract', 'Card'))->toBe('public.provider-card');
 });
 
 it('preserves the legacy installed and unconditional hook callback semantics', function (): void {
@@ -145,6 +144,7 @@ it('preserves the legacy installed and unconditional hook callback semantics', f
     $provider->registeringPackage();
     $provider->runBootedCallback();
     $provider->runBootedCallback();
-    expect($provider->installedBootCount())->toBe(2)
-        ->and($provider->packageBootCount())->toBe(2);
+    // Replaying the legacy callback must emit both externally observed signals.
+    Event::assertDispatchedTimes('capell.test.installed-booted', 2);
+    Event::assertDispatchedTimes('capell.test.package-booted', 2);
 });

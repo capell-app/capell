@@ -2,33 +2,29 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Tests\Support\CoreMakeCommandRecorder;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 
-function bindMakerCommandFilesystem(bool $fileExists = false): CoreMakeCommandRecorder
+beforeEach(function (): void {
+    $this->workspace = new OwnedApplicationPaths(app());
+});
+
+afterEach(function (): void {
+    $this->workspace->restore();
+});
+
+function prepareMakerCommandFilesystem(bool $fileExists = false): void
 {
-    $filesystem = Mockery::mock(Filesystem::class);
-    $captured = new CoreMakeCommandRecorder;
-
-    $filesystem->shouldReceive('exists')->zeroOrMoreTimes()->andReturn($fileExists);
-    $filesystem->shouldReceive('ensureDirectoryExists')->zeroOrMoreTimes()->andReturnNull();
-    $filesystem->shouldReceive('put')
-        ->zeroOrMoreTimes()
-        ->andReturnUsing(function (string $path, string $contents) use ($captured): bool {
-            $captured->paths[] = $path;
-            $captured->contents[$path] = $contents;
-
-            return true;
-        });
-
-    app()->instance(Filesystem::class, $filesystem);
-
-    return $captured;
+    if ($fileExists) {
+        $files = new Filesystem;
+        $files->ensureDirectoryExists(app_path('Data'));
+        $files->put(app_path('Data/HeroData.php'), 'Existing user-owned data');
+    }
 }
 
 it('routes capell make action through the registered maker with a data companion', function (): void {
-    $captured = bindMakerCommandFilesystem();
+    prepareMakerCommandFilesystem();
 
     artisanCommand('capell:make-action', [
         'name' => 'PublishPage',
@@ -38,57 +34,56 @@ it('routes capell make action through the registered maker with a data companion
         ->expectsOutputToContain(app_path('Data/PublishPageData.php'))
         ->assertExitCode(Command::SUCCESS);
 
-    expect($captured->paths)
-        ->toContain(app_path('Actions/PublishPageAction.php'))
-        ->toContain(app_path('Data/PublishPageData.php'));
+    expect(app_path('Actions/PublishPageAction.php'))->toBeFile()
+        ->and(app_path('Data/PublishPageData.php'))->toBeFile();
 });
 
 it('routes capell make data through the registered maker', function (): void {
-    $captured = bindMakerCommandFilesystem();
+    prepareMakerCommandFilesystem();
     $expectedPath = app_path('Data/HeroData.php');
 
     artisanCommand('capell:make-data', ['name' => 'Hero'])
         ->expectsOutputToContain($expectedPath)
         ->assertExitCode(Command::SUCCESS);
 
-    expect($captured->paths)->toContain($expectedPath);
+    expect($expectedPath)->toBeFile();
 });
 
 it('routes capell make extender through the registered maker', function (): void {
-    $captured = bindMakerCommandFilesystem();
+    prepareMakerCommandFilesystem();
     $expectedPath = app_path('Extenders/HeroFieldsExtender.php');
 
     artisanCommand('capell:make-extender', ['name' => 'HeroFields'])
         ->expectsOutputToContain($expectedPath)
         ->assertExitCode(Command::SUCCESS);
 
-    expect($captured->paths)->toContain($expectedPath);
+    expect($expectedPath)->toBeFile();
 });
 
 it('routes capell make schema through the registered maker', function (): void {
-    $captured = bindMakerCommandFilesystem();
+    prepareMakerCommandFilesystem();
     $expectedPath = app_path('Schemas/HeroSchema.php');
 
     artisanCommand('capell:make-schema', ['name' => 'Hero'])
         ->expectsOutputToContain($expectedPath)
         ->assertExitCode(Command::SUCCESS);
 
-    expect($captured->paths)->toContain($expectedPath);
+    expect($expectedPath)->toBeFile();
 });
 
 it('routes capell make blueprint through the registered maker', function (): void {
-    $captured = bindMakerCommandFilesystem();
+    prepareMakerCommandFilesystem();
     $expectedPath = app_path('Blueprints/LandingPageBlueprint.php');
 
     artisanCommand('capell:make-blueprint', ['name' => 'LandingPage'])
         ->expectsOutputToContain($expectedPath)
         ->assertExitCode(Command::SUCCESS);
 
-    expect($captured->paths)->toContain($expectedPath);
+    expect($expectedPath)->toBeFile();
 });
 
 it('blocks legacy commands from overwriting without force', function (): void {
-    $captured = bindMakerCommandFilesystem(fileExists: true);
+    prepareMakerCommandFilesystem(fileExists: true);
 
     artisanCommand('capell:make-data', [
         'name' => 'Hero',
@@ -96,11 +91,11 @@ it('blocks legacy commands from overwriting without force', function (): void {
         ->expectsOutputToContain('already exists')
         ->assertExitCode(Command::FAILURE);
 
-    expect($captured->paths)->toBe([]);
+    expect(file_get_contents(app_path('Data/HeroData.php')))->toBe('Existing user-owned data');
 });
 
 it('allows legacy commands to overwrite with force', function (): void {
-    $captured = bindMakerCommandFilesystem(fileExists: true);
+    prepareMakerCommandFilesystem(fileExists: true);
 
     artisanCommand('capell:make-data', [
         'name' => 'Hero',
@@ -109,5 +104,6 @@ it('allows legacy commands to overwrite with force', function (): void {
         ->expectsOutputToContain('overwrite: ' . app_path('Data/HeroData.php'))
         ->assertExitCode(Command::SUCCESS);
 
-    expect($captured->paths)->toContain(app_path('Data/HeroData.php'));
+    expect(app_path('Data/HeroData.php'))->toBeFile()
+        ->and(file_get_contents(app_path('Data/HeroData.php')))->not->toBe('Existing user-owned data');
 });

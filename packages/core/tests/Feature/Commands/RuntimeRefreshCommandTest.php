@@ -9,12 +9,10 @@ use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Command\Command;
 
 it('reports successful and skipped runtime refresh stages', function (): void {
-    $action = Mockery::mock(RunRuntimeRefreshAction::class);
-    $action->shouldReceive('handle')->once()->andReturn(new RuntimeRefreshResultData(collect([
+    bindRuntimeRefreshReport(new RuntimeRefreshResultData(collect([
         new RuntimeRefreshStageResultData('packages', 'Capell package cache', true, 'rebuilt'),
         new RuntimeRefreshStageResultData('config', 'Laravel configuration cache', true, 'uncached mode preserved', true),
     ])));
-    app()->instance(RunRuntimeRefreshAction::class, $action);
 
     $exitCode = Artisan::call('capell:runtime-refresh');
     $output = Artisan::output();
@@ -26,12 +24,10 @@ it('reports successful and skipped runtime refresh stages', function (): void {
 });
 
 it('returns a non-zero exit code and retains all stage failures', function (): void {
-    $action = Mockery::mock(RunRuntimeRefreshAction::class);
-    $action->shouldReceive('handle')->once()->andReturn(new RuntimeRefreshResultData(collect([
+    bindRuntimeRefreshReport(new RuntimeRefreshResultData(collect([
         new RuntimeRefreshStageResultData('packages', 'Capell package cache', false, 'manifest invalid'),
         new RuntimeRefreshStageResultData('doctor', 'Capell Doctor', false, 'homepage failed'),
     ])));
-    app()->instance(RunRuntimeRefreshAction::class, $action);
 
     $exitCode = Artisan::call('capell:runtime-refresh');
     $output = Artisan::output();
@@ -43,3 +39,17 @@ it('returns a non-zero exit code and retains all stage failures', function (): v
         ->and($output)->toContain('homepage failed')
         ->and($output)->toContain('completed with failures');
 });
+
+function bindRuntimeRefreshReport(RuntimeRefreshResultData $result): void
+{
+    app()->instance(RunRuntimeRefreshAction::class, new class($result) extends RunRuntimeRefreshAction
+    {
+        public function __construct(private readonly RuntimeRefreshResultData $result) {}
+
+        #[Override]
+        public function handle(): RuntimeRefreshResultData
+        {
+            return $this->result;
+        }
+    });
+}

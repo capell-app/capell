@@ -6,25 +6,29 @@ use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Core\Actions\GetResourceFromBlueprintAction;
 use Capell\Core\Contracts\AdminResourceResolver;
 
-beforeEach(function (): void {
-    $resolver = Mockery::mock(AdminResourceResolver::class);
-    $resolver->shouldReceive('hasPageResource')->andReturnTrue();
-    $resolver->shouldReceive('getPageResource')->andReturn(PageResource::class);
+it('returns the registered page resource and reports missing registrations', function (bool $registered): void {
+    $resolver = new readonly class($registered) implements AdminResourceResolver
+    {
+        public function __construct(private bool $registered) {}
 
+        #[Override]
+        public function hasPageResource(string $name = 'default'): bool
+        {
+            return $this->registered && $name === 'default';
+        }
+
+        #[Override]
+        public function getPageResource(string $name = 'default'): ?string
+        {
+            return $this->hasPageResource($name) ? PageResource::class : null;
+        }
+    };
     app()->instance(AdminResourceResolver::class, $resolver);
-});
 
-it('maps type to resource', function (): void {
-    $resource = GetResourceFromBlueprintAction::run();
-
-    expect($resource)->toBeString()->toContain('Page');
-});
-
-it('throws when the page resource is not registered', function (): void {
-    $resolver = Mockery::mock(AdminResourceResolver::class);
-    $resolver->shouldReceive('hasPageResource')->with('default')->andReturnFalse();
-    app()->instance(AdminResourceResolver::class, $resolver);
-
-    expect(fn () => GetResourceFromBlueprintAction::run())
-        ->toThrow(InvalidArgumentException::class, 'Page resource not found for name: default');
-});
+    if ($registered) {
+        expect(GetResourceFromBlueprintAction::run())->toBe(PageResource::class);
+    } else {
+        expect(fn (): string => GetResourceFromBlueprintAction::run())
+            ->toThrow(InvalidArgumentException::class, 'Page resource not found for name: default');
+    }
+})->with([true, false]);

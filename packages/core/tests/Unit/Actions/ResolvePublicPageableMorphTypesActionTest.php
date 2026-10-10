@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Models\Page;
-use Capell\Core\Tests\Support\UnavailableModel;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Auth\User;
@@ -17,10 +16,15 @@ it('returns aliases and model classes only for pageable morphs', function (): vo
 });
 
 it('detects models whose package table is unavailable', function (): void {
-    $action = new ResolvePublicPageableMorphTypesAction;
-    $method = new ReflectionMethod($action, 'hasBackingTable');
+    $prototype = new class extends Page
+    {
+        protected $table = 'unavailable_pageables';
+    };
+    Relation::morphMap(['unavailable' => $prototype::class]);
 
-    expect($method->invoke($action, UnavailableModel::class))->toBeFalse();
+    expect(ResolvePublicPageableMorphTypesAction::run())
+        ->not->toContain('unavailable', $prototype::class)
+        ->toContain('page', Page::class);
 });
 
 /**

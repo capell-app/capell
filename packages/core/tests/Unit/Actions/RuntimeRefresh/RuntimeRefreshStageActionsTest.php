@@ -3,13 +3,14 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\RuntimeRefresh\RunArtisanRuntimeRefreshStageAction;
+use Capell\Tests\Support\Fakes\DeletionFailureFilesystem;
+use Capell\Tests\Support\Fakes\FakeConsoleKernel;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 
 it('turns a successful artisan refresh command into a passed stage', function (): void {
-    $artisan = Mockery::mock(Kernel::class);
-    $artisan->expects('call')->once()->with('view:clear', ['--no-interaction' => true])->andReturn(0);
-    $artisan->expects('output')->once()->andReturn('');
+    $artisan = new FakeConsoleKernel;
+    $artisan->returns('view:clear', 0);
 
     $files = new Filesystem;
     $root = sys_get_temp_dir() . '/runtime-refresh-empty-views-' . uniqid();
@@ -27,18 +28,21 @@ it('turns a successful artisan refresh command into a passed stage', function ()
 });
 
 it('turns artisan failures and thrown errors into failed stages', function (): void {
-    $failedArtisan = Mockery::mock(Kernel::class);
-    $failedArtisan->expects('call')->once()->andReturn(1);
-    $failedArtisan->expects('output')->once()->andReturn('diagnostic output');
+    $failedArtisan = new FakeConsoleKernel;
+    $failedArtisan->returns('view:clear', 1, 'diagnostic output');
+
     $failed = new RunArtisanRuntimeRefreshStageAction($failedArtisan)->handle('views', 'Views', 'view:clear');
 
-    $throwingArtisan = Mockery::mock(Kernel::class);
-    $throwingArtisan->expects('call')->once()->andThrow(new RuntimeException('command failed'));
+    $throwingArtisan = new FakeConsoleKernel;
+    $throwingArtisan->returns('view:clear', new RuntimeException('command failed'));
+
     $thrown = new RunArtisanRuntimeRefreshStageAction($throwingArtisan)->handle('views', 'Views', 'view:clear');
 
     expect($failed->passed)->toBeFalse()
         ->and($thrown->passed)->toBeFalse()
-        ->and($thrown->key)->toBe('views');
+        ->and($thrown->key)->toBe('views')
+        ->and($failed->message)->toContain('diagnostic output')
+        ->and($thrown->message)->toContain('command failed');
 });
 
 it('fails the compiled view stage when cache files remain after a successful command', function (bool $reportedSuccess, bool $directory): void {
@@ -48,8 +52,7 @@ it('fails the compiled view stage when cache files remain after a successful com
     $files->ensureDirectoryExists($directory ? $path : $root);
     $files->put($directory ? $path . '/view.php' : $path, 'stale compiled view');
     config(['view.compiled' => $root]);
-    $failingFiles = Mockery::mock(Filesystem::class)->makePartial();
-    $failingFiles->shouldReceive($directory ? 'deleteDirectory' : 'delete')->once()->with($path)->andReturn($reportedSuccess);
+    $failingFiles = new DeletionFailureFilesystem($path, $reportedSuccess);
     app()->instance('files', $failingFiles);
     app()->instance(Filesystem::class, $failingFiles);
 

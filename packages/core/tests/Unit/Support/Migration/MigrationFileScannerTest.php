@@ -3,51 +3,44 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Migration\MigrationFileScanner;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
 
-afterEach(function (): void {
-    Mockery::close();
-});
+it('returns sorted unique migration names and optionally excludes stubs', function (): void {
+    $root = sys_get_temp_dir() . '/capell-migration-scan-' . bin2hex(random_bytes(8));
+    $files = new Filesystem;
+    $files->ensureDirectoryExists($root);
+    foreach (['2026_01_02_000000_second.php', '2026_01_01_000000_first.php', '2026_01_03_000000_third.php.stub', '2026_01_01_000000_first.php.stub', 'README.md'] as $name) {
+        $files->put($root . '/' . $name, 'owned fixture');
+    }
 
-it('returns sorted unique migration names including stubs by default', function (): void {
-    File::shouldReceive('glob')
-        ->once()
-        ->with('/package/database/migrations/*.php')
-        ->andReturn([
-            '/package/database/migrations/2026_01_02_000000_second.php',
-            '/package/database/migrations/2026_01_01_000000_first.php',
+    try {
+        expect(MigrationFileScanner::names($root))->toBe([
+            '2026_01_01_000000_first', '2026_01_02_000000_second', '2026_01_03_000000_third',
+        ])->and(MigrationFileScanner::names($root, includeStubs: false))->toBe([
+            '2026_01_01_000000_first', '2026_01_02_000000_second',
         ]);
-    File::shouldReceive('glob')
-        ->once()
-        ->with('/package/database/migrations/*.php.stub')
-        ->andReturn([
-            '/package/database/migrations/2026_01_03_000000_third.php.stub',
-            '/package/database/migrations/2026_01_01_000000_first.php.stub',
-        ]);
-
-    expect(MigrationFileScanner::names('/package/database/migrations'))->toBe([
-        '2026_01_01_000000_first',
-        '2026_01_02_000000_second',
-        '2026_01_03_000000_third',
-    ]);
+    } finally {
+        $files->deleteDirectory($root);
+    }
 });
 
-it('can exclude stub migrations', function (): void {
-    File::shouldReceive('glob')
-        ->once()
-        ->with('/package/database/migrations/*.php')
-        ->andReturn(['/package/database/migrations/2026_01_01_000000_first.php']);
-    File::shouldReceive('glob')
-        ->never()
-        ->with('/package/database/migrations/*.php.stub');
-
-    expect(MigrationFileScanner::names('/package/database/migrations', includeStubs: false))->toBe([
-        '2026_01_01_000000_first',
-    ]);
+it('returns an empty list for an unavailable migration directory', function (): void {
+    expect(MigrationFileScanner::names(sys_get_temp_dir() . '/missing-migrations-' . bin2hex(random_bytes(8))))->toBe([]);
 });
 
-it('returns an empty list when glob cannot read migration files', function (): void {
-    File::shouldReceive('glob')->twice()->andReturn(false);
-
-    expect(MigrationFileScanner::names('/unreadable'))->toBe([]);
+it('returns an empty list when the filesystem cannot read migration files', function (): void {
+    $original = File::getFacadeRoot();
+    File::swap(new class
+    {
+        public function glob(string $pattern, int $flags = 0): false
+        {
+            return false;
+        }
+    });
+    try {
+        expect(MigrationFileScanner::names('/unreadable'))->toBe([]);
+    } finally {
+        File::swap($original);
+    }
 });

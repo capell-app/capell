@@ -6,14 +6,11 @@ use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 
 function runLegacyAdminPanelAccessCheckForTest(): DoctorCheckResultData
 {
-    // The public 1.x adapter retains its original role precedence. Resolve and
-    // invoke it by reflection, as in the deprecated frontend compatibility tests.
     $legacyActionClass = implode('\\', ['Capell', 'Core', 'Actions', 'Diagnostics', 'CheckAdminPanelAccessAction']);
     $action = resolve($legacyActionClass);
-    $result = new ReflectionMethod($action, 'handle')->invoke($action);
-    assert($result instanceof DoctorCheckResultData);
+    throw_unless(is_callable($action->handle(...)), RuntimeException::class, 'Legacy diagnostics are not callable.');
 
-    return $result;
+    return $action->handle();
 }
 
 it('keeps the legacy super-admin role fallback compatible', function (): void {

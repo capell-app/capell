@@ -7,21 +7,20 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Bootstrap\SettingsBootstrapper;
-use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Illuminate\Config\Repository;
 
 it('loads Spatie defaults and aggregates Capell settings when configuration is uncached', function (): void {
-    $app = Mockery::mock(app())->makePartial();
-    $app->shouldReceive('configurationIsCached')->once()->andReturnFalse();
+    $app = clone app();
+    $app->instance('config_loaded_from_cache', false);
+
     $config = new Repository([
         'settings' => [
             'settings' => ['App\\Settings\\ExistingSettings'],
             'custom_value' => 'preserved',
         ],
     ]);
-    $manager = Mockery::mock(CapellCoreManager::class);
-    $manager->shouldReceive('getPackages')->once()->andReturn(collect([
+    $packages = [
         new PackageData('vendor/duplicate-existing', PackageTypeEnum::Plugin, setting: 'App\\Settings\\ExistingSettings'),
         new PackageData('vendor/duplicate-core', PackageTypeEnum::Plugin, setting: CoreSettings::class),
         new PackageData('vendor/blank', PackageTypeEnum::Plugin, setting: ''),
@@ -29,15 +28,13 @@ it('loads Spatie defaults and aggregates Capell settings when configuration is u
         new PackageData('vendor/first', PackageTypeEnum::Plugin, setting: 'Vendor\\Settings\\FirstSettings'),
         new PackageData('vendor/duplicate-first', PackageTypeEnum::Plugin, setting: 'Vendor\\Settings\\FirstSettings'),
         new PackageData('vendor/second', PackageTypeEnum::Plugin, setting: 'Vendor\\Settings\\SecondSettings'),
-    ]));
-    $originalManager = CapellCore::getFacadeRoot();
-    CapellCore::swap($manager);
-
-    try {
-        new SettingsBootstrapper($app, $config)->bootstrap();
-    } finally {
-        CapellCore::swap($originalManager);
+    ];
+    CapellCore::clearPackages();
+    foreach ($packages as $package) {
+        CapellCore::registerPackage($package->name, type: $package->type, setting: $package->setting);
     }
+
+    new SettingsBootstrapper($app, $config)->bootstrap();
 
     expect($config->get('settings.default_repository'))->toBe('database')
         ->and($config->get('settings.custom_value'))->toBe('preserved')
@@ -51,16 +48,16 @@ it('loads Spatie defaults and aggregates Capell settings when configuration is u
 });
 
 it('preserves cached Spatie config while aggregating Capell settings', function (): void {
-    $app = Mockery::mock(app())->makePartial();
-    $app->shouldReceive('configurationIsCached')->once()->andReturnTrue();
+    $app = clone app();
+    $app->instance('config_loaded_from_cache', true);
+
     $config = new Repository([
         'settings' => [
             'settings' => ['App\\Settings\\CachedSettings'],
             'custom_cached_value' => 'preserved',
         ],
     ]);
-    $manager = Mockery::mock(CapellCoreManager::class);
-    $manager->shouldReceive('getPackages')->once()->andReturn(collect([
+    $packages = [
         new PackageData('vendor/duplicate-cached', PackageTypeEnum::Plugin, setting: 'App\\Settings\\CachedSettings'),
         new PackageData('vendor/duplicate-theme', PackageTypeEnum::Plugin, setting: ThemeStudioSettings::class),
         new PackageData('vendor/blank', PackageTypeEnum::Plugin, setting: ''),
@@ -68,15 +65,13 @@ it('preserves cached Spatie config while aggregating Capell settings', function 
         new PackageData('vendor/first', PackageTypeEnum::Plugin, setting: 'Vendor\\Settings\\FirstSettings'),
         new PackageData('vendor/duplicate-first', PackageTypeEnum::Plugin, setting: 'Vendor\\Settings\\FirstSettings'),
         new PackageData('vendor/second', PackageTypeEnum::Plugin, setting: 'Vendor\\Settings\\SecondSettings'),
-    ]));
-    $originalManager = CapellCore::getFacadeRoot();
-    CapellCore::swap($manager);
-
-    try {
-        new SettingsBootstrapper($app, $config)->bootstrap();
-    } finally {
-        CapellCore::swap($originalManager);
+    ];
+    CapellCore::clearPackages();
+    foreach ($packages as $package) {
+        CapellCore::registerPackage($package->name, type: $package->type, setting: $package->setting);
     }
+
+    new SettingsBootstrapper($app, $config)->bootstrap();
 
     expect($config->get('settings'))
         ->not->toHaveKey('default_repository')
