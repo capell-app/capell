@@ -3,13 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
-use Capell\Core\Support\Composer\ComposerProcessEnvironment;
-use Capell\Core\Support\Process\ArtisanProcessEnvironment;
-use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Data\Install\ArtisanCommandResultData;
 use Capell\Core\Support\Process\RuntimeBinaryResolver;
-use Capell\Core\Tests\Support\Install\RecordingConsoleKernel;
-use Illuminate\Contracts\Translation\Translator;
+use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Exception\CommandNotFoundException;
 use Symfony\Component\Process\Process;
 
@@ -17,257 +15,166 @@ beforeEach(function (): void {
     config([RuntimeBinaryResolver::PHP_CONFIG_KEY => PHP_BINARY]);
 });
 
-afterEach(function (): void {
-    RecordingConsoleKernel::release();
-});
-
-function fakeInstallArtisanProcess(int $exitCode, string $output = '', string $errorOutput = ''): Process
+/** The external application's commands run for real, without its shared filesystem. */
+function withFreshArtisanFixture(Closure $assert, int $exitCode = 0, string $mode = 'normal'): void
 {
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setTimeout')->once()->with(120)->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturnUsing(
-        function (?callable $callback = null) use ($exitCode, $output, $errorOutput): int {
-            if ($callback !== null) {
-                $callback(Process::OUT, $output);
-                $callback(Process::ERR, $errorOutput);
-            }
-
-            return $exitCode;
-        },
-    );
-    $process->shouldReceive('isSuccessful')->andReturn($exitCode === 0);
-    $process->shouldReceive('getExitCode')->andReturn($exitCode);
-    $process->shouldReceive('getOutput')->andReturn($output);
-    $process->shouldReceive('getErrorOutput')->andReturn($errorOutput);
-
-    return $process;
+    $original = base_path();
+    $root = dirname(__DIR__, 6);
+    $directory = sys_get_temp_dir() . '/capell-fresh-artisan-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($directory);
+    $bootstrap = '<?php require ' . var_export($root . '/vendor/autoload.php', true) . ';'
+        . '$fixtureExitCode = ' . $exitCode . '; $fixtureMode = ' . var_export($mode, true) . ';';
+    File::put($directory . '/artisan', $bootstrap . <<<'PHP_WRAP'
+    if (in_array($fixtureMode, ['failed-probe', 'malformed-probe', 'invalid-probe'], true)) {
+        if (($argv[1] ?? '') === 'list') {
+            echo match ($fixtureMode) {
+                'failed-probe' => 'Boot failed.',
+                'malformed-probe' => 'Unexpected bootstrap output.',
+                'invalid-probe' => '{"commands":[{}]}',
+            };
+            exit($fixtureMode === 'failed-probe' ? 1 : 0);
+        }
+        fwrite(STDERR, 'Application boot failed.');
+        exit(19);
+    }
+    $app = new Symfony\Component\Console\Application;
+    $app->setAutoExit(false);
+    $command = new Symfony\Component\Console\Command\Command('test:late-install');
+    $command->setAliases(['test:alias'])->setHidden(true);
+    $command->addArgument('first', Symfony\Component\Console\Input\InputArgument::OPTIONAL);
+    $command->addArgument('second', Symfony\Component\Console\Input\InputArgument::OPTIONAL);
+    $command->addOption('count', null, Symfony\Component\Console\Input\InputOption::VALUE_REQUIRED);
+    $command->addOption('force', null, Symfony\Component\Console\Input\InputOption::VALUE_NONE);
+    $command->addOption('languages', null, Symfony\Component\Console\Input\InputOption::VALUE_REQUIRED | Symfony\Component\Console\Input\InputOption::VALUE_IS_ARRAY);
+    $command->setCode(function (Symfony\Component\Console\Input\InputInterface $input, Symfony\Component\Console\Output\OutputInterface $output) use ($fixtureExitCode, $fixtureMode): int {
+        if ($fixtureMode === 'stream') {
+            $output->write('Demo progress.');
+            return 0;
+        }
+        $output->write(json_encode([
+            'arguments' => $input->getArguments(),
+            'options' => $input->getOptions(),
+            'cache' => getenv('APP_CONFIG_CACHE'),
+            'cwd' => getcwd(),
+            'php' => PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION,
+        ], JSON_THROW_ON_ERROR));
+        fwrite(STDERR, 'Fresh stderr.');
+        return $fixtureExitCode;
+    });
+    $app->addCommand($command);
+    exit($app->run());
+    PHP_WRAP);
+    app()->setBasePath($directory);
+    try {
+        $assert(new CallArtisanCommandAction(new SymfonyProcessFactory, new RuntimeBinaryResolver), $directory);
+    } finally {
+        app()->setBasePath($original);
+        File::deleteDirectory($directory);
+    }
 }
 
-function installArtisanCommandList(string $command): string
-{
-    return json_encode([
-        'commands' => [['name' => $command, 'hidden' => true]],
-        'namespaces' => [['id' => 'test', 'commands' => [$command, 'test:alias']]],
-    ], JSON_THROW_ON_ERROR);
-}
-
-it('runs a registered command in process and captures its arguments output and exit code', function (): void {
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->never();
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
+it('runs a registered command and captures its arguments output and exit code', function (): void {
     Artisan::command('test:registered-install {name} {--count=} {--force}', function (): int {
-        expect($this->argument('name'))->toBe('A site with spaces')
-            ->and($this->option('count'))->toBe(7)
-            ->and($this->option('force'))->toBeTrue();
-        $this->line('Created the site.');
+        $this->line(json_encode([
+            'name' => $this->argument('name'), 'count' => $this->option('count'), 'force' => $this->option('force'),
+        ], JSON_THROW_ON_ERROR));
 
         return 17;
     });
-
-    $result = CallArtisanCommandAction::run('test:registered-install', [
-        'name' => 'A site with spaces', '--count' => 7, '--force' => true,
-    ]);
-
+    $result = CallArtisanCommandAction::run('test:registered-install', ['name' => 'A site with spaces', '--count' => 7, '--force' => true]);
     expect($result->exitCode)->toBe(17)
-        ->and($result->combinedOutput())->toBe('Created the site.')
+        ->and(json_decode((string) $result->output, true, flags: JSON_THROW_ON_ERROR))->toBe(['name' => 'A site with spaces', 'count' => 7, 'force' => true])
         ->and($result->errorOutput)->toBe('');
 });
 
-it('falls back to the project artisan and configured PHP with equivalent CLI arguments', function (): void {
-    $kernel = RecordingConsoleKernel::bind();
+it('falls back to the fresh application with equivalent CLI arguments output and exit status', function (): void {
+    withFreshArtisanFixture(function (CallArtisanCommandAction $action, string $directory): void {
+        $streamed = [];
+        $result = $action->handle('test:late-install', [
+            'first' => 'A site with spaces', '--count' => 7, '--force' => true,
+            '--languages' => ['en', 'fr'], '--sites' => null, '--ansi' => false,
+        ], onOutput: function (string $type, string $buffer) use (&$streamed): void {
+            $streamed[$type] = ($streamed[$type] ?? '') . $buffer;
+        });
+        $payload = json_decode($result->output, true, flags: JSON_THROW_ON_ERROR);
+        expect($result->exitCode)->toBe(23)
+            ->and($payload['arguments']['first'])->toBe('A site with spaces')
+            ->and($payload['options']['count'])->toBe('7')
+            ->and($payload['options']['force'])->toBeTrue()
+            ->and($payload['options']['languages'])->toBe(['en', 'fr'])
+            ->and($payload['options']['no-interaction'])->toBeTrue()
+            ->and($payload['cwd'])->toBe(realpath($directory))
+            ->and($payload['php'])->toBe('8.4')
+            ->and($result->errorOutput)->toBe('Fresh stderr.')
+            ->and($streamed[Process::OUT])->toBe($result->output)
+            ->and($streamed[Process::ERR])->toBe($result->errorOutput)
+            ->and($result->combinedOutput())->toBe($result->output . "\nFresh stderr.");
+    }, exitCode: 23);
+});
 
-    $probe = fakeInstallArtisanProcess(0, installArtisanCommandList('test:late-install'));
-    $commandProcess = fakeInstallArtisanProcess(23, "Created the site.\n", "Validation failed.\n");
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->ordered()->withArgs(
-        fn (array $command, string $cwd, ?array $environment): bool => $command === [
-            PHP_BINARY, base_path('artisan'), 'list', '--format=json', '--no-interaction',
-        ] && $cwd === base_path() && $environment === ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
-    )->andReturn($probe);
-    $factory->shouldReceive('make')->once()->ordered()->withArgs(
-        fn (array $command, string $cwd, ?array $environment): bool => $command === [
-            PHP_BINARY, base_path('artisan'), 'test:late-install',
-            '--count=7', '--force', '--languages=en', '--languages=fr', '--no-interaction',
-            '--', 'A site with spaces',
-        ] && $cwd === base_path() && $environment === ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
-    )->andReturn($commandProcess);
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
-    $streamed = [];
-    $arguments = [
-        'name' => 'A site with spaces', '--count' => 7, '--force' => true,
-        '--languages' => ['en', 'fr'], '--sites' => null, '--ansi' => false,
-    ];
-    $result = CallArtisanCommandAction::run('test:late-install', $arguments, onOutput: function (string $type, string $buffer) use (&$streamed): void {
-        $streamed[] = [$type, $buffer];
+it('reports a translated error for a command missing from both applications', function (): void {
+    withFreshArtisanFixture(function (CallArtisanCommandAction $action): void {
+        expect(fn (): ArtisanCommandResultData => $action->handle('test:missing-install'))
+            ->toThrow(RuntimeException::class, __('capell-core::install.command.not_found', ['command' => 'test:missing-install']));
     });
-
-    expect($result->exitCode)->toBe(23)
-        ->and($result->output)->toBe("Created the site.\n")
-        ->and($result->errorOutput)->toBe("Validation failed.\n")
-        ->and($result->combinedOutput())->toBe("Created the site.\nValidation failed.")
-        ->and($streamed)->toBe([
-            [Process::OUT, "Created the site.\n"], [Process::ERR, "Validation failed.\n"],
-        ]);
-
-    expect($kernel->allCalls)->toBe(1)
-        ->and($kernel->calls)->toBe([]);
 });
 
-it('reports a translated error when neither application registers the command', function (): void {
-    $kernel = RecordingConsoleKernel::bind();
-    resolve(Translator::class)->addLines([
-        'install.command.not_found' => 'Missing install command: :command',
-    ], 'en', 'capell-core');
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->withArgs(
-        fn (array $command): bool => $command[2] === 'list',
-    )->andReturn(fakeInstallArtisanProcess(0, installArtisanCommandList('test:another-command')));
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
-    expect(fn (): mixed => CallArtisanCommandAction::run('test:missing-install'))
-        ->toThrow(RuntimeException::class, 'Missing install command: test:missing-install');
-
-    expect($kernel->allCalls)->toBe(1)
-        ->and($kernel->calls)->toBe([]);
+it('preserves signature order and dash-prefixed positional values', function (): void {
+    withFreshArtisanFixture(function (CallArtisanCommandAction $action): void {
+        $result = $action->handle('test:late-install', ['second' => 'second value', 'first' => '--a-value']);
+        expect($result->exitCode)->toBe(0);
+        $payload = json_decode($result->output, true, flags: JSON_THROW_ON_ERROR);
+        expect($payload['arguments']['first'])->toBe('--a-value')
+            ->and($payload['arguments']['second'])->toBe('second value');
+    });
 });
 
-it('preserves signature order and dash-prefixed values for named positional arguments', function (): void {
-    $kernel = RecordingConsoleKernel::bind();
-    $catalogue = json_encode(['commands' => [[
-        'name' => 'test:positional-install',
-        'definition' => ['arguments' => ['first' => [], 'second' => []]],
-    ]]], JSON_THROW_ON_ERROR);
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->ordered()
-        ->andReturn(fakeInstallArtisanProcess(0, $catalogue));
-    $factory->shouldReceive('make')->once()->ordered()->withArgs(
-        fn (array $arguments): bool => $arguments === [
-            PHP_BINARY, base_path('artisan'), 'test:positional-install',
-            '--no-interaction', '--', '--a-value', 'second value',
-        ],
-    )->andReturn(fakeInstallArtisanProcess(0));
-    app()->instance(ProcessFactoryInterface::class, $factory);
+it('runs hidden commands and aliases from the fresh application', function (string $command): void {
+    withFreshArtisanFixture(function (CallArtisanCommandAction $action) use ($command): void {
+        $result = $action->handle($command, ['first' => 'Public argument']);
+        expect($result->exitCode)->toBe(0)
+            ->and(json_decode($result->output, true, flags: JSON_THROW_ON_ERROR)['arguments']['first'])->toBe('Public argument');
+    });
+})->with(['hidden' => 'test:late-install', 'alias' => 'test:alias']);
 
-    expect(CallArtisanCommandAction::run('test:positional-install', [
-        'second' => 'second value', 'first' => '--a-value',
-    ])->exitCode)->toBe(0);
+it('preserves boot failure output when command discovery fails', function (string $mode): void {
+    withFreshArtisanFixture(function (CallArtisanCommandAction $action): void {
+        $result = $action->handle('test:late-install');
+        expect($result->exitCode)->toBe(19)
+            ->and($result->combinedOutput())->toBe('Application boot failed.');
+    }, mode: $mode);
+})->with(['failed-probe', 'malformed-probe', 'invalid-probe']);
 
-    expect($kernel->allCalls)->toBe(1)
-        ->and($kernel->calls)->toBe([]);
-});
-
-it('recognises hidden commands and aliases in the fresh application', function (string $command): void {
-    $kernel = RecordingConsoleKernel::bind();
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->ordered()
-        ->andReturn(fakeInstallArtisanProcess(0, installArtisanCommandList('test:hidden-install')));
-    $factory->shouldReceive('make')->once()->ordered()->withArgs(
-        fn (array $arguments): bool => $arguments[2] === $command,
-    )->andReturn(fakeInstallArtisanProcess(0, 'done'));
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
-    expect(CallArtisanCommandAction::run($command)->combinedOutput())->toBe('done');
-
-    expect($kernel->allCalls)->toBe(1)
-        ->and($kernel->calls)->toBe([]);
-})->with(['hidden command' => 'test:hidden-install', 'alias' => 'test:alias']);
-
-it('preserves real boot failures when the fresh command probe fails or is malformed', function (int $probeExitCode, string $probeOutput): void {
-    $kernel = RecordingConsoleKernel::bind();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->ordered()
-        ->andReturn(fakeInstallArtisanProcess($probeExitCode, $probeOutput));
-    $factory->shouldReceive('make')->once()->ordered()
-        ->andReturn(fakeInstallArtisanProcess(19, '', 'Application boot failed.'));
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
-    $result = CallArtisanCommandAction::run('test:late-install');
-
-    expect($result->exitCode)->toBe(19)
-        ->and($result->combinedOutput())->toBe('Application boot failed.')
-        ->and($kernel->allCalls)->toBe(1)
-        ->and($kernel->calls)->toBe([]);
-})->with([
-    'failed probe' => [1, 'Boot failed.'],
-    'malformed JSON' => [0, 'Unexpected bootstrap output.'],
-    'invalid command contract' => [0, '{"commands":[{}]}'],
-]);
-
-it('does not retry failures raised inside a registered command', function (Throwable $failure): void {
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->never();
-    app()->instance(ProcessFactoryInterface::class, $factory);
+it('preserves failures raised inside a registered command', function (Throwable $failure): void {
     Artisan::command('test:registered-failure', function () use ($failure): never {
         throw $failure;
     });
-
     expect(fn (): mixed => CallArtisanCommandAction::run('test:registered-failure'))
         ->toThrow($failure::class, $failure->getMessage());
-})->with([
-    'ordinary failure' => [new RuntimeException('A real install failure.')],
-    'missing nested command' => [new CommandNotFoundException('A nested command is missing.')],
-]);
+})->with([new RuntimeException('A real install failure.'), new CommandNotFoundException('A nested command is missing.')]);
 
-it('honours a caller requiring a fresh boot even when the command is registered', function (): void {
-    Artisan::command('test:fresh-install', function (): never {
+it('honours a fresh boot request even for a command registered in the calling application', function (): void {
+    Artisan::command('test:late-install', function (): never {
         throw new RuntimeException('The stale application must not run this command.');
     });
-    expect(Artisan::all())->toHaveKey('test:fresh-install');
-    $kernel = RecordingConsoleKernel::bind(['test:fresh-install' => []]);
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->ordered()
-        ->andReturn(fakeInstallArtisanProcess(0, installArtisanCommandList('test:fresh-install')));
-    $factory->shouldReceive('make')->once()->ordered()
-        ->andReturn(fakeInstallArtisanProcess(0, 'fresh boot'));
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
-    expect(CallArtisanCommandAction::run('test:fresh-install', freshProcess: true)->combinedOutput())
-        ->toBe('fresh boot');
-    expect($kernel->allCalls)->toBe(0)
-        ->and($kernel->calls)->toBe([]);
-});
-
-it('streams fresh process output without retaining a second copy when capture is disabled', function (): void {
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setTimeout')->once()->with(120)->andReturnSelf();
-    $process->shouldReceive('disableOutput')->once()->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturnUsing(function (callable $callback): int {
-        $callback(Process::OUT, 'Demo progress.');
-
-        return 0;
+    withFreshArtisanFixture(function (CallArtisanCommandAction $action): void {
+        expect($action->handle('test:late-install', freshProcess: true)->exitCode)->toBe(0);
     });
-    $process->shouldReceive('getExitCode')->once()->andReturn(0);
-    $process->shouldReceive('getOutput')->never();
-    $process->shouldReceive('getErrorOutput')->never();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->ordered()
-        ->andReturn(fakeInstallArtisanProcess(0, installArtisanCommandList('test:streaming-demo')));
-    $factory->shouldReceive('make')->once()->ordered()->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
-    $streamed = [];
-    $result = CallArtisanCommandAction::run(
-        'test:streaming-demo',
-        freshProcess: true,
-        captureOutput: false,
-        onOutput: function (string $type, string $buffer) use (&$streamed): void {
-            $streamed[] = $buffer;
-        },
-    );
-
-    expect($streamed)->toBe(['Demo progress.'])
-        ->and($result->exitCode)->toBe(0)
-        ->and($result->combinedOutput())->toBe('');
 });
 
-it('captures the registered command output even when it dispatches another artisan command', function (): void {
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->never();
-    app()->instance(ProcessFactoryInterface::class, $factory);
+it('streams output without retaining a second copy when capture is disabled', function (): void {
+    withFreshArtisanFixture(function (CallArtisanCommandAction $action): void {
+        $streamed = '';
+        $result = $action->handle('test:late-install', captureOutput: false, onOutput: function (string $type, string $buffer) use (&$streamed): void {
+            $streamed .= $buffer;
+        });
+        expect($streamed)->toBe('Demo progress.')
+            ->and($result->exitCode)->toBe(0)
+            ->and($result->combinedOutput())->toBe('');
+    }, mode: 'stream');
+});
+
+it('captures parent command output when it dispatches another command', function (): void {
     Artisan::command('test:nested-install-child', function (): int {
         $this->line('Child output.');
 
@@ -279,6 +186,5 @@ it('captures the registered command output even when it dispatches another artis
 
         return 0;
     });
-
     expect(CallArtisanCommandAction::run('test:nested-install-parent')->combinedOutput())->toBe('Parent output.');
 });

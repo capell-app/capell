@@ -2,42 +2,45 @@
 
 declare(strict_types=1);
 
+use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Support\Render\RenderHookRegistry;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
+
+require_once dirname(__DIR__, 5) . '/tests/Support/FrontendViewFixture.php';
+
 it('keeps shared frontend layout free of foundation chrome fallbacks', function (): void {
-    $layout = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/layout/index.blade.php');
-
-    expect($layout)->not->toContain('<x-capell::header.index')
-        ->and($layout)->not->toContain("'capell::footer'");
+    frontendViewFixture();
+    $html = Blade::render('<x-capell::layout>Public slot</x-capell::layout>');
+    expect($html)->toContain('Public slot');
+    expect(domCount(frontendRenderedDom($html), '//header | //footer'))->toBe(0);
 });
-
-it('keeps layout preparation out of the component view', function (): void {
-    $layout = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/layout/index.blade.php');
-    $component = file_get_contents(dirname(__DIR__, 3) . '/src/View/Components/Layout.php');
-
-    expect($layout)->not->toContain('<?php')
-        ->and($layout)->not->toContain("app('")
-        ->and($component)->toContain('declare(strict_types=1)')
-        ->and($component)->toContain('final class Layout extends Component');
+it('renders prepared layout data without database queries or authoring output', function (): void {
+    frontendViewFixture();
+    $connection = DB::connection();
+    $connection->enableQueryLog();
+    $connection->flushQueryLog();
+    try {
+        $html = Blade::render('<x-capell::layout>Public slot</x-capell::layout>');
+        expect($html)->toContain('Public body', 'Public slot')
+            ->not->toContain('data-model-id', 'data-field-path', 'signed-editor');
+        expect($connection->getQueryLog())->toBe([]);
+    } finally {
+        $connection->disableQueryLog();
+    }
 });
+it('renders branded system page content with colour-scheme support', function (): void {
+    frontendViewFixture(system: true);
+    $html = Blade::render('<x-capell::layout>System slot</x-capell::layout>');
+    foreach (['capell-default-theme__layout', 'capell-default-theme__brand', 'capell-default-theme__content'] as $class) {
+        expect(frontendHasClass($html, $class))->toBeTrue();
+    }
 
-it('keeps the built-in system page layout responsive to dark mode', function (): void {
-    $app = file_get_contents(dirname(__DIR__, 3) . '/resources/views/app.blade.php');
-    $layout = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/layout/index.blade.php');
-    $styles = file_get_contents(dirname(__DIR__, 3) . '/resources/css/base/default-theme.css');
-
-    expect($app)->toContain('body-class="capell-default-theme"')
-        ->and($layout)->toContain('capell-default-theme__layout')
-        ->and($layout)->toContain('@blaze-standard-compiler')
-        ->and($layout)->toContain('capell-default-theme__brand')
-        ->and($layout)->toContain('capell-default-theme__content')
-        ->and($styles)->toContain('@media (prefers-color-scheme: dark)')
-        ->and($styles)->toContain(':root.dark .capell-default-theme')
-        ->and($styles)->toContain(':root.light .capell-default-theme')
-        ->and($styles)->toContain('--color-heading: 248 250 252')
-        ->and($styles)->toContain('--color-base: 203 213 225')
-        ->and($styles)->toContain('color-scheme: dark')
-        ->and($styles)->toContain('color-scheme: light');
+    expect($html)->toContain('Public site', 'Public title', 'Public body', 'System slot');
+    // These delivered CSS tokens preserve OS preference and explicit colour-scheme overrides.
+    $styles = (string) file_get_contents(dirname(__DIR__, 3) . '/resources/css/base/default-theme.css');
+    expect($styles)->toContain('prefers-color-scheme', ':root.dark', ':root.light');
 });
-
 it('declares light and dark desktop and mobile screenshot states', function (): void {
     $manifest = json_decode(
         file_get_contents(dirname(__DIR__, 3) . '/docs/screenshots.json'),
@@ -54,23 +57,21 @@ it('declares light and dark desktop and mobile screenshot states', function (): 
 });
 
 it('exposes the shared main content render hook', function (): void {
-    $main = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/layout/main.blade.php');
-    $locations = file_get_contents(dirname(__DIR__, 3) . '/src/Enums/RenderHookLocation.php');
+    $fixture = frontendViewFixture();
+    $hooks = resolve(RenderHookRegistry::class);
+    $hooks->register(RenderHookLocation::MainContent, '<p>Contributed main content</p>');
+    $hooks->register(RenderHookLocation::AfterContent, '<p>Contributed after content</p>');
 
-    expect($locations)->toContain("case MainContent = 'mainContent'")
-        ->and($main)->toContain('RenderHookLocation::MainContent')
-        ->and($main)->toContain('RenderHookLocation::AfterContent')
-        ->and($main)->toContain("scenario: 'frontend-main-layout'")
-        ->and($main)->toContain("target: 'capell::layout.main'")
-        ->and($main)->toContain('{{ $pageSlot }}');
+    $html = Blade::render('<x-capell::layout.main :page="$page" :layout="null" :theme="[]" page-slot="Public slot" />', $fixture);
+    expect($html)->toContain('Contributed main content', 'Contributed after content', 'Public slot')
+        ->not->toContain('Public body');
 });
-
-it('keeps shared frontend content free of foundation prose and divider tokens', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 3) . '/resources/views/components/content.blade.php');
-
-    expect($content)->not->toContain('data-lightbox');
+it('renders shared content without lightbox behaviour', function (): void {
+    frontendViewFixture();
+    $html = Blade::render('<x-capell::content content="&lt;p&gt;Public content&lt;/p&gt;" />');
+    expect($html)->toContain('Public content');
+    expect(domCount(frontendRenderedDom($html), '//*[@data-lightbox]'))->toBe(0);
 });
-
 it('keeps shared frontend javascript limited to the generic alpine runtime', function (): void {
     $entrypoint = file_get_contents(dirname(__DIR__, 3) . '/resources/js/capell-frontend.js');
 

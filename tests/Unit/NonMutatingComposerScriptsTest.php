@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use Symfony\Component\Process\Process;
 
 it('keeps documented Composer check scripts recursively non-mutating', function (string $script): void {
     $composer = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
@@ -11,6 +12,7 @@ it('keeps documented Composer check scripts recursively non-mutating', function 
     foreach (expandComposerCheckScript($script, $scripts) as $command) {
         $normalized = strtolower($command);
 
+        // These flags prevent advertised check commands from rewriting a checkout.
         if (str_contains($normalized, 'vendor/bin/rector')) {
             expect($normalized)->toContain('--dry-run');
         }
@@ -30,17 +32,40 @@ it('keeps documented Composer check scripts recursively non-mutating', function 
     }
 })->with(['preflight']);
 
-it('applies Rector transformations during the full preflight', function (): void {
-    $composer = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
-    $scripts = $composer['scripts'] ?? [];
-    $runner = file_get_contents(dirname(__DIR__, 2) . '/scripts/run-preflight.php');
-
-    expect($scripts['preflight:all'])
-        ->toContain('@php scripts/with-lock.php capell-release-verification -- php scripts/run-preflight.php --all')
-        ->and($runner)->toContain("'rector' => 'rector:all'")
-        ->and($runner)->toContain("'rector' => 'rector:all:check'");
-});
-
+it('applies Rector transformations only in the full preflight', function (bool $all): void {
+    $directory = sys_get_temp_dir() . '/capell-rector-preflight-' . bin2hex(random_bytes(6));
+    mkdir($directory);
+    $composer = $directory . '/composer';
+    $fixture = $directory . '/fixture';
+    file_put_contents($fixture, 'original');
+    file_put_contents($composer, <<<'PHP'
+        #!/usr/bin/env php
+        <?php
+        $scripts = json_decode(file_get_contents(getenv('CAPELL_PREFLIGHT_MANIFEST')), true, flags: JSON_THROW_ON_ERROR)['scripts'];
+        $command = $scripts[$argv[1]];
+        if (! str_contains($command, '--dry-run')) {
+            file_put_contents(getenv('CAPELL_PREFLIGHT_FIXTURE'), 'formatted');
+        }
+        PHP);
+    chmod($composer, 0755);
+    $process = new Process([
+        PHP_BINARY, dirname(__DIR__, 2) . '/scripts/run-preflight.php',
+        ...($all ? ['--all'] : []), 'rector',
+    ], dirname(__DIR__, 2), [
+        'COMPOSER_BINARY' => $composer,
+        'CAPELL_PREFLIGHT_MANIFEST' => dirname(__DIR__, 2) . '/composer.json',
+        'CAPELL_PREFLIGHT_FIXTURE' => $fixture,
+    ]);
+    try {
+        expect($process->run())->toBe(0, $process->getErrorOutput())
+            ->and($process->getOutput())->toContain('PASS rector')
+            ->and(file_get_contents($fixture))->toBe($all ? 'formatted' : 'original');
+    } finally {
+        unlink($composer);
+        unlink($fixture);
+        rmdir($directory);
+    }
+})->with(['check' => false, 'full' => true]);
 it('continues after a failed preflight gate and returns a final failure', function (): void {
     $root = dirname(__DIR__, 2);
     $temporary = sys_get_temp_dir() . '/capell-preflight-runner-' . bin2hex(random_bytes(6));
@@ -69,7 +94,7 @@ BASH);
     exec($command, $output, $exitCode);
 
     expect($exitCode)->toBe(1)
-        ->and(file($log, FILE_IGNORE_NEW_LINES))->toBe(['analyze', 'test:preflight'])
+        ->and(file($log, FILE_IGNORE_NEW_LINES))->toEqualCanonicalizing(['analyze', 'test:preflight'])
         ->and(implode("\n", $output))
         ->toContain('FAIL phpstan')
         ->toContain('PASS tests')

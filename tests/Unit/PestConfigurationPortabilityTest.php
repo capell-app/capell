@@ -2,17 +2,25 @@
 
 declare(strict_types=1);
 
-it('does not declare case-only duplicate package test paths', function (): void {
-    $configuration = (string) file_get_contents(dirname(__DIR__) . '/Pest.php');
+use Symfony\Component\Process\Process;
 
-    preg_match_all("/'(\.\.\/[^']+\/tests)'/", $configuration, $matches);
+it('discovers package tests with their package group on this filesystem', function (string $package): void {
+    $root = dirname(__DIR__, 2);
+    $directory = $root . '/packages/' . $package . '/tests';
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory));
+    $test = null;
 
-    $paths = $matches[1];
-    $normalisedPaths = array_map(
-        static fn (string $path): string => strtolower(str_replace('\\', '/', $path)),
-        $paths,
-    );
+    foreach ($files as $file) {
+        if ($file->isFile() && str_ends_with((string) $file->getFilename(), 'Test.php')) {
+            $test = $file->getPathname();
+            break;
+        }
+    }
 
-    expect($paths)->not->toBeEmpty()
-        ->and($normalisedPaths)->toHaveCount(count(array_unique($normalisedPaths)));
-});
+    expect($test)->not->toBeNull();
+    $process = new Process([PHP_BINARY, 'vendor/bin/pest', $test, '--configuration=phpunit.xml', '--list-groups'], $root);
+
+    // Duplicate case-only registrations break discovery on case-sensitive hosts.
+    expect($process->run())->toBe(0, $process->getErrorOutput())
+        ->and($process->getOutput())->toMatch('/^\\s*- ' . preg_quote($package, '/') . '(?: \(.*\))?\.?$/m');
+})->with(['core', 'admin', 'frontend', 'installer', 'marketplace']);

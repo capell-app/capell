@@ -3,52 +3,47 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 
-it('runs migrations published into the host application', function (): void {
-    $originalDatabasePath = database_path();
-    $databasePath = sys_get_temp_dir() . '/capell-published-upgrade-' . bin2hex(random_bytes(8));
-    File::ensureDirectoryExists($databasePath . '/migrations');
-    File::put($databasePath . '/migrations/2099_01_01_000001_pending.php', '<?php');
-    File::put($databasePath . '/migrations/2099_01_01_000002_ran.php', '<?php');
-    DB::table('migrations')->insert(['migration' => '2099_01_01_000002_ran', 'batch' => 1]);
-    app()->useDatabasePath($databasePath);
-    $calls = [];
-    $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('call')->once()->andReturnUsing(function (string $command, array $parameters = []) use (&$calls): int {
-        $calls[] = [$command, $parameters];
-
-        return 0;
-    });
-    $kernel->shouldReceive('output')->andReturn('Published migrations ran');
-    $this->app->instance(Kernel::class, $kernel);
-
+it('applies only pending published migrations and preserves schema on a dry run', function (bool $dryRun): void {
+    $original = database_path();
+    $directory = sys_get_temp_dir() . '/capell-published-upgrade-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($directory . '/migrations');
+    $pending = '2099_01_01_000001_pending';
+    $ran = '2099_01_01_000002_ran';
+    File::put($directory . '/migrations/' . $pending . '.php', <<<'PHP'
+        <?php
+        return new class extends Illuminate\Database\Migrations\Migration {
+            public function up(): void {
+                Illuminate\Support\Facades\Schema::create('published_upgrade_fixture', function (Illuminate\Database\Schema\Blueprint $table): void {
+                    $table->id();
+                });
+            }
+        };
+        PHP);
+    File::put($directory . '/migrations/' . $ran . '.php', <<<'PHP'
+        <?php
+        return new class extends Illuminate\Database\Migrations\Migration {
+            public function up(): void {
+                throw new RuntimeException('An applied migration must not run again.');
+            }
+        };
+        PHP);
+    DB::table('migrations')->insert(['migration' => $ran, 'batch' => 1]);
+    app()->useDatabasePath($directory);
     try {
-        $result = RunPublishedDatabaseMigrationsAction::run();
-
+        $result = RunPublishedDatabaseMigrationsAction::run(dryRun: $dryRun);
         expect($result->exitCode)->toBe(0)
-            ->and($result->output)->toContain('Published migrations ran')
-            ->and($calls)->toBe([['migrate', [
-                '--force' => true,
-                '--path' => [$databasePath . '/migrations/2099_01_01_000001_pending.php'],
-                '--realpath' => true,
-            ]]]);
+            ->and(Schema::hasTable('published_upgrade_fixture'))->toBe(! $dryRun)
+            ->and(DB::table('migrations')->where('migration', $pending)->exists())->toBe(! $dryRun)
+            ->and(DB::table('migrations')->where('migration', $ran)->count())->toBe(1);
+        if ($dryRun) {
+            expect($result->output)->toContain('[dry-run]');
+        }
     } finally {
-        app()->useDatabasePath($originalDatabasePath);
-        File::deleteDirectory($databasePath);
+        app()->useDatabasePath($original);
+        File::deleteDirectory($directory);
     }
-});
-
-it('does not invoke artisan during a dry run', function (): void {
-    $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldNotReceive('call');
-
-    $this->app->instance(Kernel::class, $kernel);
-
-    $result = RunPublishedDatabaseMigrationsAction::run(dryRun: true);
-
-    expect($result->exitCode)->toBe(0)
-        ->and($result->output)->toContain('[dry-run]');
-});
+})->with(['apply' => false, 'dry run' => true]);
