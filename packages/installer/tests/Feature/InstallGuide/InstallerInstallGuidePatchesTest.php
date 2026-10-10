@@ -2,10 +2,29 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Enums\FilamentColorEnum;
+use Capell\Admin\Filament\Pages\CapellDashboard;
+use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
+use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\MyWorkQueueFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
+use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Actions\InstallGuide\ApplyInstallGuidePatchesAction;
 use Capell\Installer\Data\InstallGuide\ApplyPatchesInputData;
+use Capell\Tests\Support\GeneratedPhpFixture;
+use Capell\Tests\Support\JavascriptFixture;
+use Dotenv\Dotenv;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Http\Request;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 beforeEach(function (): void {
     $this->originalBasePath = $this->app->basePath();
@@ -55,7 +74,7 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
     $result = ApplyInstallGuidePatchesAction::run(new ApplyPatchesInputData($patchIds));
 
     expect($result->results)->toHaveCount(count($patchIds))
-        ->and($result->failed())->toBeEmpty()
+        ->and($result->failed()->mapWithKeys(fn ($patchResult): array => [$patchResult->patchId => $patchResult->errorMessage])->all())->toBe([])
         ->and($result->succeeded())->toHaveCount(count($patchIds));
 
     $result->results->each(function ($patchResult): void {
@@ -63,28 +82,52 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
             ->and($patchResult->statusAfter)->toBe(PatchStatus::AlreadyApplied);
     });
 
-    $adminPanelProvider = File::get(base_path('app/Providers/Filament/AdminPanelProvider.php'));
-    expect($adminPanelProvider)->toContain('CapellAdminPlugin::make()')
-        ->and($adminPanelProvider)->toContain('FilamentColorEnum::colors()')
-        ->and($adminPanelProvider)->toContain('CapellDashboard::class')
-        ->and($adminPanelProvider)->toContain('CapellAdmin::getNavigationItems()')
-        ->and($adminPanelProvider)->toContain('CapellAdmin::getNavigationGroups()')
-        ->and($adminPanelProvider)->toContain('ListPagesFilamentWidget::class')
-        ->and($adminPanelProvider)->toContain("viteTheme('resources/css/filament/admin/theme.css')");
+    $provider = GeneratedPhpFixture::load(base_path('app/Providers/Filament/AdminPanelProvider.php'), PanelProvider::class, app());
+    $panel = $provider->panel(Panel::make());
+    expect($panel->hasPlugin(CapellAdminPlugin::make()->getId()))->toBeTrue()
+        ->and(array_keys($panel->getColors()))->toContain(...array_keys(FilamentColorEnum::colors()))
+        ->and($panel->getViteTheme())->toBe('resources/css/filament/admin/theme.css')
+        ->and($panel->getPages())->toContain(CapellDashboard::class)
+        ->and($panel->getWidgets())->toContain(ListPagesFilamentWidget::class, MyWorkQueueFilamentWidget::class, RecentlyPublishedFilamentWidget::class);
 
-    expect(File::get(base_path('.env')))->toContain('QUEUE_CONNECTION=database')
-        ->and(File::get(base_path('.env')))->toContain('SETTINGS_CACHE_ENABLED=true')
-        ->and(File::get(base_path('config/filesystems.php')))->toContain("'page_cache'")
-        ->and(File::get(base_path('config/logging.php')))->toContain("'capell'")
-        ->and(File::get(base_path('resources/css/filament/admin/theme.css')))->toContain('vendor/capell-app/installer/resources/views/**/*.blade.php')
-        ->and(File::get(base_path('vite.config.js')))->toContain("'resources/css/filament/admin/theme.css'")
-        ->and(File::get(base_path('bootstrap/app.php')))->toContain('RuntimeRoleBootstrap::configure($app);')
-        ->and(File::get(base_path('routes/web.php')))->not->toContain("Route::get('/', function ()");
+    $environment = Dotenv::parse(File::get(base_path('.env')));
+    $filesystems = require base_path('config/filesystems.php');
+    $logging = require base_path('config/logging.php');
+    expect($environment)->toMatchArray(['QUEUE_CONNECTION' => 'database', 'SETTINGS_CACHE_ENABLED' => 'true'])
+        ->and($filesystems['disks']['page_cache'])->toBe([
+            'driver' => 'local', 'root' => public_path('page-cache'), 'throw' => false,
+        ])
+        ->and($logging['channels']['capell']['driver'])->toBe('single')
+        ->and(JavascriptFixture::viteInputs(base_path('vite.config.js')))->toContain('resources/css/filament/admin/theme.css');
 
-    $userModel = File::get(base_path('app/Models/User.php'));
-    expect($userModel)->toContain('implements FilamentUser')
-        ->and($userModel)->toContain('HasPanelShield')
-        ->and($userModel)->toContain('getActivitylogOptions');
+    Route::setRoutes(new RouteCollection);
+    require base_path('routes/web.php');
+    expect(fn () => Route::getRoutes()->match(Request::create('/')))
+        ->toThrow(NotFoundHttpException::class);
+
+    $user = GeneratedPhpFixture::load(base_path('app/Models/User.php'), Authenticatable::class);
+    throw_unless($user instanceof FilamentUser, RuntimeException::class, 'The generated user must support Filament panels.');
+    $originalMorphMap = Relation::morphMap();
+    $originalAuthModel = config('auth.providers.users.model');
+    Relation::morphMap(['installer-user' => $user::class]);
+    config(['auth.providers.users.model' => $user::class]);
+    try {
+        expect($user->canAccessPanel($panel))->toBeFalse();
+        $user->forceFill(['name' => 'Patched User', 'email' => 'patched-user@example.test', 'password' => 'private-password'])->save();
+        $activityClass = ActivityLogCompat::activityModelClass();
+        $activity = $activityClass::query()->where('log_name', 'user')->latest('id')->firstOrFail();
+        $attributes = ActivityLogCompat::attributeValues($activity, 'attributes');
+        expect($activity->getAttribute('event'))->toBe('created')
+            ->and($attributes['name'] ?? null)->toBe('Patched User')
+            ->and($attributes)->not->toHaveKey('password');
+    } finally {
+        Relation::morphMap($originalMorphMap, false);
+        config(['auth.providers.users.model' => $originalAuthModel]);
+    }
+
+    // RuntimeRoleBootstrapPatchTest and ThemeSourcesPatchTest execute the generated
+    // bootstrap and build all registered theme sources independently.
+
 });
 
 function writeInstallerInstallGuideFixture(string $relativePath, string $contents): void
@@ -107,9 +150,11 @@ namespace App\Providers\Filament;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Override;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
