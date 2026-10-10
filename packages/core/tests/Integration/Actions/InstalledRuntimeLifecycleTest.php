@@ -15,6 +15,7 @@ use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\FlushResettableState;
+use Capell\Core\Support\Diagnostics\Checks\InstalledRuntimeCheck;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
@@ -273,6 +274,36 @@ it('orders required package activation before a dependent registered earlier', f
     $runtime->refresh();
 
     expect($order)->toBe(['dependency', 'dependent']);
+});
+
+it('reports every disabled requirement that prevents installed runtime activation and recovers after enable', function (): void {
+    $logger = Log::spy();
+    foreach (['test/disabled-dependency', 'test/other-disabled-dependency'] as $dependency) {
+        CapellCore::registerPackage($dependency);
+        CapellCore::markPackageInstalled($dependency);
+        CapellCore::markPackageDisabled($dependency);
+    }
+
+    CapellCore::getPackage(RuntimeLifecycleFixture::$packageName)->requirements = ['test/disabled-dependency', 'test/other-disabled-dependency'];
+    CapellCore::markPackageInstalled(RuntimeLifecycleFixture::$packageName);
+    $provider = app()->register(RuntimeLifecycleFixture::class);
+    $runtime = resolve(InstalledRuntimeLifecycle::class);
+    $runtime->refresh();
+
+    $check = resolve(InstalledRuntimeCheck::class)->check();
+    expect($provider->registrations)->toBe([])
+        ->and($check->passed)->toBeFalse()
+        ->and($check->message)->toContain(RuntimeLifecycleFixture::$packageName, 'test/disabled-dependency', 'test/other-disabled-dependency');
+
+    $logger->shouldHaveReceived('warning')->withArgs(fn (string $message, array $context): bool => str_contains($message, RuntimeLifecycleFixture::$packageName)
+        && str_contains($message, 'test/disabled-dependency')
+        && $context['requirement'] === 'test/disabled-dependency');
+
+    CapellCore::markPackageInstalled('test/disabled-dependency');
+    CapellCore::markPackageInstalled('test/other-disabled-dependency');
+    $runtime->refresh();
+    expect($provider->registrations)->toBe(['runtime'])
+        ->and(resolve(InstalledRuntimeCheck::class)->check()->passed)->toBeTrue();
 });
 
 it('does not reset the activation guard at a request or sandbox boundary', function (): void {
