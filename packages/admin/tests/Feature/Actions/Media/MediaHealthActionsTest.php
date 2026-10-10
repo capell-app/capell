@@ -10,6 +10,7 @@ use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Database\Eloquent\Collection;
@@ -113,6 +114,35 @@ it('repairs only safe selected records and rechecks unused media before trashing
         ->and($deleteResult->skipped)->toContain(['id' => $used->getKey(), 'reason' => 'in_use'])
         ->and($unused->refresh()->trashed())->toBeTrue()
         ->and($used->refresh()->trashed())->toBeFalse();
+});
+
+it('does not trash an image attached directly to a page', function (): void {
+    $page = Page::factory()->createOne();
+    $media = Media::factory()->model($page)->createOne();
+
+    $result = RepairMediaHealthAction::run(
+        selectedMedia: new Collection([$media]),
+        actor: test()->authenticatedUser(),
+        repair: MediaHealthRepairEnum::DeleteUnused,
+    );
+
+    expect($result->repaired)->toBe(0)
+        ->and($result->skipped)->toContain(['id' => $media->getKey(), 'reason' => 'in_use'])
+        ->and($media->refresh()->trashed())->toBeFalse();
+});
+
+it('can trash an unreferenced shared site upload', function (): void {
+    $site = Site::factory()->createOne();
+    $media = Media::factory()->model($site)->createOne(['collection_name' => 'uploads']);
+
+    $result = RepairMediaHealthAction::run(
+        selectedMedia: new Collection([$media]),
+        actor: test()->authenticatedUser(),
+        repair: MediaHealthRepairEnum::DeleteUnused,
+    );
+
+    expect($result->repaired)->toBe(1)
+        ->and($media->refresh()->trashed())->toBeTrue();
 });
 
 it('rechecks per-record permissions for bulk health repairs', function (): void {

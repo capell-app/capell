@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\Media;
 use Capell\Admin\Data\Media\MediaHealthRepairResultData;
 use Capell\Admin\Enums\MediaHealthRepairEnum;
 use Capell\Core\Models\Media;
+use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection;
@@ -31,7 +32,7 @@ final class RepairMediaHealthAction
 
         /** @var Collection<int, Media> $media */
         $media = SiteAccess::current()->scopeMedia(
-            SiteAccess::current()->query(Media::class)->with(['translations.language']),
+            SiteAccess::current()->query(Media::class)->with(['model', 'translations.language']),
         )
             ->whereKey($selectedIds)
             ->get()
@@ -112,7 +113,11 @@ final class RepairMediaHealthAction
 
     private function deleteUnused(Media $media): ?string
     {
-        if (! BuildMediaHealthStateAction::run($media)->unused) {
+        $owner = $media->model;
+        $isLibraryUpload = $owner instanceof Site && $media->collection_name === 'uploads';
+
+        /** Direct owner relations and references outside the actor's visible sites still use the file. */
+        if (($owner !== null && ! $isLibraryUpload) || $media->assetRelations()->exists()) {
             return 'in_use';
         }
 
