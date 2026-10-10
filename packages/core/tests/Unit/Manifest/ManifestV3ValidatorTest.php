@@ -281,16 +281,27 @@ it('declares package security metadata in the manifest v3 json schema', function
         ->and(data_get($schema, 'properties.security.properties.publicSurface.properties.routeNames.$ref'))->toBe('#/$defs/stringList');
 });
 
-it('declares safe package-relative Marketplace screenshot paths in the manifest v3 json schema', function (): void {
+it('validates screenshot paths in the published schema without depending on its regex spelling', function (string $path, bool $safe): void {
     $schema = json_decode(
         (string) file_get_contents(dirname(__DIR__, 3) . '/resources/schema/capell-manifest-v3.schema.json'),
         true,
         flags: JSON_THROW_ON_ERROR,
     );
-
-    expect(data_get($schema, 'properties.marketplace.properties.screenshots.items.properties.path.pattern'))
-        ->toBe('^(?!/)(?![A-Za-z]:/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\]*[^/\\\\]$');
-});
+    $pattern = data_get($schema, 'properties.marketplace.properties.screenshots.items.properties.path.pattern');
+    throw_unless(is_string($pattern), RuntimeException::class, 'Screenshot paths need a schema constraint.');
+    expect(preg_match('~' . str_replace('~', '\~', $pattern) . '~u', $path) === 1)->toBe($safe);
+})->with([
+    'relative image' => ['docs/screenshots/admin.webp', true],
+    'root image' => ['admin.webp', true],
+    'absolute path' => ['/tmp/admin.webp', false],
+    'drive path' => ['C:/admin.webp', false],
+    'parent path' => ['docs/../admin.webp', false],
+    'current path' => ['./admin.webp', false],
+    'empty segment' => ['docs//admin.webp', false],
+    'windows separator' => ['docs\\admin.webp', false],
+    'directory' => ['docs/', false],
+    'empty path' => ['', false],
+]);
 
 it('rejects malformed package security contract metadata', function (Closure $mutate, string $message): void {
     $validator = new ManifestValidator;

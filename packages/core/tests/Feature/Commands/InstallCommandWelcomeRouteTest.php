@@ -9,8 +9,12 @@ use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
+use Illuminate\Http\Request;
+use Illuminate\Routing\RouteCollection;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 beforeEach(function (): void {
     CapellCore::clearPackages();
@@ -227,8 +231,11 @@ PHP);
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
         ->assertExitCode(Command::SUCCESS);
 
-    expect($fake->capturedInput->installWelcomeRoute)->toBeFalse()
-        ->and(file_get_contents($routesPath))->toContain("Route::get('/', fn () => view('welcome'));")
+    expect($fake->capturedInput->installWelcomeRoute)->toBeFalse();
+
+    require $routesPath;
+    $route = Route::getRoutes()->match(Request::create('/'));
+    expect($route->run()->name())->toBe('welcome')
         ->and(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false');
 });
 
@@ -369,9 +376,7 @@ PHP);
 
     expect($installer->install())->toBeTrue();
 
-    expect(file_get_contents($routesPath))
-        ->not->toContain("Route::get('/', fn () => view('welcome'));")
-        ->toContain('use Illuminate\Support\Facades\Route;');
+    assertWelcomeRouteAbsent($routesPath);
     expect(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true');
 });
 
@@ -394,8 +399,7 @@ PHP);
 
     expect($installer->install())->toBeTrue();
 
-    expect(file_get_contents($routesPath))
-        ->not->toContain("Route::get('/', PageController::class)->name('home');");
+    assertWelcomeRouteAbsent($routesPath);
 });
 
 it('preserves existing route file headers when no removable home route exists', function (): void {
@@ -415,9 +419,7 @@ PHP);
 
     expect($installer->install())->toBeFalse();
 
-    expect(file_get_contents($routesPath))
-        ->toContain('declare(strict_types=1);')
-        ->not->toContain("Route::get('/',");
+    assertWelcomeRouteAbsent($routesPath);
 });
 
 it('detects and removes route view welcome routes while updating an existing env flag', function (): void {
@@ -442,9 +444,8 @@ PHP);
         ->and($installer->hasStockWelcomeRoute())->toBeTrue()
         ->and($installer->install())->toBeTrue();
 
-    expect(file_get_contents($routesPath))
-        ->not->toContain("Route::view('/', 'welcome')->name('home');")
-        ->toContain("Route::get('/health', fn () => 'ok');");
+    assertWelcomeRouteAbsent($routesPath);
+    expect(Route::getRoutes()->match(Request::create('/health'))->run())->toBe('ok');
     expect(file_get_contents(welcomeRouteTestEnvPath()))
         ->toContain('APP_NAME=Capell')
         ->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true');
@@ -472,5 +473,13 @@ PHP);
         ->and($installer->hasStockWelcomeRoute())->toBeTrue()
         ->and($installer->install())->toBeTrue();
 
-    expect(file_get_contents($routesPath))->not->toContain("return view('welcome');");
+    assertWelcomeRouteAbsent($routesPath);
 });
+
+function assertWelcomeRouteAbsent(string $path): void
+{
+    Route::setRoutes(new RouteCollection);
+    require $path;
+    expect(fn () => Route::getRoutes()->match(Request::create('/')))
+        ->toThrow(NotFoundHttpException::class);
+}

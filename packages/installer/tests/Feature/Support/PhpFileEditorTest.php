@@ -4,162 +4,91 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Core\Support\Patching\PhpFileEditor;
+use Capell\Tests\Support\GeneratedPhpFixture;
+use Capell\Tests\Support\GeneratedPhpOutcome;
 use Carbon\Carbon;
+use Filament\Panel;
+use Filament\PanelProvider;
 use Illuminate\Support\Str;
 
-it('adds_use_statement_without_reformatting_existing_code', function (): void {
-    $testProviderPath = tempnam(sys_get_temp_dir(), 'test_provider_');
-    $originalContent = <<<'PHP'
+it('makes newly imported classes available without changing existing provider behaviour', function (): void {
+    $path = temporaryPhpEditorFile(<<<'PHP'
 <?php
-
-declare(strict_types=1);
-
 namespace App\Providers\Filament;
-
 use Filament\Panel;
 use Filament\PanelProvider;
-
+use Override;
 class AdminPanelProvider extends PanelProvider
 {
+    #[Override]
     public function panel(Panel $panel): Panel
     {
-        return $panel
-            ->default(  )
-            ->id( 'admin' )
-            ->path('admin')
-            // Existing applications can have hand-formatted chains.
-            ->login( );
-    }
-}
-PHP;
-
-    $expectedContent = <<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Providers\Filament;
-
-use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
-use Filament\Panel;
-use Filament\PanelProvider;
-
-class AdminPanelProvider extends PanelProvider
-{
-    public function panel(Panel $panel): Panel
-    {
-        return $panel
-            ->default(  )
-            ->id( 'admin' )
-            ->path('admin')
-            // Existing applications can have hand-formatted chains.
-            ->login( );
-    }
-}
-PHP;
-
-    file_put_contents($testProviderPath, $originalContent);
-
-    try {
-        new PhpFileEditor($testProviderPath)
-            ->addUseStatements([CapellAdminPlugin::class])
-            ->save();
-
-        expect(file_get_contents($testProviderPath))->toBe($expectedContent);
-    } finally {
-        if (file_exists($testProviderPath)) {
-            unlink($testProviderPath);
-        }
-    }
-});
-
-it('removes namespaced use statements before admin panel patches rewrite providers', function (): void {
-    $testProviderPath = temporaryPhpEditorFile(<<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Providers\Filament;
-
-use App\Support\LegacyPlugin;
-use Filament\Panel;
-use Filament\PanelProvider;
-
-class AdminPanelProvider extends PanelProvider
-{
-    public function panel(Panel $panel): Panel
-    {
-        return $panel->plugins([
-            LegacyPlugin::make(),
-        ]);
+        return $panel->default(  )->id( 'admin' )->path('admin')->login( )->plugins([CapellAdminPlugin::make()]);
     }
 }
 PHP);
-
     try {
-        $editor = new PhpFileEditor($testProviderPath);
-
-        expect($editor->findClass('AdminPanelProvider'))->not->toBeNull()
-            ->and($editor->findMethodInClass('AdminPanelProvider', 'panel'))->not->toBeNull()
-            ->and($editor->findMethodInClass('MissingProvider', 'panel'))->toBeNull();
-
-        $editor
-            ->setAst($editor->getAst())
-            ->removeUseStatements([CapellAdminPlugin::class, 'App\\Support\\LegacyPlugin'])
-            ->save();
-
-        expect(file_get_contents($testProviderPath))
-            ->not->toContain('use App\\Support\\LegacyPlugin;')
-            ->toContain('use Filament\\Panel;')
-            ->toContain('LegacyPlugin::make()');
+        new PhpFileEditor($path)->addUseStatements([CapellAdminPlugin::class])->save();
+        $provider = GeneratedPhpFixture::load($path, PanelProvider::class, app());
+        $panel = $provider->panel(Panel::make());
+        expect($panel->getId())->toBe('admin')
+            ->and($panel->getPath())->toBe('admin')
+            ->and($panel->isDefault())->toBeTrue()
+            ->and($panel->hasLogin())->toBeTrue()
+            ->and($panel->hasPlugin(CapellAdminPlugin::make()->getId()))->toBeTrue();
     } finally {
-        if (file_exists($testProviderPath)) {
-            unlink($testProviderPath);
-        }
+        unlink($path);
     }
 });
 
-it('edits global php files with sorted imports and backup copies', function (): void {
-    $testFilePath = temporaryPhpEditorFile(<<<'PHP'
+it('removes imported aliases while preserving unrelated imports and class methods', function (): void {
+    $path = temporaryPhpEditorFile(<<<'PHP'
 <?php
-
-declare(strict_types=1);
-
+namespace App\Providers\Filament;
 use Carbon\Carbon;
-
-class InstallerFixture
+use Illuminate\Support\Str;
+class InstallerFixture implements \Capell\Tests\Support\GeneratedPhpOutcome
 {
-    public function handle(): string
+    public function handle(): array
     {
-        return Carbon::now()->toDateTimeString();
+        return [Carbon::class, Str::upper('installed')];
     }
 }
 PHP);
-
     try {
-        $editor = new PhpFileEditor($testFilePath);
-        $backupPath = $editor->backup();
-
-        $editor
-            ->addUseStatements([
-                Str::class,
-                'App\\Support\\Alpha',
-            ])
-            ->removeUseStatements([Carbon::class])
-            ->save();
-
-        $content = file_get_contents($testFilePath);
-
-        expect($backupPath)->toBeFile()
-            ->and(file_get_contents($backupPath))->toContain('use Carbon\\Carbon;')
-            ->and($content)->toContain('use App\\Support\\Alpha;')
-            ->toContain('use Illuminate\\Support\\Str;')
-            ->not->toContain('use Carbon\\Carbon;')
-            ->and(strpos((string) $content, 'use App\\Support\\Alpha;'))
-            ->toBeLessThan(strpos((string) $content, 'use Illuminate\\Support\\Str;'));
+        new PhpFileEditor($path)->removeUseStatements([Carbon::class])->save();
+        $fixture = GeneratedPhpFixture::load($path, GeneratedPhpOutcome::class);
+        expect($fixture->handle())->toBe([substr($fixture::class, 0, strrpos($fixture::class, '\\')) . '\\Carbon', 'INSTALLED']);
     } finally {
-        if (file_exists($testFilePath)) {
-            unlink($testFilePath);
+        unlink($path);
+    }
+});
+
+it('keeps a usable original backup while applying imports to a global php class', function (): void {
+    $path = temporaryPhpEditorFile(<<<'PHP'
+<?php
+use Carbon\Carbon;
+class InstallerFixture implements \Capell\Tests\Support\GeneratedPhpOutcome
+{
+    public function handle(): array
+    {
+        return [Carbon::parse('2026-10-10')->toDateString(), Str::class];
+    }
+}
+PHP);
+    try {
+        $editor = new PhpFileEditor($path);
+        $backup = $editor->backup();
+        $editor->addUseStatements([Str::class])->save();
+        $original = GeneratedPhpFixture::load($backup, GeneratedPhpOutcome::class);
+        $updated = GeneratedPhpFixture::load($path, GeneratedPhpOutcome::class);
+        expect($original->handle()[0])->toBe('2026-10-10')
+            ->and($updated->handle())->toBe(['2026-10-10', Str::class])
+            ->and($original->handle()[1])->not->toBe(Str::class);
+    } finally {
+        unlink($path);
+        if (isset($backup)) {
+            unlink($backup);
         }
     }
 });
@@ -183,7 +112,7 @@ PHP);
         expect(fn (): null => $editor->save())
             ->toThrow(RuntimeException::class, 'Failed to write PHP file at path');
 
-        expect(file_get_contents($testFilePath))->toContain('class InstallerFixture');
+        expect(file_get_contents($testFilePath))->toBe($editor->originalContent());
     } finally {
         if (file_exists($testFilePath)) {
             chmod($testFilePath, 0600);

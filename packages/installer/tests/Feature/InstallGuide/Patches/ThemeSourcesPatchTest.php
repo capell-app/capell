@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\ThemeSourcesPatch;
+use Capell\Tests\Support\TailwindFixture;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -60,11 +61,8 @@ CSS);
 
         $patch->apply();
 
-        $updatedContent = (string) file_get_contents($customThemePath);
-
-        expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-            ->and($updatedContent)->toContain("@source '../../../../vendor/capell-app/admin/resources/views/**/*.blade.php';")
-            ->and($updatedContent)->toContain("@source '../../../../vendor/capell-app/installer/resources/views/**/*.blade.php';");
+        expect($patch->probe())->toBe(PatchStatus::AlreadyApplied);
+        assertThemeSourcesBuildUtilities($customThemePath);
     } finally {
         restoreThemeSourcesFile($providerPath, $originalProviderContent);
         restoreThemeSourcesFile($customThemePath, $originalCustomThemeContent);
@@ -106,9 +104,7 @@ CSS);
 
     $patch->apply();
 
-    expect(file_get_contents($customThemePath))
-        ->toContain("@source '../../../../vendor/capell-app/admin/resources/views/**/*.blade.php';")
-        ->toContain("@source '../../../../storage/capell/tailwind-classes.txt';");
+    assertThemeSourcesBuildUtilities($customThemePath);
 });
 
 it('falls back to the default theme file when the panel provider cannot be parsed or has no Vite theme', function (): void {
@@ -136,8 +132,7 @@ CSS);
 
     $patch->apply();
 
-    expect(file_get_contents($defaultThemePath))
-        ->toContain("@source '../../../../vendor/capell-app/installer/resources/views/**/*.blade.php';");
+    assertThemeSourcesBuildUtilities($defaultThemePath);
 
     writeThemeSourcesFile($providerPath, <<<'PHP'
 <?php
@@ -156,8 +151,7 @@ PHP);
 
     $patch->apply();
 
-    expect(file_get_contents($defaultThemePath))
-        ->toContain("@source '../../../../vendor/capell-app/marketplace/resources/views/**/*.blade.php';");
+    assertThemeSourcesBuildUtilities($defaultThemePath);
 });
 
 it('does not rewrite a theme file that already contains all required sources', function (): void {
@@ -203,4 +197,25 @@ function writeThemeSourcesFile(string $path, string $content): void
     }
 
     file_put_contents($path, $content);
+}
+
+function assertThemeSourcesBuildUtilities(string $stylesheet): void
+{
+    $sources = [
+        'vendor/capell-app/admin/resources/views/test.blade.php' => 'p-7',
+        'vendor/capell-app/installer/resources/views/test.blade.php' => 'm-9',
+        'vendor/capell-app/marketplace/resources/views/test.blade.php' => 'z-30',
+        'storage/capell/tailwind-classes.txt' => 'opacity-70',
+        'app/Filament/Test.php' => 'gap-11',
+        'resources/views/filament/test.blade.php' => 'rounded-3xl',
+    ];
+    foreach ($sources as $path => $utility) {
+        writeThemeSourcesFile(base_path($path), $utility);
+    }
+
+    $css = TailwindFixture::build($stylesheet);
+    foreach ($sources as $utility) {
+        // Emitted utility selectors prove Tailwind scanned each configured source.
+        expect(preg_match('/\.' . preg_quote($utility, '/') . '\s*\{/', $css))->toBe(1);
+    }
 }

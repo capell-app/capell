@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Installer\Support\InstallGuide\Patches\RuntimeRoleBootstrapPatch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
+use Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     $this->originalBasePath = $this->app->basePath();
@@ -31,13 +35,17 @@ it('configures the immutable runtime role before the stock Laravel application i
 
     $patch->apply();
 
-    $contents = File::get(base_path('bootstrap/app.php'));
-
-    expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and($contents)->toContain('use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;')
-        ->and($contents)->toContain('$app = Application::configure(')
-        ->and($contents)->toContain('RuntimeRoleBootstrap::configure($app);')
-        ->and($contents)->toContain('return $app;');
+    $process = new Process([
+        PHP_BINARY, '-r',
+        'require $argv[1]; $app = require $argv[2];
+        $app->bootstrapWith([' . LoadEnvironmentVariables::class . '::class]);
+        echo json_encode($app->make(' . RuntimeRoleResolver::class . '::class)->role()->value, JSON_THROW_ON_ERROR);',
+        dirname(__DIR__, 6) . '/vendor/autoload.php',
+        base_path('bootstrap/app.php'),
+    ], env: ['CAPELL_RUNTIME_ROLE' => 'public']);
+    $process->mustRun();
+    expect(json_decode($process->getOutput(), flags: JSON_THROW_ON_ERROR))->toBe(RuntimeRole::Public->value)
+        ->and($patch->probe())->toBe(PatchStatus::AlreadyApplied);
 });
 
 it('does not rewrite a customised application bootstrap', function (): void {

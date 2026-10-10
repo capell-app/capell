@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
+use Capell\Tests\Support\JavascriptFixture;
 use Illuminate\Support\Facades\File;
 
 it('runs install command and does not publish files for capell:publish-migrations', function (): void {
@@ -73,10 +74,13 @@ JS);
                     str_replace(DIRECTORY_SEPARATOR, '/', str_replace(base_path() . DIRECTORY_SEPARATOR, '', $assetPath)),
                 ],
             ])
-            ->and(File::get($viteConfigPath))->toContain(
-                "import { capellViteInputs } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js';",
-                '...capellViteInputs(),',
-            );
+            ->and(JavascriptFixture::viteInputs($viteConfigPath, [
+                str_replace(DIRECTORY_SEPARATOR, '/', str_replace(base_path() . DIRECTORY_SEPARATOR, '', $assetPath)),
+            ]))->toEqualCanonicalizing([
+                'resources/css/app.css',
+                'resources/js/app.js',
+                str_replace(DIRECTORY_SEPARATOR, '/', str_replace(base_path() . DIRECTORY_SEPARATOR, '', $assetPath)),
+            ]);
     } finally {
         File::deleteDirectory(dirname($assetPath));
         File::delete($manifestPath);

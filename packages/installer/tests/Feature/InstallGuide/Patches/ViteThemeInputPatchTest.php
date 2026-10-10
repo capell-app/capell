@@ -7,6 +7,7 @@ use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\ViteThemeInputPatch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
+use Capell\Tests\Support\JavascriptFixture;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -44,8 +45,11 @@ JS);
     $patch->apply();
 
     expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and((string) file_get_contents(base_path('vite.config.js')))
-        ->toContain("input: ['resources/css/app.css', 'resources/js/app.js', 'resources/css/filament/admin/theme.css']");
+        ->and(JavascriptFixture::viteInputs(base_path('vite.config.js')))->toBe([
+            'resources/css/app.css',
+            'resources/js/app.js',
+            'resources/css/filament/admin/theme.css',
+        ]);
 });
 
 it('preserves an existing Filament theme input', function (): void {

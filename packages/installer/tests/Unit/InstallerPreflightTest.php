@@ -644,13 +644,3 @@ it('reports process support through the shared probe rather than a bare function
         ProcessExecutionSupport::isAvailable() ? 'pass' : 'fail',
     );
 });
-
-it('has no remaining bare proc_open probe that would miss disable_functions', function (): void {
-    $source = file_get_contents(
-        dirname(__DIR__, 2) . '/src/Support/Preflight/InstallerPreflight.php',
-    );
-
-    expect($source)->toBeString()
-        ->and($source)->not->toContain("function_exists('proc_open')")
-        ->and($source)->toContain('ProcessExecutionSupport::isAvailable()');
-});

@@ -26,15 +26,18 @@ use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
+use Capell\Tests\Support\GeneratedPhpFixture;
 use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Traits\HasRoles;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -809,7 +812,7 @@ it('installs filament for the admin package before completing and removing the i
 it('treats a selected but uninstalled admin package as an install-time composer package', function (): void {
     setupInstallTest(['capell-app/installer']);
     writeStockInstallTestUserModel();
-    createTestUser();
+    $existingUser = createTestUser();
     $fake = bindFakeRunInstallAction();
     $composerJson = file_get_contents(base_path('composer.json'));
     bindInstallCommandPreflightProcessFactory(beforeRun: function () use ($fake): void {
@@ -827,12 +830,27 @@ it('treats a selected but uninstalled admin package as an install-time composer 
         '--no-interaction' => true,
     ]);
 
-    expect($exitCode)->toBe(Command::SUCCESS)
-        ->and($fake->callCount)->toBe(1)
-        ->and(file_get_contents(base_path('composer.json')))->toBe($composerJson)
-        ->and(file_get_contents(base_path('app/Models/User.php')))->toContain(HasRoles::class)
-        ->and($fake->capturedInput->packages)->toBe([])
-        ->and($fake->capturedInput->extraPackages)->toBe(['capell-app/admin']);
+    $patchedUser = GeneratedPhpFixture::load(base_path('app/Models/User.php'), Authenticatable::class);
+    $patchedUser->setRawAttributes($existingUser->getAttributes());
+    $patchedUser->exists = true;
+
+    $originalMorphMap = Relation::morphMap();
+    $originalAuthModel = config('auth.providers.users.model');
+    Relation::morphMap(['patched-user' => $patchedUser::class]);
+    config(['auth.providers.users.model' => $patchedUser::class]);
+    try {
+        $patchedUser->assignRole(Role::findOrCreate('installer-test-role', 'web'));
+
+        expect($exitCode)->toBe(Command::SUCCESS)
+            ->and($fake->callCount)->toBe(1)
+            ->and(file_get_contents(base_path('composer.json')))->toBe($composerJson)
+            ->and($patchedUser->hasRole('installer-test-role'))->toBeTrue()
+            ->and($fake->capturedInput->packages)->toBe([])
+            ->and($fake->capturedInput->extraPackages)->toBe(['capell-app/admin']);
+    } finally {
+        Relation::morphMap($originalMorphMap, false);
+        config(['auth.providers.users.model' => $originalAuthModel]);
+    }
 });
 
 it('fails before running the install when selected install-time packages cannot be composer required', function (): void {
