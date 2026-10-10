@@ -79,8 +79,9 @@ it('repairs only safe selected records and rechecks unused media before trashing
     $language = Language::factory()->english()->createOne();
     $missingAlt = mediaHealthTestMedia($owner, $language, ['alt' => '', 'credit' => 'Credit']);
     $alreadyDescribed = mediaHealthTestMedia($owner, $language, ['alt' => 'Description', 'credit' => 'Credit']);
-    $unused = mediaHealthTestMedia($owner, $language, ['alt' => 'Unused', 'credit' => 'Credit']);
-    $used = mediaHealthTestMedia($owner, $language, ['alt' => 'Used', 'credit' => 'Credit']);
+    $library = Site::factory()->createOne();
+    $unused = Media::factory()->model($library)->createOne(['collection_name' => 'uploads']);
+    $used = Media::factory()->model($library)->createOne(['collection_name' => 'uploads']);
 
     AssetAttachment::query()->create([
         'related_type' => $owner->getMorphClass(),
