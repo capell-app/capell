@@ -17,7 +17,7 @@ class DiagnoseErrorPagesTestStore implements StaticErrorPageStore
 
     public function __construct()
     {
-        $this->directory = storage_path('framework/testing/diagnose-error-' . uniqid());
+        $this->directory = storage_path('framework/testing/diagnose-error-' . bin2hex(random_bytes(8)));
     }
 
     #[Override]

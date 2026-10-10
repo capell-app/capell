@@ -17,7 +17,7 @@ class ResolveStaticErrorPageTestStore implements StaticErrorPageStore
 
     public function __construct()
     {
-        $this->directory = storage_path('framework/testing/resolve-error-' . uniqid());
+        $this->directory = storage_path('framework/testing/resolve-error-' . bin2hex(random_bytes(8)));
     }
 
     #[Override]
