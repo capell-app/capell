@@ -365,6 +365,54 @@ Run the host suite only when the package touches shared contracts, public render
 composer test
 ```
 
+## Test behaviour, not implementation
+
+Tests pin observable outcomes only: return values, persisted state, rendered output, dispatched events, HTTP
+responses. The logic underneath can then change freely while its output stays the same, and a refactor that keeps
+output identical must never turn a test red.
+
+Do not assert internals:
+
+- private or protected members, call order, mock call counts and `shouldReceive` choreography (unless the call
+  itself is the contract), class or method names, container wiring;
+- file contents, line numbers or offsets, commit SHAs in permalinks, exact formatted source snippets, greps over
+  source structure.
+
+Rules that follow:
+
+- Prefer real objects and fakes at boundaries over mocks. Use the narrowest outcome assertion that proves the
+  behaviour.
+- Every test justifies the user-visible or API-visible behaviour it protects. Fewer, faster, outcome-level tests beat
+  many coupled ones.
+- Heavy per-test setup and slow fixtures are defects: use in-memory SQLite, factories and shared minimal fixtures, and
+  no network or Docker in unit tests.
+- Derive expected values from the source of truth instead of restating them. A second hand-kept copy goes stale and
+  fails far from its cause.
+- When a check must read a file (a docs-to-source contract, a manifest), assert the narrowest token that encodes the
+  contract, with a comment stating the behaviour it protects. Never read "line N" and expect text.
+- Prove a new guard fails against the broken state and passes with the fix.
+
+Refactor test: would this test fail if I rewrote the implementation with identical output? If yes, rewrite it. It must
+also survive reformatting, reordering, added blank lines and unrelated refactors.
+
+Before and after, from `tests/Unit/ExtensionSurfaceCatalogContractTest.php`. The documentation links to test files
+through permalinks. The old test read the anchored line and expected the section text on it, so inserting one line
+above a test turned it red although nothing was wrong:
+
+```php
+// Before: position-coupled.
+$line = (int) ltrim((string) parse_url($reference, PHP_URL_FRAGMENT), 'L');
+$source = file($path, FILE_IGNORE_NEW_LINES);
+expect($source[$line - 1])->toContain($expectedSection);
+
+// After: the referenced file exists and still contains the named section, wherever it sits.
+expect($root . '/' . $path)->toBeFile()
+    ->and((string) file_get_contents($root . '/' . $path))->toContain($expectedSection);
+```
+
+`tests/Arch/TestsAssertNoSourcePositionsTest.php` fails when a test pins a 40-character blob permalink to a line
+anchor or indexes source lines by number.
+
 ## Next
 
 - [Build an extension end to end](build-extension-end-to-end.md)

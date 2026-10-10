@@ -116,6 +116,9 @@ tests.
 
 ## Verification Commands
 
+Write tests that assert behaviour, never implementation, line positions or SHAs: see
+[Test behaviour, not implementation](docs/packages/testing-packages.md#test-behaviour-not-implementation).
+
 Broad tests and preflights use the [host release verification gate](docs/release-verification-lock.md). Use this checkout's wrapper for Docker commands; focused single-file runs remain available while a release holds the gate.
 
 - Focused Pest: `./capell pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
