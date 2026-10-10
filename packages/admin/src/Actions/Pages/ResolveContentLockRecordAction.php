@@ -8,10 +8,12 @@ use Capell\Core\Actions\ResolvePageableMorphModelAction;
 use Capell\Core\Contracts\Pageable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ResolveContentLockRecordAction
 {
+    use AsFake;
     use AsObject;
 
     /** @phpstan-return (Model&Pageable<Model>)|null */
