@@ -114,6 +114,7 @@ final class InstallPackageSetComposer
         bool $interactive,
         bool $useFreshDemoDefaults,
         Closure $writeError,
+        ?string $preferredThemeKey = null,
     ): array {
         $themeCandidates = $this->themeCandidates();
 
@@ -134,7 +135,7 @@ final class InstallPackageSetComposer
             return [$normalisedThemeOption, null];
         }
 
-        $defaultThemeKey = $this->themePackageCandidates->defaultThemeKeyForCatalogue();
+        $defaultThemeKey = $this->themePromptDefault($themeCandidates, $preferredThemeKey);
 
         if ($interactive && ! $useFreshDemoDefaults) {
             return [
@@ -148,6 +149,19 @@ final class InstallPackageSetComposer
         }
 
         return [$defaultThemeKey, null];
+    }
+
+    /**
+     * The theme question's default: the chosen suite's theme when it is a known candidate,
+     * otherwise the catalogue default.
+     *
+     * @param  array<string, string>  $themeCandidates
+     */
+    public function themePromptDefault(array $themeCandidates, ?string $preferredThemeKey): string
+    {
+        return $preferredThemeKey !== null && array_key_exists($preferredThemeKey, $themeCandidates)
+            ? $preferredThemeKey
+            : $this->themePackageCandidates->defaultThemeKeyForCatalogue();
     }
 
     /** @return array<string, string> */

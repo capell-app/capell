@@ -16,9 +16,9 @@ use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
+use Capell\Frontend\Tests\Fixtures\HasFrontendRenderData;
 use Illuminate\Support\Facades\File;
 
 uses()->group('theme');
@@ -86,9 +86,11 @@ it('uses editor active preset when rendering theme token css hook', function ():
             ];
         }
     };
-    $contextReader = new readonly class($theme) implements FrontendContextReader
+    $contextReader = new class($theme) implements FrontendContextReader
     {
-        public function __construct(private Theme $theme) {}
+        use HasFrontendRenderData;
+
+        public function __construct(private readonly Theme $theme) {}
 
         public function site(): ?Site
         {
@@ -128,21 +130,6 @@ it('uses editor active preset when rendering theme token css hook', function ():
         public function isError(): bool
         {
             return false;
-        }
-
-        public function setFrontendData(string $key, mixed $value): self
-        {
-            return $this;
-        }
-
-        public function getFrontendData(?string $key = null): mixed
-        {
-            return $key === null ? [] : null;
-        }
-
-        public function renderPayload(): FrontendRenderPayload
-        {
-            return FrontendRenderPayload::fromBag($this->data);
         }
     };
 

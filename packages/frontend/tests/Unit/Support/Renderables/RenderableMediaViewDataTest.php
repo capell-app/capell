@@ -145,3 +145,27 @@ function renderableTestModel(): Model
         use HasFactory;
     };
 }
+
+it('requires every matching dynamic contributor to declare fragment cache safety', function (): void {
+    $registry = new RenderableDynamicDataRegistry;
+    $asset = renderableTestModel();
+    $translation = renderableTestModel();
+    expect($registry->isCacheSafe('section', 'hero', $asset, $translation, []))->toBeTrue();
+    $registry->register('section', '*', static fn (): array => [], cacheSafe: true);
+    $registry->register('section', 'other', static fn (): array => []);
+    expect($registry->isCacheSafe('section', 'hero', $asset, $translation, []))->toBeTrue()
+        ->and($registry->isCacheSafe('section', 'other', $asset, $translation, []))->toBeFalse();
+    $registry->register('section', 'hero', static fn (): array => []);
+    expect($registry->isCacheSafe('section', 'hero', $asset, $translation, []))->toBeFalse();
+});
+
+it('resolves dynamic contributor cache safety with the same typed context without rendering data', function (): void {
+    $registry = new RenderableDynamicDataRegistry;
+    $asset = renderableTestModel();
+    $translation = renderableTestModel();
+    $registry->register('section', '*', static function (): array {
+        throw new LogicException('Safety checks must not execute dynamic data.');
+    }, cacheSafe: static fn (Model $receivedAsset, Model $receivedTranslation, array $meta, string $key): bool => $receivedAsset === $asset && $receivedTranslation === $translation && ($meta['cacheable'] ?? false) === true && $key === 'hero');
+    expect($registry->isCacheSafe('section', 'hero', $asset, $translation, ['cacheable' => true]))->toBeTrue()
+        ->and($registry->isCacheSafe('section', 'hero', $asset, $translation, ['cacheable' => false]))->toBeFalse();
+});

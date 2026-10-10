@@ -138,15 +138,10 @@ class InstallFilamentPanelAction
             RunArtisanCommandAction::run('filament:install', [
                 '--panels' => true,
                 '--no-interaction' => true,
-            ]);
+            ], $reporter);
         } catch (Throwable $throwable) {
             $reporter->error(sprintf('✗ Failed to scaffold Filament panel: %s', $throwable->getMessage()));
             $this->installFilamentInFreshProcess($reporter, $throwable);
-        }
-
-        $output = trim(Artisan::output());
-        if ($output !== '') {
-            $reporter->report($output);
         }
 
         $this->ensurePanelProviderWasCreated();

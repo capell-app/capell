@@ -63,6 +63,8 @@ class PageObserver
             $page->translations()->delete();
         }
 
+        $page->loadMissing('site');
+
         $page->getConnection()->afterCommit(function () use ($page): void {
             $this->clearCache();
             event(new PageDeleted($page));

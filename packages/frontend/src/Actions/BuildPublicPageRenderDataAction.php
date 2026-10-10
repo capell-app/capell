@@ -11,6 +11,7 @@ use Capell\Core\Models\Site;
 use Capell\Frontend\Contracts\PublicContentWidgetPayloadBuilder;
 use Capell\Frontend\Contracts\PublicLayoutGraphBuilder;
 use Capell\Frontend\Contracts\PublicWidgetInteractionLocatorBuilder;
+use Capell\Frontend\Data\Assets\FrontendResourceSelectionData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendResourceContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
@@ -40,10 +41,11 @@ class BuildPublicPageRenderDataAction
             runtime: $runtimeManifest,
         );
         $widgetResourceUsages = BuildFrontendWidgetResourceUsagesAction::run($context);
-        $resourcePlan = ResolveFrontendResourcePlanAction::run(
-            CollectFrontendResourceContributionsAction::run($resourceContext, $widgetResourceUsages),
-            CollectSelectedFrontendResourceHintsAction::run($resourceContext, $widgetResourceUsages),
-        );
+        $selection = SelectFrontendResourcesAction::run($resourceContext, new FrontendResourceSelectionData(
+            contributions: CollectFrontendResourceContributionsAction::run($resourceContext, $widgetResourceUsages),
+            hints: CollectSelectedFrontendResourceHintsAction::run($resourceContext, $widgetResourceUsages),
+        ));
+        $resourcePlan = ResolveFrontendResourcePlanAction::run($selection->contributions, $selection->hints);
 
         return new PublicPageRenderData(
             page: $context->page,

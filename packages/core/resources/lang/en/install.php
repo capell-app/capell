@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 return [
+    'command' => [
+        'not_found' => "Artisan command ':command' is not registered in the running application or a fresh process. Check that its package is installed and its console provider is enabled.",
+        'failed' => "Artisan command ':command' failed with exit code :exit_code.",
+        'output' => 'Output: :output',
+    ],
     'cache' => [
         'label' => 'Which caches would you like to clear?',
         'hint' => 'Keep the defaults to refresh Capell after installation. Laravel caches also clears application data stored in the default cache store.',
@@ -15,6 +20,26 @@ return [
         'widgets' => 'Capell widgets — rediscover admin widgets',
         'configurators' => 'Capell configurators — rediscover admin configurators',
         'filament_components' => 'Filament components — rediscover resources, pages and widgets',
+    ],
+    'suites' => [
+        'goal_label' => 'What are you building?',
+        'goal_hint' => 'Pick the closest match. You can adjust everything on the next screens, and nothing is installed until you confirm the review.',
+        'custom_option' => "I'll choose my own packages",
+        'recommended_label' => 'Recommended for :suite',
+        'recommended_hint' => 'Ticked because they suit this kind of site; anything that may need a licence is left for you to tick. Space toggles.',
+        'may_need_licence' => '(may need a Capell licence to download)',
+        'optional_label' => 'Optional extras for :suite',
+        'optional_hint' => 'Not ticked by default. Space toggles.',
+        'search_confirm' => 'Search for more extensions?',
+        'search_label' => 'Search extensions by name or by what they do',
+        'search_placeholder' => 'e.g. forms, seo, newsletter',
+        'nothing_to_search' => 'There are no other extensions to search right now. You can add more later from the Marketplace.',
+        'search_hint' => 'Type to filter, Space to select, Enter when you are done.',
+    ],
+    'packages' => [
+        'core_hint' => 'Each line says what the package adds. Space toggles, Ctrl+A selects all. Anything a package needs is added for you.',
+        'extra_hint' => 'Optional extras: each line says what it adds. Space toggles, Ctrl+A selects all. Leave empty to add none; you can install more later.',
+        'also_adding' => 'Also adding, because your selection needs them: :packages',
     ],
     'review' => [
         'panel_label' => 'Create the required Filament admin panel during installation?',
@@ -29,6 +54,9 @@ return [
         'apply_after_panel' => 'will apply if supported after panel creation',
         'manual_patch' => 'requires a manual change (:status)',
         'title' => 'Review your installation',
+        'essentials_title' => 'What you are setting up',
+        'details_title' => 'Also happening along the way',
+        'plan_collapsed' => ':count steps will run in order. Re-run with -v to list every step.',
         'confirm_label' => 'Install Capell with these settings?',
         'confirm_hint' => 'Review the packages, database changes and application changes above. Choose No to exit without applying them.',
         'cancelled' => 'Installation cancelled. No installation changes were applied.',

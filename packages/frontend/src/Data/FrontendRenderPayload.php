@@ -40,14 +40,9 @@ final readonly class FrontendRenderPayload
         public ?string $publicHtmlSafetyInspectedHash = null,
         public ?RenderedFrontendResourcesData $renderedFrontendResources = null,
         /**
-         * Read via getFrontendData('renderAudience') in
-         * PublicViewQueryGuard/AssertPublicRenderContractAction, but nothing
-         * in application code calls setFrontendData('renderAudience', ...) —
-         * only tests do (AssertPublicRenderContractActionTest,
-         * PublicViewQueryGuardTest). In production this is always null.
-         * Carried through as-is rather than silently dropped or "fixed"
-         * here; flagged as an open question in the architecture-review
-         * checklist rather than folded into this typing change.
+         * Explicit audiences distinguish authenticated previews from anonymous output.
+         * Theme preview preparation sets Preview; ordinary request contexts may leave
+         * this unset and let rendering safety guards apply their public default.
          */
         public ?FrontendRenderAudience $renderAudience = null,
     ) {}

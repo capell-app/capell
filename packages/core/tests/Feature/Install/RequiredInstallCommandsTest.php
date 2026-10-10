@@ -12,10 +12,23 @@ use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Support\Fixtures\Autoload\InstallSupportActionReporter;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
 use Illuminate\Database\Migrations\Migrator;
+use Illuminate\Foundation\Console\ClosureCommand;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+
+/**
+ * Registers the stub directly on the resolved console application. Artisan::command()
+ * only queues a starting callback, which never runs once Artisan::all() has
+ * resolved the application.
+ *
+ * @param-closure-this ClosureCommand $callback
+ */
+function registerRequiredInstallCommandStub(string $signature, Closure $callback): void
+{
+    Artisan::registerCommand(new ClosureCommand($signature, $callback));
+}
 
 beforeEach(function (): void {
     $this->originalBasePath = app()->basePath();
@@ -44,9 +57,13 @@ afterEach(function (): void {
 it('stops the install plan stage when a required command fails', function (string $step, string $command, string $successMessage, array $expectedCalls): void {
     $calls = [];
 
+    // Resolving the console commands registers the vendor aliases (such as
+    // session:table), which would replace stubs registered before it.
+    Artisan::all();
+
     foreach (['db:wipe {--force}', 'storage:link', 'session:table', 'notifications:table', 'capell:xml-sitemap'] as $signature) {
         $name = explode(' ', $signature)[0];
-        Artisan::command($signature, function () use ($name, $command, &$calls): int {
+        registerRequiredInstallCommandStub($signature, function () use ($name, $command, &$calls): int {
             $calls[] = $name;
 
             if ($name === $command) {

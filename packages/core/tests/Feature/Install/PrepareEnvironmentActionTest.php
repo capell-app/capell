@@ -7,13 +7,15 @@ use Capell\Core\Support\Install\NullProgressReporter;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 it('runs the storage link command', function (): void {
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('output')->andReturn('');
-    $kernel->shouldReceive('call')->with('storage:link', [])->once()->andReturn(0);
-    $kernel->shouldReceive('call')->with('session:table', [])->zeroOrMoreTimes()->andReturn(0);
-    $kernel->shouldReceive('call')->with('notifications:table', [])->zeroOrMoreTimes()->andReturn(0);
+    $kernel->shouldReceive('all')->andReturn(['storage:link' => true, 'session:table' => true, 'notifications:table' => true]);
+    $kernel->shouldReceive('call')->with('storage:link', [], Mockery::type(BufferedOutput::class))->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('session:table', [], Mockery::type(BufferedOutput::class))->zeroOrMoreTimes()->andReturn(0);
+    $kernel->shouldReceive('call')->with('notifications:table', [], Mockery::type(BufferedOutput::class))->zeroOrMoreTimes()->andReturn(0);
 
     $this->app->instance(ConsoleKernel::class, $kernel);
 
@@ -30,9 +32,10 @@ it('creates notifications table when it does not exist', function (): void {
 
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('output')->andReturn('');
-    $kernel->shouldReceive('call')->with('storage:link', [])->once()->andReturn(0);
-    $kernel->shouldReceive('call')->with('session:table', [])->zeroOrMoreTimes()->andReturn(0);
-    $kernel->shouldReceive('call')->with('notifications:table', [])->once()->andReturn(0);
+    $kernel->shouldReceive('all')->andReturn(['storage:link' => true, 'session:table' => true, 'notifications:table' => true]);
+    $kernel->shouldReceive('call')->with('storage:link', [], Mockery::type(BufferedOutput::class))->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('session:table', [], Mockery::type(BufferedOutput::class))->zeroOrMoreTimes()->andReturn(0);
+    $kernel->shouldReceive('call')->with('notifications:table', [], Mockery::type(BufferedOutput::class))->once()->andReturn(0);
 
     $this->app->instance(ConsoleKernel::class, $kernel);
 
@@ -53,9 +56,10 @@ it('creates notifications table when it does not exist', function (): void {
 it('skips notifications table when it already exists', function (): void {
     $kernel = Mockery::mock(ConsoleKernel::class);
     $kernel->shouldReceive('output')->andReturn('');
-    $kernel->shouldReceive('call')->with('storage:link', [])->once()->andReturn(0);
-    $kernel->shouldReceive('call')->with('session:table', [])->zeroOrMoreTimes()->andReturn(0);
-    $kernel->shouldReceive('call')->with('notifications:table', [])->never();
+    $kernel->shouldReceive('all')->andReturn(['storage:link' => true, 'session:table' => true, 'notifications:table' => true]);
+    $kernel->shouldReceive('call')->with('storage:link', [], Mockery::type(BufferedOutput::class))->once()->andReturn(0);
+    $kernel->shouldReceive('call')->with('session:table', [], Mockery::type(BufferedOutput::class))->zeroOrMoreTimes()->andReturn(0);
+    $kernel->shouldReceive('call')->with('notifications:table', [], Mockery::type(BufferedOutput::class))->never();
 
     $this->app->instance(ConsoleKernel::class, $kernel);
 
@@ -73,9 +77,10 @@ it('skips notifications table when a notifications migration already exists', fu
     try {
         $kernel = Mockery::mock(ConsoleKernel::class);
         $kernel->shouldReceive('output')->andReturn('');
-        $kernel->shouldReceive('call')->with('storage:link', [])->once()->andReturn(0);
-        $kernel->shouldReceive('call')->with('session:table', [])->zeroOrMoreTimes()->andReturn(0);
-        $kernel->shouldReceive('call')->with('notifications:table', [])->never();
+        $kernel->shouldReceive('all')->andReturn(['storage:link' => true, 'session:table' => true, 'notifications:table' => true]);
+        $kernel->shouldReceive('call')->with('storage:link', [], Mockery::type(BufferedOutput::class))->once()->andReturn(0);
+        $kernel->shouldReceive('call')->with('session:table', [], Mockery::type(BufferedOutput::class))->zeroOrMoreTimes()->andReturn(0);
+        $kernel->shouldReceive('call')->with('notifications:table', [], Mockery::type(BufferedOutput::class))->never();
 
         $this->app->instance(ConsoleKernel::class, $kernel);
 

@@ -160,6 +160,12 @@ result rather than running one yourself.
 
 ## Local Hazards
 
+- Audit all three JavaScript locks: the root, `packages/admin`, and
+  `packages/frontend`. Typography's scoped parser override fixes the selector
+  complexity advisory; the CLI's scoped Parcel watcher override removes its
+  unpatched brace dependency. Remove each override when its parent requires a
+  safe version. Verify native watch rebuilds and the owning asset builds after
+  changing these locks; a root audit alone misses package assets.
 - This primary checkout stays on latest `main`, clean, when not actively in use
   (canonical version and the incident behind it: capell-app's `AGENTS.md`, "Standing
   hygiene: primary checkouts stay on main; pin worktree bases"). Return it to `main`
@@ -174,7 +180,7 @@ result rather than running one yourself.
   stops on "node_modules/ is missing" is an unprovisioned worktree, not a result.
   `bash scripts/init-worktree.sh --host-only` does not run `npm ci` either, and
   `packages/admin` carries its own `package.json` and lock: run `npm ci --no-audit
-  --no-fund` in the repository root and again in `packages/admin` before building
+--no-fund` in the repository root and again in `packages/admin` before building
   bundles (`npm run build:js` there). The lock pins esbuild; a different version
   rewrites unrelated published bundles, so regenerate with the pinned one, never
   hand-edit `packages/admin/publishes/build`, and restore bundles you did not mean
@@ -213,7 +219,7 @@ result rather than running one yourself.
   only sees the CLI-narrowed report set, not the full tree the pattern is
   written against. Verified 2026-09-04: `composer analyze -- packages/core`
   reported 4 unmatched patterns targeting `packages/admin` files; `composer
-  analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
+analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
   errors total once the `packages/admin` call sites are back in scope). Use
   `composer analyze:diff -- <path>` for any path-scoped run instead —
   `phpstan/diff.neon` sets `reportUnmatchedIgnoredErrors: false`, the same

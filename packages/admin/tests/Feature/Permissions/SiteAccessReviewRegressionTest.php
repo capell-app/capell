@@ -173,6 +173,8 @@ it('denies default revert into foreign ownership or foreign references', functio
 })->with(['site_id', 'layout_id', 'parent_id', 'meta']);
 
 it('denies event sourced revert into foreign historical ownership and references', function (string $field): void {
+    $this->freezeTime();
+
     $layout = Layout::factory()->create(['site_id' => $this->alpha->id]);
     $foreignLayout = Layout::factory()->create(['site_id' => $this->beta->id]);
     $foreignParent = Page::factory()->site($this->beta)->create();
@@ -191,7 +193,9 @@ it('denies event sourced revert into foreign historical ownership and references
     $page->forceFill([$field => $original])->saveQuietly();
     reviewActorWithPermissions($this->actor, [CapellPermission::RollbackPage->name()]);
     $before = $page->fresh()->getRawOriginal();
-    expect(resolve(EventSourcedActivityRevertHandler::class)->revert(reviewSelection($activity, [], $page))->successful)->toBeFalse();
+    $result = resolve(EventSourcedActivityRevertHandler::class)->revert(reviewSelection($activity, [], $page));
+    expect($result->successful)->toBeFalse()
+        ->and($result->messageKey)->toBe('capell-admin::event-sourcing.rollback_forbidden');
     expect($page->refresh()->getRawOriginal())->toBe($before);
 })->with(['site_id', 'layout_id', 'parent_id', 'meta']);
 

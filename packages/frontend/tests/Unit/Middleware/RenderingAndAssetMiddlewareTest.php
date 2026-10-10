@@ -8,10 +8,10 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
-use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Http\Middleware\RenderingStrategyMiddleware;
 use Capell\Frontend\Support\Assets\AssetOptimizationMiddleware;
+use Capell\Frontend\Tests\Fixtures\HasFrontendRenderData;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Symfony\Component\HttpFoundation\Response;
@@ -104,11 +104,13 @@ function bindFrontendContext(?Page $page = null, ?Theme $theme = null): void
 {
     app()->instance(
         FrontendContextReader::class,
-        new readonly class($page, $theme) implements FrontendContextReader
+        new class($page, $theme) implements FrontendContextReader
         {
+            use HasFrontendRenderData;
+
             public function __construct(
-                private ?Page $page,
-                private ?Theme $theme,
+                private readonly ?Page $page,
+                private readonly ?Theme $theme,
             ) {}
 
             public function site(): ?Site
@@ -149,21 +151,6 @@ function bindFrontendContext(?Page $page = null, ?Theme $theme = null): void
             public function isError(): bool
             {
                 return false;
-            }
-
-            public function setFrontendData(string $key, mixed $value): self
-            {
-                return $this;
-            }
-
-            public function getFrontendData(?string $key = null): mixed
-            {
-                return $key === null ? [] : null;
-            }
-
-            public function renderPayload(): FrontendRenderPayload
-            {
-                return FrontendRenderPayload::fromBag($this->data);
             }
         },
     );
