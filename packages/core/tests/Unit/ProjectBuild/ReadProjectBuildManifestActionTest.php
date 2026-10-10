@@ -9,30 +9,6 @@ use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 use Capell\Core\Tests\Support\ProjectBuildManifestFixture;
 use Illuminate\Validation\ValidationException;
 
-final class VersionZeroProjectBuildManifestMigration implements ProjectBuildManifestMigration
-{
-    public function fromVersion(): int
-    {
-        return 0;
-    }
-
-    public function toVersion(): int
-    {
-        return 1;
-    }
-
-    /** @param array<string, mixed> $payload
-     * @return array<string, mixed>
-     */
-    public function migrate(array $payload): array
-    {
-        $payload['schemaVersion'] = 1;
-        unset($payload['legacyVersion']);
-
-        return $payload;
-    }
-}
-
 it('reads a current manifest without migration', function (): void {
     $manifest = ReadProjectBuildManifestAction::run(json_encode(ProjectBuildManifestFixture::payload(), JSON_THROW_ON_ERROR));
 
@@ -42,7 +18,7 @@ it('reads a current manifest without migration', function (): void {
 
 it('migrates an explicitly supported legacy manifest before validation', function (): void {
     $registry = new ProjectBuildManifestMigrationRegistry;
-    $registry->register(new VersionZeroProjectBuildManifestMigration);
+    $registry->register(versionZeroProjectBuildManifestMigration());
 
     $payload = ProjectBuildManifestFixture::payload();
     $payload['schemaVersion'] = 0;
@@ -56,7 +32,7 @@ it('migrates an explicitly supported legacy manifest before validation', functio
 
 it('scopes the core-owned migration registry to the current operation', function (): void {
     $registry = resolve(ProjectBuildManifestMigrationRegistry::class);
-    $registry->register(new VersionZeroProjectBuildManifestMigration);
+    $registry->register(versionZeroProjectBuildManifestMigration());
 
     expect(resolve(ProjectBuildManifestMigrationRegistry::class))->toBe($registry);
 
@@ -80,26 +56,29 @@ it('refuses malformed, future, and migration-gap manifests', function (string $j
 
 it('rejects duplicate and non-forward migrations', function (): void {
     $registry = new ProjectBuildManifestMigrationRegistry;
-    $registry->register(new VersionZeroProjectBuildManifestMigration);
+    $registry->register(versionZeroProjectBuildManifestMigration());
 
     expect(function () use ($registry): void {
-        $registry->register(new VersionZeroProjectBuildManifestMigration);
+        $registry->register(versionZeroProjectBuildManifestMigration());
     })
         ->toThrow(LogicException::class, 'already registered');
 
     expect(function () use ($registry): void {
         $registry->register(new class implements ProjectBuildManifestMigration
         {
+            #[Override]
             public function fromVersion(): int
             {
                 return 2;
             }
 
+            #[Override]
             public function toVersion(): int
             {
                 return 2;
             }
 
+            #[Override]
             public function migrate(array $payload): array
             {
                 return $payload;
@@ -107,3 +86,33 @@ it('rejects duplicate and non-forward migrations', function (): void {
         });
     })->toThrow(LogicException::class, 'move forward');
 });
+
+function versionZeroProjectBuildManifestMigration(): ProjectBuildManifestMigration
+{
+    return new class implements ProjectBuildManifestMigration
+    {
+        #[Override]
+        public function fromVersion(): int
+        {
+            return 0;
+        }
+
+        #[Override]
+        public function toVersion(): int
+        {
+            return 1;
+        }
+
+        /** @param array<string, mixed> $payload
+         * @return array<string, mixed>
+         */
+        #[Override]
+        public function migrate(array $payload): array
+        {
+            $payload['schemaVersion'] = 1;
+            unset($payload['legacyVersion']);
+
+            return $payload;
+        }
+    };
+}

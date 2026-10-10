@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
-use Capell\Core\Contracts\Extensions\DeletesExtensionData;
-use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
@@ -22,6 +20,7 @@ use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Jobs\RunMarketplaceUninstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
+use Capell\Marketplace\Tests\Support\JobUninstallDataDeleter;
 use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\Notification;
@@ -428,19 +427,3 @@ it('reports uninstall progress against its own stage sequence', function (): voi
     expect($attempt->progress_total)->toBe(5)
         ->and($attempt->progress_current)->toBe(5);
 });
-
-final class JobUninstallDataDeleter implements DeletesExtensionData
-{
-    /** @var list<string> */
-    public static array $deletedPackages = [];
-
-    public static function compatibleCapellApiVersion(): string
-    {
-        return '1.0';
-    }
-
-    public function deleteExtensionData(PackageData $package): void
-    {
-        self::$deletedPackages[] = $package->name;
-    }
-}

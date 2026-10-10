@@ -40,7 +40,23 @@ beforeEach(function (): void {
         'backup.scratch.sqlite_directory' => $this->scratchDirectory,
         'database.connections.backup_test' => ['driver' => 'sqlite', 'database' => $this->databasePath],
     ]);
-    $this->doctorProcesses = new RecordingDoctorProcessFactory;
+    $this->doctorProcesses = new class implements ProcessFactoryInterface
+    {
+        /** @var list<list<string>|string> */
+        public array $commands = [];
+
+        /** @var list<array<string, string|false>> */
+        public array $environments = [];
+
+        #[Override]
+        public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
+        {
+            $this->commands[] = $command;
+            $this->environments[] = $environment ?? [];
+
+            return new Process(['/usr/bin/printf', '{"status":"passed","checks":[]}']);
+        }
+    };
     app()->instance(ProcessFactoryInterface::class, $this->doctorProcesses);
 });
 
@@ -379,23 +395,6 @@ function backupRestoredValue(string $databasePath): string
     $value = $statement->fetchColumn();
 
     return is_string($value) ? $value : throw new RuntimeException('Restored backup fixture value is missing.');
-}
-
-final class RecordingDoctorProcessFactory implements ProcessFactoryInterface
-{
-    /** @var list<list<string>|string> */
-    public array $commands = [];
-
-    /** @var list<array<string, string|false>> */
-    public array $environments = [];
-
-    public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
-    {
-        $this->commands[] = $command;
-        $this->environments[] = $environment ?? [];
-
-        return new Process(['/usr/bin/printf', '{"status":"passed","checks":[]}']);
-    }
 }
 
 it('rejects NTFS stream and trailing-dot names only when restoring on Windows', function (string $path, bool $safeOnPosix, bool $safeOnWindows): void {

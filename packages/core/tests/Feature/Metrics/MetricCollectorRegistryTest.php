@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Contracts\Metrics\CollectsDailyMetrics;
 use Capell\Core\Contracts\Metrics\MetricScopeAuthorizer;
-use Capell\Core\Data\Metrics\MetricCollectionResultData;
 use Capell\Core\Data\Metrics\MetricDefinitionData;
 use Capell\Core\Data\Metrics\MetricGovernanceData;
 use Capell\Core\Data\Metrics\MetricIdentityData;
@@ -26,6 +24,8 @@ use Capell\Core\Enums\MetricUnitEnum;
 use Capell\Core\Support\Metrics\DenyMetricScopeAuthorizer;
 use Capell\Core\Support\Metrics\MetricCollectorRegistry;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Capell\Core\Tests\Support\ConflictingRegistryTestMetricCollector;
+use Capell\Core\Tests\Support\RegistryTestMetricCollector;
 use Carbon\CarbonImmutable;
 
 it('registers an owned collector idempotently and resolves its definitions', function (): void {
@@ -69,32 +69,6 @@ it('binds a fail-closed metric scope authorizer by default', function (): void {
     expect($authorizer)->toBeInstanceOf(DenyMetricScopeAuthorizer::class)
         ->and($authorizer->canRead($definition, $context))->toBeFalse();
 });
-
-final class RegistryTestMetricCollector implements CollectsDailyMetrics
-{
-    public function definitions(): array
-    {
-        return [registryTestDefinition()];
-    }
-
-    public function collect(string $day, array $scopes): MetricCollectionResultData
-    {
-        throw new LogicException('Collection is not used by the registry test.');
-    }
-}
-
-final class ConflictingRegistryTestMetricCollector implements CollectsDailyMetrics
-{
-    public function definitions(): array
-    {
-        return [registryTestDefinition()];
-    }
-
-    public function collect(string $day, array $scopes): MetricCollectionResultData
-    {
-        throw new LogicException('Collection is not used by the registry test.');
-    }
-}
 
 function registryTestDefinition(): MetricDefinitionData
 {

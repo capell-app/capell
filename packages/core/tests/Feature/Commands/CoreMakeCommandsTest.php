@@ -2,17 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Tests\Support\CoreMakeCommandRecorder;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
-
-final class CoreMakeCommandRecorder
-{
-    /** @var list<string> */
-    public array $paths = [];
-
-    /** @var array<string, string> */
-    public array $contents = [];
-}
 
 function bindMakerCommandFilesystem(bool $fileExists = false): CoreMakeCommandRecorder
 {

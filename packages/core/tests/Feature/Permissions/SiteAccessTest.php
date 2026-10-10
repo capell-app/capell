@@ -11,8 +11,8 @@ use Capell\Core\Models\Taxonomy;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
+use Capell\Core\Tests\Support\SiteAccessLifecycleProbe;
 use Illuminate\Auth\GenericUser;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
@@ -144,21 +144,6 @@ it('reads current actor and team access afresh within the request', function ():
     auth()->logout();
     expect(SiteAccess::current()->allowedSiteIds())->toBe([]);
 });
-
-final class SiteAccessLifecycleProbe implements ShouldQueue
-{
-    /** @var list<list<int>|null> */
-    public static array $observations = [];
-
-    public function __construct(public int $actorId, public int $siteId) {}
-
-    public function handle(): void
-    {
-        auth()->setUser(HasSitePermissionsTestUser::query()->findOrFail($this->actorId));
-        setPermissionsTeamId($this->siteId);
-        self::$observations[] = SiteAccess::current()->allowedSiteIds();
-    }
-}
 
 it('does not retain current access across request replacement in a long lived application', function (): void {
     $alpha = Site::factory()->create();

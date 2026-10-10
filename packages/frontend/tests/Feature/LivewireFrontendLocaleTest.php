@@ -7,11 +7,10 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
-use Capell\Frontend\Livewire\Page\AbstractPage;
 use Capell\Frontend\Support\Locale\FrontendLocaleScope;
 use Capell\Frontend\Support\State\FrontendState;
+use Capell\Frontend\Tests\Support\FrontendLocaleTestPage;
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Livewire\Livewire;
@@ -71,19 +70,3 @@ it('renders a livewire update in the language of the resolved page', function ()
         ->call('captureLocaleProbe')
         ->assertSet('localeProbe', 'fr');
 });
-
-final class FrontendLocaleTestPage extends AbstractPage
-{
-    public ?string $localeProbe = null;
-
-    public function captureLocaleProbe(): void
-    {
-        $this->localeProbe = app()->getLocale();
-    }
-
-    #[Override]
-    public function render(): View
-    {
-        return view()->file(__DIR__ . '/../Fixtures/livewire-context-test.blade.php');
-    }
-}

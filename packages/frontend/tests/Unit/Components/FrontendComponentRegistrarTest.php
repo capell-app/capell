@@ -11,6 +11,8 @@ use Capell\Frontend\Enums\FrontendComponentTarget;
 use Capell\Frontend\Livewire\Page\Page;
 use Capell\Frontend\Support\Components\FrontendComponentRegistrar;
 use Capell\Frontend\Tests\Fixtures\LayoutBuilderFrontendComponentContributor;
+use Capell\Frontend\Tests\Support\FrontendRegistrarOverrideTestComponent;
+use Capell\Frontend\Tests\Support\FrontendRegistrarTestComponent;
 use Illuminate\Support\Facades\Config;
 use Livewire\Component;
 
@@ -44,6 +46,7 @@ it('builds the configured component maps without contributors', function (): voi
 it('maps contributions to both frontend targets', function (): void {
     tagFrontendComponentContributor('both-targets', new class implements FrontendComponentContributor
     {
+        #[Override]
         public function components(): array
         {
             return [
@@ -74,6 +77,7 @@ it('maps contributions to both frontend targets', function (): void {
 it('keeps the default maps when a contributor is empty', function (): void {
     tagFrontendComponentContributor('empty', new class implements FrontendComponentContributor
     {
+        #[Override]
         public function components(): array
         {
             return [];
@@ -96,11 +100,11 @@ it('applies contributors in tag order after configured and built-in components',
         LivewirePageComponentEnum::Default->value => FrontendRegistrarTestComponent::class,
     ]);
 
-    tagFrontendComponentContributor('first', new FrontendRegistrarTestContributor(
+    tagFrontendComponentContributor('first', frontendRegistrarTestContributor(
         blade: 'layout-builder::components.first',
         livewire: FrontendRegistrarTestComponent::class,
     ));
-    tagFrontendComponentContributor('second', new FrontendRegistrarTestContributor(
+    tagFrontendComponentContributor('second', frontendRegistrarTestContributor(
         blade: 'layout-builder::components.second',
         livewire: FrontendRegistrarOverrideTestComponent::class,
     ));
@@ -118,6 +122,7 @@ it('ignores invalid tagged services and livewire component values', function ():
     tagFrontendComponentContributor('invalid-service', new stdClass);
     tagFrontendComponentContributor('invalid-values', new class implements FrontendComponentContributor
     {
+        #[Override]
         public function components(): array
         {
             return [
@@ -140,6 +145,7 @@ it('resolves contributor state afresh for each registrar instance', function ():
 
     tagFrontendComponentContributor('late', new class implements FrontendComponentContributor
     {
+        #[Override]
         public function components(): array
         {
             return [new FrontendComponentContributionData(
@@ -210,39 +216,28 @@ function tagFrontendComponentContributor(string $key, object $contributor): void
     app()->tag('test.frontend-component-contributor.' . $key, FrontendComponentContributor::TAG);
 }
 
-final readonly class FrontendRegistrarTestContributor implements FrontendComponentContributor
+/** @param class-string<Component> $livewire */
+function frontendRegistrarTestContributor(string $blade, string $livewire): FrontendComponentContributor
 {
-    /** @param class-string<Component> $livewire */
-    public function __construct(
-        private string $blade,
-        private string $livewire,
-    ) {}
-
-    public function components(): array
+    return new readonly class($blade, $livewire) implements FrontendComponentContributor
     {
-        return [
-            new FrontendComponentContributionData('shared', $this->blade, FrontendComponentTarget::Blade),
-            new FrontendComponentContributionData(
-                LivewirePageComponentEnum::Default->value,
-                $this->livewire,
-                FrontendComponentTarget::Livewire,
-            ),
-        ];
-    }
-}
+        /** @param class-string<Component> $livewire */
+        public function __construct(
+            private string $blade,
+            private string $livewire,
+        ) {}
 
-final class FrontendRegistrarTestComponent extends Component
-{
-    public function render(): string
-    {
-        return '<div></div>';
-    }
-}
-
-final class FrontendRegistrarOverrideTestComponent extends Component
-{
-    public function render(): string
-    {
-        return '<div></div>';
-    }
+        #[Override]
+        public function components(): array
+        {
+            return [
+                new FrontendComponentContributionData('shared', $this->blade, FrontendComponentTarget::Blade),
+                new FrontendComponentContributionData(
+                    LivewirePageComponentEnum::Default->value,
+                    $this->livewire,
+                    FrontendComponentTarget::Livewire,
+                ),
+            ];
+        }
+    };
 }

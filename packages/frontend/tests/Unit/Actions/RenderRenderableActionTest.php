@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 use Capell\Core\Data\RenderableDefinitionData;
 use Capell\Core\Support\Renderables\RenderableRegistry;
-use Capell\Core\Support\Renderables\RenderableViewDataContext;
-use Capell\Core\Support\Renderables\RenderableViewDataResolver;
 use Capell\Frontend\Actions\RenderRenderableAction;
+use Capell\Frontend\Tests\Support\RenderRenderableActionTestResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
@@ -65,17 +64,4 @@ function renderRenderableActionTestModel(): Model
 
         protected $guarded = [];
     };
-}
-
-final class RenderRenderableActionTestResolver implements RenderableViewDataResolver
-{
-    /**
-     * @return array<string, mixed>
-     */
-    public function data(RenderableViewDataContext $context): array
-    {
-        return [
-            'headline' => 'Resolver headline',
-        ];
-    }
 }

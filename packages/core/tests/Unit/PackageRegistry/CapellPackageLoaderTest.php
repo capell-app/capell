@@ -8,12 +8,11 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
-use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Capell\Core\Tests\Support\BootingReceiptTestProvider;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\FilesystemServiceProvider;
-use Illuminate\Support\ServiceProvider;
 use Mockery\MockInterface;
 
 it('always includes metadata and install providers for discovered packages', function (): void {
@@ -174,12 +173,4 @@ function packageLoader(CapellPackageRegistry $registry): CapellPackageLoader
         $registry,
         receipts: new ExtensionContributionReceiptRegistry,
     );
-}
-
-final class BootingReceiptTestProvider extends ServiceProvider
-{
-    public function boot(): void
-    {
-        resolve(PackageSurfaceRegistrar::class)->models([stdClass::class]);
-    }
 }

@@ -7,6 +7,11 @@ use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Support\Models\ModelInterceptorRegistry;
 use Capell\Core\Tests\Integration\Fixtures\IntegrationTestInterceptor;
 use Capell\Core\Tests\Integration\Fixtures\IntegrationTestModel;
+use Capell\Core\Tests\Support\BadReturnCreateModelInterceptor;
+use Capell\Core\Tests\Support\CreateModelInterceptorContract;
+use Capell\Core\Tests\Support\FirstCreateModelInterceptor;
+use Capell\Core\Tests\Support\ReplacementCreateModelInterceptor;
+use Capell\Core\Tests\Support\SecondCreateModelInterceptor;
 use Capell\Tests\Fixtures\Models\InMemoryUserModel;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -253,81 +258,3 @@ it('merges nested interceptor payloads and fails fast on invalid lifecycle contr
         CreateModelInterceptorContract::class,
     ))->toThrow(InvalidArgumentException::class, 'must return ' . InMemoryUserModel::class);
 });
-
-interface CreateModelInterceptorContract
-{
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public function beforeCreate(array $data): array;
-
-    /** @param array<string, mixed> $data */
-    public function afterCreated(object $entity, array $data): void;
-}
-
-final class FirstCreateModelInterceptor implements CreateModelInterceptorContract
-{
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public function beforeCreate(array $data): array
-    {
-        $data['steps'][] = 'first';
-
-        return $data;
-    }
-
-    public function afterCreated(object $entity, array $data): void
-    {
-        if ($entity instanceof InMemoryUserModel) {
-            $entity->attributes['after'][] = 'first';
-        }
-    }
-}
-
-final class SecondCreateModelInterceptor implements CreateModelInterceptorContract
-{
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public function beforeCreate(array $data): array
-    {
-        $data['steps'][] = 'second';
-
-        return $data;
-    }
-
-    public function afterCreated(object $entity, array $data): void
-    {
-        if ($entity instanceof InMemoryUserModel) {
-            $entity->attributes['after'][] = 'second';
-        }
-    }
-}
-
-final class ReplacementCreateModelInterceptor implements CreateModelInterceptorContract
-{
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    public function beforeCreate(array $data): array
-    {
-        $data['steps'][] = 'replacement';
-
-        return $data;
-    }
-
-    public function afterCreated(object $entity, array $data): void {}
-}
-
-final class BadReturnCreateModelInterceptor
-{
-    public function beforeCreate(): string
-    {
-        return 'invalid';
-    }
-}

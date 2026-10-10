@@ -8,27 +8,6 @@ use Capell\Core\Contracts\ProjectBuild\ProjectBuildManifestMigration;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
 use Capell\Core\Support\ProjectBuild\ProjectBuildManifestMigrationRegistry;
 
-final class BundleVersionZeroProjectBuildManifestMigration implements ProjectBuildManifestMigration
-{
-    public function fromVersion(): int
-    {
-        return 0;
-    }
-
-    public function toVersion(): int
-    {
-        return 1;
-    }
-
-    public function migrate(array $payload): array
-    {
-        $payload['schemaVersion'] = 1;
-        unset($payload['legacyVersion']);
-
-        return $payload;
-    }
-}
-
 function projectBuildFixturePath(string $path): string
 {
     return dirname(__DIR__, 2) . '/fixtures/project-build/' . $path;
@@ -100,7 +79,29 @@ it('verifies legacy signed bytes before applying a trusted core migration', func
         sodium_crypto_sign_secretkey($keyPair),
     ));
     $migrations = new ProjectBuildManifestMigrationRegistry;
-    $migrations->register(new BundleVersionZeroProjectBuildManifestMigration);
+    $migrations->register(new class implements ProjectBuildManifestMigration
+    {
+        #[Override]
+        public function fromVersion(): int
+        {
+            return 0;
+        }
+
+        #[Override]
+        public function toVersion(): int
+        {
+            return 1;
+        }
+
+        #[Override]
+        public function migrate(array $payload): array
+        {
+            $payload['schemaVersion'] = 1;
+            unset($payload['legacyVersion']);
+
+            return $payload;
+        }
+    });
 
     app()->instance(ProjectBuildManifestMigrationRegistry::class, $migrations);
 

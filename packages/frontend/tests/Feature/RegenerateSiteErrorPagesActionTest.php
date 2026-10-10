@@ -15,38 +15,11 @@ use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationFingerprint;
+use Capell\Frontend\Tests\Support\RecordingStaticErrorPageStore;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
-
-/**
- * Records every file written by the static error page store, so a test can
- * assert that regeneration actually happened.
- */
-class RecordingStaticErrorPageStore implements StaticErrorPageStore
-{
-    /** @var array<string, string> */
-    public array $files = [];
-
-    public int $writes = 0;
-
-    public function exists(string $file): bool
-    {
-        return array_key_exists($file, $this->files);
-    }
-
-    public function path(string $file): ?string
-    {
-        return $this->exists($file) ? storage_path('framework/testing/' . str_replace('/', '-', $file)) : null;
-    }
-
-    public function put(string $file, string $contents): void
-    {
-        $this->writes++;
-        $this->files[$file] = $contents;
-    }
-}
 
 function recordingStaticErrorPageStore(): RecordingStaticErrorPageStore
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Tests\Support\Octane;
+namespace Capell\Core\Tests\Support\Octane;
 
 use Capell\Admin\Support\Activity\ActivityResourceLinkRegistry;
 use Capell\Admin\Support\AdminEventRegistry;

@@ -291,8 +291,10 @@
         "psr-4": {
             "Capell\\Tests\\": "tests",
             "Capell\\Tests\\Fixtures\\": "tests/fixtures",
+            "Capell\\Tests\\Fixtures\\MarketplaceSmokeQa\\": "tests/fixtures/marketplace-smoke-package/src/",
             "Capell\\Admin\\Tests\\": "packages/admin/tests/",
             "Capell\\Core\\Tests\\": "packages/core/tests/",
+            "Vendor\\ExtensionConformance\\": "packages/core/tests/Support/ExtensionConformance/",
             "Capell\\Installer\\Tests\\": "packages/installer/tests/",
             "Capell\\Marketplace\\Tests\\": "packages/marketplace/tests",
             "Capell\\Frontend\\Tests\\": "packages/frontend/tests/",

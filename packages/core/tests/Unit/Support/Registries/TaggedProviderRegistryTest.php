@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Registries\TaggedProviderRegistry;
+use Capell\Core\Tests\Support\TaggedProviderTestContract;
+use Capell\Core\Tests\Support\TaggedProviderTestImplementation;
+use Capell\Core\Tests\Support\TaggedProviderTestRegistry;
 
 it('resolves valid tagged providers lazily in registration order', function (): void {
     $resolutions = 0;
@@ -57,34 +60,3 @@ it('sees the first contributor added after the registry was resolved with an emp
 
     expect(array_map(fn (TaggedProviderTestContract $provider): string => $provider->name(), $registry->all()))->toBe(['late']);
 });
-
-interface TaggedProviderTestContract
-{
-    public function name(): string;
-}
-
-final readonly class TaggedProviderTestImplementation implements TaggedProviderTestContract
-{
-    public function __construct(private string $name) {}
-
-    public function name(): string
-    {
-        return $this->name;
-    }
-}
-
-/** @extends TaggedProviderRegistry<TaggedProviderTestContract> */
-final class TaggedProviderTestRegistry extends TaggedProviderRegistry
-{
-    /** @param iterable<mixed> $providers */
-    public function __construct(iterable $providers)
-    {
-        parent::__construct($providers, TaggedProviderTestContract::class);
-    }
-
-    /** @return list<TaggedProviderTestContract> */
-    public function all(): array
-    {
-        return $this->providers();
-    }
-}

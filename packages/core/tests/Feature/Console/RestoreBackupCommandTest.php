@@ -22,7 +22,14 @@ beforeEach(function (): void {
         'backup.scratch.sqlite_directory' => $this->scratchDirectory,
         'database.connections.backup_test' => ['driver' => 'sqlite', 'database' => $this->databasePath],
     ]);
-    app()->instance(ProcessFactoryInterface::class, new RecordingRestoreCommandDoctorProcessFactory);
+    app()->instance(ProcessFactoryInterface::class, new class implements ProcessFactoryInterface
+    {
+        #[Override]
+        public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
+        {
+            return new Process(['/usr/bin/printf', '{"status":"passed","checks":[]}']);
+        }
+    });
 });
 
 afterEach(function (): void {
@@ -50,11 +57,3 @@ it('restores and verifies a snapshot from the command', function (): void {
     ])->expectsOutputToContain('Scratch restore verified:')
         ->assertSuccessful();
 });
-
-final class RecordingRestoreCommandDoctorProcessFactory implements ProcessFactoryInterface
-{
-    public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
-    {
-        return new Process(['/usr/bin/printf', '{"status":"passed","checks":[]}']);
-    }
-}

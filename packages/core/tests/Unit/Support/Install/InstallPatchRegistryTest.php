@@ -8,6 +8,8 @@ use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Tests\Support\InstallPatchReceiptCapturedMode;
+use Capell\Core\Tests\Support\InstallPatchReceiptCapturedState;
 
 function makeInstallPatchRegistryTestPatch(string $patchId): Patch
 {
@@ -312,50 +314,6 @@ it('rejects cyclic anonymous captures before storing the patch', function (): vo
         ->and($registry->patchesFor(new InstallPatchContext(packageNames: [], hasFilamentAdminPanelProvider: false)))
         ->toBe([]);
 });
-
-enum InstallPatchReceiptCapturedMode: string
-{
-    case First = 'first';
-    case Second = 'second';
-}
-
-final class InstallPatchReceiptCapturedState
-{
-    public function __construct(
-        public string $name,
-        public InstallPatchReceiptCapturedMode $mode,
-        public mixed $nested = null,
-    ) {}
-
-    public function factory(): callable
-    {
-        return fn (InstallPatchContext $context): Patch => makeInstallPatchRegistryTestPatch($this->name);
-    }
-
-    public function unusedFactory(): callable
-    {
-        return function (InstallPatchContext $context): Patch {
-            $literal = '$this';
-            $thisValue = 'not-bound-state';
-            expect($literal)->toBe('$this')
-                ->and($thisValue)->toBe('not-bound-state');
-
-            return makeInstallPatchRegistryTestPatch('unused-bound');
-        };
-    }
-
-    public function literalFactory(): callable
-    {
-        return function (InstallPatchContext $context): Patch {
-            $literal = '$this';
-            $thisValue = 'not-bound-state';
-            expect($literal)->toBe('$this')
-                ->and($thisValue)->toBe('not-bound-state');
-
-            return makeInstallPatchRegistryTestPatch('literal-bound');
-        };
-    }
-}
 
 function makeStaticInstallPatchFactory(): callable
 {

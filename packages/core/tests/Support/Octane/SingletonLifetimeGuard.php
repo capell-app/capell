@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Capell\Tests\Support\Octane;
+namespace Capell\Core\Tests\Support\Octane;
 
 use PhpParser\Node;
 use PhpParser\Node\Expr;

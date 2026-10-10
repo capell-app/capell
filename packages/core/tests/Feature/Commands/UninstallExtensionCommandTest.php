@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Contracts\Extensions\DeletesExtensionData;
-use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
+use Capell\Core\Tests\Support\UninstallExtensionCommandDataDeleter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 
@@ -108,19 +107,3 @@ it('reports blocked migration paths and the exact retry command without claiming
 
     expect(CapellCore::isPackageInstalled('vendor/blocked-extension'))->toBeTrue();
 });
-
-final class UninstallExtensionCommandDataDeleter implements DeletesExtensionData
-{
-    /** @var list<string> */
-    public static array $deletedPackages = [];
-
-    public static function compatibleCapellApiVersion(): string
-    {
-        return '1.0';
-    }
-
-    public function deleteExtensionData(PackageData $package): void
-    {
-        self::$deletedPackages[] = $package->name;
-    }
-}

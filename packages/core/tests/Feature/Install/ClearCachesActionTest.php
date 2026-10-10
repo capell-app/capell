@@ -14,7 +14,35 @@ use Symfony\Component\Console\Exception\CommandNotFoundException;
 
 beforeEach(function (): void {
     $this->processes = FakeProcessFactory::bind();
-    $this->reporter = new RecordingClearCachesProgressReporter;
+    $this->reporter = new class implements ProgressReporter
+    {
+        /** @var list<string> */
+        public array $steps = [];
+
+        /** @var list<string> */
+        public array $reports = [];
+
+        /** @var list<string> */
+        public array $errors = [];
+
+        #[Override]
+        public function step(string $label): void
+        {
+            $this->steps[] = $label;
+        }
+
+        #[Override]
+        public function report(string $line): void
+        {
+            $this->reports[] = $line;
+        }
+
+        #[Override]
+        public function error(string $line): void
+        {
+            $this->errors[] = $line;
+        }
+    };
 });
 
 /**
@@ -38,33 +66,6 @@ function expectFreshOptimizeClearProcess(FakeProcessFactory $processes): void
     expect($processes->commands())->toBe([[...new RuntimeBinaryResolver()->php(), 'artisan', 'optimize:clear', '--no-interaction']])
         ->and($processes->processes[0]->getWorkingDirectory())->toBe(base_path())
         ->and($processes->processes[0]->getTimeout())->toEqual(120);
-}
-
-final class RecordingClearCachesProgressReporter implements ProgressReporter
-{
-    /** @var list<string> */
-    public array $steps = [];
-
-    /** @var list<string> */
-    public array $reports = [];
-
-    /** @var list<string> */
-    public array $errors = [];
-
-    public function step(string $label): void
-    {
-        $this->steps[] = $label;
-    }
-
-    public function report(string $line): void
-    {
-        $this->reports[] = $line;
-    }
-
-    public function error(string $line): void
-    {
-        $this->errors[] = $line;
-    }
 }
 
 it('skips optimize:clear in testbench when all is selected', function (): void {

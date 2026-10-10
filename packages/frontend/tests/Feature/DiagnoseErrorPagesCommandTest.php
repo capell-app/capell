@@ -5,42 +5,9 @@ declare(strict_types=1);
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
+use Capell\Frontend\Tests\Support\DiagnoseErrorPagesTestStore;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
-
-/**
- * Temp-dir backed fake store, mirroring the resolver's own test double.
- */
-class DiagnoseErrorPagesTestStore implements StaticErrorPageStore
-{
-    public string $directory;
-
-    public function __construct()
-    {
-        $this->directory = storage_path('framework/testing/diagnose-error-' . uniqid());
-    }
-
-    public function exists(string $file): bool
-    {
-        return File::exists($this->fullPath($file));
-    }
-
-    public function path(string $file): ?string
-    {
-        return $this->fullPath($file);
-    }
-
-    public function put(string $file, string $contents): void
-    {
-        File::ensureDirectoryExists(dirname($this->fullPath($file)));
-        File::put($this->fullPath($file), $contents);
-    }
-
-    private function fullPath(string $file): string
-    {
-        return $this->directory . '/' . ltrim($file, '/');
-    }
-}
 
 function diagnoseWriteManifest(array $entries): void
 {

@@ -13,21 +13,6 @@ use Capell\Core\Tests\Unit\Support\Subscriber\Fixtures\SubscriberRegistryTestEve
 use InvalidArgumentException;
 use stdClass;
 
-final class SubscriberRegistryRecorder
-{
-    /** @var array<int, array{event: string, context: object, source: string}> */
-    public array $handled = [];
-
-    /** @var array<int, array{event: string, context: object, source: string}> */
-    public array $validated = [];
-
-    /** @var array<class-string, string> */
-    public array $labels = [];
-
-    /** @var array<string, bool> */
-    public array $validateReturns = [];
-}
-
 /**
  * Shared recorder used by anonymous-class subscribers (instantiated by the
  * manager via `new $subscriber` with no constructor arguments) to report

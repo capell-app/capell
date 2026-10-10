@@ -6,6 +6,14 @@ use Capell\Core\Concerns\HasModelRelations;
 use Capell\Core\Octane\Resettable;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Tests\Support\Octane\SingletonLifetime;
+use Capell\Core\Tests\Support\Octane\SingletonLifetimeGuard;
+use Capell\Core\Tests\Support\Octane\SingletonLifetimeInventory;
+use Capell\Core\Tests\Support\SingletonLifetimeFixture;
+use Capell\Core\Tests\Support\SingletonLifetimeGrandparentFixture;
+use Capell\Core\Tests\Support\SingletonLifetimeMutableDependencyFixture;
+use Capell\Core\Tests\Support\SingletonLifetimeParentFixture;
+use Capell\Core\Tests\Support\SingletonLifetimeTraitFixture;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Capell\Frontend\Contracts\AssetsRegistryInterface;
@@ -15,52 +23,10 @@ use Capell\Frontend\Support\Logging\FrontendLogger;
 use Capell\Frontend\Support\Security\FrontendUrlSignatureService;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Marketplace\Actions\PhoneHomeAction;
-use Capell\Tests\Support\Octane\SingletonLifetime;
-use Capell\Tests\Support\Octane\SingletonLifetimeGuard;
-use Capell\Tests\Support\Octane\SingletonLifetimeInventory;
 
 require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetime.php';
 require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetimeInventory.php';
 require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetimeGuard.php';
-
-trait SingletonLifetimeTraitFixture
-{
-    private array $traitCache = [];
-}
-
-class SingletonLifetimeGrandparentFixture
-{
-    private array $privateParentCache = [];
-
-    public function privateParentCache(): array
-    {
-        return $this->privateParentCache;
-    }
-}
-
-class SingletonLifetimeParentFixture extends SingletonLifetimeGrandparentFixture
-{
-    protected array $parentCache = [];
-}
-
-final class SingletonLifetimeMutableDependencyFixture
-{
-    private array $values = [];
-
-    public function values(): array
-    {
-        return $this->values;
-    }
-}
-
-final class SingletonLifetimeFixture extends SingletonLifetimeParentFixture
-{
-    use SingletonLifetimeTraitFixture;
-
-    private string $operation = '';
-
-    public function __construct(private readonly SingletonLifetimeMutableDependencyFixture $dependency) {}
-}
 
 function singletonLifetimeGuard(): SingletonLifetimeGuard
 {

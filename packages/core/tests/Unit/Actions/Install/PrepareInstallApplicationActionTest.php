@@ -34,7 +34,7 @@ it('applies applicable install patches through the action entrypoint', function 
     });
     app()->instance(InstallPatchRegistry::class, $registry);
 
-    $reporter = new PrepareInstallApplicationTestReporter;
+    $reporter = prepareInstallApplicationTestReporter();
     $manualChanges = [];
 
     PrepareInstallApplicationAction::run(
@@ -75,7 +75,7 @@ it('reports skipped confirmation without applying the patch', function (): void 
     );
     app()->instance(InstallPatchRegistry::class, $registry);
 
-    $reporter = new PrepareInstallApplicationTestReporter;
+    $reporter = prepareInstallApplicationTestReporter();
 
     PrepareInstallApplicationAction::run(
         inputData: prepareInstallApplicationTestInput(),
@@ -102,7 +102,7 @@ it('records and reports failed patch application', function (): void {
     ));
     app()->instance(InstallPatchRegistry::class, $registry);
 
-    $reporter = new PrepareInstallApplicationTestReporter;
+    $reporter = prepareInstallApplicationTestReporter();
     $manualChanges = [];
 
     PrepareInstallApplicationAction::run(
@@ -195,33 +195,6 @@ function prepareInstallApplicationTestPatch(string $label, PatchStatus $status, 
     };
 }
 
-final class PrepareInstallApplicationTestReporter implements ProgressReporter
-{
-    /** @var array<int, string> */
-    public array $steps = [];
-
-    /** @var array<int, string> */
-    public array $reports = [];
-
-    /** @var array<int, string> */
-    public array $errors = [];
-
-    public function step(string $label): void
-    {
-        $this->steps[] = $label;
-    }
-
-    public function report(string $line): void
-    {
-        $this->reports[] = $line;
-    }
-
-    public function error(string $line): void
-    {
-        $this->errors[] = $line;
-    }
-}
-
 it('prepares required patches for newly discovered foundation dependencies without overriding optional patch choices', function (): void {
     CapellCore::clearPackages();
     CapellCore::registerPackage(name: 'vendor/theme');
@@ -265,7 +238,7 @@ it('prepares required patches for newly discovered foundation dependencies witho
         hasFilamentAdminPanelProvider: false,
         interactive: false,
         useFreshDemoDefaults: false,
-        reporter: new PrepareInstallApplicationTestReporter,
+        reporter: prepareInstallApplicationTestReporter(),
         confirmPatch: static fn (InstallPatchConfirmation $confirmation): never => throw new RuntimeException('No optional confirmations during package discovery.'),
         recordManualInstallChange: static function (string $message): void {},
         requiredPatchesOnly: true,
@@ -273,3 +246,37 @@ it('prepares required patches for newly discovered foundation dependencies witho
 
     expect($requiredApplied)->toBeTrue()->and($optionalApplied)->toBeFalse();
 });
+
+/** @return ProgressReporter&object{steps: array<int, string>, reports: array<int, string>, errors: array<int, string>} */
+function prepareInstallApplicationTestReporter(): ProgressReporter
+{
+    return new class implements ProgressReporter
+    {
+        /** @var array<int, string> */
+        public array $steps = [];
+
+        /** @var array<int, string> */
+        public array $reports = [];
+
+        /** @var array<int, string> */
+        public array $errors = [];
+
+        #[Override]
+        public function step(string $label): void
+        {
+            $this->steps[] = $label;
+        }
+
+        #[Override]
+        public function report(string $line): void
+        {
+            $this->reports[] = $line;
+        }
+
+        #[Override]
+        public function error(string $line): void
+        {
+            $this->errors[] = $line;
+        }
+    };
+}

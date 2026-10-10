@@ -3,14 +3,15 @@
 declare(strict_types=1);
 
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
-use Illuminate\Contracts\Foundation\Application;
+use Capell\Core\Tests\Support\InstalledLifecycleTestServiceProvider;
+use Capell\Core\Tests\Support\LivewireCompatibilityTestComponent;
+use Capell\Core\Tests\Support\LivewireCompatibilityTestServiceProvider;
+use Capell\Core\Tests\Support\MetadataHooksTestServiceProvider;
+use Capell\Core\Tests\Support\MetadataHooksTestSettings;
 use Illuminate\Support\Facades\Facade;
-use Livewire\Component;
 use Livewire\Finder\Finder;
 use Livewire\LivewireManager;
-use Spatie\LaravelPackageTools\Package;
 
 it('defers installed package boot work until the application has booted', function (): void {
     $provider = new InstalledLifecycleTestServiceProvider(app(), installed: true);
@@ -138,179 +139,6 @@ it('exposes the shared package surface registrar as the canonical provider contr
 
     expect($provider->packageSurface())->toBe(resolve(PackageSurfaceRegistrar::class));
 });
-
-final class InstalledLifecycleTestServiceProvider extends AbstractPackageServiceProvider
-{
-    public static string $name = 'installed-lifecycle-test';
-
-    public static string $packageName = 'capell-app/installed-lifecycle-test';
-
-    private int $installedBootCount = 0;
-
-    private int $packageBootCount = 0;
-
-    private ?Closure $bootedCallback = null;
-
-    public function __construct(
-        Application $application,
-        private readonly bool $installed,
-        private readonly bool $discoveringPackages = false,
-    ) {
-        parent::__construct($application);
-    }
-
-    public function configurePackage(Package $package): void
-    {
-        $package->name(self::$name);
-    }
-
-    public function installedBootCount(): int
-    {
-        return $this->installedBootCount;
-    }
-
-    public function packageBootCount(): int
-    {
-        return $this->packageBootCount;
-    }
-
-    #[Override]
-    public function booted(Closure $callback): void
-    {
-        $this->bootedCallback = $callback;
-    }
-
-    public function runBootedCallback(): void
-    {
-        ($this->bootedCallback ?? throw new RuntimeException('Booted callback was not registered.'))();
-    }
-
-    #[Override]
-    protected function bootInstalledPackage(): self
-    {
-        $this->installedBootCount++;
-
-        return $this;
-    }
-
-    #[Override]
-    protected function bootPackage(): self
-    {
-        $this->packageBootCount++;
-
-        return $this;
-    }
-
-    #[Override]
-    protected function isDiscoveringPackages(): bool
-    {
-        return $this->discoveringPackages;
-    }
-
-    #[Override]
-    protected function isPackageInstalled(): bool
-    {
-        return $this->installed;
-    }
-}
-
-final class LivewireCompatibilityTestServiceProvider extends AbstractPackageServiceProvider
-{
-    public static string $name = 'livewire-compatibility-test';
-
-    public static string $packageName = 'capell-app/livewire-compatibility-test';
-
-    public function configurePackage(Package $package): void
-    {
-        $package->name(self::$name);
-    }
-
-    /**
-     * @param  array<string, class-string>  $components
-     * @param  array<string, string>|null  $namespace
-     */
-    public function registerDefinitions(array $components = [], ?array $namespace = null): self
-    {
-        return $this->registerLivewireComponentDefinitions($components, $namespace);
-    }
-
-    public function registerMetadata(): self
-    {
-        return $this->registerPackageMetadata();
-    }
-
-    public function packageSurface(): PackageSurfaceRegistrar
-    {
-        return $this->surface();
-    }
-
-    public function registerPrivateDefinitions(): self
-    {
-        return $this->registerLivewireComponents();
-    }
-
-    private function registerLivewireComponents(): self
-    {
-        return $this;
-    }
-}
-
-final class LivewireCompatibilityTestComponent extends Component
-{
-    public function render(): string
-    {
-        return '<div></div>';
-    }
-}
-
-final class MetadataHooksTestSettings {}
-
-final class MetadataHooksTestServiceProvider extends AbstractPackageServiceProvider
-{
-    public static string $name = 'metadata-hooks-test';
-
-    public static string $packageName = 'capell-app/metadata-hooks-test';
-
-    private int $metadataRegistrationCount = 0;
-
-    public function configurePackage(Package $package): void
-    {
-        $package->name(self::$name);
-    }
-
-    public function metadataRegistrationCount(): int
-    {
-        return $this->metadataRegistrationCount;
-    }
-
-    #[Override]
-    protected function registerPackageMetadata(): static
-    {
-        $this->metadataRegistrationCount++;
-
-        return parent::registerPackageMetadata();
-    }
-
-    /** @return class-string */
-    #[Override]
-    protected function packageSettingClass(): string
-    {
-        return MetadataHooksTestSettings::class;
-    }
-
-    #[Override]
-    protected function packageSetupCommand(): string
-    {
-        return 'capell:test-setup';
-    }
-
-    /** @return array<int, string> */
-    #[Override]
-    protected function packageSetupParameters(): array
-    {
-        return ['url', 'force'];
-    }
-}
 
 it('preserves the legacy installed and unconditional hook callback semantics', function (): void {
     $provider = new InstalledLifecycleTestServiceProvider(app(), installed: true);

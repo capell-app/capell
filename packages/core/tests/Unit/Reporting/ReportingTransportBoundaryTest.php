@@ -8,6 +8,11 @@ use Capell\Core\Enums\Reporting\DispatchStatus;
 use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\Severity;
 use Capell\Core\Models\ReportingIncident;
+use Capell\Core\Tests\Support\CallbackReportingLoggerFactory;
+use Capell\Core\Tests\Support\CallbackReportingLoggerTap;
+use Capell\Core\Tests\Support\FacadeReportingLoggerFactory;
+use Capell\Core\Tests\Support\GlobalReportingLoggerFactory;
+use Capell\Core\Tests\Support\StaticReportingLoggerFactory;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Foundation\Application;
@@ -18,54 +23,6 @@ use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\TestHandler;
 use Monolog\Logger;
 use Psr\Log\LoggerInterface;
-
-final class GlobalReportingLoggerFactory
-{
-    public function __invoke(): LoggerInterface
-    {
-        $applicationResolver = 'app';
-
-        return $applicationResolver(LogManager::class)->channel('boundary-broken');
-    }
-}
-
-final class FacadeReportingLoggerFactory
-{
-    public function __invoke(): LoggerInterface
-    {
-        return Log::channel('boundary-broken');
-    }
-}
-
-final class StaticReportingLoggerFactory
-{
-    public static ?LogManager $logs = null;
-
-    public function __invoke(): LoggerInterface
-    {
-        return self::$logs?->channel('boundary-broken') ?? throw new RuntimeException('Static logger is unavailable.');
-    }
-}
-
-final class CallbackReportingLoggerFactory
-{
-    public ?LogManager $logs = null;
-
-    public function __invoke(): LoggerInterface
-    {
-        return $this->logs?->channel('boundary-broken') ?? throw new RuntimeException('Callback logger is unavailable.');
-    }
-}
-
-final class CallbackReportingLoggerTap
-{
-    public function __construct(private readonly LogManager $logs) {}
-
-    public function __invoke(): void
-    {
-        $this->logs->channel('boundary-broken');
-    }
-}
 
 beforeEach(function (): void {
     $this->boundaryLog = storage_path('framework/testing/reporting-boundary-' . bin2hex(random_bytes(8)) . '.log');

@@ -10,7 +10,8 @@ use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Renderables\RenderableRegistry;
 use Capell\Core\Support\Renderables\RenderableViewDataContext;
-use Capell\Core\Support\Renderables\RenderableViewDataResolver;
+use Capell\Core\Tests\Support\RenderableRegistryCanonicalTestViewDataResolver;
+use Capell\Core\Tests\Support\RenderableRegistryTestViewDataResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -149,36 +150,4 @@ function renderableViewDataTestContext(): RenderableViewDataContext
         dynamicData: [],
         renderKey: 'hero',
     );
-}
-
-final class RenderableRegistryTestViewDataResolver implements RenderableViewDataResolver
-{
-    /**
-     * @return array<string, mixed>
-     */
-    public function data(RenderableViewDataContext $context): array
-    {
-        return [
-            'renderKey' => $context->renderKey,
-            'headline' => $context->meta['headline'],
-        ];
-    }
-}
-
-final class RenderableRegistryCanonicalTestViewDataResolver implements RenderableViewDataResolver
-{
-    /**
-     * @return array<string, mixed>
-     */
-    public function data(RenderableViewDataContext $context): array
-    {
-        return [
-            'asset' => 'overridden asset',
-            'translation' => 'overridden translation',
-            'meta' => ['overridden' => true],
-            'dynamicData' => ['overridden' => true],
-            'renderKey' => 'overridden',
-            'headline' => $context->meta['headline'],
-        ];
-    }
 }

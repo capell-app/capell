@@ -5,42 +5,9 @@ declare(strict_types=1);
 use Capell\Frontend\Actions\ResolveStaticErrorPageAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
+use Capell\Frontend\Tests\Support\ResolveStaticErrorPageTestStore;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-
-/**
- * In-memory fake store backed by a temp dir on disk.
- */
-class ResolveStaticErrorPageTestStore implements StaticErrorPageStore
-{
-    public string $directory;
-
-    public function __construct()
-    {
-        $this->directory = storage_path('framework/testing/resolve-error-' . uniqid());
-    }
-
-    public function exists(string $file): bool
-    {
-        return File::exists($this->fullPath($file));
-    }
-
-    public function path(string $file): ?string
-    {
-        return $this->fullPath($file);
-    }
-
-    public function put(string $file, string $contents): void
-    {
-        File::ensureDirectoryExists(dirname($this->fullPath($file)));
-        File::put($this->fullPath($file), $contents);
-    }
-
-    private function fullPath(string $file): string
-    {
-        return $this->directory . '/' . ltrim($file, '/');
-    }
-}
 
 function makeStaticErrorPageStore(): ResolveStaticErrorPageTestStore
 {

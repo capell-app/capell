@@ -8,10 +8,8 @@ use Capell\Core\Data\NewUserData;
 use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallPlan;
-
-class InstallPlanSetupActionOnlyPackageAction {}
-
-class InstallPlanAfterInstallActionOnlyPackageAction {}
+use Capell\Core\Tests\Support\InstallPlanAfterInstallActionOnlyPackageAction;
+use Capell\Core\Tests\Support\InstallPlanSetupActionOnlyPackageAction;
 
 function makePlanInput(array $overrides = []): InstallInputData
 {

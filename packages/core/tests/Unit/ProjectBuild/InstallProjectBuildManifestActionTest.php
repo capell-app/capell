@@ -12,31 +12,7 @@ use Capell\Core\Data\ProjectBuild\ProjectBuildCompatibilityData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildInstalledPackageData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildPackageData;
 use Capell\Core\Models\Site;
-
-class RecordingProjectBuildPackageInstaller implements ProjectBuildPackageInstaller
-{
-    /** @var array<string, ProjectBuildInstalledPackageData> */
-    public array $installed = [];
-
-    /** @var list<string> */
-    public array $installCalls = [];
-
-    public function installedRelease(string $package): ?ProjectBuildInstalledPackageData
-    {
-        return $this->installed[$package] ?? null;
-    }
-
-    public function install(ProjectBuildPackageData $package): ProjectBuildInstalledPackageData
-    {
-        $this->installCalls[] = $package->name;
-
-        return $this->installed[$package->name] = new ProjectBuildInstalledPackageData(
-            name: $package->name,
-            version: $package->version,
-            releaseIdentity: $package->releaseIdentity,
-        );
-    }
-}
+use Capell\Core\Tests\Support\RecordingProjectBuildPackageInstaller;
 
 function installProjectBuildFixturePath(string $path): string
 {

@@ -14,20 +14,9 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Capell\Core\Tests\Support\RestoreExternalIndexListener;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-
-final class RestoreExternalIndexListener implements ShouldQueue
-{
-    /** @var list<int> */
-    public static array $writes = [];
-
-    public function handle(PageSaved $event): void
-    {
-        self::$writes[] = $event->page->id;
-    }
-}
 
 beforeEach(function (): void {
     $this->freezeTime();

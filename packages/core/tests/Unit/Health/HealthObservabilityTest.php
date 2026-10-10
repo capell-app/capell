@@ -12,41 +12,10 @@ use Capell\Core\Support\Health\DiskCapacityHealthCheck;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Health\HealthSummarySanitizer;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Tests\Support\HealthTestCheck;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Process\Process;
-
-final readonly class HealthTestCheck implements HealthCheck
-{
-    /**
-     * @param  non-empty-string  $checkId
-     * @param  non-empty-string  $checkCategory
-     * @param  positive-int  $timeout
-     */
-    public function __construct(private string $checkId, private string $checkCategory = 'runtime', private int $timeout = 2, private ?Closure $callback = null) {}
-
-    public function id(): string
-    {
-        return $this->checkId;
-    }
-
-    public function category(): string
-    {
-        return $this->checkCategory;
-    }
-
-    public function timeoutSeconds(): int
-    {
-        return $this->timeout;
-    }
-
-    public function run(): HealthCheckResultData
-    {
-        return $this->callback instanceof Closure
-            ? ($this->callback)()
-            : new HealthCheckResultData($this->checkId, $this->checkCategory, HealthStatus::Healthy, HealthSeverity::Info, 'Healthy.');
-    }
-}
 
 /**
  * @param  non-empty-string  $id

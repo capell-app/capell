@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
+use Capell\Core\Tests\Support\BundleComposerFilesystem;
 use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Filesystem\Filesystem;
@@ -565,37 +566,3 @@ it('refuses a removal that declares itself an unattended web-triggered Composer 
         ->toThrow(RuntimeException::class, 'CAPELL_SERVER_SIDE_TOOLING is disabled');
     $this->processes->assertNothingRan();
 });
-
-final class BundleComposerFilesystem extends Filesystem
-{
-    /** @param array<string, string> $contents */
-    public function __construct(public array $contents) {}
-
-    #[Override]
-    public function exists($path): bool
-    {
-        return array_key_exists((string) $path, $this->contents);
-    }
-
-    #[Override]
-    public function get($path, $lock = false): string
-    {
-        return $this->contents[(string) $path];
-    }
-
-    #[Override]
-    public function replace($path, $content, $mode = null): void
-    {
-        $this->contents[(string) $path] = (string) $content;
-    }
-
-    #[Override]
-    public function delete($paths): bool
-    {
-        foreach ((array) $paths as $path) {
-            unset($this->contents[(string) $path]);
-        }
-
-        return true;
-    }
-}

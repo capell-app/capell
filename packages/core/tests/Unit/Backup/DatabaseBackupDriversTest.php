@@ -48,7 +48,7 @@ it('copies sqlite databases and restores only beneath the scratch directory', fu
 });
 
 it('builds mysql backup and restore processes without exposing passwords in arguments', function (): void {
-    $factory = new RecordingBackupProcessFactory;
+    $factory = recordingBackupProcessFactory();
     $source = $this->temporaryDirectory . '/database.sql';
     file_put_contents($source, 'CREATE TABLE example (id INT);');
     config([
@@ -79,7 +79,7 @@ it('builds mysql backup and restore processes without exposing passwords in argu
 });
 
 it('builds postgres backup and restore processes without exposing passwords in arguments', function (): void {
-    $factory = new RecordingBackupProcessFactory;
+    $factory = recordingBackupProcessFactory();
     $source = $this->temporaryDirectory . '/database.dump';
     file_put_contents($source, 'postgres-backup');
     config([
@@ -120,7 +120,7 @@ it('removes owned temporary files when the scope is destroyed', function (): voi
 });
 
 it('reports failed process operations without leaking connection secrets', function (): void {
-    $factory = new RecordingBackupProcessFactory(fail: true);
+    $factory = recordingBackupProcessFactory(fail: true);
     config([
         'database.connections.backup_test' => [
             'driver' => 'mysql',
@@ -150,27 +150,6 @@ it('reports failed process operations without leaking connection secrets', funct
     $this->fail('Expected the process failure to be reported.');
 });
 
-final class RecordingBackupProcessFactory implements ProcessFactoryInterface
-{
-    /** @var list<list<string>|string> */
-    public array $commands = [];
-
-    /** @var list<array<string, string|false>> */
-    public array $environments = [];
-
-    public function __construct(private readonly bool $fail = false) {}
-
-    public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
-    {
-        $this->commands[] = $command;
-        $this->environments[] = $environment ?? [];
-
-        return new Process($this->fail
-            ? ['/definitely-missing-capell-backup-command']
-            : [PHP_BINARY, '-r', 'return;']);
-    }
-}
-
 function backupSqliteValue(string $databasePath): string
 {
     $statement = new PDO('sqlite:' . $databasePath)->query('SELECT value FROM examples');
@@ -182,4 +161,30 @@ function backupSqliteValue(string $databasePath): string
     throw_unless(is_string($value), RuntimeException::class, 'The SQLite backup fixture did not contain a value.');
 
     return $value;
+}
+
+/** @return ProcessFactoryInterface&object{commands: list<list<string>|string>, environments: list<array<string, string|false>>} */
+function recordingBackupProcessFactory(bool $fail = false): ProcessFactoryInterface
+{
+    return new class($fail) implements ProcessFactoryInterface
+    {
+        /** @var list<list<string>|string> */
+        public array $commands = [];
+
+        /** @var list<array<string, string|false>> */
+        public array $environments = [];
+
+        public function __construct(private readonly bool $fail = false) {}
+
+        #[Override]
+        public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
+        {
+            $this->commands[] = $command;
+            $this->environments[] = $environment ?? [];
+
+            return new Process($this->fail
+                ? ['/definitely-missing-capell-backup-command']
+                : [PHP_BINARY, '-r', 'return;']);
+        }
+    };
 }

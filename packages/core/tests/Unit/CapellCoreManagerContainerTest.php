@@ -7,20 +7,10 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
+use Capell\Core\Tests\Support\EarlyPackageSurfaceBindingOrderModel;
+use Capell\Core\Tests\Support\PackageSurfaceBindingOrderModel;
 use Illuminate\Container\Container as LaravelContainer;
 use Illuminate\Contracts\Container\Container as ContainerContract;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-final class PackageSurfaceBindingOrderModel extends Model
-{
-    use HasFactory;
-}
-
-final class EarlyPackageSurfaceBindingOrderModel extends Model
-{
-    use HasFactory;
-}
 
 it('resolves the surface registrar before its provider binding has been registered', function (): void {
     $container = new LaravelContainer;

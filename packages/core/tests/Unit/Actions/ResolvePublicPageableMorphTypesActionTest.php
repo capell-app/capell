@@ -4,19 +4,11 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Models\Page;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Capell\Core\Tests\Support\UnavailableModel;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\DB;
-
-final class UnavailableModel extends Model
-{
-    use HasFactory;
-
-    protected $table = 'unavailable_pageables';
-}
 
 it('returns aliases and model classes only for pageable morphs', function (): void {
     expect(ResolvePublicPageableMorphTypesAction::run())
