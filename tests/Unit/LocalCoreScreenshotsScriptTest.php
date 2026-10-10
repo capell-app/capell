@@ -2,15 +2,55 @@
 
 declare(strict_types=1);
 
+use Capell\Tests\Support\ScriptFixture;
 use Illuminate\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
-it('prepares the Core workbench without mutating the shared Testbench vendor tree', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/scripts/screenshots/prepare-workbench.sh');
+it('prepares a Core-only screenshot install without a theme', function (): void {
+    $fixture = new ScriptFixture;
+    foreach (['scripts/screenshots/prepare-workbench.sh', 'scripts/screenshots/laravel-v13.10.1-package.json', 'workbench/php/php.ini'] as $path) {
+        $fixture->copy($path);
+    }
 
-    expect($script)->toBeString()
-        ->toContain('--package-mode=core')
-        ->toContain('--theme=none');
+    $fixture->write('capture.php', <<<'CAPTURE'
+<?php
+if (($argv[1] ?? '') === 'vendor/bin/testbench' && ($argv[2] ?? '') === 'capell:install') {
+    $options = [];
+    foreach (array_slice($argv, 3) as $argument) {
+        [$key, $value] = array_pad(explode('=', $argument, 2), 2, true);
+        $options[$key] = $value;
+    }
+    file_put_contents(__DIR__ . '/install.json', json_encode([
+        'options' => $options,
+        'database' => getenv('DB_DATABASE'),
+        'connection' => getenv('DB_CONNECTION'),
+    ], JSON_THROW_ON_ERROR));
+}
+CAPTURE);
+    $fixture->write('bin/php', <<<'BINARY'
+#!/bin/sh
+exec "$FIXTURE_PHP" "$FIXTURE_CAPTURE" "$@"
+BINARY);
+    $fixture->write('bin/node', "#!/bin/sh\nexit 0\n");
+    chmod($fixture->root . '/bin/php', 0755);
+    chmod($fixture->root . '/bin/node', 0755);
+    $fixture->write('workbench/database/migrations/0001_create_users_table.php', 'owned migration');
+    try {
+        $process = new Process(['/bin/bash', 'scripts/screenshots/prepare-workbench.sh'], $fixture->root, [
+            'PATH' => $fixture->root . '/bin' . PATH_SEPARATOR . getenv('PATH'),
+            'FIXTURE_PHP' => PHP_BINARY,
+            'FIXTURE_CAPTURE' => $fixture->root . '/capture.php',
+        ]);
+        expect($process->run())->toBe(0, $process->getErrorOutput());
+        $install = json_decode(file_get_contents($fixture->root . '/install.json'), true, flags: JSON_THROW_ON_ERROR);
+        expect($install['options']['--package-mode'])->toBe('core')
+            ->and($install['options']['--theme'])->toBe('none')
+            ->and($install['connection'])->toBe('sqlite')
+            ->and($install['database'])->toBe($fixture->root . '/workbench/database/screenshots.sqlite')
+            ->and(file_get_contents($fixture->root . '/workbench/database/migrations/0001_create_users_table.php'))->toBe('owned migration');
+    } finally {
+        $fixture->close();
+    }
 });
 
 it('runs no-filter screenshot commands', function (array $arguments, array $expectedCommands): void {

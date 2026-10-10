@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Testing\ExtensionTestHarness;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\File;
+use Spatie\LaravelData\Data;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Process\Process;
 
@@ -260,7 +262,7 @@ it('rejects existing non-empty target directories', function (): void {
         ->assertExitCode(Command::FAILURE);
 });
 
-it('generates full scaffold safety assertions and a render-data-only public view', function (): void {
+it('renders escaped public content from the full scaffold render data', function (): void {
     $packagesDirectory = makeExtensionWorkbenchDirectory();
 
     artisanCommand('capell:make-extension', [
@@ -271,16 +273,19 @@ it('generates full scaffold safety assertions and a render-data-only public view
     ])->assertExitCode(Command::SUCCESS);
 
     $extensionDirectory = $packagesDirectory . '/safety-demo';
-    $manifestTest = (string) file_get_contents($extensionDirectory . '/tests/Feature/ManifestTest.php');
-    $widgetView = (string) file_get_contents($extensionDirectory . '/resources/views/widget.blade.php');
+    require $extensionDirectory . '/src/Data/ExampleWidgetRenderData.php';
+    $renderDataClass = 'Vendor\\SafetyDemo\\Data\\ExampleWidgetRenderData';
+    throw_unless(is_subclass_of($renderDataClass, Data::class), RuntimeException::class, 'Generated widget data must be usable.');
+    $widget = $renderDataClass::from([
+        'heading' => 'Public heading <script>alert(1)</script>',
+        'body' => 'Public body <img src=x onerror=alert(1)>',
+    ]);
+    $html = Blade::render((string) file_get_contents($extensionDirectory . '/resources/views/widget.blade.php'), ['widget' => $widget]);
 
-    expect($manifestTest)
-        ->toContain('assertManifestValid()')
-        ->toContain('assertNoUnsafePublicCache()')
-        ->and($widgetView)
-        ->toContain('ExampleWidgetRenderData $widget')
-        ->toContain('$widget->heading')
-        ->toContain('$widget->body')
-        ->not->toContain('$record')
-        ->not->toContain('$model');
+    expect($html)->toContain('Public heading', 'Public body', '&lt;script&gt;', '&lt;img')
+        ->not->toContain('<script>', '<img', 'data-model-id', 'data-field-path', 'data-capell-edit', 'wire:', 'signed-editor');
+    // New packages must ship a guard against publishing unsafe cached output.
+    expect((string) file_get_contents($extensionDirectory . '/tests/Feature/ManifestTest.php'))
+        ->toContain('assertNoUnsafePublicCache');
+    // Manifest validity is covered by "creates a minimal package scaffold without modifying root composer dependencies".
 });

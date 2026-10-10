@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\MyWorkQueueFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelWidgetsPatch;
+use Capell\Tests\Support\GeneratedPanelProvider;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -45,6 +49,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -72,6 +77,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -100,6 +106,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         $config = config('app.debug');
@@ -115,7 +122,7 @@ PHP);
     expect((new AdminPanelWidgetsPatch)->probe())->toBe(PatchStatus::Customised);
 });
 
-it('apply_appends_a_widgets_call_naming_the_three_dashboard_widgets', function (): void {
+it('makes the page list, work queue and recent publications available on the patched panel', function (): void {
     $path = writeAdminPanelWidgetsPatchProvider(<<<'PHP'
 <?php
 
@@ -128,6 +135,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -141,12 +149,11 @@ PHP);
 
     (new AdminPanelWidgetsPatch)->apply();
 
-    $contents = File::get($path);
-
-    expect($contents)->toContain('->widgets([')
-        ->and($contents)->toContain('ListPagesFilamentWidget::class')
-        ->and($contents)->toContain('MyWorkQueueFilamentWidget::class')
-        ->and($contents)->toContain('RecentlyPublishedFilamentWidget::class');
+    expect(GeneratedPanelProvider::load($path)->getWidgets())->toEqualCanonicalizing([
+        ListPagesFilamentWidget::class,
+        MyWorkQueueFilamentWidget::class,
+        RecentlyPublishedFilamentWidget::class,
+    ]);
 });
 
 it('apply_throws_when_widgets_are_already_present', function (): void {
@@ -162,6 +169,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel

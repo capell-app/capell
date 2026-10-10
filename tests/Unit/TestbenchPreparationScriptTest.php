@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Tests\Support\ScriptFixture;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
@@ -47,43 +48,57 @@ it('stages loadable third-party configuration for isolated package providers', f
     });
 });
 
-it('configures the Testbench application factory before provider registration', function (): void {
-    $root = dirname(__DIR__, 2);
-    $temporary = sys_get_temp_dir() . '/capell-testbench-runtime-bootstrap-' . bin2hex(random_bytes(6)) . '.php';
-
-    file_put_contents($temporary, <<<'PHP'
+it('configures a loadable Testbench application before resolving the runtime role', function (string $script): void {
+    $fixture = new ScriptFixture;
+    $fixture->copy('scripts/configure-testbench-runtime-role.php');
+    $fixture->copy('scripts/screenshots/configure-testbench-runtime-role.php');
+    $fixture->write('entry/app.php', <<<'BOOTSTRAP'
 <?php
-
 use Orchestra\Testbench\Foundation\Application;
-
 return Application::create(
-    resolvingCallback: static function ($app): void {},
+    basePath: dirname(__DIR__) . '/application',
+    options: ['extra' => ['dont-discover' => ['*']]],
 );
-
-PHP);
-
+BOOTSTRAP);
+    $fixture->write('probe.php', <<<'PROBE'
+<?php
+require __DIR__ . '/vendor/autoload.php';
+$app = require __DIR__ . '/entry/app.php';
+try {
+    echo json_encode([
+    'role' => $app->make(Capell\Core\Support\Runtime\RuntimeRoleResolver::class)->role()->value,
+    'settings_repository' => $app->make('config')->get('settings.default_repository'),
+    'settings_cache' => $app->make('config')->get('settings.cache'),
+    'settings_repositories' => $app->make('config')->get('settings.repositories'),
+    ], JSON_THROW_ON_ERROR);
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage());
+    exit(1);
+}
+PROBE);
     try {
-        $process = new Process([
-            PHP_BINARY,
-            'scripts/configure-testbench-runtime-role.php',
-            $temporary,
-        ], $root);
-        $process->mustRun();
-
-        $bootstrap = file_get_contents($temporary);
-
-        expect($bootstrap)
-            ->toBeString()
-            ->toContain('use Capell\\Tests\\Support\\RuntimeRoleTestbenchApplication;')
-            ->toContain('RuntimeRoleTestbenchApplication::create(')
-            ->not->toContain('RuntimeRoleBootstrap::configureResolvedApplication($app);');
-
-        $process->mustRun();
-
-        expect(substr_count((string) file_get_contents($temporary), 'RuntimeRoleTestbenchApplication::create('))->toBe(1);
-    } finally {
-        if (is_file($temporary)) {
-            unlink($temporary);
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            $configured = $fixture->php($script, [$fixture->root . '/entry/app.php']);
+            expect($configured->getExitCode())->toBe(0, $configured->getErrorOutput());
+            $loaded = $fixture->php('probe.php', environment: [
+                'CAPELL_RUNTIME_ROLE' => 'public',
+                'APP_CONFIG_CACHE' => false,
+                'APP_PACKAGES_CACHE' => false,
+                'APP_SERVICES_CACHE' => false,
+                'APP_ROUTES_CACHE' => false,
+                'APP_EVENTS_CACHE' => false,
+            ]);
+            expect($loaded->getExitCode())->toBe(0, $loaded->getErrorOutput());
+            $result = json_decode($loaded->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+            expect($result['role'])->toBe('public')
+                ->and($result['settings_repository'])->toBe('database')
+                ->and($result['settings_cache'])->toBeArray()
+                ->and($result['settings_repositories'])->toBeArray();
         }
+    } finally {
+        $fixture->close();
     }
-});
+})->with([
+    'portable helper' => 'scripts/configure-testbench-runtime-role.php',
+    'screenshot compatibility helper' => 'scripts/screenshots/configure-testbench-runtime-role.php',
+]);

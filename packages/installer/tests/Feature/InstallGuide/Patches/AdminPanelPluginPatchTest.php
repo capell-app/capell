@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelPluginPatch;
+use Capell\Tests\Support\GeneratedPanelProvider;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -52,6 +53,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -102,6 +104,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -109,7 +112,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->plugin(CapellAdminPlugin::make()->discoverSchemas(in: app_path('Filament/FormBuilder'), for: 'App\\Filament\\FormBuilder'))
+            ->plugin(CapellAdminPlugin::make()->discoverConfigurators(in: app_path('Filament/Configurators'), for: 'App\\Filament\\Configurators'))
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources');
     }
 }
@@ -151,6 +154,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -179,6 +183,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -192,10 +197,10 @@ PHP);
 
     (new AdminPanelPluginPatch)->apply();
 
-    $contents = File::get($path);
+    $panel = GeneratedPanelProvider::load($path);
 
-    expect($contents)->toContain('->default()')
-        ->and(substr_count($contents, '->plugin('))->toBe(1);
+    expect($panel->isDefault())->toBeTrue()
+        ->and($panel->hasPlugin('capell-admin'))->toBeTrue();
 });
 
 it('apply_adds_plugin_and_default_to_a_stock_filament_panel', function (): void {
@@ -211,6 +216,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -223,10 +229,10 @@ PHP);
 
     (new AdminPanelPluginPatch)->apply();
 
-    $contents = File::get($path);
+    $panel = GeneratedPanelProvider::load($path);
 
-    expect($contents)->toContain('->default()')
-        ->and($contents)->toContain('->plugin(CapellAdminPlugin::make()->discoverSchemas(');
+    expect($panel->isDefault())->toBeTrue()
+        ->and($panel->hasPlugin('capell-admin'))->toBeTrue();
 });
 
 it('adds the Capell plugin when an unrelated plugin is already registered', function (): void {
@@ -237,12 +243,13 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
-use App\Filament\Plugins\OtherPlugin;
+use Capell\Tests\Support\FixturePanelPlugin as OtherPlugin;
 use Filament\Panel;
 use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -259,11 +266,10 @@ PHP);
 
     $patch->apply();
 
-    $contents = File::get($path);
+    $panel = GeneratedPanelProvider::load($path);
 
-    expect($contents)->toContain('->plugin(OtherPlugin::make())')
-        ->and($contents)->toContain('->plugin(CapellAdminPlugin::make()->discoverSchemas(')
-        ->and(substr_count($contents, '->plugin('))->toBe(2);
+    expect($panel->hasPlugin('fixture-plugin'))->toBeTrue()
+        ->and($panel->hasPlugin('capell-admin'))->toBeTrue();
 });
 
 it('probe_returns_customised_when_panel_has_multiple_statements', function (): void {
@@ -281,6 +287,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         $config = config('app.debug');
@@ -329,6 +336,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         if (config('app.debug')) {
@@ -346,8 +354,8 @@ PHP;
     file_put_contents($testProviderPath, $providerWithCondition);
 
     try {
-        // Placeholder for conditional check
-        expect(true)->toBeTrue();
+        writeAdminPanelPluginPatchProvider($providerWithCondition);
+        expect((new AdminPanelPluginPatch)->probe())->toBe(PatchStatus::Customised);
     } finally {
         if (file_exists($testProviderPath)) {
             unlink($testProviderPath);
@@ -370,6 +378,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -384,8 +393,8 @@ PHP;
     file_put_contents($testProviderPath, $providerWithPlugin);
 
     try {
-        // Placeholder for plugin detection
-        expect(true)->toBeTrue();
+        writeAdminPanelPluginPatchProvider($providerWithPlugin);
+        expect((new AdminPanelPluginPatch)->probe())->toBe(PatchStatus::AlreadyApplied);
     } finally {
         if (file_exists($testProviderPath)) {
             unlink($testProviderPath);
