@@ -13,8 +13,8 @@ it('renders readable escaped fallback validation results in light and dark mode'
     $xpath = domXPath($html);
     $fallback = domElement($xpath, '//pre[code]');
 
-    expect(json_decode((string) $fallback->textContent, true, flags: JSON_THROW_ON_ERROR))->toBe($results)
+    expect(json_decode(domText($fallback), true, flags: JSON_THROW_ON_ERROR))->toBe($results)
         ->and(domCount($xpath, '//script'))->toBe(0);
-    $classes = preg_split('/\s+/', (string) $fallback->getAttribute('class'));
+    $classes = preg_split('/\s+/', domAttribute($fallback, 'class'));
     expect($classes)->toContain('bg-gray-50', 'text-gray-900', 'dark:bg-white/5', 'dark:text-gray-100');
 });

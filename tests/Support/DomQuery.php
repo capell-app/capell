@@ -60,3 +60,13 @@ function domElement(DOMXPath $page, string $query, ?DOMNode $context = null): DO
 
     return $element;
 }
+
+function domText(DOMNode $node): string
+{
+    return $node->nodeValue ?? '';
+}
+
+function domAttribute(DOMElement $element, string $name): string
+{
+    return $element->hasAttribute($name) ? $element->getAttribute($name) : '';
+}

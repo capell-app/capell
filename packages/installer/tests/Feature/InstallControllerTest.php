@@ -467,7 +467,7 @@ it('renders syntactically valid progress scripts', function (): void {
     $page = installerProgressMarkup();
     $checked = 0;
     foreach (domElements($page, '//script[not(@type="application/json")]') as $script) {
-        if (trim((string) $script->textContent) === '') {
+        if (trim(domText($script)) === '') {
             continue;
         }
 

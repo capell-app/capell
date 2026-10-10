@@ -4,32 +4,15 @@ declare(strict_types=1);
 
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
-use Illuminate\Contracts\View\View;
+use Capell\Frontend\Tests\Support\PublicWidgetResultsFixture;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
-use Livewire\Attributes\Computed;
-use Livewire\Component;
 use Livewire\Livewire;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/FrontendViewFixture.php';
-
-class PublicWidgetResultsFixture extends Component
-{
-    #[Computed]
-    public function results(): Collection
-    {
-        return collect();
-    }
-
-    public function render(): View
-    {
-        return view('capell::livewire.page.results');
-    }
-}
 
 it('keeps stable public component classes in rendered frontend component views', function (string $viewPath, string $expectedClass): void {
     $fixture = frontendViewFixture();
@@ -144,5 +127,5 @@ it('renders the default footer when footer hooks contribute public content', fun
 it('renders scalar page title variables while preserving nested page context', function (): void {
     frontendViewFixture();
     $html = Blade::render('<x-capell::page.title title="Welcome to :site" />');
-    expect(trim((string) domElement(frontendRenderedDom($html), '//h1')->textContent))->toBe('Welcome to Public site');
+    expect(trim(domText(domElement(frontendRenderedDom($html), '//h1'))))->toBe('Welcome to Public site');
 });

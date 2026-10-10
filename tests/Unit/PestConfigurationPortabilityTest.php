@@ -22,5 +22,5 @@ it('discovers package tests with their package group on this filesystem', functi
 
     // Duplicate case-only registrations break discovery on case-sensitive hosts.
     expect($process->run())->toBe(0, $process->getErrorOutput())
-        ->and($process->getOutput())->toMatch('/^\\s*- ' . preg_quote($package, '/') . '(?: \(.*\))?$/m');
+        ->and($process->getOutput())->toMatch('/^\\s*- ' . preg_quote($package, '/') . '(?: \(.*\))?\.?$/m');
 })->with(['core', 'admin', 'frontend', 'installer', 'marketplace']);
