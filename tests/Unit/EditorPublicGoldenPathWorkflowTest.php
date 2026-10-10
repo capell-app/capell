@@ -95,6 +95,10 @@ it('rejects a dirty source or mismatching companion revision before creating a c
 ]);
 
 it('executes the redaction and anonymous-output behavioural contracts', function (): void {
+    if (! is_dir(dirname(__DIR__, 2) . '/node_modules/@playwright/test')) {
+        $this->markTestSkipped('The browser test dependencies are not installed; run npm ci to execute the public-output contracts.');
+    }
+
     $process = new Process(['node', '--test', 'tests/Browser/support/public-output.test.js'], dirname(__DIR__, 2));
     $process->setTimeout(30);
 
