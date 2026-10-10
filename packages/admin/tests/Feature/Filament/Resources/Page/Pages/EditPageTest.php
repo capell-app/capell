@@ -718,7 +718,7 @@ it('uses form actions below the edit form by default', function (): void {
         ->values()
         ->all();
 
-    expect($formActionNames)->toBe(['save', 'cancel'])
+    expect($formActionNames)->toBe(['save', 'saveAsDraft', 'cancel'])
         ->and($headerActionNames)->not->toContain('save')
         ->and($headerActionNames)->not->toContain('cancel');
 });
@@ -966,7 +966,7 @@ it('moves edit form actions above the form when configured', function (): void {
         ->all();
 
     expect($formActionNames)->toBe([])
-        ->and(array_slice($headerActionNames, 0, 2))->toBe(['save', 'cancel']);
+        ->and(array_slice($headerActionNames, 0, 3))->toBe(['save', 'saveAsDraft', 'cancel']);
 });
 
 it('can save', function (PageTypeEnum $pageTypeEnum): void {

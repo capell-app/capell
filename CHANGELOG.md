@@ -14,6 +14,8 @@ the `Update Changelog` workflow.
 
 ### Fixed
 
+- Added an ordinary draft-save control in the configured page action position without duplicating extension-provided draft actions.
+
 - Preserved site domain ports and the selected site across page creation, validated duplicate page URLs before saving, and simplified page tools and layout navigation.
 - Avoided repeated admin contribution sorting and quadratic receipt deduplication during application boot, preserving registration order and cache invalidation.
 - Emitted declared package-specific theme identity tokens while rejecting malformed names, reserved core-property collisions, and values outside their declared vocabulary.
