@@ -4,7 +4,7 @@ Use Site Health before serving a Capell site from production domains and after a
 
 ## Admin diagnostics
 
-Open **System → Site Health** in the Capell admin before launch and after deployments that change public rendering, queues, cache, static output, or frontend assets.
+Open **Insights & health → Site Health** in the Capell admin before launch and after deployments that change public rendering, queues, cache, static output, or frontend assets.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/site-health-page-dark.png">
@@ -24,6 +24,19 @@ The page aggregates operational checks that affect whether public traffic can be
 - Server checks for Laravel runtime basics: `APP_URL`, `APP_KEY`, `APP_ENV`, `APP_DEBUG`, cache/session/queue drivers, database-backed cache and queue tables, scheduler visibility, failed-jobs table, trusted proxy config, and writable paths.
 
 Treat red checks as release blockers. Treat amber checks as deployment risks that need either remediation or an explicit operational decision.
+
+## Focused health pages
+
+Site Health is the sidebar entry point for operational checks. Enabled extensions add focused subpages while keeping their own access permissions:
+
+- **Cached pages**: inspect cached URLs and the content they depend on, and clear an outdated saved copy.
+- **Maintenance cache**: prepare maintenance pages and control global or per-site maintenance mode.
+- **Site monitor**: inspect public URL checks, certificate and domain expiry, and open incidents.
+- **Media Health**: investigate missing or unhealthy media.
+- **System Health**: review setup, alerts, content integrity, migrations, configuration drift, cache and asset-build widgets.
+- **Queue Health**: inspect pending work and failed background jobs.
+
+If an operator can access a focused page but lacks permission for the overview, its navigation link remains available independently.
 
 ## Status meanings
 

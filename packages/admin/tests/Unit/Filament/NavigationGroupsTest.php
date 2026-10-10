@@ -108,7 +108,7 @@ it('keeps users top-level with roles nested underneath', function (): void {
         ->and(RoleResource::getActiveNavigationIcon())->toBe(Heroicon::Key);
 });
 
-it('places settings with operational system pages', function (): void {
+it('keeps settings in system and registers site health under monitoring', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     Permission::create(['name' => 'View:SiteHealthPage', 'guard_name' => 'web']);
 
@@ -119,7 +119,8 @@ it('places settings with operational system pages', function (): void {
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
 
-    $systemNavigationGroup = collect(Filament::getNavigation())
+    $navigation = collect(Filament::getNavigation());
+    $systemNavigationGroup = $navigation
         ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_system'));
 
     expect($systemNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
@@ -132,6 +133,19 @@ it('places settings with operational system pages', function (): void {
 
     expect($systemNavigationLabels)
         ->toContain(SettingsPage::getNavigationLabel())
-        ->and(SiteHealthPage::getNavigationGroup())
-        ->toBe((string) __('capell-admin::navigation.group_system'));
+        ->not->toContain(SiteHealthPage::getNavigationLabel());
+
+    $monitoringNavigationGroup = $navigation
+        ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_monitoring'));
+
+    expect($monitoringNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
+    assert($monitoringNavigationGroup instanceof NavigationGroup);
+
+    $monitoringNavigationLabels = collect($monitoringNavigationGroup->getItems())
+        ->filter(fn (mixed $navigationItem): bool => $navigationItem instanceof NavigationItem)
+        ->map(fn (NavigationItem $navigationItem): string => $navigationItem->getLabel())
+        ->all();
+
+    expect($monitoringNavigationLabels)->toContain(SiteHealthPage::getNavigationLabel());
+    expect(SiteHealthPage::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_monitoring'));
 });

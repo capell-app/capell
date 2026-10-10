@@ -11,6 +11,7 @@ use Capell\Admin\Tests\Feature\Support\Extensions\Fixtures\BuilderBrokenUrlExten
 use Capell\Admin\Tests\Feature\Support\Extensions\Fixtures\BuilderExampleExtensionPage;
 use Capell\Admin\Tests\Feature\Support\Extensions\Fixtures\BuilderInaccessibleExtensionPage;
 use Capell\Admin\Tests\Feature\Support\Extensions\Fixtures\BuilderPlainExtensionPage;
+use Capell\Admin\Tests\Feature\Support\Extensions\Fixtures\BuilderSiteHealthExtensionPage;
 use Capell\Admin\Tests\Feature\Support\Extensions\Fixtures\BuilderUnregisteredExtensionPage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -115,3 +116,11 @@ function extensionNavigationBuilderLabels(array $items): array
 
     return $labels;
 }
+
+it('preserves native navigation only for explicit site health subpages', function (): void {
+    CapellAdmin::registerExtensionPage('vendor/health-tools', BuilderSiteHealthExtensionPage::class);
+    CapellAdmin::registerExtensionPage('vendor/health-tools', BuilderPlainExtensionPage::class);
+
+    expect(BuilderSiteHealthExtensionPage::shouldRegisterNavigation())->toBeTrue()
+        ->and(BuilderPlainExtensionPage::shouldRegisterNavigation())->toBeFalse();
+});
