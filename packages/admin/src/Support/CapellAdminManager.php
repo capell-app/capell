@@ -12,6 +12,7 @@ use Capell\Admin\Concerns\HasPaletteCommands;
 use Capell\Admin\Concerns\HasWelcomeTours;
 use Capell\Admin\Concerns\HasWidgets;
 use Capell\Admin\Contracts\Bridges\AdminBridge;
+use Capell\Admin\Contracts\Diagnostics\SiteHealthSubpage;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Data\Bridges\AdminBridgeContextData;
@@ -641,7 +642,9 @@ class CapellAdminManager
      */
     private function suppressExtensionPageNativeNavigation(string $page): void
     {
-        if ($page === ExtensionsPage::class || isset($this->suppressedExtensionPageNavigation[$page])) {
+        if ($page === ExtensionsPage::class
+            || is_subclass_of($page, SiteHealthSubpage::class)
+            || isset($this->suppressedExtensionPageNavigation[$page])) {
             return;
         }
 

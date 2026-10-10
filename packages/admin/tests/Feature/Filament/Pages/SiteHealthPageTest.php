@@ -104,6 +104,13 @@ it('uses site health navigation labels', function (): void {
         ->and(resolve(SiteHealthPage::class)->getSubheading())->toBe(__('capell-admin::generic.site_health_info'));
 });
 
+it('registers site health as the monitoring navigation parent', function (): void {
+    grantSiteHealthPageAccess();
+
+    expect(SiteHealthPage::shouldRegisterNavigation())->toBeTrue()
+        ->and(SiteHealthPage::getNavigationGroup())->toBe(__('capell-admin::navigation.group_monitoring'));
+});
+
 it('can not render site health page without permission', function (): void {
     test()->actingAsUser();
 
