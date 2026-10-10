@@ -35,6 +35,7 @@ use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
@@ -149,6 +150,10 @@ abstract class AbstractTestCase extends TestCase
 
     protected function tearDown(): void
     {
+        // A test that switches the date class must not change it for the next
+        // test in the same worker; Carbon\Carbon is not the framework default.
+        Date::useDefault();
+
         if ($this->app?->bound('view')) {
             $this->app->make(Factory::class)->flushState();
         }

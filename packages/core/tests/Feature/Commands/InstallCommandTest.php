@@ -24,6 +24,8 @@ use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
 use Capell\Core\Tests\Feature\Commands\Fixtures\TestInstallCommand;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\Fakes\FakeProcess;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Artisan;
@@ -35,7 +37,6 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Traits\HasRoles;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Output\BufferedOutput;
-use Symfony\Component\Process\Process as SymfonyProcess;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
@@ -48,6 +49,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
+    FakeProcessFactory::verifyBound();
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
@@ -347,45 +349,18 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
 {
     preserveTestbenchPackageManifestFilesDuringPackageRemoval();
 
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process
-        ->shouldReceive('setEnv')
-        ->with(Mockery::on(fn (array $environment): bool => ($environment['GIT_CONFIG_KEY_0'] ?? null) === 'safe.directory'
-            && ($environment['GIT_CONFIG_VALUE_0'] ?? null) === '*'))
-        ->andReturnSelf();
-    $process
-        ->shouldReceive('setTimeout')
-        ->with(capellComposerTimeoutSeconds())
-        ->andReturnSelf();
-    $process
-        ->shouldReceive('run')
-        ->once()
-        ->andReturn(0);
-    $process
-        ->shouldReceive('getErrorOutput')
-        ->andReturn('');
-    $process
-        ->shouldReceive('getOutput')
-        ->andReturn('Package capell-app/installer removed');
-    $process
-        ->shouldReceive('isSuccessful')
-        ->andReturnTrue();
+    $removal = [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
 
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory
-        ->shouldReceive('make')
-        ->once()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress']),
-            Mockery::type('string'),
-        )
-        ->andReturnUsing(function () use ($beforeMake, $process): SymfonyProcess {
-            $beforeMake?->__invoke();
-
-            return $process;
-        });
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()
+        ->expect(static fn (array $argv, ?string $cwd): bool => $argv === $removal && is_string($cwd))
+        ->push(
+            output: 'Package capell-app/installer removed',
+            onRun: static function (FakeProcess $process): void {
+                expect($process->getEnv())->toMatchArray(['GIT_CONFIG_KEY_0' => 'safe.directory', 'GIT_CONFIG_VALUE_0' => '*'])
+                    ->and($process->getTimeout())->toEqual(capellComposerTimeoutSeconds());
+            },
+            onMake: $beforeMake,
+        );
 }
 
 /** @param array<int, string> $packages */
@@ -398,26 +373,9 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
  */
 function bindInstallCommandHermeticProcessFactory(): void
 {
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')->andReturnSelf();
-    $process->shouldReceive('run')->andReturn(0);
-    $process->shouldReceive('isSuccessful')->andReturn(true);
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Dry run ok');
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory
-        ->shouldReceive('make')
-        ->zeroOrMoreTimes()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => is_array($command)
-                && array_slice($command, 0, 3) === ['composer', 'require', '--dry-run']),
-            Mockery::any(),
-            Mockery::any(),
-        )
-        ->andReturn($process);
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()
+        ->expect(static fn (array $argv): bool => array_slice($argv, 0, 3) === ['composer', 'require', '--dry-run'], times: null)
+        ->byDefault(output: 'Dry run ok');
 }
 
 function bindInstallCommandPreflightProcessFactory(
@@ -427,95 +385,50 @@ function bindInstallCommandPreflightProcessFactory(
     ?Closure $beforeRun = null,
     array $packages = ['capell-app/admin'],
 ): void {
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process
-        ->shouldReceive('setTimeout')
-        ->with(600)
-        ->andReturnSelf();
-    $process
-        ->shouldReceive('run')
-        ->once()
-        ->andReturnUsing(function (?callable $callback = null) use ($beforeRun, $output, $successful): int {
-            $beforeRun?->__invoke();
+    $dryRun = [
+        'composer',
+        'require',
+        '--dry-run',
+        '--no-interaction',
+        '--prefer-dist',
+        '--with-all-dependencies',
+        ...array_map(
+            fn (string $package): string => app()->isLocal() ? $package . ':*' : $package,
+            $packages,
+        ),
+    ];
 
-            if ($callback !== null && $output !== '') {
-                $callback('out', $output);
-            }
-
-            return $successful ? 0 : 1;
-        });
-    $process->shouldReceive('isSuccessful')->andReturn($successful);
-    $process->shouldReceive('getErrorOutput')->andReturn($errorOutput);
-    $process->shouldReceive('getOutput')->andReturn($output);
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory
-        ->shouldReceive('make')
-        ->once()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [
-                'composer',
-                'require',
-                '--dry-run',
-                '--no-interaction',
-                '--prefer-dist',
-                '--with-all-dependencies',
-                ...array_map(
-                    fn (string $package): string => app()->isLocal() ? $package . ':*' : $package,
-                    $packages,
-                ),
-            ]),
-            Mockery::type('string'),
-            Mockery::type('array'),
-        )
-        ->andReturn($process);
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()
+        ->expect(static fn (array $argv, ?string $cwd, ?array $environment): bool => $argv === $dryRun && is_string($cwd) && is_array($environment))
+        ->push(
+            exitCode: $successful ? 0 : 1,
+            output: $output,
+            errorOutput: $errorOutput,
+            onRun: static function (FakeProcess $process) use ($beforeRun): void {
+                expect($process->getTimeout())->toEqual(600);
+                $beforeRun?->__invoke();
+            },
+        );
 }
 
 function bindInstallCommandFilamentPanelProcessFactory(bool $successful = true, string $output = 'Filament panel installed', string $errorOutput = ''): void
 {
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process
-        ->shouldReceive('setTimeout')
-        ->with(300)
-        ->andReturnSelf();
-    $process
-        ->shouldReceive('run')
-        ->once()
-        ->andReturnUsing(function (?callable $callback = null) use ($successful, $output): int {
-            if ($successful) {
-                writeStockInstallTestAdminPanelProvider();
-            }
+    FakeProcessFactory::bind()
+        ->expect(static fn (array $argv, ?string $cwd, ?array $environment): bool => $argv === [PHP_BINARY, 'artisan', 'filament:install', '--panels', '--no-interaction']
+            && is_string($cwd)
+            && is_array($environment))
+        ->push(
+            exitCode: $successful ? 0 : 1,
+            output: $output,
+            errorOutput: $errorOutput,
+            onRun: static function (FakeProcess $process) use ($successful): void {
+                expect($process->getTimeout())->toEqual(300);
 
-            if ($callback !== null && $output !== '') {
-                $callback('out', $output);
-            }
-
-            return $successful ? 0 : 1;
-        });
-    $process->shouldReceive('isSuccessful')->andReturn($successful);
-    $process->shouldReceive('getErrorOutput')->andReturn($errorOutput);
-    $process->shouldReceive('getOutput')->andReturn($output);
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory
-        ->shouldReceive('make')
-        ->once()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [
-                PHP_BINARY,
-                'artisan',
-                'filament:install',
-                '--panels',
-                '--no-interaction',
-            ]),
-            Mockery::type('string'),
-            Mockery::type('array'),
-        )
-        ->andReturn($process);
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+                if ($successful) {
+                    writeStockInstallTestAdminPanelProvider();
+                }
+            },
+        );
 }
 
 it('returns SUCCESS immediately when --no-side-effects is passed', function (): void {
@@ -930,10 +843,7 @@ it('fails before running the install when selected install-time packages cannot 
 it('does not remove the installer package when the install fails', function (): void {
     setupInstallTest(['test', 'capell-app/installer'], foundationThemeAvailable: true);
     createTestUser();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldNotReceive('make');
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()->expect(static fn (): bool => false, times: 0);
     $fake = bindFakeRunInstallAction();
     $fake->throwable = new RuntimeException('Package setup failed.');
 
@@ -1014,10 +924,7 @@ it('emits a redacted install handoff and writes its machine-readable artifact', 
 it('leaves the installer package installed when removal is declined', function (): void {
     setupInstallTest(['test', 'capell-app/installer'], foundationThemeAvailable: true);
     createTestUser();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldNotReceive('make');
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()->expect(static fn (): bool => false, times: 0);
     $fake = bindFakeRunInstallAction();
 
     artisanCommand('capell:install', [
