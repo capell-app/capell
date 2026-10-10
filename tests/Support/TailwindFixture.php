@@ -4,12 +4,21 @@ declare(strict_types=1);
 
 namespace Capell\Tests\Support;
 
+use PHPUnit\Framework\SkippedWithMessageException;
 use Symfony\Component\Process\Process;
 
 final class TailwindFixture
 {
     public static function build(string $path): string
     {
+        $root = dirname(__DIR__, 2);
+
+        throw_if(
+            ! is_dir($root . '/node_modules/@tailwindcss/node') || ! is_dir($root . '/node_modules/@tailwindcss/oxide'),
+            SkippedWithMessageException::class,
+            'The Tailwind compiler is not installed; run npm ci to exercise generated stylesheets.',
+        );
+
         $runner = <<<'JS'
 const fs = require('node:fs');
 const path = require('node:path');
@@ -30,7 +39,7 @@ const {Scanner} = require('@tailwindcss/oxide');
     process.stdout.write(compiler.build(scanner.scan()));
 })().catch(error => {console.error(error); process.exitCode = 1;});
 JS;
-        $process = new Process(['node', '-e', $runner, $path], dirname(__DIR__, 2));
+        $process = new Process(['node', '-e', $runner, $path], $root);
         $process->mustRun();
 
         return $process->getOutput();
