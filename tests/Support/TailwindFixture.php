@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Tests\Support;
 
-use PHPUnit\Framework\SkippedWithMessageException;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
 final class TailwindFixture
@@ -13,11 +13,9 @@ final class TailwindFixture
     {
         $root = dirname(__DIR__, 2);
 
-        throw_if(
-            ! is_dir($root . '/node_modules/@tailwindcss/node') || ! is_dir($root . '/node_modules/@tailwindcss/oxide'),
-            SkippedWithMessageException::class,
-            'The Tailwind compiler is not installed; run npm ci to exercise generated stylesheets.',
-        );
+        if (! is_dir($root . '/node_modules/@tailwindcss/node') || ! is_dir($root . '/node_modules/@tailwindcss/oxide')) {
+            TestCase::markTestSkipped('The Tailwind compiler is not installed; run npm ci to exercise generated stylesheets.');
+        }
 
         $runner = <<<'JS'
 const fs = require('node:fs');
