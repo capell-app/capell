@@ -13,6 +13,8 @@ it('records dirty model attributes and suppresses empty changes', function (stri
     $model = $modelClass === Translation::class
         ? Translation::factory()->translatable(Site::factory()->createOne())->createOne([$field => 'Before'])
         : $modelClass::factory()->createOne([$field => 'Before']);
+    // Hydrate database defaults before comparing dirty attributes on the factory instance.
+    $model->refresh();
     $model->update([$field => 'After']);
 
     $activity = Activity::query()->forSubject($model)->where('event', 'updated')->sole();
@@ -21,6 +23,7 @@ it('records dirty model attributes and suppresses empty changes', function (stri
         ->and(ActivityLogCompat::attributeValues($activity, 'attributes'))->toHaveKey($field, 'After')
         ->and($model->activities()->whereKey($activity->getKey())->exists())->toBeTrue();
 
+    $this->travel(2)->seconds();
     $model->touch();
 
     expect(Activity::query()->forSubject($model)->where('event', 'updated')->count())->toBe(1);
