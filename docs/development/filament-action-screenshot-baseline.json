@@ -220,12 +220,6 @@
         },
         {
             "repo": "current",
-            "file": "packages/admin/src/Filament/Pages/MarketingStudioPage.php",
-            "actions": ["Action"],
-            "reasons": ["custom action maker"]
-        },
-        {
-            "repo": "current",
             "file": "packages/admin/src/Filament/Resources/Languages/Pages/ManageLanguages.php",
             "actions": ["ExportTranslationsAction"],
             "reasons": ["custom action maker"]

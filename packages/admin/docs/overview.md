@@ -11,7 +11,7 @@ After install, admins and editors can manage content, review site health, config
 Admin extends these Capell surfaces:
 
 - Filament resources for Core records, including pages, sites, languages, layouts, themes, media, URLs, redirects, roles, users, activity, and extensions.
-- Filament pages for dashboard, settings, reports, site health, sitemap, upgrade, marketing studio, and extension management.
+- Filament pages for dashboard, settings, reports, site health, sitemap, upgrade, and extension management.
 - Admin header tools, user menu items, dashboard Filament widgets, resource actions, schema hooks, settings schemas, and report pages.
 - Admin-facing package settings through the settings schema registry.
 
@@ -148,7 +148,7 @@ Keep this prelude in the Filament asset pipeline. Do not copy it into an applica
 - [Dashboard Filament widget customization](dashboard-widget-customization.md)
 - [Event registry](event-registry.md)
 - [Header navigation tree](header-navigation-tree.md)
-- [Marketing Studio](marketing-studio.md)
+- [Marketing dashboard contributions](dashboard-marketing.md)
 - [User resource customization](user-resource-customization.md)
 - [Resource registration](resource-registration.md)
 - [Settings schema registry](settings-schema-registry.md)

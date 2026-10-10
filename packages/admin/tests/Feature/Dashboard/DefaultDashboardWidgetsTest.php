@@ -263,7 +263,7 @@ it('consumes dashboard panel regions in the composed widget shell', function ():
 
     expect($sections)->not->toBeEmpty()
         ->and($sections[0])->toBeInstanceOf(Section::class)
-        ->and($sections)->toHaveCount(5);
+        ->and($sections)->toHaveCount(6);
 });
 
 it('only passes page filters to widgets that declare the property', function (): void {

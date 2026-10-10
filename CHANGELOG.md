@@ -14,7 +14,7 @@ the `Update Changelog` workflow.
 
 ### Fixed
 
-- Grouped Users and its nested Roles entry under System, and Marketing Studio under Marketing.
+- Flattened Admin navigation with local menus for Content Library, Design and System; removed the separate marketing dashboard page and composed its widgets into Dashboard.
 
 - Added an ordinary draft-save control in the configured page action position without duplicating extension-provided draft actions.
 

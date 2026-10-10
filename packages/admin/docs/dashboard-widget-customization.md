@@ -46,14 +46,14 @@ Each bucket maps to an admin surface:
 | Dashboard enum                   | Surface                                                  |
 | -------------------------------- | -------------------------------------------------------- |
 | `DashboardEnum::Main`            | Installed admin dashboard at `/admin`.                   |
-| `DashboardEnum::MarketingStudio` | Marketing Studio dashboard at `/admin/marketing-studio`. |
+| `DashboardEnum::MarketingStudio` | Marketing widgets composed into the main Dashboard. |
 | `DashboardEnum::Extensions`      | Extensions dashboard at `/admin/extensions`.             |
 | `DashboardEnum::SystemHealth`    | Reserved for system-health dashboard integrations.       |
 | `DashboardEnum::NotInstalled`    | Setup/empty state before Admin has an installed site.    |
 
 The main dashboard page is `Capell\Admin\Filament\Pages\CapellDashboard`.
 
-Register against the most specific dashboard. Extension management widgets belong on `DashboardEnum::Extensions`; Marketing Studio widgets belong on `DashboardEnum::MarketingStudio`.
+Register against the most specific dashboard. Extension management widgets belong on `DashboardEnum::Extensions`; Marketing dashboard widgets belong on `DashboardEnum::MarketingStudio`.
 
 ## Built-In Widgets
 
@@ -75,7 +75,7 @@ The Admin service provider and Filament plugin register the default dashboard Fi
 
 Resource pages can have their own alert widgets, such as page, site, blueprint, language, and theme alerts. Those widgets live on the resource screens rather than the main dashboard.
 
-### Marketing Studio
+### Marketing dashboard contributions
 
 | Widget                                         | Purpose                                |
 | ---------------------------------------------- | -------------------------------------- |

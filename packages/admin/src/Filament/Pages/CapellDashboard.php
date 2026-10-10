@@ -198,7 +198,10 @@ class CapellDashboard extends Dashboard
             return CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::NotInstalled);
         }
 
-        return $this->configuredDashboardFilamentWidgets(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main));
+        return $this->configuredDashboardFilamentWidgets(array_values(array_unique([
+            ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main),
+            ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::MarketingStudio),
+        ], SORT_REGULAR)));
     }
 
     /**

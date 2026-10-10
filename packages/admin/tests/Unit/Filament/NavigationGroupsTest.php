@@ -5,9 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\Admin\Filament\Pages\MarketingStudioPage;
 use Capell\Admin\Filament\Pages\SettingsPage;
-use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Activities\ActivityResource;
 use Capell\Admin\Filament\Resources\Blueprints\BlueprintResource;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
@@ -19,18 +17,18 @@ use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Admin\Filament\Resources\Users\UserResource;
+use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Permission;
 
 it('keeps primary admin navigation in the approved groups', function (): void {
     expect(PageResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_websites'))
         ->and(CapellDashboard::getNavigationGroup())->toBeNull()
-        ->and(CapellDashboard::shouldRegisterNavigation())->toBeTrue()
-        ->and(MarketingStudioPage::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_marketing'))
-        ->and(MarketingStudioPage::getNavigationLabel())->toBe((string) __('capell-admin::navigation.marketing_studio'));
+        ->and(CapellDashboard::shouldRegisterNavigation())->toBeTrue();
 });
 
 it('uses clearer admin navigation groups without conflicting group icons', function (): void {
@@ -62,7 +60,6 @@ it('promotes workspace activity into the workspace navigation group', function (
 
 it('groups web page authoring tools in the requested order', function (): void {
     expect(CapellDashboard::getNavigationSort())->toBe(-100)
-        ->and(MarketingStudioPage::getNavigationSort())->toBe(-90)
         ->and(PageResource::getNavigationSort())->toBe(-80)
         ->and(PageResource::getNavigationLabel())->toBe((string) __('capell-admin::navigation.pages'))
         ->and(PageResource::getNavigationIcon())->toBe(Heroicon::OutlinedGlobeAlt)
@@ -119,19 +116,48 @@ it('places settings with operational system pages', function (): void {
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
 
-    $systemNavigationGroup = collect(Filament::getNavigation())
-        ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_system'));
+    $groups = Filament::getNavigation();
+    $system = collect($groups[0]->getItems())->first(fn (NavigationItem $item): bool => $item->getLabel() === __('capell-admin::navigation.workspace_system'));
+    expect($system)->toBeInstanceOf(NavigationItem::class);
+    assert($system instanceof NavigationItem);
+    expect($system->getUrl())->toBe(SettingsPage::getUrl());
+});
 
-    expect($systemNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
-    assert($systemNavigationGroup instanceof NavigationGroup);
+it('shows a flat workspace sidebar instead of exposing every secondary tool', function (): void {
+    test()->actingAsAdmin();
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::bootCurrentPanel();
+    Filament::setServingStatus();
+    $groups = Filament::getNavigation();
+    $keys = collect($groups)->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
+        ->map(fn (NavigationItem $item): string => $item->getKey())->all();
+    expect($keys)->toContain('capell.workspace.pages', 'capell.workspace.library', 'capell.workspace.design', 'capell.workspace.system')
+        ->and($groups)->toHaveCount(1);
+});
 
-    $systemNavigationLabels = collect($systemNavigationGroup->getItems())
-        ->filter(fn (mixed $navigationItem): bool => $navigationItem instanceof NavigationItem)
-        ->map(fn (NavigationItem $navigationItem): string => $navigationItem->getLabel())
-        ->all();
+it('does not expose secondary resources to an actor without resource permissions', function (): void {
+    test()->actingAsUser();
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::bootCurrentPanel();
+    Filament::setServingStatus();
+    $keys = collect(Filament::getNavigation())->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
+        ->map(fn (NavigationItem $item): string => $item->getKey())->all();
+    expect($keys)->not->toContain('capell.workspace.library', 'capell.workspace.design');
+});
 
-    expect($systemNavigationLabels)
-        ->toContain(SettingsPage::getNavigationLabel())
-        ->and(SiteHealthPage::getNavigationGroup())
-        ->toBe((string) __('capell-admin::navigation.group_system'));
+it('keeps a permitted package child reachable when its parent uses a different group', function (): void {
+    test()->actingAsAdmin();
+    $panel = Filament::getPanel('admin');
+    $panel->navigationItems([
+        NavigationItem::make('Articles')->key('test.articles')->group('Website')->url('/admin/blog/article'),
+        NavigationItem::make('Tags')->key('test.tags')->parentItem('Articles')->url('/admin/tags')->isActiveWhen(fn (): bool => true),
+    ]);
+    Filament::setCurrentPanel($panel);
+    Filament::bootCurrentPanel();
+    Filament::setServingStatus();
+    Filament::getNavigation();
+    $local = resolve(WorkspaceNavigation::class)->localNavigation();
+    expect($local)->not->toBeEmpty();
+    expect(collect($local[0]->getItems())->map(fn (NavigationItem $item): string => $item->getKey())->all())
+        ->toContain('test.articles', 'test.tags');
 });

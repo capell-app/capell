@@ -254,6 +254,17 @@ function main() {
     const covered = coveredSourceFiles()
     const uncovered = surfaces.filter((surface) => !covered.has(key(surface)))
 
+    if (process.argv.includes('--prune-removed')) {
+        const baseline = readBaseline()
+        baseline.uncovered = (baseline.uncovered ?? []).filter((surface) => {
+            const root = surface.repo === 'current' ? coreRepoRoot : packagesRepoRoot
+            return !root || fs.existsSync(path.resolve(root, surface.file))
+        })
+        fs.writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 4)}\n`)
+        console.log('Removed deleted source files from the existing screenshot backlog.')
+        return
+    }
+
     if (process.argv.includes('--write-baseline')) {
         writeBaseline(uncovered)
         console.log(
@@ -300,7 +311,7 @@ function main() {
     }
 
     console.error(
-        '\nAdd a screenshot manifest entry with covers: ["path/to/source.php"], or run `node scripts/check-filament-action-screenshots.js --write-baseline` only when intentionally accepting the current backlog.',
+        '\nAdd a screenshot manifest entry with covers: ["path/to/source.php"], prune deleted sources with `node scripts/check-filament-action-screenshots.js --prune-removed`, or use `--write-baseline` only when intentionally accepting the current backlog.',
     )
 
     return 1
