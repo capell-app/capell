@@ -27,6 +27,13 @@ final class SiteAccessQueryAllowList
     public static function entries(): array
     {
         return [
+            // A media file is in use when any content, on any site, references it;
+            // counting only the actor's visible sites would let the library trash
+            // a file another site still displays.
+            'packages/admin/src/Actions/Media/RepairMediaHealthAction.php' => ['deleteUnused|$media->assetRelations()->exists()'],
+            // Filament's navigation manager, not a model query: the override reads
+            // the parent's registered groups before regrouping them.
+            'packages/admin/src/Support/Navigation/WorkspaceNavigationManager.php' => ['get|parent::get()'],
             // Installation readiness is global; an actor with no site grants
             // must not be offered installation for an already installed CMS.
             'packages/admin/src/Filament/Pages/CapellDashboard.php' => ['getWidgets|' . Site::class . '::query()->exists()', 'dashboardEnum|' . Site::class . '::query()->exists()'],
