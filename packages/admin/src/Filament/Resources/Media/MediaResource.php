@@ -28,7 +28,7 @@ class MediaResource extends SiteScopedResource
 
     protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::Photo;
 
-    protected static ?string $recordTitleAttribute = 'file_name';
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static ?int $navigationSort = 4;
 

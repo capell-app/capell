@@ -243,10 +243,12 @@ class MediaTable implements TableConfigurator
                 ->extraImgAttributes(['loading' => 'lazy'])
                 ->imageSize(36)
                 ->toggleable(),
-            NameColumn::make('file_name')
+            NameColumn::make('name')
                 ->label(__('capell-admin::table.name'))
-                ->searchable()
+                ->description(fn (Media $record): string => $record->file_name)
+                ->searchable(['name', 'file_name'])
                 ->copyable()
+                ->copyableState(fn (Media $record): string => $record->file_name)
                 ->copyMessage(__('capell-admin::media.file_name_copied')),
             TextColumn::make('collection_name')
                 ->label(__('capell-admin::table.collection'))

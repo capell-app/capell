@@ -43,13 +43,13 @@ enum DashboardEnum: string
 
 Each bucket maps to an admin surface:
 
-| Dashboard enum                   | Surface                                                  |
-| -------------------------------- | -------------------------------------------------------- |
-| `DashboardEnum::Main`            | Installed admin dashboard at `/admin`.                   |
-| `DashboardEnum::MarketingStudio` | Marketing widgets composed into the main Dashboard. |
-| `DashboardEnum::Extensions`      | Extensions dashboard at `/admin/extensions`.             |
-| `DashboardEnum::SystemHealth`    | Reserved for system-health dashboard integrations.       |
-| `DashboardEnum::NotInstalled`    | Setup/empty state before Admin has an installed site.    |
+| Dashboard enum                   | Surface                                               |
+| -------------------------------- | ----------------------------------------------------- |
+| `DashboardEnum::Main`            | Installed admin dashboard at `/admin`.                |
+| `DashboardEnum::MarketingStudio` | Marketing widgets composed into the main Dashboard.   |
+| `DashboardEnum::Extensions`      | Extensions dashboard at `/admin/extensions`.          |
+| `DashboardEnum::SystemHealth`    | Reserved for system-health dashboard integrations.    |
+| `DashboardEnum::NotInstalled`    | Setup/empty state before Admin has an installed site. |
 
 The main dashboard page is `Capell\Admin\Filament\Pages\CapellDashboard`.
 

@@ -277,6 +277,20 @@ it('does not render a synthetic storage preview for a local external video', fun
         ->assertDontSee($video->thumbnailUrl);
 });
 
+it('finds renamed media by its editor name and storage filename', function (): void {
+    $site = Site::factory()->createOne();
+    $media = $site->addMedia(UploadedFile::fake()->image('random-storage.png'))
+        ->usingName('Campaign hero')
+        ->toMediaCollection('uploads');
+
+    Livewire::test(ListMedia::class)
+        ->assertTableColumnStateSet('name', 'Campaign hero', $media)
+        ->searchTable('Campaign hero')
+        ->assertCanSeeTableRecords([$media])
+        ->searchTable('random-storage.png')
+        ->assertCanSeeTableRecords([$media]);
+});
+
 it('bulk uploads files to a site uploads collection', function (): void {
     $site = Site::factory()->createOne(['name' => 'Capell']);
 
@@ -304,6 +318,21 @@ it('bulk uploads files to a site uploads collection', function (): void {
 
     expect($uploads)->toHaveCount(2)
         ->and($uploads->pluck('name')->all())->toBe(['hero-a', 'hero-b']);
+});
+
+it('passes original upload names from the upload form to media creation', function (): void {
+    $site = Site::factory()->createOne();
+    Livewire::test(ListMedia::class)
+        ->callAction('upload-files', [
+            'site_id' => $site->getKey(),
+            'files' => [UploadedFile::fake()->image('Campaign hero.png')],
+        ])
+        ->assertHasNoActionErrors()
+        ->assertNotified();
+
+    $media = CapellMedia::query()->sole();
+    expect($media->name)->toBe('Campaign hero')
+        ->and($media->file_name)->not->toBe('Campaign hero.png');
 });
 
 it('shows usage counts and can filter recently deleted media', function (): void {
