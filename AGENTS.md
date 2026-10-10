@@ -133,6 +133,8 @@ Broad tests and preflights use the [host release verification gate](docs/release
 - Documentation contracts: `composer check:docs-links`,
   `composer check:docs-orphans`, `composer check:docs-requirements`,
   `composer check:docs-commands`, and `composer check:docs-screenshots`
+- New development documentation changes generated distribution exclusions. Run
+  `php scripts/sync-split-repository-health.php`, then its `--check` mode before committing it.
 
 Run the narrowest relevant command first. Rendering/cache changes need focused
 Frontend safety tests; migration, config, constraint, or public-extension changes
