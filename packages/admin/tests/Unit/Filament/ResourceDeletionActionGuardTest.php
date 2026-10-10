@@ -298,14 +298,16 @@ it('confines discovered sources to foundation packages even with other installed
     CapellCore::partialMock()->shouldReceive('getInstalledPackages')->andReturn(collect([
         new PackageData(name: 'vendor/external-specimen', type: PackageTypeEnum::Package, path: $external),
     ]));
+    $previous = getenv('CAPELL_DELETION_GUARD_PACKAGE_PATHS');
+    putenv('CAPELL_DELETION_GUARD_PACKAGE_PATHS=' . $external);
     try {
         expect(resourceDeletionSourceFiles())->not->toContain(realpath($specimen));
         foreach (resourceDeletionSourceFiles() as $file) {
             expect(str_starts_with($file, dirname(__DIR__, 5) . '/packages/'))->toBeTrue();
         }
 
-        expect((string) file_get_contents(__FILE__))->not->toContain("getenv('" . 'CAPELL_DELETION_GUARD_PACKAGE_PATHS' . "')");
     } finally {
+        putenv($previous === false ? 'CAPELL_DELETION_GUARD_PACKAGE_PATHS' : 'CAPELL_DELETION_GUARD_PACKAGE_PATHS=' . $previous);
         unlink($specimen);
         rmdir($external . '/src/Filament');
         rmdir($external . '/src');

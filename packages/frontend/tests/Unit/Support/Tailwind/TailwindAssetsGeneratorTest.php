@@ -8,6 +8,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Frontend\Support\Tailwind\TailwindAssetsGenerator;
 use Capell\Frontend\Tests\Unit\Support\Tailwind\Fixtures\TailwindAssetsErrProvider;
 use Capell\Frontend\Tests\Unit\Support\Tailwind\Fixtures\TailwindAssetsOkProvider;
+use Capell\Tests\Support\StylesheetRuntime;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
@@ -63,16 +64,16 @@ it('generates css from config, vendor assets, provider assets, and default theme
     try {
         $paths = resolve(TailwindAssetsGenerator::class)->generate($targetPath);
 
-        expect($paths)->toBe([$targetPath])
-            ->and(File::get($targetPath))
-            ->toContain('@import "tailwindcss";')
-            ->toContain('@import "@acme/base.css";')
-            ->toContain('@plugin "@tailwindcss/forms";')
-            ->toContain('@plugin "@tailwindcss/typography";')
-            ->toContain('@source "./views/**/*.blade.php";')
-            ->toContain('--color-brand-primary: #0f766e;')
-            ->toContain('--color-default-accent: #2563eb;')
-            ->not->toContain('foundation-theme');
+        expect($paths)->toBe([$targetPath]);
+        $result = StylesheetRuntime::inspect($targetPath, tailwind: true, candidates: [
+            'bg-brand-primary', 'text-default-accent',
+            'plugin--tailwindcss-forms', 'plugin--tailwindcss-typography', 'plugin--tailwindcss-form-builder',
+        ], stylesheets: [
+            base_path('resources/css/global.css') => '.imported-host-style { display: block; }',
+        ]);
+        $classes = array_merge(...array_column($result['rules'], 'classes'));
+        expect($classes)->toContain('bg-brand-primary', 'text-default-accent', 'imported-host-style', 'plugin--tailwindcss-forms', 'plugin--tailwindcss-typography', 'plugin--tailwindcss-form-builder');
+        expect(array_column($result['sources'], 'pattern'))->toContain('./views/**/*.blade.php');
     } finally {
         File::deleteDirectory($targetDirectory);
     }

@@ -22,6 +22,8 @@ use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\PatchedPhpRuntime;
+use Capell\Tests\Support\StylesheetRuntime;
 use Composer\InstalledVersions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -505,14 +507,16 @@ it('animates installer step navigation with distinct back and continue pacing', 
     expect($styles)->toContain('prefers-reduced-motion');
 });
 
-it('keeps preflight panels free of decorative gradients', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
-
-    preg_match_all('/\\.preflight-panel\\s*\\{[^}]*\\}/', $content, $preflightPanelMatches);
-
-    expect($preflightPanelMatches[0])
-        ->not->toBeEmpty()
-        ->each->not->toContain('gradient(');
+it('delivers a plain surface background for preflight panels', function (): void {
+    $result = StylesheetRuntime::inspect(dirname(__DIR__, 2) . '/resources/css/installer.css');
+    $rules = array_filter($result['rules'], static fn (array $rule): bool => $rule['classes'] === ['preflight-panel']);
+    expect($rules)->not->toBeEmpty();
+    foreach ($rules as $rule) {
+        $backgrounds = array_filter($rule['declarations'], static fn (array $declaration): bool => str_starts_with($declaration['property'], 'background'));
+        foreach ($backgrounds as $background) {
+            expect($background['gradients'])->toBe([]);
+        }
+    }
 });
 
 it('renders preflight checks as a high-density utility panel', function (): void {
@@ -520,12 +524,20 @@ it('renders preflight checks as a high-density utility panel', function (): void
     expect(domElement($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-panel ")]')->textContent)->not->toBeEmpty()
         ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-utility-footer ")]'))->toBe(0);
 });
-it('keeps the installer footer on a Capell brand colour', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
+it('delivers the brand panel background for installer steps', function (): void {
+    $result = StylesheetRuntime::inspect(dirname(__DIR__, 2) . '/resources/css/installer.css');
+    $rules = array_filter($result['rules'], static fn (array $rule): bool => $rule['classes'] === ['installer-step-panel']);
+    expect($rules)->not->toBeEmpty();
+    $variables = [];
+    foreach ($rules as $rule) {
+        foreach ($rule['declarations'] as $declaration) {
+            if ($declaration['property'] === 'background') {
+                $variables = [...$variables, ...$declaration['variables']];
+            }
+        }
+    }
 
-    expect($content)
-        ->toContain('background: var(--brand-panel);')
-        ->not->toContain('background: rgba(249, 248, 243, 0.94);');
+    expect($variables)->toContain('--brand-panel');
 });
 
 it('does not render the removed installer nav', function (): void {
@@ -1823,10 +1835,7 @@ PHP);
             ['Accept' => 'application/json'],
         )->assertOk();
 
-        expect(file_get_contents($userModelPath))
-            ->toContain('use Spatie\Permission\Traits\HasRoles;')
-            ->toContain('use Notifiable, HasImpersonation, HasPanelShield, HasRoles, HasSitePermissions, LogsActivity;')
-            ->not->toContain('Capell\Admin\Traits');
+        expect(installerPatchedUserOutcome($userModelPath))->toBe(['has_editor_role' => true, 'has_missing_role' => false]);
     } finally {
         if (is_dir(base_path('app'))) {
             exec('rm -rf ' . escapeshellarg(base_path('app')));
@@ -2401,11 +2410,7 @@ PHP);
 
         $response->assertOk()->assertJson(['status' => 'running']);
 
-        expect(file_get_contents($userModelPath))
-            ->toContain('use Spatie\Permission\Traits\HasRoles;')
-            ->toContain('HasRoles')
-            ->not->toContain('LoginAuditgable')
-            ->not->toContain('Capell\Admin\Traits');
+        expect(installerPatchedUserOutcome($userModelPath))->toBe(['has_editor_role' => true, 'has_missing_role' => false]);
     } finally {
         if (is_dir(base_path('app'))) {
             exec('rm -rf ' . escapeshellarg(base_path('app')));
@@ -2860,3 +2865,16 @@ it('does not start a run before the resolved installation has been reviewed and 
     ])->assertUnprocessable()->assertJsonValidationErrors('installation_confirmed');
     expect($sessions->activeInstallId())->toBe($before);
 });
+
+/** @return array<string, mixed> */
+function installerPatchedUserOutcome(string $path): array
+{
+    return PatchedPhpRuntime::evaluate($path, <<<'PHP'
+        (function (): array {
+            $user = new App\Models\User;
+            $role = new Spatie\Permission\Models\Role(['name' => 'editor', 'guard_name' => 'web']);
+            $user->setRelation('roles', new Illuminate\Database\Eloquent\Collection([$role]));
+            return ['has_editor_role' => $user->hasRole('editor'), 'has_missing_role' => $user->hasRole('missing')];
+        })()
+        PHP, 'require $argv[1] . "/packages/core/tests/fixtures/activitylog-bootstrap.php"; bootActivityLogFixture($argv[1]); config()->set("permission", require $argv[1] . "/vendor/spatie/laravel-permission/config/permission.php");');
+}

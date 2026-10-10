@@ -9,6 +9,7 @@ use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Capell\Tests\Support\StylesheetRuntime;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -24,28 +25,30 @@ it('renders expanded controlled theme tokens with safe fallbacks', function (): 
 
     $css = (new ThemeTokenRenderer)->css($brand);
 
-    expect($css)->toContain('--theme-radius: md;')
-        ->toContain('--theme-radius-value: 0.5rem;')
-        ->toContain('--theme-surface: #ffffff;')
-        ->toContain('--theme-foreground: #111827;')
-        ->toContain('--theme-heading-scale: expressive;')
-        ->toContain('--theme-heading-scale-ratio: 1.25;')
-        ->toContain('--theme-card-density: compact;')
-        ->toContain('--theme-card-density-gap: 0.75rem;')
-        ->toContain('--theme-overlay-treatment: strong;')
-        ->toContain('--theme-overlay-opacity: 0.65;');
+    expect(StylesheetRuntime::declarations($css)['tokens'])->toMatchArray([
+        '--theme-radius' => 'md',
+        '--theme-radius-value' => '0.5rem',
+        '--theme-surface' => '#ffffff',
+        '--theme-foreground' => '#111827',
+        '--theme-heading-scale' => 'expressive',
+        '--theme-heading-scale-ratio' => '1.25',
+        '--theme-card-density' => 'compact',
+        '--theme-card-density-gap' => '0.75rem',
+        '--theme-overlay-treatment' => 'strong',
+        '--theme-overlay-opacity' => '0.65',
+    ]);
 });
 
 it('sanitizes unsafe css token values before rendering', function (): void {
     $brand = new BrandProfileData(surfaceColor: 'url(https://example.test/image.png)');
 
-    expect((new ThemeTokenRenderer)->css($brand))->toContain('--theme-surface: #ffffff;');
+    expect(StylesheetRuntime::declarations((new ThemeTokenRenderer)->css($brand))['tokens']['--theme-surface'])->toBe('#ffffff');
 });
 
 it('falls back when color tokens are css-safe but not valid colors', function (): void {
     $brand = new BrandProfileData(surfaceColor: 'not-a-color');
 
-    expect((new ThemeTokenRenderer)->css($brand))->toContain('--theme-surface: #ffffff;');
+    expect(StylesheetRuntime::declarations((new ThemeTokenRenderer)->css($brand))['tokens']['--theme-surface'])->toBe('#ffffff');
 });
 
 it('reports inaccessible foreground and surface contrast', function (): void {
@@ -73,7 +76,9 @@ it('publishes token css without leaving partial files', function (): void {
     try {
         $path = new ThemeTokenStore($directory)->put('atomic-theme', 'default', new BrandProfileData);
 
-        expect(File::get($path))->toStartWith(':root {')
+        $stylesheet = StylesheetRuntime::inspect($path);
+        expect($stylesheet['tokens'])->toHaveKey('--theme-primary')
+            ->and($stylesheet['rules'][0]['root'])->toBeTrue()
             ->and(File::glob($directory . '/*.tmp'))->toBe([])
             ->and(File::files($directory))->toHaveCount(1);
     } finally {
@@ -117,7 +122,7 @@ it('returns fallback token css and exposes token issues for invalid runtime prof
     try {
         expect($runtime->tokenIssues)->not->toBeEmpty()
             ->and($runtime->tokenCssPath)->not->toBeNull()
-            ->and(File::get((string) $runtime->tokenCssPath))->toContain('--theme-foreground: #111827;');
+            ->and(StylesheetRuntime::inspect((string) $runtime->tokenCssPath)['tokens']['--theme-foreground'])->toBe('#111827');
     } finally {
         File::deleteDirectory($directory);
     }
@@ -167,13 +172,14 @@ it('preserves theme identity tokens while repairing an unsafe contrast pair', fu
         expect($runtime->tokenIssues)
             ->toHaveCount(1)
             ->and($runtime->tokenIssues[0])->toContain('accent/surface')
-            ->and($css)->toContain('--theme-primary: #0a0a0a;')
-            ->and($css)->toContain('--theme-accent: #0a0a0a;')
-            ->and($css)->toContain('--theme-accent-contrast: #ffffff;')
-            ->and($css)->toContain('--theme-neutral: #4b4b4b;')
-            ->and($css)->toContain('--theme-surface: #f4f3ef;')
-            ->and($css)->toContain('--theme-radius: none;')
-            ->and($css)->not->toContain('--theme-primary: #1a2d6d;');
+            ->and(StylesheetRuntime::declarations($css)['tokens'])->toMatchArray([
+                '--theme-primary' => '#0a0a0a',
+                '--theme-accent' => '#0a0a0a',
+                '--theme-accent-contrast' => '#ffffff',
+                '--theme-neutral' => '#4b4b4b',
+                '--theme-surface' => '#f4f3ef',
+                '--theme-radius' => 'none',
+            ]);
     } finally {
         File::deleteDirectory($directory);
     }
@@ -270,13 +276,15 @@ it('renders declared theme editor extras and rejects values outside their closed
 
         $css = File::get((string) $runtime->tokenCssPath);
 
-        expect($css)
-            ->toContain('--theme-glass-depth: prismatic;')
-            ->toContain('--theme-radius-value: 0.5rem;')
-            ->not->toContain('undeclared-token')
-            ->not->toContain('--theme-x;')
-            ->not->toContain('--theme-radius-value: 999px;')
-            ->not->toContain('display: none');
+        $stylesheet = StylesheetRuntime::declarations($css);
+        expect($stylesheet['tokens'])->toMatchArray([
+            '--theme-glass-depth' => 'prismatic',
+            '--theme-radius-value' => '0.5rem',
+        ])->not->toHaveKeys(['--theme-undeclared-token', '--theme-x'])
+            ->and($stylesheet['rules'])->toHaveCount(1);
+        foreach ($stylesheet['rules'][0]['declarations'] as $declaration) {
+            expect($declaration['property'])->toBe('custom');
+        }
     } finally {
         File::deleteDirectory($directory);
     }
@@ -285,8 +293,9 @@ it('renders declared theme editor extras and rejects values outside their closed
 it('pairs rendered accent and primary backgrounds with readable labels', function (string $background, string $expected): void {
     $css = (new ThemeTokenRenderer)->css(new BrandProfileData(primaryColor: $background, accentColor: $background));
 
-    expect($css)->toContain('--theme-primary-contrast: ' . $expected . ';')
-        ->toContain('--theme-accent-contrast: ' . $expected . ';');
+    expect(StylesheetRuntime::declarations($css)['tokens'])->toMatchArray([
+        '--theme-primary-contrast' => $expected, '--theme-accent-contrast' => $expected,
+    ]);
 })->with([
     'dark replacement' => ['#1c2530', '#ffffff'],
     'white background' => ['#ffffff', '#000000'],

@@ -8,7 +8,9 @@ use Capell\Core\Support\Extensions\CapellExtensionApi;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
+use Capell\Tests\Support\CommandFixture;
 use Composer\Semver\Semver;
+use Symfony\Component\Yaml\Yaml;
 
 it('defines the public v1 split package release contract', function (): void {
     $root = dirname(__DIR__, 2);
@@ -109,88 +111,89 @@ it('defines the public v1 split package release contract', function (): void {
 
     expect($frontendCapellManifest['commands']['install'] ?? null)->toBe('capell:frontend-install');
 
-    $splitWorkflow = file_get_contents($root . '/.github/workflows/split-monorepo.yml');
-    $releaseSmokeWorkflow = file_get_contents($root . '/.github/workflows/public-release-smoke.yml');
-    $fastTestWorkflow = file_get_contents($root . '/.github/workflows/test-fast-pr.yml');
-    $fullTestWorkflow = file_get_contents($root . '/.github/workflows/test-full.yml');
-    $localSplitScript = file_get_contents($root . '/scripts/local-split-packages.sh');
-    $packagistScript = file_get_contents($root . '/scripts/create-packagist-packages.sh');
+});
 
-    expect($splitWorkflow)
-        ->toContain('actions: read')
-        ->toContain('actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1')
-        ->toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a')
-        ->toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
-        ->toContain('SPLIT_APP_ID')
-        ->toContain('SPLIT_APP_PRIVATE_KEY')
-        ->toContain('permission-contents: write')
-        ->toContain('permission-workflows: write')
-        ->toContain('repositories: admin,core,frontend,installer,marketplace')
-        ->toContain('SOURCE_REPOSITORY_TOKEN: ${{ github.token }}')
-        ->toContain('git remote set-url origin "https://x-access-token:${SOURCE_REPOSITORY_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"')
-        ->toContain('persist-credentials: false')
-        ->toContain('Configure split repository git credentials')
-        ->toContain('url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"')
-        ->toContain('workflow_dispatch:')
-        ->toContain('plan_artifact:')
-        ->toContain('PLAN_PATH: ${{ inputs.plan_path }}')
-        ->toContain('test -n "${PLAN_PATH}"')
-        ->toContain('realpath "${plan_file}"')
-        ->toContain('Plan path escapes the checked-out workspace.')
-        ->toContain('plan_path: release-plan.json')
-        ->toContain('Stage and attest release tooling from the workflow commit')
-        ->toContain('git archive "${RELEASE_TOOLING_COMMIT}"')
-        ->toContain('git hash-object "${RELEASE_TOOLING_ROOT}/${path}"')
-        ->toContain('CAPELL_RELEASE_SOURCE_ROOT: ${{ github.workspace }}')
-        ->toContain('Check out the approved plan source')
-        ->toContain('git checkout --detach "${source_commit}"')
-        ->not->toContain('test -f "${{ inputs.plan_path }}"')
-        ->toContain('php "${RELEASE_TOOLING_ROOT}/scripts/release.php" publish')
-        ->not->toContain('resume_state_run_id')
-        ->not->toContain('release-plan.json.state.json')
-        ->toContain('uses: ./.github/workflows/public-release-smoke.yml')
-        ->toContain('ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}')
-        ->not->toContain('release:')
-        ->not->toContain('rollback')
-        ->and($localSplitScript)->toContain('BRANCH="${CAPELL_SPLIT_BRANCH:-main}"')
-        ->toContain('rollback_release_tags')
-        ->toContain('git push "${remote_url}" ":refs/tags/${TAG}"')
-        ->and($packagistScript)->toContain('config/packagist-packages.json')
-        ->and($packagistScript)->toContain('--preflight')
-        ->and($packagistScript)->toContain('repos/${repository}/contents/composer.json')
-        ->and($packagistScript)->toContain('https://packagist.org/api/github')
-        ->and($packagistScript)->toContain('Packagist preflight failed.');
+it('gates publication on the approved plan and runs the reusable smoke after publication', function (): void {
+    $root = dirname(__DIR__, 2);
+    /** @var array<string, mixed> $workflow */
+    $workflow = Yaml::parseFile($root . '/.github/workflows/split-monorepo.yml');
+    expect(array_keys($workflow['on']))->toBe(['workflow_dispatch'])
+        ->and($workflow['permissions'])->toMatchArray(['actions' => 'read', 'contents' => 'write'])
+        ->and($workflow['jobs']['publish']['needs'])->toBe('prepare-plan')
+        ->and($workflow['jobs']['public-release-smoke'])->toMatchArray([
+            'needs' => 'publish', 'uses' => './.github/workflows/public-release-smoke.yml',
+            'with' => ['plan_path' => 'release-plan.json', 'plan_artifact' => 'approved-release-plan'],
+        ]);
+    $steps = array_column($workflow['jobs']['publish']['steps'], null, 'name');
+    expect($steps['Create split repository token']['with'])->toMatchArray([
+        'permission-contents' => 'write', 'permission-workflows' => 'write',
+        'repositories' => 'admin,core,frontend,installer,marketplace',
+    ]);
+    /** @var array<string, mixed> $smoke */
+    $smoke = Yaml::parseFile($root . '/.github/workflows/public-release-smoke.yml');
+    expect(array_keys($smoke['on']))->toBe(['workflow_call'])
+        ->and($smoke['on']['workflow_call']['secrets']['ACCESS_TOKEN']['required'])->toBeTrue()
+        ->and($smoke['jobs'])->toHaveKey('n-minus-one-upgrade');
+});
 
-    expect($releaseSmokeWorkflow)
-        ->toContain('plan_path:')
-        ->toContain('workflow_call:')
-        ->toContain("ACCESS_TOKEN:\n        required: true")
-        ->toContain('token: ${{ secrets.ACCESS_TOKEN }}')
-        ->not->toContain('workflow_dispatch:')
-        ->toContain('cd "$(mktemp -d)"')
-        ->toContain('${GITHUB_WORKSPACE}/scripts/release.php')
-        ->toContain('n-minus-one-upgrade:')
-        ->toContain("jq -r '.packages[] | [.name, .current_version] | @tsv'")
-        ->toContain('php artisan capell:upgrade --force --no-clear-cache')
-        ->toContain('capell-upgrade.log')
-        ->toContain('upgrade-response.html')
-        ->toContain("jq -r '.packages[] | [.name, .proposed_version] | @tsv'")
-        ->toContain('composer update --no-interaction')
-        ->and($fastTestWorkflow)
-        ->toContain('workflow_call:')
-        ->not->toContain('pull_request:')
-        ->toContain('"pestphp/pest:^5.0"')
-        ->toContain('"pestphp/pest-plugin-phpstan:^5.0"')
-        ->toContain('"filament/filament:^5.7.6"')
-        ->not->toContain('filament/filament:^4.7')
-        ->and($fullTestWorkflow)
-        ->toContain('- main');
+it('accepts only workspace-relative release plans before staging them for approval', function (string $path, bool $accepted): void {
+    $fixture = new CommandFixture;
+    $fixture->files->write('release-plan.json', '{"approved":true}');
+    $fixture->files->write('staged/.keep', '');
+    $fixture->fake('php');
+    /** @var array<string, mixed> $workflow */
+    $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/split-monorepo.yml');
+    $steps = array_column($workflow['jobs']['prepare-plan']['steps'], null, 'name');
+    try {
+        $process = $fixture->run(['bash', '-e', '-c', $steps['Validate committed release plan']['run']], [
+            'PLAN_PATH' => $path, 'GITHUB_WORKSPACE' => $fixture->files->root, 'RUNNER_TEMP' => $fixture->files->root . '/staged',
+        ]);
+        expect($process->getExitCode() === 0)->toBe($accepted);
+        if ($accepted) {
+            expect(json_decode((string) file_get_contents($fixture->files->root . '/staged/release-plan.json'), true, flags: JSON_THROW_ON_ERROR))->toBe(['approved' => true]);
+        } else {
+            expect($fixture->files->root . '/staged/release-plan.json')->not->toBeFile()
+                ->and($fixture->calls('php'))->toBe([]);
+        }
+    } finally {
+        $fixture->close();
+    }
+})->with([
+    ['release-plan.json', true], ['', false], ['/release-plan.json', false],
+    ['../release-plan.json', false], ['./release-plan.json', false],
+]);
 
-    expect($releaseSmokeWorkflow)->toContain('artisan serve --no-reload');
+it('splits only catalogue packages and removes tags already published when a later split fails', function (): void {
+    $fixture = new CommandFixture;
+    $fixture->files->copy('scripts/local-split-packages.sh');
+    $fixture->files->copy('config/release-packages.json');
+    foreach (['core', 'admin'] as $package) {
+        $fixture->files->write('packages/' . $package . '/composer.json', '{}');
+    }
 
-    expect($localSplitScript)->toContain('config/release-packages.json')
-        ->toContain('basename((string) $package["path"])')
-        ->and($packagistScript)->toContain('config/packagist-packages.json');
+    $fixture->fake('git', 'if (in_array("subtree", $argv, true)) { echo "split-result"; }');
+    // The boundary fails the second split; no repository or remote is touched.
+    $fixture->files->write('bin/git-failure', <<<'BASH'
+        #!/usr/bin/env bash
+        if [[ "$*" == *'subtree split --prefix packages/admin'* ]]; then
+            exit 19
+        fi
+        exec "$(dirname "$0")/git-recorder" "$@"
+        BASH);
+    rename($fixture->files->root . '/bin/git', $fixture->files->root . '/bin/git-recorder');
+    rename($fixture->files->root . '/bin/git-failure', $fixture->files->root . '/bin/git');
+    chmod($fixture->files->root . '/bin/git', 0755);
+    try {
+        $process = $fixture->run(['bash', 'scripts/local-split-packages.sh', '--tag', 'v1.2.3', '--package', 'core', '--package', 'admin', '--remote-template', 'fixture://%s']);
+        expect($process->getExitCode())->toBe(19)
+            ->and(array_column($fixture->calls('git-recorder'), 'arguments'))->toContain(
+                ['push', 'fixture://core', 'split-result:refs/heads/main'],
+                ['push', 'fixture://core', 'split-result:refs/tags/v1.2.3'],
+                ['push', 'fixture://core', ':refs/tags/v1.2.3'],
+            );
+    } finally {
+        $fixture->close();
+    }
 });
 
 it('runs the release validator without a Laravel bootstrap', function (): void {
@@ -446,18 +449,42 @@ it('keeps split package readmes standalone', function (): void {
     }
 });
 
-it('rejects placeholder changelog entries and generates useful release notes', function (): void {
-    $root = dirname(__DIR__, 2);
-    $workflow = file_get_contents($root . '/.github/workflows/update-changelog.yml');
-    $changelog = file_get_contents($root . '/CHANGELOG.md');
-
-    expect($workflow)
-        ->toContain('placeholderReleaseNotesPattern')
-        ->toContain('generateReleaseNotes')
-        ->toContain("core.setFailed('Release notes are empty after generation.')")
-        ->and($changelog)
-        ->not->toMatch('/Release v2\\.0\\.(?:81|82|83|84|85) for Capell 4\\.x\\./');
-});
+it('generates changelog notes for empty or placeholder releases and rejects empty generated notes', function (string $body, string $generated, ?string $expected): void {
+    /** @var array<string, mixed> $workflow */
+    $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/update-changelog.yml');
+    $steps = array_column($workflow['jobs']['update']['steps'], null, 'name');
+    $fixture = new CommandFixture;
+    $fixture->files->write('notes.cjs', <<<'JS_WRAP'
+    const fs = require('node:fs');
+    const fixture = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+    const outputs = {}; const failures = [];
+    const core = { setOutput: (key, value) => outputs[key] = value, setFailed: message => failures.push(message), info: () => {} };
+    const context = { payload: { release: { tag_name: 'v1.2.3', body: fixture.body, published_at: '2026-01-01T12:00:00Z' } }, repo: { owner: 'example', repo: 'core' } };
+    const github = { rest: { repos: { generateReleaseNotes: async () => ({ data: { body: fixture.generated } }) } } };
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    new AsyncFunction('core', 'context', 'github', fixture.script)(core, context, github).then(() => console.log(JSON.stringify({outputs, failures})));
+    JS_WRAP);
+    $fixture->files->write('fixture.json', json_encode(['body' => $body, 'generated' => $generated, 'script' => $steps['Prepare changelog inputs']['with']['script']], JSON_THROW_ON_ERROR));
+    try {
+        $process = $fixture->run(['node', 'notes.cjs', 'fixture.json']);
+        expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+        $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+        if ($expected === null) {
+            expect($result['failures'])->toBe(['Release notes are empty after generation.'])
+                ->and($result['outputs'])->toBe([]);
+        } else {
+            expect($result['failures'])->toBe([])
+                ->and($result['outputs'])->toMatchArray(['latest_version' => 'v1.2.3', 'release_notes' => $expected, 'release_date' => '2026-01-01']);
+        }
+    } finally {
+        $fixture->close();
+    }
+})->with([
+    ['', 'Added useful feature', 'Added useful feature'],
+    ['Release v1.2.3 for Capell 4.x.', 'Fixed navigation', 'Fixed navigation'],
+    ['Existing useful notes', 'Unused generated notes', 'Existing useful notes'],
+    ['', '', null],
+]);
 
 it('publishes honest comparison recovery and exit guidance without recycled doc heroes', function (): void {
     $root = dirname(__DIR__, 2);

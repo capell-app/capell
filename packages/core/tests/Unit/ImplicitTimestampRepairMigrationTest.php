@@ -6,42 +6,48 @@ use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Contracts\Database\DatabaseSchemaDialect;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
+use Capell\Tests\Support\Fakes\LegacyTimestampConnection;
+use Capell\Tests\Support\Fakes\LegacyTimestampResolver;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
-it('keeps the published timestamp repair independent of movable code and config', function (): void {
-    $source = (string) file_get_contents(dirname(__DIR__, 2) . '/database/migrations/2026_09_29_000001_remove_implicit_timestamp_updates.php');
-
-    // Match the consuming application's post N-1 migration hygiene rules.
-    expect(preg_match('/(?:^use\s+|\\\\|\b)(?:App|Capell)\\\\/m', $source))->toBe(0)
-        ->and(preg_match('/\b(?:app|config|resolve)\s*\(/', $source))->toBe(0);
-});
-
-it('repairs the complete implicit first timestamp shape in Core-created tables', function (): void {
-    $implicitColumns = [];
-    foreach (glob(dirname(__DIR__, 2) . '/database/migrations/*create*.php') ?: [] as $path) {
-        $source = (string) file_get_contents($path);
-        if (preg_match('/Schema::create\(\s*[\'"]([^\'"]+)[\'"]/', $source, $table) !== 1) {
-            continue;
-        }
-
-        if (preg_match('/->timestamp(?:Tz)?\(\s*[\'"]([^\'"]+)[\'"]([^;]*);/', $source, $column) !== 1) {
-            continue;
-        }
-
-        if (preg_match('/->(?:nullable|default|useCurrent)\(/', $column[2]) !== 1) {
-            $implicitColumns[$table[1]] = $column[1];
-        }
+it('removes legacy automatic updates from every Core event timestamp while preserving column attributes', function (): void {
+    $targets = [
+        'capell_upgrade_log' => 'ran_at', 'capell_upgrade_run_events' => 'occurred_at',
+        'content_locks' => 'expires_at', 'layout_content_snapshots' => 'taken_at',
+        'blueprint_schema_snapshots' => 'taken_at', 'stored_events' => 'created_at',
+        'page_revisions' => 'occurred_at', 'metric_collection_runs' => 'started_at',
+        'activity_buckets' => 'bucket_started_at', 'editor_scratch_drafts' => 'saved_at',
+        'activity_visitors' => 'first_seen_at',
+    ];
+    $columns = [];
+    foreach ($targets as $table => $column) {
+        $columns[$table] = [(object) [
+            'name' => $column, 'type' => 'timestamp(3)', 'nullable' => 'NO',
+            'default' => '2020-01-01 00:00:00.123', 'comment' => 'Original event time',
+            'extra' => 'on update current_timestamp(3)',
+        ]];
     }
 
+    $connection = new LegacyTimestampConnection($columns);
     $migration = require dirname(__DIR__, 2) . '/database/migrations/2026_09_29_000001_remove_implicit_timestamp_updates.php';
-    $targets = new ReflectionClass($migration)->getConstant('COLUMNS');
-    expect($targets)->toBeArray()->not->toBeEmpty();
-    throw_unless(is_array($targets), RuntimeException::class, 'Expected a Core timestamp repair map.');
+    $original = DB::getFacadeRoot();
+    // Historical migrations must execute without package services or configuration.
+    DB::swap(new LegacyTimestampResolver($connection));
+    try {
+        $migration->up();
+        $expected = [];
+        foreach ($targets as $table => $column) {
+            $expected[] = sprintf("alter table `proof_%s` modify `%s` timestamp(3) not null default '2020-01-01 00:00:00.123' comment 'Original event time'", $table, $column);
+        }
 
-    ksort($targets);
-    ksort($implicitColumns);
-    expect($targets)->toBe($implicitColumns);
+        expect($connection->statements)->toBe($expected);
+        $migration->down();
+        expect($connection->statements)->toBe($expected);
+    } finally {
+        DB::swap($original);
+    }
 });
 
 it('is a no-op on SQLite and does not reverse the timestamp safety repair', function (): void {

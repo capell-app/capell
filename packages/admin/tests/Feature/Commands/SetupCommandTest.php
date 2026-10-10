@@ -14,6 +14,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\StylesheetRuntime;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -211,6 +212,7 @@ it('skips permission sync when setup follows install', function (): void {
 
 it('previews integration-only panel changes without mutating the discovered panel', function (): void {
     $panelPath = writeSetupCommandPanelProvider();
+    $original = File::get($panelPath);
 
     artisanCommand('capell:admin-setup', [
         '--integration-only' => true,
@@ -228,10 +230,7 @@ it('previews integration-only panel changes without mutating the discovered pane
         ->expectsOutput('Admin setup complete.')
         ->assertExitCode(0);
 
-    expect(File::get($panelPath))
-        ->not->toContain('CapellAdminPlugin::make()')
-        ->not->toContain('CapellAdmin::getWidgets()')
-        ->not->toContain('CapellAdmin::getNavigationItems()');
+    expect(File::get($panelPath))->toBe($original);
 });
 
 it('reports missing panels when only integration was requested', function (): void {
@@ -366,9 +365,7 @@ it('validates setup command option parsing and path helpers before mutating the 
         ])
             ->and($parseListOption->invoke($command, 'languages'))->toBe(['en', 'fr'])
             ->and($normalisePath->invoke($tailwindSourceRegistrar, '/var/www/../app//./resources/views'))->toBe('/var/app/resources/views')
-            ->and($tailwindSourceForPackagePath->invoke($tailwindSourceRegistrar, $packagePath, resource_path('css/filament/admin/theme.css')))->toBeNull()
-            ->and($tailwindSourceForPackagePath->invoke($tailwindSourceRegistrar, $packagePath, resource_path('css/filament/admin/theme.css'), false))
-            ->toContain("@source '");
+            ->and($tailwindSourceForPackagePath->invoke($tailwindSourceRegistrar, $packagePath, resource_path('css/filament/admin/theme.css')))->toBeNull();
     } finally {
         File::deleteDirectory($packagePath);
     }
@@ -416,19 +413,17 @@ CSS);
             $messages[] = $message;
         });
 
-        $contents = File::get($themeCss);
+        $result = StylesheetRuntime::inspect($themeCss, tailwind: true, stylesheets: setupHostStylesheets());
+        $sources = array_map(static fn (array $source): string => $source['base'] . '/' . $source['pattern'], $result['sources']);
+        foreach (['admin', 'core', 'frontend'] as $package) {
+            expect(array_filter($sources, static fn (string $source): bool => str_ends_with($source, '/' . $package . '/resources/views/**/*.blade.php')))->not->toBeEmpty();
+        }
 
-        expect($contents)
-            ->toContain('/admin/resources/views/**/*.blade.php')
-            ->toContain('/core/resources/views/**/*.blade.php')
-            ->toContain('/frontend/resources/views/**/*.blade.php')
-            ->toContain("@source '../../../../storage/capell/tailwind-classes.txt';")
+        expect(array_filter($sources, static fn (string $source): bool => str_ends_with($source, '/storage/capell/tailwind-classes.txt')))->not->toBeEmpty()
             ->and($messages)->toBe(['Added Capell Tailwind sources to theme.css']);
-
+        $original = File::get($themeCss);
         $registrar->register(static function (string $message): void {});
-
-        expect(substr_count(File::get($themeCss), '/admin/resources/views/**/*.blade.php'))
-            ->toBe(1);
+        expect(File::get($themeCss))->toBe($original);
     } finally {
         if ($originalContents === null) {
             File::delete($themeCss);
@@ -462,7 +457,8 @@ CSS);
     try {
         (new TailwindSourceRegistrar)->register(static function (string $message): void {});
 
-        expect(File::get($themeCss))->toContain('/capell-registered-tailwind-package/resources/views/**/*.blade.php');
+        $result = StylesheetRuntime::inspect($themeCss, tailwind: true, stylesheets: setupHostStylesheets());
+        expect(array_filter($result['sources'], static fn (array $source): bool => str_ends_with($source['base'] . '/' . $source['pattern'], '/capell-registered-tailwind-package/resources/views/**/*.blade.php')))->not->toBeEmpty();
     } finally {
         File::deleteDirectory($packagePath);
 
@@ -526,13 +522,8 @@ CSS);
             $messages[] = $message;
         });
 
-        $contents = File::get($themeCss);
-
-        expect($contents)
-            ->toContain("@import 'tailwindcss';")
-            ->toContain("@config './tailwind.config.js';")
-            ->not->toContain('@tailwind base;')
-            ->not->toContain('@tailwind utilities;')
+        $result = StylesheetRuntime::inspect($themeCss, tailwind: true, candidates: ['flex'], stylesheets: setupHostStylesheets());
+        expect(array_filter($result['rules'], static fn (array $rule): bool => in_array('flex', $rule['classes'], true)))->not->toBeEmpty()
             ->and($messages)->toBe([
                 'Updated theme.css for Tailwind 4 compatibility',
                 'Added Capell Tailwind sources to theme.css',
@@ -571,4 +562,15 @@ function cleanupSetupCommandPanelProvider(): void
             File::deleteDirectory($directoryPath);
         }
     }
+}
+
+/** @return array<string, string> */
+function setupHostStylesheets(): array
+{
+    // Model the consuming application's vendor styles; compile the registrar's real output.
+    return [
+        '../../../../vendor/filament/filament/resources/css/theme.css' => '@import "tailwindcss";',
+        '../../../../vendor/filament/filament/resources/css/base.css' => '@import "tailwindcss";',
+        '../../../../vendor/awcodes/filament-curator/resources/css/plugin.css' => '.curator { display: block; }',
+    ];
 }

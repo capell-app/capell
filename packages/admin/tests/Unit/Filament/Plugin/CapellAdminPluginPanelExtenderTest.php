@@ -29,6 +29,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Tests\Support\StylesheetRuntime;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\IdentifyTenant;
 use Filament\Http\Middleware\SetUpPanel;
@@ -49,6 +50,8 @@ use Livewire\Livewire;
 use Livewire\Mechanisms\HandleRequests\HandleRequests;
 
 use function Pest\Laravel\get;
+
+use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     TestAdminPanelExtender::$called = false;
@@ -153,10 +156,36 @@ it('starts a hidden-until-opened sidebar without the collapsed navigation rail',
 
     $view = $hooks[0]();
 
-    expect($view)->toBeInstanceOf(View::class)
-        ->and($view->render())->toContain("window.localStorage.setItem('isOpen', 'false')")
-        ->toContain("window.localStorage.setItem('isOpenDesktop', 'false')")
-        ->toContain('.fi-topbar-open-sidebar-btn');
+    expect($view)->toBeInstanceOf(View::class);
+    $process = new Process(['node', '-e', <<<'JS_WRAP'
+    const vm = require('node:vm');
+    const html = process.argv[1];
+    const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]);
+    function run(opened, unavailable = false) {
+        const local = new Map([['isOpen', 'true'], ['isOpenDesktop', 'true']]);
+        const session = new Map(opened ? [['capell.admin.navigation.opened', 'true']] : []);
+        const storage = values => ({
+            getItem(key) { if (unavailable) throw Error('unavailable'); return values.get(key) ?? null; },
+            setItem(key, value) { if (unavailable) throw Error('unavailable'); values.set(key, value); },
+        });
+        let click;
+        class Element { closest(selector) { return selector === '.fi-topbar-open-sidebar-btn' ? this : null; } }
+        const context = { window: { localStorage: storage(local), sessionStorage: storage(session) },
+            document: { addEventListener(event, handler) { if (event === 'click') click = handler; } }, Element };
+        scripts.forEach(script => vm.runInNewContext(script, context));
+        const initial = Object.fromEntries(local);
+        click({ target: new Element });
+        return { initial, opened: session.get('capell.admin.navigation.opened') ?? null };
+    }
+    console.log(JSON.stringify([run(false), run(true), run(false, true)]));
+    JS_WRAP, $view->render()]);
+    $process->mustRun();
+
+    expect(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR))->toBe([
+        ['initial' => ['isOpen' => 'false', 'isOpenDesktop' => 'false'], 'opened' => 'true'],
+        ['initial' => ['isOpen' => 'true', 'isOpenDesktop' => 'true'], 'opened' => 'true'],
+        ['initial' => ['isOpen' => 'true', 'isOpenDesktop' => 'true'], 'opened' => null],
+    ]);
 });
 
 it('registers the shared Tailwind layer order as a request-loaded Filament asset', function (): void {
@@ -176,28 +205,8 @@ it('keeps the shared Tailwind layer declaration in cascade order', function (): 
     expect($path)->toBeString();
     assert(is_string($path));
 
-    $contents = file_get_contents($path);
-
-    // The first layer declaration controls precedence across separately
-    // loaded stylesheets; assert the layer names and their order without
-    // coupling the test to CSS formatting.
-    expect($contents)->toBeString();
-    assert(is_string($contents));
-
-    $positions = [];
-
-    foreach (['properties', 'theme', 'base', 'components', 'utilities'] as $layer) {
-        $position = strpos($contents, $layer);
-
-        expect($position)->toBeInt();
-        assert(is_int($position));
-        $positions[] = $position;
-    }
-
-    expect($positions[0])->toBeLessThan($positions[1])
-        ->and($positions[1])->toBeLessThan($positions[2])
-        ->and($positions[2])->toBeLessThan($positions[3])
-        ->and($positions[3])->toBeLessThan($positions[4]);
+    $result = StylesheetRuntime::inspect($path);
+    expect($result['layers'])->toBe(['properties', 'theme', 'base', 'components', 'utilities']);
 });
 
 it('loads the shared Tailwind layer order through the Filament styles hook', function (): void {

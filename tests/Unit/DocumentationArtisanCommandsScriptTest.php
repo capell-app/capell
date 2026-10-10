@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Tests\Support\CommandFixture;
 use Symfony\Component\Process\Process;
+use Symfony\Component\Yaml\Yaml;
 
 it('verifies the live documented Capell command examples', function (): void {
     $root = dirname(__DIR__, 2);
@@ -34,29 +36,41 @@ it('discovers fenced Capell commands across the documentation tree by default', 
     }
 });
 
-it('wires the command checker into Composer, full preflight, and CI after dependencies exist', function (): void {
+it('dispatches the documented command gate from full preflight and CI after dependency installation', function (): void {
     $root = dirname(__DIR__, 2);
-    $composer = json_decode(
-        (string) file_get_contents($root . '/composer.json'),
-        true,
-        flags: JSON_THROW_ON_ERROR,
-    );
-    $preflight = (string) file_get_contents($root . '/scripts/run-preflight.php');
-    $workflow = (string) file_get_contents($root . '/.github/workflows/code-quality-and-styling.yml');
-    $commandsDocumentation = (string) file_get_contents($root . '/docs/development/commands.md');
-    $installPosition = strpos($workflow, 'name: Install Composer dependencies');
-    $checkerPosition = strpos($workflow, 'name: Check documented Artisan commands');
+    $fixture = new CommandFixture;
+    $fixture->files->copy('scripts/run-preflight.php');
+    try {
+        $process = $fixture->run([PHP_BINARY, 'scripts/run-preflight.php', '--all', 'docs-commands'], [
+            'COMPOSER_BINARY' => $fixture->files->root . '/bin/composer',
+        ]);
+        expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+            ->and(array_column($fixture->calls('composer'), 'arguments'))->toBe([['check:docs-commands']]);
 
-    expect($composer['scripts']['check:docs-commands'])
-        ->toBe('@php scripts/check-docs-artisan-commands.php')
-        ->and($preflight)
-        ->toContain("'docs-commands' => 'check:docs-commands'")
-        ->and($commandsDocumentation)
-        ->toContain('`composer check:docs-commands`')
-        ->toContain('<!-- capell-docs-commands: optional-package -->')
-        ->and($installPosition)->toBeInt()
-        ->and($checkerPosition)->toBeInt()
-        ->and($checkerPosition)->toBeGreaterThan($installPosition);
+        /** @var array{jobs: array<string, array{steps: list<array{name?: string, run?: string}>}>} $workflow */
+        $workflow = Yaml::parseFile($root . '/.github/workflows/code-quality-and-styling.yml');
+        $steps = $workflow['jobs']['quality']['steps'];
+        $installed = false;
+        $checked = false;
+        foreach ($steps as $step) {
+            if (($step['name'] ?? '') === 'Install Composer dependencies') {
+                $installed = true;
+            }
+
+            if (($step['name'] ?? '') === 'Check documented Artisan commands') {
+                expect($installed)->toBeTrue('The registered commands need their installed dependencies.');
+                file_put_contents($fixture->files->root . '/commands.jsonl', '');
+                $check = $fixture->run(['bash', '-c', $step['run'] ?? '']);
+                expect($check->getExitCode())->toBe(0)
+                    ->and(array_column($fixture->calls('composer'), 'arguments'))->toBe([['run', 'check:docs-commands']]);
+                $checked = true;
+            }
+        }
+
+        expect($checked)->toBeTrue();
+    } finally {
+        $fixture->close();
+    }
 });
 
 it('accepts registered commands and complete non-interactive first-user options', function (): void {

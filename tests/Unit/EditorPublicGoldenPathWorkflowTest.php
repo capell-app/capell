@@ -2,146 +2,158 @@
 
 declare(strict_types=1);
 
-it('runs the editor to anonymous journey from exact checked-out sources', function (): void {
-    $root = dirname(__DIR__, 2);
-    $workflow = file_get_contents($root . '/.github/workflows/editor-public-golden-path.yml');
-    $runner = file_get_contents($root . '/scripts/run-editor-public-golden-path.sh');
+use Capell\Tests\Support\CommandFixture;
+use Dotenv\Dotenv;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Yaml\Yaml;
 
-    expect($workflow)
-        ->toContain('workflow_dispatch:')
-        ->toContain("tags:\n      - '*'")
-        ->not->toContain('pull_request')
-        ->not->toContain('branches:')
-        ->toContain('repository: capell-app/capell-packages')
-        ->toContain('repository: capell-app/capell-screenshot-tools')
-        ->toContain('ACCESS_TOKEN')
-        ->toContain('working-directory: repositories/capell')
-        ->toContain('ref: main')
-        ->toContain("php-version: '8.4'")
-        ->toContain('CAPELL_GOLDEN_PATH_REQUIRE_CLEAN')
-        ->toContain('npx playwright install --with-deps chromium')
-        ->toContain('npm run test:editor-public-golden-path:contracts')
-        ->toContain('if: failure()')
-        ->toContain('retention-days: 7')
-        ->not->toContain('playwright-report')
-        ->not->toContain('storage/logs');
-
-    expect(substr_count($workflow, 'persist-credentials: false'))->toBe(3);
-
-    expect($runner)
-        ->toContain('CAPELL_GOLDEN_PATH_REQUIRE_CLEAN')
-        ->toContain('git -C "${repository_root}" rev-parse HEAD')
-        ->toContain('CAPELL_PACKAGES_HEAD')
-        ->toContain('git -C "${packages_root}" rev-parse HEAD')
-        ->toContain('must match the checked-out companion source')
-        ->toContain('capellTrackedCheckoutDirty:')
-        ->toContain('capell-app/core:1.x-dev')
-        ->toContain('capell-app/admin:1.x-dev')
-        ->toContain('capell-app/frontend:1.x-dev')
-        ->toContain('capell-app/installer:1.x-dev')
-        ->toContain('capell-app/marketplace:1.x-dev')
-        ->toContain('capell-app/discovery-foundation:1.x-dev')
-        ->toContain('capell-app/html-cache:1.x-dev')
-        ->toContain('capell-app/layout-builder:1.x-dev')
-        ->toContain('capell-app/navigation:1.x-dev')
-        ->toContain('capell-app/content-sections:1.x-dev')
-        ->toContain('capell-app/block-library:1.x-dev')
-        ->toContain('"1.x-dev"')
-        ->toContain('laravel_skeleton_version')
-        ->toContain('13.0.0')
-        ->toContain('consumer-framework-version.txt')
-        ->toContain('symlink: true')
-        ->toContain('php artisan migrate --force --ansi')
-        ->toContain('php artisan capell:install')
-        ->toContain('--all-packages')
-        ->toContain('--theme=default')
-        ->toContain('php artisan filament:assets --ansi')
-        ->toContain('CAPELL_HTML_CACHE=true')
-        ->toContain('CAPELL_HTML_CACHE_ORIGIN_SWR=false')
-        ->toContain('CAPELL_HTML_CACHE_INVALIDATION_MODE=instant')
-        ->toContain('cd "${consumer_root}/public"')
-        ->toContain('php -S "127.0.0.1:${server_port}"')
-        ->toContain('Illuminate/Foundation/resources/server.php')
-        ->toContain('curl --max-time 30')
-        ->not->toContain('php artisan serve')
-        ->toContain('--output="${consumer_root}/playwright-output"')
-        ->toContain('--reporter=line');
-});
-
-it('pins the complete authoring lifecycle and every public safety checkpoint', function (): void {
-    $root = dirname(__DIR__, 2);
-    $spec = file_get_contents($root . '/tests/Browser/editor-public-golden-path.spec.js');
-
-    foreach ([
-        'sign in',
-        'create draft',
-        'draft stays private',
-        'preview draft privately',
-        'publish',
-        'cached anonymous delivery',
-        'republish changed content',
-        'republish invalidates cached delivery',
-        'restore original revision',
-        'restore invalidates cached delivery',
-        'sign out',
-        'fresh anonymous recheck',
-    ] as $step) {
-        expect($spec)->toMatch('/diagnostics\\.step\\(\\s*\'' . preg_quote($step, '/') . "'/");
+it('schedules the editor journey only on tags or explicit requests and retains bounded failure evidence', function (): void {
+    /** @var array<string, mixed> $workflow */
+    $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/editor-public-golden-path.yml');
+    expect(array_keys($workflow['on']))->toEqualCanonicalizing(['push', 'workflow_dispatch'])
+        ->and($workflow['on']['push'])->toBe(['tags' => ['*']]);
+    $job = $workflow['jobs']['editor-public-golden-path'];
+    expect($job['defaults']['run']['working-directory'])->toBe('repositories/capell');
+    $checkouts = array_values(array_filter($job['steps'], static fn (array $step): bool => str_starts_with($step['uses'] ?? '', 'actions/checkout@')));
+    expect($checkouts)->toHaveCount(3);
+    foreach ($checkouts as $checkout) {
+        expect($checkout['with']['persist-credentials'])->toBeFalse();
     }
 
-    expect(substr_count($spec, 'expectPublicPage({'))->toBe(6)
-        ->and(substr_count($spec, 'expectDraftIsPrivate({'))->toBe(1)
-        ->and(substr_count($spec, 'expectSafePublicHtml('))->toBe(1)
-        ->and(substr_count($spec, "cache: 'MISS'"))->toBe(3)
-        ->and(substr_count($spec, "cache: 'HIT'"))->toBe(3)
-        ->and($spec)->toContain("'x-robots-tag'")
-        ->toContain("toContain('private')")
-        ->toContain("toContain('no-store')")
-        ->toContain('forbiddenValues.push(editPath)')
-        ->toContain('allowRequestAbort: true')
-        ->toContain('await anonymousContext.close()')
-        ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-published')")
-        ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-republished')")
-        ->toContain("diagnostics.registerPage(anonymousPage, 'anonymous-restored')")
-        ->toContain("name: 'Roll back to here'")
-        ->toContain("name: 'Restore this version'")
-        ->toContain("name: 'Sign out'")
-        ->toContain('const finalContext = await browser.newContext()');
-
-    $createPageAllowance = strpos(
-        $spec,
-        "destinationPathname: '/admin/pages/create'",
-    );
-    $createPageNavigation = strpos(
-        $spec,
-        'await adminPage.goto(`${baseUrl}/admin/pages/create`',
-    );
-
-    expect($createPageAllowance)->not->toBeFalse()
-        ->and($createPageNavigation)->not->toBeFalse()
-        ->and($createPageAllowance)->toBeLessThan($createPageNavigation);
+    expect(array_column(array_column($checkouts, 'with'), 'repository'))->toContain('capell-app/capell-packages', 'capell-app/capell-screenshot-tools');
+    $uploads = array_values(array_filter($job['steps'], static fn (array $step): bool => str_starts_with($step['uses'] ?? '', 'actions/upload-artifact@')));
+    expect($uploads)->toHaveCount(1)
+        ->and($uploads[0]['if'])->toBe('failure()')
+        ->and($uploads[0]['with']['retention-days'])->toBe(7)
+        ->and($uploads[0]['with']['path'])->toBe('${{ runner.temp }}/editor-public-golden-path');
 });
 
-it('retains only redacted browser and backend failure evidence', function (): void {
-    $root = dirname(__DIR__, 2);
-    $diagnostics = file_get_contents($root . '/tests/Browser/support/failure-evidence.js');
-    $redactor = file_get_contents($root . '/tests/Browser/support/redact-log.js');
-    $runner = file_get_contents($root . '/scripts/run-editor-public-golden-path.sh');
+it('prepares an isolated cache-enabled consumer and dispatches the public lifecycle journey', function (): void {
+    $fixture = goldenPathCommandFixture();
+    $fixture->fake('composer', <<<'PHP'
+        if ($argv[1] === 'create-project') {
+            $root = $argv[count($argv) - 2];
+            foreach (['database', 'public', 'storage/logs'] as $path) { mkdir($root . '/' . $path, 0755, true); }
+            file_put_contents($root . '/.env.example', 'APP_NAME=Consumer');
+            file_put_contents($root . '/vite.config.js', 'export default {}');
+        }
+        PHP);
+    $fixture->fake('php', 'if (in_array("--version", $argv, true)) { echo "Laravel Framework 13.0.0"; }');
+    $fixture->files->write('node_modules/.bin/playwright', '#!' . PHP_BINARY . <<<'PHP'
 
-    expect($diagnostics)
-        ->toContain("page.on('console'")
-        ->toContain("page.on('pageerror'")
-        ->toContain("page.on('requestfailed'")
-        ->toContain("page.on('response'")
-        ->toContain("'browser-diagnostics.json'")
-        ->toContain("'journey-trace.json'")
-        ->toContain('-redacted.html')
-        ->toContain('-redacted.png')
-        ->toContain('mask: [')
-        ->toContain('safeUrl(url)')
-        ->and($redactor)->toContain('CAPELL_DIAGNOSTIC_SECRETS')
-        ->toContain('redactText(contents, secretValues)')
-        ->and($runner)->toContain('backend-redacted.log')
-        ->not->toContain('cat "${server_log}"')
-        ->not->toContain('tail -');
+        <?php
+        file_put_contents(getenv('CAPELL_GOLDEN_PATH_ARTIFACT_DIR') . '/journey.json', json_encode([
+            'arguments' => array_slice($argv, 1), 'url' => getenv('CAPELL_GOLDEN_PATH_URL'),
+        ], JSON_THROW_ON_ERROR));
+        PHP);
+    chmod($fixture->files->root . '/node_modules/.bin/playwright', 0755);
+    try {
+        $process = runGoldenPathFixture($fixture);
+        expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+        $consumer = $fixture->files->root . '/consumer';
+        $environment = Dotenv::parse((string) file_get_contents($consumer . '/.env'));
+        expect($environment)->toMatchArray([
+            'APP_DEBUG' => 'false', 'CAPELL_HTML_CACHE' => 'true',
+            'CAPELL_HTML_CACHE_ORIGIN_SWR' => 'false', 'CAPELL_HTML_CACHE_INVALIDATION_MODE' => 'instant',
+            'DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => $consumer . '/database/database.sqlite',
+        ]);
+        $journey = json_decode((string) file_get_contents($fixture->files->root . '/evidence/journey.json'), true, flags: JSON_THROW_ON_ERROR);
+        expect($journey['url'])->toBe('http://127.0.0.1:8765')
+            ->and($journey['arguments'])->toContain($fixture->files->root . '/tests/Browser/editor-public-golden-path.spec.js', '--project=chromium', '--output=' . $consumer . '/playwright-output');
+        $repositories = array_values(array_filter($fixture->calls('composer'), static fn (array $call): bool => ($call['arguments'][0] ?? '') === 'config' && ($call['arguments'][2] ?? '') === '--json'));
+        expect($repositories)->toHaveCount(11);
+        foreach ($repositories as $repository) {
+            $definition = json_decode($repository['arguments'][3], true, flags: JSON_THROW_ON_ERROR);
+            expect($definition['type'])->toBe('path')->and($definition['options']['symlink'])->toBeTrue()
+                ->and(is_dir($definition['url']))->toBeTrue();
+        }
+
+        $calls = array_column($fixture->calls('php'), 'arguments');
+        expect($calls)->toContain(['artisan', 'migrate', '--force', '--ansi'], ['artisan', 'filament:assets', '--ansi']);
+    } finally {
+        $fixture->close();
+    }
 });
+
+it('rejects a dirty source or mismatching companion revision before creating a consumer', function (string $condition, string $message): void {
+    $fixture = goldenPathCommandFixture();
+    if ($condition === 'dirty') {
+        $fixture->fake('git', 'echo in_array("status", $argv, true) ? "M tracked.php" : str_repeat("a", 40);');
+    }
+
+    try {
+        $process = runGoldenPathFixture($fixture, $condition === 'mismatch' ? ['CAPELL_PACKAGES_HEAD' => 'different-source'] : []);
+        expect($process->getExitCode())->toBe(2)
+            ->and($process->getErrorOutput())->toContain($message)
+            ->and($fixture->calls('composer'))->toBe([]);
+    } finally {
+        $fixture->close();
+    }
+})->with([
+    'dirty' => ['dirty', 'requires a clean tracked Capell checkout'],
+    'mismatch' => ['mismatch', 'must match the checked-out companion source'],
+]);
+
+it('executes the redaction and anonymous-output behavioural contracts', function (): void {
+    if (! is_dir(dirname(__DIR__, 2) . '/node_modules/@playwright/test')) {
+        $this->markTestSkipped('The browser test dependencies are not installed; run npm ci to execute the public-output contracts.');
+    }
+
+    $process = new Process(['node', '--test', 'tests/Browser/support/public-output.test.js'], dirname(__DIR__, 2));
+    $process->setTimeout(30);
+
+    expect($process->run())->toBe(0, $process->getOutput() . $process->getErrorOutput());
+});
+
+it('redacts backend credentials before writing retained failure evidence', function (): void {
+    $fixture = new CommandFixture;
+    $fixture->files->write('backend.log', 'email=owner@example.test password=private-value Bearer secret-bearer');
+    try {
+        $process = $fixture->run(['node', dirname(__DIR__, 2) . '/tests/Browser/support/redact-log.js', $fixture->files->root . '/evidence/backend-redacted.log', $fixture->files->root . '/backend.log'], [
+            'CAPELL_DIAGNOSTIC_SECRETS' => '["owner@example.test", "private-value", "secret-bearer"]',
+        ]);
+        expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+            ->and(file_get_contents($fixture->files->root . '/evidence/backend-redacted.log'))->toContain('[redacted]')
+            ->not->toContain('owner@example.test', 'private-value', 'secret-bearer');
+    } finally {
+        $fixture->close();
+    }
+});
+
+function goldenPathCommandFixture(): CommandFixture
+{
+    $fixture = new CommandFixture;
+    $fixture->files->copy('scripts/run-editor-public-golden-path.sh');
+    $fixture->files->copy('tests/fixtures/editor-public-golden-path.json');
+    foreach (['redact-log.js', 'failure-evidence.js', 'public-output.js'] as $file) {
+        $fixture->files->copy('tests/Browser/support/' . $file);
+    }
+
+    $fixture->files->copy('package.json');
+    $fixture->fake('git', 'if (in_array("rev-parse", $argv, true)) { echo str_repeat("a", 40); }');
+    foreach (['core', 'admin', 'frontend', 'installer', 'marketplace'] as $package) {
+        $fixture->files->write('packages/' . $package . '/composer.json', '{}');
+    }
+
+    foreach (['discovery-foundation', 'html-cache', 'layout-builder', 'navigation', 'content-sections', 'block-library'] as $package) {
+        $fixture->files->write('companion/packages/' . $package . '/composer.json', '{}');
+    }
+
+    $fixture->files->write('node_modules/.bin/playwright', '#!/usr/bin/env bash');
+    chmod($fixture->files->root . '/node_modules/.bin/playwright', 0755);
+
+    return $fixture;
+}
+
+/** @param array<string, string> $environment */
+function runGoldenPathFixture(CommandFixture $fixture, array $environment = []): Process
+{
+    return $fixture->run(['bash', 'scripts/run-editor-public-golden-path.sh'], array_replace([
+        'CAPELL_CHECKOUT' => $fixture->files->root,
+        'CAPELL_PACKAGES_ROOT' => $fixture->files->root . '/companion',
+        'CAPELL_GOLDEN_PATH_CONSUMER_ROOT' => $fixture->files->root . '/consumer',
+        'CAPELL_GOLDEN_PATH_ARTIFACT_DIR' => $fixture->files->root . '/evidence',
+        'CAPELL_GOLDEN_PATH_REQUIRE_CLEAN' => 'true',
+        'CAPELL_PACKAGES_HEAD' => '',
+    ], $environment));
+}

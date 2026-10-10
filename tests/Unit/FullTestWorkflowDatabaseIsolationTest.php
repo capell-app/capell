@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use Capell\Tests\Support\CommandFixture;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml\Yaml;
 
@@ -21,11 +22,35 @@ it('configures isolated matrix jobs and retains portable runner safety flags', f
         expect($job['strategy']['fail-fast'])->toBeFalse()
             ->and($job['strategy']['matrix'])->toBe('${{ fromJSON(needs.matrix.outputs.' . $kind . ') }}')
             ->and($job['env']['PAO_DISABLE'])->toBe(1);
-        $commands = implode("\n", array_column($job['steps'], 'run'));
-        // Prepared framework dependencies and generated per-cell databases prevent cross-job pollution.
-        expect($commands)->toContain('scripts/prepare-test-all-dependencies.php')
-            ->toContain($kind === 'portability' ? 'scripts/run-test-all-portability-cell.php' : 'scripts/run-test-all-cell.php')
-            ->not->toContain('composer require --no-interaction');
+        $fixture = new CommandFixture;
+        $fixture->fake('php');
+        $cell = ['id' => 'fixture-cell', 'laravel' => '13.*', 'testbench' => '11.*'];
+        try {
+            foreach ($job['steps'] as $step) {
+                if (! isset($step['run'])) {
+                    continue;
+                }
+
+                if (! str_starts_with($step['name'], 'Prepare exact framework') && ! str_starts_with($step['name'], 'Run ')) {
+                    continue;
+                }
+
+                $command = $step['run'];
+                foreach ($cell as $key => $value) {
+                    $command = str_replace('${{ matrix.' . $key . ' }}', $value, $command);
+                }
+
+                $process = $fixture->run(['bash', '-eu', '-c', $command]);
+                expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+            }
+
+            expect(array_column($fixture->calls('php'), 'arguments'))->toBe([
+                ['scripts/prepare-test-all-dependencies.php', '--laravel=13.*', '--testbench=11.*'],
+                [$kind === 'portability' ? 'scripts/run-test-all-portability-cell.php' : 'scripts/run-test-all-cell.php', '--cell=fixture-cell', '--output-dir=test-all-results'],
+            ])->and($fixture->calls('composer'))->toBe([]);
+        } finally {
+            $fixture->close();
+        }
     }
 
     foreach (['test:unit', 'test:fast', 'test:fast:ci', 'test:all', 'test:all:ci', 'test:tia', 'test:shards'] as $script) {

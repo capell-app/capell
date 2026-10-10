@@ -2,77 +2,62 @@
 
 declare(strict_types=1);
 
+use Capell\Tests\Support\CommandFixture;
 use Symfony\Component\Yaml\Yaml;
 
-it('keeps every core split pull request forwarding workflow aligned with the core monorepo', function (): void {
-    $repositoryRoot = dirname(__DIR__, 2);
-    $packages = json_decode(
-        file_get_contents($repositoryRoot . '/config/release-packages.json'),
-        true,
-        512,
-        JSON_THROW_ON_ERROR,
-    );
-
-    expect(array_column($packages, 'path'))->toBe([
-        'packages/core',
-        'packages/admin',
-        'packages/frontend',
-        'packages/installer',
-        'packages/marketplace',
-    ]);
-
-    $expectedWorkflow = null;
-
-    foreach ($packages as $package) {
-        $workflowPath = $repositoryRoot . '/' . $package['path'] . '/.github/workflows/forward-pr-to-monorepo.yml';
-
-        expect($workflowPath)->toBeFile();
-
-        $workflow = file_get_contents($workflowPath);
-
-        expect($workflow)
-            ->toBeString()
-            ->toContain("github.event.repository.name != 'capell'")
-            ->toContain('MONOREPO_REPOSITORY: capell-app/capell')
-            ->toContain('MONOREPO_BASE: 1.x')
-            ->toContain('repository: capell-app/capell')
-            ->not->toContain('capell-app/capell-packages');
-
-        if ($expectedWorkflow === null) {
-            $expectedWorkflow = $workflow;
-
-            continue;
-        }
-
-        expect($workflow)->toBe($expectedWorkflow);
-    }
-});
-
-it('allows copying a fork head without executing it or persisting checkout credentials', function (): void {
+it('forwards split package contents into the Core monorepo without executing fork code', function (): void {
     $root = dirname(__DIR__, 2);
     /** @var list<array{path: string}> $packages */
-    $packages = json_decode((string) file_get_contents($root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR);
-
+    $packages = json_decode((string) file_get_contents($root . '/config/release-packages.json'), true, flags: JSON_THROW_ON_ERROR);
     foreach ($packages as $package) {
-        /** @var array{jobs: array{forward: array{steps: list<array{name: string, uses?: string, with?: array<string, mixed>, run?: string}>}}} $workflow */
+        /** @var array{jobs: array{forward: array{if: string, env: array<string, string>, steps: list<array{name: string, uses?: string, with?: array<string, mixed>, run?: string}>}}} $workflow */
         $workflow = Yaml::parseFile($root . '/' . $package['path'] . '/.github/workflows/forward-pr-to-monorepo.yml');
-        $steps = array_column($workflow['jobs']['forward']['steps'], null, 'name');
+        $job = $workflow['jobs']['forward'];
+        expect($job['env'])->toMatchArray(['MONOREPO_REPOSITORY' => 'capell-app/capell', 'MONOREPO_BASE' => '1.x']);
+        // Prevent recursive forwarding when this workflow is copied into the monorepo.
+        expect($job['if'])->toContain("github.event.repository.name != 'capell'");
+        $steps = array_column($job['steps'], null, 'name');
         $source = $steps['Checkout split PR contents'];
         $monorepo = $steps['Checkout Capell monorepo'];
-        $publication = $steps['Create or update monorepo PR'];
+        throw_unless(isset($source['with'], $monorepo['with']), RuntimeException::class, 'Both forwarding checkouts need explicit options.');
+        expect($source['with'])->toMatchArray([
+            'repository' => '${{ github.event.pull_request.head.repo.full_name }}',
+            'ref' => '${{ github.event.pull_request.head.sha }}',
+            'persist-credentials' => false,
+            'allow-unsafe-pr-checkout' => true,
+        ])->not->toHaveKey('token');
+        expect($monorepo['with'])->toMatchArray(['repository' => 'capell-app/capell', 'ref' => '1.x'])
+            ->not->toHaveKey('allow-unsafe-pr-checkout');
 
-        throw_unless(isset($source['uses'], $source['with'], $monorepo['with'], $publication['run']), RuntimeException::class, 'The forwarding workflow must define both checkouts and the publication script.');
-
-        expect($source['uses'])->toBe('actions/checkout@11d5960a326750d5838078e36cf38b85af677262')
-            ->and($source['with']['repository'])->toBe('${{ github.event.pull_request.head.repo.full_name }}')
-            ->and($source['with']['ref'])->toBe('${{ github.event.pull_request.head.sha }}')
-            ->and($source['with']['persist-credentials'])->toBeFalse()
-            ->and($source['with']['allow-unsafe-pr-checkout'] ?? false)->toBeTrue()
-            ->and($source['with'])->not->toHaveKey('token')
-            ->and($monorepo['with'])->not->toHaveKey('allow-unsafe-pr-checkout');
-
-        $forward = $publication['run'];
-        expect($forward)->toContain('cd monorepo', 'rsync -a --delete --exclude', '"../split/"')
-            ->not->toMatch('/(?:composer|npm|yarn|pnpm)\s+(?:install|run|test)|(?:cd|source)\s+[^\n]*split/');
+        $fixture = new CommandFixture;
+        $fixture->files->write('split/content.txt', 'Forwarded content');
+        $fixture->files->write('split/.git/config', 'private checkout credentials');
+        $fixture->files->write('split/package.json', '{"scripts":{"test":"touch executed-fork"}}');
+        $fixture->files->write('monorepo/packages/core/stale.txt', 'Replace stale content');
+        $fixture->fake('git', 'if (in_array("status", $argv, true)) { echo "M package"; }');
+        $fixture->fake('gh', 'if (in_array("create", $argv, true)) { echo "https://example.test/pull/1"; }');
+        try {
+            $process = $fixture->run(['bash', '-c', $steps['Create or update monorepo PR']['run'] ?? ''], [
+                'PACKAGE_NAME' => 'core', 'SOURCE_PR_NUMBER' => '42',
+                'SOURCE_PR_TITLE' => 'Copy package', 'SOURCE_PR_AUTHOR' => 'author',
+                'SOURCE_PR_URL' => 'https://example.test/pull/42',
+                'SOURCE_PR_BASE' => 'main', 'SOURCE_PR_HEAD' => 'feature',
+                'SOURCE_REPOSITORY' => 'example/core',
+                'MONOREPO_REPOSITORY' => $job['env']['MONOREPO_REPOSITORY'],
+                'MONOREPO_BASE' => $job['env']['MONOREPO_BASE'],
+            ]);
+            expect($process->getExitCode())->toBe(0, $process->getErrorOutput())
+                ->and(file_get_contents($fixture->files->root . '/monorepo/packages/core/content.txt'))->toBe('Forwarded content')
+                ->and($fixture->files->root . '/monorepo/packages/core/stale.txt')->not->toBeFile()
+                ->and($fixture->files->root . '/monorepo/packages/core/.git')->not->toBeDirectory()
+                ->and($fixture->calls('composer'))->toBe([])
+                ->and($fixture->calls('npm'))->toBe([])
+                ->and($fixture->files->root . '/split/executed-fork')->not->toBeFile();
+            expect(array_column($fixture->calls('gh'), 'arguments'))->toContain([
+                'pr', 'comment', '42', '--repo', 'example/core', '--body', 'Forwarded to https://example.test/pull/1.',
+            ]);
+        } finally {
+            $fixture->close();
+        }
     }
 });
