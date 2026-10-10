@@ -54,6 +54,8 @@ Presets should use this vocabulary for shared brand values:
 
 Theme packages may include package-specific keys. Public theme code must tolerate unknown keys and continue with safe defaults.
 
+Primary and accent backgrounds emit `--theme-primary-contrast` and `--theme-accent-contrast` for readable black or white labels. These values derive from the colours after sanitisation and runtime contrast repair. Use the paired token for a filled control; a fixed dark label can become unreadable when the runtime replaces a bright accent with a dark fallback. Editor previews derive the same pairs after extension token mappings.
+
 ## Assets
 
 Theme definitions declare frontend assets in `ThemeDefinitionData::assets`. Package providers should register CSS/JS sources in PHP registration code instead of requiring every app to copy paths by hand.

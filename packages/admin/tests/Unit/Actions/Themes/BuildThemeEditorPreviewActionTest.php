@@ -24,6 +24,7 @@ it('builds preview html from unsaved editor state', function (): void {
 
     expect($preview->cssVariables['--theme-primary'])->toBe('#2563eb')
         ->and($preview->cssVariables['--theme-surface'])->toBe('#f8fafc')
+        ->and($preview->cssVariables['--theme-primary-contrast'])->toBe('#ffffff')
         ->and($preview->dataAttributes['data-color-mode'])->toBe('dark')
         ->and($preview->html)->toContain('--theme-primary:#2563eb;')
         ->and($preview->html)->toContain('.theme-preview__hero{letter-spacing:0;}')
@@ -65,6 +66,7 @@ it('applies extension preview content and token mappings', function (): void {
         {
             return [
                 '--package-accent' => '#f59e0b',
+                '--theme-accent' => '#ffffff',
                 'bad-token" onclick="' => 'ignored',
             ];
         }
@@ -82,6 +84,7 @@ it('applies extension preview content and token mappings', function (): void {
     $preview = BuildThemeEditorPreviewAction::run(ThemeEditorStateData::defaults(), $context);
 
     expect($preview->cssVariables['--package-accent'])->toBe('#f59e0b')
+        ->and($preview->cssVariables['--theme-accent-contrast'])->toBe('#000000')
         ->and($preview->dataAttributes['data-package-theme'])->toBe('package-theme')
         ->and($preview->cssVariables)->not->toHaveKey('bad-token" onclick="')
         ->and($preview->dataAttributes)->not->toHaveKey('bad-attribute"')

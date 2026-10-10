@@ -13,7 +13,17 @@ class ThemeTokenRenderer
         $lines = [];
         $fallbackTokens = (new BrandProfileData)->tokens();
 
-        foreach ((new ThemeTokenValidator)->sanitize($brand->tokens(), $fallbackTokens) as $token => $value) {
+        $validator = new ThemeTokenValidator;
+        $tokens = $validator->sanitize($brand->tokens(), $fallbackTokens);
+
+        // Pair labels with the colour actually emitted after safe fallbacks.
+        foreach (['primary', 'accent'] as $name) {
+            $tokens['--theme-' . $name . '-contrast'] = $validator->contrastIssues('#000000', $tokens['--theme-' . $name]) === []
+                ? '#000000'
+                : '#ffffff';
+        }
+
+        foreach ($tokens as $token => $value) {
             $lines[] = '    ' . $token . ': ' . $value . ';';
         }
 

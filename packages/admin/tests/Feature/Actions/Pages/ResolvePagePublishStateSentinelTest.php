@@ -37,6 +37,8 @@ it('keeps a genuine future schedule as scheduled, not draft', function (): void 
 });
 
 it('keeps a live page published with no draft or schedule flags', function (): void {
+    $this->freezeTime();
+
     $page = Page::factory()->create([
         'visible_from' => CarbonImmutable::now()->subDay(),
         'visible_until' => null,
