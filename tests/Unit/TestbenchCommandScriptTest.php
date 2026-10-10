@@ -21,7 +21,7 @@ it('runs cache-sensitive Testbench Composer commands through the portable runner
 
     foreach (['coverage', 'coverage-report'] as $scriptName) {
         expect($composer['scripts'][$scriptName])
-            ->toContain('@php scripts/run-testbench-command.php optimize --except=routes --ansi');
+            ->toContain('@php scripts/with-lock.php capell-release-verification -- php scripts/run-testbench-command.php optimize --except=routes --ansi');
     }
 });
 
