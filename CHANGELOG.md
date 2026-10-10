@@ -14,6 +14,8 @@ the `Update Changelog` workflow.
 
 ### Fixed
 
+- Grouped Users and its nested Roles entry under System, and Marketing Studio under Marketing.
+
 - Added an ordinary draft-save control in the configured page action position without duplicating extension-provided draft actions.
 
 - Preserved site domain ports and the selected site across page creation, validated duplicate page URLs before saving, and simplified page tools and layout navigation.

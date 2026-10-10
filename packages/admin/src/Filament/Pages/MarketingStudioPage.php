@@ -49,9 +49,9 @@ final class MarketingStudioPage extends Dashboard
     }
 
     #[Override]
-    public static function getNavigationGroup(): ?string
+    public static function getNavigationGroup(): string
     {
-        return null;
+        return __('capell-admin::navigation.group_marketing');
     }
 
     #[Override]
