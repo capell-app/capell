@@ -17,7 +17,6 @@ use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Admin\Filament\Resources\Users\UserResource;
-use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
@@ -117,22 +116,24 @@ it('places settings with operational system pages', function (): void {
     Filament::setServingStatus();
 
     $groups = Filament::getNavigation();
-    $system = collect($groups[0]->getItems())->first(fn (NavigationItem $item): bool => $item->getLabel() === __('capell-admin::navigation.workspace_system'));
-    expect($system)->toBeInstanceOf(NavigationItem::class);
-    assert($system instanceof NavigationItem);
-    expect($system->getUrl())->toBe(SettingsPage::getUrl());
+    $system = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.workspace_system'));
+    expect($system)->toBeInstanceOf(NavigationGroup::class);
+    assert($system instanceof NavigationGroup);
+    expect(collect($system->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())->toContain(SettingsPage::getUrl());
 });
 
-it('shows a flat workspace sidebar instead of exposing every secondary tool', function (): void {
+it('keeps sidebar groups while moving secondary design tools into local navigation', function (): void {
     test()->actingAsAdmin();
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
     $groups = Filament::getNavigation();
-    $keys = collect($groups)->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
-        ->map(fn (NavigationItem $item): string => $item->getKey())->all();
-    expect($keys)->toContain('capell.workspace.pages', 'capell.workspace.library', 'capell.workspace.design', 'capell.workspace.system')
-        ->and($groups)->toHaveCount(1);
+    $labels = collect($groups)->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all();
+    expect($labels)->toContain(__('capell-admin::navigation.group_websites'), __('capell-admin::navigation.workspace_library'), __('capell-admin::navigation.workspace_design'), __('capell-admin::navigation.workspace_system'));
+    $design = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.workspace_design'));
+    assert($design instanceof NavigationGroup);
+    expect(collect($design->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())
+        ->toBe([__('capell-admin::navigation.layouts'), __('capell-admin::navigation.themes')]);
 });
 
 it('does not expose secondary resources to an actor without resource permissions', function (): void {
@@ -141,8 +142,8 @@ it('does not expose secondary resources to an actor without resource permissions
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
     $keys = collect(Filament::getNavigation())->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
-        ->map(fn (NavigationItem $item): string => $item->getKey())->all();
-    expect($keys)->not->toContain('capell.workspace.library', 'capell.workspace.design');
+        ->map(fn (NavigationItem $item): ?string => $item->getUrl())->all();
+    expect($keys)->not->toContain(MediaResource::getUrl(), LayoutResource::getUrl(), ThemeResource::getUrl());
 });
 
 it('keeps a permitted package child reachable when its parent uses a different group', function (): void {
@@ -155,9 +156,10 @@ it('keeps a permitted package child reachable when its parent uses a different g
     Filament::setCurrentPanel($panel);
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
-    Filament::getNavigation();
-    $local = resolve(WorkspaceNavigation::class)->localNavigation();
-    expect($local)->not->toBeEmpty();
-    expect(collect($local[0]->getItems())->map(fn (NavigationItem $item): string => $item->getKey())->all())
-        ->toContain('test.articles', 'test.tags');
+    $groups = Filament::getNavigation();
+    $article = collect($groups)->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
+        ->first(fn (NavigationItem $item): bool => $item->getKey() === 'test.articles');
+    expect($article)->toBeInstanceOf(NavigationItem::class);
+    assert($article instanceof NavigationItem);
+    expect(collect($article->getChildItems())->map(fn (NavigationItem $item): string => $item->getKey())->all())->toContain('test.tags');
 });

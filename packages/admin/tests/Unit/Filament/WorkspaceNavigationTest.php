@@ -13,7 +13,7 @@ beforeEach(function (): void {
         ->mapWithKeys(fn (string $label, string $key): array => ['navigation.' . $key => $label])->all(), 'en', 'capell-admin');
 });
 
-it('moves reusable content and design tools into local navigation without losing package additions', function (): void {
+it('keeps content grouped and secondary design tools local without losing package additions', function (): void {
     $navigation = new WorkspaceNavigation;
     $items = [];
     foreach ([
@@ -26,17 +26,19 @@ it('moves reusable content and design tools into local navigation without losing
         'Themes' => '/admin/themes',
         'Package feature' => '/admin/new-package-feature',
     ] as $label => $url) {
-        $items[] = NavigationItem::make($label)->url($url)->isActiveWhen(fn (): bool => $label === 'Sections');
+        $items[] = NavigationItem::make($label)->url($url)->isActiveWhen(fn (): bool => $label === 'Widgets');
     }
 
     $groups = $navigation->organise([NavigationGroup::make()->items($items)]);
-    expect(array_map(fn (NavigationItem $item): string => $item->getLabel(), collect($groups[0]->getItems())->all()))
-        ->toBe(['Package feature', 'Content Library', 'Design']);
+    expect(array_map(fn (NavigationGroup $group): ?string => $group->getLabel(), $groups))
+        ->toBe([null, 'Content Library', 'Design']);
+    expect(collect($groups[0]->getItems())->first()?->getLabel())->toBe('Package feature')
+        ->and(collect($groups[1]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['Media', 'Sections'])
+        ->and(collect($groups[2]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['Layouts', 'Themes'])
+        ->and(collect($groups[2]->getItems())->first()?->isActive())->toBeTrue();
     $local = $navigation->localNavigation();
-    expect(array_map(fn (NavigationItem $item): string => $item->getLabel(), collect($local[0]->getItems())->all()))
-        ->toBe(['Media', 'Sections'])
-        ->and(collect($groups[0]->getItems())->all()[1]->isActive())->toBeTrue()
-        ->and(collect($groups[0]->getItems())->all()[1]->getUrl())->toBe('/admin/media');
+    expect(collect($local[0]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())
+        ->toBe(['Layouts', 'Layout Presets', 'Widgets', 'Block Templates', 'Themes']);
 });
 
 it('keeps roles reachable inside system and retains original URLs and badges', function (): void {
@@ -44,20 +46,21 @@ it('keeps roles reachable inside system and retains original URLs and badges', f
     $users = NavigationItem::make('Users')->url('/admin/users')->badge('4')->childItems([$roles]);
     $navigation = new WorkspaceNavigation;
     $groups = $navigation->organise([NavigationGroup::make()->items([$users])]);
-    $local = collect($navigation->localNavigation()[0]->getItems())->all();
-    expect(collect($groups[0]->getItems())->all()[0]->getLabel())->toBe('System')
-        ->and($local[0]->getBadge())->toBe('4')
-        ->and($local[1]->getUrl())->toBe('/admin/shield/roles');
+    $item = collect($groups[0]->getItems())->first();
+    expect($groups[0]->getLabel())->toBe('System')
+        ->and($item?->getBadge())->toBe('4')
+        ->and(collect($item?->getChildItems())->first()?->getUrl())->toBe('/admin/shield/roles')
+        ->and($navigation->localNavigation())->toBeEmpty();
 });
 
 it('does not produce empty headings or carry local navigation across a new menu build', function (): void {
     $navigation = new WorkspaceNavigation;
     $navigation->organise([NavigationGroup::make()->items([
-        NavigationItem::make('Media')->url('/admin/media')->isActiveWhen(fn (): bool => true),
+        NavigationItem::make('Layouts')->url('/admin/layout-builder/layouts')->isActiveWhen(fn (): bool => true),
     ])]);
     expect($navigation->localNavigation())->not->toBeEmpty();
     $groups = $navigation->organise([]);
-    expect(collect($groups[0]->getItems())->all())->toBeEmpty()->and($navigation->localNavigation())->toBeEmpty();
+    expect($groups)->toBeEmpty()->and($navigation->localNavigation())->toBeEmpty();
 });
 
 it('only creates optional workspaces when packages contribute visible destinations', function (): void {
@@ -67,7 +70,7 @@ it('only creates optional workspaces when packages contribute visible destinatio
             NavigationItem::make('Campaigns')->url('/admin/campaigns')->isActiveWhen(fn (): bool => true),
         ]),
     ]);
-    expect(collect($groups[0]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())
-        ->toBe(['Marketing'])
-        ->and(collect($navigation->localNavigation()[0]->getItems())->first()?->getUrl())->toBe('/admin/campaigns');
+    expect($groups[0]->getLabel())->toBe('Marketing')
+        ->and(collect($groups[0]->getItems())->first()?->getUrl())->toBe('/admin/campaigns')
+        ->and($navigation->localNavigation())->toBeEmpty();
 });
