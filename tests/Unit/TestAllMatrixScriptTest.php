@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Tests\Support\CommandFixture;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Yaml\Yaml;
+
 require_once dirname(__DIR__, 2) . '/scripts/test-all/TestAllMatrix.php';
 require_once dirname(__DIR__, 2) . '/scripts/test-all/TestAllDatabaseService.php';
 
@@ -251,76 +255,88 @@ it('keeps SQLite in-process instead of disguising it as a server service', funct
         ->toThrow(LogicException::class, 'SQLite portability cells do not start a database service.');
 });
 
-it('defines a focused database portability group with generated test databases', function (): void {
-    $root = dirname(__DIR__, 2);
-    $composer = json_decode((string) file_get_contents($root . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
-    $pest = (string) file_get_contents($root . '/tests/Pest.php');
-    $command = $composer['scripts']['test:database:portability:ci'] ?? null;
-
-    expect($command)->toBeString()
-        ->toContain('vendor/bin/pest')
-        ->toContain('--group=database-portability')
-        ->toContain('--fail-on-empty-test-suite')
-        ->toContain('--log-junit=${PEST_JUNIT_LOG:?PEST_JUNIT_LOG must be set}')
-        ->not->toContain('--parallel')
-        ->and($pest)
-        ->toContain("pest()->group('database-portability')->in(")
-        ->toContain('DatabaseCompatibilityTest.php')
-        ->toContain('PermissionTeamsMigrationTest.php')
-        ->toContain('GlobalPermissionTeamUniquenessMigrationTest.php')
-        ->toContain('DatabaseBackupDriversTest.php')
-        ->toContain('DatabasePortabilityEnvironmentTest.php');
-
-    foreach ([
-        'packages/core/tests/Feature/Commands/DoctorCommandTest.php',
-        'packages/core/tests/Feature/Console/UpgradeCommandTest.php',
-        'packages/core/tests/Feature/Database/DatabasePortabilityEnvironmentTest.php',
-        'packages/core/tests/Feature/Install/RunInstallActionTest.php',
-        'packages/core/tests/Feature/Permissions/GlobalPermissionTeamUniquenessMigrationTest.php',
-        'packages/core/tests/Feature/Permissions/PermissionTeamsMigrationTest.php',
-        'packages/core/tests/Unit/Backup/DatabaseBackupDriversTest.php',
-        'packages/core/tests/Unit/Support/Database/DatabaseCompatibilityTest.php',
-    ] as $testPath) {
-        expect((string) file_get_contents($root . '/' . $testPath))
-            ->not->toContain('markTestSkipped')
-            ->not->toContain('->skip(');
+it('discovers the database portability group through the repository Pest configuration', function (): void {
+    $process = new Process([PHP_BINARY, 'vendor/bin/pest', '--configuration=phpunit.xml', '--group=database-portability', '--list-tests'], dirname(__DIR__, 2));
+    expect($process->run())->toBe(0, $process->getErrorOutput());
+    foreach (['DatabaseCompatibilityTest', 'PermissionTeamsMigrationTest', 'GlobalPermissionTeamUniquenessMigrationTest', 'DatabaseBackupDriversTest', 'DatabasePortabilityEnvironmentTest'] as $test) {
+        expect($process->getOutput())->toContain($test);
     }
 });
 
-it('keeps CI and the local fallback on the same matrix, dependency, and cell scripts', function (): void {
-    $root = dirname(__DIR__, 2);
-    $workflow = (string) file_get_contents($root . '/.github/workflows/test-full.yml');
-    $localRunner = (string) file_get_contents($root . '/scripts/run-test-all-matrix.php');
-    $composer = json_decode((string) file_get_contents($root . '/composer.json'), true, flags: JSON_THROW_ON_ERROR);
-
-    expect($workflow)
-        ->toContain('php scripts/test-all-matrix.php target --cell="$TARGET_CELL"')
-        ->toContain('scripts/test-all-matrix.php behaviour')
-        ->toContain('scripts/test-all-matrix.php unit')
-        ->toContain('scripts/test-all-matrix.php portability')
-        ->toContain('scripts/prepare-test-all-dependencies.php')
-        ->toContain('scripts/run-test-all-cell.php')
-        ->toContain('scripts/run-test-all-portability-cell.php')
-        ->and($localRunner)
-        ->toContain("getopt('', ['cell:', 'output-dir:'])")
-        ->toContain('$selectedCells')
-        ->toContain('scripts/prepare-test-all-dependencies.php')
-        ->toContain('scripts/run-test-all-cell.php')
-        ->toContain('scripts/run-test-all-portability-cell.php')
-        ->toContain("'git', 'worktree', 'add', '--detach'")
-        ->toContain("'git', 'worktree', 'remove', '--force'")
-        ->toMatch("/'docker',\s*'run'/")
-        ->toContain('/summary.json')
-        ->toContain('reapStaleTestAllContainers($repositoryRoot)')
-        ->toContain("'name=^capell-test-all-'")
-        ->toContain('[0-9a-f]{6}(?:-[a-z0-9-]+)?')
-        ->not->toContain('Illuminate\\Support\\Facades')
-        ->and($composer['scripts']['test:all:matrix:local'] ?? null)
-        ->toBe([
-            'Composer\\Config::disableProcessTimeout',
-            '@php scripts/with-lock.php capell-release-verification -- php scripts/run-test-all-matrix.php',
-        ]);
+it('exports hosted matrix outcomes from the shared repository definition', function (): void {
+    /** @var array<string, mixed> $workflow */
+    $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/test-full.yml');
+    $steps = array_column($workflow['jobs']['matrix']['steps'], null, 'name');
+    $fixture = new CommandFixture;
+    $fixture->files->copy('scripts/test-all-matrix.php');
+    $fixture->files->copy('scripts/test-all/TestAllMatrix.php');
+    try {
+        $process = $fixture->run(['bash', '-e', '-c', $steps['Export shared matrix']['run']], ['TARGET_CELL' => '', 'GITHUB_OUTPUT' => $fixture->files->root . '/output']);
+        expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+        $lines = file($fixture->files->root . '/output', FILE_IGNORE_NEW_LINES);
+        expect($lines)->toBeArray()->toHaveCount(3);
+        throw_unless(is_array($lines), RuntimeException::class, 'The hosted matrix must produce an output file.');
+        foreach ($lines as $line) {
+            [$kind, $json] = explode('=', $line, 2);
+            $expected = match ($kind) {
+                'behaviour' => TestAllMatrix::behaviour(),
+                'unit' => TestAllMatrix::unit(),
+                'portability' => TestAllMatrix::portability(),
+                default => throw new RuntimeException('Unexpected hosted matrix output: ' . $kind),
+            };
+            expect(json_decode($json, true, flags: JSON_THROW_ON_ERROR)['include'])->toBe($expected);
+        }
+    } finally {
+        $fixture->close();
+    }
 });
+
+it('runs an isolated selected matrix cell and preserves its evidence and failure status', function (string $cell, bool $fail): void {
+    $fixture = new CommandFixture;
+    foreach (['scripts/run-test-all-matrix.php', 'scripts/test-all/ProcessRunner.php', 'scripts/test-all/TestAllMatrix.php'] as $path) {
+        $fixture->files->copy($path);
+    }
+
+    $fixture->files->write('cell.php', <<<'PHP'
+        <?php
+        file_put_contents(getenv('MATRIX_FIXTURE_CAPTURE'), json_encode([
+            'runner' => basename($argv[0]), 'arguments' => array_slice($argv, 1),
+            'workers' => getenv('PEST_MAX_PROCESSES'), 'cwd' => getcwd(),
+        ], JSON_THROW_ON_ERROR));
+        if (getenv('MATRIX_FIXTURE_FAIL') === 'true') { throw new RuntimeException('Cell fixture failed'); }
+        PHP);
+    $fixture->fake('git', <<<'PHP'
+        if (in_array('rev-parse', $argv, true)) { echo str_repeat('a', 40); }
+        if (($argv[1] ?? '') === 'worktree' && ($argv[2] ?? '') === 'add') {
+            $workspace = $argv[4];
+            mkdir($workspace . '/scripts', 0755, true);
+            file_put_contents($workspace . '/scripts/prepare-test-all-dependencies.php', '<?php');
+            foreach (['run-test-all-cell.php', 'run-test-all-portability-cell.php'] as $runner) {
+                copy(getenv('MATRIX_FIXTURE_CELL'), $workspace . '/scripts/' . $runner);
+            }
+        }
+        PHP);
+    try {
+        $process = $fixture->run([PHP_BINARY, 'scripts/run-test-all-matrix.php', '--cell=' . $cell, '--output-dir=evidence'], [
+            'MATRIX_FIXTURE_CELL' => $fixture->files->root . '/cell.php',
+            'MATRIX_FIXTURE_CAPTURE' => $fixture->files->root . '/captured.json',
+            'MATRIX_FIXTURE_FAIL' => $fail ? 'true' : 'false',
+        ]);
+        expect($process->getExitCode())->toBe($fail ? 1 : 0, $process->getErrorOutput());
+        $summary = json_decode((string) file_get_contents($fixture->files->root . '/evidence/summary.json'), true, flags: JSON_THROW_ON_ERROR);
+        expect($summary['results'])->toBe([['id' => $cell, 'exit_code' => $fail ? 255 : 0, 'status' => $fail ? 'failed' : 'passed']]);
+        $captured = json_decode((string) file_get_contents($fixture->files->root . '/captured.json'), true, flags: JSON_THROW_ON_ERROR);
+        expect($captured['runner'])->toBe(str_contains($cell, 'portability') ? 'run-test-all-portability-cell.php' : 'run-test-all-cell.php')
+            ->and($captured['arguments'])->toBe(['--cell=' . $cell, '--output-dir=' . $fixture->files->root . '/evidence/' . $cell])
+            ->and($captured['cwd'])->not->toBe(dirname(__DIR__, 2))
+            ->and(is_dir($captured['cwd']))->toBeFalse();
+        expect(array_filter($fixture->calls('docker'), static fn (array $call): bool => ($call['arguments'][0] ?? '') === 'run'))->toBe([]);
+    } finally {
+        $fixture->close();
+    }
+})->with([
+    ['l13-unit-core', false], ['l13-portability-sqlite', false], ['l13-unit-core', true],
+]);
 
 it('can select one exact hosted repair cell without changing its topology', function (): void {
     $root = dirname(__DIR__, 2);

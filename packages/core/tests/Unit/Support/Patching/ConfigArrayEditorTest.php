@@ -34,8 +34,8 @@ PHP);
         $config->insertKey('disks.page_cache', new String_('cached-pages'));
         $editor->save();
 
-        $content = (string) file_get_contents($path);
-        expect($content)->toContain("'page_cache' => 'cached-pages'")
+        $configValues = require $path;
+        expect($configValues['disks'])->toBe(['page_cache' => 'cached-pages', 'local' => ['driver' => 'local']])
             ->and(new ConfigArrayEditor(new PhpFileEditor($path))->hasKey('disks.page_cache'))->toBeTrue();
     } finally {
         if (file_exists($path)) {

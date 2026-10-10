@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Patching\PhpFileEditor;
+use Capell\Tests\Support\PatchedPhpRuntime;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Date;
@@ -24,8 +25,9 @@ use Illuminate\Support\Str as SupportStr;
 
 class Example
 {
-    public function existing(): void
+    public function existing(): array
     {
+        return ['total' => (new Collection([1, 2]))->sum(), 'slug' => SupportStr::slug('Hello World'), 'removed_alias' => Arr::class];
     }
 }
 PHP);
@@ -36,8 +38,7 @@ PHP);
         expect($editor->findNamespace())->toBe('App\Sample')
             ->and($editor->findClass('App\Sample\Example')?->name?->name)->toBe('Example')
             ->and($editor->findMethodInClass('App\Sample\Example', 'existing')?->name->name)->toBe('existing')
-            ->and($editor->findMethodInClass('App\Sample\Example', 'missing'))->toBeNull()
-            ->and($editor->originalContent())->toContain('use Illuminate\Support\Arr;');
+            ->and($editor->findMethodInClass('App\Sample\Example', 'missing'))->toBeNull();
 
         $editor
             ->addUseStatements([
@@ -50,12 +51,10 @@ PHP);
 
         $printed = $editor->print();
 
-        expect($printed)->toContain('use Illuminate\Support\Collection;')
-            ->and($printed)->toContain('use Illuminate\Support\Str as SupportStr;')
-            ->and($printed)->not->toContain('use Illuminate\Support\Arr;');
-
         $editor->save();
-
+        expect(PatchedPhpRuntime::evaluate($path, '(new App\\Sample\\Example)->existing()'))->toBe([
+            'total' => 3, 'slug' => 'hello-world', 'removed_alias' => 'App\\Sample\\Arr',
+        ]);
         expect((string) file_get_contents($path))->toBe($printed);
 
         Date::setTestNow('2026-05-30 12:34:56');
@@ -88,6 +87,10 @@ use Illuminate\Support\Str;
 
 class GlobalExample
 {
+    public function values(): array
+    {
+        return ['total' => (new Collection([2, 3]))->sum(), 'removed_alias' => Str::class];
+    }
 }
 PHP);
 
@@ -103,11 +106,8 @@ PHP);
             ->removeUseStatements([Str::class])
             ->setAst($editor->getAst());
 
-        $printed = $editor->print();
-
-        expect($printed)->toContain('use Illuminate\Support\Collection;')
-            ->and($printed)->not->toContain('use Illuminate\Support\Str;')
-            ->and($editor->findClass('GlobalExample')?->name?->name)->toBe('GlobalExample');
+        $editor->save();
+        expect(PatchedPhpRuntime::evaluate($path, '(new GlobalExample)->values()'))->toBe(['total' => 5, 'removed_alias' => 'Str']);
     } finally {
         if (file_exists($path)) {
             unlink($path);
@@ -129,13 +129,14 @@ PHP);
 
     try {
         $editor = new PhpFileEditor($path);
+        $original = file_get_contents($path);
 
         chmod($path, 0400);
 
         expect(fn (): null => $editor->save())
             ->toThrow(RuntimeException::class, 'Failed to write PHP file at path');
 
-        expect((string) file_get_contents($path))->toContain('class ReadOnlyExample');
+        expect(file_get_contents($path))->toBe($original);
     } finally {
         if (file_exists($path)) {
             chmod($path, 0600);

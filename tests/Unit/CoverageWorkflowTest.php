@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Tests\Support\CommandFixture;
 use Symfony\Component\Yaml\Yaml;
 
 require_once __DIR__ . '/../Support/DomQuery.php';
@@ -78,60 +79,84 @@ it('gives coverage workers a larger memory budget with equivalent test configura
         expect($command)->not->toContain('memory_limit');
     }
 
-    // The profiler launches workers too and must leave their budget to PHPUnit.
-    expect((string) file_get_contents($root . '/scripts/profile-pest-tests.php'))->not->toContain('memory_limit');
 });
 
-it('runs coverage and mutation commands with the coverage worker configuration', function (): void {
-    foreach (['coverage', 'coverage-report', 'coverage:blade', 'test:mutate', 'test:mutate:ci'] as $name) {
-        $commands = array_filter((array) coverageComposerScripts()[$name], static fn (string $command): bool => str_contains($command, 'vendor/bin/pest'));
-        expect($commands)->not->toBeEmpty();
-        foreach ($commands as $command) {
-            // These executable flags select the worker budget, not source formatting.
-            expect($command)->toContain('--configuration=phpunit-coverage.xml')
-                ->not->toContain('--configuration=phpunit.xml');
-        }
+it('profiles tests using the repository worker configuration', function (): void {
+    $fixture = new CommandFixture;
+    $fixture->files->copy('scripts/profile-pest-tests.php');
+    $fixture->files->write('ExampleTest.php', '<?php');
+    $fixture->files->write('vendor/bin/pest', <<<'PHP'
+        <?php
+        $configuration = simplexml_load_file('phpunit.xml');
+        $limit = (string) $configuration->xpath('/phpunit/php/ini[@name="memory_limit"]')[0]['value'];
+        echo json_encode(['arguments' => array_slice($argv, 1), 'memory_limit' => $limit], JSON_THROW_ON_ERROR), "\n";
+        PHP);
+    $fixture->files->copy('phpunit.xml');
+    try {
+        $process = $fixture->run([PHP_BINARY, 'scripts/profile-pest-tests.php', 'ExampleTest.php']);
+        expect($process->getExitCode())->toBe(0);
+        $result = json_decode(explode("\n", trim($process->getOutput()))[0], true, flags: JSON_THROW_ON_ERROR);
+        expect($result['arguments'])->toBe(['ExampleTest.php', '--configuration=phpunit.xml', '--compact'])
+            ->and($result['memory_limit'])->toBe('2G');
+    } finally {
+        $fixture->close();
     }
-
-    expect(implode("\n", coverageJobCommands('generate-coverage')))->toContain('--configuration=phpunit-coverage.xml');
 });
 
-it('optimizes release coverage with an in-memory cache and the runtime role enabled', function (): void {
+it('dispatches coverage and mutation workers with the coverage configuration', function (string $name): void {
+    $fixture = new CommandFixture;
+    $fixture->fake('php');
+    try {
+        foreach ((array) coverageComposerScripts()[$name] as $command) {
+            $process = $fixture->run(['bash', '-c', str_replace('@php ', 'php ', $command)]);
+            expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+        }
+
+        $workers = array_values(array_filter($fixture->calls('php'), static fn (array $call): bool => in_array('vendor/bin/pest', $call['arguments'], true)));
+        expect($workers)->toHaveCount(1);
+        expect($workers[0]['arguments'])->toContain('--configuration=phpunit-coverage.xml')
+            ->not->toContain('--configuration=phpunit.xml');
+        if (str_starts_with($name, 'coverage')) {
+            expect($workers[0]['arguments'])->toContain('--parallel');
+        }
+
+        if ($name === 'coverage') {
+            expect($workers[0]['arguments'])->toContain('--coverage-clover=.cache/phpunit/coverage-clover.xml');
+        }
+
+        if ($name === 'coverage-report') {
+            expect($workers[0]['arguments'])->toContain('--coverage-html=coverage');
+        }
+    } finally {
+        $fixture->close();
+    }
+})->with(['coverage', 'coverage-report', 'coverage:blade', 'test:mutate', 'test:mutate:ci']);
+
+it('dispatches one independent Clover report per release shard before merging and publication', function (): void {
     $workflow = coverageWorkflow();
     $environment = array_replace($workflow['env'], $workflow['jobs']['generate-coverage']['env']);
     expect($environment['CACHE_STORE'])->toBe('array')
-        ->and($environment['CAPELL_TESTBENCH_RUNTIME_ROLE'])->toBeTrue();
-    // The wrapper bootstraps a cache-safe Testbench environment before optimizing.
-    expect(implode("\n", coverageJobCommands('generate-coverage')))->toContain('run-testbench-command.php optimize')
-        ->not->toContain('vendor/bin/testbench optimize');
-});
-
-it('shards coverage in parallel and gates publication on merged coverage', function (): void {
-    $workflow = coverageWorkflow();
-    $commands = implode("\n", coverageJobCommands('generate-coverage'));
-    $shards = $workflow['jobs']['generate-coverage']['strategy']['matrix']['shard'];
-    expect($shards)->toEqual(range(1, count($shards)));
-    // Serial coverage exceeds the release budget; each shard needs its own report.
-    expect($commands)->toContain('--parallel')
-        ->toContain('--shard=${{ matrix.shard }}/' . count($shards))
-        ->toContain('--coverage-clover=coverage/clover-${{ matrix.shard }}.xml')
-        ->not->toContain('--coverage-php')
+        ->and($environment['CAPELL_TESTBENCH_RUNTIME_ROLE'])->toBeTrue()
         ->and($workflow['jobs']['merge-coverage']['needs'])->toBe('generate-coverage')
         ->and($workflow['jobs']['publish-coverage']['needs'])->toBe('merge-coverage');
-    expect(implode("\n", coverageJobCommands('merge-coverage')))->toContain('scripts/merge-clover-coverage.php');
-    foreach (['coverage', 'coverage-report'] as $name) {
-        $command = implode("\n", (array) coverageComposerScripts()[$name]);
-        expect($command)->toContain('--parallel')->not->toContain('--coverage-php');
+    $shards = $workflow['jobs']['generate-coverage']['strategy']['matrix']['shard'];
+    expect($shards)->toEqual(range(1, count($shards)));
+    foreach ($shards as $shard) {
+        $fixture = new CommandFixture;
+        $fixture->fake('php');
+        try {
+            $commands = implode("\n", array_filter(coverageJobCommands('generate-coverage'), static fn (string $command): bool => str_contains($command, 'vendor/bin/pest')));
+            $process = $fixture->run(['bash', '-c', str_replace('${{ matrix.shard }}', (string) $shard, $commands)]);
+            expect($process->getExitCode())->toBe(0, $process->getErrorOutput());
+            $calls = array_column($fixture->calls('php'), 'arguments');
+            expect($calls)->toContain(['scripts/run-testbench-command.php', 'optimize', '--except=routes', '--ansi']);
+            $workers = array_values(array_filter($calls, static fn (array $arguments): bool => in_array('vendor/bin/pest', $arguments, true)));
+            expect($workers)->toHaveCount(1)
+                ->and($workers[0])->toContain('--parallel', '--shard=' . $shard . '/' . count($shards), '--coverage-clover=coverage/clover-' . $shard . '.xml', '--configuration=phpunit-coverage.xml');
+        } finally {
+            $fixture->close();
+        }
     }
-});
-
-it('writes Clover and HTML reports directly from Composer coverage commands', function (): void {
-    // Clover is consumed by the threshold merger; HTML is the human-readable report.
-    expect(implode("\n", (array) coverageComposerScripts()['coverage']))
-        ->toContain('--coverage-clover=.cache/phpunit/coverage-clover.xml')
-        ->toContain('scripts/merge-clover-coverage.php')
-        ->and(implode("\n", (array) coverageComposerScripts()['coverage-report']))
-        ->toContain('--coverage-html=coverage');
 });
 
 it('merges Clover statement hits before enforcing the release threshold', function (): void {

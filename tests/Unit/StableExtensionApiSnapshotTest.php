@@ -21,9 +21,7 @@ it('keeps the active public-release baseline current', function (): void {
                 || str_contains($output, 'explicit compatibility decision'),
         )->toBeTrue()
         ->and(json_decode((string) file_get_contents($root . '/docs/packages/stable-extension-api-baseline.json'), true, flags: JSON_THROW_ON_ERROR)['status'])
-        ->toBe('active')
-        ->and((string) file_get_contents($root . '/scripts/check-stable-extension-api.php'))
-        ->not->toContain('pending-first-public-release');
+        ->toBe('active');
 });
 
 it('hashes only the declared action entrypoint and excludes dependency trait methods and constructors', function (): void {

@@ -22,10 +22,12 @@ use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\ScriptFixture;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
+use Symfony\Component\Process\Process as NativeProcess;
 
 beforeEach(function (): void {
     $this->packageJsonPath = base_path('package.json');
@@ -76,10 +78,11 @@ it('prints a deterministic report and makes no changes non-interactively without
     Process::assertNothingRan();
 });
 
-it('prints exact Vite remediation and refuses apply when integration is missing', function (): void {
+it('prints usable Vite remediation and refuses apply when integration is missing', function (): void {
     File::put($this->viteConfigPath, "export default { input: ['resources/js/app.js'] }");
     Process::fake();
 
+    $before = File::get($this->viteConfigPath);
     $exit = Artisan::call('capell:frontend-after-install', [
         '--no-interaction' => true,
         '--apply' => true,
@@ -87,9 +90,22 @@ it('prints exact Vite remediation and refuses apply when integration is missing'
     $output = Artisan::output();
 
     expect($exit)->toBe(1)
-        ->and($output)->toContain("import { capellViteInputs } from './vendor/capell-app/frontend/resources/js/capell-vite-inputs.js'")
-        ->and($output)->toContain('input: [...capellViteInputs(), /* application entries */]')
-        ->and(File::get($this->viteConfigPath))->not->toContain('capellViteInputs');
+        ->and(File::get($this->viteConfigPath))->toBe($before);
+    $lines = array_values(array_filter(explode("\n", $output), static fn (string $line): bool => str_starts_with(trim($line), 'import ') || str_starts_with(trim($line), 'input:')));
+    expect($lines)->toHaveCount(2);
+    $fixture = new ScriptFixture;
+    try {
+        $fixture->write('vendor/capell-app/frontend/resources/js/capell-vite-inputs.js', File::get(__DIR__ . '/../../../resources/js/capell-vite-inputs.js'));
+        $fixture->write('package.json', '{"type":"module"}');
+        $fixture->write('bootstrap/cache/capell-vite-inputs.json', '{"inputs":["resources/js/gallery.js"]}');
+        $fixture->write('remediation.mjs', $lines[0] . "\nconsole.log(JSON.stringify({" . $lines[1] . '}));');
+        $process = new NativeProcess(['node', 'remediation.mjs'], $fixture->root);
+        $process->mustRun();
+        expect(json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR))->toBe(['input' => ['resources/js/gallery.js']]);
+    } finally {
+        $fixture->close();
+    }
+
     Process::assertNothingRan();
 });
 
@@ -207,7 +223,7 @@ it('executes the manifest frontend hook from the install plan without starting N
     AfterInstallPackageAction::run($package, allowLegacyCommand: false);
     expect(json_decode(File::get($this->packageJsonPath), true, flags: JSON_THROW_ON_ERROR)['dependencies'])->toBe(['swiper' => '^12.0.0'])
         ->and(File::exists($this->generatedAsset))->toBeTrue()
-        ->and(File::get($this->generatedManifest))->toContain('gallery.js');
+        ->and(json_decode(File::get($this->generatedManifest), true, flags: JSON_THROW_ON_ERROR)['inputs'])->toContain('vendor/capell-app/gallery/resources/js/gallery.js');
     Process::assertNothingRan();
 });
 

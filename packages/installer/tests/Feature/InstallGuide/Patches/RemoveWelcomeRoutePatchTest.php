@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\RemoveWelcomeRoutePatch;
+use Illuminate\Http\Request;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
 
 beforeEach(function (): void {
     $this->testDir = sys_get_temp_dir() . '/capell-welcome-route-patch-test-' . uniqid();
@@ -130,10 +133,9 @@ PHP;
 
     $patch->apply();
 
-    $modifiedContent = file_get_contents($routesPath);
-
-    expect($modifiedContent)->not->toContain("Route::view('/', 'welcome')")
-        ->and($modifiedContent)->toContain("Route::view('dashboard', 'dashboard')");
+    $routes = patchedWelcomeRoutes($routesPath);
+    expect(array_map(fn (Illuminate\Routing\Route $route): string => $route->uri(), $routes->getRoutes()))->toBe(['dashboard']);
+    expect($routes->match(Request::create('/dashboard'))->defaults['view'])->toBe('dashboard');
 });
 
 it('probe_returns_already_applied_when_stock_block_absent_and_no_root_route', function (): void {
@@ -216,91 +218,7 @@ PHP;
     expect($status)->toBe(PatchStatus::Customised);
 });
 
-it('apply_successfully_removes_stock_welcome_block', function (): void {
-    // Test the regex removal logic directly without invoking the full apply() method
-    $originalContent = <<<'PHP'
-<?php
-
-use Illuminate\Support\Facades\Route;
-
-Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/api/health', function () {
-    return response()->json(['status' => 'ok']);
-});
-PHP;
-
-    // Simulate what apply() does: remove the stock block and collapse newlines
-    $pattern = '/Route::get\s*\(\s*[\'"][\/]["\']\s*,\s*function\s*\(\s*\)\s*\{[^}]*return\s+view\s*\(\s*[\'"]welcome["\']\s*\)\s*;[^}]*\}\s*\)\s*;/';
-    $modifiedContent = preg_replace($pattern, '', $originalContent);
-    $modifiedContent = preg_replace('/\n\n\n+/', "\n\n", (string) $modifiedContent);
-
-    expect($modifiedContent)->not->toContain("Route::get('/', function () {");
-    expect($modifiedContent)->not->toContain("return view('welcome');");
-    expect($modifiedContent)->toContain("Route::get('/api/health'");
-});
-
-it('apply_cleans_up_excessive_newlines', function (): void {
-    // Test the newline cleanup logic
-    $originalContent = <<<'PHP'
-<?php
-
-use Illuminate\Support\Facades\Route;
-
-Route::get('/', function () {
-    return view('welcome');
-});
-
-
-
-Route::get('/api/health', function () {
-    return response()->json(['status' => 'ok']);
-});
-PHP;
-
-    // Remove the stock block and collapse newlines
-    $pattern = '/Route::get\s*\(\s*[\'"][\/]["\']\s*,\s*function\s*\(\s*\)\s*\{[^}]*return\s+view\s*\(\s*[\'"]welcome["\']\s*\)\s*;[^}]*\}\s*\)\s*;/';
-    $modifiedContent = preg_replace($pattern, '', $originalContent);
-    $modifiedContent = preg_replace('/\n\n\n+/', "\n\n", (string) $modifiedContent);
-
-    // Should not have 3+ consecutive newlines
-    expect($modifiedContent)->not->toContain("\n\n\n");
-});
-
-it('apply_preserves_other_routes', function (): void {
-    // Test that removing the welcome route preserves other routes
-    $originalContent = <<<'PHP'
-<?php
-
-use Illuminate\Support\Facades\Route;
-
-Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/api/health', function () {
-    return response()->json(['status' => 'ok']);
-});
-
-Route::post('/api/data', function () {
-    return response()->json(['data' => []]);
-});
-PHP;
-
-    // Remove the stock block and collapse newlines
-    $pattern = '/Route::get\s*\(\s*[\'"][\/]["\']\s*,\s*function\s*\(\s*\)\s*\{[^}]*return\s+view\s*\(\s*[\'"]welcome["\']\s*\)\s*;[^}]*\}\s*\)\s*;/';
-    $modifiedContent = preg_replace($pattern, '', $originalContent);
-    $modifiedContent = preg_replace('/\n\n\n+/', "\n\n", (string) $modifiedContent);
-
-    expect($modifiedContent)->toContain("Route::get('/api/health'");
-    expect($modifiedContent)->toContain("Route::post('/api/data'");
-    expect($modifiedContent)->toContain('status');
-    expect($modifiedContent)->toContain('data');
-});
-
-it('apply_removes_the_real_stock_welcome_route_file_and_collapses_blank_lines', function (): void {
+it('apply_removes_the_real_stock_welcome_route_file_and_preserves_other_handlers', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -316,7 +234,10 @@ Route::get('/', function () {
 
 
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    return response()->json(['status' => 'ok']);
+});
+Route::post('/api/data', function () {
+    return response()->json(['data' => []]);
 });
 PHP);
     $this->app->setBasePath($this->testDir);
@@ -327,11 +248,13 @@ PHP);
 
     $patch->apply();
 
-    $modifiedContent = file_get_contents($routesPath);
+    $routes = patchedWelcomeRoutes($routesPath);
+    expect(array_map(fn (Illuminate\Routing\Route $route): string => $route->uri(), $routes->getRoutes()))->toBe(['dashboard', 'api/data']);
+    $health = $routes->match(Request::create('/dashboard'));
+    $data = $routes->match(Request::create('/api/data', Symfony\Component\HttpFoundation\Request::METHOD_POST));
+    expect($health->run()->getData(true))->toBe(['status' => 'ok'])
+        ->and($data->run()->getData(true))->toBe(['data' => []]);
 
-    expect($modifiedContent)->not->toContain("return view('welcome');")
-        ->not->toContain("\n\n\n")
-        ->toContain("Route::get('/dashboard'");
 });
 
 it('apply_rejects_custom_root_routes_without_mutating_application_routes', function (): void {
@@ -393,3 +316,18 @@ it('patch_has_correct_metadata', function (): void {
     expect($patch->description())->toBeString();
     expect($patch->docUrl())->toBeNull();
 });
+
+function patchedWelcomeRoutes(string $path): RouteCollection
+{
+    $router = Route::getFacadeRoot();
+    $original = $router->getRoutes();
+    $routes = new RouteCollection;
+    $router->setRoutes($routes);
+    try {
+        require $path;
+
+        return $routes;
+    } finally {
+        $router->setRoutes($original);
+    }
+}

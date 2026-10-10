@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelProviderPatcher;
+use Capell\Tests\Support\GeneratedPanelProvider;
 use Illuminate\Support\Facades\File;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
@@ -156,11 +157,11 @@ PHP);
     $patcher->apply(
         fn (): PatchStatus => PatchStatus::Applicable,
         function (Node $stmt) use ($patcher): void {
-            $patcher->appendMethodCall($stmt, 'widgets', []);
+            $patcher->appendMethodCall($stmt, 'path', [new Arg(new String_('authoring'))]);
         },
     );
 
-    expect(File::get($path))->toContain('->widgets()');
+    expect(GeneratedPanelProvider::load($path)->getPath())->toBe('authoring');
 });
 
 it('insertMethodCallAfter splices a new call into the middle of the chain', function (): void {

@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Reporting\ProcessReportingIncidentsAction;
 use Capell\Core\Contracts\Reporting\Reporter;
 use Capell\Core\Data\Reporting\RedactedSignalData;
+use Capell\Core\Enums\Reporting\IncidentStatus;
+use Capell\Core\Models\ReportingIncident;
 use Capell\Core\Support\Reporting\OperatorEmailChannel;
 use Capell\Core\Support\Reporting\OperatorSignalRouter;
 
@@ -23,37 +26,20 @@ it('allows delivery channels to receive only the immutable redacted payload', fu
     'operator email' => [OperatorEmailChannel::class, 'report'],
 ]);
 
-it('converts a raw signal to its redacted payload only at the dispatch entry point', function (): void {
-    $reportingRoot = dirname(__DIR__, 2) . '/src';
-    $references = [];
-    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($reportingRoot));
-
-    foreach ($files as $file) {
-        if (! $file->isFile()) {
-            continue;
-        }
-
-        if ($file->getExtension() !== 'php') {
-            continue;
-        }
-
-        $source = file_get_contents($file->getPathname());
-        if (! is_string($source)) {
-            continue;
-        }
-
-        $count = substr_count($source, 'RedactedSignalData::fromSignal(');
-        if ($count > 0) {
-            $references[str_replace(dirname(__DIR__, 4) . '/', '', $file->getPathname())] = $count;
-        }
-    }
-
-    expect($references)->toBe([
-        'packages/core/src/Actions/Reporting/DispatchSignalAction.php' => 1,
-    ])
-        ->and(file_get_contents($reportingRoot . '/Actions/Reporting/ProcessReportingIncidentsAction.php'))
-        ->toContain('RedactedSignalData::fromStoredArray($incident->signal)')
-        ->not->toContain('SignalData::fromArray(');
+it('rejects unredacted stored incidents before retry delivery and advances the scheduler cursor', function (): void {
+    $incident = ReportingIncident::query()->create([
+        'fingerprint' => hash('sha256', 'unsafe-stored-incident'),
+        'signal' => [
+            'name' => 'runtime.failed', 'category' => 'runtime', 'severity' => 'error',
+            'message' => 'Failed.', 'operator_summary' => 'Inspect.', 'correlation_id' => 'fixture',
+            'run_id' => null, 'context' => ['password' => 'stored-secret'],
+        ],
+        'status' => IncidentStatus::Open, 'health' => false, 'deliveries' => [], 'opened_at' => now(),
+    ]);
+    expect(ProcessReportingIncidentsAction::run())->toBe(['failed' => 1]);
+    $incident->refresh();
+    expect($incident->checked_at)->not->toBeNull()
+        ->and($incident->deliveries)->toBe([]);
 });
 
 it('keeps every logger resolution mechanism behind the reporting transport boundary', function (): void {
