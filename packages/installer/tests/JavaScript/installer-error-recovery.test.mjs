@@ -51,7 +51,10 @@ test('an empty csrf refresh restores the installer form', async () => {
         setAttribute: (name, value) => attributes.set(name, value),
         removeAttribute: (name) => attributes.delete(name),
     }
-    const form = { action: '/install' }
+    const form = Object.assign(new EventTarget(), {
+        action: '/install',
+        querySelector: () => null,
+    })
     const context = loadInstallerScript('runner.js', {
         CapellInstaller: {
             support: { responseLooksLikeServerTimeout: () => false },
