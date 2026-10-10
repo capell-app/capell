@@ -125,7 +125,7 @@ abstract class AbstractPagesRelationManager extends RelationManager
                     )
                     ->hidden(fn (self $livewire): bool => $livewire->isSiteColumnHidden()),
                 SelectFilter::make('blueprint_id')
-                    ->label(__('capell-admin::form.type'))
+                    ->label(__('capell-admin::generic.blueprint'))
                     ->relationship(
                         name: 'blueprint',
                         titleAttribute: 'name',

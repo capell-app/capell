@@ -434,3 +434,77 @@ describe('from list page', function (): void {
         expect(Page::query()->count())->toBe(0);
     });
 });
+
+it('keeps the selected site when opening quick create', function (): void {
+    Site::factory()->withTranslations()->create(['default' => true]);
+    $selected = Site::factory()->withTranslations()->create(['default' => false]);
+    Blueprint::factory()->page()->default()->createOne();
+
+    session()->put('capell.current_site_id', $selected->id);
+
+    Livewire::test(ListPages::class)
+        ->mountAction('create')
+        ->assertSchemaStateSet(['site_id' => $selected->id]);
+});
+
+it('keeps the site tab in page type chooser links', function (): void {
+    Site::factory()->withTranslations()->create(['default' => true]);
+    $selected = Site::factory()->withTranslations()->create(['default' => false]);
+    Blueprint::factory()->page()->default()->createOne();
+
+    Livewire::test(ListPages::class)
+        ->set('activeTab', (string) $selected->id)
+        ->mountAction('choosePageType')
+        ->assertMountedActionModalSeeHtml('site_id=' . $selected->id);
+});
+
+it('validates duplicate URLs when creating from the conflicting page editor', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    $translation = $page->translations()->firstOrFail();
+    $slug = 'duplicate-page';
+    $translation->update(['meta' => ['slug' => $slug]]);
+    $uuid = (string) Str::uuid();
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->mountAction(TestAction::make(CreatePageAction::class))
+        ->set('mountedActions.0.data.translations', [])
+        ->fillForm([
+            'name' => 'Duplicate page',
+            'site_id' => $page->site_id,
+            'blueprint_id' => $page->blueprint_id,
+            'layout_id' => $page->layout_id,
+            'parent_id' => $page->parent_id,
+            'translations' => [
+                $uuid => [
+                    'language_id' => $translation->language_id,
+                    'title' => 'Duplicate page',
+                    'meta' => ['slug' => $slug],
+                ],
+            ],
+        ])
+        ->callMountedAction()
+        ->assertHasFormErrors(['translations.' . $uuid . '.meta.slug' => 'unique']);
+
+    assertDatabaseMissing(Page::class, ['name' => 'Duplicate page']);
+});
+
+it('keeps the edited page site when opening quick create', function (): void {
+    Site::factory()->withTranslations()->create(['default' => true]);
+    $selected = Site::factory()->withTranslations()->create(['default' => false]);
+    Blueprint::factory()->page()->default()->createOne();
+    $page = Page::factory()->withTranslations()->createOne(['site_id' => $selected->id]);
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->mountAction(TestAction::make(CreatePageAction::class))
+        ->assertSchemaStateSet(['site_id' => $selected->id]);
+});
+
+it('keeps the selected site when opening the full page form', function (): void {
+    Site::factory()->withTranslations()->create(['default' => true]);
+    $selected = Site::factory()->withTranslations()->create(['default' => false]);
+    Blueprint::factory()->page()->default()->createOne();
+    session()->put('capell.current_site_id', $selected->id);
+
+    Livewire::test(CreatePage::class)
+        ->assertSchemaStateSet(['site_id' => $selected->id]);
+});

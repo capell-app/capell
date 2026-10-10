@@ -24,6 +24,29 @@ it('normalizes stored domain parts into an editable url', function (): void {
     ]);
 });
 
+it('preserves non-default ports when creating, editing and saving domains', function (): void {
+    $component = DomainsRepeater::make();
+    $record = SiteDomain::factory()->make();
+    $data = [
+        'scheme' => 'http',
+        'domain' => 'localhost',
+        'port' => 8000,
+        'path' => '/local',
+    ];
+
+    expect(domainsRepeaterMutateBeforeFill($component, $data)['url'])
+        ->toBe('http://localhost:8000/local');
+
+    foreach (['create', 'save'] as $operation) {
+        $state = ['url' => 'http://localhost:8000/local/'];
+        $result = $operation === 'create'
+            ? domainsRepeaterMutateBeforeCreate($component, $state)
+            : domainsRepeaterMutateBeforeSave($component, $state, $record);
+
+        expect($result)->toMatchArray(['port' => 8000, 'path' => '/local']);
+    }
+});
+
 it('normalizes editable urls into relationship columns for create and save', function (): void {
     $component = DomainsRepeater::make();
     $record = SiteDomain::factory()->make();

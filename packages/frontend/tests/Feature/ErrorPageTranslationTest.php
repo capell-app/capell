@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Capell\Core\Models\Language;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\Creator\PageCreator;
+use Capell\Frontend\Providers\FrontendServiceProvider;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\ServiceProvider;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -124,4 +126,19 @@ it('seeds the error page with the headline the rendered 404 copy uses', function
     expect($errorPage->name)->toBe(__('capell::generic.error_404_headline'))
         ->and($translation->title)->toBe(__('capell::generic.error_404_headline'))
         ->and($statusCopy)->toBe(__('capell::generic.error_404_headline'));
+});
+
+it('publishes the fallback error logo with the frontend assets', function (): void {
+    $assets = ServiceProvider::pathsToPublish(
+        FrontendServiceProvider::class,
+        'capell-frontend-assets',
+    );
+
+    $source = array_search(public_path('capell-logo.svg'), $assets, true);
+
+    expect($source)->toBeString();
+    expect(is_file($source))->toBeTrue();
+    expect(file_get_contents($source))->toContain('<svg');
+    expect((string) renderNotFoundResponse()->getContent())
+        ->toContain(asset('capell-logo.svg'));
 });

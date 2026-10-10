@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Layouts;
 
 use BackedEnum;
+use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Concerns\HasConfiguredForm;
 use Capell\Admin\Filament\Concerns\HasConfiguredTable;
 use Capell\Admin\Filament\Concerns\HasNavigationBadge;
@@ -44,6 +46,25 @@ class LayoutResource extends SiteScopedResource implements ValidatesDelete
     protected static string $tableConfigurator = LayoutsTable::class;
 
     protected static ?int $navigationSort = 3;
+
+    #[Override]
+    public static function shouldRegisterNavigation(): bool
+    {
+        if (static::class !== self::class) {
+            return parent::shouldRegisterNavigation();
+        }
+
+        foreach (CapellAdmin::getAdminSurfaceRegistry()->resourcesForGroup(ResourceEnum::Layout->name) as $resource) {
+            if (is_subclass_of($resource, self::class)
+                && $resource::getNavigationLabel() === static::getNavigationLabel()
+                && $resource::shouldRegisterNavigation()
+                && $resource::canViewAny()) {
+                return false;
+            }
+        }
+
+        return parent::shouldRegisterNavigation();
+    }
 
     #[Override]
     public static function getEloquentQuery(): Builder

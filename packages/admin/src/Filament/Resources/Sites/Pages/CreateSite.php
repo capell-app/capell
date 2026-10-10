@@ -157,6 +157,7 @@ class CreateSite extends CreateRecord
                 'site_id' => $this->record->getKey(),
                 'language_id' => $domain['language_id'] ?? $this->record->language_id,
                 'scheme' => $urlParts['scheme'] ?? null,
+                'port' => $urlParts['port'] ?? null,
                 'domain' => ($domain['use_host_domain'] ?? false) === true ? null : ($urlParts['host'] ?? null),
                 'path' => isset($urlParts['path']) && ! in_array(mb_rtrim($urlParts['path'], '/'), ['', '0'], true)
                     ? mb_rtrim($urlParts['path'], '/')

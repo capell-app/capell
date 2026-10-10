@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'site_domain_port' => 'Port',
     'analytics_collection_enabled' => 'Collect privacy-first analytics',
     'analytics_collection_enabled_helper' => 'Use anonymous five-minute activity buckets. No visitor identifiers are stored.',
     'analytics_search_collection_enabled' => 'Collect search terms',
@@ -521,7 +522,7 @@ return [
     'theme_type' => 'Theme type',
     'title' => 'Title',
     'twitter_handle' => 'X / Twitter handle',
-    'type' => 'Blueprint',
+    'type' => 'Type',
     'type_availability' => 'Availability',
     'user_credentials' => 'Credentials',
     'user_identity' => 'Identity',
