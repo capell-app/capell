@@ -93,3 +93,60 @@ it('rejects oversized plugin package responses before decoding json', function (
 
     expect($packages)->toHaveCount(0);
 });
+
+it('reads current catalogue identities tiers versions and all pages', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions']);
+    Http::fake([
+        'https://catalogue.capell.test/extensions' => Http::response([
+            'data' => [[
+                'composer_name' => 'capell-app/address', 'latest_version' => '1.1.0-beta.45',
+                'product_tier' => 'premium', 'is_paid' => false, 'kind' => 'field',
+                'slug' => 'address', 'install_state' => 'free_available',
+                'install_eligibility' => ['state' => 'free_available', 'can_install' => true],
+                'purchase_url' => 'https://capell.app/marketplace/address',
+                'dependencies' => ['requires' => ['capell-app/admin']],
+                'manifest' => ['description' => 'Postal addresses.'],
+            ]],
+            'meta' => ['last_page' => 2],
+        ]),
+        'https://catalogue.capell.test/extensions?page=2' => Http::response([
+            'data' => [['composer_name' => 'capell-app/seo-suite', 'product_tier' => 'premium', 'kind' => 'tool']],
+            'meta' => ['last_page' => 2],
+        ]),
+    ]);
+    $packages = resolve(PluginPackagesFetcher::class)->fetch(force: true)->keyBy('name');
+
+    expect($packages->keys()->all())->toBe(['capell-app/address', 'capell-app/seo-suite'])
+        ->and($packages->pluck('version', 'name')->get('capell-app/address'))->toBe('1.1.0-beta.45')
+        ->and($packages->pluck('tier', 'name')->all())->toBe(['capell-app/address' => 'premium', 'capell-app/seo-suite' => 'premium'])
+        ->and($packages->get('capell-app/address'))->toMatchArray([
+            'isPaid' => false, 'slug' => 'address', 'installState' => 'free_available',
+            'installEligibility' => ['state' => 'free_available', 'can_install' => true],
+            'purchaseUrl' => 'https://capell.app/marketplace/address',
+        ])
+        ->and($packages->pluck('requirements', 'name')->get('capell-app/address'))->toBe(['capell-app/admin']);
+});
+
+it('does not reuse a catalogue cached for a different source', function (): void {
+    config(['capell.plugins_source_url' => 'https://old.capell.test/packages.json']);
+    Http::fake(['*' => Http::response(['packages' => [['name' => 'old/package']]])]);
+    $fetcher = resolve(PluginPackagesFetcher::class);
+    $fetcher->fetch(force: true);
+
+    config(['capell.plugins_source_url' => 'https://current.capell.test/packages.json']);
+    expect($fetcher->getCached())->toBeEmpty();
+});
+
+it('does not cache a partial catalogue when a later page fails', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions']);
+    Http::fake([
+        'https://catalogue.capell.test/extensions' => Http::response([
+            'data' => [['composer_name' => 'capell-app/blog']], 'meta' => ['last_page' => 2],
+        ]),
+        'https://catalogue.capell.test/extensions?page=2' => Http::response(null, 403),
+    ]);
+    $fetcher = resolve(PluginPackagesFetcher::class);
+
+    expect($fetcher->fetch(force: true))->toBeEmpty()
+        ->and($fetcher->getCached())->toBeEmpty();
+});

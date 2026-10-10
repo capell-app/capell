@@ -36,7 +36,7 @@ it('applies Rector transformations during the full preflight', function (): void
     $runner = file_get_contents(dirname(__DIR__, 2) . '/scripts/run-preflight.php');
 
     expect($scripts['preflight:all'])
-        ->toContain('@php scripts/run-preflight.php --all')
+        ->toContain('@php scripts/with-lock.php capell-release-verification -- php scripts/run-preflight.php --all')
         ->and($runner)->toContain("'rector' => 'rector:all'")
         ->and($runner)->toContain("'rector' => 'rector:all:check'");
 });

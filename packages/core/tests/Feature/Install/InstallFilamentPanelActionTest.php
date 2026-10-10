@@ -143,7 +143,7 @@ PHP);
     expect(File::get($providerPath))->toBe($providerContents);
 });
 
-it('reports when an existing filament panel is missing theme configuration', function (): void {
+it('configures the theme when an existing filament panel has no stylesheet', function (): void {
     File::ensureDirectoryExists(app_path('Providers/Filament'));
     File::put(app_path('Providers/Filament/FilamentInstallTestPanelProvider.php'), <<<'PHP'
 <?php
@@ -179,7 +179,7 @@ PHP);
 
     expect($reporter->lines)->toContain(
         '→ Filament admin panel already configured.',
-        '→ Filament panel theme is not configured. Add ->viteTheme(...) or another theme configuration to your panel provider.',
+        '→ Configured the compiled Filament admin theme.',
     );
 });
 
@@ -366,7 +366,7 @@ PHP;
     $reporter = new RecordingInstallProgressReporter;
     InstallFilamentPanelAction::run($reporter);
 
-    expect(File::get($providerPath))->toBe($providerContents)
+    expect(File::get($providerPath))->toBe(str_replace('->login()', "->login()->viteTheme('resources/css/filament/admin/theme.css')", $providerContents))
         ->and($recoveryCommand)->toBe([PHP_BINARY, 'artisan', 'filament:install', '--no-interaction'])
         ->and(resolve(PanelRegistry::class)->getDefault()->getId())->toBe('admin')
         ->and(resolve(PanelRegistry::class)->getDefault()->hasLogin())->toBeTrue()
@@ -476,3 +476,54 @@ PHP);
     expect(config('capell-test.panel_builds'))->toBe(1)
         ->and(resolve(PanelRegistry::class)->get('boot-registered'))->toBe($bootstrapPanel);
 });
+
+it('configures the compiled admin theme when panel colours are already configured', function (): void {
+    $providerPath = app_path('Providers/Filament/FilamentInstallTestPanelProvider.php');
+    File::ensureDirectoryExists(dirname($providerPath));
+    File::put($providerPath, <<<'PHP'
+<?php
+namespace App\Providers\Filament;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Override;
+class FilamentInstallTestPanelProvider extends PanelProvider
+{
+    #[Override]
+    public function panel(Panel $panel): Panel
+    {
+        return $panel->id('admin')->colors(['primary' => 'amber']);
+    }
+}
+PHP);
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldNotReceive('all');
+    $kernel->shouldNotReceive('call');
+    $kernel->shouldReceive('output')->zeroOrMoreTimes()->andReturn('');
+    app()->instance(ConsoleKernel::class, $kernel);
+    Artisan::clearResolvedInstances();
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    $firstPass = File::get($providerPath);
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect($firstPass)->toContain("->viteTheme('resources/css/filament/admin/theme.css')");
+    expect(File::get($providerPath))->toBe($firstPass);
+    expect(File::exists(resource_path('css/filament/admin/theme.css')))->toBeTrue();
+});
+
+it('preserves explicit themes and customised panel methods', function (string $body, bool $expectsWarning): void {
+    $path = app_path('Providers/Filament/FilamentInstallTestPanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    $source = '<?php namespace App\\Providers\\Filament; class FilamentInstallTestPanelProvider { public function panel($panel) { ' . $body . ' } }';
+    File::put($path, $source);
+    $reporter = new RecordingInstallProgressReporter;
+
+    InstallFilamentPanelAction::run($reporter);
+
+    expect(File::get($path))->toBe($source);
+    expect(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
+    expect(in_array('→ Filament panel theme is not configured. Add ->viteTheme(...) or another theme configuration to your panel provider.', $reporter->lines, true))->toBe($expectsWarning);
+})->with([
+    'explicit stylesheet' => ['return $panel->id("admin")->theme("custom.css");', false],
+    'customised method' => ['$panel->id("admin"); return $panel;', true],
+]);

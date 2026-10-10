@@ -116,6 +116,8 @@ tests.
 
 ## Verification Commands
 
+Broad tests and preflights use the [host release verification gate](docs/release-verification-lock.md). Use this checkout's wrapper for Docker commands; focused single-file runs remain available while a release holds the gate.
+
 - Focused Pest: `./capell pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
   (host: `vendor/bin/pest ...` with PHP 8.4)
 - Changed-file formatting: `composer lint:changed`
@@ -131,6 +133,8 @@ tests.
 - Documentation contracts: `composer check:docs-links`,
   `composer check:docs-orphans`, `composer check:docs-requirements`,
   `composer check:docs-commands`, and `composer check:docs-screenshots`
+- New development documentation changes generated distribution exclusions. Run
+  `php scripts/sync-split-repository-health.php`, then its `--check` mode before committing it.
 
 Run the narrowest relevant command first. Rendering/cache changes need focused
 Frontend safety tests; migration, config, constraint, or public-extension changes
@@ -229,6 +233,23 @@ analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
 
 Use available Boost capabilities and reusable skills as live tooling. Do not copy
 generated Boost guideline dumps or static skill inventories into this file.
+
+## Line coverage stays at or above 90% — not negotiable
+
+`scripts/merge-clover-coverage.php` fails the coverage job below
+`REQUIRED_COVERAGE_PERCENTAGE` (90). Never lower it, and never delete or skip
+tests without replacing the lines they covered. To slim a slow or coupled
+test, rewrite it, don't delete it. Fold near-duplicate cases into a `->with()`
+dataset, and replace hand-built mocks of collaborators with the shared fakes:
+
+- `Capell\Tests\Support\Fakes\FakeProcessFactory` for anything resolved
+  through `ProcessFactoryInterface`. Use `bind()`, `push()` scripted results
+  and `expect()` commands, then assert `getEnv()`/`getTimeout()` on the
+  recorded `FakeProcess`. Do not Mockery-mock a Symfony `Process`; its
+  `run()`/`mustRun()`/`wait()` are `@final`, so a mock or subclass that
+  overrides them is invisible to PHPStan and drifts from real behaviour.
+- `Capell\Tests\Support\Fakes\FakeConsoleKernel` for Artisan calls, in place
+  of `Mockery::mock(ConsoleKernel::class)`.
 
 ## Held pull requests carry the `awaiting-merge` label
 

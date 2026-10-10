@@ -101,6 +101,7 @@
 /docs/performance export-ignore
 /docs/platform export-ignore
 /docs/reference export-ignore
+/docs/release-verification-lock.md export-ignore
 /docs/screenshot-receipts export-ignore
 /docs/screenshots.json export-ignore
 /docs/standards export-ignore

@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\OrchestrateInstallAction;
+use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Contracts\InstallOrchestrationHost;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\Install\InstallOrchestrationData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Install\InstallPatchConfirmation;
+use Capell\Core\Support\Install\InstallPatchContext;
+use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\PatchStatus;
 
 it('coordinates the complete console install sequence through a presentation host', function (): void {
     $inputData = new InstallInputData(
@@ -96,6 +102,7 @@ it('coordinates the complete console install sequence through a presentation hos
     expect($calls)->toBe([
         'plan',
         'prepare',
+        'prepare',
         'filament',
         'npm',
         'remove',
@@ -116,7 +123,7 @@ it('skips optional console operations when they were not requested', function ()
     );
     $reporter = new NullProgressReporter;
     $host = Mockery::mock(InstallOrchestrationHost::class);
-    $host->shouldReceive('prepareApplication')->once()->with($inputData, $reporter);
+    $host->shouldReceive('prepareApplication')->twice()->with($inputData, $reporter);
     $host->shouldNotReceive('outputPlan', 'buildFrontendAssets', 'removeInstaller');
     $host->shouldReceive('upgradeFilament', 'reportManualChanges')->once();
     $host->shouldReceive('finalizeInstall')
@@ -149,7 +156,7 @@ it('withholds finalisation when an explicitly requested frontend build fails', f
     $input = new InstallInputData(siteUrl: 'https://example.test', packages: ['capell-app/frontend'], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
     $reporter = new NullProgressReporter;
     $host = Mockery::mock(InstallOrchestrationHost::class);
-    $host->shouldReceive('prepareApplication')->once()->with($input, $reporter);
+    $host->shouldReceive('prepareApplication')->twice()->with($input, $reporter);
     $host->shouldReceive('upgradeFilament')->once();
     $host->shouldReceive('buildFrontendAssets')->once()->andThrow(new RuntimeException('Frontend build failed'));
     $host->shouldNotReceive('finalizeInstall');
@@ -169,3 +176,73 @@ it('withholds finalisation when an explicitly requested frontend build fails', f
         );
     })->toThrow(RuntimeException::class, 'Frontend build failed');
 });
+
+it('prepares newly registered panel patches before the final frontend build', function (bool $interactive, bool $accepted): void {
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $reporter = new NullProgressReporter;
+    // Own the registry for this install-order fixture; application providers
+    // may contribute unrelated patches for their separate Testbench files.
+    app()->instance(InstallPatchRegistry::class, new InstallPatchRegistry);
+    $providerInstalled = false;
+    $themeApplied = false;
+    $confirmation = new InstallPatchConfirmation(label: 'Apply panel theme');
+    $patch = Mockery::mock(Patch::class);
+    $patch->shouldReceive('probe')->once()->andReturn(PatchStatus::Applicable);
+    $patch->shouldReceive('label')->andReturn('Panel theme');
+    if (! $interactive || $accepted) {
+        $patch->shouldReceive('apply')->once()->andReturnUsing(function () use (&$themeApplied): void {
+            $themeApplied = true;
+        });
+    } else {
+        $patch->shouldNotReceive('apply');
+    }
+
+    $host = Mockery::mock(InstallOrchestrationHost::class);
+    $host->shouldReceive('prepareApplication')->with($input, $reporter)
+        ->andReturnUsing(function () use ($input, $reporter, &$providerInstalled, $interactive, $accepted): void {
+            PrepareInstallApplicationAction::run(
+                inputData: $input,
+                hasFilamentAdminPanelProvider: $providerInstalled,
+                interactive: $interactive,
+                useFreshDemoDefaults: false,
+                reporter: $reporter,
+                confirmPatch: static fn (InstallPatchConfirmation $choice): bool => $accepted,
+                recordManualInstallChange: static function (string $message): void {
+                    throw new RuntimeException($message);
+                },
+            );
+        });
+    $host->shouldReceive('upgradeFilament')->once();
+    $host->shouldReceive('buildFrontendAssets')->once()->andReturnUsing(function () use (&$themeApplied, $interactive, $accepted): void {
+        expect($themeApplied)->toBe(! $interactive || $accepted);
+    });
+    $host->shouldReceive('reportManualChanges', 'finalizeInstall')->once();
+    $host->shouldNotReceive('outputPlan', 'removeInstaller');
+    $runInstall = Mockery::mock(RunInstallAction::class);
+    $runInstall->shouldReceive('runWithResult')->once()->with($input, $reporter)
+        ->andReturnUsing(function () use (&$providerInstalled, $patch, $confirmation): InstallRunResultData {
+            $providerInstalled = true;
+            resolve(InstallPatchRegistry::class)->register(
+                static fn (InstallPatchContext $context): ?Patch => $context->hasFilamentAdminPanelProvider ? $patch : null,
+                confirmation: $confirmation,
+                key: 'test.late-panel-theme',
+            );
+
+            return new InstallRunResultData([], [], 'passed');
+        });
+    $clearCaches = Mockery::mock(ClearCachesAction::class);
+    $clearCaches->shouldReceive('handle')->once()->with(['packages'], $reporter);
+
+    runBoundAction(
+        OrchestrateInstallAction::class,
+        new OrchestrateInstallAction($runInstall, $clearCaches),
+        $input,
+        new InstallOrchestrationData(outputPlan: false, runNpmBuild: true, removeInstaller: false, cachesToClear: []),
+        $reporter,
+        $host,
+    );
+})->with([
+    'unattended install' => [false, false],
+    'accepted interactive patch' => [true, true],
+    'declined interactive patch' => [true, false],
+]);

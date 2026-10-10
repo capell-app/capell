@@ -13,6 +13,7 @@ use Capell\Core\Enums\Install\InstallReadinessStage;
 use Capell\Core\Enums\Install\InstallReadinessStatus;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Support\Install\InstallSiteUrl;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -81,8 +82,9 @@ final class RunInstallPreflightChecksAction
             ),
         ];
 
-        $siteUrlFailure = filter_var($inputData->siteUrl, FILTER_VALIDATE_URL) === false
-            ? [sprintf('The site URL [%s] is not a valid absolute URL.', $inputData->siteUrl)]
+        $siteUrlError = InstallSiteUrl::validationError($inputData->siteUrl);
+        $siteUrlFailure = $siteUrlError !== null
+            ? [$siteUrlError]
             : [];
 
         $checks[] = $this->check(

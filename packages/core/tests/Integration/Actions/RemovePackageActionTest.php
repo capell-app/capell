@@ -4,52 +4,44 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Facades\CapellCore;
-use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
+use Capell\Tests\Support\Fakes\FakeProcess;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
-    $mockProcess = Mockery::mock(Process::class);
-
-    $mockProcess
-        ->shouldReceive('setEnv')
-        ->with(Mockery::on(fn (array $environment): bool => ($environment['GIT_CONFIG_KEY_0'] ?? null) === 'safe.directory'
-            && ($environment['GIT_CONFIG_VALUE_0'] ?? null) === '*'))
-        ->andReturnSelf();
-
-    $mockProcess
-        ->shouldReceive('setTimeout')
-        ->with(600)
-        ->andReturnSelf();
-
-    $mockProcess
-        ->shouldReceive('run')
-        ->andReturn(0);
-
-    $mockProcess
-        ->shouldReceive('getErrorOutput')
-        ->andReturn('');
-
-    $mockProcess
-        ->shouldReceive('getOutput')
-        ->andReturn('Package vendor/package removed');
-
-    $mockProcess
-        ->shouldReceive('isSuccessful')
-        ->andReturnTrue();
-
-    $mockFactory = Mockery::mock(ProcessFactoryInterface::class);
-
-    $mockFactory
-        ->shouldReceive('make')
-        ->with(Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'vendor/package', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress']), Mockery::type('string'))
-        ->andReturn($mockProcess);
-
-    app()->instance(ProcessFactoryInterface::class, $mockFactory);
+    $this->processes = FakeProcessFactory::bind()->byDefault(output: 'Package vendor/package removed');
 });
+
+/** @return list<string> */
+function composerRemovalArgv(string $package): array
+{
+    return [...capellComposerArgv(), 'remove', $package, '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
+}
+
+/** @return list<string> */
+function composerRecoveryArgv(): array
+{
+    return [...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'];
+}
+
+/** @return list<string> */
+function composerMemberUpdateArgv(string $member): array
+{
+    return [...capellComposerArgv(), 'update', $member, '--with-dependencies', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
+}
+
+function expectComposerRemovalProcess(FakeProcess $process, string $package, int $timeout = 600): void
+{
+    expect($process->command)->toBe(composerRemovalArgv($package))
+        ->and($process->getWorkingDirectory())->toBeString()
+        ->and($process->getTimeout())->toEqual($timeout)
+        ->and($process->getEnv())->toMatchArray(['GIT_CONFIG_KEY_0' => 'safe.directory', 'GIT_CONFIG_VALUE_0' => '*'])
+        ->and($process->hasRun())->toBeTrue();
+}
 
 it('removes a package', function (): void {
     $filesystem = new class extends Filesystem
@@ -69,6 +61,9 @@ it('removes a package', function (): void {
 
     $result = RemovePackageAction::run('vendor/package');
     $deletedPaths = collect($filesystem->deletedPaths)->flatten()->all();
+
+    expect($this->processes->processes)->toHaveCount(1);
+    expectComposerRemovalProcess($this->processes->processes[0], 'vendor/package');
 
     expect($result)
         ->toBeArray()
@@ -130,10 +125,7 @@ it('keeps the current Laravel provider manifests until Composer has removed the 
     });
     app()->detectEnvironment(fn (): string => 'production');
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->with(600)->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem): int {
+    $this->processes->push(output: 'Package vendor/package removed', onRun: function () use ($filesystem): void {
         $deletedBeforeComposerCompleted = collect($filesystem->deletedPaths)->flatten()->all();
         $preparedManifest = $filesystem->replacedContents[base_path('bootstrap/cache/packages.php')] ?? '';
 
@@ -142,16 +134,7 @@ it('keeps the current Laravel provider manifests until Composer has removed the 
             ->toContain('vendor/other')
             ->and($deletedBeforeComposerCompleted)->not->toContain(base_path('bootstrap/cache/packages.php'))
             ->and($deletedBeforeComposerCompleted)->toContain(base_path('bootstrap/cache/services.php'));
-
-        return 0;
     });
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Package vendor/package removed');
-    $process->shouldReceive('isSuccessful')->andReturnTrue();
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
 
     try {
         RemovePackageAction::run('vendor/package');
@@ -159,10 +142,13 @@ it('keeps the current Laravel provider manifests until Composer has removed the 
         app()->detectEnvironment(fn (): string => 'testing');
     }
 
-    expect(collect($filesystem->deletedPaths)->flatten()->all())->toContain(
-        base_path('bootstrap/cache/packages.php'),
-        base_path('bootstrap/cache/services.php'),
-    );
+    expect($this->processes->processes)->toHaveCount(1)
+        ->and($this->processes->processes[0]->hasRun())->toBeTrue()
+        ->and($this->processes->processes[0]->getTimeout())->toEqual(600)
+        ->and(collect($filesystem->deletedPaths)->flatten()->all())->toContain(
+            base_path('bootstrap/cache/packages.php'),
+            base_path('bootstrap/cache/services.php'),
+        );
 });
 
 it('removes a package from the command line while server side tooling is disabled', function (): void {
@@ -209,25 +195,17 @@ it('promotes bundle members while preserving direct constraints', function (): v
     $bundle->kind = 'bundle';
     $bundle->requirements = ['capell-app/widget-slideshow', 'capell-app/widget-youtube'];
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->with(600)->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): int {
+    $this->processes->push(output: 'Bundle removed', onRun: function () use ($filesystem, $composerPath, $lockPath): void {
         $composer = json_decode($filesystem->contents[$composerPath], true, flags: JSON_THROW_ON_ERROR);
         unset($composer['require']['capell-app/widget-showcase']);
         $filesystem->contents[$composerPath] = json_encode($composer, JSON_THROW_ON_ERROR);
         $filesystem->contents[$lockPath] = '{"lock":"after"}';
-
-        return 0;
     });
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Bundle removed');
-    $process->shouldReceive('isSuccessful')->andReturnTrue();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->with([...capellComposerArgv(), 'remove', 'capell-app/widget-showcase', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))->once()->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
 
     RemovePackageAction::run('capell-app/widget-showcase');
+
+    expect($this->processes->processes)->toHaveCount(1);
+    expectComposerRemovalProcess($this->processes->processes[0], 'capell-app/widget-showcase');
 
     $composer = json_decode($filesystem->contents[$composerPath], true, flags: JSON_THROW_ON_ERROR);
     expect($composer['require'])->not->toHaveKey('capell-app/widget-showcase')
@@ -250,16 +228,7 @@ it('restores composer files when bundle deletion fails', function (): void {
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/member'];
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->andReturnSelf();
-    $process->shouldReceive('run')->andReturn(1);
-    $process->shouldReceive('getErrorOutput')->andReturn('Resolution failed');
-    $process->shouldReceive('getOutput')->andReturn('');
-    $process->shouldReceive('isSuccessful')->andReturnFalse();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $this->processes->byDefault(exitCode: 1, errorOutput: 'Resolution failed');
 
     expect(fn () => RemovePackageAction::run('vendor/showcase'))->toThrow(
         RuntimeException::class,
@@ -270,20 +239,7 @@ it('restores composer files when bundle deletion fails', function (): void {
 });
 
 it('uses allow-listed diagnostics when composer removal fails', function (string $composerOutput, array $secrets): void {
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->with(600)->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturn(1);
-    $process->shouldReceive('getErrorOutput')->andReturn($composerOutput);
-    $process->shouldReceive('getOutput')->andReturn('');
-    $process->shouldReceive('isSuccessful')->andReturnFalse();
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'remove', 'vendor/unsafe-package', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
-        ->once()
-        ->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $this->processes->push(exitCode: 1, errorOutput: $composerOutput);
 
     $caught = null;
 
@@ -296,7 +252,9 @@ it('uses allow-listed diagnostics when composer removal fails', function (string
     expect($caught?->getMessage())->toBe(
         'Composer could not complete the package removal. Composer output was withheld because it may contain credentials. '
         . 'Run the removal from the application root in a trusted terminal, resolve the reported Composer error, then retry.',
-    )->and(mb_strlen((string) $caught?->getMessage()))->toBeLessThanOrEqual(300);
+    )->and(mb_strlen((string) $caught?->getMessage()))->toBeLessThanOrEqual(300)
+        ->and($this->processes->processes)->toHaveCount(1);
+    expectComposerRemovalProcess($this->processes->processes[0], 'vendor/unsafe-package');
 
     foreach ($secrets as $secret) {
         expect($caught?->getMessage())->not->toContain($secret);
@@ -352,42 +310,23 @@ it('restores composer files when post-composer bundle finalization fails', funct
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/finalization-member'];
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->andReturnSelf();
-    $process->shouldReceive('run')->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): int {
-        $composer = json_decode($filesystem->contents[$composerPath], true, flags: JSON_THROW_ON_ERROR);
-        unset($composer['require']['vendor/finalization-showcase']);
-        $filesystem->contents[$composerPath] = json_encode($composer, JSON_THROW_ON_ERROR);
-        $filesystem->contents[$lockPath] = '{"lock":"changed"}';
-
-        return 0;
-    });
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Bundle removed');
-    $process->shouldReceive('isSuccessful')->andReturnTrue();
-    $recovery = Mockery::mock(Process::class);
-    $recovery->shouldReceive('setEnv')->andReturnSelf();
-    $recovery->shouldReceive('setTimeout')->andReturnSelf();
-    $recovery->shouldReceive('run')->once()->andReturn(0);
-    $recovery->shouldReceive('isSuccessful')->andReturnTrue();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'remove', 'vendor/finalization-showcase', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
-        ->once()
-        ->andReturn($process);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
-        ->once()
-        ->andReturn($recovery);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $this->processes
+        ->push(output: 'Bundle removed', onRun: function () use ($filesystem, $composerPath, $lockPath): void {
+            $composer = json_decode($filesystem->contents[$composerPath], true, flags: JSON_THROW_ON_ERROR);
+            unset($composer['require']['vendor/finalization-showcase']);
+            $filesystem->contents[$composerPath] = json_encode($composer, JSON_THROW_ON_ERROR);
+            $filesystem->contents[$lockPath] = '{"lock":"changed"}';
+        })
+        ->push();
 
     expect(fn () => RemovePackageAction::run(
         'vendor/finalization-showcase',
         static fn (): never => throw new RuntimeException('State finalization failed'),
     ))->toThrow(RuntimeException::class, 'State finalization failed');
     expect($filesystem->contents[$composerPath])->toBe($originalComposer)
-        ->and($filesystem->contents[$lockPath])->toBe($originalLock);
+        ->and($filesystem->contents[$lockPath])->toBe($originalLock)
+        ->and($this->processes->commands())->toBe([composerRemovalArgv('vendor/finalization-showcase'), composerRecoveryArgv()])
+        ->and($this->processes->processes[1]->hasRun())->toBeTrue();
 });
 
 it('updates already-direct bundle members and verifies the bundle leaves the lock file', function (): void {
@@ -406,27 +345,15 @@ it('updates already-direct bundle members and verifies the bundle leaves the loc
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/member'];
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem, $lockPath): int {
+    $this->processes->push(output: 'Unused bundle removed', onRun: function () use ($filesystem, $lockPath): void {
         $filesystem->contents[$lockPath] = json_encode(['packages' => [['name' => 'vendor/member']]], JSON_THROW_ON_ERROR);
-
-        return 0;
     });
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Unused bundle removed');
-    $process->shouldReceive('isSuccessful')->andReturnTrue();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'update', 'vendor/member', '--with-dependencies', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
-        ->once()
-        ->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
 
     RemovePackageAction::run('vendor/showcase');
 
-    expect($filesystem->contents[$lockPath])->not->toContain('vendor/showcase');
+    expect($filesystem->contents[$lockPath])->not->toContain('vendor/showcase')
+        ->and($this->processes->commands())->toBe([composerMemberUpdateArgv('vendor/member')])
+        ->and($this->processes->processes[0]->hasRun())->toBeTrue();
 });
 
 it('restores composer files when a transitive bundle remains locked', function (): void {
@@ -447,33 +374,14 @@ it('restores composer files when a transitive bundle remains locked', function (
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/member'];
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->andReturnSelf();
-    $process->shouldReceive('run')->andReturn(0);
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Nothing changed');
-    $process->shouldReceive('isSuccessful')->andReturnTrue();
-    $recovery = Mockery::mock(Process::class);
-    $recovery->shouldReceive('setEnv')->andReturnSelf();
-    $recovery->shouldReceive('setTimeout')->andReturnSelf();
-    $recovery->shouldReceive('run')->once()->andReturn(0);
-    $recovery->shouldReceive('isSuccessful')->andReturnTrue();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'update', 'vendor/member', '--with-dependencies', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
-        ->once()
-        ->andReturn($process);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
-        ->once()
-        ->andReturn($recovery);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $this->processes->push(output: 'Nothing changed')->push();
 
     expect(fn () => RemovePackageAction::run('vendor/showcase'))
         ->toThrow(RuntimeException::class, 'remains installed in composer.lock');
     expect($filesystem->contents[$composerPath])->toBe($originalComposer)
-        ->and($filesystem->contents[$lockPath])->toBe($originalLock);
+        ->and($filesystem->contents[$lockPath])->toBe($originalLock)
+        ->and($this->processes->commands())->toBe([composerMemberUpdateArgv('vendor/member'), composerRecoveryArgv()])
+        ->and($this->processes->processes[1]->hasRun())->toBeTrue();
 });
 
 it('restores composer files and reports safe operator diagnostics when recovery fails', function (): void {
@@ -494,20 +402,12 @@ it('restores composer files and reports safe operator diagnostics when recovery 
     $bundle->kind = 'bundle';
     $bundle->requirements = ['vendor/recovery-member'];
 
-    $removal = Mockery::mock(Process::class);
-    $removal->shouldReceive('setEnv')->andReturnSelf();
-    $removal->shouldReceive('setTimeout')->andReturnSelf();
-    $removal->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): int {
+    $this->processes->push(output: 'Bundle removed', onRun: function () use ($filesystem, $composerPath, $lockPath): void {
         $composer = json_decode($filesystem->contents[$composerPath], true, flags: JSON_THROW_ON_ERROR);
         unset($composer['require']['vendor/recovery-showcase']);
         $filesystem->contents[$composerPath] = json_encode($composer, JSON_THROW_ON_ERROR);
         $filesystem->contents[$lockPath] = json_encode(['packages' => [['name' => 'vendor/recovery-member']]], JSON_THROW_ON_ERROR);
-
-        return 0;
     });
-    $removal->shouldReceive('getErrorOutput')->andReturn('');
-    $removal->shouldReceive('getOutput')->andReturn('Bundle removed');
-    $removal->shouldReceive('isSuccessful')->andReturnTrue();
 
     $recoveryOutput = implode(PHP_EOL, [
         'Repository unavailable during automatic recovery.',
@@ -524,29 +424,10 @@ it('restores composer files and reports safe operator diagnostics when recovery 
         'GitHub rejected github_pat_naked-secret-value.',
         str_repeat('FULL_ENVIRONMENT_VALUE=visible ', 300),
     ]);
-    $recovery = Mockery::mock(Process::class);
-    $recovery->shouldReceive('setEnv')->andReturnSelf();
-    $recovery->shouldReceive('setTimeout')->andReturnSelf();
-    $recovery->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): int {
+    $this->processes->push(exitCode: 1, errorOutput: $recoveryOutput, onRun: function () use ($filesystem, $composerPath, $lockPath): void {
         $filesystem->contents[$composerPath] = '{"corrupted":true}';
         $filesystem->contents[$lockPath] = '{"corrupted":true}';
-
-        return 1;
     });
-    $recovery->shouldReceive('isSuccessful')->andReturnFalse();
-    $recovery->shouldReceive('getErrorOutput')->andReturn($recoveryOutput);
-    $recovery->shouldReceive('getOutput')->andReturn('');
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'remove', 'vendor/recovery-showcase', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
-        ->once()
-        ->andReturn($removal);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
-        ->once()
-        ->andReturn($recovery);
-    app()->instance(ProcessFactoryInterface::class, $factory);
 
     $originalFailure = new RuntimeException('Package lifecycle finalization failed.');
     $caught = null;
@@ -577,7 +458,8 @@ it('restores composer files and reports safe operator diagnostics when recovery 
         ->and(mb_strlen((string) $caught?->getMessage()))->toBeLessThanOrEqual(400)
         ->and($caught?->getPrevious())->toBe($originalFailure)
         ->and($filesystem->contents[$composerPath])->toBe($originalComposer)
-        ->and($filesystem->contents[$lockPath])->toBe($originalLock);
+        ->and($filesystem->contents[$lockPath])->toBe($originalLock)
+        ->and($this->processes->commands())->toBe([composerRemovalArgv('vendor/recovery-showcase'), composerRecoveryArgv()]);
 });
 
 it('wraps recovery process creation setup and timeout failures safely', function (string $failurePoint): void {
@@ -591,67 +473,36 @@ it('wraps recovery process creation setup and timeout failures safely', function
     ]);
     app()->instance(Filesystem::class, $filesystem);
 
-    $removal = Mockery::mock(Process::class);
-    $removal->shouldReceive('setEnv')->andReturnSelf();
-    $removal->shouldReceive('setTimeout')->with(600)->andReturnSelf();
-    $removal->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): int {
+    $this->processes->push(output: 'Package removed', onRun: function () use ($filesystem, $composerPath, $lockPath): void {
         $filesystem->contents[$composerPath] = '{"require":[]}';
         $filesystem->contents[$lockPath] = '{"packages":[]}';
-
-        return 0;
     });
-    $removal->shouldReceive('getErrorOutput')->andReturn('');
-    $removal->shouldReceive('getOutput')->andReturn('Package removed');
-    $removal->shouldReceive('isSuccessful')->andReturnTrue();
 
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'remove', 'vendor/throwing-package', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
-        ->once()
-        ->andReturn($removal);
+    $corrupt = function (string $marker) use ($filesystem, $composerPath, $lockPath): void {
+        $filesystem->contents[$composerPath] = '{"corrupted":"' . $marker . '"}';
+        $filesystem->contents[$lockPath] = '{"corrupted":"' . $marker . '"}';
+    };
 
-    if ($failurePoint === 'creation') {
-        $factory->shouldReceive('make')
-            ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
-            ->once()
-            ->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): never {
-                $filesystem->contents[$composerPath] = '{"corrupted":"creation"}';
-                $filesystem->contents[$lockPath] = '{"corrupted":"creation"}';
+    match ($failurePoint) {
+        'creation' => $this->processes->push(onMake: function () use ($corrupt): never {
+            $corrupt('creation');
 
-                throw new RuntimeException('Recovery factory exposed recovery-factory-secret.');
-            });
-    } else {
-        $recovery = Mockery::mock(Process::class);
+            throw new RuntimeException('Recovery factory exposed recovery-factory-secret.');
+        }),
+        'setup' => $this->processes->push(onSetEnv: function () use ($corrupt): never {
+            $corrupt('setup');
 
-        if ($failurePoint === 'setup') {
-            $recovery->shouldReceive('setEnv')->once()->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath): never {
-                $filesystem->contents[$composerPath] = '{"corrupted":"setup"}';
-                $filesystem->contents[$lockPath] = '{"corrupted":"setup"}';
-
-                throw new RuntimeException('Recovery setup exposed recovery-setup-secret.');
-            });
-        } else {
+            throw new RuntimeException('Recovery setup exposed recovery-setup-secret.');
+        }),
+        'timeout' => $this->processes->push(onRun: function () use ($corrupt): never {
+            $corrupt('timeout');
             $timedProcess = new Process([...capellComposerArgv(), 'install', 'timeout-secret']);
             $timedProcess->setTimeout(300);
-            $timeout = new ProcessTimedOutException($timedProcess, ProcessTimedOutException::TYPE_GENERAL);
 
-            $recovery->shouldReceive('setEnv')->once()->andReturnSelf();
-            $recovery->shouldReceive('setTimeout')->with(300)->once()->andReturnSelf();
-            $recovery->shouldReceive('run')->once()->andReturnUsing(function () use ($filesystem, $composerPath, $lockPath, $timeout): never {
-                $filesystem->contents[$composerPath] = '{"corrupted":"timeout"}';
-                $filesystem->contents[$lockPath] = '{"corrupted":"timeout"}';
-
-                throw $timeout;
-            });
-        }
-
-        $factory->shouldReceive('make')
-            ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
-            ->once()
-            ->andReturn($recovery);
-    }
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+            throw new ProcessTimedOutException($timedProcess, ProcessTimedOutException::TYPE_GENERAL);
+        }),
+        default => throw new InvalidArgumentException('Unknown recovery failure point [' . $failurePoint . '].'),
+    };
     $originalFailure = new RuntimeException('Package lifecycle finalization failed.');
     $caught = null;
 
@@ -674,67 +525,45 @@ it('wraps recovery process creation setup and timeout failures safely', function
         ->not->toContain('timeout-secret')
         ->and($caught?->getPrevious())->toBe($originalFailure)
         ->and($filesystem->contents[$composerPath])->toBe($originalComposer)
-        ->and($filesystem->contents[$lockPath])->toBe($originalLock);
+        ->and($filesystem->contents[$lockPath])->toBe($originalLock)
+        ->and($this->processes->commands())->toBe([composerRemovalArgv('vendor/throwing-package'), composerRecoveryArgv()]);
+
+    if ($failurePoint === 'timeout') {
+        expect($this->processes->processes[1]->getTimeout())->toEqual(300);
+    }
 })->with(['creation', 'setup', 'timeout']);
 
 it('gives the removal the configured Composer timeout rather than a literal of its own', function (int $configured, int $expected): void {
     config()->set('capell.process.composer.timeout_seconds', $configured);
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->with($expected)->once()->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturn(0);
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Package vendor/timed-package removed');
-    $process->shouldReceive('isSuccessful')->andReturnTrue();
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->with([...capellComposerArgv(), 'remove', 'vendor/timed-package', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'], Mockery::type('string'))
-        ->once()
-        ->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
     RemovePackageAction::run('vendor/timed-package');
+
+    expect($this->processes->processes)->toHaveCount(1);
+    expectComposerRemovalProcess($this->processes->processes[0], 'vendor/timed-package', $expected);
 })->with([
     'configured value is honoured' => [900, 900],
     'zero falls back to the default' => [0, 600],
 ]);
 
 it('honours a caller budget and refuses to start when none remains', function (): void {
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->with(17)->once()->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturn(0);
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Package vendor/package removed');
-    $process->shouldReceive('isSuccessful')->andReturnTrue();
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
     RemovePackageAction::run('vendor/package', timeoutSeconds: 17);
 
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldNotReceive('make');
+    expect($this->processes->processes)->toHaveCount(1);
+    expectComposerRemovalProcess($this->processes->processes[0], 'vendor/package', 17);
 
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $exhausted = FakeProcessFactory::bind();
 
     expect(fn (): array => RemovePackageAction::run('vendor/package', timeoutSeconds: 0))
         ->toThrow(RuntimeException::class, 'No job time remains');
+    $exhausted->assertNothingRan();
 });
 
 it('refuses a removal that declares itself an unattended web-triggered Composer write while server-side tooling is off', function (): void {
     config()->set('capell.server_side_tooling', false);
 
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldNotReceive('make');
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
-
     expect(fn (): array => RemovePackageAction::run('vendor/package', requiresServerSideTooling: true))
         ->toThrow(RuntimeException::class, 'CAPELL_SERVER_SIDE_TOOLING is disabled');
+    $this->processes->assertNothingRan();
 });
 
 final class BundleComposerFilesystem extends Filesystem

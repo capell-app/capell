@@ -12,6 +12,7 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\InstallPlan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 final class OrchestrateInstallAction
 {
@@ -37,10 +38,20 @@ final class OrchestrateInstallAction
         $host->prepareApplication($inputData, $reporter);
 
         $result = $this->runInstall->runWithResult($inputData, $reporter);
+        // Required packages and panel scaffolding can register patches only
+        // during installation. Complete them before the final asset build.
+        $host->prepareApplication($inputData, $reporter);
         $host->upgradeFilament();
 
         if ($orchestration->runNpmBuild) {
-            $host->buildFrontendAssets();
+            try {
+                $host->buildFrontendAssets();
+            } catch (Throwable $failure) {
+                ReportInstallFailureAction::run($inputData, $result->completedSteps, InstallPlan::STEP_REBUILD_RESOURCES, $reporter);
+
+                throw $failure;
+            }
+
             $result = new InstallRunResultData(
                 selectedPackages: $result->selectedPackages,
                 completedSteps: array_values(array_unique([...$result->completedSteps, InstallPlan::STEP_REBUILD_RESOURCES])),

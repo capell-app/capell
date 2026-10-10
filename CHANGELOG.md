@@ -9,15 +9,20 @@ the `Update Changelog` workflow.
 
 ### Added
 
+- Added a simple CLI installation flow with one confirmation for foundation defaults, editable customisation, reusable profiles, optional application URL updates and frontend dependency builds.
+
 - Added fail-closed Project Build target compatibility verification and a consumer-owned package installation boundary for applying signed manifests in exact release order.
 - Added the CAP-0270 Core Filament-neutrality seam and CAP-0271's draft 2.x compatibility decision, dependency baseline, consumer fixture, and old-package failure wording. The 1.x adapters and `filament/support` requirement remain active.
 
 ### Fixed
 
-- Flattened Admin navigation with local menus for Content Library, Design and System; removed the separate marketing dashboard page and composed its widgets into Dashboard.
+- Grouped Admin navigation with local menus for secondary Design tools; removed the separate marketing dashboard page and composed its widgets into Dashboard.
 
 - Added an ordinary draft-save control in the configured page action position without duplicating extension-provided draft actions.
 
+- Registered the compiled Admin theme during panel installation, preserving explicit themes and reporting customised provider methods that need manual configuration.
+- Resolved missing installer packages before application or database changes, clarified catalogue licensing and first-site URLs, and reported partial failures with focused recovery commands.
+- Preserved local Core path constraints during Composer downloads and avoided borrowing vendor migration stubs from a different installed version.
 - Preserved site domain ports and the selected site across page creation, validated duplicate page URLs before saving, and simplified page tools and layout navigation.
 - Avoided repeated admin contribution sorting and quadratic receipt deduplication during application boot, preserving registration order and cache invalidation.
 - Emitted declared package-specific theme identity tokens while rejecting malformed names, reserved core-property collisions, and values outside their declared vocabulary.

@@ -24,6 +24,8 @@ use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
 use Capell\Core\Tests\Feature\Commands\Fixtures\TestInstallCommand;
 use Capell\Frontend\Http\Controllers\PageController;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\Fakes\FakeProcess;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Console\Command as LaravelCommand;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Artisan;
@@ -35,7 +37,6 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Traits\HasRoles;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Output\BufferedOutput;
-use Symfony\Component\Process\Process as SymfonyProcess;
 
 require_once dirname(__DIR__, 5) . '/tests/Support/InstallFilesystemLock.php';
 
@@ -48,6 +49,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
+    FakeProcessFactory::verifyBound();
     ClearCachesAction::clearFake();
     RunInstallAction::clearFake();
     app()->forgetInstance(ProcessFactoryInterface::class);
@@ -347,45 +349,18 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
 {
     preserveTestbenchPackageManifestFilesDuringPackageRemoval();
 
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process
-        ->shouldReceive('setEnv')
-        ->with(Mockery::on(fn (array $environment): bool => ($environment['GIT_CONFIG_KEY_0'] ?? null) === 'safe.directory'
-            && ($environment['GIT_CONFIG_VALUE_0'] ?? null) === '*'))
-        ->andReturnSelf();
-    $process
-        ->shouldReceive('setTimeout')
-        ->with(capellComposerTimeoutSeconds())
-        ->andReturnSelf();
-    $process
-        ->shouldReceive('run')
-        ->once()
-        ->andReturn(0);
-    $process
-        ->shouldReceive('getErrorOutput')
-        ->andReturn('');
-    $process
-        ->shouldReceive('getOutput')
-        ->andReturn('Package capell-app/installer removed');
-    $process
-        ->shouldReceive('isSuccessful')
-        ->andReturnTrue();
+    $removal = [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
 
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory
-        ->shouldReceive('make')
-        ->once()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [...capellComposerArgv(), 'remove', 'capell-app/installer', '--no-interaction', '--no-scripts', '--no-audit', '--no-progress']),
-            Mockery::type('string'),
-        )
-        ->andReturnUsing(function () use ($beforeMake, $process): SymfonyProcess {
-            $beforeMake?->__invoke();
-
-            return $process;
-        });
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()
+        ->expect(static fn (array $argv, ?string $cwd): bool => $argv === $removal && is_string($cwd))
+        ->push(
+            output: 'Package capell-app/installer removed',
+            onRun: static function (FakeProcess $process): void {
+                expect($process->getEnv())->toMatchArray(['GIT_CONFIG_KEY_0' => 'safe.directory', 'GIT_CONFIG_VALUE_0' => '*'])
+                    ->and($process->getTimeout())->toEqual(capellComposerTimeoutSeconds());
+            },
+            onMake: $beforeMake,
+        );
 }
 
 /** @param array<int, string> $packages */
@@ -398,26 +373,9 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
  */
 function bindInstallCommandHermeticProcessFactory(): void
 {
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')->andReturnSelf();
-    $process->shouldReceive('run')->andReturn(0);
-    $process->shouldReceive('isSuccessful')->andReturn(true);
-    $process->shouldReceive('getErrorOutput')->andReturn('');
-    $process->shouldReceive('getOutput')->andReturn('Dry run ok');
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory
-        ->shouldReceive('make')
-        ->zeroOrMoreTimes()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => is_array($command)
-                && array_slice($command, 0, 3) === ['composer', 'require', '--dry-run']),
-            Mockery::any(),
-            Mockery::any(),
-        )
-        ->andReturn($process);
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()
+        ->expect(static fn (array $argv): bool => array_slice($argv, 0, 3) === ['composer', 'require', '--dry-run'], times: null)
+        ->byDefault(output: 'Dry run ok');
 }
 
 function bindInstallCommandPreflightProcessFactory(
@@ -427,95 +385,50 @@ function bindInstallCommandPreflightProcessFactory(
     ?Closure $beforeRun = null,
     array $packages = ['capell-app/admin'],
 ): void {
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process
-        ->shouldReceive('setTimeout')
-        ->with(600)
-        ->andReturnSelf();
-    $process
-        ->shouldReceive('run')
-        ->once()
-        ->andReturnUsing(function (?callable $callback = null) use ($beforeRun, $output, $successful): int {
-            $beforeRun?->__invoke();
+    $dryRun = [
+        'composer',
+        'require',
+        '--dry-run',
+        '--no-interaction',
+        '--prefer-dist',
+        '--with-all-dependencies',
+        ...array_map(
+            fn (string $package): string => app()->isLocal() ? $package . ':*' : $package,
+            $packages,
+        ),
+    ];
 
-            if ($callback !== null && $output !== '') {
-                $callback('out', $output);
-            }
-
-            return $successful ? 0 : 1;
-        });
-    $process->shouldReceive('isSuccessful')->andReturn($successful);
-    $process->shouldReceive('getErrorOutput')->andReturn($errorOutput);
-    $process->shouldReceive('getOutput')->andReturn($output);
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory
-        ->shouldReceive('make')
-        ->once()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [
-                'composer',
-                'require',
-                '--dry-run',
-                '--no-interaction',
-                '--prefer-dist',
-                '--with-all-dependencies',
-                ...array_map(
-                    fn (string $package): string => app()->isLocal() ? $package . ':*' : $package,
-                    $packages,
-                ),
-            ]),
-            Mockery::type('string'),
-            Mockery::type('array'),
-        )
-        ->andReturn($process);
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()
+        ->expect(static fn (array $argv, ?string $cwd, ?array $environment): bool => $argv === $dryRun && is_string($cwd) && is_array($environment))
+        ->push(
+            exitCode: $successful ? 0 : 1,
+            output: $output,
+            errorOutput: $errorOutput,
+            onRun: static function (FakeProcess $process) use ($beforeRun): void {
+                expect($process->getTimeout())->toEqual(600);
+                $beforeRun?->__invoke();
+            },
+        );
 }
 
 function bindInstallCommandFilamentPanelProcessFactory(bool $successful = true, string $output = 'Filament panel installed', string $errorOutput = ''): void
 {
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process
-        ->shouldReceive('setTimeout')
-        ->with(300)
-        ->andReturnSelf();
-    $process
-        ->shouldReceive('run')
-        ->once()
-        ->andReturnUsing(function (?callable $callback = null) use ($successful, $output): int {
-            if ($successful) {
-                writeStockInstallTestAdminPanelProvider();
-            }
+    FakeProcessFactory::bind()
+        ->expect(static fn (array $argv, ?string $cwd, ?array $environment): bool => $argv === [PHP_BINARY, 'artisan', 'filament:install', '--panels', '--no-interaction']
+            && is_string($cwd)
+            && is_array($environment))
+        ->push(
+            exitCode: $successful ? 0 : 1,
+            output: $output,
+            errorOutput: $errorOutput,
+            onRun: static function (FakeProcess $process) use ($successful): void {
+                expect($process->getTimeout())->toEqual(300);
 
-            if ($callback !== null && $output !== '') {
-                $callback('out', $output);
-            }
-
-            return $successful ? 0 : 1;
-        });
-    $process->shouldReceive('isSuccessful')->andReturn($successful);
-    $process->shouldReceive('getErrorOutput')->andReturn($errorOutput);
-    $process->shouldReceive('getOutput')->andReturn($output);
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory
-        ->shouldReceive('make')
-        ->once()
-        ->with(
-            Mockery::on(fn (array|string $command): bool => $command === [
-                PHP_BINARY,
-                'artisan',
-                'filament:install',
-                '--panels',
-                '--no-interaction',
-            ]),
-            Mockery::type('string'),
-            Mockery::type('array'),
-        )
-        ->andReturn($process);
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+                if ($successful) {
+                    writeStockInstallTestAdminPanelProvider();
+                }
+            },
+        );
 }
 
 it('returns SUCCESS immediately when --no-side-effects is passed', function (): void {
@@ -570,6 +483,24 @@ it('prints the install plan and exits without running steps', function (): void 
 
     expect($fake->callCount)->toBe(0)
         ->and(Site::query()->count())->toBe(0);
+});
+
+it('includes an explicitly requested asset build in a plan without applying it', function (): void {
+    setupInstallTest(['capell-app/frontend']);
+    markInstallTestPackageAsFrontend('capell-app/frontend');
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--packages' => 'capell-app/frontend',
+        '--url' => 'https://example.test',
+        '--build-assets' => true,
+        '--plan' => true,
+        '--no-interaction' => true,
+    ])
+        ->expectsOutputToContain('Install frontend dependencies and build assets with the application package manager')
+        ->assertSuccessful();
+
+    expect($fake->callCount)->toBe(0);
 });
 
 it('renders install failures once and exits cleanly', function (): void {
@@ -924,16 +855,14 @@ it('fails before running the install when selected install-time packages cannot 
     expect($exitCode)->toBe(Command::FAILURE)
         ->and($fake->callCount)->toBe(0)
         ->and($output)->toContain('Capell installation failed.')
-        ->and($output)->toContain('Selected packages cannot be installed via Composer [capell-app/admin]: Package capell-app/admin was not found.');
+        ->and($output)->toContain('Selected packages cannot be installed via Composer [capell-app/admin]: Composer could not find a selected package.')
+        ->and($output)->toContain('Package capell-app/admin was not found.');
 });
 
 it('does not remove the installer package when the install fails', function (): void {
     setupInstallTest(['test', 'capell-app/installer'], foundationThemeAvailable: true);
     createTestUser();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldNotReceive('make');
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()->expect(static fn (): bool => false, times: 0);
     $fake = bindFakeRunInstallAction();
     $fake->throwable = new RuntimeException('Package setup failed.');
 
@@ -1014,10 +943,7 @@ it('emits a redacted install handoff and writes its machine-readable artifact', 
 it('leaves the installer package installed when removal is declined', function (): void {
     setupInstallTest(['test', 'capell-app/installer'], foundationThemeAvailable: true);
     createTestUser();
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldNotReceive('make');
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()->expect(static fn (): bool => false, times: 0);
     $fake = bindFakeRunInstallAction();
 
     artisanCommand('capell:install', [
@@ -1142,8 +1068,8 @@ function configureInstallSuiteForTest(bool $demo = false): void
     ]]);
 
     GetPluginsAction::mock()->shouldReceive('handle')->andReturn(collect([
-        'capell-app/form-builder' => new PackageData(name: 'capell-app/form-builder', type: PackageTypeEnum::Plugin),
-        'capell-app/newsletter' => new PackageData(name: 'capell-app/newsletter', type: PackageTypeEnum::Plugin),
+        'capell-app/form-builder' => new PackageData(name: 'capell-app/form-builder', type: PackageTypeEnum::Plugin, isPaid: false),
+        'capell-app/newsletter' => new PackageData(name: 'capell-app/newsletter', type: PackageTypeEnum::Plugin, isPaid: false),
         'capell-app/events' => new PackageData(name: 'capell-app/events', type: PackageTypeEnum::Plugin, description: 'Recurring events.', tier: 'free'),
     ]));
 }
@@ -1162,7 +1088,7 @@ it('turns a chosen suite into installed packages plus Composer downloads for ext
     ])
         ->expectsQuestion('What are you building?', 'site')
         ->expectsChoice('Recommended for Test site', ['capell-app/form-builder'], [
-            'capell-app/form-builder' => 'Form Builder — Forms with an inbox. (may need a Capell licence to download)',
+            'capell-app/form-builder' => 'Form Builder — Forms with an inbox. [Free]',
         ])
         ->expectsQuestion('Optional extras for Test site', ['capell-app/newsletter'])
         ->expectsConfirmation('Search for more extensions?', 'no')
@@ -1201,7 +1127,7 @@ it('lets the user search the catalogue for an extension the suite did not sugges
             'Search extensions by name or by what they do',
             ['capell-app/events'],
             'recurring',
-            ['capell-app/events' => 'Events — Recurring events.'],
+            ['capell-app/events' => 'Events — Recurring events. [Free]'],
         )
         ->expectsQuestion('Which starter theme should be installed?', 'default')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
@@ -1235,9 +1161,9 @@ it('lists every candidate when the search is submitted empty, as the non-interac
             ['capell-app/events'],
             null,
             [
-                'capell-app/events' => 'Events — Recurring events.',
-                'capell-app/form-builder' => 'Form Builder (may need a Capell licence to download)',
-                'capell-app/newsletter' => 'Newsletter (may need a Capell licence to download)',
+                'capell-app/events' => 'Events — Recurring events. [Free]',
+                'capell-app/form-builder' => 'Form Builder [Free]',
+                'capell-app/newsletter' => 'Newsletter [Free]',
             ],
         )
         ->expectsQuestion('Which starter theme should be installed?', 'default')
@@ -1264,6 +1190,7 @@ it('lets a fresh reinstall search for an extension that is installed now but abo
         '--fresh' => true,
         '--clear-cache' => true,
     ])
+        ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsQuestion('What are you building?', 'site')
         ->expectsQuestion('Recommended for Test site', [])
         ->expectsQuestion('Optional extras for Test site', [])
@@ -1272,9 +1199,8 @@ it('lets a fresh reinstall search for an extension that is installed now but abo
             'Search extensions by name or by what they do',
             ['vendor/reselect'],
             'reselect',
-            ['vendor/reselect' => 'Reselect — Reselectable extension.'],
+            ['vendor/reselect' => 'Reselect — Reselectable extension. [Licence status unavailable; Already downloaded]'],
         )
-        ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsQuestion('Which starter theme should be installed?', 'default')
         ->expectsQuestion('Name', 'Fresh Admin')
         ->expectsQuestion('Email', 'fresh@example.test')
@@ -1300,11 +1226,11 @@ it('does not opt a fresh install into the known-credentials demo path when the s
         '--fresh' => true,
         '--clear-cache' => true,
     ])
+        ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsQuestion('What are you building?', 'site')
         ->expectsQuestion('Recommended for Test site', [])
         ->expectsQuestion('Optional extras for Test site', [])
         ->expectsConfirmation('Search for more extensions?', 'no')
-        ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
         ->expectsQuestion('Which starter theme should be installed?', 'default')
         ->expectsQuestion('Name', 'Fresh Admin')
         ->expectsQuestion('Email', 'fresh@example.test')
@@ -2402,7 +2328,7 @@ it('can run an npm build after installing a frontend package', function (): void
         ->expectsConfirmation('Let Capell handle the homepage?', 'yes')
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
         ->expectsConfirmation('Build production frontend assets now?', 'yes')
-        ->expectsOutput('Running: npm run build')
+        ->expectsOutput('Install frontend dependencies and build assets with the application package manager')
         ->expectsOutput('Production build completed successfully.')
         ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
@@ -2445,7 +2371,7 @@ it('fails instead of reporting a completed install when the requested npm build 
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
         ->expectsConfirmation('Build production frontend assets now?', 'yes')
         ->expectsConfirmation('Install Capell with these settings?', 'yes')
-        ->expectsOutput('npm build failed.')
+        ->expectsOutput('Frontend dependency installation or build failed.')
         ->assertExitCode(Command::FAILURE);
 
     expect($fake->callCount)->toBe(1);
@@ -2541,6 +2467,7 @@ it('asks for package selection during interactive fresh demo installs', function
     ])
         ->expectsOutput('You are about to install Capell with a fresh database refresh and demo content.')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
+        ->expectsQuestion('What is the URL of your first site?', 'https://demo.example.test')
         ->expectsQuestion('What core Capell packages should be installed?', [
             'capell-app/admin',
             'capell-app/frontend',
@@ -2606,6 +2533,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
     ])
         ->expectsOutput('You are about to install Capell with a fresh database refresh and demo content.')
         ->expectsConfirmation('Warning: this will delete all your data. Are you sure?', 'yes')
+        ->expectsQuestion('What is the URL of your first site?', 'https://demo.example.test')
         ->expectsConfirmation('Install Capell with these settings?', 'yes')
         ->assertExitCode(Command::SUCCESS);
 
@@ -2636,7 +2564,7 @@ it('can orchestrate the fresh demo shortcut for every package without post-insta
         ->with('capell.install: starting command', Mockery::type('array'))
         ->once();
     Log::getFacadeRoot()->shouldHaveReceived('debug')
-        ->with('capell.install: using default site url', Mockery::on(
+        ->with('capell.install: resolved site url', Mockery::on(
             fn (array $context): bool => $context['site_url'] === 'https://demo.example.test',
         ))
         ->once();
@@ -3194,4 +3122,94 @@ it('leaves application files and install actions untouched when the final review
         unlink($routesPath);
         unlink($envPath);
     }
+});
+
+it('offers one confirmation for non destructive basics without the detailed questionnaire', function (string $choice, int $calls): void {
+    setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    $existing = createTestUser();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test:8443/blog',
+        '--user' => $existing->email,
+    ])
+        ->expectsChoice('How would you like to continue?', $choice, [
+            'install' => 'Confirm all basics and install',
+            'customise' => 'Customise settings',
+            'cancel' => 'Cancel',
+        ])
+        ->assertSuccessful();
+
+    expect($fake->callCount)->toBe($calls);
+    if ($calls > 0) {
+        expect($fake->capturedInput->freshInstall)->toBeFalse()
+            ->and($fake->capturedInput->demoContent)->toBeFalse()
+            ->and($fake->capturedInput->installWelcomeRoute)->toBeFalse()
+            ->and($fake->capturedInput->installDeveloperTooling)->toBeFalse()
+            ->and($fake->capturedInput->seedDatabase)->toBeFalse()
+            ->and($fake->capturedInput->packages)->toContain('capell-app/admin', 'capell-app/frontend');
+    }
+})->with(['confirm all basics' => ['install', 1], 'cancel' => ['cancel', 0]]);
+
+it('returns edited basic settings to the review and cancels before saving a profile or APP_URL', function (): void {
+    setupInstallTest(['capell-app/admin', 'capell-app/frontend'], foundationThemeAvailable: true);
+    $fake = bindFakeRunInstallAction();
+    $existing = createTestUser();
+    $envBefore = is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null;
+    $profileBefore = is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null;
+    $reviewOptions = ['install' => 'Confirm all basics and install', 'customise' => 'Customise settings', 'cancel' => 'Cancel'];
+
+    artisanCommand('capell:install', ['--url' => 'https://original.test', '--user' => $existing->email, '--update-app-url' => true, '--save-profile' => 'cancelled-owned-test'])
+        ->expectsChoice('How would you like to continue?', 'customise', $reviewOptions)
+        ->expectsChoice('What would you like to customise?', 'site', [
+            'site' => 'Change the site address',
+            'packages' => 'Choose packages and theme',
+            'administrator' => 'Change the administrator',
+            'app-url' => 'Change whether APP_URL is updated',
+            'assets' => 'Change whether frontend dependencies and assets are built',
+            'profile' => 'Save these settings as a reusable profile',
+            'customise' => 'Open the full questionnaire',
+            'back' => 'Back to the review',
+        ])
+        ->expectsQuestion('What is the URL of your first site?', 'https://edited.test:8443/blog')
+        ->expectsChoice('How would you like to continue?', 'cancel', $reviewOptions)
+        ->assertSuccessful();
+
+    expect($fake->callCount)->toBe(0)
+        ->and(is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null)->toBe($envBefore)
+        ->and(is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null)->toBe($profileBefore);
+});
+
+it('keeps APP_URL and profile exports untouched when Composer preflight refuses a download', function (): void {
+    setupInstallTest();
+    $fake = bindFakeRunInstallAction();
+    $existing = createTestUser();
+    config(['capell.install_profiles' => ['owned-preflight-input' => ['packages' => ['test', 'vendor/missing']]]]);
+    $envBefore = is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null;
+    $profileBefore = is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null;
+    $process = Mockery::mock(SymfonyProcess::class);
+    $process->shouldReceive('setTimeout')->with(600)->once()->andReturnSelf();
+    $process->shouldReceive('run')->once()->andReturn(1);
+    $process->shouldReceive('isSuccessful')->once()->andReturn(false);
+    $process->shouldReceive('getOutput')->once()->andReturn('');
+    $process->shouldReceive('getErrorOutput')->once()->andReturn('Owned Composer preflight refusal.');
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldReceive('make')->once()->with(Mockery::on(fn (array $command): bool => in_array('--dry-run', $command, true)), base_path(), Mockery::type('array'))->andReturn($process);
+    app()->instance(ProcessFactoryInterface::class, $factory);
+    artisanCommand('capell:install', [
+        '--profile' => 'owned-preflight-input',
+        '--production' => true,
+        '--theme' => 'none',
+        '--url' => 'https://owned-preflight.test:8443/blog',
+        '--user' => $existing->email,
+        '--update-app-url' => true,
+        '--save-profile' => 'owned-preflight-export',
+        '--no-interaction' => true,
+    ])
+        ->expectsOutputToContain('Owned Composer preflight refusal.')
+        ->assertFailed();
+
+    expect($fake->callCount)->toBe(0)
+        ->and(is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null)->toBe($envBefore)
+        ->and(is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null)->toBe($profileBefore);
 });

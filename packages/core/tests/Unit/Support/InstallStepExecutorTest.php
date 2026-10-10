@@ -28,10 +28,10 @@ use Capell\Core\Support\Install\InstallStepExecutor;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
-use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
 use Capell\Tests\Fixtures\Filament\RuntimePermissionPage;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Filament\Facades\Filament;
 use Filament\FilamentServiceProvider;
 use Filament\Panel;
@@ -49,7 +49,6 @@ use Illuminate\Support\Facades\Process;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Symfony\Component\Console\Output\BufferedOutput;
-use Symfony\Component\Process\Process as SymfonyProcess;
 
 function installStepExecutorProcessResult(bool $wasSuccessful, string $output = '', string $errorOutput = ''): ProcessResult
 {
@@ -165,7 +164,7 @@ it('rebuilds package manifests during the install cache step', function (array $
 ]);
 
 /** @param array<string, mixed> $additionalCommands */
-function bindSuccessfulInstallDoctorCommand(array $additionalCommands = []): void
+function bindSuccessfulInstallDoctorCommand(array $additionalCommands = []): FakeProcessFactory
 {
     app()->instance(ConsoleKernel::class, new readonly class($additionalCommands) implements ConsoleKernel
     {
@@ -206,22 +205,20 @@ function bindSuccessfulInstallDoctorCommand(array $additionalCommands = []): voi
     });
     Facade::clearResolvedInstance(ConsoleKernel::class);
 
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')->with(120)->andReturnSelf();
-    $process->shouldReceive('run')->andReturnUsing(function (?callable $callback = null): int {
-        if ($callback !== null) {
-            $callback('out', "Doctor OK\n");
-        }
+    return FakeProcessFactory::bind()->byDefault(output: "Doctor OK\n");
+}
 
-        return 0;
-    });
-    $process->shouldReceive('getExitCode')->andReturn(0);
+/** @param  list<string>  $artisanArguments */
+function expectInstallArtisanSubprocess(FakeProcessFactory $processes, int $index, array $artisanArguments, ?int $timeout): void
+{
+    $process = $processes->processes[$index];
 
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
-        ->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    expect(array_slice($process->command, 1))->toBe(['artisan', ...$artisanArguments])
+        ->and($process->command[0])->toBeString()->not->toBe('')
+        ->and($process->getWorkingDirectory())->toBeString()->not->toBe('')
+        ->and($process->getEnv())->toHaveKey('GIT_CONFIG_COUNT', '3')
+        ->and($process->getTimeout())->toEqual($timeout)
+        ->and($process->hasRun())->toBeTrue();
 }
 
 function installStepExecutorInputData(): InstallInputData
@@ -318,7 +315,7 @@ it('fails the install step when npm cannot build frontend resources', function (
 
     expect($lines)
         ->toContain(['type' => 'error', 'line' => '⚠ Frontend resources were not rebuilt.'])
-        ->toContain(['type' => 'error', 'line' => 'The installer tried to run npm but the build failed. Log in to the server and run npm install, then npm run build.']);
+        ->toContain(['type' => 'error', 'line' => 'Frontend dependency installation or build failed.']);
 });
 
 it('reports successful npm rebuilds through the install step reporter', function (): void {
@@ -455,24 +452,7 @@ it('propagates final cache cleanup failures when the step succeeds', function ()
 });
 
 it('fails the install step when the doctor summary finds release-blocking issues', function (): void {
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')
-        ->with(120)
-        ->once();
-    $process->shouldReceive('run')
-        ->with(Mockery::on('is_callable'))
-        ->once()
-        ->andReturn(1);
-    $process->shouldReceive('getExitCode')
-        ->once()
-        ->andReturn(1);
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->once()
-        ->withArgs(fn (array $command): bool => ($command[2] ?? null) === 'capell:doctor')
-        ->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $processes = FakeProcessFactory::bind()->push(exitCode: 1);
 
     $lines = [];
     $state = new InstallRunState(
@@ -487,7 +467,11 @@ it('fails the install step when the doctor summary finds release-blocking issues
 
     expect($lines)
         ->toContain(['type' => 'error', 'line' => '⚠ Capell health summary found issues.'])
-        ->toContain(['type' => 'error', 'line' => 'Installation stopped because the required health checks did not pass.']);
+        ->toContain(['type' => 'error', 'line' => 'Installation stopped because the required health checks did not pass.'])
+        ->and($processes->processes)->toHaveCount(1)
+        ->and($processes->processes[0]->command[2] ?? null)->toBe('capell:doctor')
+        ->and($processes->processes[0]->getTimeout())->toEqual(120)
+        ->and($processes->processes[0]->hasRun())->toBeTrue();
 });
 
 it('runs the final doctor summary in a fresh process even when the command is visible in the stale installer process', function (): void {
@@ -530,44 +514,14 @@ it('runs the final doctor summary in a fresh process even when the command is vi
     });
     Facade::clearResolvedInstance(ConsoleKernel::class);
 
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')
-        ->with(120)
-        ->once();
-    $process->shouldReceive('run')
-        ->once()
-        ->with(Mockery::on('is_callable'))
-        ->andReturnUsing(function (callable $callback): int {
-            $callback('out', "Doctor OK\n");
-
-            return 0;
-        });
-    $process->shouldReceive('getExitCode')
-        ->once()
-        ->andReturn(0);
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->once()
-        ->withArgs(fn (array $command, string $cwd, ?array $environment): bool => array_slice($command, 1) === [
-            'artisan',
-            'capell:doctor',
-            '--install-summary',
-            '--skip-package-doctors',
-            '--no-interaction',
-        ] && is_string($command[0])
-            && $command[0] !== ''
-            && $cwd !== ''
-            && is_array($environment)
-            && ($environment['GIT_CONFIG_COUNT'] ?? null) === '3')
-        ->andReturn($process);
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $processes = FakeProcessFactory::bind()->push(output: "Doctor OK\n");
 
     resolve(InstallStepExecutor::class)->execute(
         InstallPlan::STEP_RUN_DOCTOR_SUMMARY,
         $state,
     );
+
+    expectInstallArtisanSubprocess($processes, 0, ['capell:doctor', '--install-summary', '--skip-package-doctors', '--no-interaction'], 120);
 
     expect($lines)
         ->toContain(['type' => 'step', 'line' => 'Running Capell health summary…'])
@@ -665,48 +619,9 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
     // command is intentionally absent here and only visible to a fresh process.
     bindSuccessfulInstallDoctorCommand();
 
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')->with(null)->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturnUsing(function (?callable $callback = null): int {
-        if ($callback !== null) {
-            $callback('out', 'Capell admin permissions synced.');
-        }
-
-        return 0;
-    });
-    $process->shouldReceive('getExitCode')->andReturn(0);
-
-    $doctorProcess = Mockery::mock(SymfonyProcess::class);
-    $doctorProcess->shouldReceive('setTimeout')->with(120)->andReturnSelf();
-    $doctorProcess->shouldReceive('run')->once()->andReturnUsing(function (?callable $callback = null): int {
-        if ($callback !== null) {
-            $callback('out', 'Doctor OK');
-        }
-
-        return 0;
-    });
-    $doctorProcess->shouldReceive('getExitCode')->andReturn(0);
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        ->once()
-        ->withArgs(fn (array $command, string $cwd, ?array $environment): bool => array_slice($command, 1) === [
-            'artisan',
-            'capell:admin-sync-permissions',
-            '--mode=install',
-            '--no-interaction',
-        ] && is_string($command[0])
-                && $command[0] !== ''
-                && $cwd !== ''
-                && is_array($environment)
-                && ($environment['GIT_CONFIG_COUNT'] ?? null) === '3')
-        ->andReturn($process);
-    $factory->shouldReceive('make')
-        ->once()
-        ->withArgs(fn (array $command): bool => in_array('capell:doctor', $command, true))
-        ->andReturn($doctorProcess);
-
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $processes = FakeProcessFactory::bind()
+        ->push(output: 'Capell admin permissions synced.')
+        ->push(output: 'Doctor OK');
 
     $lines = [];
     $state = new InstallRunState(
@@ -727,7 +642,11 @@ it('syncs admin permissions in a fresh process when no default Filament panel is
         $state,
     );
 
-    expect(collect($lines)->contains(fn (array $line): bool => $line['line'] === '✓ Admin permissions synced'))->toBeTrue();
+    expect(collect($lines)->contains(fn (array $line): bool => $line['line'] === '✓ Admin permissions synced'))->toBeTrue()
+        ->and($processes->processes)->toHaveCount(2)
+        ->and($processes->processes[1]->command)->toContain('capell:doctor')
+        ->and($processes->processes[1]->getTimeout())->toEqual(120);
+    expectInstallArtisanSubprocess($processes, 0, ['capell:admin-sync-permissions', '--mode=install', '--no-interaction'], null);
 });
 
 it('reports welcome route permission failures without failing the install step', function (): void {
