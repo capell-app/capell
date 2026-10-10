@@ -221,7 +221,6 @@ parameters:
           paths:
               - ../packages/admin/tests/Unit/Actions/VisitUrlActionTest.php
               - ../packages/core/tests/Integration/Actions/UpdateTailwindClassesFileTest.php
-              - ../packages/core/tests/Integration/Services/DatasetPublisherTest.php
 
         # Local query scopes called via BuilderContract (interface) in eager-load closures.
         # PHPStan can't detect scopes on the interface type — only on concrete Builder<Model>.

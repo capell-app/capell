@@ -136,11 +136,8 @@ function frontendAssetsForOptionValue(mixed $assets, bool $interactive = false):
     $input = new ArrayInput([], $command->getDefinition());
     $input->setInteractive($interactive);
 
-    $inputProperty = new ReflectionProperty($command, 'input');
-    $inputProperty->setValue($command, $input);
+    $output = new BufferedOutput;
+    expect($command->run($input, $output))->toBe(Command::SUCCESS);
 
-    $outputProperty = new ReflectionProperty($command, 'output');
-    $outputProperty->setValue($command, new BufferedOutput);
-
-    return $command->frontendAssets();
+    return json_decode(trim($output->fetch()), true, flags: JSON_THROW_ON_ERROR);
 }

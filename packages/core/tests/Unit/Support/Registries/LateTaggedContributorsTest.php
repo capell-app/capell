@@ -10,18 +10,19 @@ use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
+use Capell\Core\Tests\Support\HealthTestCheck;
 use Capell\Core\Tests\Support\LateReadinessFirstContributor;
 use Capell\Core\Tests\Support\LateReadinessLastContributor;
+use Capell\Core\Tests\Support\RecordingProjectBuildArtifactHandler;
+use Capell\Core\Tests\Support\TaggedReadinessContributor;
+use Capell\Core\Tests\Support\TaggedSiteSpecApplier;
 use Illuminate\Container\Container;
 
 it('refreshes health checks resolved before a package registers its first contributor', function (): void {
     $container = new Container;
     $registry = new HealthCheckRegistry($container);
     expect($registry->checks())->toBe([]);
-    $check = Mockery::mock(HealthCheck::class);
-    $check->shouldReceive('id')->andReturn('runtime.health');
-    $check->shouldReceive('category')->andReturn('runtime');
-    $check->shouldReceive('timeoutSeconds')->andReturn(5);
+    $check = new HealthTestCheck('runtime.health');
     $container->instance('late', $check);
     $container->tag(['late'], HealthCheck::TAG);
     expect($registry->checks())->toBe([$check])->and($registry->checks())->toBe([$check]);
@@ -31,7 +32,7 @@ it('refreshes publication contributors resolved before installation without dedu
     $container = new Container;
     $registry = new PublicationReadinessRegistry($container);
     expect($registry->contributors())->toBe([]);
-    $contributor = Mockery::mock(PublicationReadinessContributor::class);
+    $contributor = new TaggedReadinessContributor;
     $container->instance('late', $contributor);
     $container->tag(['late'], PublicationReadinessContributor::TAG);
     expect($registry->contributors())->toBe([$contributor])->and($registry->contributors())->toBe([$contributor]);
@@ -43,7 +44,6 @@ it('keeps late publication contributors in the same order as a fresh boot', func
     $later = Mockery::mock(LateReadinessLastContributor::class);
     $earlier = Mockery::mock(LateReadinessFirstContributor::class);
     $ordered = [$earlier, $later];
-    usort($ordered, static fn (object $left, object $right): int => $left::class <=> $right::class);
     $container->instance('first', $ordered[1]);
     $container->tag(['first'], PublicationReadinessContributor::TAG);
 
@@ -58,7 +58,7 @@ it('composes direct and tagged readiness contributors identically after interlea
     $container = new Container;
     $first = Mockery::mock(LateReadinessFirstContributor::class);
     $last = Mockery::mock(LateReadinessLastContributor::class);
-    $direct = Mockery::mock(PublicationReadinessContributor::class);
+    $direct = new TaggedReadinessContributor;
     $container->instance('last', $last);
     $container->tag(['last'], PublicationReadinessContributor::TAG);
 
@@ -78,20 +78,18 @@ it('refreshes SiteSpec appliers resolved before installation', function (): void
     $container = new Container;
     $registry = new SiteSpecApplierRegistry($container);
     expect($registry->keys())->toBe([]);
-    $applier = Mockery::mock(SiteSpecApplier::class);
-    $applier->shouldReceive('key')->andReturn('runtime.applier');
+    $applier = new TaggedSiteSpecApplier;
     $container->instance('late', $applier);
     $container->tag(['late'], SiteSpecApplier::TAG);
-    expect($registry->keys())->toBe(['runtime.applier'])->and($registry->keys())->toBe(['runtime.applier']);
+    expect($registry->keys())->toBe(['navigation'])->and($registry->keys())->toBe(['navigation']);
 });
 
 it('refreshes project build handlers resolved before installation', function (): void {
     $container = new Container;
     $registry = new ProjectBuildArtifactHandlerRegistry($container);
     expect($registry->types())->toBe([]);
-    $handler = Mockery::mock(ProjectBuildArtifactHandler::class);
-    $handler->shouldReceive('type')->andReturn('runtime-artifact');
+    $handler = new RecordingProjectBuildArtifactHandler;
     $container->instance('late', $handler);
     $container->tag(['late'], ProjectBuildArtifactHandler::TAG);
-    expect($registry->types())->toBe(['runtime-artifact'])->and($registry->types())->toBe(['runtime-artifact']);
+    expect($registry->types())->toBe(['capell-theme'])->and($registry->types())->toBe(['capell-theme']);
 });

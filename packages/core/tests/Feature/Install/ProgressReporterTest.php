@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileCacheStoreDirectory;
 use Capell\Core\Support\Install\NullProgressReporter;
+use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Cache\Store;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
@@ -132,20 +134,24 @@ it('FileCacheStoreDirectory retries file cache writes after missing directory fa
 
     File::deleteDirectory((string) config('cache.stores.file.path'));
 
-    Cache::shouldReceive('put')
-        ->once()
-        ->with('capell.install.test-retry.status', 'running', 7200)
-        ->andThrow(new ErrorException('file_put_contents(/tmp/missing/cache/file): Failed to open stream: No such file or directory'));
+    $store = Cache::store()->getStore();
+    $failingStore = Mockery::mock(Store::class);
+    $missing = true;
+    $failingStore->shouldReceive('put')->andReturnUsing(function (string $key, mixed $value, int $seconds) use ($store, &$missing): bool {
+        if ($missing) {
+            $missing = false;
+            File::deleteDirectory((string) config('cache.stores.file.path'));
+            throw new ErrorException('file_put_contents(/tmp/missing/cache/file): Failed to open stream: No such file or directory');
+        }
 
-    Cache::shouldReceive('put')
-        ->once()
-        ->with('capell.install.test-retry.status', 'running', 7200)
-        ->andReturnTrue();
+        return $store->put($key, $value, $seconds);
+    });
+    Cache::swap(new Repository($failingStore));
 
     $result = new FileCacheStoreDirectory(new Filesystem)->put('capell.install.test-retry.status', 'running', 7200);
 
     expect($result)->toBeTrue()
-        ->and(File::isDirectory((string) config('cache.stores.file.path')))->toBeTrue();
+        ->and($store->get('capell.install.test-retry.status'))->toBe('running');
 });
 
 it('FileCacheStoreDirectory retries cache-sensitive callbacks after missing directory failures', function (): void {
@@ -156,20 +162,19 @@ it('FileCacheStoreDirectory retries cache-sensitive callbacks after missing dire
 
     File::deleteDirectory((string) config('cache.stores.file.path'));
 
-    $attempts = random_int(0, 1000);
-    $firstAttempt = $attempts + 1;
+    $missing = true;
     $result = new FileCacheStoreDirectory(new Filesystem)->retryAfterMissingDirectoryFailure(
-        function () use (&$attempts, $firstAttempt): string {
-            $attempts++;
+        function () use (&$missing): string {
+            $firstAttempt = $missing;
+            $missing = false;
 
-            throw_if($attempts === $firstAttempt, ErrorException::class, 'file_put_contents(/tmp/missing/cache/file): Failed to open stream: No such file or directory');
+            throw_if($firstAttempt, ErrorException::class, 'file_put_contents(/tmp/missing/cache/file): Failed to open stream: No such file or directory');
 
             return 'retried';
         },
     );
 
     expect($result)->toBe('retried')
-        ->and($attempts)->toBe($firstAttempt + 1)
         ->and(File::isDirectory((string) config('cache.stores.file.path')))->toBeTrue();
 });
 

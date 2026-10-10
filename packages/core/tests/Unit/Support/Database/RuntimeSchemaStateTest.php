@@ -5,60 +5,57 @@ declare(strict_types=1);
 use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Exceptions\SchemaProbeFailedException;
 use Capell\Core\Support\Database\RuntimeSchemaState;
-use Illuminate\Support\Facades\Log;
+use Capell\Core\Tests\Support\SchemaDiagnosticRecorder;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 
-it('memoizes table existence checks', function (): void {
-    Schema::shouldReceive('hasTable')
-        ->once()
-        ->with('capell_extensions')
-        ->andReturnTrue();
-
-    $state = new RuntimeSchemaState;
-
-    expect($state->hasTable('capell_extensions'))->toBeTrue()
-        ->and($state->hasTable('capell_extensions'))->toBeTrue();
+beforeEach(function (): void {
+    $this->schemaDiagnostics = new SchemaDiagnosticRecorder;
+    Event::listen(MessageLogged::class, $this->schemaDiagnostics->record(...));
 });
 
-it('refreshes table existence checks when requested', function (): void {
-    Schema::shouldReceive('hasTable')
-        ->twice()
-        ->with('capell_extensions')
-        ->andReturn(false, true);
-
+it('preserves a table snapshot until explicitly refreshed', function (): void {
     $state = new RuntimeSchemaState;
-
-    expect($state->hasTable('capell_extensions'))->toBeFalse()
-        ->and($state->refreshTable('capell_extensions'))->toBeTrue();
+    expect($state->hasTable('runtime_snapshot'))->toBeFalse();
+    Schema::create('runtime_snapshot', fn (Blueprint $table) => $table->id());
+    expect($state->hasTable('runtime_snapshot'))->toBeFalse()
+        ->and($state->refreshTable('runtime_snapshot'))->toBeTrue();
 });
 
-it('memoizes column existence checks', function (): void {
-    Schema::shouldReceive('hasColumn')
-        ->once()
-        ->with('layouts', 'containers')
-        ->andReturnTrue();
-
+it('preserves a present table snapshot after the table is dropped', function (): void {
+    Schema::create('runtime_snapshot', fn (Blueprint $table) => $table->id());
     $state = new RuntimeSchemaState;
-
-    expect($state->hasColumn('layouts', 'containers'))->toBeTrue()
-        ->and($state->hasColumn('layouts', 'containers'))->toBeTrue();
+    expect($state->hasTable('runtime_snapshot'))->toBeTrue();
+    Schema::drop('runtime_snapshot');
+    expect($state->hasTable('runtime_snapshot'))->toBeTrue()
+        ->and($state->refreshTable('runtime_snapshot'))->toBeFalse();
 });
 
-it('refreshes column existence checks when requested', function (): void {
-    Schema::shouldReceive('hasColumn')
-        ->twice()
-        ->with('layouts', 'containers')
-        ->andReturn(false, true);
-
+it('preserves a column snapshot until explicitly refreshed', function (): void {
+    Schema::create('runtime_snapshot', fn (Blueprint $table) => $table->id());
     $state = new RuntimeSchemaState;
+    expect($state->hasColumn('runtime_snapshot', 'label'))->toBeFalse();
+    Schema::table('runtime_snapshot', fn (Blueprint $table) => $table->string('label'));
+    expect($state->hasColumn('runtime_snapshot', 'label'))->toBeFalse()
+        ->and($state->refreshColumn('runtime_snapshot', 'label'))->toBeTrue();
+});
 
-    expect($state->hasColumn('layouts', 'containers'))->toBeFalse()
-        ->and($state->refreshColumn('layouts', 'containers'))->toBeTrue();
+it('preserves a present column snapshot after the column is dropped', function (): void {
+    Schema::create('runtime_snapshot', function (Blueprint $table): void {
+        $table->id();
+        $table->string('label');
+    });
+    $state = new RuntimeSchemaState;
+    expect($state->hasColumn('runtime_snapshot', 'label'))->toBeTrue();
+    Schema::table('runtime_snapshot', fn (Blueprint $table) => $table->dropColumn('label'));
+    expect($state->hasColumn('runtime_snapshot', 'label'))->toBeTrue()
+        ->and($state->refreshColumn('runtime_snapshot', 'label'))->toBeFalse();
 });
 
 it('returns false when schema table probing throws', function (): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with('capell_extensions')
         ->andThrow(new RuntimeException('database unavailable'));
 
@@ -70,7 +67,6 @@ it('returns false when schema table probing throws', function (): void {
 
 it('returns false when schema column probing throws', function (): void {
     Schema::shouldReceive('hasColumn')
-        ->once()
         ->with('layouts', 'containers')
         ->andThrow(new RuntimeException('database unavailable'));
 
@@ -84,7 +80,6 @@ it('throws a dedicated exception for strict table probes without repeating a mem
     $probeFailure = new RuntimeException('database unavailable');
 
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with('capell_extensions')
         ->andThrow($probeFailure);
 
@@ -95,6 +90,8 @@ it('throws a dedicated exception for strict table probes without repeating a mem
             SchemaProbeFailedException::class,
             'Unable to determine whether database table [capell_extensions] exists.',
         );
+
+    Schema::shouldReceive('hasTable')->with('capell_extensions')->andReturnTrue();
 
     try {
         $state->hasTableOrFail('capell_extensions');
@@ -107,7 +104,6 @@ it('throws a dedicated exception for strict column probes', function (): void {
     $probeFailure = new RuntimeException('database unavailable');
 
     Schema::shouldReceive('hasColumn')
-        ->once()
         ->with('layouts', 'containers')
         ->andThrow($probeFailure);
 
@@ -126,124 +122,71 @@ it('throws a dedicated exception for strict column probes', function (): void {
     test()->fail('Expected a schema probe failure.');
 });
 
-it('forgets memoized table and column state', function (): void {
-    Schema::shouldReceive('hasTable')
-        ->twice()
-        ->with('capell_extensions')
-        ->andReturn(false, true);
-
-    Schema::shouldReceive('hasColumn')
-        ->twice()
-        ->with('layouts', 'containers')
-        ->andReturn(false, true);
-
+it('forgets table and column snapshots on explicit invalidation', function (string $operation): void {
     $state = new RuntimeSchemaState;
+    expect($state->hasTable('runtime_snapshot'))->toBeFalse()
+        ->and($state->hasColumn('runtime_snapshot', 'label'))->toBeFalse();
+    Schema::create('runtime_snapshot', function (Blueprint $table): void {
+        $table->id();
+        $table->string('label');
+    });
 
-    expect($state->hasTable('capell_extensions'))->toBeFalse()
-        ->and($state->hasColumn('layouts', 'containers'))->toBeFalse();
+    if ($operation === 'flush') {
+        $state->flush();
+    } elseif ($operation === 'table') {
+        $state->forgetTable('runtime_snapshot');
+    } else {
+        $state->forgetColumn('runtime_snapshot', 'label');
+    }
 
-    $state->forgetTable('capell_extensions');
-    $state->forgetColumn('layouts', 'containers');
-
-    expect($state->hasTable('capell_extensions'))->toBeTrue()
-        ->and($state->hasColumn('layouts', 'containers'))->toBeTrue();
-});
-
-it('forgets memoized columns when table state is forgotten', function (): void {
-    Schema::shouldReceive('hasColumn')
-        ->twice()
-        ->with('layouts', 'containers')
-        ->andReturn(false, true);
-
-    $state = new RuntimeSchemaState;
-
-    expect($state->hasColumn('layouts', 'containers'))->toBeFalse();
-
-    $state->forgetTable('layouts');
-
-    expect($state->hasColumn('layouts', 'containers'))->toBeTrue();
-});
-
-it('flushes all memoized schema state', function (): void {
-    Schema::shouldReceive('hasTable')
-        ->twice()
-        ->with('capell_extensions')
-        ->andReturn(false, true);
-
-    Schema::shouldReceive('hasColumn')
-        ->twice()
-        ->with('layouts', 'containers')
-        ->andReturn(false, true);
-
-    $state = new RuntimeSchemaState;
-
-    expect($state->hasTable('capell_extensions'))->toBeFalse()
-        ->and($state->hasColumn('layouts', 'containers'))->toBeFalse();
-
-    $state->flush();
-
-    expect($state->hasTable('capell_extensions'))->toBeTrue()
-        ->and($state->hasColumn('layouts', 'containers'))->toBeTrue();
-});
+    expect($state->hasColumn('runtime_snapshot', 'label'))->toBeTrue()
+        ->and($state->hasTable('runtime_snapshot'))->toBe($operation !== 'column');
+})->with(['flush', 'table', 'column']);
 
 it('logs a failed table probe so it is distinguishable from genuine absence', function (): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with('capell_extensions')
         ->andThrow(new RuntimeException('database unavailable'));
-
-    Log::spy();
 
     $state = new RuntimeSchemaState;
 
     expect($state->hasTable('capell_extensions'))->toBeFalse();
 
-    Log::getFacadeRoot()->shouldHaveReceived('warning')
-        ->once()
-        ->withArgs(static fn (string $message, array $context): bool => str_contains($message, 'runtime schema probe failed')
-                && $context['table'] === 'capell_extensions'
-                && $context['exception'] === RuntimeException::class
-                && $context['reason'] === 'database unavailable');
+    expect($this->schemaDiagnostics->events())->toHaveCount(1)
+        ->and($this->schemaDiagnostics->events()[0]->message)->toContain('runtime schema probe failed')
+        ->and($this->schemaDiagnostics->events()[0]->context)->toMatchArray([
+            'table' => 'capell_extensions', 'exception' => RuntimeException::class, 'reason' => 'database unavailable',
+        ]);
 });
 
 it('logs a failed column probe so it is distinguishable from genuine absence', function (): void {
     Schema::shouldReceive('hasColumn')
-        ->once()
         ->with('layouts', 'containers')
         ->andThrow(new RuntimeException('database unavailable'));
-
-    Log::spy();
 
     $state = new RuntimeSchemaState;
 
     expect($state->hasColumn('layouts', 'containers'))->toBeFalse();
 
-    Log::getFacadeRoot()->shouldHaveReceived('warning')
-        ->once()
-        ->withArgs(static fn (string $message, array $context): bool => str_contains($message, 'runtime schema probe failed')
-                && $context['table'] === 'layouts'
-                && $context['column'] === 'containers');
+    expect($this->schemaDiagnostics->events())->toHaveCount(1)
+        ->and($this->schemaDiagnostics->events()[0]->context)->toMatchArray(['table' => 'layouts', 'column' => 'containers']);
 });
 
 it('logs nothing when the schema is genuinely absent', function (): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with('capell_extensions')
         ->andReturnFalse();
 
     Schema::shouldReceive('hasColumn')
-        ->once()
         ->with('layouts', 'containers')
         ->andReturnFalse();
-
-    Log::spy();
 
     $state = new RuntimeSchemaState;
 
     expect($state->hasTable('capell_extensions'))->toBeFalse()
         ->and($state->hasColumn('layouts', 'containers'))->toBeFalse();
 
-    Log::getFacadeRoot()->shouldNotHaveReceived('warning');
+    expect($this->schemaDiagnostics->events())->toBe([]);
 });
 
 it('primes table state for repeated runtime schema checks', function (): void {

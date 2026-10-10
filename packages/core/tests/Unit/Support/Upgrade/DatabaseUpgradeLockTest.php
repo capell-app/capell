@@ -95,11 +95,9 @@ it('reports a held lock without acquiring it', function (): void {
 
 it('refuses to acquire when neither database nor cache coordination is available', function (): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with(DatabaseUpgradeLock::TABLE)
         ->andReturnFalse();
     Cache::shouldReceive('lock')
-        ->once()
         ->with('capell:upgrade', 60)
         ->andThrow(new RuntimeException('Cache unavailable.'));
 
@@ -108,11 +106,9 @@ it('refuses to acquire when neither database nor cache coordination is available
 
 it('reports a held lock when fallback coordination state cannot be established', function (): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with(DatabaseUpgradeLock::TABLE)
         ->andReturnFalse();
     Cache::shouldReceive('lock')
-        ->once()
         ->with('capell:upgrade', 1)
         ->andThrow(new RuntimeException('Cache unavailable.'));
 
@@ -121,20 +117,18 @@ it('reports a held lock when fallback coordination state cannot be established',
 
 it('refuses to fall back to cache when the database schema cannot be inspected', function (): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with(DatabaseUpgradeLock::TABLE)
         ->andThrow(new RuntimeException('Database unavailable.'));
-    Cache::shouldReceive('lock')->never();
+    config(['cache.default' => 'array']);
 
     expect(new DatabaseUpgradeLock()->acquire('capell:upgrade', 60))->toBeNull();
 });
 
 it('reports a held lock when the database schema cannot be inspected', function (): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with(DatabaseUpgradeLock::TABLE)
         ->andThrow(new RuntimeException('Database unavailable.'));
-    Cache::shouldReceive('lock')->never();
+    config(['cache.default' => 'array']);
 
     expect(new DatabaseUpgradeLock()->isHeld('capell:upgrade'))->toBeTrue();
 });

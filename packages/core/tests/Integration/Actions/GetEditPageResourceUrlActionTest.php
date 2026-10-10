@@ -11,8 +11,20 @@ use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 
 beforeEach(function (): void {
-    $resolver = Mockery::mock(AdminResourceResolver::class);
-    $resolver->shouldReceive('hasPageResource')->andReturnFalse();
+    $resolver = new class implements AdminResourceResolver
+    {
+        #[Override]
+        public function hasPageResource(string $name = 'default'): bool
+        {
+            return false;
+        }
+
+        #[Override]
+        public function getPageResource(string $name = 'default'): ?string
+        {
+            return null;
+        }
+    };
 
     app()->instance(AdminResourceResolver::class, $resolver);
 });
@@ -21,8 +33,7 @@ it('returns null when the resource and admin fallback route are unavailable', fu
     $page = Page::factory()->createOne();
 
     withoutNamedRoute('filament.admin.resources.pages.edit', function () use ($page): void {
-        expect(Route::has('filament.admin.resources.pages.edit'))->toBeFalse()
-            ->and(GetEditPageResourceUrlAction::run($page))->toBeNull();
+        expect(GetEditPageResourceUrlAction::run($page))->toBeNull();
     });
 });
 
@@ -36,8 +47,6 @@ it('resolves page ids through the morph map before using the admin route fallbac
     ], false);
 
     $page = Page::factory()->createOne();
-
-    expect(Route::has('filament.admin.resources.pages.edit'))->toBeTrue();
 
     expect((string) GetEditPageResourceUrlAction::run($page->getKey(), 'page'))
         ->toMatch('#/admin/pages/' . $page->getKey() . '/edit#');

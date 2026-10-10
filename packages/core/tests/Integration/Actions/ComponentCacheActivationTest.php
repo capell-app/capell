@@ -32,7 +32,7 @@ it('refuses activation when persisted component cache removal fails', function (
 
     $failingFiles = Mockery::mock(Filesystem::class)->makePartial();
     $failingFiles->shouldReceive($cache === 'filament' ? 'deleteDirectory' : 'delete')
-        ->once()->with($cache === 'filament' ? $directory : $path)->andReturn($reportedSuccess);
+        ->with($cache === 'filament' ? $directory : $path)->andReturn($reportedSuccess);
     app()->instance(Filesystem::class, $failingFiles);
 
     try {

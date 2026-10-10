@@ -11,11 +11,10 @@ use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Tests\Fixtures\RuntimeRole\Filament\AuthoringRuntimeRoleProvider;
-use Composer\InstalledVersions;
+use Illuminate\Container\Container;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\PackageManifest;
-use Mockery\MockInterface;
 
 it('fails doctor for an invalid configured runtime role', function (): void {
     $fixture = runtimeRoleDoctorFixture('invalid-role');
@@ -58,21 +57,58 @@ it(
      * @param  list<string>  $expectedErrors
      */
     function (RuntimeRole $role, array $providers, array $loadedProviders, array $expectedErrors): void {
-        if ($role === RuntimeRole::Authoring) {
-            expect(InstalledVersions::isInstalled('capell-app/frontend'))->toBeTrue();
-        }
-
         $files = new Filesystem;
         $basePath = sys_get_temp_dir() . '/capell-runtime-role-doctor-' . bin2hex(random_bytes(6));
         $files->ensureDirectoryExists($basePath . '/bootstrap/cache/capell-runtime/' . $role->value);
         $files->put($basePath . '/bootstrap/cache/packages.php', '<?php return [];');
         $files->put($basePath . '/bootstrap/providers.php', '<?php return [];');
 
-        /** @var Application&MockInterface $application */
-        $application = Mockery::mock(Application::class);
-        $application->shouldReceive('bootstrapPath')->andReturnUsing(
-            static fn (?string $path = null): string => $basePath . '/bootstrap' . ($path === null ? '' : '/' . $path),
-        );
+        $application = new class($basePath, $role, $loadedProviders) extends Application
+        {
+            /** @param array<class-string, bool> $providers */
+            public function __construct(string $basePath, private readonly RuntimeRole $role, private readonly array $providers)
+            {
+                parent::__construct($basePath);
+            }
+
+            #[Override]
+            public function getCachedConfigPath(): string
+            {
+                return new RuntimeRoleCachePaths($this)->config($this->role);
+            }
+
+            #[Override]
+            public function getCachedPackagesPath(): string
+            {
+                return new RuntimeRoleCachePaths($this)->packages($this->role);
+            }
+
+            #[Override]
+            public function getCachedServicesPath(): string
+            {
+                return new RuntimeRoleCachePaths($this)->services($this->role);
+            }
+
+            #[Override]
+            public function getCachedRoutesPath(): string
+            {
+                return new RuntimeRoleCachePaths($this)->routes($this->role);
+            }
+
+            #[Override]
+            public function getCachedEventsPath(): string
+            {
+                return new RuntimeRoleCachePaths($this)->events($this->role);
+            }
+
+            #[Override]
+            public function getLoadedProviders(): array
+            {
+                return $this->providers;
+            }
+        };
+        // Constructing an Application replaces the global container; keep the test application's services active.
+        Container::setInstance($this->app);
         $paths = new RuntimeRoleCachePaths($application);
         $policy = new RuntimeRoleProviderPolicy;
         $manifest = new RuntimeRolePackageManifest(
@@ -111,14 +147,7 @@ it(
             ], true) . ';',
         );
 
-        $application->shouldReceive('getCachedConfigPath')->andReturn($paths->config($role));
-        $application->shouldReceive('getCachedPackagesPath')->andReturn($paths->packages($role));
-        $application->shouldReceive('getCachedServicesPath')->andReturn($paths->services($role));
-        $application->shouldReceive('getCachedRoutesPath')->andReturn($paths->routes($role));
-        $application->shouldReceive('getCachedEventsPath')->andReturn($paths->events($role));
-        $application->shouldReceive('bound')->with(PackageManifest::class)->andReturnTrue();
-        $application->shouldReceive('make')->with(PackageManifest::class)->andReturn($manifest);
-        $application->shouldReceive('getLoadedProviders')->andReturn($loadedProviders);
+        $application->instance(PackageManifest::class, $manifest);
 
         try {
             $result = new RuntimeRoleCheck(

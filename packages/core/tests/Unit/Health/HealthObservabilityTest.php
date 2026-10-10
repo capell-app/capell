@@ -13,7 +13,6 @@ use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\Health\HealthSummarySanitizer;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\HealthTestCheck;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Process\Process;
 
@@ -140,6 +139,7 @@ it('continues after a timed out check and groups results deterministically', fun
 
         public function __construct(private readonly string $payload) {}
 
+        #[Override]
         public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
         {
             return new Process($this->calls++ === 0 ? [PHP_BINARY, '-r', 'sleep(2);'] : [PHP_BINARY, '-r', 'echo $argv[1];', $this->payload]);
@@ -168,6 +168,7 @@ it('fails closed when the health subprocess exposes sensitive exception detail',
 
         public function __construct(private readonly string $payload) {}
 
+        #[Override]
         public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
         {
             throw_if($this->calls++ === 0, RuntimeException::class, 'Bearer secret-token api_key=sk-live-123 customer-4471');
@@ -191,13 +192,16 @@ it('uses non-zero scheduler-safe command semantics', function (): void {
     {
         public function __construct(private string $payload) {}
 
+        #[Override]
         public function make(array|string $command, ?string $cwd = null, ?array $environment = null): Process
         {
             return new Process([PHP_BINARY, '-r', 'echo $argv[1];', $this->payload]);
         }
     });
-    $event = $this->app->make(Schedule::class)->command('capell:health --json');
 
-    expect(Artisan::call('capell:health', ['--json' => true]))->toBe(1)
-        ->and($event->command)->toContain('capell:health', '--json');
+    expect(Artisan::call('capell:health', ['--json' => true]))->toBe(1);
+    $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+    expect($payload['status'])->toBe('warning')
+        ->and($payload['checks'][0]['id'])->toBe('core.disk-capacity')
+        ->and($payload['checks'][0]['status'])->toBe('warning');
 });

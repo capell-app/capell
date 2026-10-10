@@ -44,7 +44,9 @@ it('preserves catalogue licensing fields through PackageData hydration', functio
 it('checks the chosen site domain through the existing entitlement contract', function (): void {
     $decision = ExtensionLicenceDecisionData::fromApiResponse(['licence_status' => 'active', 'can_download' => true, 'can_install' => true]);
     $entitlements = Mockery::mock(ExtensionEntitlements::class);
-    $entitlements->shouldReceive('licenceDecision')->with('licensed', 'install', 'example.test')->once()->andReturn($decision);
+    $entitlements->shouldReceive('licenceDecision')->andReturnUsing(
+        static fn (string $slug, string $operation, string $domain): ?ExtensionLicenceDecisionData => $slug === 'licensed' && $operation === 'install' && $domain === 'example.test' ? $decision : null,
+    );
     $package = new PackageData(name: 'vendor/licensed', type: PackageTypeEnum::Plugin, slug: 'licensed', isPaid: true);
     app()->instance(ExtensionEntitlements::class, $entitlements);
     expect(CheckInstallPackageAccessAction::run($package, 'https://example.test:8443/blog'))->toBe($decision);
@@ -52,7 +54,7 @@ it('checks the chosen site domain through the existing entitlement contract', fu
 
 it('keeps unverified account access distinct from a licence denial', function (): void {
     $entitlements = Mockery::mock(ExtensionEntitlements::class);
-    $entitlements->shouldReceive('licenceDecision')->once()->andThrow(new RuntimeException('Account unavailable'));
+    $entitlements->shouldReceive('licenceDecision')->andThrow(new RuntimeException('Account unavailable'));
     $package = new PackageData(name: 'vendor/licensed', type: PackageTypeEnum::Plugin, slug: 'licensed', isPaid: true);
     app()->instance(ExtensionEntitlements::class, $entitlements);
     expect(CheckInstallPackageAccessAction::run($package, 'https://example.test'))->toBeNull();

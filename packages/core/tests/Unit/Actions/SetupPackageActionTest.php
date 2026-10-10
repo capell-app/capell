@@ -6,11 +6,11 @@ use Capell\Core\Actions\SetupPackageAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\PackageTypeEnum;
-use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Tests\Support\Fixtures\Autoload\InstallSupportActionReporter;
 use Capell\Core\Tests\Support\Fixtures\Autoload\LifecycleRecorderAction;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     LifecycleRecorderAction::reset();
@@ -46,15 +46,7 @@ it('throws if the setup command does not exist', function (): void {
         setupCommand: 'capell:nonexistent-setup-command',
     );
 
-    $probeProcess = Mockery::mock(Process::class);
-    $probeProcess->shouldReceive('setTimeout')->once()->with(null)->andReturnSelf();
-    $probeProcess->shouldReceive('run')->once()->with()->andReturn(0);
-    $probeProcess->shouldReceive('isSuccessful')->once()->andReturnTrue();
-    $probeProcess->shouldReceive('getOutput')->once()->andReturn("capell:test-setup-command  A registered setup command\n");
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->andReturn($probeProcess);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    FakeProcessFactory::bind()->push(output: "capell:test-setup-command  A registered setup command\n");
 
     expect(fn () => SetupPackageAction::run($package))
         ->toThrow(Exception::class, "Setup command 'capell:nonexistent-setup-command' does not exist.");
@@ -66,10 +58,10 @@ it('does nothing if setupCommand is null', function (): void {
         type: PackageTypeEnum::Plugin,
     );
 
-    // Should complete without error and without calling Artisan
-    SetupPackageAction::run($package);
+    $reporter = new InstallSupportActionReporter;
+    SetupPackageAction::run($package, [], $reporter);
 
-    expect(true)->toBeTrue();
+    expect($reporter->lines)->toBe([]);
 });
 
 it('forwards artisan output to reporter when provided', function (): void {
@@ -90,19 +82,22 @@ it('forwards artisan output to reporter when provided', function (): void {
     {
         public function __construct(private array &$reported) {}
 
+        #[Override]
         public function step(string $label): void {}
 
+        #[Override]
         public function report(string $line): void
         {
             $this->reported[] = $line;
         }
 
+        #[Override]
         public function error(string $line): void {}
     };
 
     SetupPackageAction::run($package, [], $reporter);
 
-    expect($reported)->not->toBeEmpty();
+    expect($reported)->toContain('setup done');
 });
 
 it('uses a cli php executable when the configured binary points at php fpm', function (): void {
@@ -195,13 +190,16 @@ it('streams admin setup process output to the progress reporter', function (): v
     {
         public function __construct(private array &$reportedLines) {}
 
+        #[Override]
         public function step(string $label): void {}
 
+        #[Override]
         public function report(string $line): void
         {
             $this->reportedLines[] = $line;
         }
 
+        #[Override]
         public function error(string $line): void {}
     };
 
@@ -240,13 +238,16 @@ it('throws setup command failure details without reporting them twice', function
     {
         public function __construct(private array &$reportedLines, private array &$reportedErrors) {}
 
+        #[Override]
         public function step(string $label): void {}
 
+        #[Override]
         public function report(string $line): void
         {
             $this->reportedLines[] = $line;
         }
 
+        #[Override]
         public function error(string $line): void
         {
             $this->reportedErrors[] = $line;

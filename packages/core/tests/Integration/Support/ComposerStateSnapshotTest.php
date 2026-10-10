@@ -3,185 +3,131 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
-use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Filesystem\Filesystem;
-use Symfony\Component\Process\Process;
 
-/**
- * The recovery path shared by every Composer-mutating operation in Capell.
- *
- * These are the tests that stop it being a path nobody exercises: the removal,
- * the Marketplace install, and the update and uninstall that will follow all
- * depend on exactly this behaviour.
- */
+beforeEach(function (): void {
+    $this->snapshotDirectory = sys_get_temp_dir() . '/capell-snapshot-' . bin2hex(random_bytes(8));
+    new Filesystem()->ensureDirectoryExists($this->snapshotDirectory);
+});
+
+afterEach(function (): void {
+    new Filesystem()->deleteDirectory($this->snapshotDirectory);
+});
+
+/** @param array<string, string> $contents */
 function composerSnapshotFilesystem(array $contents): Filesystem
 {
-    return new class($contents) extends Filesystem
-    {
-        /** @param array<string, string> $contents */
-        public function __construct(public array $contents) {}
+    $files = new Filesystem;
+    foreach ($contents as $path => $content) {
+        $files->put(test()->snapshotDirectory . '/' . basename($path), $content);
+    }
 
-        #[Override]
-        public function exists($path): bool
-        {
-            return array_key_exists((string) $path, $this->contents);
-        }
-
-        #[Override]
-        public function get($path, $lock = false): string
-        {
-            return $this->contents[(string) $path];
-        }
-
-        #[Override]
-        public function replace($path, $content, $mode = null): void
-        {
-            $this->contents[(string) $path] = (string) $content;
-        }
-
-        #[Override]
-        public function delete($paths): bool
-        {
-            foreach ((array) $paths as $path) {
-                unset($this->contents[(string) $path]);
-            }
-
-            return true;
-        }
-    };
+    return $files;
 }
 
 it('captures both manifests as they were before anything ran', function (): void {
     $filesystem = composerSnapshotFilesystem([
-        base_path('composer.json') => '{"require":{"vendor/before":"^1.0"}}',
-        base_path('composer.lock') => '{"packages":[{"name":"vendor/before"}]}',
+        $this->snapshotDirectory . '/composer.json' => '{"require":{"vendor/before":"^1.0"}}',
+        $this->snapshotDirectory . '/composer.lock' => '{"packages":[{"name":"vendor/before"}]}',
     ]);
 
-    $snapshot = ComposerStateSnapshot::capture($filesystem);
+    $snapshot = ComposerStateSnapshot::capture($filesystem, $this->snapshotDirectory);
 
-    expect($snapshot->composerPath)->toBe(base_path('composer.json'))
-        ->and($snapshot->lockPath)->toBe(base_path('composer.lock'))
+    expect($snapshot->composerPath)->toBe($this->snapshotDirectory . '/composer.json')
+        ->and($snapshot->lockPath)->toBe($this->snapshotDirectory . '/composer.lock')
         ->and($snapshot->composerContents)->toBe('{"require":{"vendor/before":"^1.0"}}')
         ->and($snapshot->lockContents)->toBe('{"packages":[{"name":"vendor/before"}]}');
 });
 
 it('restores both manifests over whatever the operation left behind', function (): void {
     $filesystem = composerSnapshotFilesystem([
-        base_path('composer.json') => '{"require":{"vendor/before":"^1.0"}}',
-        base_path('composer.lock') => '{"packages":[{"name":"vendor/before"}]}',
+        $this->snapshotDirectory . '/composer.json' => '{"require":{"vendor/before":"^1.0"}}',
+        $this->snapshotDirectory . '/composer.lock' => '{"packages":[{"name":"vendor/before"}]}',
     ]);
-    $snapshot = ComposerStateSnapshot::capture($filesystem);
+    $snapshot = ComposerStateSnapshot::capture($filesystem, $this->snapshotDirectory);
 
-    $filesystem->contents[base_path('composer.json')] = '{"require":{"vendor/after":"^2.0"}}';
-    $filesystem->contents[base_path('composer.lock')] = '{"packages":[{"name":"vendor/after"}]}';
+    $filesystem->put($this->snapshotDirectory . '/composer.json', '{"require":{"vendor/after":"^2.0"}}');
+    $filesystem->put($this->snapshotDirectory . '/composer.lock', '{"packages":[{"name":"vendor/after"}]}');
 
     $snapshot->restoreFiles();
 
-    expect($filesystem->contents[base_path('composer.json')])->toBe('{"require":{"vendor/before":"^1.0"}}')
-        ->and($filesystem->contents[base_path('composer.lock')])->toBe('{"packages":[{"name":"vendor/before"}]}');
+    expect($filesystem->get($this->snapshotDirectory . '/composer.json'))->toBe('{"require":{"vendor/before":"^1.0"}}')
+        ->and($filesystem->get($this->snapshotDirectory . '/composer.lock'))->toBe('{"packages":[{"name":"vendor/before"}]}');
 });
 
 it('deletes a lock file that did not exist when the snapshot was taken', function (): void {
     // The absence of a lock file is part of the state being restored. Leaving a
     // lock behind that the application never had is not a restored application.
     $filesystem = composerSnapshotFilesystem([
-        base_path('composer.json') => '{"require":{}}',
+        $this->snapshotDirectory . '/composer.json' => '{"require":{}}',
     ]);
-    $snapshot = ComposerStateSnapshot::capture($filesystem);
+    $snapshot = ComposerStateSnapshot::capture($filesystem, $this->snapshotDirectory);
 
-    $filesystem->contents[base_path('composer.lock')] = '{"packages":[{"name":"vendor/written-by-composer"}]}';
+    $filesystem->put($this->snapshotDirectory . '/composer.lock', '{"packages":[{"name":"vendor/written-by-composer"}]}');
 
     $snapshot->restoreFiles();
 
-    expect($filesystem->exists(base_path('composer.lock')))->toBeFalse();
+    expect($filesystem->exists($this->snapshotDirectory . '/composer.lock'))->toBeFalse();
 });
 
 it('knows when nothing on disk has moved away from the snapshot', function (): void {
     $filesystem = composerSnapshotFilesystem([
-        base_path('composer.json') => '{"require":{"vendor/before":"^1.0"}}',
-        base_path('composer.lock') => '{"packages":[]}',
+        $this->snapshotDirectory . '/composer.json' => '{"require":{"vendor/before":"^1.0"}}',
+        $this->snapshotDirectory . '/composer.lock' => '{"packages":[]}',
     ]);
-    $snapshot = ComposerStateSnapshot::capture($filesystem);
+    $snapshot = ComposerStateSnapshot::capture($filesystem, $this->snapshotDirectory);
 
     expect($snapshot->matchesDisk())->toBeTrue();
 
-    $filesystem->contents[base_path('composer.lock')] = '{"packages":[{"name":"vendor/after"}]}';
+    $filesystem->put($this->snapshotDirectory . '/composer.lock', '{"packages":[{"name":"vendor/after"}]}');
 
     expect($snapshot->matchesDisk())->toBeFalse();
 });
 
 it('rebuilds the installed packages with a scriptless composer install', function (): void {
     $filesystem = composerSnapshotFilesystem([
-        base_path('composer.json') => '{"require":{}}',
-        base_path('composer.lock') => '{"packages":[]}',
+        $this->snapshotDirectory . '/composer.json' => '{"require":{}}',
+        $this->snapshotDirectory . '/composer.lock' => '{"packages":[]}',
     ]);
-    $snapshot = ComposerStateSnapshot::capture($filesystem);
+    $snapshot = ComposerStateSnapshot::capture($filesystem, $this->snapshotDirectory);
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->once()->andReturnSelf();
-    $process->shouldReceive('setTimeout')->with(90)->once()->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturn(0);
-    $process->shouldReceive('isSuccessful')->once()->andReturnTrue();
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')
-        // --no-scripts is not optional: recovery must never execute a
-        // third-party package's scripts as the web or queue user.
-        ->with([...capellComposerArgv(), 'install', '--no-interaction', '--no-scripts'], Mockery::type('string'))
-        ->once()
-        ->andReturn($process);
-
+    $factory = new FakeProcessFactory;
     $snapshot->restoreInstalledPackages($factory, 90);
+
+    // Recovery must not execute third-party scripts under the web or queue user.
+    expect($factory->commands()[0])->toContain('install', '--no-scripts')
+        ->and($factory->processes[0]->getWorkingDirectory())->toBe($this->snapshotDirectory)
+        ->and($factory->processes[0]->getTimeout())->toBe(90.0)
+        ->and($factory->processes[0]->isSuccessful())->toBeTrue();
 });
 
 it('hands the caller environment to the recovery subprocess', function (): void {
     // The Marketplace rollback has to reach the network through the same proxy
     // and read the same Composer cache as the install it is undoing.
     $filesystem = composerSnapshotFilesystem([
-        base_path('composer.json') => '{"require":{}}',
+        $this->snapshotDirectory . '/composer.json' => '{"require":{}}',
     ]);
-    $snapshot = ComposerStateSnapshot::capture($filesystem);
-    $capturedEnvironment = null;
-
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->once()->andReturnUsing(function (array $environment) use (&$capturedEnvironment, $process): Process {
-        $capturedEnvironment = $environment;
-
-        return $process;
-    });
-    $process->shouldReceive('setTimeout')->andReturnSelf();
-    $process->shouldReceive('run')->andReturn(0);
-    $process->shouldReceive('isSuccessful')->andReturnTrue();
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->andReturn($process);
-
+    $snapshot = ComposerStateSnapshot::capture($filesystem, $this->snapshotDirectory);
+    $factory = new FakeProcessFactory;
     $snapshot->restoreInstalledPackages($factory, 90, ['COMPOSER_CACHE_DIR' => '/tmp/capell-rollback-cache']);
 
-    expect($capturedEnvironment)->toBe(['COMPOSER_CACHE_DIR' => '/tmp/capell-rollback-cache']);
+    expect($factory->processes[0]->getEnv())->toBe(['COMPOSER_CACHE_DIR' => '/tmp/capell-rollback-cache']);
 });
 
 it('restores the manifests again and withholds composer output when recovery fails', function (): void {
     // composer install rewrites composer.lock as it goes, so a run that died
     // part-way can corrupt the very file the snapshot exists to protect.
     $filesystem = composerSnapshotFilesystem([
-        base_path('composer.json') => '{"require":{"vendor/before":"^1.0"}}',
-        base_path('composer.lock') => '{"packages":[{"name":"vendor/before"}]}',
+        $this->snapshotDirectory . '/composer.json' => '{"require":{"vendor/before":"^1.0"}}',
+        $this->snapshotDirectory . '/composer.lock' => '{"packages":[{"name":"vendor/before"}]}',
     ]);
-    $snapshot = ComposerStateSnapshot::capture($filesystem);
+    $snapshot = ComposerStateSnapshot::capture($filesystem, $this->snapshotDirectory);
 
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setEnv')->andReturnSelf();
-    $process->shouldReceive('setTimeout')->andReturnSelf();
-    $process->shouldReceive('run')->andReturnUsing(function () use ($filesystem): int {
-        $filesystem->contents[base_path('composer.lock')] = '{"half-written":true}';
-
-        return 1;
+    $path = $this->snapshotDirectory . '/composer.lock';
+    $factory = new FakeProcessFactory()->push(exitCode: 1, errorOutput: 'password=PRIVATE_RECOVERY_VALUE', onRun: function () use ($filesystem, $path): void {
+        $filesystem->put($path, '{"half-written":true}');
     });
-    $process->shouldReceive('isSuccessful')->andReturnFalse();
-
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->andReturn($process);
 
     $caught = null;
 
@@ -193,5 +139,6 @@ it('restores the manifests again and withholds composer output when recovery fai
 
     expect($caught?->getMessage())->toBe(ComposerStateSnapshot::UNRECOVERABLE_MESSAGE)
         ->and($caught?->getMessage())->toContain('withheld because it may contain credentials')
-        ->and($filesystem->contents[base_path('composer.lock')])->toBe('{"packages":[{"name":"vendor/before"}]}');
+        ->not->toContain('PRIVATE_RECOVERY_VALUE')
+        ->and($filesystem->get($this->snapshotDirectory . '/composer.lock'))->toBe('{"packages":[{"name":"vendor/before"}]}');
 });

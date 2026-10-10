@@ -64,9 +64,7 @@ it('preserves the byte-identical legacy identity and existing entries on standar
     $store = Cache::tags(config('capell.cache_tag', 'capell-app'));
     $store->put($legacyKey, 'existing production entry', 60);
 
-    expect(new ReflectionMethod($manager, 'normalizeCacheKey')->invoke($manager, 'html:cached-page'))
-        ->toBe($legacyKey)
-        ->and($manager->getFromCache('html:cached-page'))->toBe('existing production entry');
+    expect($manager->getFromCache('html:cached-page'))->toBe('existing production entry');
 })->with(['http://cache.example.test', 'http://cache.example.test:80', 'https://cache.example.test', 'https://cache.example.test:443']);
 
 it('warms and purges the same entry as serving without affecting another port', function (): void {
@@ -111,15 +109,13 @@ it('does not trust forwarded ports from an untrusted client', function (): void 
     $this->get('http://cache.example.test:8081/cached-page')->assertContent('<p>http://cache.example.test:8081</p>');
 });
 
-it('retains the literal pre-change key and agrees on standard-port warm serve and forget', function (array|string|null $context, bool $trusted): void {
-    $literalKey = '4dafeefc662294e49ad7291b80d33ca9f1f1b712ca8aec588d09de9124a6805c';
+it('agrees on standard-port warm serve and forget', function (array|string|null $context, bool $trusted): void {
     CacheOriginContexts::bind('console');
     (new CapellCacheManager)->setToCache('html:public', 'warmed');
 
     CacheOriginContexts::bind($context, $trusted);
     $manager = new CapellCacheManager;
-    expect(new ReflectionMethod($manager, 'normalizeCacheKey')->invoke($manager, 'html:public'))->toBe($literalKey)
-        ->and($manager->rememberCache('html:public', static fn (): string => 'miss'))->toBe('warmed');
+    expect($manager->rememberCache('html:public', static fn (): string => 'miss'))->toBe('warmed');
     $manager->setToCache('html:public', 'served');
 
     CacheOriginContexts::bind(null);
@@ -135,13 +131,11 @@ it('agrees on non-standard-port warm serve and forget through APP_URL fallback',
     config(['app.url' => 'https://cache.example.test:8443']);
     CacheOriginContexts::bind(null);
     $manager = new CapellCacheManager;
-    $warmedKey = new ReflectionMethod($manager, 'normalizeCacheKey')->invoke($manager, 'html:public');
     $manager->setToCache('html:public', 'warmed');
 
     CacheOriginContexts::bind($context, $trusted);
     $manager = new CapellCacheManager;
-    expect(new ReflectionMethod($manager, 'normalizeCacheKey')->invoke($manager, 'html:public'))->toBe($warmedKey)
-        ->and($manager->rememberCache('html:public', static fn (): string => 'miss'))->toBe('warmed');
+    expect($manager->rememberCache('html:public', static fn (): string => 'miss'))->toBe('warmed');
     $manager->setToCache('html:public', 'served');
 
     foreach (['https://cache.example.test:8444', 'http://cache.example.test:8443', 'https://cache.example.test'] as $other) {

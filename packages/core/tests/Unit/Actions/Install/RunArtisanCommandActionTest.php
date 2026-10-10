@@ -2,15 +2,14 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Actions\Install\GenerateSitemapAction;
 use Capell\Core\Actions\Install\InstallDeveloperToolingAction;
 use Capell\Core\Actions\Install\RunArtisanCommandAction;
 use Capell\Core\Contracts\ProgressReporter;
-use Capell\Core\Data\Install\ArtisanCommandResultData;
+use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Tests\Support\Fixtures\Autoload\InstallSupportActionReporter;
-use Capell\Core\Tests\Support\Install\RecordingConsoleKernel;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 
 it('reports artisan command output', function (): void {
     Artisan::command('capell:test-run-artisan-success', function (): int {
@@ -24,13 +23,16 @@ it('reports artisan command output', function (): void {
     {
         public function __construct(private array &$reported) {}
 
+        #[Override]
         public function step(string $label): void {}
 
+        #[Override]
         public function report(string $line): void
         {
             $this->reported[] = $line;
         }
 
+        #[Override]
         public function error(string $line): void {}
     };
 
@@ -51,10 +53,13 @@ it('throws with command output when artisan command fails', function (): void {
     {
         public function __construct(private array &$reportedErrors) {}
 
+        #[Override]
         public function step(string $label): void {}
 
+        #[Override]
         public function report(string $line): void {}
 
+        #[Override]
         public function error(string $line): void
         {
             $this->reportedErrors[] = $line;
@@ -67,49 +72,53 @@ it('throws with command output when artisan command fails', function (): void {
     expect($reportedErrors)->toBe(['publish failed']);
 });
 
-it('routes install artisan calls through the shared helper and retains silent failure output', function (): void {
-    $kernel = RecordingConsoleKernel::bind();
-    $spy = bindFakeAction(CallArtisanCommandAction::class, new ArtisanCommandResultData(17, '', 'Install failed.'));
+it('retains silent install failure output', function (): void {
+    Artisan::command('test:late-install {--force}', function (): int {
+        $this->error('Install failed.');
+
+        return 17;
+    });
     $reporter = new InstallSupportActionReporter;
 
     expect(fn (): mixed => RunArtisanCommandAction::run('test:late-install', ['--force' => true], $reporter, true))
         ->toThrow(RuntimeException::class, "Artisan command 'test:late-install' failed with exit code 17.");
-
-    expect($spy->args)->toBe(['test:late-install', ['--force' => true]])
-        ->and($reporter->lines)->toBe([['error', 'Install failed.']])
-        ->and($kernel->calls)->toBe([]);
+    expect($reporter->lines)->toBe([['error', 'Install failed.']]);
 });
 
-it('routes sitemap generation through the shared helper', function (): void {
-    $kernel = RecordingConsoleKernel::bind();
-    $spy = bindFakeAction(CallArtisanCommandAction::class, new ArtisanCommandResultData(0, 'generated'));
+it('reports sitemap success only after the generator succeeds', function (): void {
+    Artisan::command('capell:xml-sitemap', fn (): int => 0);
     $reporter = new InstallSupportActionReporter;
 
     GenerateSitemapAction::run($reporter);
 
-    expect($spy->args)->toBe(['capell:xml-sitemap', []])
-        ->and($reporter->lines)->toBe([
-            ['step', 'Generating XML sitemaps…'], ['report', '✓ Sitemaps generated'],
-        ])
-        ->and($kernel->calls)->toBe([]);
+    expect($reporter->lines)->toBe([
+        ['step', 'Generating XML sitemaps…'], ['report', '✓ Sitemaps generated'],
+    ]);
 });
 
-it('routes boost configuration through the shared helper and preserves its failure code', function (): void {
-    $kernel = RecordingConsoleKernel::bind();
-    InstallDeveloperToolingAction::resetArtisanCaller();
-    $spy = bindFakeAction(CallArtisanCommandAction::class, new ArtisanCommandResultData(23, 'Boost setup failed.'));
+it('preserves boost configuration failure and its diagnostic', function (): void {
+    $directory = sys_get_temp_dir() . '/capell-boost-' . bin2hex(random_bytes(8));
+    mkdir($directory);
+    file_put_contents($directory . '/composer.json', json_encode(['require' => ['capell-app/core' => '*']], JSON_THROW_ON_ERROR));
+    InstallDeveloperToolingAction::setComposerJsonPath($directory . '/composer.json');
+    InstallDeveloperToolingAction::setBoostJsonPath($directory . '/boost.json');
+    $installed = Mockery::mock(DeveloperToolingInstallationState::class);
+    $installed->shouldReceive('isInstalled')->andReturnTrue();
+    app()->instance(DeveloperToolingInstallationState::class, $installed);
+    Artisan::command('boost:install {--guidelines} {--skills} {--mcp}', function (): int {
+        $this->line('Boost setup failed.');
+
+        return 23;
+    });
     $reporter = new InstallSupportActionReporter;
-    $action = resolve(InstallDeveloperToolingAction::class);
 
-    expect(fn (): mixed => new ReflectionMethod($action, 'configureBoost')->invoke($action, $reporter))
-        ->toThrow(RuntimeException::class, "Command 'boost:install' failed with exit code 23.");
-
-    expect($spy->args)->toBe(['boost:install', [
-        '--guidelines' => true, '--skills' => true, '--mcp' => true, '--no-interaction' => true,
-    ]])->and($reporter->lines)->toContain(['report', 'Boost setup failed.'])
-        ->and($kernel->calls)->toBe([]);
-});
-
-afterEach(function (): void {
-    RecordingConsoleKernel::release();
+    try {
+        expect(fn (): mixed => InstallDeveloperToolingAction::run($reporter, true))
+            ->toThrow(RuntimeException::class, "Command 'boost:install' failed with exit code 23.");
+        expect($reporter->lines)->toContain(['report', 'Boost setup failed.']);
+    } finally {
+        InstallDeveloperToolingAction::resetComposerJsonPath();
+        InstallDeveloperToolingAction::resetBoostJsonPath();
+        File::deleteDirectory($directory);
+    }
 });

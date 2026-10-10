@@ -10,34 +10,14 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\InstallPackageArguments;
 use Capell\Core\Support\Install\NullProgressReporter;
-use Capell\Core\Support\Process\ProcessFactoryInterface;
-use Symfony\Component\Process\Process;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 
 it('uses catalogue prerelease constraints consistently without lowering host stability', function (bool $dryRun): void {
     config(['app.env' => 'local']);
     GetPluginsAction::mock()->shouldReceive('handle')->with('download')->andReturn(collect([
         'capell-app/address' => new PackageData(name: 'capell-app/address', type: PackageTypeEnum::Plugin, version: '1.1.0-beta.45', tier: 'free'),
     ]));
-    $process = Mockery::mock(Process::class);
-    $process->shouldReceive('setTimeout')->with(600)->once()->andReturnSelf();
-    $process->shouldReceive('disableOutput')->zeroOrMoreTimes()->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturnUsing(function (Closure $output): int {
-        $output('err', 'unavailable');
-
-        return 0;
-    });
-    // Failure avoids a real autoloader reload in the require test.
-    $process->shouldReceive('isSuccessful')->once()->andReturn(false);
-    $process->shouldReceive('getOutput', 'getErrorOutput')->zeroOrMoreTimes()->andReturn('unavailable');
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->with(
-        Mockery::on(fn (array $command): bool => in_array('capell-app/address:^1.1.0-beta.45', $command, true)
-            && in_array('vendor/explicit:^2.0', $command, true)
-            && in_array('--dry-run', $command, true) === $dryRun),
-        base_path(),
-        Mockery::type('array'),
-    )->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    $factory = FakeProcessFactory::bind()->push(exitCode: 1, errorOutput: 'unavailable');
 
     $run = function () use ($dryRun): void {
         $packages = ['capell-app/address', 'vendor/explicit:^2.0'];
@@ -50,6 +30,11 @@ it('uses catalogue prerelease constraints consistently without lowering host sta
 
     expect($run)
         ->toThrow(RuntimeException::class, 'unavailable');
+
+    $command = $factory->commands()[0];
+    expect($command)->toContain('capell-app/address:^1.1.0-beta.45', 'vendor/explicit:^2.0')
+        ->and(in_array('--dry-run', $command, true))->toBe($dryRun)
+        ->and($factory->processes[0]->getTimeout())->toBe(600.0);
 })->with([
     'preflight' => true,
     'require' => false,

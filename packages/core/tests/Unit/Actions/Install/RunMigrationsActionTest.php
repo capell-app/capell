@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\RunMigrationsAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\NullProgressReporter;
-use Illuminate\Contracts\Console\Kernel;
+use Capell\Tests\Support\Fakes\FakeConsoleKernel;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -97,10 +97,7 @@ it('leaves published migration duplicates for the migrate command to handle', fu
 
     CapellCore::registerPackage('vendor/run-migrations-package', path: $packagePath);
 
-    $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('call')->once()->with('migrate', ['--force' => true])->andReturn(0);
-    $kernel->shouldReceive('output')->andReturn('Nothing to migrate');
-    $this->app->instance(Kernel::class, $kernel);
+    FakeConsoleKernel::bind()->returns('migrate', 0, 'Nothing to migrate');
 
     try {
         RunMigrationsAction::run(new NullProgressReporter);
@@ -148,10 +145,7 @@ it('leaves existing create migrations for the migrate command to handle', functi
     $publishedMigrationPath = $databaseMigrationPath . '/2026_05_10_190837_04_create_marketplace_registration_sessions_table.php';
     File::put($publishedMigrationPath, '<?php declare(strict_types=1);');
 
-    $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('call')->once()->with('migrate', ['--force' => true])->andReturn(0);
-    $kernel->shouldReceive('output')->andReturn('Nothing to migrate');
-    $this->app->instance(Kernel::class, $kernel);
+    FakeConsoleKernel::bind()->returns('migrate', 0, 'Nothing to migrate');
 
     try {
         RunMigrationsAction::run(new NullProgressReporter);
@@ -163,38 +157,31 @@ it('leaves existing create migrations for the migrate command to handle', functi
     }
 });
 
-it('can run only database migrations before settings migrations are ready', function (): void {
-    $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('call')
-        ->once()
-        ->with('migrate', [
-            '--force' => true,
-            '--path' => database_path('migrations'),
-            '--realpath' => true,
-        ])
-        ->andReturn(0);
-    $kernel->shouldReceive('output')->andReturn('Nothing to migrate');
-    $this->app->instance(Kernel::class, $kernel);
+it('runs only the selected migration directory', function (bool $schema): void {
+    $original = database_path();
+    $directory = sys_get_temp_dir() . '/capell-selected-migrations-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($directory . '/migrations');
+    File::ensureDirectoryExists($directory . '/settings');
+    $template = <<<'PHP'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void {
+        \Illuminate\Support\Facades\Schema::create('%s', function (\Illuminate\Database\Schema\Blueprint $table): void { $table->id(); });
+    }
+};
+PHP;
+    File::put($directory . '/migrations/2035_01_01_000001_wave_schema.php', sprintf($template, 'wave_schema'));
+    File::put($directory . '/settings/2035_01_01_000002_wave_settings.php', sprintf($template, 'wave_settings'));
+    app()->useDatabasePath($directory);
 
-    RunMigrationsAction::run(new NullProgressReporter, includeSettings: false);
-});
+    try {
+        RunMigrationsAction::run(new NullProgressReporter, includeSettings: ! $schema, includeSchema: $schema);
 
-it('can run only settings migrations for a package without schema migrations', function (): void {
-    $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('call')
-        ->once()
-        ->with('migrate', [
-            '--force' => true,
-            '--path' => database_path('settings'),
-            '--realpath' => true,
-        ])
-        ->andReturn(0);
-    $kernel->shouldReceive('output')->andReturn('Nothing to migrate');
-    $this->app->instance(Kernel::class, $kernel);
-
-    RunMigrationsAction::run(
-        new NullProgressReporter,
-        includeSettings: true,
-        includeSchema: false,
-    );
-});
+        expect(Schema::hasTable('wave_schema'))->toBe($schema)
+            ->and(Schema::hasTable('wave_settings'))->toBe(! $schema)
+            ->and(DB::table('migrations')->where('migration', $schema ? '2035_01_01_000001_wave_schema' : '2035_01_01_000002_wave_settings')->exists())->toBeTrue();
+    } finally {
+        app()->useDatabasePath($original);
+        File::deleteDirectory($directory);
+    }
+})->with(['schema only' => true, 'settings only' => false]);
