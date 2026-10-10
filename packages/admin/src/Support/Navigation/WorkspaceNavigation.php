@@ -54,6 +54,7 @@ final class WorkspaceNavigation
             'publishing' => $this->sections['publishing'] ?? [],
             'marketing' => $this->sections['marketing'] ?? [],
             'reports' => $this->sections['reports'] ?? [],
+            'health' => $this->sections['health'] ?? [],
             'system' => $this->sections['system'] ?? [],
         ] as $section => $items) {
             if ($items === []) {
@@ -67,6 +68,7 @@ final class WorkspaceNavigation
                 'publishing' => __('capell-admin::navigation.workspace_publishing'),
                 'marketing' => __('capell-admin::navigation.workspace_marketing'),
                 'reports' => __('capell-admin::navigation.workspace_reports'),
+                'health' => __('capell-admin::navigation.workspace_health'),
                 'system' => __('capell-admin::navigation.workspace_system'),
             };
             $result[] = NavigationGroup::make($label)->items($items)
@@ -163,7 +165,8 @@ final class WorkspaceNavigation
         $path = parse_url($item->getUrl() ?? '', PHP_URL_PATH);
         $path = is_string($path) ? trim($path, '/') : '';
         foreach ([
-            'pages' => ['pages', 'navigation/navigations', 'redirects', 'redirect-rules', 'sitemap'],
+            'pages' => ['pages', 'navigation/navigations', 'sitemap'],
+            'health' => ['redirects', 'redirect-rules'],
             'articles' => ['blog/article', 'tags', 'tags/tags', 'categories'],
             'library' => ['media', 'media-health', 'content-sections/sections'],
             'design' => ['layouts', 'layout-builder/layouts', 'layout-builder/widgets', 'layout-builder/presets', 'block-templates', 'themes', 'blueprints'],
@@ -177,6 +180,7 @@ final class WorkspaceNavigation
         }
 
         foreach ([
+            'health' => [__('capell-admin::navigation.workspace_health')],
             'publishing' => [__('capell-admin::navigation.group_workflow')],
             'marketing' => [__('capell-admin::navigation.group_marketing'), __('capell-admin::navigation.group_growth')],
             'reports' => [__('capell-admin::navigation.group_reports')],

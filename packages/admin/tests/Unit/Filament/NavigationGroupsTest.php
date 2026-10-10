@@ -77,7 +77,8 @@ it('groups web page authoring tools in the requested order', function (): void {
         ->and(ThemeResource::getNavigationSort())->toBe(8)
         ->and(ThemeResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_websites'))
         ->and(RedirectResource::getNavigationSort())->toBe(9)
-        ->and(RedirectResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
+        ->and(RedirectResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.workspace_health'))
+        ->and(RedirectResource::getNavigationLabel())->toBe((string) __('capell-admin::navigation.redirects'))
         ->and(BlueprintResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
         ->and(BlueprintResource::getNavigationSort())->toBe(10);
 });

@@ -74,3 +74,17 @@ it('only creates optional workspaces when packages contribute visible destinatio
         ->and(collect($groups[0]->getItems())->first()?->getUrl())->toBe('/admin/campaigns')
         ->and($navigation->localNavigation())->toBeEmpty();
 });
+
+it('places URL redirects in health while retaining website authoring tools', function (): void {
+    $navigation = new WorkspaceNavigation;
+    $groups = $navigation->organise([NavigationGroup::make()->items([
+        NavigationItem::make('Pages')->url('/admin/pages'),
+        NavigationItem::make('URL Redirects')->url('/admin/redirects'),
+        NavigationItem::make('Redirect rules')->url('/admin/redirect-rules'),
+    ])]);
+
+    expect(array_map(fn (NavigationGroup $group): ?string => $group->getLabel(), $groups))
+        ->toBe(['Website', 'Health'])
+        ->and(collect($groups[0]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['Pages'])
+        ->and(collect($groups[1]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['URL Redirects', 'Redirect rules']);
+});

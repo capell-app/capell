@@ -9,6 +9,7 @@ return [
     'workspace_publishing' => 'Publishing',
     'workspace_reports' => 'Reports',
     'workspace_system' => 'System',
+    'workspace_health' => 'Health',
     'section_navigation' => 'Section navigation',
 
     'activity_trail' => 'Activity Log',
@@ -43,7 +44,7 @@ return [
     'site_health' => 'Site Health',
     'site_admin_metrics' => 'Site metrics',
     'queue_health' => 'Queue Health',
-    'redirects' => 'Redirects',
+    'redirects' => 'URL Redirects',
     'settings' => 'Settings',
     'sites' => 'Sites',
     'stale_drafts' => 'Stale Drafts',
