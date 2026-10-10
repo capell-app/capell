@@ -7,6 +7,7 @@ use Capell\Installer\Support\InstallGuide\Patches\EnvQueueConnectionPatch;
 use Capell\Installer\Support\InstallGuide\Patches\EnvSettingsCachePatch;
 use Capell\Installer\Support\InstallGuide\Patches\FilesystemsPageCacheDiskPatch;
 use Capell\Installer\Support\InstallGuide\Patches\LoggingCapellChannelPatch;
+use Dotenv\Dotenv;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -38,8 +39,11 @@ it('applies installer environment patches through their real probe and backup fl
     $queuePatch->apply();
     $settingsPatch->apply();
 
-    expect(File::get($envPath))->toContain('QUEUE_CONNECTION=database')
-        ->toContain('SETTINGS_CACHE_ENABLED=true')
+    expect(Dotenv::parse(File::get($envPath)))->toMatchArray([
+        'APP_NAME' => 'Capell',
+        'QUEUE_CONNECTION' => 'database',
+        'SETTINGS_CACHE_ENABLED' => 'true',
+    ])
         ->and($queuePatch->probe())->toBe(PatchStatus::AlreadyApplied)
         ->and($settingsPatch->probe())->toBe(PatchStatus::AlreadyApplied)
         ->and(File::directories(storage_path('capell/install-guide-backups')))->not->toBeEmpty();
@@ -86,14 +90,18 @@ PHP);
     $filesystemsPatch->apply();
     $loggingPatch->apply();
 
-    expect(File::get(base_path('config/filesystems.php')))
-        ->toContain("'page_cache'")
-        ->toContain("public_path('page-cache')")
-        ->toContain("'local'")
-        ->and(File::get(base_path('config/logging.php')))
-        ->toContain("'capell'")
-        ->toContain("storage_path('logs/capell.log')")
-        ->toContain("'stack'")
+    $filesystems = require base_path('config/filesystems.php');
+    $logging = require base_path('config/logging.php');
+
+    expect($filesystems['disks']['page_cache'])->toBe([
+        'driver' => 'local', 'root' => public_path('page-cache'), 'throw' => false,
+    ])->and($filesystems['disks']['local'])->toBe([
+        'driver' => 'local', 'root' => storage_path('app/private'),
+    ])->and($logging['channels']['capell'])->toBe([
+        'driver' => 'single', 'path' => storage_path('logs/capell.log'), 'level' => 'debug',
+    ])->and($logging['channels']['stack'])->toBe([
+        'driver' => 'stack', 'channels' => ['single'],
+    ])
         ->and($filesystemsPatch->probe())->toBe(PatchStatus::AlreadyApplied)
         ->and($loggingPatch->probe())->toBe(PatchStatus::AlreadyApplied);
 });
@@ -307,10 +315,14 @@ it('applies patches to injected config file paths', function (): void {
         $filesystemsPatch->apply();
         $loggingPatch->apply();
 
-        expect(File::get($filesystemsPath))->toContain("'page_cache'")
-            ->toContain("public_path('page-cache')")
-            ->and(File::get($loggingPath))->toContain("'capell'")
-            ->toContain("storage_path('logs/capell.log')")
+        $filesystems = require $filesystemsPath;
+        $logging = require $loggingPath;
+
+        expect($filesystems['disks']['page_cache'])->toBe([
+            'driver' => 'local', 'root' => public_path('page-cache'), 'throw' => false,
+        ])->and($logging['channels']['capell'])->toBe([
+            'driver' => 'single', 'path' => storage_path('logs/capell.log'), 'level' => 'debug',
+        ])
             ->and($filesystemsPatch->probe())->toBe(PatchStatus::AlreadyApplied)
             ->and($loggingPatch->probe())->toBe(PatchStatus::AlreadyApplied)
             ->and(File::exists(base_path('config/filesystems.php')))->toBeFalse()

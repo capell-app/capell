@@ -220,6 +220,7 @@
         "voku/html-min": "^5.0"
     },
     "conflict": {
+        "brianium/paratest": "7.26.1",
         "firebase/php-jwt": "<7.0.0"
     },
     "replace": {
