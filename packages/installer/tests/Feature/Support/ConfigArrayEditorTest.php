@@ -25,6 +25,7 @@ return [
 PHP);
 
     try {
+        $original = require $configPath;
         $editor = new PhpFileEditor($configPath);
         $config = new ConfigArrayEditor($editor);
 
@@ -40,9 +41,8 @@ PHP);
 
         $editor->save();
 
-        expect(file_get_contents($configPath))
-            ->toContain("'page_cache'")
-            ->toContain("'driver' => 'local'");
+        $original['disks']['page_cache'] = ['driver' => 'local'];
+        expect(require $configPath)->toEqual($original);
     } finally {
         if (file_exists($configPath)) {
             unlink($configPath);

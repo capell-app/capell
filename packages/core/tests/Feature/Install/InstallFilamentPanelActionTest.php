@@ -10,6 +10,9 @@ use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Tests\Support\Install\RecordingInstallProgressReporter;
+use Capell\Tests\Support\GeneratedPhpFixture;
+use Capell\Tests\Support\TailwindFixture;
+use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\PanelRegistry;
 use Illuminate\Container\Container;
@@ -221,11 +224,13 @@ PHP);
 
     InstallFilamentPanelAction::run(new NullProgressReporter);
 
-    expect(resource_path('css/filament/admin/theme.css'))->toBeFile()
-        ->and(File::get(resource_path('css/filament/admin/theme.css')))
-        ->toContain("@import '../../../../vendor/filament/filament/resources/css/theme.css';")
-        ->toContain("@source '../../../../app/Filament/**/*';")
-        ->toContain("@source '../../../../resources/views/filament/**/*';")
+    File::ensureDirectoryExists(app_path('Filament'));
+    File::ensureDirectoryExists(resource_path('views/filament'));
+    File::put(app_path('Filament/ThemeFixture.php'), 'p-7');
+    File::put(resource_path('views/filament/theme-fixture.blade.php'), 'm-9');
+    $compiled = TailwindFixture::build(resource_path('css/filament/admin/theme.css'));
+    expect(preg_match('/\.p-7\s*\{/', $compiled))->toBe(1)
+        ->and(preg_match('/\.m-9\s*\{/', $compiled))->toBe(1)
         ->and(app()->getProvider('App\\Providers\\Filament\\FilamentInstallTestPanelProvider'))
         ->toBeInstanceOf(PanelProvider::class)
         ->and(resolve(PanelRegistry::class)->get('admin'))
@@ -366,7 +371,7 @@ PHP;
     $reporter = new RecordingInstallProgressReporter;
     InstallFilamentPanelAction::run($reporter);
 
-    expect(File::get($providerPath))->toBe(str_replace('->login()', "->login()->viteTheme('resources/css/filament/admin/theme.css')", $providerContents))
+    expect(GeneratedPhpFixture::load($providerPath, PanelProvider::class, app())->panel(Panel::make())->getViteTheme())->toBe('resources/css/filament/admin/theme.css')
         ->and($recoveryCommand)->toBe([PHP_BINARY, 'artisan', 'filament:install', '--no-interaction'])
         ->and(resolve(PanelRegistry::class)->getDefault()->getId())->toBe('admin')
         ->and(resolve(PanelRegistry::class)->getDefault()->hasLogin())->toBeTrue()
@@ -506,7 +511,7 @@ PHP);
     $firstPass = File::get($providerPath);
     InstallFilamentPanelAction::run(new NullProgressReporter);
 
-    expect($firstPass)->toContain("->viteTheme('resources/css/filament/admin/theme.css')");
+    expect(GeneratedPhpFixture::load($providerPath, PanelProvider::class, app())->panel(Panel::make())->getViteTheme())->toBe('resources/css/filament/admin/theme.css');
     expect(File::get($providerPath))->toBe($firstPass);
     expect(File::exists(resource_path('css/filament/admin/theme.css')))->toBeTrue();
 });

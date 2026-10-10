@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
+use Capell\Tests\Support\JavascriptFixture;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 
@@ -72,15 +73,29 @@ it('renders shared content without lightbox behaviour', function (): void {
     expect($html)->toContain('Public content');
     expect(domCount(frontendRenderedDom($html), '//*[@data-lightbox]'))->toBe(0);
 });
-it('keeps shared frontend javascript limited to the generic alpine runtime', function (): void {
-    $entrypoint = file_get_contents(dirname(__DIR__, 3) . '/resources/js/capell-frontend.js');
-
-    expect($entrypoint)->not->toContain('@ryangjchandler/alpine-tooltip')
-        ->and($entrypoint)->toContain('@awcodes/alpine-floating-ui')
-        ->and($entrypoint)->not->toContain('utilities/lightbox')
-        ->and($entrypoint)->toContain("import Alpine from 'alpinejs'")
-        ->and($entrypoint)->toContain('window.Alpine.start()');
-});
+it('starts the generic Alpine runtime once and preserves an existing host runtime', function (bool $existing): void {
+    $state = JavascriptFixture::evaluate(
+        dirname(__DIR__, 3) . '/resources/js/capell-frontend.js',
+        'globalThis.starts = 0; globalThis.plugins = []; globalThis.callbacks = {};
+        globalThis.window = {addEventListener: (name, callback) => callbacks[name] = callback};
+        globalThis.document = {readyState: "loading", addEventListener: (name, callback) => callbacks[name] = callback};
+        globalThis.host = {start: () => starts++, plugin: value => plugins.push(value)};' . ($existing ? 'window.Alpine = host;' : ''),
+        '(() => { const beforeLoad = starts; callbacks["alpine:init"](); callbacks.load(); callbacks.load(); return {beforeLoad, starts, plugins, preservesHost: window.Alpine === host}; })()',
+        [
+            'alpinejs' => 'export default {start: () => starts++, plugin: value => plugins.push(value)};',
+            '@alpinejs/focus' => 'export default "focus";',
+            '@alpinejs/intersect' => 'export default "intersect";',
+            '@awcodes/alpine-floating-ui' => 'export default "floating";',
+            './widget-runtime' => '',
+        ],
+    );
+    expect($state)->toBe([
+        'beforeLoad' => 0,
+        'starts' => $existing ? 0 : 1,
+        'plugins' => ['focus', 'intersect', 'floating'],
+        'preservesHost' => $existing,
+    ]);
+})->with([false, true]);
 
 it('does not retain the legacy vendor build asset bridge', function (): void {
     expect(dirname(__DIR__, 3) . '/src/Support/Assets/VendorBuildAssetContributor.php')->not->toBeFile();
