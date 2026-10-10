@@ -38,6 +38,7 @@ use Capell\Marketplace\Filament\Widgets\MarketplacePackageOperationsAlertFilamen
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -250,20 +251,18 @@ it('uses a responsive dashboard layout for content-heavy widgets', function (): 
         ]);
 });
 
-it('consumes dashboard panel regions in the composed widget shell', function (): void {
+it('composes visible dashboard regions without empty section wrappers', function (): void {
+    test()->actingAsAdmin();
     Site::factory()->createOne();
 
     $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
     $components = $components instanceof Schema ? $components->getComponents() : $components;
 
-    $sections = array_values(array_filter(
-        $components,
-        static fn (mixed $component): bool => $component instanceof Section,
-    ));
-
-    expect($sections)->not->toBeEmpty()
-        ->and($sections[0])->toBeInstanceOf(Section::class)
-        ->and($sections)->toHaveCount(5);
+    expect($components)->toHaveCount(4)
+        ->and($components[0])->toBeInstanceOf(Grid::class)
+        ->and($components[1])->toBeInstanceOf(Grid::class)
+        ->and($components[2])->toBeInstanceOf(Grid::class)
+        ->and($components[3])->toBeInstanceOf(Section::class);
 });
 
 it('only passes page filters to widgets that declare the property', function (): void {
