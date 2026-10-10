@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Pages;
 
 use Capell\Admin\Data\Pages\PageEditorSessionData;
 use Capell\Core\Contracts\Pageable;
+use Capell\Core\Models\Page;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -31,6 +32,9 @@ final class BuildPageEditorSessionAction
     ): PageEditorSessionData {
         $userId = $user?->getAuthIdentifier();
         $userKey = is_scalar($userId) ? (string) $userId : 'anonymous';
+        $recordKey = $page->getMorphClass() === (new Page)->getMorphClass()
+            ? (string) $page->getKey()
+            : $page->getMorphClass() . ':' . $page->getKey();
 
         return new PageEditorSessionData(
             heartbeatUrl: $heartbeatUrl,
@@ -42,7 +46,7 @@ final class BuildPageEditorSessionAction
             storageKey: sprintf(
                 'capell:page-editor:%s:%s:%s',
                 $userKey,
-                (string) $page->getKey(),
+                $recordKey,
                 $locale,
             ),
         );

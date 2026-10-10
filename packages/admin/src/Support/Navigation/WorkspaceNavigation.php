@@ -60,9 +60,15 @@ final class WorkspaceNavigation
                 continue;
             }
 
-            $label = $section === 'pages'
-                ? __('capell-admin::navigation.group_websites')
-                : __('capell-admin::navigation.workspace_' . $section);
+            $label = match ($section) {
+                'pages' => __('capell-admin::navigation.group_websites'),
+                'library' => __('capell-admin::navigation.workspace_library'),
+                'design' => __('capell-admin::navigation.workspace_design'),
+                'publishing' => __('capell-admin::navigation.workspace_publishing'),
+                'marketing' => __('capell-admin::navigation.workspace_marketing'),
+                'reports' => __('capell-admin::navigation.workspace_reports'),
+                'system' => __('capell-admin::navigation.workspace_system'),
+            };
             $result[] = NavigationGroup::make($label)->items($items)
                 ->collapsed(! in_array($section, ['pages', 'library'], true));
         }
@@ -171,17 +177,15 @@ final class WorkspaceNavigation
         }
 
         foreach ([
-            'publishing' => ['group_workflow'],
-            'marketing' => ['group_marketing', 'group_growth'],
-            'reports' => ['group_reports'],
-            'system' => ['group_system', 'group_settings', 'group_monitoring', 'group_integrations', 'group_extensions'],
-            'library' => ['group_content'],
-            'design' => ['group_layouts'],
-        ] as $section => $keys) {
-            foreach ($keys as $key) {
-                if ($group->getLabel() === __('capell-admin::navigation.' . $key)) {
-                    return $section;
-                }
+            'publishing' => [__('capell-admin::navigation.group_workflow')],
+            'marketing' => [__('capell-admin::navigation.group_marketing'), __('capell-admin::navigation.group_growth')],
+            'reports' => [__('capell-admin::navigation.group_reports')],
+            'system' => [__('capell-admin::navigation.group_system'), __('capell-admin::navigation.group_settings'), __('capell-admin::navigation.group_monitoring'), __('capell-admin::navigation.group_integrations'), __('capell-admin::navigation.group_extensions')],
+            'library' => [__('capell-admin::navigation.group_content')],
+            'design' => [__('capell-admin::navigation.group_layouts')],
+        ] as $section => $labels) {
+            if (in_array($group->getLabel(), $labels, true)) {
+                return $section;
             }
         }
 

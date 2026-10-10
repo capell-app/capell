@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Http\Controllers;
 
+use Capell\Admin\Actions\Pages\ResolveContentLockRecordAction;
 use Capell\Core\Actions\ContentLocks\AcquireContentLockAction;
 use Capell\Core\Actions\ContentLocks\ReleaseContentLockAction;
-use Capell\Core\Models\Page;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,12 +15,16 @@ use Illuminate\Support\Facades\Gate;
 
 class PageContentLockController extends Controller
 {
-    public function heartbeat(Request $request, Page $page): JsonResponse
+    public function heartbeat(Request $request, string $page): JsonResponse
     {
-        Gate::authorize('update', $page);
+        $type = $request->query('type', 'page');
+        abort_unless(is_string($type), 404);
+        $record = ResolveContentLockRecordAction::run($type, $page);
+        abort_if($record === null, 404);
+        Gate::authorize('update', $record);
 
         $user = $this->authenticatedUser($request);
-        $lock = AcquireContentLockAction::run($page, $user);
+        $lock = AcquireContentLockAction::run($record, $user);
 
         if (! $lock->isOwnedBy($user)) {
             return response()->json([
@@ -33,11 +37,15 @@ class PageContentLockController extends Controller
         ]);
     }
 
-    public function release(Request $request, Page $page): JsonResponse
+    public function release(Request $request, string $page): JsonResponse
     {
-        Gate::authorize('update', $page);
+        $type = $request->query('type', 'page');
+        abort_unless(is_string($type), 404);
+        $record = ResolveContentLockRecordAction::run($type, $page);
+        abort_if($record === null, 404);
+        Gate::authorize('update', $record);
 
-        ReleaseContentLockAction::run($page, $this->authenticatedUser($request));
+        ReleaseContentLockAction::run($record, $this->authenticatedUser($request));
 
         return response()->json(['released' => true]);
     }

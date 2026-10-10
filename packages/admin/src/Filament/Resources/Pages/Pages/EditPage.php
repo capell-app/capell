@@ -975,10 +975,10 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             user: $this->currentUser(),
             locale: app()->getLocale(),
             heartbeatUrl: Route::has('capell-admin.api.pages.content-lock.heartbeat')
-                ? route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $this->record])
+                ? route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $this->record, 'type' => $this->record->getMorphClass()])
                 : '',
             releaseUrl: Route::has('capell-admin.api.pages.content-lock.release')
-                ? route('capell-admin.api.pages.content-lock.release', ['page' => $this->record])
+                ? route('capell-admin.api.pages.content-lock.release', ['page' => $this->record, 'type' => $this->record->getMorphClass()])
                 : '',
             logoutUrl: Filament::getLogoutUrl(),
             csrfToken: csrf_token(),

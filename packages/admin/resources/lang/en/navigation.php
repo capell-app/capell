@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 return [
-    'workspace_pages' => 'Pages',
-    'workspace_articles' => 'Articles',
     'workspace_library' => 'Content Library',
     'workspace_design' => 'Design',
     'workspace_marketing' => 'Marketing',
