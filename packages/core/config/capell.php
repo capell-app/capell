@@ -13,6 +13,11 @@ return [
     'cache_lock_wait_seconds' => (int) env('CAPELL_CACHE_LOCK_WAIT_SECONDS', 10),
     'multi_node' => (bool) env('CAPELL_MULTI_NODE', false),
 
+    'auth' => [
+        // Consumers must also require the local application environment.
+        'skip_two_factor_when_local' => env('CAPELL_SKIP_TWO_FACTOR_WHEN_LOCAL', true),
+    ],
+
     'health' => [
         'disk' => [
             'path' => env('CAPELL_HEALTH_DISK_PATH'),
