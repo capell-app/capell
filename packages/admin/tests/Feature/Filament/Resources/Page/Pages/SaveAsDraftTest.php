@@ -306,7 +306,7 @@ it('preserves an extension draft action without adding a duplicate', function (b
         ->filter(fn (Action $action): bool => $action->getName() === 'saveAsDraft');
 
     expect($actions)->toHaveCount(1);
-    expect($actions->first()->getLabel())->toBe('Workspace draft save');
+    expect(expectPresent($actions->first())->getLabel())->toBe('Workspace draft save');
 })->with(['direct' => false, 'nested group' => true]);
 
 it('hides the ordinary draft save for a live published page', function (): void {
