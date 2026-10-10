@@ -3,16 +3,6 @@
 declare(strict_types=1);
 
 use Illuminate\Console\Command;
-use Illuminate\Filesystem\Filesystem;
-
-beforeEach(function (): void {
-    $filesystem = Mockery::mock(Filesystem::class);
-    $filesystem->shouldReceive('exists')->zeroOrMoreTimes()->andReturn(false);
-    $filesystem->shouldReceive('ensureDirectoryExists')->zeroOrMoreTimes()->andReturnNull();
-    $filesystem->shouldReceive('put')->zeroOrMoreTimes()->andReturnTrue();
-
-    app()->instance(Filesystem::class, $filesystem);
-});
 
 it('lists registered makers in dry-run mode', function (): void {
     artisanCommand('capell:make', [

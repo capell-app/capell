@@ -14,25 +14,10 @@ final class MetadataHooksTestServiceProvider extends AbstractPackageServiceProvi
 
     public static string $packageName = 'capell-app/metadata-hooks-test';
 
-    private int $metadataRegistrationCount = 0;
-
     #[Override]
     public function configurePackage(Package $package): void
     {
         $package->name(self::$name);
-    }
-
-    public function metadataRegistrationCount(): int
-    {
-        return $this->metadataRegistrationCount;
-    }
-
-    #[Override]
-    protected function registerPackageMetadata(): static
-    {
-        $this->metadataRegistrationCount++;
-
-        return parent::registerPackageMetadata();
     }
 
     /** @return class-string */

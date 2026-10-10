@@ -7,6 +7,7 @@ namespace Capell\Core\Tests\Support;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Closure;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Event;
 use Override;
 use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
@@ -16,10 +17,6 @@ final class InstalledLifecycleTestServiceProvider extends AbstractPackageService
     public static string $name = 'installed-lifecycle-test';
 
     public static string $packageName = 'capell-app/installed-lifecycle-test';
-
-    private int $installedBootCount = 0;
-
-    private int $packageBootCount = 0;
 
     private ?Closure $bootedCallback = null;
 
@@ -37,16 +34,6 @@ final class InstalledLifecycleTestServiceProvider extends AbstractPackageService
         $package->name(self::$name);
     }
 
-    public function installedBootCount(): int
-    {
-        return $this->installedBootCount;
-    }
-
-    public function packageBootCount(): int
-    {
-        return $this->packageBootCount;
-    }
-
     #[Override]
     public function booted(Closure $callback): void
     {
@@ -61,7 +48,7 @@ final class InstalledLifecycleTestServiceProvider extends AbstractPackageService
     #[Override]
     protected function bootInstalledPackage(): self
     {
-        $this->installedBootCount++;
+        Event::dispatch('capell.test.installed-booted');
 
         return $this;
     }
@@ -69,7 +56,7 @@ final class InstalledLifecycleTestServiceProvider extends AbstractPackageService
     #[Override]
     protected function bootPackage(): self
     {
-        $this->packageBootCount++;
+        Event::dispatch('capell.test.package-booted');
 
         return $this;
     }

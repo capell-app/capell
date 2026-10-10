@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\ServiceProvider;
+use Capell\Tests\Support\OwnedApplicationPaths;
+use Illuminate\Support\Facades\Artisan;
 
-it('capell-frontend assets publish under both the capell tag and the laravel-assets group', function (): void {
-    $target = public_path('vendor/capell-frontend');
-
-    expect(ServiceProvider::$publishGroups)
-        ->toHaveKey('capell-frontend-assets')
-        ->toHaveKey('laravel-assets');
-
-    // Both groups must publish the prebuilt capell-frontend assets to the same
-    // public target, so `vendor:publish --tag=laravel-assets` (the conventional
-    // skeleton/deploy hook) republishes them alongside framework + Filament assets.
-    expect(array_values(ServiceProvider::$publishGroups['capell-frontend-assets']))
-        ->toContain($target);
-    expect(array_values(ServiceProvider::$publishGroups['laravel-assets']))
-        ->toContain($target);
-});
+it('publishes frontend assets through the package and conventional deployment tags', function (string $tag): void {
+    $workspace = new OwnedApplicationPaths(app());
+    try {
+        expect(Artisan::call('vendor:publish', ['--tag' => $tag, '--force' => true]))->toBe(0);
+        $manifestPath = public_path('vendor/capell-frontend/manifest.json');
+        expect($manifestPath)->toBeFile();
+        $manifest = json_decode((string) file_get_contents($manifestPath), true, flags: JSON_THROW_ON_ERROR);
+        foreach (['resources/css/capell-frontend.css', 'resources/js/stylesheet-recovery.js'] as $entry) {
+            expect(public_path('vendor/capell-frontend/' . $manifest[$entry]['file']))->toBeFile();
+        }
+    } finally {
+        $workspace->restore();
+    }
+})->with(['capell-frontend-assets', 'laravel-assets']);
 
 it('capell-frontend published build includes the default theme css entry', function (): void {
     $manifest = json_decode(

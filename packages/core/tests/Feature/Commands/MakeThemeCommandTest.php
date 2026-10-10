@@ -3,7 +3,12 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Extensions\AuditExtensionContractsAction;
+use Capell\Core\Enums\VendorAssetEnum;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Testing\ExtensionTestHarness;
+use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
+use Illuminate\Support\Facades\Blade;
 use Symfony\Component\Console\Command\Command;
 
 it('creates a project-local theme package scaffold', function (): void {
@@ -50,15 +55,30 @@ it('creates a project-local theme package scaffold', function (): void {
         ->and($composer['extra']['laravel']['providers'])->toBe(['App\\EquidynamicsTheme\\EquidynamicsThemeServiceProvider'])
         ->and($composer['require'])->toHaveKey('capell-app/theme-foundation')
         ->and($composer['require-dev'])->toHaveKeys(['orchestra/testbench', 'pestphp/pest', 'pestphp/pest-plugin-laravel'])
-        ->and($composer['scripts']['test'])->toBe('pest')
-        ->and(file_get_contents($themeDirectory . '/resources/views/page.blade.php'))->not->toContain('@frontendAsset')
-        ->and(file_get_contents($heroViewPath))->toContain('{{ $body }}')
-        ->and(file_get_contents($heroViewPath))->not->toContain('{!! $body !!}');
+        ->and($composer['scripts']['test'])->toBe('pest');
 
-    expect((string) file_get_contents($providerPath))
-        ->toContain("'theme-css:equidynamics'")
-        ->toContain('ThemeFrontendBuildAssetsData')
-        ->toContain('VendorAssetEnum::TailwindImport');
+    $hero = Blade::render((string) file_get_contents($heroViewPath), [
+        'heading' => 'Launch heading', 'eyebrow' => 'Public eyebrow', 'body' => '<script>private-content</script>',
+    ]);
+    expect($hero)->toContain('Launch heading', 'Public eyebrow', '&lt;script&gt;private-content&lt;/script&gt;')
+        ->not->toContain('<script>', 'data-capell-edit', 'wire:', 'signed');
+    $page = Blade::render((string) file_get_contents($themeDirectory . '/resources/views/page.blade.php'), [
+        'content' => 'Hydrated page content',
+    ]);
+    expect($page)->toContain('Hydrated page content')->not->toContain('@frontendAsset');
+
+    require $providerPath;
+    $providerClass = $manifest['providers']['runtime'][0];
+    throw_unless(is_string($providerClass) && is_subclass_of($providerClass, AbstractPackageServiceProvider::class), RuntimeException::class, 'Generated theme provider is not usable.');
+    $provider = new $providerClass(app());
+    CapellCore::registerPackage('app/equidynamics-theme', path: $themeDirectory);
+    $provider->packageBooted();
+    $definition = resolve(ThemeRegistry::class)->definition('equidynamics');
+    expect($definition->name)->toBe('Ben\'s "Launch" Theme')
+        ->and($definition->frontendBuildAssets()?->cssSource)->toBe('resources/css/theme.css')
+        ->and($definition->frontendBuildAssets()?->condition)->toBe('theme-css:equidynamics');
+    $imports = CapellCore::getVendorAssetsForType(VendorAssetEnum::TailwindImport);
+    expect($imports->contains(fn ($asset): bool => $asset->packageName === 'app/equidynamics-theme' && $asset->condition === 'theme-css:equidynamics'))->toBeTrue();
 
     ExtensionTestHarness::forPath($themeDirectory)
         ->assertManifestValid()

@@ -6,14 +6,13 @@ use Capell\Core\Actions\Install\BuildInstallFrontendAssetsAction;
 use Capell\Core\Actions\Install\ReportInstallFailureAction;
 use Capell\Core\Actions\Install\SaveInstallProfileAction;
 use Capell\Core\Actions\Install\UpdateInstallAppUrlAction;
-use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
-use Illuminate\Contracts\Console\Kernel;
+use Capell\Core\Tests\Support\Fixtures\Autoload\InstallSupportActionReporter;
+use Capell\Tests\Support\Fakes\FakeConsoleKernel;
 use Illuminate\Support\Facades\Artisan;
-use Symfony\Component\Console\Output\BufferedOutput;
 
 function wizardInput(): InstallInputData
 {
@@ -44,33 +43,31 @@ it('exports a reusable profile without credentials and keeps configured profiles
 });
 
 it('delegates dependency installation and builds to the existing frontend package manager workflow', function (): void {
-    $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('all')->twice()->andReturn(['capell:frontend-after-install' => new stdClass]);
-    $kernel->shouldReceive('call')->with('capell:frontend-after-install', ['--apply' => true, '--no-interaction' => true], Mockery::type(BufferedOutput::class))->once()->andReturn(0);
-    $kernel->shouldReceive('output')->never();
-    app()->instance(Kernel::class, $kernel);
-    Artisan::clearResolvedInstances();
+    $completed = false;
+    Artisan::command('capell:frontend-after-install {--apply}', function () use (&$completed): int {
+        $completed = (bool) $this->option('apply');
+
+        return 0;
+    });
     BuildInstallFrontendAssetsAction::run();
+    expect($completed)->toBeTrue();
 });
 
 it('reports completed steps and offers asset recovery without repeating package or demo setup', function (bool $frontendAvailable, string $command): void {
-    $kernel = Mockery::mock(Kernel::class);
-    $kernel->shouldReceive('all')->once()->andReturn($frontendAvailable ? ['capell:frontend-after-install' => new stdClass] : []);
-    app()->instance(Kernel::class, $kernel);
+    FakeConsoleKernel::bind($frontendAvailable ? ['capell:frontend-after-install' => new stdClass] : []);
     Artisan::clearResolvedInstances();
-    $reporter = Mockery::mock(ProgressReporter::class);
-    $reporter->shouldReceive('error')->with('Installation stopped at rebuild-resources.')->once();
-    $reporter->shouldReceive('report')->with('1 steps completed: mark-core-installed')->once();
-    $reporter->shouldReceive('report')->with(Mockery::on(fn (string $message): bool => str_contains($message, $command) && str_contains($message, 'does not repeat demo')))->once();
+    $reporter = new InstallSupportActionReporter;
     ReportInstallFailureAction::run(wizardInput(), [InstallPlan::STEP_MARK_CORE_INSTALLED], InstallPlan::STEP_REBUILD_RESOURCES, $reporter);
+    $messages = implode("\n", array_column($reporter->lines, 1));
+    expect($messages)->toContain('Installation stopped at rebuild-resources.', '1 steps completed: mark-core-installed', $command, 'does not repeat demo');
 })->with([[true, 'php artisan capell:frontend-after-install --apply --no-interaction'], [false, 'npm install && npm run build']]);
 
 it('reports a read only next command without leaking URL credentials or suggesting a fresh reinstall', function (): void {
-    $reporter = Mockery::mock(ProgressReporter::class);
-    $reporter->shouldReceive('error')->once();
-    $reporter->shouldReceive('report')->with('0 steps completed: ')->once();
-    $reporter->shouldReceive('report')->with(Mockery::on(fn (string $message): bool => str_contains($message, '--plan --no-interaction') && ! str_contains($message, 'secret') && ! str_contains($message, 'token=') && str_contains($message, 'do not repeat --fresh')))->once();
+    $reporter = new InstallSupportActionReporter;
     ReportInstallFailureAction::run(wizardInput(), [], InstallPlan::STEP_RUN_MIGRATIONS_PRE, $reporter);
+    $messages = implode("\n", array_column($reporter->lines, 1));
+    expect($messages)->toContain('0 steps completed:', '--plan --no-interaction', 'do not repeat --fresh')
+        ->not->toContain('secret', 'token=');
 });
 
 it('updates APP_URL with the site port and path and preserves other environment settings', function (): void {

@@ -3,132 +3,57 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\RunNpmBuildAction;
-use Illuminate\Contracts\Process\ProcessResult;
-use Illuminate\Process\Factory;
-use Illuminate\Support\Facades\Facade;
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Process;
 
-if (! function_exists('fakeProcessResult')) {
-    function fakeProcessResult(bool $wasSuccessful, string $output = '', string $errorOutput = ''): ProcessResult
-    {
-        $result = Mockery::mock(ProcessResult::class);
-        $result->shouldReceive('successful')->andReturn($wasSuccessful);
-        $result->shouldReceive('output')->andReturn($output);
-        $result->shouldReceive('errorOutput')->andReturn($errorOutput);
+it('installs prepared dependencies and builds the selected asset mode', function (bool $development, string $command): void {
+    Process::fake(['npm install' => Process::result(), $command => Process::result()]);
 
-        return $result;
-    }
-}
+    Process::preventStrayProcesses();
+    RunNpmBuildAction::run(isDev: $development);
 
-if (! function_exists('expectNpmProcessCommand')) {
-    function expectNpmProcessCommand(string $command, object $result): void
-    {
-        $pendingProcess = Mockery::mock();
+    // The external build command and its time budget are the builder's API.
+    Process::assertRan('npm install');
+    Process::assertRan(fn (PendingProcess $process): bool => $process->command === $command && $process->timeout === 300);
+})->with(['production' => [false, 'npm run build'], 'development' => [true, 'npm run dev']]);
 
-        Process::shouldReceive('timeout')
-            ->with(300)
-            ->once()
-            ->ordered()
-            ->andReturn($pendingProcess);
+it('retains build diagnostics from stderr or stdout', function (string $output, string $error, string $message): void {
+    Process::fake([
+        'npm install' => Process::result(),
+        'npm run build' => Process::result(output: $output, errorOutput: $error, exitCode: 1),
+    ]);
 
-        $pendingProcess->shouldReceive('run')
-            ->with($command)
-            ->once()
-            ->ordered()
-            ->andReturn($result);
-    }
-}
+    Process::preventStrayProcesses();
+    expect(fn (): mixed => RunNpmBuildAction::run())->toThrow(RuntimeException::class, $message);
+})->with([
+    'stderr' => ['', 'npm ERR! code ENOENT', 'npm ERR! code ENOENT'],
+    'stdout fallback' => ['Build failed due to syntax error', '', 'Build failed due to syntax error'],
+]);
 
-beforeEach(function (): void {
-    Facade::clearResolvedInstance(Factory::class);
-    Process::spy();
-});
+it('recovers a missing optional native dependency and finishes the build', function (string $diagnostic): void {
+    Process::fake([
+        'npm install' => Process::result(),
+        'npm run build' => Process::sequence([
+            Process::result(errorOutput: $diagnostic, exitCode: 1),
+            Process::result(output: 'Build completed'),
+        ]),
+    ]);
 
-afterEach(function (): void {
-    Mockery::close();
-    Facade::clearResolvedInstance(Factory::class);
-});
-
-it('runs npm production build successfully', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    expectNpmProcessCommand('npm run build', fakeProcessResult(true));
-
-    expect(fn (): mixed => RunNpmBuildAction::run(false))
-        ->not()->toThrow(RuntimeException::class);
-});
-
-it('runs npm dev build successfully', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    expectNpmProcessCommand('npm run dev', fakeProcessResult(true));
-
-    expect(fn (): mixed => RunNpmBuildAction::run(true))
-        ->not()->toThrow(RuntimeException::class);
-});
-
-it('throws exception on build failure with error output', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    $errorMessage = 'npm ERR! code ENOENT';
-
-    expectNpmProcessCommand('npm run build', fakeProcessResult(false, '', $errorMessage));
-
-    RunNpmBuildAction::run(false);
-})->throws(RuntimeException::class, 'npm ERR! code ENOENT');
-
-it('throws exception on build failure with output when no error output', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    $output = 'Build failed due to syntax error';
-
-    expectNpmProcessCommand('npm run build', fakeProcessResult(false, $output, ''));
-
-    RunNpmBuildAction::run(false);
-})->throws(RuntimeException::class, 'Build failed due to syntax error');
-
-it('installs npm dependencies and retries when native binding is missing', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    $errorMessage = 'Cannot find native binding. npm has a bug related to optional dependencies.';
-
-    expectNpmProcessCommand('npm run build', fakeProcessResult(false, '', $errorMessage));
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    expectNpmProcessCommand('npm run build', fakeProcessResult(true));
-
-    expect(fn (): mixed => RunNpmBuildAction::run(false))
-        ->not()->toThrow(RuntimeException::class);
-});
-
-it('installs npm dependencies and retries when rollup optional dependency is missing', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    $errorMessage = "Cannot find module '@rollup/rollup-linux-arm64-gnu'. npm has a bug related to optional dependencies.";
-
-    expectNpmProcessCommand('npm run build', fakeProcessResult(false, '', $errorMessage));
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    expectNpmProcessCommand('npm run build', fakeProcessResult(true));
-
-    expect(fn (): mixed => RunNpmBuildAction::run(false))
-        ->not()->toThrow(RuntimeException::class);
-});
-
-it('specifies dev mode parameter correctly', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    expectNpmProcessCommand('npm run dev', fakeProcessResult(true));
-
-    RunNpmBuildAction::run(isDev: true);
-
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    expectNpmProcessCommand('npm run build', fakeProcessResult(true));
-
-    RunNpmBuildAction::run(isDev: false);
-});
-
-it('installs newly prepared dependencies before building even with existing node modules', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(true));
-    expectNpmProcessCommand('npm run build', fakeProcessResult(true));
-
+    Process::preventStrayProcesses();
     RunNpmBuildAction::run();
-});
 
-it('stops before building when dependency installation fails', function (): void {
-    expectNpmProcessCommand('npm install', fakeProcessResult(false, '', 'dependency resolution failed'));
+    Process::assertRan('npm run build');
+})->with([
+    'native binding' => 'Cannot find native binding. npm has a bug related to optional dependencies.',
+    'rollup' => "Cannot find module '@rollup/rollup-linux-arm64-gnu'. npm has a bug related to optional dependencies.",
+]);
+
+it('stops before building when dependencies cannot be installed', function (): void {
+    Process::fake(['npm install' => Process::result(errorOutput: 'dependency resolution failed', exitCode: 1)]);
+
+    Process::preventStrayProcesses();
     expect(fn (): mixed => RunNpmBuildAction::run())->toThrow(RuntimeException::class, 'dependency resolution failed');
+    Process::assertDidntRun('npm run build');
 });
 
 it('refuses npm before any process or second lockfile for a non-npm host', function (string $manager, ?string $lockfile): void {
@@ -137,11 +62,14 @@ it('refuses npm before any process or second lockfile for a non-npm host', funct
     $npmLock = base_path('package-lock.json');
     $npmBefore = is_file($npmLock) ? file_get_contents($npmLock) : null;
     file_put_contents($path, $lockfile === null ? json_encode(['packageManager' => $manager . '@1.0.0'], JSON_THROW_ON_ERROR) : 'owned lock fixture');
-    Process::shouldReceive('timeout')->never();
+    Process::fake();
+    Process::preventStrayProcesses();
     try {
         expect(function (): void {
+            Process::preventStrayProcesses();
             RunNpmBuildAction::run();
         })->toThrow(RuntimeException::class, 'npm-only');
+        Process::assertNothingRan();
         expect(is_file($npmLock) ? file_get_contents($npmLock) : null)->toBe($npmBefore);
     } finally {
         if ($before === null) {

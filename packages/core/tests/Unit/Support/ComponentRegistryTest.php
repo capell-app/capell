@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Enums\AssetComponentEnum;
 use Capell\Core\Support\CapellCoreManager;
 use Capell\Core\Support\Components\ComponentRegistry;
+use Capell\Tests\Support\Fakes\DeletionFailureFilesystem;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
 
@@ -64,13 +65,7 @@ it('refuses a failed deletion result even when the component cache disappears', 
     $files->put($root . '/filament/panels/activation.php', '<?php return [];');
 
     $path = $cache === 'filament' ? $root . '/filament' : $registry->getComponentCachePath();
-    $failingFiles = Mockery::mock(Filesystem::class)->makePartial();
-    $failingFiles->shouldReceive($cache === 'filament' ? 'deleteDirectory' : 'delete')->once()->with($path)
-        ->andReturnUsing(static function () use ($files, $cache, $path): bool {
-            $cache === 'filament' ? $files->deleteDirectory($path) : $files->delete($path);
-
-            return false;
-        });
+    $failingFiles = new DeletionFailureFilesystem($path, remove: true);
     app()->instance(Filesystem::class, $failingFiles);
 
     try {
@@ -107,10 +102,8 @@ it('accepts the nullable default Filament cache configuration', function (): voi
 });
 
 it('keeps general component clearing best-effort when a persisted cache cannot be deleted', function (): void {
-    $files = Mockery::mock(Filesystem::class)->makePartial();
     $registry = new ComponentRegistry;
-    $files->shouldReceive('delete')->once()->with($registry->getComponentCachePath())->andReturnFalse();
-    $files->shouldReceive('deleteDirectory')->once()->with(base_path('bootstrap/cache/filament'))->andReturnFalse();
+    $files = new DeletionFailureFilesystem($registry->getComponentCachePath());
     app()->instance(Filesystem::class, $files);
 
     $registry->clearCachedComponents();

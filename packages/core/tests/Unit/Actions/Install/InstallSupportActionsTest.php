@@ -11,7 +11,6 @@ use Capell\Core\Tests\Support\Fixtures\Autoload\InstallSupportActionReporter;
 use Capell\Core\Tests\Support\Fixtures\Autoload\WhenBootedShimFallbackTestModel;
 use Capell\Core\Tests\Support\Fixtures\Autoload\WhenBootedShimParentBase;
 use Capell\Core\Tests\Support\Fixtures\Autoload\WhenBootedShimParentTestModel;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Artisan;
 
@@ -74,12 +73,10 @@ it('registers page boot callbacks against the concrete model', function (): void
 
     Page::query()->getModel();
 
-    $property = new ReflectionProperty(Model::class, 'bootedCallbacks');
+    $root = Page::factory()->createOne();
+    $child = Page::factory()->createOne();
+    $child->appendToNode($root)->save();
 
-    /** @var array<class-string, list<Closure>> $callbacks */
-    $callbacks = $property->getValue();
-
-    expect($callbacks)
-        ->toHaveKey(Page::class)
-        ->not->toHaveKey(Model::class);
+    expect($child->fresh()?->ancestors()->pluck('id')->all())->toContain($root->id)
+        ->and($root->fresh()?->descendants()->pluck('id')->all())->toContain($child->id);
 });

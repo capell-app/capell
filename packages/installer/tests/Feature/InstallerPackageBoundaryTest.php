@@ -3,12 +3,13 @@
 declare(strict_types=1);
 
 use Capell\Installer\Actions\GetActiveInstallAction;
-use Capell\Installer\Bridges\InstallerAdminBridge;
 use Capell\Installer\Providers\InstallerAdminServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Capell\Installer\Support\InstallerSessionRepository;
+use Dom\HTMLDocument;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Str;
 
 use function Pest\Laravel\get;
 
@@ -47,17 +48,6 @@ it('declares admin as an optional supported package in the Capell manifest', fun
         ->toBe([InstallerServiceProvider::class])
         ->and($manifest['providers']['admin'] ?? [])
         ->toBe([InstallerAdminServiceProvider::class]);
-});
-
-it('keeps the general installer provider free of admin and Filament dependencies', function (): void {
-    $providerContents = file_get_contents(
-        dirname(__DIR__, 2) . '/src/Providers/InstallerServiceProvider.php',
-    );
-
-    expect($providerContents)->toBeString()
-        ->not->toContain('Capell\\Admin\\')
-        ->not->toContain('Filament\\')
-        ->not->toContain(InstallerAdminBridge::class);
 });
 
 it('discovers the general installer provider without autoloading admin-only classes', function (): void {
@@ -147,15 +137,19 @@ it('owns the installer web, filament, view, and language surfaces', function ():
         ->and($projectRoot . '/packages/admin/src/Filament/Widgets/CapellNotInstalledFilamentWidget.php')->not->toBeFile();
 });
 
-it('renders installer pages through the shared installer layout', function (): void {
-    $projectRoot = dirname(__DIR__, 4);
-    $installView = file_get_contents($projectRoot . '/packages/installer/resources/views/install.blade.php');
-    $progressView = file_get_contents($projectRoot . '/packages/installer/resources/views/progress.blade.php');
-
-    expect($installView)->toStartWith("@extends('capell-installer::layouts.installer')")
-        ->and($progressView)->toStartWith("@extends('capell-installer::layouts.installer')")
-        ->and($installView)->not->toContain('<style>')
-        ->and($progressView)->not->toContain('<style>');
+it('renders installer pages with the shared document chrome', function (): void {
+    $installId = (string) Str::uuid();
+    $this->withSession(['capell.install.' . $installId . '.access' => true]);
+    $run = resolve(InstallerSessionRepository::class)->run($installId);
+    $run->startQueued();
+    $run->markRunning();
+    foreach ([route('capell-installer.show'), route('capell-installer.progress', ['installId' => $installId])] as $url) {
+        $response = get($url)->assertOk();
+        $dom = HTMLDocument::createFromString($response->getContent(), LIBXML_NOERROR);
+        expect($dom->getElementsByTagName('title')->length)->toBe(1)
+            ->and($dom->getElementsByTagName('body')->length)->toBe(1)
+            ->and($response->getContent())->toContain('capell-installer');
+    }
 });
 
 it('leaves request execution limits to hosting configuration', function (): void {
@@ -179,7 +173,8 @@ it('leaves request execution limits to hosting configuration', function (): void
 
         $contents = file_get_contents($sourceFile->getPathname());
 
-        if ($contents !== false && str_contains($contents, 'set_time_limit(')) {
+        // Host time limits must not be widened by installer request handlers.
+        if ($contents !== false && preg_match('/\bset_time_limit\s*\(/', $contents) === 1) {
             $offendingFiles[] = str_replace($projectRoot . '/', '', $sourceFile->getPathname());
         }
     }

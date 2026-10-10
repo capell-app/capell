@@ -2,37 +2,37 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Providers\CapellServiceProvider;
+use Capell\Tests\Support\BackupScheduleOptions;
+use Capell\Tests\Support\ConfiguresBackupSchedule;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 
-function registerBackupPruneSchedule(bool $enabled, mixed $cron = '0 3 * * 1'): ?Event
+pest()->use(ConfiguresBackupSchedule::class)->in(__FILE__);
+
+function registeredBackupPruneSchedule(): ?Event
 {
-    config([
-        'backup.prune_schedule_enabled' => $enabled,
-        'backup.prune_schedule_cron' => $cron,
-    ]);
-
-    $schedule = new Schedule(app());
-    app()->instance(Schedule::class, $schedule);
-
-    $provider = app()->getProvider(CapellServiceProvider::class);
-
-    expect($provider)->toBeInstanceOf(CapellServiceProvider::class);
-
-    $registerSchedule = new ReflectionMethod(CapellServiceProvider::class, 'registerBackupPruneSchedule');
-    $registerSchedule->invoke($provider);
+    $schedule = resolve(Schedule::class);
 
     return collect($schedule->events())
         ->first(fn (Event $event): bool => str_contains((string) $event->command, 'capell:backup:prune'));
 }
 
+afterEach(function (): void {
+    BackupScheduleOptions::$enabled = false;
+    BackupScheduleOptions::$cron = '0 3 * * 1';
+});
+
 it('keeps destructive backup pruning unscheduled by default', function (): void {
-    expect(registerBackupPruneSchedule(false))->toBeNull();
+    BackupScheduleOptions::$enabled = false;
+    $this->refreshApplication();
+    expect(registeredBackupPruneSchedule())->toBeNull();
 });
 
 it('schedules forced backup pruning with overlap and server guards when enabled', function (): void {
-    $event = registerBackupPruneSchedule(true, '30 4 * * 2');
+    BackupScheduleOptions::$enabled = true;
+    BackupScheduleOptions::$cron = '30 4 * * 2';
+    $this->refreshApplication();
+    $event = registeredBackupPruneSchedule();
 
     expect($event)->not->toBeNull()
         ->and(Event::normalizeCommand((string) $event?->command))->toBe('php artisan capell:backup:prune --force')
@@ -42,7 +42,10 @@ it('schedules forced backup pruning with overlap and server guards when enabled'
 });
 
 it('does not schedule backup pruning with an empty or non-string cron', function (mixed $cron): void {
-    expect(registerBackupPruneSchedule(true, $cron))->toBeNull();
+    BackupScheduleOptions::$enabled = true;
+    BackupScheduleOptions::$cron = $cron;
+    $this->refreshApplication();
+    expect(registeredBackupPruneSchedule())->toBeNull();
 })->with([
     'empty' => '',
     'integer' => 1,
