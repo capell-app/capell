@@ -482,13 +482,14 @@ it('renders syntactically valid progress scripts', function (): void {
 it('renders usable installer configuration and submit labels', function (): void {
     $page = installerShowMarkup();
     $config = installerRenderedConfig($page);
-    foreach ([
-        'installPackageLabel' => 'install_package',
-        'installPackagesLabel' => 'install_packages',
-        'installingPackageLabel' => 'installing_package',
-        'installingPackagesLabel' => 'installing_packages',
-    ] as $key => $translation) {
-        expect($config['messages'][$key])->toBe(__('capell-installer::installer.' . $translation, ['count' => '__count__']));
+    $expected = [
+        'installPackageLabel' => __('capell-installer::installer.install_package', ['count' => '__count__']),
+        'installPackagesLabel' => __('capell-installer::installer.install_packages', ['count' => '__count__']),
+        'installingPackageLabel' => __('capell-installer::installer.installing_package', ['count' => '__count__']),
+        'installingPackagesLabel' => __('capell-installer::installer.installing_packages', ['count' => '__count__']),
+    ];
+    foreach ($expected as $key => $translation) {
+        expect($config['messages'][$key])->toBe($translation);
     }
 
     expect(domElement($page, '//*[@data-submit-label]')->textContent)->not->toBeEmpty();
