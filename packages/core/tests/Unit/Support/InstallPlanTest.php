@@ -231,6 +231,7 @@ it('runs developer tooling after extra package require and before extra vendor m
 
     expect(array_column($plan, 'key'))->toBe([
         InstallPlan::STEP_PREFLIGHT_CHECKS,
+        InstallPlan::packageRequireStepKey('vendor/some-extra'),
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
         InstallPlan::STEP_PUBLISH_VENDOR_MIGRATIONS,
         InstallPlan::STEP_PUBLISH_CAPELL_MIGRATIONS,
@@ -239,7 +240,6 @@ it('runs developer tooling after extra package require and before extra vendor m
         InstallPlan::STEP_PUBLISH_CAPELL_SETTINGS_MIGRATIONS,
         InstallPlan::STEP_RUN_MIGRATIONS_MID,
         InstallPlan::STEP_RESOLVE_USER,
-        InstallPlan::packageRequireStepKey('vendor/some-extra'),
         InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING,
         InstallPlan::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS,
         InstallPlan::packageInstallStepKey('vendor/some-extra'),
@@ -343,6 +343,7 @@ it('publishes vendor migrations again after requiring extra packages', function 
 
     expect(array_column($plan, 'key'))->toBe([
         InstallPlan::STEP_PREFLIGHT_CHECKS,
+        InstallPlan::packageRequireStepKey('vendor/some-extra'),
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
         InstallPlan::STEP_PUBLISH_VENDOR_MIGRATIONS,
         InstallPlan::STEP_PUBLISH_CAPELL_MIGRATIONS,
@@ -351,7 +352,6 @@ it('publishes vendor migrations again after requiring extra packages', function 
         InstallPlan::STEP_PUBLISH_CAPELL_SETTINGS_MIGRATIONS,
         InstallPlan::STEP_RUN_MIGRATIONS_MID,
         InstallPlan::STEP_RESOLVE_USER,
-        InstallPlan::packageRequireStepKey('vendor/some-extra'),
         InstallPlan::STEP_PUBLISH_EXTRA_VENDOR_MIGRATIONS,
         InstallPlan::packageInstallStepKey('vendor/some-extra'),
         InstallPlan::packageAfterInstallStepKey('vendor/some-extra'),
@@ -446,4 +446,14 @@ it('looks up the human label for a step', function (): void {
 
     expect(InstallPlan::labelForStep($plan, InstallPlan::STEP_PREFLIGHT_CHECKS))
         ->toBe('Run preflight checks');
+});
+
+it('downloads packages before fresh data deletion and database preparation', function (): void {
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false, extraPackages: ['vendor/new-package'], freshInstall: true);
+    $keys = array_column(InstallPlan::build($input), 'key');
+    $download = array_search(InstallPlan::packageRequireStepKey('vendor/new-package'), $keys, true);
+
+    foreach ([InstallPlan::STEP_PREPARE_FRESH_INSTALL, InstallPlan::STEP_PREPARE_ENVIRONMENT, InstallPlan::STEP_RUN_MIGRATIONS_PRE, InstallPlan::STEP_RESOLVE_USER] as $key) {
+        expect($download)->toBeLessThan(array_search($key, $keys, true));
+    }
 });

@@ -12,6 +12,7 @@ use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\InstallStepExecutor;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 class RunInstallAction
 {
@@ -32,7 +33,14 @@ class RunInstallAction
 
         while (($step = collect($plan)->first(fn (array $step): bool => ! in_array($step['key'], $completedSteps, true))) !== null) {
             $reporter->step(sprintf('[%d/%d] %s', count($completedSteps) + 1, count($plan), $step['label']));
-            $executor->execute($step['key'], $state);
+            try {
+                $executor->execute($step['key'], $state);
+            } catch (Throwable $failure) {
+                ReportInstallFailureAction::run($inputData, $completedSteps, $step['key'], $reporter);
+
+                throw $failure;
+            }
+
             $completedSteps[] = $step['key'];
 
             if (InstallPlan::isPackageRequireStep($step['key']) || $step['key'] === InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING) {

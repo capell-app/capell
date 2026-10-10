@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\Install;
 
+use Capell\Core\Enums\InstallPackageLicenceState;
 use Spatie\LaravelData\Data;
 
 final class InstallRecommendationData extends Data
@@ -13,13 +14,15 @@ final class InstallRecommendationData extends Data
      * `optional` entries are offered unticked; both map a package name to a one-line reason.
      * `description` must stay true for paths that install only `packages` (the browser installer
      * and `--recommendation`); `suiteDescription` is the richer line the CLI suite flow shows
-     * next to its extensions. `mayNeedLicence` lists extensions that would be downloaded without
-     * the catalogue marking them free, so they are never pre-ticked.
+     * next to its extensions. `packageLicenceStates` separates licence facts from download status.
+     * `mayNeedLicence` is retained as the conservative exclusion list for older consumers.
      *
      * @param  list<string>  $packages
      * @param  array<string, string>  $recommended
      * @param  array<string, string>  $optional
      * @param  list<string>  $mayNeedLicence
+     * @param  array<string, InstallPackageLicenceState>  $packageLicenceStates
+     * @param  list<string>  $downloadedPackages
      */
     public function __construct(
         public readonly string $key,
@@ -33,6 +36,8 @@ final class InstallRecommendationData extends Data
         public readonly array $optional = [],
         public readonly ?string $suiteDescription = null,
         public readonly array $mayNeedLicence = [],
+        public readonly array $packageLicenceStates = [],
+        public readonly array $downloadedPackages = [],
     ) {}
 
     /**
@@ -43,6 +48,11 @@ final class InstallRecommendationData extends Data
      */
     public function preselectedRecommended(): array
     {
+        if ($this->packageLicenceStates !== []) {
+            return array_values(array_filter(array_keys($this->recommended), fn (string $name): bool => in_array($name, $this->downloadedPackages, true)
+                || in_array($this->packageLicenceStates[$name] ?? InstallPackageLicenceState::Unknown, [InstallPackageLicenceState::Free, InstallPackageLicenceState::Included], true)));
+        }
+
         return array_values(array_diff(array_keys($this->recommended), $this->mayNeedLicence));
     }
 

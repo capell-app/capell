@@ -86,6 +86,6 @@ final class InstallCommandPresenter
             $output->writeln($message);
         }
 
-        $output->writeln('Run the command again with CAPELL_INSTALL_DEBUG=1 for step-level diagnostics.');
+        $output->writeln('Set CAPELL_INSTALL_DEBUG=1 for step-level diagnostics. Review the failed step before continuing.');
     }
 }

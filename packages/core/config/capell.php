@@ -250,7 +250,7 @@ return [
     ],
 
     // Plugin packages remote source URL
-    'plugins_source_url' => env('CAPELL_PLUGINS_SOURCE_URL', 'https://plugin.capell.app/packages.json'),
+    'plugins_source_url' => env('CAPELL_PLUGINS_SOURCE_URL', 'https://capell.app/api/v1/extensions?per_page=100'),
     // Cache TTL in seconds for plugin packages
     'plugins_cache_ttl' => env('CAPELL_PLUGINS_CACHE_TTL', 3600),
     // Outbound retry policy for the plugin packages catalogue fetch, an idempotent read.
