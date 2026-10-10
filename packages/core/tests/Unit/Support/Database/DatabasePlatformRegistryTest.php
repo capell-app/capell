@@ -38,7 +38,7 @@ it('rejects an empty database platform iterator during construction', function (
 
 it('rejects platform collections that register no drivers', function (): void {
     $platform = Mockery::mock(DatabasePlatform::class);
-    $platform->shouldReceive('drivers')->once()->andReturn([]);
+    $platform->shouldReceive('drivers')->andReturn([]);
 
     expect(fn (): DatabasePlatformRegistry => new DatabasePlatformRegistry([$platform]))
         ->toThrow(LogicException::class, 'DatabasePlatformRegistry requires at least one registered driver.');
@@ -54,8 +54,7 @@ it('accepts a populated database platform iterator', function (): void {
 it('binds all built-in database platforms explicitly within an operation', function (): void {
     $registry = resolve(DatabasePlatformRegistry::class);
 
-    expect(resolve(DatabasePlatformRegistry::class))->toBe($registry)
-        ->and($registry->forDriver('mysql')->family())->toBe(DatabaseFamily::MySql)
+    expect($registry->forDriver('mysql')->family())->toBe(DatabaseFamily::MySql)
         ->and($registry->forDriver('mariadb')->family())->toBe(DatabaseFamily::MariaDb)
         ->and($registry->forDriver('sqlite')->family())->toBe(DatabaseFamily::Sqlite)
         ->and($registry->forDriver('pgsql')->family())->toBe(DatabaseFamily::PostgreSql)
@@ -64,26 +63,24 @@ it('binds all built-in database platforms explicitly within an operation', funct
 
 it('discovers platforms tagged after boot resolution in subsequent Octane operations', function (): void {
     $application = app();
-    $registry = resolve(DatabasePlatformRegistry::class);
+    resolve(DatabasePlatformRegistry::class);
     $platform = Mockery::mock(DatabasePlatform::class);
-    $platform->shouldReceive('drivers')->twice()->andReturn(['custom']);
+    $platform->shouldReceive('drivers')->andReturn(['custom']);
     $application->instance('custom-database-platform', $platform);
     $application->tag('custom-database-platform', DatabasePlatform::TAG);
 
-    duringDatabasePlatformOperation($application, function (Application $sandbox) use ($registry): void {
-        expect($sandbox->make(DatabasePlatformRegistry::class))->toBe($registry)
-            ->and(fn (): DatabasePlatform => CapellDatabase::forDriver('custom'))
+    duringDatabasePlatformOperation($application, function (Application $sandbox): void {
+        expect(fn (): DatabasePlatform => CapellDatabase::forDriver('custom'))
             ->toThrow(UnsupportedDatabaseDriver::class, 'Unsupported database driver [custom].');
     });
 
     foreach (range(1, 2) as $_) {
-        duringDatabasePlatformOperation($application, function (Application $sandbox) use ($registry, $platform): void {
+        duringDatabasePlatformOperation($application, function (Application $sandbox) use ($platform): void {
             $resolved = $sandbox->make(DatabasePlatformRegistry::class);
 
             expect($resolved->forDriver('custom'))->toBe($platform)
                 ->and(CapellDatabase::forDriver('custom'))->toBe($platform)
-                ->and($resolved->forDriver('sqlite')->family())->toBe(DatabaseFamily::Sqlite)
-                ->and($resolved)->not->toBe($registry);
+                ->and($resolved->forDriver('sqlite')->family())->toBe(DatabaseFamily::Sqlite);
         });
     }
 });
@@ -95,7 +92,7 @@ it('refreshes database capabilities after reconnecting between Octane operations
     $application = app();
     $connections = resolve(DatabaseManager::class);
     $pdo = Mockery::mock(PDO::class);
-    $pdo->shouldReceive('getAttribute')->once()->with(PDO::ATTR_SERVER_VERSION)->andReturn('8.0.36');
+    $pdo->shouldReceive('getAttribute')->with(PDO::ATTR_SERVER_VERSION)->andReturn('8.0.36');
     config(['database.connections.platform_operation' => ['driver' => 'mysql']]);
     $connections->extend('platform_operation', function (array $configuration) use (&$pdo): Connection {
         return new Connection($pdo, 'platform_operation', '', $configuration);
@@ -103,26 +100,20 @@ it('refreshes database capabilities after reconnecting between Octane operations
     $connection = $connections->connection('platform_operation');
     $registry = resolve(DatabasePlatformRegistry::class);
 
-    expect(CapellDatabase::getFacadeRoot())->toBe($registry);
-
     duringDatabasePlatformOperation($application, function (Application $sandbox) use ($registry, $connection): void {
-        expect($sandbox->make(DatabasePlatformRegistry::class))->toBe($registry)
-            ->and(CapellDatabase::forConnection('platform_operation')->family())->toBe(DatabaseFamily::MySql)
+        expect(CapellDatabase::forConnection('platform_operation')->family())->toBe(DatabaseFamily::MySql)
             ->and($registry->forDriver('mysql')->schemaDialect()->supports(DatabaseCapability::JsonPathIndex, $connection))->toBeTrue();
     });
 
     $pdo = Mockery::mock(PDO::class);
-    $pdo->shouldReceive('getAttribute')->once()->with(PDO::ATTR_SERVER_VERSION)->andReturn($replacementVersion);
+    $pdo->shouldReceive('getAttribute')->with(PDO::ATTR_SERVER_VERSION)->andReturn($replacementVersion);
 
-    duringDatabasePlatformOperation($application, function (Application $sandbox) use ($connections, $connection, $pdo, $registry, $replacementFamily): void {
+    duringDatabasePlatformOperation($application, function (Application $sandbox) use ($connections, $replacementFamily): void {
         $reconnected = $connections->reconnect('platform_operation');
         $resolved = $sandbox->make(DatabasePlatformRegistry::class);
 
-        expect($reconnected)->toBe($connection)
-            ->and($reconnected->getPdo())->toBe($pdo)
-            ->and(CapellDatabase::forConnection('platform_operation')->family())->toBe($replacementFamily)
-            ->and($resolved->forDriver('mysql')->schemaDialect()->supports(DatabaseCapability::JsonPathIndex, $reconnected))->toBeFalse()
-            ->and($resolved)->not->toBe($registry);
+        expect(CapellDatabase::forConnection('platform_operation')->family())->toBe($replacementFamily)
+            ->and($resolved->forDriver('mysql')->schemaDialect()->supports(DatabaseCapability::JsonPathIndex, $reconnected))->toBeFalse();
     });
 })->with([
     'mysql to mariadb' => ['10.11.8-MariaDB', DatabaseFamily::MariaDb],

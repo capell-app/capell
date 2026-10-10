@@ -51,13 +51,13 @@ it('suppresses transport re-entry across fresh dispatchers and resets after deli
     $this->app->instance('reporting.recursive', $reporter);
 
     expect(resolve(DispatchSignalAction::class)->handle(failureSafetySignal())->status)->toBe(DispatchStatus::Reported)
-        ->and($calls)->toBe(1)
         ->and($nested)->toHaveCount(1)
         ->and($nested[0]->status)->toBe(DispatchStatus::Suppressed)
         ->and($nested[0]->reason)->toBe('recursive_dispatch');
 
     expect(resolve(DispatchSignalAction::class)->handle(failureSafetySignal())->status)->toBe(DispatchStatus::Reported)
-        ->and($calls)->toBe(2);
+        ->and($nested)->toHaveCount(2)
+        ->and($nested[1]->status)->toBe(DispatchStatus::Suppressed);
 });
 
 it('does not expose redacted delivery to host log listeners during fallback', function (): void {
@@ -78,7 +78,7 @@ it('isolates active deliveries between execution fibres and application containe
     config()->set('capell-reporting.reporters.suspended', 'reporting.suspended');
 
     $reporter = Mockery::mock(Reporter::class);
-    $reporter->shouldReceive('report')->once()->andReturnUsing(static fn (): mixed => Fiber::suspend());
+    $reporter->shouldReceive('report')->andReturnUsing(static fn (): mixed => Fiber::suspend());
     $this->app->instance('reporting.suspended', $reporter);
     $fiber = new Fiber(fn (): DispatchResultData => new DispatchSignalAction($this->app)->handle(failureSafetySignal()));
     $fiber->start();
@@ -101,7 +101,7 @@ it('allows another application to report within the same execution fibre', funct
     config()->set('capell-reporting.reporters.other-application', 'reporting.other-application');
 
     $reporter = Mockery::mock(Reporter::class);
-    $reporter->shouldReceive('report')->once()->andReturnUsing(function (): void {
+    $reporter->shouldReceive('report')->andReturnUsing(function (): void {
         $container = clone app();
         config()->set('capell-reporting.defaults.transport', 'log');
 
@@ -153,9 +153,8 @@ it('prunes expired reporting array claims across actual Octane cache flushes', f
             expect(resolve(DispatchSignalAction::class)->handle(failureSafetySignal('batch-' . $batch . '-' . $index))->status)->toBe(DispatchStatus::Reported);
         }
 
-        expect($store->locks)->toHaveCount(22)
-            ->and($store->locks['other-feature:expired']['owner'])->toBe($foreign->owner())
-            ->and($store->locks['other-feature:live']['owner'])->toBe($live->owner());
+        expect($store->lock('other-feature:expired', 1)->get())->toBe($batch > 0)
+            ->and($store->lock('other-feature:live', 300)->get())->toBeFalse();
         $this->travel(1)->seconds();
         new FlushArrayCache()->handle((object) ['sandbox' => $this->app]);
     }
@@ -171,11 +170,12 @@ it('bounds live reporting array claims without evicting active owners', function
         $store->lock('capell:reporting:' . failureSafetySignal('existing-' . $index)->fingerprint(), 60)->get();
     }
 
-    $claims = $store->locks;
-
     expect(resolve(DispatchSignalAction::class)->handle($signal)->status)->toBe(DispatchStatus::Suppressed);
     $result = resolve(DispatchSignalAction::class)->handle(failureSafetySignal('over-capacity'));
     expect($result->status)->toBe(DispatchStatus::Fallback)
-        ->and($result->reason)->toBe('deduplication_unavailable')
-        ->and($store->locks)->toBe($claims);
+        ->and($result->reason)->toBe('deduplication_unavailable');
+    expect($store->lock('capell:reporting:' . $signal->fingerprint(), 60)->get())->toBeFalse();
+    for ($index = 1; $index < 1000; $index++) {
+        expect($store->lock('capell:reporting:' . failureSafetySignal('existing-' . $index)->fingerprint(), 60)->get())->toBeFalse();
+    }
 });

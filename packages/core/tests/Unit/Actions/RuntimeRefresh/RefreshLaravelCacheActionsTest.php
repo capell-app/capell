@@ -5,44 +5,53 @@ declare(strict_types=1);
 use Capell\Core\Actions\RuntimeRefresh\RefreshConfigurationCacheAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshRouteCacheAction;
 use Capell\Core\Actions\RuntimeRefresh\RunArtisanRuntimeRefreshStageAction;
-use Capell\Core\Data\RuntimeRefresh\RuntimeRefreshStageResultData;
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Console\ClosureCommand;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 
-it('preserves uncached configuration and route modes', function (): void {
-    $application = Mockery::mock(Application::class);
-    $application->shouldReceive('configurationIsCached')->once()->andReturnFalse();
-    $application->shouldReceive('routesAreCached')->once()->andReturnFalse();
-    $artisan = Mockery::mock(RunArtisanRuntimeRefreshStageAction::class);
-    $artisan->shouldNotReceive('handle');
+it('preserves uncached modes and rebuilds active Laravel caches', function (bool $cached): void {
+    $directory = sys_get_temp_dir() . '/capell-refresh-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($directory . '/bootstrap/cache');
+    $application = new Application($directory);
+    // Constructing an Application replaces the global container; keep the test application's services active.
+    Container::setInstance($this->app);
+    $application->instance('files', new Filesystem);
+    $paths = ['config:cache' => $application->getCachedConfigPath(), 'route:cache' => $application->getCachedRoutesPath()];
+    if ($cached) {
+        foreach ($paths as $path) {
+            File::put($path, 'old cache');
+        }
+    }
 
-    $config = new RefreshConfigurationCacheAction($application, $artisan)->handle();
-    $routes = new RefreshRouteCacheAction($application, $artisan)->handle();
+    Artisan::all();
+    foreach ($paths as $name => $path) {
+        Artisan::registerCommand(new ClosureCommand($name, function () use ($path): int {
+            File::put($path, 'rebuilt cache');
 
-    expect($config->skipped)->toBeTrue()
-        ->and($config->passed)->toBeTrue()
-        ->and($routes->skipped)->toBeTrue()
-        ->and($routes->passed)->toBeTrue();
-});
+            return 0;
+        }));
+    }
 
-it('rebuilds configuration and routes only when their caches are active', function (): void {
-    $application = Mockery::mock(Application::class);
-    $application->shouldReceive('configurationIsCached')->once()->andReturnTrue();
-    $application->shouldReceive('routesAreCached')->once()->andReturnTrue();
-    $artisan = Mockery::mock(RunArtisanRuntimeRefreshStageAction::class);
-    $artisan->shouldReceive('handle')
-        ->once()
-        ->with('config', 'Laravel configuration cache', 'config:cache')
-        ->andReturn(new RuntimeRefreshStageResultData('config', 'Laravel configuration cache', true, 'rebuilt'));
-    $artisan->shouldReceive('handle')
-        ->once()
-        ->with('routes', 'Laravel route cache', 'route:cache')
-        ->andReturn(new RuntimeRefreshStageResultData('routes', 'Laravel route cache', true, 'rebuilt'));
+    $stage = new RunArtisanRuntimeRefreshStageAction(resolve(Kernel::class));
 
-    $config = new RefreshConfigurationCacheAction($application, $artisan)->handle();
-    $routes = new RefreshRouteCacheAction($application, $artisan)->handle();
-
-    expect($config->skipped)->toBeFalse()
-        ->and($config->passed)->toBeTrue()
-        ->and($routes->skipped)->toBeFalse()
-        ->and($routes->passed)->toBeTrue();
-});
+    try {
+        $config = new RefreshConfigurationCacheAction($application, $stage)->handle();
+        $routes = new RefreshRouteCacheAction($application, $stage)->handle();
+        expect($config->skipped)->toBe(! $cached)
+            ->and($config->passed)->toBeTrue()
+            ->and($routes->skipped)->toBe(! $cached)
+            ->and($routes->passed)->toBeTrue();
+        foreach ($paths as $path) {
+            expect(File::exists($path))->toBe($cached);
+            if ($cached) {
+                expect(File::get($path))->toBe('rebuilt cache');
+            }
+        }
+    } finally {
+        File::deleteDirectory($directory);
+    }
+})->with([false, true]);

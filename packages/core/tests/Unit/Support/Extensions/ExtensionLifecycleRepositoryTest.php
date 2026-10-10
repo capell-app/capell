@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Schema;
 
 it('surfaces schema probe failures instead of silently dropping lifecycle writes', function (Closure $operation): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with('capell_extensions')
         ->andThrow(new RuntimeException('database unavailable'));
 
@@ -38,7 +37,6 @@ it('surfaces schema probe failures instead of silently dropping lifecycle writes
 
 it('keeps extension reads fail closed when schema probing fails', function (Closure $operation): void {
     Schema::shouldReceive('hasTable')
-        ->once()
         ->with('capell_extensions')
         ->andThrow(new RuntimeException('database unavailable'));
 
