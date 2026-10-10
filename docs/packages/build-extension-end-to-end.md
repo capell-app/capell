@@ -765,7 +765,7 @@ Then confirm the package is actually live:
 - enabling the toggle and saving a message renders the banner on a public page;
 - `php artisan capell:doctor` reports no package health failures.
 
-**Extension settings pages do not appear in the normal Settings navigation.** `registerExtensionPage()` deliberately turns off the page's native Filament navigation and registers it in the extension page registry instead, so the page is reached from the Extensions management list. This is intended behaviour, not a misconfiguration — do not add `$shouldRegisterNavigation = true` to force it into the sidebar.
+**Extension settings pages do not appear in the normal Settings navigation.** `registerExtensionPage()` deliberately turns off the page's native Filament navigation and registers it in the extension page registry instead, so the page is reached from the Extensions management list. This is intended behaviour, not a misconfiguration — do not add `$shouldRegisterNavigation = true` to force it into the sidebar. Operational pages intended as Site Health subpages implement `Capell\Admin\Contracts\Diagnostics\SiteHealthSubpage`, which explicitly preserves native navigation. Declare a page-owned `protected static bool $shouldRegisterNavigation = true` as well: an inherited property shares storage with ordinary extension pages whose navigation is suppressed. Set their navigation group to match `SiteHealthPage`, and use its navigation label as the parent only when the operator can access the overview; otherwise return no parent so the authorised page remains reachable.
 
 If the package is not on the Extensions page at all, it is required but not enabled — rerun `capell:extension-install`. [Extension troubleshooting](extension-troubleshooting.md) covers the rest.
 

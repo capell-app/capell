@@ -6,6 +6,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Admin\Filament\Pages\SettingsPage;
+use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Activities\ActivityResource;
 use Capell\Admin\Filament\Resources\Blueprints\BlueprintResource;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
@@ -20,6 +21,7 @@ use Capell\Admin\Filament\Resources\Users\UserResource;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
+use Filament\Navigation\NavigationManager;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Permission;
@@ -105,7 +107,7 @@ it('groups users under system with roles nested underneath', function (): void {
         ->and(RoleResource::getActiveNavigationIcon())->toBe(Heroicon::Key);
 });
 
-it('places settings with operational system pages', function (): void {
+it('registers site health under monitoring before grouping it with settings in the system workspace', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     Permission::create(['name' => 'View:SiteHealthPage', 'guard_name' => 'web']);
 
@@ -117,10 +119,45 @@ it('places settings with operational system pages', function (): void {
     Filament::setServingStatus();
 
     $groups = Filament::getNavigation();
+    $registeredNavigation = new ReflectionMethod(NavigationManager::class, 'get');
+    /** @var array<NavigationGroup> $registeredGroups */
+    $registeredGroups = $registeredNavigation->invoke(resolve(NavigationManager::class));
+    $navigation = collect($registeredGroups);
+    $systemNavigationGroup = $navigation
+        ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_system'));
+
+    expect($systemNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
+    assert($systemNavigationGroup instanceof NavigationGroup);
+
+    $systemNavigationLabels = collect($systemNavigationGroup->getItems())
+        ->map(fn (NavigationItem $navigationItem): string => $navigationItem->getLabel())
+        ->all();
+
+    expect($systemNavigationLabels)
+        ->toContain(SettingsPage::getNavigationLabel())
+        ->not->toContain(SiteHealthPage::getNavigationLabel());
+
+    $monitoringNavigationGroup = $navigation
+        ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_monitoring'));
+
+    expect($monitoringNavigationGroup)->toBeInstanceOf(NavigationGroup::class);
+    assert($monitoringNavigationGroup instanceof NavigationGroup);
+
+    $monitoringNavigationLabels = collect($monitoringNavigationGroup->getItems())
+        ->map(fn (NavigationItem $navigationItem): string => $navigationItem->getLabel())
+        ->all();
+
+    expect($monitoringNavigationLabels)->toContain(SiteHealthPage::getNavigationLabel())
+        ->and(SiteHealthPage::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_monitoring'));
+
     $system = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.workspace_system'));
     expect($system)->toBeInstanceOf(NavigationGroup::class);
     assert($system instanceof NavigationGroup);
-    expect(collect($system->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())->toContain(SettingsPage::getUrl());
+
+    expect(collect($system->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())
+        ->toContain(SettingsPage::getUrl(), SiteHealthPage::getUrl())
+        ->and(collect($groups)->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all())
+        ->not->toContain(__('capell-admin::navigation.group_monitoring'));
 });
 
 it('keeps sidebar groups while moving secondary design tools into local navigation', function (): void {

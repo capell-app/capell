@@ -20,6 +20,19 @@ Use this guide when a package or app needs to register dashboard Filament widget
 
 Prefer overview stats for small package counters. Use a standalone dashboard Filament widget for tables, charts, calendars, health panels, setup panels, or anything with its own actions.
 
+## Dashboard Composition
+
+The main dashboard places `Trends` and `Insights` panels side by side, followed by
+`Pulse` metrics and `Activity`. Register a panel with
+`CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, YourWidget::class, DashboardEnum::Main)`
+to join that layout. Existing registrations without a region remain available in
+the collapsed Additional dashboard panels section.
+
+Visibility is evaluated before composition: empty regions are omitted and a lone
+lead panel fills the row. Configured Filament widgets retain their properties.
+The Reports menu reads the report registry and respects each page's access and
+navigation visibility checks; extensions do not need to add a separate menu link.
+
 ## Dashboard Buckets
 
 `DashboardEnum` controls where a widget can render:

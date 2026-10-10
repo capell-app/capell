@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
-use Capell\Core\Actions\Install\PublishPackageMigrationsAction;
-use Capell\Core\Actions\Install\RunMigrationsAction;
+use Capell\Core\Actions\Install\RunDeclaredPackageMigrationsAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Contracts\ProgressReporter;
@@ -94,7 +93,7 @@ class InstallPackageAction
                         app()->register($providerClass);
                     }
 
-                    self::runDeclaredMigrations($package, $reporter);
+                    RunDeclaredPackageMigrationsAction::run($package, $reporter);
 
                     if ($package->getInstallCommand() !== null || $package->getInstallAction() !== null) {
                         resolve(PackageLifecycleRunner::class)->run(
@@ -122,39 +121,6 @@ class InstallPackageAction
         resolve(ComponentRegistry::class)->clearCachedComponentsOrFail();
         CapellCore::subscriberManager()->notifySubscribers(ListenerEnum::PackageInstalled, $package);
         Event::dispatch(new PackageInstalled($package));
-    }
-
-    private static function runDeclaredMigrations(PackageData $package, ProgressReporter $reporter): void
-    {
-        $publishSchema = $package->declaresSchemaMigrations();
-        $publishSettings = $package->declaresSettingsMigrations();
-
-        if (! $publishSchema && ! $publishSettings) {
-            return;
-        }
-
-        PublishPackageMigrationsAction::run(
-            packages: collect([$package->name => $package]),
-            reporter: $reporter,
-            publishSchema: $publishSchema,
-            publishSettings: $publishSettings,
-            requireMigrationFiles: true,
-        );
-
-        if ($publishSchema) {
-            RunMigrationsAction::run(
-                reporter: $reporter,
-                includeSettings: false,
-            );
-        }
-
-        if ($publishSettings) {
-            RunMigrationsAction::run(
-                reporter: $reporter,
-                includeSettings: true,
-                includeSchema: false,
-            );
-        }
     }
 
     /**

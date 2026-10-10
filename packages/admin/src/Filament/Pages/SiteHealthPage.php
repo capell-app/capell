@@ -29,7 +29,7 @@ final class SiteHealthPage extends Page
 
     protected static ?string $slug = 'site-health';
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static bool $shouldRegisterNavigation = true;
 
     protected static ?int $navigationSort = 10;
 
@@ -47,7 +47,7 @@ final class SiteHealthPage extends Page
     #[Override]
     public static function getNavigationGroup(): string
     {
-        return (string) __('capell-admin::navigation.group_system');
+        return (string) __('capell-admin::navigation.group_monitoring');
     }
 
     public function mount(): void
