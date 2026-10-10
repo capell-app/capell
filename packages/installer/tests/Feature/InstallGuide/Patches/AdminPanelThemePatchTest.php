@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelThemePatch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
+use Capell\Tests\Support\GeneratedPanelProvider;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -36,10 +37,8 @@ it('adds the default Filament Vite theme when no theme is configured', function 
 
     $patch->apply();
 
-    $updatedContent = (string) file_get_contents($providerPath);
-
     expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and($updatedContent)->toContain("->viteTheme('resources/css/filament/admin/theme.css')");
+        ->and(GeneratedPanelProvider::load($providerPath)->getViteTheme())->toBe('resources/css/filament/admin/theme.css');
 });
 
 it('does not overwrite an existing custom Filament Vite theme', function (): void {
@@ -59,7 +58,7 @@ it('does not overwrite an existing custom Filament Vite theme', function (): voi
     $patch = new AdminPanelThemePatch;
 
     expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and((string) file_get_contents($providerPath))->toContain("->viteTheme('resources/css/filament/admin/custom.css')");
+        ->and(GeneratedPanelProvider::load($providerPath)->getViteTheme())->toBe('resources/css/filament/admin/custom.css');
 });
 
 it('treats a manually registered Filament asset theme as already configured', function (): void {
@@ -98,6 +97,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel

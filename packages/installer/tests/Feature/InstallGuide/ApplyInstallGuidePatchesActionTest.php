@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\MyWorkQueueFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Actions\InstallGuide\ApplyInstallGuidePatchesAction;
 use Capell\Installer\Data\InstallGuide\ApplyPatchesInputData;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
+use Capell\Tests\Support\GeneratedPanelProvider;
+use Dotenv\Dotenv;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -57,23 +62,20 @@ it('applies registry patches against an app skeleton and reports the outcomes', 
             ->and($patchResult->errorMessage)->toBeNull();
     });
 
-    expect(file_get_contents(base_path('.env')))->toContain('QUEUE_CONNECTION=database');
+    expect(Dotenv::parse(File::get(base_path('.env')))['QUEUE_CONNECTION'])->toBe('database');
+    $filesystems = require base_path('config/filesystems.php');
+    $logging = require base_path('config/logging.php');
 
-    $filesystemsConfig = (string) file_get_contents(base_path('config/filesystems.php'));
-    expect($filesystemsConfig)->toContain("'page_cache'")
-        ->and($filesystemsConfig)->toContain("public_path('page-cache')")
-        ->and($filesystemsConfig)->toContain("'throw' => false");
-
-    $loggingConfig = (string) file_get_contents(base_path('config/logging.php'));
-    expect($loggingConfig)->toContain("'capell'")
-        ->and($loggingConfig)->toContain("storage_path('logs/capell.log')")
-        ->and($loggingConfig)->toContain("'level' => 'debug'");
-
-    $adminPanelProvider = (string) file_get_contents(base_path('app/Providers/Filament/AdminPanelProvider.php'));
-    expect($adminPanelProvider)->toContain('->widgets(')
-        ->and($adminPanelProvider)->toContain('ListPagesFilamentWidget::class')
-        ->and($adminPanelProvider)->toContain('MyWorkQueueFilamentWidget::class')
-        ->and($adminPanelProvider)->toContain('RecentlyPublishedFilamentWidget::class');
+    expect($filesystems['disks']['page_cache'])->toBe([
+        'driver' => 'local', 'root' => public_path('page-cache'), 'throw' => false,
+    ])->and($logging['channels']['capell'])->toBe([
+        'driver' => 'single', 'path' => storage_path('logs/capell.log'), 'level' => 'debug',
+    ])->and(GeneratedPanelProvider::load(base_path('app/Providers/Filament/AdminPanelProvider.php'))->getWidgets())
+        ->toEqualCanonicalizing([
+            ListPagesFilamentWidget::class,
+            MyWorkQueueFilamentWidget::class,
+            RecentlyPublishedFilamentWidget::class,
+        ]);
 });
 
 it('reports patch write failures as manual changes without throwing', function (): void {
@@ -196,6 +198,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel

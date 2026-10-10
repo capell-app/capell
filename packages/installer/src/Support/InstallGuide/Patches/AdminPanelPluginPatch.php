@@ -95,7 +95,7 @@ class AdminPanelPluginPatch implements Patch
     }
 
     /**
-     * Inject ->plugin(CapellAdminPlugin::make()->discoverSchemas(...)) at the end of the chain.
+     * Inject ->plugin(CapellAdminPlugin::make()->discoverConfigurators(...)) at the end of the chain.
      */
     private function injectPluginCall(Node $stmt): void
     {
@@ -107,17 +107,17 @@ class AdminPanelPluginPatch implements Patch
             new Name('app_path'),
             [
                 new Arg(
-                    new String_('Filament/FormBuilder'),
+                    new String_('Filament/Configurators'),
                 ),
             ],
         );
 
-        $discoverSchemasCall = new MethodCall(
+        $discoverConfiguratorsCall = new MethodCall(
             new StaticCall(
                 new Name('CapellAdminPlugin'),
                 'make',
             ),
-            'discoverSchemas',
+            'discoverConfigurators',
             [
                 new Arg(
                     $appPathCall,
@@ -127,7 +127,7 @@ class AdminPanelPluginPatch implements Patch
                     new Identifier('in'),
                 ),
                 new Arg(
-                    new String_('App\\\\Filament\\\\FormBuilder'),
+                    new String_('App\\Filament\\Configurators'),
                     false,
                     false,
                     [],
@@ -140,7 +140,7 @@ class AdminPanelPluginPatch implements Patch
             $stmt,
             'plugin',
             [
-                new Arg($discoverSchemasCall),
+                new Arg($discoverConfiguratorsCall),
             ],
         );
     }

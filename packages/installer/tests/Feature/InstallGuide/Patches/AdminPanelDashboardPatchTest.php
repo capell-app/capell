@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelDashboardPatch;
+use Capell\Tests\Support\GeneratedPanelProvider;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -40,6 +42,7 @@ use Filament\PanelProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[\Override]
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -58,10 +61,6 @@ PHP);
 
     $patch->apply();
 
-    $updatedContent = (string) file_get_contents($providerPath);
-
-    expect($patch->probe())->toBe(PatchStatus::AlreadyApplied)
-        ->and($updatedContent)->toContain('use Capell\Admin\Filament\Pages\CapellDashboard;')
-        ->and($updatedContent)->not->toContain('use Filament\Pages\Dashboard;')
-        ->and($updatedContent)->toContain('->pages([CapellDashboard::class])');
+    expect(GeneratedPanelProvider::load($providerPath)->getPages())->toBe([CapellDashboard::class])
+        ->and($patch->probe())->toBe(PatchStatus::AlreadyApplied);
 });
