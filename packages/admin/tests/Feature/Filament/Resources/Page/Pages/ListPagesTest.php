@@ -159,7 +159,7 @@ it('offers a guided page type chooser while keeping quick create available', fun
             'status' => false,
         ]);
 
-    Page::factory()
+    $page = Page::factory()
         ->type($landingType)
         ->createOne(['name' => 'Campaign page']);
 
@@ -173,7 +173,7 @@ it('offers a guided page type chooser while keeping quick create available', fun
         ->assertMountedActionModalSee('Best for campaign entry pages.')
         ->assertMountedActionModalSee(__('capell-admin::generic.page_type_chooser_default_badge'))
         ->assertMountedActionModalSee(trans_choice('capell-admin::generic.page_type_chooser_usage', 1, ['count' => 1]))
-        ->assertMountedActionModalSeeHtml('href="' . e(PageResource::getUrl('create', ['type' => 'landing-page'])) . '"')
+        ->assertMountedActionModalSeeHtml('href="' . e(PageResource::getUrl('create', ['type' => 'landing-page', 'site_id' => $page->site_id])) . '"')
         ->assertMountedActionModalDontSee($disabledType->name);
 });
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
+use Capell\Admin\Actions\Pages\ResolvePageCreationSiteAction;
 use Capell\Admin\Filament\Components\Forms\SiteSelect as BaseSiteSelect;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
@@ -11,9 +12,11 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Str;
+use Override;
 
 class SiteSelect extends BaseSiteSelect
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -21,12 +24,7 @@ class SiteSelect extends BaseSiteSelect
         $this->required()
             ->helperText(__('capell-admin::generic.page_site_info'))
             ->reactive()
-            ->default(function (): ?int {
-                /** @var class-string<Site> $model */
-                $model = Site::class;
-
-                return SiteAccess::current()->query($model)->default()->first()?->id;
-            })
+            ->default(fn (): ?int => ResolvePageCreationSiteAction::run()?->id)
             ->hiddenOn(['edit', 'editOption'])
             ->afterStateUpdated(function (Get $get, Set $set, ?int $state): void {
                 if ($state === null || $state === 0) {
@@ -73,6 +71,7 @@ class SiteSelect extends BaseSiteSelect
             });
     }
 
+    #[Override]
     public static function getDefaultName(): ?string
     {
         return 'site_id';

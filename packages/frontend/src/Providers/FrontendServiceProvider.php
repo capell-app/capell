@@ -631,6 +631,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         // the prebuilt capell-frontend assets alongside framework + Filament assets.
         $this->publishes([
             $this->package->basePath('/../publishes/build') => public_path('vendor/capell-frontend'),
+            $this->package->basePath('/../publishes/capell-logo.svg') => public_path('capell-logo.svg'),
         ], ['capell-frontend-assets', 'laravel-assets']);
 
         $this->publishes([

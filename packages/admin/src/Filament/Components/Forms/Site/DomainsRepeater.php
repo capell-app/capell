@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Site;
 
+use Capell\Core\Actions\SiteDomains\NormalizeSiteDomainInputAction;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Repeater;
 use Illuminate\View\View;
-use RuntimeException;
+use Override;
 
 class DomainsRepeater extends Repeater
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -67,8 +70,7 @@ class DomainsRepeater extends Repeater
                     }),
             ])
             ->mutateRelationshipDataBeforeFillUsing(function (array $data): array {
-                $host = $data['domain'] ?? request()->getHost();
-                $data['url'] = sprintf('%s://%s%s', $data['scheme'], $host, $data['path']);
+                $data['url'] = new SiteDomain($data)->full_url;
                 $data['use_host_domain'] = $data['domain'] === null;
 
                 return $data;
@@ -77,6 +79,7 @@ class DomainsRepeater extends Repeater
             ->mutateRelationshipDataBeforeSaveUsing($this->getMutateRelationshipDataBeforeCreateOrSave(...));
     }
 
+    #[Override]
     public static function getDefaultName(): ?string
     {
         return 'site_domains';
@@ -110,17 +113,17 @@ class DomainsRepeater extends Repeater
      */
     private function getMutateRelationshipDataBeforeCreateOrSave(array $data): array
     {
-        $urlParts = parse_url((string) $data['url']);
+        $input = NormalizeSiteDomainInputAction::run(
+            (string) $data['url'],
+            ($data['use_host_domain'] ?? false) === true,
+        );
 
-        throw_if($urlParts === false, RuntimeException::class, 'Unable to parse site domain URL.');
+        $data['scheme'] = $input->scheme;
+        $data['domain'] = $input->host;
+        $data['port'] = $input->port;
+        $data['path'] = $input->persistencePath();
 
-        unset($data['url']);
-
-        $data['scheme'] = $urlParts['scheme'] ?? null;
-        $data['domain'] = ($data['use_host_domain'] ?? false) === true ? null : ($urlParts['host'] ?? null);
-        $data['path'] = isset($urlParts['path']) ? in_array(mb_rtrim($urlParts['path'], '/'), ['', '0'], true) ? null : mb_rtrim($urlParts['path'], '/') : null;
-
-        unset($data['use_host_domain']);
+        unset($data['url'], $data['use_host_domain']);
 
         $data['default'] ??= false;
         $data['status'] ??= true;

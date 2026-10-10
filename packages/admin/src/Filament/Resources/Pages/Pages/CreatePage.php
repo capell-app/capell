@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages\Pages;
 
 use Capell\Admin\Actions\BuildDefaultTranslationsAction;
+use Capell\Admin\Actions\Pages\ResolvePageCreationSiteAction;
 use Capell\Admin\Actions\Pages\SavePageAuthoringAction;
 use Capell\Admin\Actions\Pages\ValidatePageAuthoringAction;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
@@ -163,11 +164,7 @@ class CreatePage extends CreateRecord implements HasPageResource
 
     protected function beforeFill(): void
     {
-        /** @var class-string<Site> $model */
-        $model = Site::class;
-
-        $this->data['site_id'] ??= request('site_id')
-            ?? SiteAccess::current()->query($model)->default()->first()?->id;
+        $this->data['site_id'] ??= ResolvePageCreationSiteAction::run()?->id;
 
         $siteId = $this->data['site_id'];
         $translations = $this->data['translations'] ?? null;
