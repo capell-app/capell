@@ -189,7 +189,14 @@ rollback_release_tags() {
   done
 }
 
-trap rollback_release_tags ERR
+# The rollback is called explicitly, in the main shell, with the failing status. An ERR trap also
+# fires inside the $(...) subshells below on newer bash, where the rollback would be cut short.
+fail_with_rollback() {
+  local status="$1"
+
+  rollback_release_tags
+  exit "${status}"
+}
 
 for package in "${PACKAGES[@]}"; do
   require_package_in_matrix "${package}"
@@ -208,12 +215,10 @@ for package in "${PACKAGES[@]}"; do
     continue
   fi
 
-  split_sha="$(git subtree split --prefix "packages/${package}" "${REF}")"
-  remote_url="$(remote_url_for "${package}")"
+  split_sha="$(git subtree split --prefix "packages/${package}" "${REF}")" || fail_with_rollback "$?"
+  remote_url="$(remote_url_for "${package}")" || fail_with_rollback "$?"
 
-  git push "${remote_url}" "${split_sha}:refs/heads/${BRANCH}"
-  git push "${remote_url}" "${split_sha}:refs/tags/${TAG}"
+  git push "${remote_url}" "${split_sha}:refs/heads/${BRANCH}" || fail_with_rollback "$?"
+  git push "${remote_url}" "${split_sha}:refs/tags/${TAG}" || fail_with_rollback "$?"
   PUSHED_PACKAGES+=("${package}")
 done
-
-trap - ERR
