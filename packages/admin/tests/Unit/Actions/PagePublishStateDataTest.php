@@ -89,6 +89,8 @@ it('reports expired unpublished state', function (): void {
 });
 
 it('resolves publish state dates from page visibility columns', function (): void {
+    $this->freezeTime();
+
     $page = Page::factory()->create([
         'visible_from' => CarbonImmutable::now()->subDay(),
         'visible_until' => CarbonImmutable::now()->addWeek(),
