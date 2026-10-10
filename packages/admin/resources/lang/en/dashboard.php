@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'empty_heading' => 'Your dashboard is ready',
+    'empty_description' => 'No dashboard panels are available for your current access. Use the navigation to continue working.',
     'region_pulse' => 'Site pulse',
     'region_trends' => 'Trend workspace',
     'region_insights' => 'Insights',
