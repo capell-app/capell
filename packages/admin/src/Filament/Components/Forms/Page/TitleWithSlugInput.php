@@ -146,10 +146,9 @@ class TitleWithSlugInput
                     slugRuleUniqueParameters: [
                         'column' => 'meta->slug',
                         'table' => 'translations',
-                        'modifyRuleUsing' => function (Unique $rule, Get $get, ?Translation $record, HasPageResource $livewire) use ($schema): void {
+                        'modifyRuleUsing' => function (Unique $rule, Get $get, ?Translation $record, HasPageResource $livewire, string $operation): void {
                             $language_id = $get('language_id');
 
-                            $data = RawState::array($schema->getRawState());
                             $page = $record?->translatable;
 
                             /** @var class-string<resource> $resource */
@@ -164,10 +163,12 @@ class TitleWithSlugInput
 
                             $hasPageHierarchy = $model::hasPageHierarchy();
 
-                            $parentId = $data['parent_id'] ?? $page->parent_id ?? null;
-                            $siteId = $data['site_id'] ?? $page->site_id ?? null;
+                            $parentId = $get('../../parent_id') ?? $page->parent_id ?? null;
+                            $siteId = $get('../../site_id') ?? $page->site_id ?? null;
 
-                            $id = $page?->getKey() !== null ? $page->getKey() : $baseRecord?->getKey();
+                            $id = in_array($operation, ['edit', 'editOption'], true)
+                                ? ($page?->getKey() ?? $baseRecord?->getKey())
+                                : null;
 
                             /** @var list<int> $pageIds */
                             $pageIds = SiteAccess::current()->query($model)

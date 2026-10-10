@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Actions\Page;
 
+use Capell\Admin\Actions\Pages\ResolvePageCreationSiteAction;
 use Capell\Admin\Actions\Pages\ValidatePageAuthoringAction;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
@@ -20,14 +21,18 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Slug\SlugGenerator;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Resources\Pages\EditRecord;
+use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Override;
 use RuntimeException;
 
 class CreatePageAction extends CreateAction
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -35,12 +40,7 @@ class CreatePageAction extends CreateAction
         $this->slideOver()
             ->databaseTransaction()
             ->modalWidth(Width::ScreenLarge)
-            ->modalHeading(
-                fn (self $action): string => __(
-                    'capell-admin::button.create_type',
-                    ['type' => $action->getResource()::getModelLabel()],
-                ),
-            )
+            ->modalHeading(__('capell-admin::button.new_page'))
             ->modalSubmitActionLabel(__('capell-admin::button.save_and_publish'))
             ->schema(function (Schema $schema, self $action): Schema {
                 /** @var class-string<PageResource> $resource */
@@ -199,10 +199,7 @@ class CreatePageAction extends CreateAction
     {
         $data = [];
 
-        /** @var class-string<Site> $model */
-        $model = Site::class;
-
-        $site = SiteAccess::current()->query($model)->with('languages')->default()->first();
+        $site = ResolvePageCreationSiteAction::run($this->creationSiteId());
 
         $this->getPageResource($group)::mutateFormDataBeforeCreate($data, $formData);
 
@@ -224,6 +221,34 @@ class CreatePageAction extends CreateAction
         }
 
         return $this->mutateFormData($data);
+    }
+
+    private function creationSiteId(): int|string|null
+    {
+        $arguments = $this->getArguments();
+        $siteId = $arguments['site_id'] ?? null;
+        if (is_int($siteId) || is_string($siteId)) {
+            return $siteId;
+        }
+
+        $livewire = $this->getLivewire();
+        if ($livewire instanceof EditRecord) {
+            $siteId = $livewire->getRecord()->getAttribute('site_id');
+
+            return is_int($siteId) || is_string($siteId) ? $siteId : null;
+        }
+
+        if ($livewire instanceof ListRecords) {
+            if (is_numeric($livewire->activeTab)) {
+                return $livewire->activeTab;
+            }
+
+            $siteId = $livewire->getTableFilterState('site_id')['value'] ?? null;
+
+            return is_int($siteId) || is_string($siteId) ? $siteId : null;
+        }
+
+        return null;
     }
 
     /**

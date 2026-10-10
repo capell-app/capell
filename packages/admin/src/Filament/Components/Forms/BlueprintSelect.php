@@ -55,7 +55,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
     {
         parent::setUp();
 
-        $this->label(in_array($label, [null, '', '0'], true) ? __('capell-admin::form.type') : $label)
+        $this->label(in_array($label, [null, '', '0'], true) ? __('capell-admin::generic.blueprint') : $label)
             ->reactive()
             ->required()
             ->allowHtml()

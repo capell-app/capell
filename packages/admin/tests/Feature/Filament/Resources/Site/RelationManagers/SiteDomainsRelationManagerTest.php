@@ -196,3 +196,20 @@ it('preserves domain creation editing and deletion for a site admin with default
         ->assertActionHidden(TestAction::make(DeleteBulkAction::class)->table()->bulk());
     expect($foreign->siteDomains()->count())->toBe(0);
 });
+
+it('preserves the port when editing a site domain', function (): void {
+    test()->actingAsAdmin();
+    $site = Site::factory()->createOne();
+    $domain = SiteDomain::factory()->site($site)->createOne(['scheme' => 'http', 'domain' => 'port.test', 'port' => 8000]);
+
+    Livewire::test(SiteDomainsRelationManager::class, [
+        'ownerRecord' => $site,
+        'pageClass' => EditSite::class,
+    ])->mountAction(TestAction::make(EditAction::class)->table($domain))
+        ->assertSchemaStateSet(['port' => 8000])
+        ->fillForm(['port' => 8443])
+        ->callMountedAction()
+        ->assertHasNoFormErrors();
+
+    expect($domain->fresh()->port)->toBe(8443);
+});

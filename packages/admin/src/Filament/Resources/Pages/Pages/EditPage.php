@@ -655,10 +655,16 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
                 CreatePageAction::make()
                     ->redirectAfterCreate(),
                 ReplicatePageAction::make(),
-                FrontendResourceDiagnosticsHeaderAction::make(),
-                FrontendSourceMapHeaderAction::make(),
                 RevisionsHeaderAction::make(),
             ])))
+                ->dropdownPlacement('bottom-end'),
+            ActionGroup::make([
+                FrontendResourceDiagnosticsHeaderAction::make(),
+                FrontendSourceMapHeaderAction::make(),
+            ])
+                ->label(__('capell-admin::button.advanced'))
+                ->button()
+                ->color('gray')
                 ->dropdownPlacement('bottom-end'),
         ];
     }
