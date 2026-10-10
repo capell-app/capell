@@ -368,7 +368,7 @@ function bindInstallCommandRemoveInstallerProcessFactory(?Closure $beforeMake = 
  * Install tests must never reach real Composer or npm. Selecting the Foundation
  * theme without registering it makes the install run a Composer dry-run
  * preflight; answer that as successful here, and let any other command fail
- * loudly through Mockery rather than resolving packages over the network. A
+ * loudly through the shared fake rather than resolving packages over the network. A
  * test that needs different process behaviour binds its own fake afterwards.
  */
 function bindInstallCommandHermeticProcessFactory(): void
@@ -3187,15 +3187,12 @@ it('keeps APP_URL and profile exports untouched when Composer preflight refuses 
     config(['capell.install_profiles' => ['owned-preflight-input' => ['packages' => ['test', 'vendor/missing']]]]);
     $envBefore = is_file(base_path('.env')) ? file_get_contents(base_path('.env')) : null;
     $profileBefore = is_file(base_path('capell-install-profiles.json')) ? file_get_contents(base_path('capell-install-profiles.json')) : null;
-    $process = Mockery::mock(SymfonyProcess::class);
-    $process->shouldReceive('setTimeout')->with(600)->once()->andReturnSelf();
-    $process->shouldReceive('run')->once()->andReturn(1);
-    $process->shouldReceive('isSuccessful')->once()->andReturn(false);
-    $process->shouldReceive('getOutput')->once()->andReturn('');
-    $process->shouldReceive('getErrorOutput')->once()->andReturn('Owned Composer preflight refusal.');
-    $factory = Mockery::mock(ProcessFactoryInterface::class);
-    $factory->shouldReceive('make')->once()->with(Mockery::on(fn (array $command): bool => in_array('--dry-run', $command, true)), base_path(), Mockery::type('array'))->andReturn($process);
-    app()->instance(ProcessFactoryInterface::class, $factory);
+    bindInstallCommandPreflightProcessFactory(
+        successful: false,
+        output: '',
+        errorOutput: 'Owned Composer preflight refusal.',
+        packages: ['vendor/missing'],
+    );
     artisanCommand('capell:install', [
         '--profile' => 'owned-preflight-input',
         '--production' => true,
