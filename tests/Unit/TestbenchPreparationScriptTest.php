@@ -2,22 +2,49 @@
 
 declare(strict_types=1);
 
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 
-it('stages the committed frontend build for isolated Testbench workers', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/scripts/prepare-testbench-vendor-configs.php');
+function withTestbenchPreparationFixture(Closure $assert): void
+{
+    $root = dirname(__DIR__, 2);
+    $directory = sys_get_temp_dir() . '/capell-testbench-preparation-' . bin2hex(random_bytes(8));
+    $files = new Filesystem;
+    $files->mkdir($directory . '/scripts');
+    $files->copy($root . '/scripts/prepare-testbench-vendor-configs.php', $directory . '/scripts/prepare.php');
+    foreach (['spatie/laravel-activitylog/config/activitylog.php', 'spatie/laravel-permission/config/permission.php', 'spatie/laravel-settings/config/settings.php', 'bezhansalleh/filament-shield/config/filament-shield.php'] as $path) {
+        $files->dumpFile($directory . '/vendor/' . $path, '<?php return ' . var_export(['fixture' => $path], true) . ';');
+    }
 
-    expect($script)
-        ->toBeString()
-        ->toContain("'packages/frontend/publishes/build' => 'public/vendor/capell-frontend'");
+    $files->dumpFile($directory . '/packages/frontend/publishes/build/app.css', '.public-fixture { color: blue; }');
+    $files->dumpFile($directory . '/packages/frontend/publishes/build/nested/app.js', 'window.publicFixture = true;');
+
+    $process = new Process([PHP_BINARY, $directory . '/scripts/prepare.php'], $directory);
+    try {
+        expect($process->run())->toBe(0, $process->getErrorOutput());
+        $assert($directory, $process);
+    } finally {
+        $files->remove($directory);
+    }
+}
+
+it('stages usable frontend assets for an isolated Testbench application', function (): void {
+    withTestbenchPreparationFixture(function (string $directory, Process $process): void {
+        $public = $directory . '/vendor/orchestra/testbench-core/laravel/public/vendor/capell-frontend';
+        expect(file_get_contents($public . '/app.css'))->toBe('.public-fixture { color: blue; }')
+            ->and(file_get_contents($public . '/nested/app.js'))->toBe('window.publicFixture = true;');
+        expect($process->run())->toBe(0)
+            ->and(file_get_contents($public . '/app.css'))->toBe('.public-fixture { color: blue; }');
+    });
 });
 
-it('stages third-party configuration required by isolated package providers', function (): void {
-    $script = file_get_contents(dirname(__DIR__, 2) . '/scripts/prepare-testbench-vendor-configs.php');
-
-    expect($script)
-        ->toBeString()
-        ->toContain("'spatie/laravel-activitylog/config/activitylog.php'");
+it('stages loadable third-party configuration for isolated package providers', function (): void {
+    withTestbenchPreparationFixture(function (string $directory): void {
+        $relative = 'spatie/laravel-activitylog/config/activitylog.php';
+        $source = require $directory . '/vendor/' . $relative;
+        $staged = require $directory . '/vendor/orchestra/testbench-core/laravel/vendor/' . $relative;
+        expect($staged)->toBe($source);
+    });
 });
 
 it('configures the Testbench application factory before provider registration', function (): void {

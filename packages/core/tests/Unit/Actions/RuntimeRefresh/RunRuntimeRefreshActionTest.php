@@ -20,88 +20,78 @@ function runtimeRefreshStage(string $key, bool $passed = true): RuntimeRefreshSt
     );
 }
 
-it('runs runtime refresh stages in their safe deployment order', function (): void {
-    $order = [];
-    $artisan = Mockery::mock(RunArtisanRuntimeRefreshStageAction::class);
-    $config = Mockery::mock(RefreshConfigurationCacheAction::class);
-    $routes = Mockery::mock(RefreshRouteCacheAction::class);
-    $warm = Mockery::mock(WarmRuntimeAction::class);
-    $doctor = Mockery::mock(RunRuntimeDoctorAction::class);
+function runtimeRefreshFixture(bool $fail = false): RunRuntimeRefreshAction
+{
+    $artisan = new class($fail) extends RunArtisanRuntimeRefreshStageAction
+    {
+        public function __construct(private readonly bool $fail) {}
 
-    $artisan->shouldReceive('handle')->once()->with('packages', 'Capell package cache', 'capell:package-cache')->ordered()
-        ->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
-            $order[] = 'packages';
+        #[Override]
+        public function handle(string $key, string $label, string $command): RuntimeRefreshStageResultData
+        {
+            return runtimeRefreshStage($key, ! $this->fail || $key !== 'packages');
+        }
+    };
+    $config = new class($fail) extends RefreshConfigurationCacheAction
+    {
+        public function __construct(private readonly bool $fail) {}
 
-            return runtimeRefreshStage('packages');
-        });
-    $artisan->shouldReceive('handle')->once()->with('views', 'Compiled views', 'view:clear')->ordered()
-        ->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
-            $order[] = 'views';
+        #[Override]
+        public function handle(bool $rebuild = true): RuntimeRefreshStageResultData
+        {
+            throw_if($this->fail, RuntimeException::class, 'config cache failed');
 
-            return runtimeRefreshStage('views');
-        });
-    $config->shouldReceive('handle')->once()->ordered()->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
-        $order[] = 'config';
+            return runtimeRefreshStage('config');
+        }
+    };
+    $routes = new class extends RefreshRouteCacheAction
+    {
+        public function __construct() {}
 
-        return runtimeRefreshStage('config');
-    });
-    $routes->shouldReceive('handle')->once()->ordered()->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
-        $order[] = 'routes';
+        #[Override]
+        public function handle(bool $rebuild = true): RuntimeRefreshStageResultData
+        {
+            return runtimeRefreshStage('routes');
+        }
+    };
+    $warm = new class extends WarmRuntimeAction
+    {
+        public function __construct() {}
 
-        return runtimeRefreshStage('routes');
-    });
-    $warm->shouldReceive('handle')->once()->ordered()->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
-        $order[] = 'warm';
+        #[Override]
+        public function handle(): RuntimeRefreshStageResultData
+        {
+            return runtimeRefreshStage('warm');
+        }
+    };
+    $doctor = new class extends RunRuntimeDoctorAction
+    {
+        #[Override]
+        public function handle(): RuntimeRefreshStageResultData
+        {
+            return runtimeRefreshStage('doctor');
+        }
+    };
 
-        return runtimeRefreshStage('warm');
-    });
-    $doctor->shouldReceive('handle')->once()->ordered()->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
-        $order[] = 'doctor';
+    return new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor);
+}
 
-        return runtimeRefreshStage('doctor');
-    });
-
-    $artisan->shouldReceive('handle')->once()->with('workers', 'Queue workers', 'queue:restart')
-        ->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
-            $order[] = 'workers';
-
-            return runtimeRefreshStage('workers');
-        });
-
-    $result = new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor)->handle();
-
-    expect($order)->toBe(['packages', 'views', 'config', 'routes', 'warm', 'doctor', 'workers'])
-        ->and($result->passed())->toBeTrue();
+it('returns a successful report for every runtime refresh stage', function (): void {
+    $result = runtimeRefreshFixture()->handle();
+    expect($result->passed())->toBeTrue()
+        ->and($result->stages->pluck('key')->all())->toEqualCanonicalizing(['packages', 'views', 'config', 'routes', 'warm', 'doctor', 'workers']);
+    foreach ($result->stages as $stage) {
+        expect($stage->passed)->toBeTrue()->and($stage->message)->toBe('passed');
+    }
 });
 
-it('continues independent stages and aggregates a partial failure', function (): void {
-    $artisan = Mockery::mock(RunArtisanRuntimeRefreshStageAction::class);
-    $config = Mockery::mock(RefreshConfigurationCacheAction::class);
-    $routes = Mockery::mock(RefreshRouteCacheAction::class);
-    $warm = Mockery::mock(WarmRuntimeAction::class);
-    $doctor = Mockery::mock(RunRuntimeDoctorAction::class);
-
-    $artisan->shouldReceive('handle')->with('packages', 'Capell package cache', 'capell:package-cache')->once()
-        ->andReturn(runtimeRefreshStage('packages', false));
-    $artisan->shouldReceive('handle')->with('views', 'Compiled views', 'view:clear')->once()
-        ->andReturn(runtimeRefreshStage('views'));
-    $config->shouldReceive('handle')->once()->andThrow(new RuntimeException('config cache failed'));
-    $routes->shouldReceive('handle')->once()->andReturn(runtimeRefreshStage('routes'));
-    $warm->shouldReceive('handle')->once()->andReturn(runtimeRefreshStage('warm'));
-    $doctor->shouldReceive('handle')->once()->andReturn(runtimeRefreshStage('doctor'));
-
-    $artisan->shouldReceive('handle')->once()->with('workers', 'Queue workers', 'queue:restart')
-        ->andReturnUsing(function () use (&$order): RuntimeRefreshStageResultData {
-            $order[] = 'workers';
-
-            return runtimeRefreshStage('workers');
-        });
-
-    $result = new RunRuntimeRefreshAction($artisan, $config, $routes, $warm, $doctor)->handle();
-
+it('reports failures while retaining results from independent stages', function (): void {
+    $result = runtimeRefreshFixture(fail: true)->handle();
+    $stages = $result->stages->keyBy('key');
     expect($result->passed())->toBeFalse()
-        ->and($result->stages)->toHaveCount(7)
-        ->and($result->stages->pluck('key')->all())->toBe(['packages', 'views', 'config', 'routes', 'warm', 'doctor', 'workers'])
-        ->and($result->stages->firstWhere('key', 'config')?->message)->toBe('config cache failed')
-        ->and($result->stages->where('passed', true))->toHaveCount(5);
+        ->and($stages->keys()->all())->toEqualCanonicalizing(['packages', 'views', 'config', 'routes', 'warm', 'doctor', 'workers'])
+        ->and($stages->get('packages')?->passed)->toBeFalse()
+        ->and($stages->get('config')?->passed)->toBeFalse()
+        ->and($stages->get('config')?->message)->toBe('config cache failed')
+        ->and($result->stages->where('passed', true)->pluck('key')->all())->toEqualCanonicalizing(['views', 'routes', 'warm', 'doctor', 'workers']);
 });

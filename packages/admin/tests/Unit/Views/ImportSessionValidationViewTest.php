@@ -2,14 +2,19 @@
 
 declare(strict_types=1);
 
-it('keeps fallback validation output readable in light and dark mode', function (): void {
-    $view = file_get_contents(
-        dirname(__DIR__, 3) . '/resources/views/components/exchanger/import-session-validation.blade.php',
-    );
+require_once dirname(__DIR__, 5) . '/tests/Support/DomQuery.php';
 
-    expect($view)
-        ->toContain('bg-gray-50')
-        ->toContain('text-gray-900')
-        ->toContain('dark:bg-white/5')
-        ->toContain('dark:text-gray-100');
+it('renders readable escaped fallback validation results in light and dark mode', function (): void {
+    $results = ['unexpected' => '<script>alert("unsafe")</script>'];
+    $record = (object) ['validation_results' => $results];
+    $html = view('capell-admin::components.exchanger.import-session-validation', [
+        'getRecord' => static fn (): object => $record,
+    ])->render();
+    $xpath = domXPath($html);
+    $fallback = domElement($xpath, '//pre[code]');
+
+    expect(json_decode(domText($fallback), true, flags: JSON_THROW_ON_ERROR))->toBe($results)
+        ->and(domCount($xpath, '//script'))->toBe(0);
+    $classes = preg_split('/\s+/', domAttribute($fallback, 'class'));
+    expect($classes)->toContain('bg-gray-50', 'text-gray-900', 'dark:bg-white/5', 'dark:text-gray-100');
 });
