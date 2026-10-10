@@ -522,7 +522,7 @@ return [
     'theme_type' => 'Theme type',
     'title' => 'Title',
     'twitter_handle' => 'X / Twitter handle',
-    'type' => 'Blueprint',
+    'type' => 'Type',
     'type_availability' => 'Availability',
     'user_credentials' => 'Credentials',
     'user_identity' => 'Identity',
