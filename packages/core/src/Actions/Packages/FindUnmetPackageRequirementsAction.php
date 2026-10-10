@@ -8,10 +8,12 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Data\PackageRequirementData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\TrustedCorePackages;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class FindUnmetPackageRequirementsAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return list<PackageRequirementData> */

@@ -19,12 +19,14 @@ use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Capell\Core\Support\Upgrade\UpgradePipelineIo;
 use Illuminate\Support\Facades\Schema;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
 final class ReconcileEnabledPackageRequirementsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(UpgradeRunOptions $options, UpgradePipelineIo $io, bool $validateOnly = false): bool

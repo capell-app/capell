@@ -6,10 +6,12 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RunDeclaredPackageMigrationsAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(PackageData $package, ProgressReporter $reporter): void
