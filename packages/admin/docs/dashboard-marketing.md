@@ -1,6 +1,6 @@
-# Marketing Studio
+# Marketing dashboard contributions
 
-Marketing Studio is the editor-focused dashboard at `/admin/marketing-studio`. It keeps everyday marketing work under one primary sidebar item and moves technical resources into the dashboard Advanced area.
+Marketing actions and widgets appear on the main Dashboard. Packages retain their existing contribution APIs; the sidebar uses Content Library and Design for reusable content and page-building tools.
 
 ## Registering Actions
 
@@ -25,7 +25,7 @@ Use daily editor resources in `Campaigns`, `Audience`, `Forms`, or `Performance`
 
 ## Registering Widgets
 
-Marketing Studio widgets use the existing dashboard Filament widget system:
+Marketing widgets use the existing dashboard Filament widget system:
 
 ```php
 CapellAdmin::registerDashboardFilamentWidget(
@@ -34,4 +34,4 @@ CapellAdmin::registerDashboardFilamentWidget(
 );
 ```
 
-Widgets participate in the same enabled/order/span settings as the main and Extensions dashboards. Core widgets ship with default keys under `marketing_studio.*`.
+Widgets participate in the same enabled/order/span settings as other dashboard widgets. Core widgets ship with default keys under `marketing_studio.*`.

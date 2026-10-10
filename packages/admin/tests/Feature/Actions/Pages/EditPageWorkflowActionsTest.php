@@ -15,6 +15,7 @@ use Capell\Admin\Data\Pages\PageUrlRedirectRequestData;
 use Capell\Admin\Enums\PageEditorLockOperation;
 use Capell\Admin\Enums\PageEditorLockStatus;
 use Capell\Admin\Enums\PageEditorScratchDraftStatus;
+use Capell\Admin\Tests\Fixtures\RetainedDraftSubclassPage;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Contracts\Redirects\RedirectUrlRecorder;
 use Capell\Core\Events\PageSaved;
@@ -23,6 +24,7 @@ use Capell\Core\Models\EditorScratchDraft;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -233,6 +235,35 @@ it('builds raw editor session configuration without translated presentation', fu
         'localDraftTtlMs' => 86_400_000,
         'localDraftVersion' => 1,
     ]);
+});
+
+it('keeps browser recovery drafts separate for content types with the same record id', function (): void {
+    $page = Page::factory()->createOne();
+    $map = Relation::morphMap();
+    Relation::morphMap(['companion_page' => RetainedDraftSubclassPage::class]);
+    try {
+        $companion = new RetainedDraftSubclassPage;
+        $companion->setRawAttributes($page->getAttributes());
+        $editor = test()->actingAsAdmin()->authenticatedUser();
+        $sessions = [];
+        foreach ([$page, $companion] as $record) {
+            $sessions[] = BuildPageEditorSessionAction::run(
+                page: $record,
+                user: $editor,
+                locale: 'en',
+                heartbeatUrl: '',
+                releaseUrl: '',
+                logoutUrl: '/admin/logout',
+                csrfToken: null,
+                initialConflict: false,
+            );
+        }
+
+        expect($sessions[0]->storageKey)->not->toBe($sessions[1]->storageKey)
+            ->and($sessions[0]->pageId)->toBe($sessions[1]->pageId);
+    } finally {
+        Relation::morphMap($map, merge: false);
+    }
 });
 
 it('saves and discards editor scratch drafts through typed outcomes', function (): void {

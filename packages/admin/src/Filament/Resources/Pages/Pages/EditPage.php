@@ -715,11 +715,32 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             AdminZoneContextData::pageEdit($this),
         );
 
-        return [
+        $actions = [
             ...$stableActions,
             ...collect(app()->tagged(PageEditExtender::TAG))
                 ->flatMap(fn (PageEditExtender $extender): array => $extender->getFormActions())
                 ->all(),
+        ];
+
+        foreach ($actions as $action) {
+            if ($action instanceof ActionGroup
+                ? array_key_exists('saveAsDraft', $action->getFlatActions())
+                : $action->getName() === 'saveAsDraft') {
+                return $actions;
+            }
+        }
+
+        return [
+            Action::make('saveAsDraft')
+                ->label(__('capell-admin::button.save_as_draft'))
+                ->tooltip(__('capell-admin::button.save_as_draft_tooltip'))
+                ->icon('heroicon-o-document-text')
+                ->color('gray')
+                ->visible(fn (): bool => ! $this->isLivePublishedRecord())
+                ->action(function (): void {
+                    $this->saveAsDraft();
+                }),
+            ...$actions,
         ];
     }
 
@@ -954,10 +975,10 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             user: $this->currentUser(),
             locale: app()->getLocale(),
             heartbeatUrl: Route::has('capell-admin.api.pages.content-lock.heartbeat')
-                ? route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $this->record])
+                ? route('capell-admin.api.pages.content-lock.heartbeat', ['page' => $this->record, 'type' => $this->record->getMorphClass()])
                 : '',
             releaseUrl: Route::has('capell-admin.api.pages.content-lock.release')
-                ? route('capell-admin.api.pages.content-lock.release', ['page' => $this->record])
+                ? route('capell-admin.api.pages.content-lock.release', ['page' => $this->record, 'type' => $this->record->getMorphClass()])
                 : '',
             logoutUrl: Filament::getLogoutUrl(),
             csrfToken: csrf_token(),

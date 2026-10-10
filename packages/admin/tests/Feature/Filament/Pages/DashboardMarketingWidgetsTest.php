@@ -5,20 +5,21 @@ declare(strict_types=1);
 use Capell\Admin\Data\MarketingStudioActionData;
 use Capell\Admin\Enums\MarketingStudioSectionEnum;
 use Capell\Admin\Facades\CapellAdmin;
-use Capell\Admin\Filament\Pages\MarketingStudioPage;
+use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioAdvancedFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
-use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
 
-it('renders marketing studio actions through the dashboard Filament widgets', function (): void {
-    grantMarketingStudioPageAccess();
+it('renders marketing dashboard actions through the dashboard Filament widgets', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
 
     CapellAdmin::registerMarketingStudioAction(new MarketingStudioActionData(
         key: 'launch-newsletter',
@@ -54,9 +55,8 @@ it('renders marketing studio actions through the dashboard Filament widgets', fu
         visible: false,
     ));
 
-    Livewire::test(MarketingStudioPage::class)
+    Livewire::test(CapellDashboard::class)
         ->assertSuccessful()
-        ->assertSee(__('capell-admin::marketing-studio.title'))
         ->assertSeeLivewire(MarketingStudioQuickActionsFilamentWidget::class)
         ->assertSeeLivewire(MarketingStudioWorkQueueFilamentWidget::class)
         ->assertSeeLivewire(MarketingStudioAdvancedFilamentWidget::class);
@@ -80,8 +80,9 @@ it('renders marketing studio actions through the dashboard Filament widgets', fu
         ->assertDontSee('Hidden experiment');
 });
 
-it('filters marketing studio widgets using admin dashboard settings', function (): void {
-    grantMarketingStudioPageAccess();
+it('filters marketing dashboard widgets using admin dashboard settings', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
 
     $settings = AdminSettings::instance();
     $settings->enabled_widgets = [
@@ -91,61 +92,10 @@ it('filters marketing studio widgets using admin dashboard settings', function (
     ];
     $settings->save();
 
-    $widgets = (new MarketingStudioPage)->getWidgets();
+    $widgets = (new CapellDashboard)->getWidgets();
 
     expect($widgets)
         ->toContain(MarketingStudioQuickActionsFilamentWidget::class)
         ->not->toContain(MarketingStudioTimelineFilamentWidget::class)
         ->not->toContain(MarketingStudioAdvancedFilamentWidget::class);
 });
-
-it('persists dashboard layout changes from the marketing studio customise action', function (): void {
-    grantMarketingStudioPageAccess(canManageSettings: true);
-
-    Livewire::test(MarketingStudioPage::class)
-        ->assertActionVisible('customiseMarketingStudioDashboard')
-        ->callAction('customiseMarketingStudioDashboard', data: [
-            'widget_layout' => [
-                [
-                    'key' => MarketingStudioQuickActionsFilamentWidget::settingsKey(),
-                    'enabled' => true,
-                    'order' => 30,
-                ],
-                [
-                    'key' => MarketingStudioTimelineFilamentWidget::settingsKey(),
-                    'enabled' => false,
-                    'order' => 10,
-                ],
-            ],
-        ])
-        ->assertNotified(__('capell-admin::notification.dashboard_customised'));
-
-    $settings = AdminSettings::instance()->refresh();
-
-    expect($settings->enabled_widgets)
-        ->toHaveKey(MarketingStudioQuickActionsFilamentWidget::settingsKey(), true)
-        ->toHaveKey(MarketingStudioTimelineFilamentWidget::settingsKey(), false)
-        ->and($settings->widget_order)
-        ->toHaveKey(MarketingStudioQuickActionsFilamentWidget::settingsKey(), 30)
-        ->toHaveKey(MarketingStudioTimelineFilamentWidget::settingsKey(), 10);
-});
-
-it('hides the dashboard customise action from users without settings access', function (): void {
-    grantMarketingStudioPageAccess(asAdmin: false);
-
-    Livewire::test(MarketingStudioPage::class)
-        ->assertActionHidden('customiseMarketingStudioDashboard');
-});
-
-function grantMarketingStudioPageAccess(bool $canManageSettings = false, bool $asAdmin = true): void
-{
-    Permission::create(['name' => 'View:MarketingStudioPage', 'guard_name' => 'web']);
-    Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
-
-    $asAdmin ? test()->actingAsAdmin() : test()->actingAsUser();
-    test()->authenticatedUser()->givePermissionTo('View:MarketingStudioPage');
-
-    if ($canManageSettings) {
-        test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
-    }
-}

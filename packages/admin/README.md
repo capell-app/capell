@@ -149,7 +149,7 @@ Package development and coordinated verification happen in the [capell-app/capel
 | [Admin multi-language](docs/admin-multi-language.md)                              | Admin language records, translations, and user preferences. |
 | [Admin tool registry](docs/admin-tool-registry.md)                                | Header tools and admin utility actions.                     |
 | [Dashboard Filament widget customization](docs/dashboard-widget-customization.md) | Registering and overriding dashboard Filament widgets.      |
-| [Marketing Studio](docs/marketing-studio.md)                                      | Contributing editor-focused marketing actions and widgets.  |
+| [Marketing dashboard contributions](docs/dashboard-marketing.md)                  | Contributing editor-focused marketing actions and widgets.  |
 | [Event registry](docs/event-registry.md)                                          | Admin lifecycle event subscriptions.                        |
 | [Permissions and approval](docs/permissions-and-approval.md)                      | Role and approval rules around publishing.                  |
 | [Resource registration](docs/resource-registration.md)                            | Contributed resources and admin surface lookup.             |

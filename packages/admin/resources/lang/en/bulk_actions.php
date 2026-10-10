@@ -73,7 +73,7 @@ return [
     'media_mark_decorative_description' => 'Only selected image records currently missing alt text will be changed. Their default-language alt text will be cleared and the decorative flag will be set.',
     'media_delete_unused' => 'Move unused media to trash',
     'media_delete_unused_heading' => 'Move selected unused media to trash?',
-    'media_delete_unused_description' => 'Only records with no accessible tracked uses will be moved to the media trash. Usage is checked again before each delete.',
+    'media_delete_unused_description' => 'Unused library uploads can be moved to trash. Files attached directly to content or referenced elsewhere are kept. Usage is checked again before each delete.',
     'media_selected_count' => 'Selected records: :count.',
     'media_repair_done' => 'Media health action completed: :repaired repaired, :skipped skipped.',
     'media_repair_reason_inaccessible' => 'record is no longer accessible',
@@ -82,6 +82,6 @@ return [
     'media_repair_reason_not_an_image' => 'record is not an image',
     'media_repair_reason_missing_language' => 'no default language metadata exists',
     'media_repair_reason_missing_translation' => 'default-language metadata could not be found',
-    'media_repair_reason_in_use' => 'tracked uses were found during recheck',
+    'media_repair_reason_in_use' => 'the file is attached to content or still referenced',
     'media_repair_reason_delete_failed' => 'record could not be moved to trash',
 ];

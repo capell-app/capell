@@ -73,7 +73,7 @@ class RedirectResource extends SiteScopedResource
     #[Override]
     public static function getNavigationGroup(): ?string
     {
-        return (string) __('capell-admin::navigation.group_system');
+        return (string) __('capell-admin::navigation.workspace_health');
     }
 
     #[Override]

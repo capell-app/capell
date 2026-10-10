@@ -14,19 +14,20 @@ final class UploadSiteMediaAction
     use AsFake;
     use AsObject;
 
-    public function handle(Site $site, mixed $uploadedFiles): int
+    /** @param array<string, string> $originalFileNames */
+    public function handle(Site $site, mixed $uploadedFiles, array $originalFileNames = []): int
     {
         $paths = collect(is_array($uploadedFiles) ? $uploadedFiles : [])
             ->flatten()
             ->filter(fn (mixed $path): bool => is_string($path) && $path !== '')
             ->values();
 
-        $paths->each(function (string $path) use ($site): void {
+        $paths->each(function (string $path) use ($site, $originalFileNames): void {
             $absolutePath = Storage::disk('local')->path($path);
 
             $site
                 ->addMedia($absolutePath)
-                ->usingName(pathinfo($path, PATHINFO_FILENAME))
+                ->usingName(pathinfo($originalFileNames[$path] ?? $path, PATHINFO_FILENAME))
                 ->toMediaCollection('uploads', config('media-library.disk_name', 'public'));
         });
 

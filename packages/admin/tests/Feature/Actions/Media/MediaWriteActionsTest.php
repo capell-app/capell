@@ -72,6 +72,18 @@ it('uploads normalized local paths to the site uploads collection', function ():
         ->and($uploads->pluck('name')->all())->toBe(['hero-a', 'hero-b']);
 });
 
+it('uses original upload names without changing stored filenames', function (): void {
+    $site = Site::factory()->createOne();
+    $path = 'media-uploads/random-storage-name.png';
+    Storage::disk('local')->put($path, UploadedFile::fake()->image('source.png')->getContent());
+
+    UploadSiteMediaAction::run($site, [$path], [$path => 'Campaign hero.png']);
+
+    $media = Media::query()->sole();
+    expect($media->name)->toBe('Campaign hero')
+        ->and($media->file_name)->toBe('random-storage-name.png');
+});
+
 it('updates image editing state localized metadata and derived files', function (): void {
     $owner = Page::factory()->createOne();
     $language = Language::factory()->english()->createOne();

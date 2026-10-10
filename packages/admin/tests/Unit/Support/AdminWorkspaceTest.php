@@ -6,7 +6,6 @@ use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
-use Capell\Admin\Filament\Pages\MarketingStudioPage;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
@@ -81,15 +80,13 @@ it('registers built-in real Admin destinations alongside package contributions',
 
     $definitions = CapellAdmin::getWorkspaceDefinitions();
 
-    expect($definitions)->toHaveKeys(['capell.pages', 'capell.marketing-studio', 'capell.site-health', 'package.analytics'])
+    expect($definitions)->toHaveKeys(['capell.pages', 'capell.site-health', 'package.analytics'])
         ->and($definitions['capell.pages']->label)->toBeInstanceOf(Closure::class)
         ->and($definitions['capell.pages']->url)->toBeInstanceOf(Closure::class)
         ->and($definitions['package.analytics']->label)->toBeInstanceOf(Closure::class)
         ->and($definitions['capell.pages']->roles)->toBe([config('capell.roles.editor')])
-        ->and($definitions['capell.marketing-studio']->roles)->toBe([])
         ->and($definitions['capell.site-health']->roles)->toBe([])
         ->and($definitions['capell.pages']->permission)->toBe(ResourceEnum::Page->permission('view_any'))
-        ->and($definitions['capell.marketing-studio']->permission)->toBe('View:' . class_basename(MarketingStudioPage::class))
         ->and($definitions['capell.site-health']->permission)->toBe('View:' . class_basename(SiteHealthPage::class));
 });
 
@@ -101,11 +98,9 @@ it('uses relative URLs from the configured Filament panel for built-in destinati
 
     $definitions = CapellAdmin::getWorkspaceDefinitions();
     assert($definitions['capell.pages']->url instanceof Closure);
-    assert($definitions['capell.marketing-studio']->url instanceof Closure);
     assert($definitions['capell.site-health']->url instanceof Closure);
     $actor = new AdminWorkspaceTestUser(['editor'], [
         ResourceEnum::Page->permission('view_any'),
-        'View:' . class_basename(MarketingStudioPage::class),
         'View:' . class_basename(SiteHealthPage::class),
     ]);
     $visible = resolve(AdminWorkspaceRegistry::class)->visible($actor);
@@ -113,14 +108,11 @@ it('uses relative URLs from the configured Filament panel for built-in destinati
     expect(($definitions['capell.pages']->url)($actor))
         ->toBe(PageResource::getUrl('index', isAbsolute: false))
         ->toStartWith('/')
-        ->and(($definitions['capell.marketing-studio']->url)($actor))
-        ->toBe(MarketingStudioPage::getUrl(isAbsolute: false))
-        ->toStartWith('/')
         ->and(($definitions['capell.site-health']->url)($actor))
         ->toBe(SiteHealthPage::getUrl(isAbsolute: false))
         ->toStartWith('/')
         ->and(array_column($visible, 'key'))
-        ->toBe(['capell.pages', 'capell.marketing-studio', 'capell.site-health']);
+        ->toBe(['capell.pages', 'capell.site-health']);
 });
 
 it('registers workspace definitions through the manager facade', function (): void {
