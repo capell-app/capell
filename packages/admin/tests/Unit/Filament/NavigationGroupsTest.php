@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
-use Capell\Admin\Filament\Pages\MarketingStudioPage;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Activities\ActivityResource;
@@ -22,15 +21,15 @@ use Capell\Admin\Filament\Resources\Users\UserResource;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
+use Filament\Navigation\NavigationManager;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Permission;
 
 it('keeps primary admin navigation in the approved groups', function (): void {
     expect(PageResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_websites'))
         ->and(CapellDashboard::getNavigationGroup())->toBeNull()
-        ->and(CapellDashboard::shouldRegisterNavigation())->toBeTrue()
-        ->and(MarketingStudioPage::getNavigationGroup())->toBeNull()
-        ->and(MarketingStudioPage::getNavigationLabel())->toBe((string) __('capell-admin::navigation.marketing_studio'));
+        ->and(CapellDashboard::shouldRegisterNavigation())->toBeTrue();
 });
 
 it('uses clearer admin navigation groups without conflicting group icons', function (): void {
@@ -62,7 +61,6 @@ it('promotes workspace activity into the workspace navigation group', function (
 
 it('groups web page authoring tools in the requested order', function (): void {
     expect(CapellDashboard::getNavigationSort())->toBe(-100)
-        ->and(MarketingStudioPage::getNavigationSort())->toBe(-90)
         ->and(PageResource::getNavigationSort())->toBe(-80)
         ->and(PageResource::getNavigationLabel())->toBe((string) __('capell-admin::navigation.pages'))
         ->and(PageResource::getNavigationIcon())->toBe(Heroicon::OutlinedGlobeAlt)
@@ -81,7 +79,8 @@ it('groups web page authoring tools in the requested order', function (): void {
         ->and(ThemeResource::getNavigationSort())->toBe(8)
         ->and(ThemeResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_websites'))
         ->and(RedirectResource::getNavigationSort())->toBe(9)
-        ->and(RedirectResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
+        ->and(RedirectResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.workspace_health'))
+        ->and(RedirectResource::getNavigationLabel())->toBe((string) __('capell-admin::navigation.redirects'))
         ->and(BlueprintResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
         ->and(BlueprintResource::getNavigationSort())->toBe(10);
 });
@@ -92,23 +91,23 @@ it('keeps manage extensions first in system navigation', function (): void {
         ->and(ExtensionsPage::getNavigationItems()[0]->getSort())->toBe(PHP_INT_MIN);
 });
 
-it('keeps users top-level with roles nested underneath', function (): void {
+it('groups users under system with roles nested underneath', function (): void {
     test()->actingAsAdmin();
 
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
 
-    expect(UserResource::getNavigationGroup())->toBeNull()
+    expect(UserResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
         ->and(UserResource::getNavigationSort())->toBe(-70)
-        ->and(RoleResource::getNavigationGroup())->toBeNull()
+        ->and(RoleResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
         ->and(RoleResource::getNavigationParentItem())->toBe((string) __('capell-admin::navigation.users'))
         ->and(RoleResource::getNavigationSort())->toBe(1)
         ->and(RoleResource::getNavigationIcon())->toBe(Heroicon::OutlinedKey)
         ->and(RoleResource::getActiveNavigationIcon())->toBe(Heroicon::Key);
 });
 
-it('keeps settings in system and registers site health under monitoring', function (): void {
+it('registers site health under monitoring before grouping it with settings in the system workspace', function (): void {
     Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
     Permission::create(['name' => 'View:SiteHealthPage', 'guard_name' => 'web']);
 
@@ -119,7 +118,11 @@ it('keeps settings in system and registers site health under monitoring', functi
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
 
-    $navigation = collect(Filament::getNavigation());
+    $groups = Filament::getNavigation();
+    $registeredNavigation = new ReflectionMethod(NavigationManager::class, 'get');
+    /** @var array<NavigationGroup> $registeredGroups */
+    $registeredGroups = $registeredNavigation->invoke(resolve(NavigationManager::class));
+    $navigation = collect($registeredGroups);
     $systemNavigationGroup = $navigation
         ->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_system'));
 
@@ -127,7 +130,6 @@ it('keeps settings in system and registers site health under monitoring', functi
     assert($systemNavigationGroup instanceof NavigationGroup);
 
     $systemNavigationLabels = collect($systemNavigationGroup->getItems())
-        ->filter(fn (mixed $navigationItem): bool => $navigationItem instanceof NavigationItem)
         ->map(fn (NavigationItem $navigationItem): string => $navigationItem->getLabel())
         ->all();
 
@@ -142,10 +144,60 @@ it('keeps settings in system and registers site health under monitoring', functi
     assert($monitoringNavigationGroup instanceof NavigationGroup);
 
     $monitoringNavigationLabels = collect($monitoringNavigationGroup->getItems())
-        ->filter(fn (mixed $navigationItem): bool => $navigationItem instanceof NavigationItem)
         ->map(fn (NavigationItem $navigationItem): string => $navigationItem->getLabel())
         ->all();
 
-    expect($monitoringNavigationLabels)->toContain(SiteHealthPage::getNavigationLabel());
-    expect(SiteHealthPage::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_monitoring'));
+    expect($monitoringNavigationLabels)->toContain(SiteHealthPage::getNavigationLabel())
+        ->and(SiteHealthPage::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_monitoring'));
+
+    $system = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.workspace_system'));
+    expect($system)->toBeInstanceOf(NavigationGroup::class);
+    assert($system instanceof NavigationGroup);
+
+    expect(collect($system->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())
+        ->toContain(SettingsPage::getUrl(), SiteHealthPage::getUrl())
+        ->and(collect($groups)->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all())
+        ->not->toContain(__('capell-admin::navigation.group_monitoring'));
+});
+
+it('keeps sidebar groups while moving secondary design tools into local navigation', function (): void {
+    test()->actingAsAdmin();
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::bootCurrentPanel();
+    Filament::setServingStatus();
+    $groups = Filament::getNavigation();
+    $labels = collect($groups)->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all();
+    expect($labels)->toContain(__('capell-admin::navigation.group_websites'), __('capell-admin::navigation.workspace_library'), __('capell-admin::navigation.workspace_design'), __('capell-admin::navigation.workspace_system'));
+    $design = collect($groups)->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.workspace_design'));
+    assert($design instanceof NavigationGroup);
+    expect(collect($design->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())
+        ->toBe([__('capell-admin::navigation.layouts'), __('capell-admin::navigation.themes')]);
+});
+
+it('does not expose secondary resources to an actor without resource permissions', function (): void {
+    test()->actingAsUser();
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::bootCurrentPanel();
+    Filament::setServingStatus();
+    $keys = collect(Filament::getNavigation())->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
+        ->map(fn (NavigationItem $item): ?string => $item->getUrl())->all();
+    expect($keys)->not->toContain(MediaResource::getUrl(), LayoutResource::getUrl(), ThemeResource::getUrl());
+});
+
+it('keeps a permitted package child reachable when its parent uses a different group', function (): void {
+    test()->actingAsAdmin();
+    $panel = Filament::getPanel('admin');
+    $panel->navigationItems([
+        NavigationItem::make('Articles')->key('test.articles')->group('Website')->url('/admin/blog/article'),
+        NavigationItem::make('Tags')->key('test.tags')->parentItem('Articles')->url('/admin/tags')->isActiveWhen(fn (): bool => true),
+    ]);
+    Filament::setCurrentPanel($panel);
+    Filament::bootCurrentPanel();
+    Filament::setServingStatus();
+    $groups = Filament::getNavigation();
+    $article = collect($groups)->flatMap(fn (NavigationGroup $group): Collection => collect($group->getItems()))
+        ->first(fn (NavigationItem $item): bool => $item->getKey() === 'test.articles');
+    expect($article)->toBeInstanceOf(NavigationItem::class);
+    assert($article instanceof NavigationItem);
+    expect(collect($article->getChildItems())->map(fn (NavigationItem $item): string => $item->getKey())->all())->toContain('test.tags');
 });

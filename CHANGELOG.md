@@ -16,6 +16,10 @@ the `Update Changelog` workflow.
 
 ### Fixed
 
+- Grouped Admin navigation with local menus for secondary Design tools; removed the separate marketing dashboard page and composed its widgets into Dashboard.
+
+- Added an ordinary draft-save control in the configured page action position without duplicating extension-provided draft actions.
+
 - Registered the compiled Admin theme during panel installation, preserving explicit themes and reporting customised provider methods that need manual configuration.
 - Resolved missing installer packages before application or database changes, clarified catalogue licensing and first-site URLs, and reported partial failures with focused recovery commands.
 - Preserved local Core path constraints during Composer downloads and avoided borrowing vendor migration stubs from a different installed version.

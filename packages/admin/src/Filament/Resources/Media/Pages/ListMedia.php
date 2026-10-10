@@ -49,6 +49,7 @@ class ListMedia extends ListRecords
                     FileUpload::make('files')
                         ->label(__('capell-admin::media.upload_files'))
                         ->multiple()
+                        ->storeFileNamesIn('original_file_names')
                         ->required()
                         ->disk('local')
                         ->directory('media-uploads'),
@@ -150,7 +151,10 @@ class ListMedia extends ListRecords
             ]);
         }
 
-        $uploadedCount = UploadSiteMediaAction::run($site, $data['files'] ?? []);
+        $originalFileNames = collect(is_array($data['original_file_names'] ?? null) ? $data['original_file_names'] : [])
+            ->filter(fn (mixed $name): bool => is_string($name) && $name !== '')
+            ->all();
+        $uploadedCount = UploadSiteMediaAction::run($site, $data['files'] ?? [], $originalFileNames);
 
         Notification::make()
             ->title(trans_choice('capell-admin::media.upload_files_success', $uploadedCount, ['count' => $uploadedCount]))

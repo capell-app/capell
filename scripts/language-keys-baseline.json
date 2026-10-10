@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "auditScript": "scripts/audit-language-keys.sh",
     "root": "packages",
-    "unusedCount": 744,
+    "unusedCount": 743,
     "missingCount": 20,
     "unused": [
         "capell-admin::activity.changed_fields",
@@ -263,7 +263,6 @@
         "capell-admin::navigation.broken_links",
         "capell-admin::navigation.elements",
         "capell-admin::navigation.group_dashboard",
-        "capell-admin::navigation.group_layouts",
         "capell-admin::navigation.media_health",
         "capell-admin::navigation.navigations",
         "capell-admin::navigation.not_found",
@@ -772,7 +771,7 @@
         "capell-marketplace::marketplace.marketplace.verify_button",
         "capell-marketplace::marketplace.selection.impact_reason_"
     ],
-    "dynamicSiteCount": 100,
+    "dynamicSiteCount": 99,
     "dynamicFamilyCount": 41,
     "dynamicSites": [
         "packages/admin/resources/views/activity/details.blade.php::family:capell-admin::activity.skip_reasons.*",
@@ -786,7 +785,6 @@
         "packages/admin/src/Actions/Sites/BuildSiteDeletionImpactDescriptionAction.php::family:capell-admin::generic.*",
         "packages/admin/src/Data/Pages/PageAvailabilityData.php::choices:capell-admin::table.page_availability_some_urls_disabled",
         "packages/admin/src/Data/Pages/PageAvailabilityData.php::choices:capell-admin::table.page_availability_some_urls_disabled_tooltip",
-        "packages/admin/src/Filament/Actions/Page/CreatePageAction.php::choices:capell-admin::button.create_type",
         "packages/admin/src/Filament/Actions/Page/ReplicatePageAction.php::choices:capell-admin::message.replicate_success",
         "packages/admin/src/Filament/Actions/Page/ReplicateSiteAction.php::choices:capell-admin::message.replicate_success",
         "packages/admin/src/Filament/Actions/ReplicateAction.php::choices:capell-admin::message.replicate_success",

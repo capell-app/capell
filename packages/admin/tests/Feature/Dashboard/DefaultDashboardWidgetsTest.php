@@ -44,6 +44,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Auth;
+use LogicException;
 use ReflectionMethod;
 use ReflectionProperty;
 
@@ -263,7 +264,87 @@ it('composes visible dashboard regions without empty section wrappers', function
         ->and($components[1])->toBeInstanceOf(Grid::class)
         ->and($components[2])->toBeInstanceOf(Grid::class)
         ->and($components[3])->toBeInstanceOf(Section::class);
+
+    assert($components[0] instanceof Grid);
+    assert($components[1] instanceof Grid);
+    assert($components[2] instanceof Grid);
+    assert($components[3] instanceof Section);
+
+    expect(defaultDashboardRegionWidgets($components[0]))->toBe([
+        AnalyticsTrendFilamentWidget::class,
+        AnalyticsInsightsFilamentWidget::class,
+    ])
+        ->and(defaultDashboardRegionWidgets($components[1]))->toBe([AnalyticsOverviewFilamentWidget::class])
+        ->and(defaultDashboardRegionWidgets($components[2]))->toBe([AnalyticsRecentActivityFilamentWidget::class])
+        ->and($components[3]->getHeading())->toBe(__('capell-admin::dashboard.region_additional'))
+        ->and($components[3]->isCollapsed())->toBeTrue()
+        ->and(defaultDashboardRegionWidgets($components[3]))->toContain(
+            CapellAccountFilamentWidget::class,
+            CapellInfoFilamentWidget::class,
+            ListPagesFilamentWidget::class,
+            RecentActivityFilamentWidget::class,
+        );
 });
+
+it('retains enabled marketing contributions in the compact dashboard additional information', function (bool $enabled): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+
+    $marketingWidgets = [
+        MarketingStudioQuickActionsFilamentWidget::class,
+        MarketingStudioWorkQueueFilamentWidget::class,
+        MarketingStudioLaunchReadinessFilamentWidget::class,
+        MarketingStudioTimelineFilamentWidget::class,
+        MarketingStudioAdvancedFilamentWidget::class,
+    ];
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = array_replace(
+        $settings->enabled_widgets,
+        array_fill_keys(array_map(fn (string $widget): string => $widget::settingsKey(), $marketingWidgets), $enabled),
+    );
+    $settings->save();
+
+    $dashboard = new CapellDashboard;
+    $components = $dashboard->getWidgetsContentComponent()->getDefaultChildComponents();
+    $components = $components instanceof Schema ? $components->getComponents() : $components;
+
+    expect($components)->toHaveCount(4)
+        ->and($components[3])->toBeInstanceOf(Section::class);
+    assert($components[3] instanceof Section);
+
+    $widgets = $dashboard->getWidgets();
+    $additionalWidgets = defaultDashboardRegionWidgets($components[3]);
+
+    foreach ($marketingWidgets as $marketingWidget) {
+        expect(in_array($marketingWidget, $widgets, true))->toBe($enabled)
+            ->and(in_array($marketingWidget, $additionalWidgets, true))->toBe($enabled);
+    }
+})->with([
+    'enabled contributions' => true,
+    'disabled contributions' => false,
+]);
+
+/** @return list<string> */
+function defaultDashboardRegionWidgets(Grid|Section $region): array
+{
+    $components = $region->getDefaultChildComponents();
+    $components = $components instanceof Schema ? $components->getComponents() : $components;
+
+    $widgets = [];
+
+    foreach ($components as $component) {
+        if ($component instanceof Livewire) {
+            $widgets[] = $component->getComponent();
+
+            continue;
+        }
+
+        throw_unless($component instanceof Grid, LogicException::class, 'Expected a dashboard widget or grid.');
+        $widgets = [...$widgets, ...defaultDashboardRegionWidgets($component)];
+    }
+
+    return $widgets;
+}
 
 it('only passes page filters to widgets that declare the property', function (): void {
     Auth::login(test()->createUserWithRole('super_admin'));

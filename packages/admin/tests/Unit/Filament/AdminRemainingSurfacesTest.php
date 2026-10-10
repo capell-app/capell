@@ -66,6 +66,9 @@ it('selects dashboard Filament widgets from install state and available sites', 
     CapellAdmin::shouldReceive('getDashboardFilamentWidgets')
         ->with(DashboardEnum::Main)
         ->andReturn(['main-widget', $capellAccountWidget, $filamentInfoWidget]);
+    CapellAdmin::shouldReceive('getDashboardFilamentWidgets')
+        ->with(DashboardEnum::MarketingStudio)
+        ->andReturn([]);
     CapellCore::shouldReceive('getPackage')
         ->with(AdminServiceProvider::$packageName)
         ->andReturn(

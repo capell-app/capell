@@ -28,7 +28,10 @@ it('uses installation state for both dashboard paths when an actor has no assign
     $dashboard = new CapellDashboard;
 
     expect(new ReflectionMethod($dashboard, 'dashboardEnum')->invoke($dashboard))->toBe(DashboardEnum::Main)
-        ->and($dashboard->getWidgets())->toBe(CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main));
+        ->and($dashboard->getWidgets())->toBe(array_values(array_unique([
+            ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::Main),
+            ...CapellAdmin::getDashboardFilamentWidgets(DashboardEnum::MarketingStudio),
+        ], SORT_REGULAR)));
 });
 
 it('does not send a zero site actor to site installation when creating a page', function (): void {

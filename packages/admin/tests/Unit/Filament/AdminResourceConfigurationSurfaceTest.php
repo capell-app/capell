@@ -58,7 +58,7 @@ beforeEach(function (): void {
 it('builds the primary admin resource table surfaces with their expected controls', function (): void {
     assertAdminTableSurface(
         surface: adminTableSurface(MediaTable::class),
-        columns: ['id', 'original_url', 'file_name', 'collection_name', 'mime_type', 'owner_label', 'usage_count', 'created_at'],
+        columns: ['id', 'original_url', 'name', 'collection_name', 'mime_type', 'owner_label', 'usage_count', 'created_at'],
         filters: ['collection_name', 'mime_group', 'model_type', 'trashed'],
         recordActions: ['edit', 'open-owner', 'replace-file'],
     );

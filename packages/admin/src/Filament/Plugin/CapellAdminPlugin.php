@@ -14,7 +14,6 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\AvatarProviders\InlineSvgAvatarProvider;
 use Capell\Admin\Filament\Pages\AbstractPackageSettingsPage;
-use Capell\Admin\Filament\Pages\MarketingStudioPage;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
@@ -26,6 +25,8 @@ use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Admin\Support\Loader\SiteLoader;
+use Capell\Admin\Support\Navigation\WorkspaceNavigation;
+use Capell\Admin\Support\Navigation\WorkspaceNavigationManager;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
@@ -86,6 +87,7 @@ class CapellAdminPlugin implements Plugin
     public function boot(Panel $panel): void
     {
         $this->registerNavigationGroups($panel);
+        app()->scoped(NavigationManager::class, WorkspaceNavigationManager::class);
 
         Table::configureUsing(function (Table $table): void {
             $table->defaultSort(function (BuilderContract $query, string $direction) use ($table): BuilderContract {
@@ -184,6 +186,17 @@ class CapellAdminPlugin implements Plugin
                 throw_unless(resolve(InstalledPanelRuntime::class)->isUnavailable($panel->getId()), $throwable);
             }
         });
+
+        $panel->renderHook(
+            name: PanelsRenderHook::PAGE_HEADER_WIDGETS_BEFORE,
+            hook: function (): View {
+                FilamentFacade::getNavigation();
+
+                return view('capell-admin::components.workspace-navigation', [
+                    'navigation' => resolve(WorkspaceNavigation::class)->localNavigation(),
+                ]);
+            },
+        );
 
         $panel->renderHook(
             name: PanelsRenderHook::BODY_END,
@@ -316,18 +329,6 @@ class CapellAdminPlugin implements Plugin
             description: static fn (Authenticatable $actor): string => (string) __('capell-admin::generic.no_pages_description'),
             icon: Heroicon::OutlinedDocumentText,
             sort: 10,
-        ));
-
-        CapellAdmin::registerWorkspace(new AdminWorkspaceItemData(
-            key: 'capell.marketing-studio',
-            label: static fn (Authenticatable $actor): string => MarketingStudioPage::getNavigationLabel(),
-            url: static fn (Authenticatable $actor): string => MarketingStudioPage::getUrl(isAbsolute: false),
-            workspaces: [AdminWorkspaceEnum::Marketer],
-            roles: [],
-            permission: 'View:' . class_basename(MarketingStudioPage::class),
-            description: static fn (Authenticatable $actor): string => (string) __('capell-admin::marketing-studio.subheading'),
-            icon: Heroicon::OutlinedMegaphone,
-            sort: 20,
         ));
 
         CapellAdmin::registerWorkspace(new AdminWorkspaceItemData(

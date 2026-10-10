@@ -28,10 +28,22 @@ it('uses the record name for named resource titles', function (string $resource,
     'blueprints' => [BlueprintResource::class, 'name'],
     'languages' => [LanguageResource::class, 'name'],
     'layouts' => [LayoutResource::class, 'name'],
-    'media' => [MediaResource::class, 'file_name'],
+    'media' => [MediaResource::class, 'name'],
     'pages' => [PageResource::class, 'name'],
     'roles' => [RoleResource::class, 'name'],
     'sites' => [SiteResource::class, 'name'],
     'themes' => [ThemeResource::class, 'name'],
     'users' => [UserResource::class, 'name'],
 ]);
+
+it('uses the editable media name rather than its storage filename for the record title', function (): void {
+    $model = MediaResource::getModel();
+    $record = new $model;
+    $record->setRawAttributes([
+        'id' => 1,
+        'name' => 'Campaign hero',
+        'file_name' => 'random-storage.png',
+    ]);
+
+    expect(MediaResource::getRecordTitle($record))->toBe('Campaign hero');
+});

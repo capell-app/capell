@@ -192,6 +192,7 @@ use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
 use Capell\Admin\Support\Media\LegacyAwareAdminMediaFieldFactory;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
+use Capell\Admin\Support\Navigation\WorkspaceNavigation;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Admin\Support\Pages\DefaultPageTableStatusResolver;
 use Capell\Admin\Support\Pages\PageUrlRewritePromptState;
@@ -475,6 +476,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // can replace it. Admin never names the replacement; the bridge does.
         $this->app->bind(ExtensionRemovalCoordinator::class, InRequestExtensionRemovalCoordinator::class);
         $this->app->scoped(AdminNavigationBadgeCountCache::class);
+        $this->app->scoped(WorkspaceNavigation::class);
         $this->app->scoped(RedirectHealthRequestCache::class);
         $this->app->scoped(ThemeLibraryRuntime::class);
         $this->app->scoped(MediaDuplicateIndex::class);

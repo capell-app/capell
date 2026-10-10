@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Http\Middleware;
 
+use Capell\Admin\Actions\Pages\ResolveContentLockRecordAction;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -20,8 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
  * automatically scoped to that site.
  *
  * Resolution order:
- *  1. ?site / ?site_id query parameter (Filament resource pages often pass this)
- *  2. Route model binding — {record} resolved to a model that has a site_id
+ *  1. Resolved content-lock record or a bound route model with a site_id
+ *  2. ?site / ?site_id query parameter, restricted to assigned sites
  *  3. Session-selected site
  *  4. Current user's default site (single assigned site) — fallback only
  *
@@ -53,6 +54,17 @@ class SetSitePermissionScope
 
     private function resolveSiteId(Request $request): ?int
     {
+        if ($request->routeIs('capell-admin.api.pages.content-lock.*')) {
+            $recordId = $request->route('page');
+            $type = $request->query('type', 'page');
+            if (is_string($recordId) && is_string($type)) {
+                $record = ResolveContentLockRecordAction::run($type, $recordId);
+                if ($record !== null) {
+                    return (int) $record->getAttribute('site_id');
+                }
+            }
+        }
+
         // 2. Route model has a site_id attribute (Page, Layout, Navigation, etc.)
         //    Checked FIRST — the record itself is authoritative and cannot be
         //    spoofed by the caller.
