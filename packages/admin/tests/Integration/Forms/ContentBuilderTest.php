@@ -435,11 +435,30 @@ it('keeps legacy widgets with no contributed metadata usable in the picker', fun
         ->and($html)->toContain('Rich content');
 });
 
-it('exposes every picker item as a focusable, keyboard-activatable button', function (): void {
-    $html = renderBlockPicker(buildContentBuilder());
+it('exposes every picker item as an enabled action button', function (): void {
+    $builder = buildContentBuilder();
+    // Hidden template controls may legitimately be outside the tab order.
+    $html = renderBlockPicker($builder) . '<button type="button" tabindex="-1" hidden>Template action</button>';
+    $document = new DOMDocument;
+    $document->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
 
-    expect($html)->toContain('type="button"')
-        ->and($html)->not->toContain('tabindex="-1"');
+    $xpath = new DOMXPath($document);
+    $items = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " fi-capell-block-picker-item-label ")]/ancestor::button[1]');
+    throw_unless($items !== false, RuntimeException::class, 'Expected a picker item query.');
+
+    expect($items->length)->toBe(count($builder->getBlocks()))
+        ->toBeGreaterThan(0);
+
+    foreach ($items as $item) {
+        throw_unless($item instanceof DOMElement, RuntimeException::class, 'Expected a picker button.');
+
+        expect($item->getAttribute('type'))->toBe('button')
+            // Filament menus use menuitem roles and manage focus themselves.
+            ->and($item->getAttribute('role'))->toBeIn(['', 'button', 'menuitem'])
+            ->and($item->hasAttribute('disabled'))->toBeFalse()
+            ->and($item->getAttribute('aria-disabled'))->not->toBe('true')
+            ->and($item->getAttribute('wire:click'))->not->toBeEmpty();
+    }
 });
 
 it('renders syntactically valid Alpine expressions throughout the block picker', function (): void {

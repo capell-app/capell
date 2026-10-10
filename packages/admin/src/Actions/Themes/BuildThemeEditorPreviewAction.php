@@ -9,6 +9,7 @@ use Capell\Admin\Data\Themes\ThemeEditorContextData;
 use Capell\Admin\Data\Themes\ThemeEditorPreviewData;
 use Capell\Admin\Data\Themes\ThemeEditorStateData;
 use Capell\Admin\Support\Themes\ThemeEditorExtensionRegistry;
+use Capell\Core\ThemeStudio\Assets\ThemeTokenValidator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -62,7 +63,7 @@ final class BuildThemeEditorPreviewAction
         ];
 
         if (! $context instanceof ThemeEditorContextData) {
-            return $variables;
+            return $this->contrastVariables($variables);
         }
 
         foreach ($extensions as $extension) {
@@ -72,9 +73,26 @@ final class BuildThemeEditorPreviewAction
             ];
         }
 
-        return collect($variables)
+        return collect($this->contrastVariables($variables))
             ->filter(fn (string $value, string $key): bool => preg_match('/^--[a-z0-9-]+$/i', $key) === 1)
             ->all();
+    }
+
+    /**
+     * @param  array<string, string>  $variables
+     * @return array<string, string>
+     */
+    private function contrastVariables(array $variables): array
+    {
+        $validator = new ThemeTokenValidator;
+
+        foreach (['primary', 'accent'] as $name) {
+            $variables['--theme-' . $name . '-contrast'] = $validator->contrastIssues('#000000', $variables['--theme-' . $name]) === []
+                ? '#000000'
+                : '#ffffff';
+        }
+
+        return $variables;
     }
 
     /**

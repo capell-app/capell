@@ -45,14 +45,34 @@ final class ComposerLockedConstraintGuard
         return $versions;
     }
 
-    /** @return array<string, string> */
-    public static function committedVersions(string $repository): array
+    public static function sourceCommit(string $source): string
     {
-        // A fetched main ref keeps concurrent sibling edits out of the evidence.
-        $process = new Process(['git', '-C', $repository, 'show', 'origin/main:composer.lock']);
+        $variable = 'CAPELL_RELEASE_' . strtoupper($source) . '_COMMIT';
+        $commit = getenv($variable);
+
+        throw_if(
+            ! is_string($commit) || preg_match('/\A[a-f0-9]{40}\z/', $commit) !== 1,
+            RuntimeException::class,
+            $variable . ' must name an immutable 40-character commit.',
+        );
+
+        return $commit;
+    }
+
+    /** @return array<string, string> */
+    public static function committedVersions(string $repository, string $commit): array
+    {
+        throw_if(
+            preg_match('/\A[a-f0-9]{40}\z/', $commit) !== 1,
+            RuntimeException::class,
+            'Lock admission requires an immutable 40-character commit.',
+        );
+
+        // Moving fetched refs and concurrent sibling edits cannot change this input.
+        $process = new Process(['git', '-C', $repository, 'show', $commit . ':composer.lock']);
         $process->mustRun();
 
-        return self::versions($process->getOutput(), $repository . ' origin/main:composer.lock');
+        return self::versions($process->getOutput(), $repository . ' ' . $commit . ':composer.lock');
     }
 
     /**

@@ -63,12 +63,13 @@ it('admits the highest known stable version across Core Packages and App locks',
         $path = SiblingRepositoryLocator::path($root, $repository);
 
         if ($path === null) {
-            $message = sprintf('Unable to locate sibling %s checkout. Set ', $source) . ($source === 'Packages' ? 'CAPELL_PACKAGES_REPO_PATH' : 'CAPELL_APPLICATION_ROOT') . ' to evaluate the committed origin/main lock.';
+            $message = sprintf('Unable to locate sibling %s checkout. Set ', $source) . ($source === 'Packages' ? 'CAPELL_PACKAGES_REPO_PATH' : 'CAPELL_APPLICATION_ROOT') . ' to evaluate its pinned lock.';
 
             throw new RuntimeException($message);
         }
 
-        $locks[$source . ' origin/main:composer.lock'] = ComposerLockedConstraintGuard::committedVersions($path);
+        $commit = ComposerLockedConstraintGuard::sourceCommit($source);
+        $locks[$source . ' ' . $commit . ':composer.lock'] = ComposerLockedConstraintGuard::committedVersions($path, $commit);
     }
 
     $failures = ComposerLockedConstraintGuard::failures(coreLockedConstraintRequirements($root), ComposerLockedConstraintGuard::highest($locks), coreLockedConstraintHolds($root));
