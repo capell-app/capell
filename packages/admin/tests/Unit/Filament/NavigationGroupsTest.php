@@ -29,7 +29,7 @@ it('keeps primary admin navigation in the approved groups', function (): void {
     expect(PageResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_websites'))
         ->and(CapellDashboard::getNavigationGroup())->toBeNull()
         ->and(CapellDashboard::shouldRegisterNavigation())->toBeTrue()
-        ->and(MarketingStudioPage::getNavigationGroup())->toBeNull()
+        ->and(MarketingStudioPage::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_marketing'))
         ->and(MarketingStudioPage::getNavigationLabel())->toBe((string) __('capell-admin::navigation.marketing_studio'));
 });
 
@@ -92,16 +92,16 @@ it('keeps manage extensions first in system navigation', function (): void {
         ->and(ExtensionsPage::getNavigationItems()[0]->getSort())->toBe(PHP_INT_MIN);
 });
 
-it('keeps users top-level with roles nested underneath', function (): void {
+it('groups users under system with roles nested underneath', function (): void {
     test()->actingAsAdmin();
 
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::bootCurrentPanel();
     Filament::setServingStatus();
 
-    expect(UserResource::getNavigationGroup())->toBeNull()
+    expect(UserResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
         ->and(UserResource::getNavigationSort())->toBe(-70)
-        ->and(RoleResource::getNavigationGroup())->toBeNull()
+        ->and(RoleResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_system'))
         ->and(RoleResource::getNavigationParentItem())->toBe((string) __('capell-admin::navigation.users'))
         ->and(RoleResource::getNavigationSort())->toBe(1)
         ->and(RoleResource::getNavigationIcon())->toBe(Heroicon::OutlinedKey)
