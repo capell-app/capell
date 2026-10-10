@@ -50,7 +50,7 @@ it('does not dry-run uncached remote package choices when setup cache is unavail
 printf '%s\n' "$@" >> '__ARGUMENTS_PATH__'
 printf '%s\n' '---' >> '__ARGUMENTS_PATH__'
 for argument in "$@"; do
-    if [ "$argument" = "capell-app/admin:*" ]; then
+    if [ "$argument" = "capell-app/admin" ]; then
         exit 0
     fi
 done
@@ -208,7 +208,7 @@ it('offers composer-available trusted core packages before they are installed', 
     File::put($fakeComposerPath, <<<'SH'
 #!/bin/sh
 for argument in "$@"; do
-    if [ "$argument" = "capell-app/admin:*" ]; then
+    if [ "$argument" = "capell-app/admin" ]; then
         exit 0
     fi
 done

@@ -18,5 +18,9 @@ final readonly class InstallProfileData
         public ?bool $demo = null,
         public array $languages = [],
         public array $sites = [],
+        public ?string $siteUrl = null,
+        public ?bool $seedDefaultData = null,
+        public ?bool $seedDatabase = null,
+        public ?bool $buildAssets = null,
     ) {}
 }

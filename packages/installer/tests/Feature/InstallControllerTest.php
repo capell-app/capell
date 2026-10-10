@@ -2697,6 +2697,9 @@ it('requires a valid existing user when using an existing admin account', functi
 });
 
 it('does not require an example role user password when using an existing admin account', function (): void {
+    // A valid request reaches Composer before database preparation; keep this
+    // validation fixture from installing packages into the Testbench vendor tree.
+    $install = RunInstallAction::spy();
     $user = User::factory()->createOne();
 
     post(route('capell-installer.store'), installPostPayload([
@@ -2709,6 +2712,8 @@ it('does not require an example role user password when using an existing admin 
         'role_user_password' => null,
     ]))
         ->assertSessionDoesntHaveErrors(['role_user_password']);
+
+    $install->shouldHaveReceived('handle')->once();
 });
 
 // ─── Progress endpoint ───────────────────────────────────────────────────────

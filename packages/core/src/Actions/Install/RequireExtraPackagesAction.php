@@ -8,6 +8,8 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Composer\InstallComposerFailure;
+use Capell\Core\Support\Composer\InstallPackageArguments;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -33,9 +35,7 @@ class RequireExtraPackagesAction
 
         $reporter->step('Requiring extra packages via Composer…');
 
-        $packageArgs = app()->isLocal()
-            ? array_map(fn (string $name): string => str_contains($name, ':') ? $name : $name . ':*', $packages)
-            : $packages;
+        $packageArgs = resolve(InstallPackageArguments::class)->resolve(array_values($packages));
 
         /** @var list<string> $command */
         $command = array_merge(['composer', 'require', '--no-interaction', '--prefer-dist', '--with-all-dependencies'], $packageArgs);
@@ -61,7 +61,7 @@ class RequireExtraPackagesAction
         if (! $process->isSuccessful()) {
             $error = trim($outputTail);
             throw new RuntimeException(
-                sprintf('Failed to require extra packages [%s]: %s', implode(', ', $packages), $error !== '' ? $error : 'Unknown error.'),
+                sprintf("Failed to require extra packages [%s]: %s\n\nComposer output:\n%s", implode(', ', $packages), InstallComposerFailure::explanation($error), $error !== '' ? $error : 'Unknown error.'),
             );
         }
 

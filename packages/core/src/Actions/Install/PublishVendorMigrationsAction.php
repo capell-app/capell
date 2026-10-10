@@ -137,6 +137,13 @@ final class PublishVendorMigrationsAction
             return $basePathStub;
         }
 
+        $packageDirectory = implode('/', array_slice(explode('/', $stubRelativePath), 0, 3));
+        if (File::isDirectory(base_path($packageDirectory))) {
+            // A host package can deliberately omit old stubs (Activity Log v5 consolidates v4 columns).
+            // Never borrow a different version's migration from Core's development dependencies.
+            return null;
+        }
+
         $projectPathStub = realpath(__DIR__ . '/../../../../../' . $stubRelativePath);
 
         return $projectPathStub !== false ? $projectPathStub : null;

@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Capell\Core\Support\Install\Cli;
 
 use Capell\Core\Actions\GetPluginsAction;
+use Capell\Core\Actions\Install\CheckInstallPackageAccessAction;
+use Capell\Core\Actions\Install\ResolveInstallPackageLicenceAction;
 use Capell\Core\Data\Install\InstallRecommendationData;
 use Capell\Core\Data\Install\InstallSuiteSelectionData;
 use Capell\Core\Data\PackageData;
+use Capell\Core\Enums\ExtensionLicenceStatus;
+use Capell\Core\Enums\InstallPackageLicenceState;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -38,7 +42,7 @@ final class InstallSuitePrompter
      * Returns null when no suite fits, so the caller falls back to the plain package checklist.
      * A fresh install wipes the current install state, so installed extensions stay searchable.
      */
-    public function prompt(bool $freshInstall = false): ?InstallSuiteSelectionData
+    public function prompt(bool $freshInstall = false, ?string $siteUrl = null): ?InstallSuiteSelectionData
     {
         $suites = collect($this->suites->suites())->keyBy(fn (InstallRecommendationData $suite): string => $suite->key);
 
@@ -70,14 +74,16 @@ final class InstallSuitePrompter
                 __('capell-core::install.suites.recommended_label', ['suite' => $suite->label]),
                 __('capell-core::install.suites.recommended_hint'),
                 preselected: $suite->preselectedRecommended(),
-                mayNeedLicence: $suite->mayNeedLicence,
+                licenceStates: $suite->packageLicenceStates,
+                downloadedPackages: $suite->downloadedPackages,
             ),
             ...$this->tick(
                 $suite->optional,
                 __('capell-core::install.suites.optional_label', ['suite' => $suite->label]),
                 __('capell-core::install.suites.optional_hint'),
                 preselected: [],
-                mayNeedLicence: $suite->mayNeedLicence,
+                licenceStates: $suite->packageLicenceStates,
+                downloadedPackages: $suite->downloadedPackages,
             ),
         ];
 
@@ -86,7 +92,7 @@ final class InstallSuitePrompter
         }
 
         return new InstallSuiteSelectionData(
-            packages: array_values(array_unique($selected)),
+            packages: $this->reviewDownloadAccess(array_values(array_unique($selected)), $siteUrl ?? (string) config('app.url')),
             theme: $suite->theme,
             demo: $suite->demo,
         );
@@ -132,10 +138,11 @@ final class InstallSuitePrompter
     /**
      * @param  array<string, string>  $reasons
      * @param  list<string>  $preselected
-     * @param  list<string>  $mayNeedLicence
+     * @param  array<string, InstallPackageLicenceState>  $licenceStates
+     * @param  list<string>  $downloadedPackages
      * @return list<string>
      */
-    private function tick(array $reasons, string $label, string $hint, array $preselected, array $mayNeedLicence): array
+    private function tick(array $reasons, string $label, string $hint, array $preselected, array $licenceStates, array $downloadedPackages): array
     {
         if ($reasons === []) {
             return [];
@@ -145,7 +152,8 @@ final class InstallSuitePrompter
         foreach ($reasons as $package => $reason) {
             $options[$package] = $this->displayName($package)
                 . ($reason === '' ? '' : ' — ' . $reason)
-                . (in_array($package, $mayNeedLicence, true) ? ' ' . __('capell-core::install.suites.may_need_licence') : '');
+                . ' [' . ($licenceStates[$package] ?? InstallPackageLicenceState::Unknown)->label()
+                . (in_array($package, $downloadedPackages, true) ? '; ' . __('capell-core::install.licence.downloaded') : '') . ']';
         }
 
         return array_values(array_map(strval(...), multiselect(
@@ -223,13 +231,90 @@ final class InstallSuitePrompter
     private function describe(PackageData $package): string
     {
         $description = trim((string) $package->getDescription());
-        $note = ! CapellCore::hasPackage($package->name) && $this->suites->downloadMayNeedLicence($package)
-            ? ' ' . __('capell-core::install.suites.may_need_licence')
-            : '';
+        $note = ' [' . ResolveInstallPackageLicenceAction::run($package)->label()
+            . (CapellCore::hasPackage($package->name) ? '; ' . __('capell-core::install.licence.downloaded') : '') . ']';
 
         return ($description === ''
             ? $package->getLabel()
             : $package->getLabel() . ' — ' . Str::limit($description, 80)) . $note;
+    }
+
+    /** @param list<string> $selected
+     * @return list<string>
+     */
+    private function reviewDownloadAccess(array $selected, string $siteUrl): array
+    {
+        try {
+            $catalogue = GetPluginsAction::run('download');
+        } catch (Throwable) {
+            $catalogue = collect();
+        }
+
+        foreach ($selected as $index => $name) {
+            if (CapellCore::hasPackage($name)) {
+                continue;
+            }
+
+            if (TrustedCorePackages::contains($name)) {
+                continue;
+            }
+
+            $package = $catalogue->get($name);
+            if (! $package instanceof PackageData) {
+                continue;
+            }
+
+            $state = ResolveInstallPackageLicenceAction::run($package);
+            if ($state === InstallPackageLicenceState::Free) {
+                continue;
+            }
+
+            if ($state === InstallPackageLicenceState::Unavailable) {
+                note($this->displayName($name) . ': ' . $state->label());
+                unset($selected[$index]);
+
+                continue;
+            }
+
+            do {
+                $decision = $state === InstallPackageLicenceState::Required
+                    ? CheckInstallPackageAccessAction::run($package, $siteUrl) : null;
+                if ($decision?->canDownload && $decision->canInstall
+                    && in_array($decision->licenceStatus, [ExtensionLicenceStatus::Active, ExtensionLicenceStatus::Purchased], true)) {
+                    note($this->displayName($name) . ': ' . InstallPackageLicenceState::Included->label());
+                    break;
+                }
+
+                note($this->displayName($name) . ': ' . $state->label());
+                note(match (true) {
+                    $state === InstallPackageLicenceState::Unknown => __('capell-core::install.licence.metadata_unverified'),
+                    $decision === null => __('capell-core::install.licence.access_unverified'),
+                    default => __('capell-core::install.licence.access_denied', ['site' => $siteUrl]),
+                });
+                if ($package->purchaseUrl !== null && filter_var($package->purchaseUrl, FILTER_VALIDATE_URL) !== false
+                    && parse_url($package->purchaseUrl, PHP_URL_SCHEME) === 'https') {
+                    note(__('capell-core::install.licence.purchase', ['url' => $package->purchaseUrl]));
+                }
+
+                $options = [
+                    'remove' => __('capell-core::install.licence.remove'),
+                    'retry' => __('capell-core::install.licence.retry'),
+                ];
+                if ($decision === null) {
+                    $options['composer'] = __('capell-core::install.licence.check_composer');
+                }
+
+                $choice = select(label: __('capell-core::install.licence.access_label', ['package' => $this->displayName($name)]), options: $options, default: 'remove');
+            } while ($choice === 'retry');
+
+            if (isset($choice) && $choice === 'remove') {
+                unset($selected[$index]);
+            }
+
+            unset($choice);
+        }
+
+        return array_values($selected);
     }
 
     private function displayName(string $package): string

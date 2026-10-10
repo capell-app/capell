@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Patching\PhpFileEditor;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
@@ -17,6 +18,12 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use PhpParser\Node\Arg;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Identifier;
+use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\Return_;
 use RuntimeException;
 use Throwable;
 
@@ -28,11 +35,6 @@ class InstallFilamentPanelAction
     private const array THEME_METHODS = [
         'viteTheme',
         'theme',
-        'colors',
-        'darkMode',
-        'brandLogo',
-        'favicon',
-        'font',
     ];
 
     public function __construct(
@@ -117,7 +119,7 @@ class InstallFilamentPanelAction
 
         if ($panelProviderPaths !== []) {
             $reporter->report('→ Filament admin panel already configured.');
-            $this->reportMissingThemeConfiguration($panelProviderPaths, $reporter);
+            $this->configurePanelThemes($panelProviderPaths, $reporter);
 
             return;
         }
@@ -127,7 +129,7 @@ class InstallFilamentPanelAction
             $this->ensurePanelProviderWasCreated();
             self::registerPanelProviders();
             $this->ensureDefaultThemeStylesheetExists();
-            $this->reportMissingThemeConfiguration(self::panelProviderPaths(), $reporter);
+            $this->configurePanelThemes(self::panelProviderPaths(), $reporter);
 
             return;
         }
@@ -147,7 +149,7 @@ class InstallFilamentPanelAction
         $this->ensurePanelProviderWasCreated();
         self::registerPanelProviders();
         $this->ensureDefaultThemeStylesheetExists();
-        $this->reportMissingThemeConfiguration(self::panelProviderPaths(), $reporter);
+        $this->configurePanelThemes(self::panelProviderPaths(), $reporter);
     }
 
     private function installFilamentInFreshProcess(ProgressReporter $reporter, ?Throwable $previous): void
@@ -218,6 +220,56 @@ class InstallFilamentPanelAction
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
 CSS);
+    }
+
+    /**
+     * @param  array<int, string>  $panelProviderPaths
+     */
+    private function configurePanelThemes(array $panelProviderPaths, ProgressReporter $reporter): void
+    {
+        foreach ($panelProviderPaths as $path) {
+            $editor = new PhpFileEditor($path);
+            $method = $editor->findMethodInClass(pathinfo($path, PATHINFO_FILENAME), 'panel');
+
+            if ($method?->stmts === null || count($method->stmts) !== 1) {
+                $this->reportMissingThemeConfiguration([$path], $reporter);
+
+                continue;
+            }
+
+            $statement = $method->stmts[0];
+            if (! $statement instanceof Return_ || ! $statement->expr instanceof MethodCall) {
+                $this->reportMissingThemeConfiguration([$path], $reporter);
+
+                continue;
+            }
+
+            $call = $statement->expr;
+            while ($call instanceof MethodCall) {
+                if (! $call->name instanceof Identifier) {
+                    continue 2;
+                }
+
+                if (in_array($call->name->toString(), self::THEME_METHODS, true)) {
+                    continue 2;
+                }
+
+                $call = $call->var;
+            }
+
+            if (! $call instanceof Variable || $call->name !== 'panel') {
+                $this->reportMissingThemeConfiguration([$path], $reporter);
+
+                continue;
+            }
+
+            $this->ensureDefaultThemeStylesheetExists();
+            $statement->expr = new MethodCall($statement->expr, 'viteTheme', [
+                new Arg(new String_('resources/css/filament/admin/theme.css')),
+            ]);
+            $editor->save();
+            $reporter->report('→ Configured the compiled Filament admin theme.');
+        }
     }
 
     /**

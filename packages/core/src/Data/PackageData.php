@@ -95,6 +95,11 @@ class PackageData extends Data
         public string $visibility = 'catalogue',
         public ?string $documentationUrl = null,
         public ?CapellManifestData $manifest = null,
+        public ?bool $isPaid = null,
+        public ?string $installState = null,
+        /** @var array<string, mixed>|null */
+        public ?array $installEligibility = null,
+        public ?string $purchaseUrl = null,
     ) {
         if ($this->key === null) {
             $this->key = strtolower((string) $this->shortName);
