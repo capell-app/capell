@@ -318,7 +318,7 @@ it('keeps CI and the local fallback on the same matrix, dependency, and cell scr
         ->and($composer['scripts']['test:all:matrix:local'] ?? null)
         ->toBe([
             'Composer\\Config::disableProcessTimeout',
-            '@php scripts/run-test-all-matrix.php',
+            '@php scripts/with-lock.php capell-release-verification -- php scripts/run-test-all-matrix.php',
         ]);
 });
 

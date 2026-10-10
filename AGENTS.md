@@ -116,6 +116,8 @@ tests.
 
 ## Verification Commands
 
+Broad tests and preflights use the [host release verification gate](docs/release-verification-lock.md). Use this checkout's wrapper for Docker commands; focused single-file runs remain available while a release holds the gate.
+
 - Focused Pest: `./capell pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
   (host: `vendor/bin/pest ...` with PHP 8.4)
 - Changed-file formatting: `composer lint:changed`
