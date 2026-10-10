@@ -22,6 +22,8 @@ Use Composer path repositories for local package development. Keep matching `1.x
 
 ## Daily Commands
 
+Full suites and preflights join the [host release verification gate](../release-verification-lock.md). The guide explains waiting, release-child ownership and the focused single-file exception.
+
 | Command                  | Use                                                                                                                   |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `composer prepare`       | Run Testbench package discovery.                                                                                      |

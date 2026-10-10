@@ -126,7 +126,7 @@ it('pins an array cache store around the release coverage optimize step', functi
 
         foreach ($optimizeCommands as $command) {
             expect($command)
-                ->toStartWith('@php scripts/run-testbench-command.php optimize')
+                ->toStartWith('@php scripts/with-lock.php capell-release-verification -- php scripts/run-testbench-command.php optimize')
                 ->not->toContain('CACHE_STORE=array');
         }
     }

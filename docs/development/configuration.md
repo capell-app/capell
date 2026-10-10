@@ -33,6 +33,7 @@ Source: `packages/core/config/capell.php`
 
 | Variable                                     | Default                                   | Used for                                                                                                                                                            |
 | -------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CAPELL_SKIP_TWO_FACTOR_WHEN_LOCAL` | `true` | Sets `capell.auth.skip_two_factor_when_local`; consumers may skip 2FA only when the application environment is `local`. Set to `false` to exercise local 2FA. |
 | `CAPELL_VERSION`                             | _(null)_                                  | Optional Capell version override for Marketplace health reports                                                                                                     |
 | `CAPELL_RUNTIME_ROLE`                        | `combined`                                | Immutable process composition: `combined`, `public`, or `authoring`; see [Runtime roles](../operations/runtime-roles.md)                                            |
 | `CAPELL_CACHE_PATH`                          | `bootstrap/cache/capell`                  | Directory used for Capell component cache files                                                                                                                     |

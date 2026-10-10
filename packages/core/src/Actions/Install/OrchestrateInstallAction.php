@@ -38,6 +38,9 @@ final class OrchestrateInstallAction
         $host->prepareApplication($inputData, $reporter);
 
         $result = $this->runInstall->runWithResult($inputData, $reporter);
+        // Required packages and panel scaffolding can register patches only
+        // during installation. Complete them before the final asset build.
+        $host->prepareApplication($inputData, $reporter);
         $host->upgradeFilament();
 
         if ($orchestration->runNpmBuild) {

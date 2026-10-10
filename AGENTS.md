@@ -116,6 +116,8 @@ tests.
 
 ## Verification Commands
 
+Broad tests and preflights use the [host release verification gate](docs/release-verification-lock.md). Use this checkout's wrapper for Docker commands; focused single-file runs remain available while a release holds the gate.
+
 - Focused Pest: `./capell pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
   (host: `vendor/bin/pest ...` with PHP 8.4)
 - Changed-file formatting: `composer lint:changed`
@@ -131,6 +133,8 @@ tests.
 - Documentation contracts: `composer check:docs-links`,
   `composer check:docs-orphans`, `composer check:docs-requirements`,
   `composer check:docs-commands`, and `composer check:docs-screenshots`
+- New development documentation changes generated distribution exclusions. Run
+  `php scripts/sync-split-repository-health.php`, then its `--check` mode before committing it.
 
 Run the narrowest relevant command first. Rendering/cache changes need focused
 Frontend safety tests; migration, config, constraint, or public-extension changes

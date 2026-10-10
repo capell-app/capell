@@ -9,5 +9,5 @@ it('exposes the repository quality shortcuts through the Docker harness', functi
         ->toContain('pint [args]           Run Laravel Pint in the app container')
         ->toContain('"${app_exec[@]}" vendor/bin/pint "$@"')
         ->toContain('"${app_exec[@]}" composer analyze "$@"')
-        ->toContain('"${app_exec[@]}" composer preflight "$@"');
+        ->toContain('verification_container_command full app composer preflight "$@"');
 });
