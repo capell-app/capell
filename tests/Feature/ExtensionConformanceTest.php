@@ -17,7 +17,8 @@ use Vendor\ExtensionConformance\InstallProvider;
 use Vendor\ExtensionConformance\MetadataProvider;
 use Vendor\ExtensionConformance\RuntimeProvider;
 
-foreach (glob(dirname(__DIR__, 2) . '/packages/core/tests/fixtures/ExtensionConformance/*.php') ?: [] as $fixture) {
+// These represent third-party providers; manifest validation rejects platform-prefixed namespaces.
+foreach (glob(dirname(__DIR__, 2) . '/packages/core/tests/Support/ExtensionConformance/*.php') ?: [] as $fixture) {
     require_once $fixture;
 }
 
@@ -109,7 +110,7 @@ function makeCoreConformancePackage(): string
         'name' => 'capell-tests/conformance',
         'autoload' => [
             'psr-4' => [
-                'Vendor\\ExtensionConformance\\' => dirname(__DIR__, 2) . '/packages/core/tests/fixtures/ExtensionConformance/',
+                'Vendor\\ExtensionConformance\\' => dirname(__DIR__, 2) . '/packages/core/tests/Support/ExtensionConformance/',
             ],
         ],
     ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));

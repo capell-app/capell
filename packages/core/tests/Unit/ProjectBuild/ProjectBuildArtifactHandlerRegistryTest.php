@@ -5,32 +5,8 @@ declare(strict_types=1);
 use Capell\Core\Contracts\ProjectBuild\ProjectBuildArtifactHandler;
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
+use Capell\Core\Tests\Support\RecordingProjectBuildArtifactHandler;
 use Illuminate\Container\Container;
-
-final class RecordingProjectBuildArtifactHandler implements ProjectBuildArtifactHandler
-{
-    public int $calls = 0;
-
-    public function type(): string
-    {
-        return 'capell-theme';
-    }
-
-    public function validate(ProjectBuildArtifactReferenceData $artifact, string $bytes): void
-    {
-        $this->calls++;
-    }
-}
-
-final class InvalidTypeProjectBuildArtifactHandler implements ProjectBuildArtifactHandler
-{
-    public function type(): string
-    {
-        return 'Invalid Type';
-    }
-
-    public function validate(ProjectBuildArtifactReferenceData $artifact, string $bytes): void {}
-}
 
 function projectBuildArtifactReference(string $bytes = 'theme-bytes'): ProjectBuildArtifactReferenceData
 {
@@ -61,7 +37,17 @@ it('discovers handlers and dispatches only integrity-verified bytes', function (
 it('fails loudly for invalid handler types and mis-tagged services', function (): void {
     $registry = new ProjectBuildArtifactHandlerRegistry(new Container);
     expect(function () use ($registry): void {
-        $registry->register(new InvalidTypeProjectBuildArtifactHandler);
+        $registry->register(new class implements ProjectBuildArtifactHandler
+        {
+            #[Override]
+            public function type(): string
+            {
+                return 'Invalid Type';
+            }
+
+            #[Override]
+            public function validate(ProjectBuildArtifactReferenceData $artifact, string $bytes): void {}
+        });
     })
         ->toThrow(LogicException::class, 'grammar');
 

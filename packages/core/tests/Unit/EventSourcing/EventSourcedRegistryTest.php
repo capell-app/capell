@@ -3,12 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Core\EventSourcing\Aggregates\PageAggregate;
-use Capell\Core\EventSourcing\Contracts\EventSourcedStateSerializer;
 use Capell\Core\EventSourcing\Exceptions\EventSourcingException;
 use Capell\Core\EventSourcing\Serializers\PageStateSerializer;
 use Capell\Core\EventSourcing\Support\EventSourcedRegistry;
 use Capell\Core\Models\Page;
-use Illuminate\Database\Eloquent\Model;
+use Capell\Core\Tests\Support\EventSourcedRegistryTestSerializer;
 
 it('registers models and replaces an existing registration', function (): void {
     $registry = new EventSourcedRegistry;
@@ -35,13 +34,3 @@ it('rejects models without a registration', function (): void {
         ->and(fn (): string => $registry->aggregateFor(Page::class))
         ->toThrow(EventSourcingException::class, sprintf('Model [%s] is not registered for event sourcing.', Page::class));
 });
-
-final class EventSourcedRegistryTestSerializer implements EventSourcedStateSerializer
-{
-    public function capture(Model $model): array
-    {
-        return [];
-    }
-
-    public function restore(Model $model, array $state): void {}
-}

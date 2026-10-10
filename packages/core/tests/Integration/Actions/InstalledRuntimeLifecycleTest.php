@@ -8,9 +8,7 @@ use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
 use Capell\Core\Actions\UninstallPackageAction;
-use Capell\Core\Contracts\PackageLifecycleAction;
 use Capell\Core\Contracts\ProgressReporter;
-use Capell\Core\Data\PackageData;
 use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
@@ -19,10 +17,19 @@ use Capell\Core\Support\Diagnostics\Checks\InstalledRuntimeCheck;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
-use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
-use Capell\Core\Support\Packages\RegistersInstalledRuntime;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
+use Capell\Core\Tests\Support\BootCallbackRuntimeFixture;
+use Capell\Core\Tests\Support\ComposerDependencyRuntimeFixture;
+use Capell\Core\Tests\Support\ComposerDependentRuntimeFixture;
+use Capell\Core\Tests\Support\FailingBundleRuntimeFixture;
+use Capell\Core\Tests\Support\LegacyEnableRuntimeFixture;
+use Capell\Core\Tests\Support\LoaderDependencyRuntimeFixture;
+use Capell\Core\Tests\Support\LoaderDependentRuntimeFixture;
+use Capell\Core\Tests\Support\OrdinaryRuntimeChildFixture;
+use Capell\Core\Tests\Support\RuntimeLifecycleFixture;
+use Capell\Core\Tests\Support\SandboxInstallRuntimeFixture;
+use Capell\Core\Tests\Support\UnloadedLegacyRuntimeFixture;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -33,8 +40,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\ServiceProvider;
-use Spatie\LaravelPackageTools\Package;
 
 beforeEach(function (): void {
     CapellCore::registerPackage(RuntimeLifecycleFixture::$packageName, serviceProviderClass: RuntimeLifecycleFixture::class);
@@ -129,70 +134,6 @@ it('does not retain a failed activation exception across later jobs', function (
         ->and($failure?->get())->toBeNull();
 });
 
-class RuntimeLifecycleFixture extends AbstractPackageServiceProvider
-{
-    public static string $name = 'lifecycle-fixture';
-
-    public static string $packageName = 'test/lifecycle-fixture';
-
-    /** @var list<string> */
-    public array $registrations = [];
-
-    public bool $fail = false;
-
-    #[Override]
-    public function configurePackage(Package $package): void
-    {
-        $package->name(static::$name);
-    }
-
-    #[Override]
-    protected function registerPackageMetadata(): static
-    {
-        return $this;
-    }
-
-    // Models an author moving the legacy body to the new hook. Opting in
-    // must prevent the old callback from executing the same body again.
-    #[Override]
-    protected function bootInstalledPackage(): self
-    {
-        $this->bootInstalledRuntime();
-
-        return $this;
-    }
-
-    #[Override]
-    protected function bootInstalledRuntime(): void
-    {
-        throw_if($this->fail, RuntimeException::class, 'fixture failure');
-
-        $this->registrations[] = 'runtime';
-    }
-}
-
-final class BootCallbackRuntimeFixture extends RuntimeLifecycleFixture
-{
-    public static string $packageName = 'test/boot-callback-fixture';
-
-    #[Override]
-    public function packageBooted(): void
-    {
-        $this->app->booted(function (): void {
-            if ($this->isPackageInstalled()) {
-                // An ordinary application callback is deliberately not replayed.
-                $this->registrations[] = 'legacy-application-callback';
-            }
-        });
-    }
-
-    #[Override]
-    protected function bootInstalledPackage(): self
-    {
-        return $this;
-    }
-}
-
 it('does not activate disabled failed or quarantined packages', function (string $state): void {
     $provider = app()->register(RuntimeLifecycleFixture::class);
     match ($state) {
@@ -225,35 +166,6 @@ it('preserves legacy callback counts when enabling an already loaded provider', 
 
     expect($provider->calls)->toBe(1);
 });
-
-final class LegacyEnableRuntimeFixture extends AbstractPackageServiceProvider
-{
-    public static string $name = 'legacy-enable-runtime';
-
-    public static string $packageName = 'test/legacy-enable-runtime';
-
-    public int $calls = 0;
-
-    #[Override]
-    public function configurePackage(Package $package): void
-    {
-        $package->name(self::$name);
-    }
-
-    #[Override]
-    protected function registerPackageMetadata(): static
-    {
-        return $this;
-    }
-
-    #[Override]
-    protected function bootInstalledPackage(): self
-    {
-        $this->calls++;
-
-        return $this;
-    }
-}
 
 it('orders required package activation before a dependent registered earlier', function (): void {
     CapellCore::registerPackage('test/dependency');
@@ -349,24 +261,6 @@ it('refuses to activate inherited providers against another application sandbox'
     $original->make(InstalledRuntimeLifecycle::class)->refresh();
     expect($provider->registrations)->toBe(['runtime']);
 });
-
-final class OrdinaryRuntimeChildFixture extends ServiceProvider
-{
-    use RegistersInstalledRuntime;
-
-    public int $calls = 0;
-
-    #[Override]
-    public function register(): void
-    {
-        $this->registerInstalledRuntime(RuntimeLifecycleFixture::$packageName, 'admin');
-    }
-
-    protected function bootInstalledRuntime(): void
-    {
-        $this->calls++;
-    }
-}
 
 it('keeps public runtime refresh out of the admin bucket even for a preloaded child', function (bool $preloaded): void {
     $package = CapellCore::getPackage(RuntimeLifecycleFixture::$packageName);
@@ -508,54 +402,6 @@ it('signals restart once after a whole bundle and never during boot or callback 
     $this->get('/runtime-request')->assertOk();
 });
 
-final class LoaderDependentRuntimeFixture extends ServiceProvider
-{
-    use RegistersInstalledRuntime;
-
-    /** @var list<string> */
-    public static array $order = [];
-
-    #[Override]
-    public function register(): void
-    {
-        $this->registerInstalledRuntime('test/loader-dependent');
-    }
-
-    protected function bootInstalledRuntime(): void
-    {
-        self::$order[] = 'dependent';
-    }
-}
-
-final class LoaderDependencyRuntimeFixture extends ServiceProvider
-{
-    use RegistersInstalledRuntime;
-
-    #[Override]
-    public function register(): void
-    {
-        $this->registerInstalledRuntime('test/loader-dependency');
-    }
-
-    protected function bootInstalledRuntime(): void
-    {
-        LoaderDependentRuntimeFixture::$order[] = 'dependency';
-    }
-}
-
-final class UnloadedLegacyRuntimeFixture extends ServiceProvider {}
-
-final class SandboxInstallRuntimeFixture implements PackageLifecycleAction
-{
-    public static int $calls = 0;
-
-    #[Override]
-    public function handle(PackageData $package, array $arguments = [], ?ProgressReporter $reporter = null): void
-    {
-        self::$calls++;
-    }
-}
-
 it('does not signal a restart for an incomplete bundle after a member succeeded', function (): void {
     $cache = Mockery::mock(Repository::class);
     $cache->shouldNotReceive('forever');
@@ -572,15 +418,6 @@ it('does not signal a restart for an incomplete bundle after a member succeeded'
     expect(fn () => InstallPackageAction::run($bundle))->toThrow(RuntimeException::class, 'member failed');
     expect(CapellCore::isPackageInstalled('test/member-one'))->toBeFalse();
 });
-
-final class FailingBundleRuntimeFixture implements PackageLifecycleAction
-{
-    #[Override]
-    public function handle(PackageData $package, array $arguments = [], ?ProgressReporter $reporter = null): void
-    {
-        throw new RuntimeException('member failed');
-    }
-}
 
 it('round three waits for Composer main adopters outside manifest buckets', function (): void {
     LoaderDependentRuntimeFixture::$order = [];
@@ -674,28 +511,6 @@ it('does not log the original hook exception again through the exception handler
 
     $logger->shouldHaveReceived('error')->once();
 });
-
-final class ComposerDependentRuntimeFixture extends RuntimeLifecycleFixture
-{
-    public static string $packageName = 'test/loader-dependent';
-
-    #[Override]
-    protected function bootInstalledRuntime(): void
-    {
-        LoaderDependentRuntimeFixture::$order[] = 'dependent';
-    }
-}
-
-final class ComposerDependencyRuntimeFixture extends RuntimeLifecycleFixture
-{
-    public static string $packageName = 'test/loader-dependency';
-
-    #[Override]
-    protected function bootInstalledRuntime(): void
-    {
-        LoaderDependentRuntimeFixture::$order[] = 'dependency';
-    }
-}
 
 it('keeps unrelated lifecycle commands available after a package hook failure', function (string $operation): void {
     $provider = app()->register(RuntimeLifecycleFixture::class);

@@ -2,17 +2,9 @@
 
 declare(strict_types=1);
 
-use Livewire\Component;
+use Capell\Core\Tests\Support\TestBoundaryComponent;
 use Livewire\Features\SupportDisablingBackButtonCache\SupportDisablingBackButtonCache;
 use Livewire\Livewire;
-
-class TestBoundaryComponent extends Component
-{
-    public function render(): string
-    {
-        return '<div>Boundary probe</div>';
-    }
-}
 
 it('renders a component directly before the next test', function (): void {
     Livewire::component('test-boundary-probe', TestBoundaryComponent::class);

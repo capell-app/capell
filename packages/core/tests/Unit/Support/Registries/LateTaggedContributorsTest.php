@@ -10,6 +10,8 @@ use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Support\ProjectBuild\ProjectBuildArtifactHandlerRegistry;
 use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
+use Capell\Core\Tests\Support\LateReadinessFirstContributor;
+use Capell\Core\Tests\Support\LateReadinessLastContributor;
 use Illuminate\Container\Container;
 
 it('refreshes health checks resolved before a package registers its first contributor', function (): void {
@@ -51,10 +53,6 @@ it('keeps late publication contributors in the same order as a fresh boot', func
 
     expect($registry->contributors())->toBe(new PublicationReadinessRegistry($container)->contributors());
 });
-
-interface LateReadinessFirstContributor extends PublicationReadinessContributor {}
-
-interface LateReadinessLastContributor extends PublicationReadinessContributor {}
 
 it('composes direct and tagged readiness contributors identically after interleaved discovery', function (): void {
     $container = new Container;

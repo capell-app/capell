@@ -19,7 +19,7 @@ use Vendor\ExtensionConformance\ConformanceRenderHook;
 use Vendor\ExtensionConformance\MissingReceiptProvider;
 use Vendor\ExtensionConformance\WrongContextProvider;
 
-foreach (glob(dirname(__DIR__, 2) . '/packages/core/tests/fixtures/ExtensionConformance/*.php') ?: [] as $fixture) {
+foreach (glob(dirname(__DIR__, 2) . '/packages/core/tests/Support/ExtensionConformance/*.php') ?: [] as $fixture) {
     require_once $fixture;
 }
 
@@ -164,7 +164,7 @@ function makeFailureConformancePackage(
         'name' => $name,
         'autoload' => [
             'psr-4' => [
-                $namespace . '\\' => dirname(__DIR__, 2) . '/packages/core/tests/fixtures/ExtensionConformance/',
+                $namespace . '\\' => dirname(__DIR__, 2) . '/packages/core/tests/Support/ExtensionConformance/',
             ],
         ],
     ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));

@@ -60,7 +60,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Capell\\Core\\Tests\\": "tests/"
+            "Capell\\Core\\Tests\\": "tests/",
+            "Vendor\\ExtensionConformance\\": "tests/Support/ExtensionConformance/"
         }
     },
     "extra": {

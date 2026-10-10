@@ -8,7 +8,6 @@ use Capell\Core\Contracts\Extensions\RecordsExtensionContributionReceipt;
 use Capell\Core\Contracts\Extensions\RegistersExtensionBlueprintSubject;
 use Capell\Core\Contracts\Extensions\RegistersExtensionOutboundEvent;
 use Capell\Core\Contracts\Extensions\RegistersExtensionRoute;
-use Capell\Core\Data\ContentGraph\ContentGraphEdgeCollectionData;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\OutboundEventDefinitionData;
 use Capell\Core\Enums\BlueprintSubjectEnum;
@@ -20,7 +19,8 @@ use Capell\Core\Support\ContentGraph\ContentGraphRegistry;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\OutboundEventRegistry;
-use Illuminate\Database\Eloquent\Model;
+use Capell\Core\Tests\Support\AuditUnlistedContentGraphExtractor;
+use Capell\Core\Tests\Support\StaticDeferredReceiptProbe;
 
 if (! function_exists('makeRuntimeRegistrationAuditPackage')) {
     /**
@@ -35,6 +35,7 @@ if (! function_exists('makeRuntimeRegistrationAuditPackage')) {
     ): string {
         $directory = sys_get_temp_dir() . '/capell-runtime-registration-audit-' . bin2hex(random_bytes(6));
         $namespace = str($packageName)->after('/')->studly()->prepend('Vendor\\')->append('\\')->toString();
+
         $contributionClass = $namespace . 'Contributions\\PackageContribution';
 
         mkdir($directory . '/src/Contributions', 0755, true);
@@ -139,19 +140,6 @@ function recordTestReceipt(ExtensionContributionReceiptRegistry $receipts, Exten
             $receipt->providerBucket,
         );
     });
-}
-
-final class AuditUnlistedContentGraphExtractor implements ContentGraphExtractor
-{
-    public static function sourceModel(): string
-    {
-        return Model::class;
-    }
-
-    public function extract(Model $model): ContentGraphEdgeCollectionData
-    {
-        return ContentGraphEdgeCollectionData::make();
-    }
 }
 
 it('reconciles declared and loaded contributions only for an explicit booted context', function (): void {
@@ -439,19 +427,6 @@ it('reconciles a trace key that is distinct from the marker metadata key', funct
 
 const OUTBOUND_EVENT_WARNING = 'Outbound event contribution is not registered at runtime.';
 const BLUEPRINT_SUBJECT_WARNING = 'Blueprint subject contribution is not registered at runtime.';
-
-final class StaticDeferredReceiptProbe
-{
-    public static function run(): void
-    {
-        resolve(ExtensionContributionReceiptRegistry::class)->recordFromContext(
-            ExtensionContributionType::RenderHook,
-            'vendor.deferred.hook',
-            self::class,
-            self::class,
-        );
-    }
-}
 
 it('warns when a declared outbound event is not registered at runtime', function (): void {
     app()->instance(OutboundEventRegistry::class, new OutboundEventRegistry);

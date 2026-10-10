@@ -12,6 +12,8 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
 use Capell\Frontend\Actions\RegenerateSiteErrorPagesAction;
 use Capell\Frontend\Observers\ErrorPageModelInvalidationObserver;
+use Capell\Frontend\Tests\Support\ParentPageUpdateObserver;
+use Capell\Frontend\Tests\Support\ThirdPartyErrorPage;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Bus;
 use Lorisleiva\Actions\Decorators\JobDecorator;
@@ -212,24 +214,3 @@ it('does not dispatch for a timestamp-only update', function (): void {
 
     $site->touch();
 });
-
-final class ThirdPartyErrorPage extends Page
-{
-    protected $table = 'pages';
-
-    #[Override]
-    public function getMorphClass(): string
-    {
-        return (new Page)->getMorphClass();
-    }
-}
-
-final class ParentPageUpdateObserver
-{
-    public static bool $handled = false;
-
-    public function updated(): void
-    {
-        self::$handled = true;
-    }
-}

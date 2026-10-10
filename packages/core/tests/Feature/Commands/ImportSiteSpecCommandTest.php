@@ -16,30 +16,6 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Console\Command\Command;
 
-final class RecordingNavigationSiteSpecApplier implements SiteSpecApplier
-{
-    public function key(): string
-    {
-        return 'navigation';
-    }
-
-    /** @param array<string, Page> $pagesBySlug */
-    public function apply(CapellSiteSpecData $spec, Site $site, array $pagesBySlug): void
-    {
-        $meta = is_array($site->meta) ? $site->meta : [];
-        $meta['site_spec_test'] = [
-            'navigation' => array_map(
-                static fn (CapellSiteSpecNavigationData $navigation): array => $navigation->toArray(),
-                $spec->navigations,
-            ),
-            'resolved_page_slugs' => array_keys($pagesBySlug),
-            'apply_count' => (int) data_get($meta, 'site_spec_test.apply_count', 0) + 1,
-        ];
-        $site->meta = $meta;
-        $site->save();
-    }
-}
-
 beforeEach(function (): void {
     CreateDefaultLanguagesAction::run(['en']);
     Queue::fake();
@@ -125,7 +101,31 @@ it('round trips navigation media and extension state through the import command 
         ]),
     ]);
     CapellCore::markPackageInstalled('capell-app/navigation');
-    resolve(SiteSpecApplierRegistry::class)->register(new RecordingNavigationSiteSpecApplier);
+    resolve(SiteSpecApplierRegistry::class)->register(new class implements SiteSpecApplier
+    {
+        #[Override]
+        public function key(): string
+        {
+            return 'navigation';
+        }
+
+        /** @param array<string, Page> $pagesBySlug */
+        #[Override]
+        public function apply(CapellSiteSpecData $spec, Site $site, array $pagesBySlug): void
+        {
+            $meta = is_array($site->meta) ? $site->meta : [];
+            $meta['site_spec_test'] = [
+                'navigation' => array_map(
+                    static fn (CapellSiteSpecNavigationData $navigation): array => $navigation->toArray(),
+                    $spec->navigations,
+                ),
+                'resolved_page_slugs' => array_keys($pagesBySlug),
+                'apply_count' => (int) data_get($meta, 'site_spec_test.apply_count', 0) + 1,
+            ];
+            $site->meta = $meta;
+            $site->save();
+        }
+    });
     $path = writeSiteSpec(importSiteSpecPayload());
 
     try {

@@ -2,40 +2,10 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Attributes\AgentTool;
-use Capell\Core\Concerns\HasAgentToolDefinition;
-use Capell\Core\Contracts\Agent\DefinesAgentTool;
 use Capell\Core\Enums\Agent\AgentToolBindingType;
 use Capell\Core\Enums\Agent\AgentToolEffect;
-
-#[AgentTool(
-    name: 'catalogue.lookup',
-    descriptionKey: 'capell-core::agent.tools.site_search',
-    inputSchema: ['type' => 'object', 'additionalProperties' => false],
-    outputSchema: ['type' => 'object', 'additionalProperties' => false],
-    effect: AgentToolEffect::Read,
-    bindingType: AgentToolBindingType::Endpoint,
-    bindingTarget: '/agent/v1/catalogue/lookup',
-)]
-final class AttributeAgentTool implements DefinesAgentTool
-{
-    use HasAgentToolDefinition;
-
-    public static function compatibleCapellApiVersion(): string
-    {
-        return '^1.0';
-    }
-}
-
-final class MissingAttributeAgentTool implements DefinesAgentTool
-{
-    use HasAgentToolDefinition;
-
-    public static function compatibleCapellApiVersion(): string
-    {
-        return '^1.0';
-    }
-}
+use Capell\Core\Tests\Support\AttributeAgentTool;
+use Capell\Core\Tests\Support\MissingAttributeAgentTool;
 
 it('derives a normalised typed definition from the AgentTool attribute', function (): void {
     $definition = AttributeAgentTool::agentToolDefinition();

@@ -10,9 +10,10 @@ use Capell\Core\Support\Bootstrap\PackageRegistryBootstrapper;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
+use Capell\Core\Tests\Support\ManifestBootstrapFrontendProvider;
+use Capell\Core\Tests\Support\ManifestBootstrapMetadataProvider;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\ServiceProvider;
 
 it('registers a manifest-only frontend provider on web requests only when its non-core package is enabled', function (RuntimeRole $role, ExtensionStatusEnum $status): void {
     $bootstrapPath = storage_path('framework/testing/manifest-provider-bootstrap-' . bin2hex(random_bytes(6)));
@@ -98,21 +99,3 @@ it('registers a manifest-only frontend provider on web requests only when its no
     'combined disabled' => [RuntimeRole::Combined, ExtensionStatusEnum::Disabled],
     'public disabled' => [RuntimeRole::Public, ExtensionStatusEnum::Disabled],
 ]);
-
-final class ManifestBootstrapMetadataProvider extends ServiceProvider
-{
-    #[Override]
-    public function register(): void
-    {
-        $this->app->instance('manifest-metadata-registered', true);
-    }
-}
-
-final class ManifestBootstrapFrontendProvider extends ServiceProvider
-{
-    #[Override]
-    public function register(): void
-    {
-        $this->app->instance('manifest-frontend-registered', true);
-    }
-}

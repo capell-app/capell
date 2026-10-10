@@ -17,6 +17,7 @@ use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
+use Capell\Core\Tests\Support\PackageSurfaceRegistrarTestModel;
 
 it('delegates core surfaces to the core manager and returns itself for chaining', function (): void {
     $pageType = new PageTypeData(name: 'widget', model: stdClass::class);
@@ -244,8 +245,3 @@ it('receipts built-in backed enum component batches with foundation ownership', 
             static fn (object $receipt): bool => ! $receipt->foundationBuiltIn,
         ))->toBe([]);
 });
-
-enum PackageSurfaceRegistrarTestModel: string
-{
-    case Example = stdClass::class;
-}

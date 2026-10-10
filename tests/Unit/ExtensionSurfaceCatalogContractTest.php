@@ -55,28 +55,37 @@ it('references the Core conformance suites from the harness catalogue entry', fu
 
     throw_unless(is_array($references), LogicException::class, 'The extension harness catalogue references are missing.');
 
+    // The references are permalinks, so the commit and line anchor describe history, not the working tree.
+    // Only the repository path and the named test section are contractual; neither depends on line positions.
     $expectedSections = [
-        'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceTest.php#L24' => "it('boots only the provider buckets allowed by the public runtime role'",
-        'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceFailureTest.php#L26' => "it('catches a loaded provider whose declared contribution emitted no receipt'",
+        'tests/Feature/ExtensionConformanceTest.php' => "it('boots only the provider buckets allowed by the public runtime role'",
+        'tests/Feature/ExtensionConformanceFailureTest.php' => "it('catches a loaded provider whose declared contribution emitted no receipt'",
     ];
+    $referencedPaths = [];
 
-    expect($references)->toBe(array_keys($expectedSections));
+    foreach ($references as $reference) {
+        throw_unless(
+            is_string($reference) && preg_match('#^https://github\.com/capell-app/capell/blob/[0-9a-f]{40}/(?<path>[^\#]+)(?:\#L\d+)?$#', $reference, $matches) === 1,
+            LogicException::class,
+            'Contract test reference is not a repository permalink.',
+        );
 
-    foreach ($expectedSections as $reference => $expectedSection) {
-        $path = (string) parse_url($reference, PHP_URL_PATH);
-        $line = (int) ltrim((string) parse_url($reference, PHP_URL_FRAGMENT), 'L');
-        $source = file($root . '/' . ltrim(str_replace('/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/', '', $path), '/'), FILE_IGNORE_NEW_LINES);
-
-        throw_if($source === false || $line < 1 || ! isset($source[$line - 1]), LogicException::class, 'Contract test reference target is missing.');
-
-        expect(str_starts_with($reference, 'https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/'))
-            ->toBeTrue()
-            ->and($source[$line - 1])->toContain($expectedSection);
+        $referencedPaths[] = $matches['path'];
     }
 
-    expect((string) file_get_contents($root . '/docs/packages/extension-surface-catalog.md'))
-        ->toContain('[ExtensionConformanceTest.php](https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceTest.php#L24)')
-        ->toContain('[ExtensionConformanceFailureTest.php](https://github.com/capell-app/capell/blob/b052f23730ac6dcd3bf6a7470a4e95c12f06b443/tests/Feature/ExtensionConformanceFailureTest.php#L26)');
+    expect($referencedPaths)->toBe(array_keys($expectedSections));
+
+    $documentation = (string) file_get_contents($root . '/docs/packages/extension-surface-catalog.md');
+
+    foreach ($expectedSections as $path => $expectedSection) {
+        expect($root . '/' . $path)->toBeFile()
+            ->and((string) file_get_contents($root . '/' . $path))->toContain($expectedSection)
+            ->and($documentation)->toContain(basename($path));
+    }
+
+    foreach ($references as $reference) {
+        expect($documentation)->toContain($reference);
+    }
 });
 
 it('links the human API references to the machine-owned catalogue', function (): void {

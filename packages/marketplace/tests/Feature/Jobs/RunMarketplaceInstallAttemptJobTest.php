@@ -3,9 +3,6 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\BuildPackageCacheAction;
-use Capell\Core\Contracts\PackageLifecycleAction;
-use Capell\Core\Contracts\ProgressReporter;
-use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
@@ -33,8 +30,11 @@ use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceInstallNotifications;
 use Capell\Marketplace\Support\MarketplaceWorkerHeartbeat;
+use Capell\Marketplace\Tests\Support\CancelMarketplaceInstallDuringLifecycleAction;
+use Capell\Marketplace\Tests\Support\MarketplaceRollbackRecorder;
 use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
 use Capell\Marketplace\Tests\Support\StatusRecordingPostOperationHealthCheckAction;
+use Capell\Marketplace\Tests\Support\ThrowingMarketplaceLifecycleAction;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\BroadcastNotification;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -608,24 +608,6 @@ function marketplaceOperationAttempt(array $overrides = []): MarketplaceInstallA
     ]);
 }
 
-final class CancelMarketplaceInstallDuringLifecycleAction implements PackageLifecycleAction
-{
-    public static ?int $attemptId = null;
-
-    public function handle(
-        PackageData $package,
-        array $arguments = [],
-        ?ProgressReporter $reporter = null,
-    ): void {
-        throw_if(self::$attemptId === null, RuntimeException::class, 'The late-cancellation attempt was not configured.');
-
-        $attempt = MarketplaceInstallAttempt::query()->findOrFail(self::$attemptId);
-
-        CancelMarketplaceInstallAttemptAction::run($attempt);
-        $reporter?->report('cancellation requested during lifecycle');
-    }
-}
-
 it('restores the post-install state that --no-scripts suppresses', function (): void {
     Notification::fake();
     $admin = test()->createUserWithRole('super_admin');
@@ -1139,17 +1121,6 @@ it('runs the health check before success is declared and never after it', functi
         ->toBeTrue();
 });
 
-final class ThrowingMarketplaceLifecycleAction implements PackageLifecycleAction
-{
-    public function handle(
-        PackageData $package,
-        array $arguments = [],
-        ?ProgressReporter $reporter = null,
-    ): void {
-        throw new RuntimeException('Lifecycle action refused this install.');
-    }
-}
-
 it('offers a theme install a one-click way to apply the theme', function (): void {
     // An install that finished is not an install that is doing anything. A
     // theme still has to be applied, and making the operator go and find that
@@ -1400,42 +1371,3 @@ it('leaves the sites alone when the operator did not ask for the theme to be app
     expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
         ->and(Theme::query()->where('key', 'nebula')->exists())->toBeFalse();
 });
-
-/**
- * A stand-in for RestoreComposerStateAction that records what it was asked to
- * restore instead of running a real recovery `composer install`. Named rather
- * than anonymous so the recordings are typed properties the whole suite can read.
- *
- * The parameters are kept, and recorded, deliberately. PHP tolerates extra
- * arguments to a handle() that declares none, so dropping them would silently
- * sever the only place where the snapshot and the rollback budget reaching
- * RestoreComposerStateAction can be observed — and a job that passed the wrong
- * budget, or no snapshot, would keep every one of these tests green.
- */
-final class MarketplaceRollbackRecorder
-{
-    public int $calls = 0;
-
-    /** @var list<ComposerStateSnapshot> */
-    public array $snapshots = [];
-
-    /** @var list<int> */
-    public array $timeoutSeconds = [];
-
-    public function __construct(private readonly ?Throwable $rollbackFailure = null) {}
-
-    public function handle(
-        ComposerStateSnapshot $snapshot,
-        int $timeoutSeconds = ComposerStateSnapshot::DEFAULT_TIMEOUT_SECONDS,
-    ): bool {
-        $this->calls++;
-        $this->snapshots[] = $snapshot;
-        $this->timeoutSeconds[] = $timeoutSeconds;
-
-        if ($this->rollbackFailure instanceof Throwable) {
-            throw $this->rollbackFailure;
-        }
-
-        return true;
-    }
-}

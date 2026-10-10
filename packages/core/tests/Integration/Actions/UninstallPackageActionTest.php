@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Capell\Core\Actions\DeletePackageMigrationsAction;
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
-use Capell\Core\Contracts\Extensions\DeletesExtensionData;
 use Capell\Core\Contracts\PackageLifecycleAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\PackageData;
@@ -22,6 +21,8 @@ use Capell\Core\Support\Migration\MigrationFilesystem;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
+use Capell\Core\Tests\Support\UninstallPackageActionDataDeleter;
+use Capell\Core\Tests\Support\UninstallPackageLifecycleAction;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
@@ -616,31 +617,4 @@ function bindSuccessfulComposerRemoveProcess(string $packageName, ?Closure $befo
         ->andReturn($process);
 
     app()->instance(ProcessFactoryInterface::class, $factory);
-}
-
-final class UninstallPackageActionDataDeleter implements DeletesExtensionData
-{
-    /** @var list<string> */
-    public static array $deletedPackages = [];
-
-    public static function compatibleCapellApiVersion(): string
-    {
-        return '1.0';
-    }
-
-    public function deleteExtensionData(PackageData $package): void
-    {
-        self::$deletedPackages[] = $package->name;
-    }
-}
-
-final class UninstallPackageLifecycleAction implements PackageLifecycleAction
-{
-    /** @var list<array{string, array<string, mixed>, bool}> */
-    public static array $packages = [];
-
-    public function handle(PackageData $package, array $arguments = [], ?ProgressReporter $reporter = null): void
-    {
-        self::$packages[] = [$package->name, $arguments, CapellCore::isPackageInstalled($package->name)];
-    }
 }

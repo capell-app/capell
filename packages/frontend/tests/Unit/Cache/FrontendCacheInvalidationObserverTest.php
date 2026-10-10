@@ -18,19 +18,7 @@ use Capell\Frontend\Support\Cache\FrontendCacheInvalidationObserver;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class FixtureCatalogueProduct extends Model
-{
-    use HasFactory;
-
-    public $timestamps = false;
-
-    protected $table = 'pages';
-
-    protected $guarded = [];
-}
+use Capell\Frontend\Tests\Support\FixtureCatalogueProduct;
 
 it('invalidates dependent page render data when a graph target model changes', function (): void {
     config()->set('cache.default', 'array');
