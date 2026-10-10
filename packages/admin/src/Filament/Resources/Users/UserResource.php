@@ -55,7 +55,7 @@ class UserResource extends Resource
     #[Override]
     public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return null;
+        return __('capell-admin::navigation.group_system');
     }
 
     #[Override]
