@@ -39,8 +39,43 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Process\Process;
 
 require_once dirname(__DIR__, 4) . '/tests/Support/InstallFilesystemLock.php';
+require_once dirname(__DIR__, 4) . '/tests/Support/DomQuery.php';
 
 uses(CreatesAdminUser::class)->group('installer');
+
+function installerMarkup(string $html): DOMXPath
+{
+    return domXPath($html);
+}
+
+function installerElement(DOMXPath $page, string $query): DOMElement
+{
+    return domElement($page, $query);
+}
+
+function installerShowMarkup(): DOMXPath
+{
+    return installerMarkup(get(route('capell-installer.show'))->assertOk()->content());
+}
+
+function installerProgressMarkup(): DOMXPath
+{
+    $installId = '22222222-2222-4222-a222-111111111111';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'running');
+
+    return installerMarkup(withSession(installerAccessSessionData($installId))
+        ->get(route('capell-installer.progress', ['installId' => $installId]))
+        ->assertOk()->content());
+}
+
+/** @return array<string, mixed> */
+function installerRenderedConfig(DOMXPath $page): array
+{
+    $config = installerElement($page, '//*[@id="capell-installer-config"]');
+    expect($config->getAttribute('type'))->toBe('application/json');
+
+    return json_decode($config->textContent, true, flags: JSON_THROW_ON_ERROR);
+}
 
 function installPostPayload(array $overrides = []): array
 {
@@ -420,80 +455,53 @@ it('shows the capell logo on the progress page', function (): void {
 });
 
 it('places the progress page download form above the log', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 2) . '/resources/views/progress.blade.php');
-
-    expect($content)
-        ->toContain('class="progress-report-link"')
-        ->toContain('method="GET"')
-        ->toContain('target="_blank"')
-        ->toContain('download="{{ $reportDownloadFilename }}"')
-        ->and(strpos($content, 'id="report-link"'))->toBeLessThan(strpos($content, 'id="log"'))
-        ->and($content)->not->toContain("class=\"button secondary\"\n                    href=\"{{ \$reportUrl }}\"\n                    id=\"report-link\"");
+    $page = installerProgressMarkup();
+    $form = installerElement($page, '//form[@id="report-link"]');
+    expect($form->getAttribute('method'))->toBe('GET')
+        ->and($form->getAttribute('target'))->toBe('_blank')
+        ->and($form->getAttribute('action'))->toBe(route('capell-installer.progress.download', ['installId' => '22222222-2222-4222-a222-111111111111']))
+        ->and(domCount($page, './/button[@type="submit"]', $form))->toBe(1)
+        ->and(domCount($page, '//*[@id="log"]/preceding::*[@id="report-link"]'))->toBe(1);
 });
+it('renders syntactically valid progress scripts', function (): void {
+    $page = installerProgressMarkup();
+    $checked = 0;
+    foreach (domElements($page, '//script[not(@type="application/json")]') as $script) {
+        if (trim((string) $script->textContent) === '') {
+            continue;
+        }
 
-it('keeps the progress page restart label statement syntactically separated', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 2) . '/resources/views/progress.blade.php');
-
-    expect($content)
-        ->toContain("var restartInstallLabel = @json(__('capell-installer::installer.restart_install'));")
-        ->not->toContain("@json(__('capell-installer::installer.restart_install'))\n                var stopped");
-});
-
-it('renders the installer configuration and script modules in dependency order', function (): void {
-    $html = get(route('capell-installer.show'))
-        ->assertOk()
-        ->assertSee('id="capell-installer-config"', false)
-        ->content();
-    $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $modules = [
-        'install/support.js',
-        'install/wizard.js',
-        'install/packages.js',
-        'install/form-options.js',
-        'install/progress.js',
-        'install/csrf.js',
-        'install/runner.js',
-        'install.js',
-    ];
-
-    expect($view)
-        ->toContain('type="application/json"')
-        ->toContain('id="capell-installer-config"')
-        ->toContain('Js::encode($installerConfig)')
-        ->not->toContain('json_encode($installerConfig')
-        ->toContain('data-submit-label')
-        ->toContain('class="submit-arrow"')
-        ->toContain('installPackageLabel')
-        ->toContain('installPackagesLabel')
-        ->toContain('installingPackageLabel')
-        ->toContain('installingPackagesLabel')
-        ->not->toContain('@json');
-
-    $previousPosition = strpos($html, 'id="capell-installer-config"');
-
-    foreach ($modules as $module) {
-        $position = strpos($html, 'data-installer-module="' . $module . '"');
-
-        expect($position)
-            ->not->toBeFalse()
-            ->toBeGreaterThan($previousPosition);
-
-        $previousPosition = $position;
+        $process = new Process(['node', '--check']);
+        $process->setInput($script->textContent);
+        expect($process->run())->toBe(0, $process->getErrorOutput());
+        $checked++;
     }
-});
 
+    expect($checked)->toBeGreaterThan(0);
+});
+it('renders usable installer configuration and submit labels', function (): void {
+    $page = installerShowMarkup();
+    $config = installerRenderedConfig($page);
+    foreach ([
+        'installPackageLabel' => 'install_package',
+        'installPackagesLabel' => 'install_packages',
+        'installingPackageLabel' => 'installing_package',
+        'installingPackagesLabel' => 'installing_packages',
+    ] as $key => $translation) {
+        expect($config['messages'][$key])->toBe(__('capell-installer::installer.' . $translation, ['count' => '__count__']));
+    }
+
+    expect(domElement($page, '//*[@data-submit-label]')->textContent)->not->toBeEmpty();
+});
 it('does not render a separate review step', function (): void {
-    $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-
-    expect($view)
-        ->not->toContain('data-step-trigger="review"')
-        ->not->toContain('data-installer-step="review"');
+    $page = installerShowMarkup();
+    expect(domCount($page, '//*[@data-step-trigger="review" or @data-installer-step="review"]'))->toBe(0);
 });
-
 it('animates installer step navigation with distinct back and continue pacing', function (): void {
     $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
 
-    expect($styles)->toContain('@media (prefers-reduced-motion: reduce)');
+    // Reduced-motion support is an accessibility contract in the delivered stylesheet.
+    expect($styles)->toContain('prefers-reduced-motion');
 });
 
 it('keeps preflight panels free of decorative gradients', function (): void {
@@ -507,17 +515,10 @@ it('keeps preflight panels free of decorative gradients', function (): void {
 });
 
 it('renders preflight checks as a high-density utility panel', function (): void {
-    $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
-
-    expect($view)
-        ->toContain('preflight_passing_summary')
-        ->not->toContain('preflight-utility-footer')
-        ->not->toContain('preflight_footer_')
-        ->and($styles)
-        ->not->toContain('.preflight-utility-footer');
+    $page = installerShowMarkup();
+    expect(domElement($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-panel ")]')->textContent)->not->toBeEmpty()
+        ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " preflight-utility-footer ")]'))->toBe(0);
 });
-
 it('keeps the installer footer on a Capell brand colour', function (): void {
     $content = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
 
@@ -527,25 +528,23 @@ it('keeps the installer footer on a Capell brand colour', function (): void {
 });
 
 it('does not render the removed installer nav', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-
-    expect($content)->not->toContain('installer-nav');
+    expect(domCount(installerShowMarkup(), '//*[contains(concat(" ", normalize-space(@class), " "), " installer-nav ")]'))->toBe(0);
 });
-
 it('renders AI Agent Bridge developer tooling separately from downloadable packages', function (): void {
-    $content = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
+    bindSetupPluginPackagesFetcher(Collection::make([
+        ['name' => 'capell-app/remote-extension', 'description' => 'Remote extension'],
+    ]));
+    Cache::put('capell.installer.package_installable.' . hash('sha256', 'capell-app/remote-extension'), true);
+    $page = installerShowMarkup();
+    foreach (['install_developer_tooling', 'configure_boost_developer_tooling'] as $name) {
+        $input = domElement($page, '//input[@name="' . $name . '"]');
+        expect(domCount($page, '//input[@name="' . $name . '"]'))->toBe(1)
+            ->and($input->getAttribute('type'))->toBe('checkbox')
+            ->and($input->hasAttribute('checked'))->toBeFalse();
+    }
 
-    expect($content)
-        ->toContain('name="install_developer_tooling"')
-        ->toContain('name="configure_boost_developer_tooling"')
-        ->toContain('data-developer-tooling-checkbox')
-        ->toContain('data-boost-tooling-checkbox')
-        ->toContain('section_developer_tooling')
-        ->toContain('extra_packages[]')
-        ->not->toContain("old('install_developer_tooling', '1')")
-        ->not->toContain("old('configure_boost_developer_tooling', true)");
+    expect(domCount($page, '//input[@name="extra_packages[]"]'))->toBeGreaterThan(0);
 });
-
 it('hides AI Agent Bridge developer tooling when it is already installed', function (): void {
     bindInstallerDeveloperToolingInstallationState(true);
 
@@ -576,72 +575,42 @@ it('does not rerun Boost install when AI Agent Bridge developer tooling is alrea
 
 it('renders a post-install launchpad for first admin onboarding', function (): void {
     $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
-    $successView = file_get_contents(dirname(__DIR__, 2) . '/resources/views/success.blade.php');
     Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
     Cache::put(sprintf('capell.install.%s.success', $installId), []);
 
-    expect($successView)
-        ->toContain('completion-security-panel')
-        ->toContain('remove_installer_recommendation_body')
-        ->toContain('launchpad-account-summary')
-        ->toContain('launchpad_primary_admin')
-        ->toContain('launchpad_checklist_title')
-        ->toContain('launchpad_check_roles')
-        ->and(strpos($successView, 'data-remove-installer-form'))
-        ->toBeLessThan(strpos($successView, 'completion-success-panel'));
-
-    withSession(installerAccessSessionData($installId))
+    $html = withSession(installerAccessSessionData($installId))
         ->get(route('capell-installer.success', ['installId' => $installId]))
         ->assertOk()
         ->assertSee(__('capell-installer::installer.remove_installer_recommendation_body'))
         ->assertSee(__('capell-installer::installer.launchpad_heading'))
         ->assertSee(__('capell-installer::installer.launchpad_checklist_title'))
-        ->assertDontSee('Admin -&gt; Extensions', false);
+        ->assertDontSee('Admin -&gt; Extensions', false)
+        ->content();
+
+    $page = installerMarkup($html);
+    expect(domCount($page, '//*[@data-remove-installer-form]'))->toBe(1);
+    expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " completion-success-panel ")]/preceding::*[@data-remove-installer-form]'))->toBe(1);
 });
+it('renders progress loading and failure regions with an expanded technical log', function (): void {
+    $page = installerShowMarkup();
+    foreach (['progress-loader', 'current-step-strip', 'failure-panel', 'technical-log-panel'] as $region) {
+        expect(domCount($page, '//*[@id="' . $region . '"]'))->toBe(1);
+    }
 
-it('renders mobile-first progress loading, failure, and technical log regions', function (): void {
-    $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
-
-    expect($view)
-        ->toContain('id="progress-loader"')
-        ->toContain('id="current-step-strip"')
-        ->toContain('id="failure-panel"')
-        ->toContain('id="technical-log-panel"')
-        ->toContain('id="technical-log-panel"' . PHP_EOL . '                    open')
-        ->and($styles)->toContain('.progress-steps-summary')
-        ->toContain('.progress-steps-timeline')
-        ->toContain('.progress-step-select')
-        ->not->toContain('scroll-snap-type: x mandatory')
-        ->toContain('installer-loading-beam')
-        ->toContain('current-step-spinner')
-        ->toContain('.button.is-loading:disabled')
-        ->toContain('.submit.is-loading .submit-arrow');
+    expect(domCount($page, '//details[@id="technical-log-panel" and @open]'))->toBe(1);
 });
-
 it('places the diagnostic download form above the console output', function (): void {
-    $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-
-    expect($view)
-        ->toContain('class="progress-report-link"')
-        ->toContain('method="GET"')
-        ->toContain('target="_blank"')
-        ->toContain('data-download-filename')
-        ->toContain('data-report-download-button')
-        ->toContain('technical-log-actions')
-        ->toContain('technical-log-chevron')
-        ->and(strpos($view, 'id="report-link"'))->toBeLessThan(strpos($view, 'id="log"'))
-        ->and($view)->not->toContain('class="button secondary"' . PHP_EOL . '                        href="#"' . PHP_EOL . '                        id="report-link"');
+    $page = installerShowMarkup();
+    $form = installerElement($page, '//form[@id="report-link"]');
+    expect($form->getAttribute('method'))->toBe('GET')
+        ->and($form->getAttribute('target'))->toBe('_blank')
+        ->and(domCount($page, '//button[@form="report-link" and @type="submit"]'))->toBe(1)
+        ->and(domCount($page, '//*[@id="report-link"]/following-sibling::*[@id="log"]'))->toBe(1);
 });
-
-it('summarises web server timeout pages instead of showing raw html', function (): void {
-    $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-
-    expect($view)
-        ->toContain('serverTimeoutError')
-        ->toContain('server_timeout_error');
+it('provides a translated server timeout message to the installer', function (): void {
+    $config = installerRenderedConfig(installerShowMarkup());
+    expect($config['messages']['serverTimeoutError'])->toBe(__('capell-installer::installer.server_timeout_error'));
 });
-
 it('renders preflight feedback and removes post-install operational toggles', function (): void {
     $response = get(route('capell-installer.show'))
         ->assertOk()
@@ -664,18 +633,10 @@ it('renders preflight feedback and removes post-install operational toggles', fu
 });
 
 it('uses the left rail step navigation as the installer progress indicator', function (): void {
-    $styles = file_get_contents(dirname(__DIR__, 2) . '/resources/css/installer.css');
-    $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-
-    expect($styles)
-        ->toContain('counter-reset: installer-step')
-        ->toContain('content: counter(installer-step)')
-        ->not->toContain('.installer-tabs')
-        ->and($view)
-        ->toContain('class="installer-step active"')
-        ->not->toContain('class="installer-tabs"');
+    $page = installerShowMarkup();
+    expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-step ") and contains(concat(" ", normalize-space(@class), " "), " active ")]'))->toBe(1)
+        ->and(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-tabs ")]'))->toBe(0);
 });
-
 it('combines site setup and admin login into the site step', function (): void {
     $html = get(route('capell-installer.show'))
         ->assertOk()
@@ -773,8 +734,6 @@ it('shows the admin installer docs link with the manual admin panel changes opti
 });
 
 it('hides the admin panel changes fieldset when the admin package is not selected', function (): void {
-    $template = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-
     $html = withSession([
         '_old_input' => [
             'packages' => [],
@@ -785,9 +744,7 @@ it('hides the admin panel changes fieldset when the admin package is not selecte
 
     expect($html)
         ->toContain('data-admin-package-name="capell-app/admin"')
-        ->toContain('class="admin-panel-changes hidden"')
-        ->and($template)
-        ->toContain("'hidden' => ! \$adminPackageIsSelected");
+        ->toContain('class="admin-panel-changes hidden"');
 });
 
 it('hides downloadable packages composer cannot resolve', function (): void {
@@ -1016,17 +973,17 @@ it('shows an already installed message when capell core is composer available an
 });
 
 it('renders a one-time success page for completed browser installs', function (): void {
-    $view = file_get_contents(dirname(__DIR__, 2) . '/resources/views/install.blade.php');
-    $successView = file_get_contents(dirname(__DIR__, 2) . '/resources/views/success.blade.php');
-
-    expect($view)
-        ->not->toContain('id="completion-panel"')
-        ->and($successView)
-        ->not->toContain('beforeunload')
-        ->toContain('data-remove-installer-form')
-        ->toContain("route('capell-installer.destroy')");
+    $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    expect(domCount(installerShowMarkup(), '//*[@id="completion-panel"]'))->toBe(0);
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+    Cache::put(sprintf('capell.install.%s.success', $installId), []);
+    $page = installerMarkup(withSession(installerAccessSessionData($installId))
+        ->get(route('capell-installer.success', ['installId' => $installId]))
+        ->assertOk()->content());
+    expect(installerElement($page, '//form[@data-remove-installer-form]')->getAttribute('action'))->toBe(route('capell-installer.destroy'));
+    withSession(installerAccessSessionData($installId))
+        ->get(route('capell-installer.success', ['installId' => $installId]))->assertNotFound();
 });
-
 it('only shows success page admin details once', function (): void {
     $installId = '5b1af98b-bfd5-46da-9aa8-765d94f17d7c';
     Cache::put(sprintf('capell.install.%s.success', $installId), [

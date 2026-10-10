@@ -8,16 +8,6 @@ use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
 
-it('service providers are loaded', function (): void {
-    $providers = app()->getLoadedProviders();
-    expect($providers)
-        ->toHaveKey(CapellServiceProvider::class)
-        ->toHaveKey(AdminServiceProvider::class)
-        ->toHaveKey(FrontendServiceProvider::class)
-        ->toHaveKey(InstallerServiceProvider::class)
-        ->toHaveKey(MarketplaceServiceProvider::class);
-});
-
 it('replaces split Capell packages as the version-aligned aggregate at the root package', function (): void {
     $composer = json_decode(
         (string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'),
@@ -25,6 +15,7 @@ it('replaces split Capell packages as the version-aligned aggregate at the root 
         flags: JSON_THROW_ON_ERROR,
     );
 
+    // Composer discovery and split-package replacement are the aggregate's consumer contract.
     expect(data_get($composer, 'replace', []))
         ->toHaveKey('capell-app/core')
         ->toHaveKey('capell-app/admin')

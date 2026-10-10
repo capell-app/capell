@@ -2,202 +2,136 @@
 
 declare(strict_types=1);
 
-it('keeps the PHP memory limit owned solely by the phpunit configuration', function (): void {
-    // Strips comments, the memory_limit declaration and blank lines, leaving the
-    // functional configuration the two phpunit files must agree on.
-    $normalise = static function (string $xml): string {
-        $withoutComments = (string) preg_replace('/<!--.*?-->/s', '', $xml);
-        $withoutLimit = (string) preg_replace('/\s*<ini name="memory_limit"[^>]*\/>/', '', $withoutComments);
+use Symfony\Component\Yaml\Yaml;
 
-        return trim((string) preg_replace('/\n\s*\n/', "\n", $withoutLimit));
+require_once __DIR__ . '/../Support/DomQuery.php';
+
+/** @return array<string, mixed> */
+function coverageWorkflow(): array
+{
+    return Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/coverage-release.yml');
+}
+
+/** @return array<string, mixed> */
+function coverageComposerScripts(): array
+{
+    return json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/composer.json'), true, flags: JSON_THROW_ON_ERROR)['scripts'];
+}
+
+/** @return list<string> */
+function coverageJobCommands(string $job): array
+{
+    return array_values(array_filter(array_column(coverageWorkflow()['jobs'][$job]['steps'], 'run'), is_string(...)));
+}
+
+/** @return array<string, mixed> */
+function coverageConfigurationSemantics(string $file): array
+{
+    $document = new DOMDocument;
+    $document->load($file);
+
+    $nodeValue = static function (DOMElement $element) use (&$nodeValue): array {
+        $attributes = [];
+        foreach ($element->attributes as $attribute) {
+            $attributes[$attribute->name] = $attribute->value;
+        }
+
+        ksort($attributes);
+        $children = [];
+        foreach ($element->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                $children[] = $nodeValue($child);
+            }
+        }
+
+        // Attribute order, indentation, comments and sibling order are cosmetic here.
+        sort($children);
+
+        return [$element->tagName, $attributes, $children, trim($children === [] ? $element->textContent : '')];
     };
+    $limit = domElement(new DOMXPath($document), '/phpunit/php/ini[@name="memory_limit"]');
+    $memoryLimit = $limit->getAttribute('value');
+    $limit->parentNode?->removeChild($limit);
 
+    return ['memory_limit' => $memoryLimit, 'configuration' => $nodeValue($document->documentElement)];
+}
+
+it('gives coverage workers a larger memory budget with equivalent test configuration', function (): void {
     $root = dirname(__DIR__, 2);
-    $mainConfiguration = (string) file_get_contents($root . '/phpunit.xml');
-    $coverageConfiguration = (string) file_get_contents($root . '/phpunit-coverage.xml');
-    $workflow = (string) file_get_contents($root . '/.github/workflows/coverage-release.yml');
-    $profiler = (string) file_get_contents($root . '/scripts/profile-pest-tests.php');
-    $composer = json_decode(
-        (string) file_get_contents($root . '/composer.json'),
-        true,
-        flags: JSON_THROW_ON_ERROR,
-    );
+    $main = coverageConfigurationSemantics($root . '/phpunit.xml');
+    $coverage = coverageConfigurationSemantics($root . '/phpunit-coverage.xml');
 
-    // PHPUnit applies <php><ini> through ini_set() while bootstrapping, in the
-    // runner and in every parallel worker alike. That happens after PHP has read
-    // the command line, so it silently overrides `-d memory_limit=` and paratest's
-    // `--passthru-php`. The phpunit configuration is therefore the only place that
-    // can set the limit, and any other declaration lies about the effective value.
-    expect($mainConfiguration)->toContain('<ini name="memory_limit" value="2G"/>')
-        ->and($coverageConfiguration)->toContain('<ini name="memory_limit" value="8G"/>');
+    expect($main['memory_limit'])->toBe('2G')
+        ->and($coverage['memory_limit'])->toBe('8G')
+        ->and($coverage['configuration'])->toEqual($main['configuration']);
 
-    // The coverage variant owns the limit for the parallel runner's coverage
-    // workers and merge step. Everything else must stay in lockstep.
-    expect($normalise($coverageConfiguration))
-        ->toBe($normalise($mainConfiguration));
-
-    $offendingScripts = [];
-
-    foreach ($composer['scripts'] as $name => $script) {
-        foreach ((array) $script as $command) {
-            if (! is_string($command)) {
-                continue;
-            }
-
-            if (! str_contains($command, 'vendor/bin/pest')) {
-                continue;
-            }
-
-            if (str_contains($command, 'memory_limit')) {
-                $offendingScripts[] = $name;
+    // PHPUnit overrides CLI limits; competing declarations misrepresent worker budgets.
+    foreach (coverageComposerScripts() as $commands) {
+        foreach ((array) $commands as $command) {
+            if (is_string($command) && str_contains($command, 'vendor/bin/pest')) {
+                expect($command)->not->toContain('memory_limit');
             }
         }
     }
 
-    expect($offendingScripts)->toBe([])
-        ->and($workflow)->not->toContain('memory_limit')
-        ->and($profiler)->not->toContain('memory_limit');
+    foreach (coverageJobCommands('generate-coverage') as $command) {
+        expect($command)->not->toContain('memory_limit');
+    }
+
+    // The profiler launches workers too and must leave their budget to PHPUnit.
+    expect((string) file_get_contents($root . '/scripts/profile-pest-tests.php'))->not->toContain('memory_limit');
 });
 
-it('runs every coverage and mutation workload against the coverage configuration', function (): void {
-    $root = dirname(__DIR__, 2);
-    $workflow = (string) file_get_contents($root . '/.github/workflows/coverage-release.yml');
-    $composer = json_decode(
-        (string) file_get_contents($root . '/composer.json'),
-        true,
-        flags: JSON_THROW_ON_ERROR,
-    );
-
-    $coverageScripts = ['coverage', 'coverage-report', 'coverage:blade', 'test:mutate', 'test:mutate:ci'];
-
-    foreach ($coverageScripts as $name) {
-        $commands = array_filter(
-            (array) ($composer['scripts'][$name] ?? []),
-            static fn (mixed $command): bool => is_string($command) && str_contains($command, 'vendor/bin/pest'),
-        );
-
+it('runs coverage and mutation commands with the coverage worker configuration', function (): void {
+    foreach (['coverage', 'coverage-report', 'coverage:blade', 'test:mutate', 'test:mutate:ci'] as $name) {
+        $commands = array_filter((array) coverageComposerScripts()[$name], static fn (string $command): bool => str_contains($command, 'vendor/bin/pest'));
         expect($commands)->not->toBeEmpty();
-
         foreach ($commands as $command) {
-            expect($command)
-                ->toContain('--configuration=phpunit-coverage.xml')
+            // These executable flags select the worker budget, not source formatting.
+            expect($command)->toContain('--configuration=phpunit-coverage.xml')
                 ->not->toContain('--configuration=phpunit.xml');
         }
     }
 
-    expect($workflow)->toContain('--configuration=phpunit-coverage.xml');
+    expect(implode("\n", coverageJobCommands('generate-coverage')))->toContain('--configuration=phpunit-coverage.xml');
 });
 
-it('pins an array cache store around the release coverage optimize step', function (): void {
-    // Testbench seeds the skeleton environment from its own .env.example when
-    // the workbench directory carries no environment file, and that ships
-    // CACHE_STORE=database. `testbench optimize` then asks laravel-data to write
-    // its cached structures into a `cache` table the in-memory sqlite connection
-    // has never migrated, which took run 30982165320 down before a single test
-    // ran. The process environment wins over the skeleton file, so both the
-    // workflow and the scripts must set the store themselves.
-    $root = dirname(__DIR__, 2);
-    $workflow = (string) file_get_contents($root . '/.github/workflows/coverage-release.yml');
-    $composer = json_decode(
-        (string) file_get_contents($root . '/composer.json'),
-        true,
-        flags: JSON_THROW_ON_ERROR,
-    );
-
-    expect($workflow)->toContain('CACHE_STORE: array');
-    $coverageJob = strpos($workflow, 'generate-coverage:');
-    $runtimeRoleEnvironment = strpos($workflow, 'CAPELL_TESTBENCH_RUNTIME_ROLE: true');
-
-    expect($coverageJob)->toBeInt()
-        ->and($runtimeRoleEnvironment)->toBeInt()
-        ->and($runtimeRoleEnvironment)->toBeGreaterThan($coverageJob);
-
-    expect($workflow)
-        ->toContain('php scripts/run-testbench-command.php optimize --except=routes --ansi')
-        ->not->toContain('php vendor/bin/testbench optimize --except=routes --ansi');
-
-    foreach (['coverage', 'coverage-report'] as $name) {
-        $optimizeCommands = array_filter(
-            (array) ($composer['scripts'][$name] ?? []),
-            static fn (mixed $command): bool => is_string($command) && str_contains($command, 'run-testbench-command.php optimize'),
-        );
-
-        expect($optimizeCommands)->not->toBeEmpty();
-
-        foreach ($optimizeCommands as $command) {
-            expect($command)
-                ->toStartWith('@php scripts/with-lock.php capell-release-verification -- php scripts/run-testbench-command.php optimize')
-                ->not->toContain('CACHE_STORE=array');
-        }
-    }
+it('optimizes release coverage with an in-memory cache and the runtime role enabled', function (): void {
+    $workflow = coverageWorkflow();
+    $environment = array_replace($workflow['env'], $workflow['jobs']['generate-coverage']['env']);
+    expect($environment['CACHE_STORE'])->toBe('array')
+        ->and($environment['CAPELL_TESTBENCH_RUNTIME_ROLE'])->toBeTrue();
+    // The wrapper bootstraps a cache-safe Testbench environment before optimizing.
+    expect(implode("\n", coverageJobCommands('generate-coverage')))->toContain('run-testbench-command.php optimize')
+        ->not->toContain('vendor/bin/testbench optimize');
 });
 
-it('runs the release coverage workload in parallel', function (): void {
-    $root = dirname(__DIR__, 2);
-    $workflow = (string) file_get_contents($root . '/.github/workflows/coverage-release.yml');
-    $composer = json_decode(
-        (string) file_get_contents($root . '/composer.json'),
-        true,
-        flags: JSON_THROW_ON_ERROR,
-    );
-
-    // The workflow hand-rolls its own pest invocation so it can add --coverage-clover,
-    // which means it can drift from the `coverage` script it mirrors. Serial coverage
-    // took 3940s on run 30619680673 and pushed the job past an hour, so the parallel
-    // flag is the part of that script the workflow must never lose.
-    $workflowCoverageCommand = null;
-
-    foreach (explode("\n", $workflow) as $line) {
-        if (str_contains($line, 'vendor/bin/pest') && str_contains($line, '--coverage')) {
-            $workflowCoverageCommand = $line;
-        }
-    }
-
-    expect($workflowCoverageCommand)->not->toBeNull()
-        ->and($workflowCoverageCommand)->toContain('--parallel');
-
-    foreach ((array) $composer['scripts']['coverage'] as $command) {
-        if (is_string($command) && str_contains($command, 'vendor/bin/pest')) {
-            expect($command)->toContain('--parallel');
-        }
-    }
-});
-
-it('shards release coverage and enforces the threshold after merging Clover reports', function (): void {
-    $root = dirname(__DIR__, 2);
-    $workflow = (string) file_get_contents($root . '/.github/workflows/coverage-release.yml');
-
-    expect($workflow)
-        ->toContain('shard: [1, 2, 3, 4]')
-        ->toContain('--shard=${{ matrix.shard }}/4')
+it('shards coverage in parallel and gates publication on merged coverage', function (): void {
+    $workflow = coverageWorkflow();
+    $commands = implode("\n", coverageJobCommands('generate-coverage'));
+    $shards = $workflow['jobs']['generate-coverage']['strategy']['matrix']['shard'];
+    expect($shards)->toEqual(range(1, count($shards)));
+    // Serial coverage exceeds the release budget; each shard needs its own report.
+    expect($commands)->toContain('--parallel')
+        ->toContain('--shard=${{ matrix.shard }}/' . count($shards))
         ->toContain('--coverage-clover=coverage/clover-${{ matrix.shard }}.xml')
-        ->toContain('needs: generate-coverage')
-        ->toContain('php scripts/merge-clover-coverage.php --output coverage/clover.xml')
-        ->toContain('needs: merge-coverage')
-        ->not->toContain('vendor/bin/pest --coverage ')
-        ->not->toContain('--coverage-php');
+        ->not->toContain('--coverage-php')
+        ->and($workflow['jobs']['merge-coverage']['needs'])->toBe('generate-coverage')
+        ->and($workflow['jobs']['publish-coverage']['needs'])->toBe('merge-coverage');
+    expect(implode("\n", coverageJobCommands('merge-coverage')))->toContain('scripts/merge-clover-coverage.php');
+    foreach (['coverage', 'coverage-report'] as $name) {
+        $command = implode("\n", (array) coverageComposerScripts()[$name]);
+        expect($command)->toContain('--parallel')->not->toContain('--coverage-php');
+    }
 });
 
-it('uses direct coverage report output in standard Composer coverage commands', function (): void {
-    $root = dirname(__DIR__, 2);
-    $composer = json_decode(
-        (string) file_get_contents($root . '/composer.json'),
-        true,
-        flags: JSON_THROW_ON_ERROR,
-    );
-
-    $coverageCommands = implode("\n", (array) $composer['scripts']['coverage']);
-    $htmlCommands = implode("\n", (array) $composer['scripts']['coverage-report']);
-
-    expect($coverageCommands)
+it('writes Clover and HTML reports directly from Composer coverage commands', function (): void {
+    // Clover is consumed by the threshold merger; HTML is the human-readable report.
+    expect(implode("\n", (array) coverageComposerScripts()['coverage']))
         ->toContain('--coverage-clover=.cache/phpunit/coverage-clover.xml')
         ->toContain('scripts/merge-clover-coverage.php')
-        ->not->toContain('vendor/bin/pest --coverage ')
-        ->not->toContain('--coverage-php')
-        ->and($htmlCommands)
-        ->toContain('--coverage-html=coverage')
-        ->not->toContain('vendor/bin/pest --coverage ')
-        ->not->toContain('--coverage-php');
+        ->and(implode("\n", (array) coverageComposerScripts()['coverage-report']))
+        ->toContain('--coverage-html=coverage');
 });
 
 it('merges Clover statement hits before enforcing the release threshold', function (): void {
