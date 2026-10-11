@@ -129,20 +129,75 @@ function coveredSourceFiles() {
     return covered
 }
 
-function actionBlock(source, start) {
-    const nextAction = source
-        .slice(start + 1)
-        .search(/(?<![A-Za-z0-9_\\])([A-Za-z_][A-Za-z0-9_\\]*)::make\s*\(/)
-    const end =
-        nextAction === -1
-            ? Math.min(source.length, start + 2500)
-            : Math.min(source.length, start + 1 + nextAction)
-
-    return source.slice(start, end)
+function actionFactories(source) {
+    const imports = new Map()
+    for (const match of source.matchAll(
+        /^\s*use\s+([A-Za-z_][A-Za-z0-9_\\]*)(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*;/gm,
+    )) {
+        imports.set(match[2] ?? shortClassName(match[1]), match[1])
+    }
+    const namespace = source.match(
+        /\bnamespace\s+([A-Za-z_][A-Za-z0-9_\\]*)\s*;/,
+    )?.[1]
+    return (
+        [
+            ...source.matchAll(
+                /(?<![A-Za-z0-9_\\])(\\?[A-Za-z_][A-Za-z0-9_\\]*)::make\s*\(/g,
+            ),
+        ]
+            .map((match) => {
+                const name = match[1]
+                const parts = name.replace(/^\\/, '').split('\\')
+                const imported = imports.get(parts[0])
+                const resolved = name.startsWith('\\')
+                    ? name.slice(1)
+                    : imported
+                      ? [imported, ...parts.slice(1)].join('\\')
+                      : namespace
+                        ? `${namespace}\\${name}`
+                        : name
+                return {
+                    index: match.index,
+                    className: resolved,
+                    known: Boolean(
+                        imported || name.startsWith('\\') || namespace,
+                    ),
+                }
+            })
+            // Business operations also expose make(); only UI factories delimit UI blocks.
+            .filter(
+                ({ className, known }) =>
+                    !known || className.split('\\').includes('Filament'),
+            )
+    )
 }
 
 function shortClassName(className) {
     return className.split('\\').pop()
+}
+
+function actionBlock(source, start, end) {
+    // Start at the complete factory expression: searching its suffix can match
+    // the current factory again and silently discard every chained UI method.
+    let depth = 0
+    let quote = null
+    for (let index = start; index < end; index++) {
+        const char = source[index]
+        if (quote) {
+            if (char === '\\') index++
+            else if (char === quote) quote = null
+            continue
+        }
+        if (char === "'" || char === '"') quote = char
+        else if ('([{'.includes(char)) depth++
+        else if (')]}'.includes(char)) {
+            if (depth === 0) return source.slice(start, index)
+            depth--
+        } else if (depth === 0 && (char === ',' || char === ';')) {
+            return source.slice(start, index)
+        }
+    }
+    return source.slice(start, end)
 }
 
 function methodPattern(methodName) {
@@ -184,13 +239,16 @@ function customActionSurfaces() {
             const actions = []
             const reasons = []
 
-            for (const match of source.matchAll(
-                /(?<![A-Za-z0-9_\\])([A-Za-z_][A-Za-z0-9_\\]*)::make\s*\(/g,
-            )) {
-                const className = match[1]
+            const factories = actionFactories(source)
+            for (const [index, factory] of factories.entries()) {
+                const className = factory.className
                 const behaviour = customBehaviourFor(
                     className,
-                    actionBlock(source, match.index),
+                    actionBlock(
+                        source,
+                        factory.index,
+                        factories[index + 1]?.index ?? source.length,
+                    ),
                 )
 
                 if (behaviour.length === 0) {
@@ -257,11 +315,14 @@ function main() {
     if (process.argv.includes('--prune-removed')) {
         const baseline = readBaseline()
         baseline.uncovered = (baseline.uncovered ?? []).filter((surface) => {
-            const root = surface.repo === 'current' ? coreRepoRoot : packagesRepoRoot
+            const root =
+                surface.repo === 'current' ? coreRepoRoot : packagesRepoRoot
             return !root || fs.existsSync(path.resolve(root, surface.file))
         })
         fs.writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 4)}\n`)
-        console.log('Removed deleted source files from the existing screenshot backlog.')
+        console.log(
+            'Removed deleted source files from the existing screenshot backlog.',
+        )
         return
     }
 
