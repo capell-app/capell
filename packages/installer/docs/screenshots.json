@@ -31,7 +31,13 @@
             "sameCaptureAs": "docs-install-guide-page",
             "scenario": "admin-index",
             "url": "/install-guide",
-            "waitFor": "input[id='patch-env-settings-cache-patch']:disabled"
+            "waitFor": "input[id='patch-env-settings-cache-patch']:disabled",
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": "input[id='patch-env-settings-cache-patch']:disabled"
+                }
+            ]
         }
     ]
 }

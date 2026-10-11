@@ -74,7 +74,13 @@
             "output": "docs/images/generated/package-surfaces/install-guide-page.png",
             "colorSchemes": ["light"],
             "required": false,
-            "notes": "Top-level docs copy of the package-owned installer guide screenshot."
+            "notes": "Top-level docs copy of the package-owned installer guide screenshot.",
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": "input[id='patch-env-settings-cache-patch']:disabled"
+                }
+            ]
         },
         {
             "id": "docs-marketplace-extension-detail-overview",
