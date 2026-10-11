@@ -52,8 +52,7 @@ final class FrontendRouteMiddlewareTest extends LateFrontendRouteMiddlewareTestC
             }
 
             // Use the same serialisation and compilation as route:cache, then load it.
-            $cachePath = tempnam(sys_get_temp_dir(), 'frontend-route-cache-');
-            throw_unless(is_string($cachePath), RuntimeException::class, 'Could not create a route cache fixture.');
+            $cachePath = sys_get_temp_dir() . '/frontend-route-cache-' . bin2hex(random_bytes(8)) . '.php';
 
             try {
                 file_put_contents($cachePath, '<?php return ' . var_export($routes->compile(), true) . ';');
