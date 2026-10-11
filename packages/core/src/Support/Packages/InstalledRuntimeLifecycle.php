@@ -83,6 +83,8 @@ final class InstalledRuntimeLifecycle
     }
 
     /**
+     * Activation hooks register routes independently of any enclosing route group.
+     *
      * @param  class-string  $provider
      * @param  Closure(): void  $activate
      */
@@ -348,7 +350,8 @@ final class InstalledRuntimeLifecycle
                 }
 
                 $this->states[$provider] = 'activating';
-                $routes = $this->app->make(Router::class)->getRoutes();
+                $router = $this->app->make(Router::class);
+                $routes = $router->getRoutes();
                 $before = array_map(spl_object_id(...), $routes->getRoutes());
 
                 try {
@@ -356,7 +359,9 @@ final class InstalledRuntimeLifecycle
                     $context = TrustedCorePackages::contains($package)
                         ? ExtensionContributionReceiptContext::foundation($package, $registration['bucket'], $provider)
                         : ExtensionContributionReceiptContext::forPackage($package, $registration['bucket'], $provider);
-                    $receipts->withContexts([$context], $registration['activate']);
+                    $receipts->withContexts([$context], static function () use ($router, $registration): void {
+                        RouteGroupIsolation::run($router, $registration['activate']);
+                    });
                     $this->states[$provider] = 'active';
                     unset($this->pending[$package][$provider]);
                     if ($this->pending[$package] === []) {
