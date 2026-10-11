@@ -105,6 +105,13 @@ real, and sharing only what is safe to share:
 
 ### Known limitation — verify before trusting a full-suite run
 
+The provisioner regenerates the copied autoloader from the worktree's manifest,
+including development source mappings. The primary vendor metadata may predate
+a new fixture namespace or package source path. Copying it without regeneration
+can pass a single Core-class probe while leaving those newer classes unavailable.
+Autoload regeneration disables Composer scripts and plugins and writes only the
+owned loader; it does not install or update shared dependencies.
+
 The script fixes the common failure, not every one. Because third-party packages are
 symlinked, any code that walks upward from inside `vendor/` — `dirname(__DIR__, N)`, or a
 Composer `ClassLoader` re-registered at runtime — resolves into the **primary checkout**,
@@ -149,7 +156,8 @@ The path must be inside your worktree. If it points at the primary checkout, del
 Composer scripts such as `composer test:unit` are safe. Dependency-mutating commands
 such as `install`, `require`, `update`, and `remove` are not: the hybrid `vendor/`
 contains symlinks into the primary checkout. Manage dependencies in the primary
-checkout, then re-run `scripts/init-worktree.sh --force` in each worktree.
+checkout, then re-run `scripts/init-worktree.sh --host-only --force` in each owned
+host worktree. The force option replaces that worktree's vendor layout.
 
 ## Node dependencies
 
