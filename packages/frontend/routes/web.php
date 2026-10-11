@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Capell\Frontend\Http\Controllers\ActivityBeaconController;
 use Capell\Frontend\Http\Controllers\LanguagePreferenceController;
 use Capell\Frontend\Http\Controllers\PageController;
-use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
 use Illuminate\Support\Facades\Route;
 
 Route::name('capell-frontend.')
@@ -20,7 +19,7 @@ Route::name('capell-frontend.')
         Route::post('_capell/activity', ActivityBeaconController::class)
             ->name('activity');
 
-        Route::middleware(resolve(FrontendRouteMiddlewareRegistry::class)->all())
+        Route::middleware('capell-frontend')
             ->group(function (): void {
                 if (config('capell-frontend.register_home_route', false)) {
                     Route::get('/', PageController::class)->name('home');
