@@ -957,7 +957,7 @@
             "covers": [
                 "packages/admin/src/Filament/Resources/Sites/Tables/SiteDomainsTable.php"
             ],
-            "waitFor": "table:has(th:has-text('Domain'))",
+            "waitFor": "table:has(th:has-text('URL'))",
             "notes": "Shows the real editor controls covered by the action screenshot guard.",
             "beforeWait": [
                 {
@@ -968,7 +968,7 @@
             "interactions": [
                 {
                     "type": "scrollIntoView",
-                    "selector": "table:has(th:has-text('Domain'))"
+                    "selector": "table:has(th:has-text('URL'))"
                 }
             ]
         }
