@@ -66,6 +66,11 @@ if [ ! -d "$PRIMARY_ROOT/vendor/composer" ]; then
     exit 1
 fi
 
+if ! command -v composer >/dev/null 2>&1; then
+    echo "Composer is required to generate this checkout's source mappings." >&2
+    exit 1
+fi
+
 cd "$WORKTREE_ROOT"
 
 # ---------------------------------------------------------------------------
@@ -161,6 +166,14 @@ for package in "${REAL_PACKAGES[@]}"; do
 done
 
 echo "Linked $linked packages, copied $copied tool packages ($(du -sh vendor | cut -f1))."
+
+# Copied metadata can predate this checkout's manifest. Regenerate only the
+# owned loader; disabled scripts/plugins cannot mutate shared dependencies.
+if ! composer dump-autoload --dev --no-interaction --no-scripts --no-plugins; then
+    echo "Failed to generate this checkout's autoloader; removing the new vendor/." >&2
+    rm -rf vendor
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Verify. A wrong answer here means the suite would test the primary checkout,
