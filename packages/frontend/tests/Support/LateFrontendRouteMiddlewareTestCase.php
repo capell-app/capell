@@ -6,11 +6,13 @@ namespace Capell\Frontend\Tests\Support;
 
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Frontend\Support\Routing\FrontendRouteMiddlewareRegistry;
+use Capell\Frontend\Tests\FrontendTestCase;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Application;
 use Override;
 use RuntimeException;
 
-trait RegistersLateFrontendRouteMiddleware
+abstract class LateFrontendRouteMiddlewareTestCase extends FrontendTestCase
 {
     #[Override]
     protected function defineEnvironment(mixed $app): void
@@ -18,7 +20,7 @@ trait RegistersLateFrontendRouteMiddleware
         parent::defineEnvironment($app);
 
         throw_unless($app instanceof Application, RuntimeException::class, 'Expected the Testbench application.');
-        $app->make('config')->set('capell-frontend.register_home_route', true);
+        $app->make(Repository::class)->set('capell-frontend.register_home_route', true);
 
         $app->booting(static function (Application $app): void {
             $app->make(FrontendRouteMiddlewareRegistry::class)->prepend(['test.frontend.early']);
