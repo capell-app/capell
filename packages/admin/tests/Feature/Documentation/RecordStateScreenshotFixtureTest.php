@@ -94,6 +94,7 @@ it('uses a separate display-only site for site-domain relation captures', functi
     $site = RecordStateScreenshotFixture::site();
 
     expect($site->siteDomains()->pluck('domain')->all())->toBe(['documentation.example'])
+        ->and($site->default)->toBeFalse()
         ->and(RecordStateScreenshotFixture::siteEditUrl())->toBe(SiteResource::getUrl('edit', ['record' => $site]));
 
     RecordStateScreenshotFixture::initialize();

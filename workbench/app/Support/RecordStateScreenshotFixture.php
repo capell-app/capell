@@ -96,6 +96,7 @@ final class RecordStateScreenshotFixture
             if (! ($displaySite instanceof Site)) {
                 $displaySite = $site->replicate(['uuid']);
                 $displaySite->name = self::SiteName;
+                $displaySite->default = false;
                 $displaySite->save();
             }
 
