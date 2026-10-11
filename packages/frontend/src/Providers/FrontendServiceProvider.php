@@ -416,6 +416,15 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
                     ->by($request->getHost() . '|' . $request->ip()),
             );
         });
+
+        // Optional providers contribute after Frontend boots. Resolve their
+        // middleware after all providers boot, including when routes are cached.
+        $this->app->booted(static function (): void {
+            resolve(Router::class)->middlewareGroup(
+                'capell-frontend',
+                resolve(FrontendRouteMiddlewareRegistry::class)->all(),
+            );
+        });
         Blade::component(FrontendLayout::class, 'capell::layout');
         $this->registerMiddlewareAliases();
         $this->registerErrorViewFallbackPath();
