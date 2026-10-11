@@ -909,7 +909,6 @@
             "covers": [
                 "packages/admin/src/Filament/Resources/Layouts/Pages/EditLayout.php"
             ],
-            "steps": [],
             "waitFor": "form",
             "notes": "Shows the real editor controls covered by the action screenshot guard."
         },
@@ -928,18 +927,20 @@
             "covers": [
                 "packages/admin/src/Filament/Resources/Pages/Tables/PageUrlsTable.php"
             ],
-            "steps": [
+            "waitFor": "table:has(th:has-text('URL'))",
+            "notes": "Shows the real editor controls covered by the action screenshot guard.",
+            "beforeWait": [
                 {
                     "type": "click",
                     "selector": "[role='tab']:has-text('URLs')"
-                },
+                }
+            ],
+            "interactions": [
                 {
                     "type": "scrollIntoView",
                     "selector": "table:has(th:has-text('URL'))"
                 }
-            ],
-            "waitFor": "table:has(th:has-text('URL'))",
-            "notes": "Shows the real editor controls covered by the action screenshot guard."
+            ]
         },
         {
             "id": "site-domain-relation-actions",
@@ -956,18 +957,20 @@
             "covers": [
                 "packages/admin/src/Filament/Resources/Sites/Tables/SiteDomainsTable.php"
             ],
-            "steps": [
+            "waitFor": "table:has(th:has-text('Domain'))",
+            "notes": "Shows the real editor controls covered by the action screenshot guard.",
+            "beforeWait": [
                 {
                     "type": "click",
                     "selector": "[role='tab']:has-text('Site Domains')"
-                },
+                }
+            ],
+            "interactions": [
                 {
                     "type": "scrollIntoView",
                     "selector": "table:has(th:has-text('Domain'))"
                 }
-            ],
-            "waitFor": "table:has(th:has-text('Domain'))",
-            "notes": "Shows the real editor controls covered by the action screenshot guard."
+            ]
         }
     ]
 }
