@@ -50,7 +50,7 @@
                 },
                 {
                     "type": "waitFor",
-                    "selector": ".fi-fo-field:has(label:has-text('Alt text')) input"
+                    "selector": "input[id$='.meta.alt']"
                 }
             ],
             "docsPage": "docs/admin/media-management.md",
@@ -950,7 +950,7 @@
             "targetType": "admin-surface",
             "target": "SiteResource/EditSite",
             "scenario": "admin-form",
-            "url": "/sites/{first-record}/edit",
+            "url": "/screenshot-fixtures/record-states/site-editor",
             "docsPage": "docs/getting-started/create-your-first-page.md",
             "output": "docs/images/generated/admin/site-domain-relation-actions.png",
             "required": true,
