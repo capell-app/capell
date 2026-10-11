@@ -94,3 +94,26 @@ $backend->before(fn () => null);`,
     )
     assert.equal(result.status, 0, result.stderr)
 })
+
+test('resolves grouped Filament imports with aliases', (t) => {
+    const result = check(
+        t,
+        `<?php
+use Filament\\Actions\\{EditAction as Update};
+Update::make()->modalHeading('Confirm');`,
+    )
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /custom modalHeading/)
+})
+
+test('nested UI factories do not truncate the outer action chain', (t) => {
+    const result = check(
+        t,
+        `<?php
+use Filament\\Actions\\EditAction;
+use Filament\\Forms\\Components\\TextInput;
+EditAction::make()->label(TextInput::make('name')->getLabel())->modalHeading('Confirm');`,
+    )
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /custom modalHeading/)
+})

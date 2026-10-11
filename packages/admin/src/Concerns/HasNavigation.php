@@ -159,7 +159,15 @@ trait HasNavigation
         }
 
         foreach ($navigationGroups as $navigationGroupKey => $navigationGroup) {
-            if ($navigationGroup->position !== NavigationGroupPositionEnum::Start) {
+            if ($navigationGroup->position === NavigationGroupPositionEnum::End) {
+                $orderedNavigationGroups[$navigationGroupKey] = $navigationGroup;
+            }
+        }
+
+        // A translated package label can merge into an earlier default group.
+        // Its relative target must exist before applying the package's position.
+        foreach ($navigationGroups as $navigationGroupKey => $navigationGroup) {
+            if (in_array($navigationGroup->position, [NavigationGroupPositionEnum::Before, NavigationGroupPositionEnum::After], true)) {
                 $this->insertNavigationGroup($orderedNavigationGroups, $navigationGroupKey, $navigationGroup);
             }
         }

@@ -136,6 +136,22 @@ function actionFactories(source) {
     )) {
         imports.set(match[2] ?? shortClassName(match[1]), match[1])
     }
+    for (const group of source.matchAll(
+        /^\s*use\s+([A-Za-z_][A-Za-z0-9_\\]*)\\\{([^}]+)\}\s*;/gm,
+    )) {
+        for (const item of group[2].split(',')) {
+            const match = item
+                .trim()
+                .match(
+                    /^([A-Za-z_][A-Za-z0-9_\\]*)(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?$/,
+                )
+            if (match)
+                imports.set(
+                    match[2] ?? shortClassName(match[1]),
+                    `${group[1]}\\${match[1]}`,
+                )
+        }
+    }
     const namespace = source.match(
         /\bnamespace\s+([A-Za-z_][A-Za-z0-9_\\]*)\s*;/,
     )?.[1]
@@ -164,7 +180,7 @@ function actionFactories(source) {
                     ),
                 }
             })
-            // Business operations also expose make(); only UI factories delimit UI blocks.
+            // Business operations also expose make(); only UI factories need coverage.
             .filter(
                 ({ className, known }) =>
                     !known || className.split('\\').includes('Filament'),
@@ -240,15 +256,11 @@ function customActionSurfaces() {
             const reasons = []
 
             const factories = actionFactories(source)
-            for (const [index, factory] of factories.entries()) {
+            for (const factory of factories) {
                 const className = factory.className
                 const behaviour = customBehaviourFor(
                     className,
-                    actionBlock(
-                        source,
-                        factory.index,
-                        factories[index + 1]?.index ?? source.length,
-                    ),
+                    actionBlock(source, factory.index, source.length),
                 )
 
                 if (behaviour.length === 0) {
