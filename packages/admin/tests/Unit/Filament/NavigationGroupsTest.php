@@ -29,9 +29,10 @@ use Spatie\Permission\Models\Permission;
 it('resolves navigation translations before panel configuration can cache missing labels', function (): void {
     $navigationTranslations = require __DIR__ . '/../../../resources/lang/en/navigation.php';
 
-    foreach (['layouts', 'themes', 'block_templates', 'blueprints'] as $key) {
-        expect(__('capell-admin::navigation.' . $key))->toBe($navigationTranslations[$key]);
-    }
+    expect(__('capell-admin::navigation.layouts'))->toBe($navigationTranslations['layouts'])
+        ->and(__('capell-admin::navigation.themes'))->toBe($navigationTranslations['themes'])
+        ->and(__('capell-admin::navigation.block_templates'))->toBe($navigationTranslations['block_templates'])
+        ->and(__('capell-admin::navigation.blueprints'))->toBe($navigationTranslations['blueprints']);
 });
 
 it('keeps primary admin navigation in the approved groups', function (): void {
