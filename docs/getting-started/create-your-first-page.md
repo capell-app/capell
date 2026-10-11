@@ -173,6 +173,10 @@ On edit screens, Capell shows additional page settings and package-provided fiel
 
 For a first page, avoid tuning everything at once. Confirm the page renders first, then come back for SEO and sharing details.
 
+The **URLs** relation lists the page's public paths and aliases. Use **New page URL** to add a path, or the row's edit action to update an existing one.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/page-url-relation-actions-dark.png"><img src="../images/generated/admin/page-url-relation-actions.png" alt="Page URLs relation with create and edit actions"></picture>
+
 ## Configure the Site once
 
 A **Site** is bigger than one page. It represents the public web property that all its pages belong to.
@@ -188,7 +192,11 @@ Site-level details can apply across every page for that site:
 | Email, phone, contact page | Footer, contact cards, schema, and reusable widgets.         |
 | Domains and languages      | URL generation, language tabs, canonical links, and routing. |
 
-Site records live in the **Settings** area of the admin sidebar. Open **Sites** when you need to update the company, logo, favicon, brand, domain, language, or related site details behind the pages.
+Site records live in the **System** area of the admin sidebar. Open **Sites** when you need to update the company, logo, favicon, brand, domain, language, or related site details behind the pages.
+
+The **Site Domains** relation connects the site's domains to languages. Use **New site domain** or a row's edit action to manage those addresses.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/site-domain-relation-actions-dark.png"><img src="../images/generated/admin/site-domain-relation-actions.png" alt="Site Domains relation with create and edit actions"></picture>
 
 Change Site details when the same value should affect the whole website. Change Page details when the value only belongs to one page.
 

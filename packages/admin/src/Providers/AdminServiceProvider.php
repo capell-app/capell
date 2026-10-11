@@ -327,6 +327,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     public function registeringPackage(): void
     {
+        // Filament builds panels while its routes boot, before this provider's
+        // translation boot step. An early lookup otherwise caches an empty group.
+        $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', 'capell-admin');
+
         // Composer's package manifest is alphabetical, so Admin can be
         // registered before Core even though every Admin surface depends on
         // Core's contribution registrar and receipt contract.

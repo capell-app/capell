@@ -50,7 +50,7 @@
                 },
                 {
                     "type": "waitFor",
-                    "selector": ".fi-fo-field:has(label:has-text('Alt text')) input"
+                    "selector": "input[id$='.meta.alt']"
                 }
             ],
             "docsPage": "docs/admin/media-management.md",
@@ -74,7 +74,13 @@
             "output": "docs/images/generated/package-surfaces/install-guide-page.png",
             "colorSchemes": ["light"],
             "required": false,
-            "notes": "Top-level docs copy of the package-owned installer guide screenshot."
+            "notes": "Top-level docs copy of the package-owned installer guide screenshot.",
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": "input[id='patch-env-settings-cache-patch']:disabled"
+                }
+            ]
         },
         {
             "id": "docs-marketplace-extension-detail-overview",
@@ -599,7 +605,10 @@
             "docsPage": "docs/getting-started/types.md",
             "output": "docs/images/generated/admin/types-list.png",
             "required": true,
-            "notes": "Shows the Blueprints resource where reusable page, element, site, and theme blueprint records are grouped."
+            "notes": "Shows the Blueprints resource where reusable page, element, site, and theme blueprint records are grouped.",
+            "covers": [
+                "packages/admin/src/Filament/Resources/Blueprints/Tables/BlueprintsTable.php"
+            ]
         },
         {
             "id": "blueprints-definition",
@@ -781,7 +790,10 @@
             "docsPage": "docs/getting-started/how-capell-works.md",
             "output": "docs/images/generated/admin/languages-list.png",
             "required": false,
-            "notes": "Shows configured language records for multi-locale sites."
+            "notes": "Shows configured language records for multi-locale sites.",
+            "covers": [
+                "packages/admin/src/Filament/Resources/Languages/Tables/LanguagesTable.php"
+            ]
         },
         {
             "id": "roles-list",
@@ -887,6 +899,84 @@
             "output": "docs/images/generated/admin/upgrade-page.png",
             "required": false,
             "notes": "Shows the admin upgrade surface for reviewing package and platform upgrade state."
+        },
+        {
+            "id": "layout-edit-actions",
+            "title": "Layout editor actions.",
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "LayoutResource/EditLayout",
+            "scenario": "admin-form",
+            "url": "/layouts/{first-record}/edit",
+            "docsPage": "docs/packages/layout-builder.md",
+            "output": "docs/images/generated/admin/layout-edit-actions.png",
+            "required": true,
+            "covers": [
+                "packages/admin/src/Filament/Resources/Layouts/Pages/EditLayout.php"
+            ],
+            "waitFor": "form",
+            "notes": "Shows the real editor controls covered by the action screenshot guard."
+        },
+        {
+            "id": "page-url-relation-actions",
+            "title": "Page URL relation actions.",
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "PageResource/EditPage",
+            "scenario": "admin-form",
+            "url": "/pages/{first-record}/edit",
+            "docsPage": "docs/getting-started/create-your-first-page.md",
+            "output": "docs/images/generated/admin/page-url-relation-actions.png",
+            "required": true,
+            "covers": [
+                "packages/admin/src/Filament/Resources/Pages/Tables/PageUrlsTable.php"
+            ],
+            "waitFor": "table:has(th:has-text('URL'))",
+            "notes": "Shows the real editor controls covered by the action screenshot guard.",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "[role='tab']:has-text('URLs')"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": "table:has(th:has-text('URL'))"
+                }
+            ]
+        },
+        {
+            "id": "site-domain-relation-actions",
+            "title": "Site domain relation actions.",
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "SiteResource/EditSite",
+            "scenario": "admin-form",
+            "url": "/screenshot-fixtures/record-states/site-editor",
+            "docsPage": "docs/getting-started/create-your-first-page.md",
+            "output": "docs/images/generated/admin/site-domain-relation-actions.png",
+            "required": true,
+            "covers": [
+                "packages/admin/src/Filament/Resources/Sites/Tables/SiteDomainsTable.php"
+            ],
+            "waitFor": "table:has(th:has-text('URL'))",
+            "notes": "Shows the real editor controls covered by the action screenshot guard.",
+            "beforeWait": [
+                {
+                    "type": "click",
+                    "selector": "[role='tab']:has-text('Site Domains')"
+                }
+            ],
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": "table:has(th:has-text('URL'))"
+                }
+            ]
         }
     ]
 }

@@ -24,6 +24,10 @@ Full documentation lives at `https://docs.capell.app/packages/layout-builder`.
 
 ## Next
 
+Before composing a reusable layout, its edit screen sets the name, group, site, theme and availability that identify it in page selection.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/layout-edit-actions-dark.png"><img src="../images/generated/admin/layout-edit-actions.png" alt="Reusable layout edit screen with identity and availability fields"></picture>
+
 - [Content Sections](content-sections.md) — ready-made page sections built on Layout Builder.
 - [Packages and extensions](catalog.md) — host package boundaries and the full add-on catalogue.
 - [Packages](README.md) — package authoring and extension points.

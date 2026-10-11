@@ -6,7 +6,7 @@
         "screenshots:prepare": "bash scripts/screenshots/prepare-workbench.sh",
         "docs:screenshot-coverage": "node scripts/check-doc-screenshot-coverage.js && node scripts/check-runner-screenshot-receipts.js",
         "docs:screenshot-receipts": "node scripts/check-runner-screenshot-receipts.js",
-        "docs:filament-action-screenshots": "node scripts/check-filament-action-screenshots.js",
+        "docs:filament-action-screenshots": "node --test scripts/check-filament-action-screenshots.test.js && node scripts/check-filament-action-screenshots.js",
         "docs:screenshots:check": "node scripts/check-doc-screenshots.js",
         "docs:publish": "cd ../../../capell-docs && CAPELL_CORE_PATH=../packages/capell/capell-4 npm run sync:local:core && npm run build",
         "prettier": "npx prettier --write 'packages/**/*.{css,js,yml,json,md,blade.php}'",

@@ -26,6 +26,15 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Permission;
 
+it('resolves navigation translations before panel configuration can cache missing labels', function (): void {
+    $navigationTranslations = require __DIR__ . '/../../../resources/lang/en/navigation.php';
+
+    expect(__('capell-admin::navigation.layouts'))->toBe($navigationTranslations['layouts'])
+        ->and(__('capell-admin::navigation.themes'))->toBe($navigationTranslations['themes'])
+        ->and(__('capell-admin::navigation.block_templates'))->toBe($navigationTranslations['block_templates'])
+        ->and(__('capell-admin::navigation.blueprints'))->toBe($navigationTranslations['blueprints']);
+});
+
 it('keeps primary admin navigation in the approved groups', function (): void {
     expect(PageResource::getNavigationGroup())->toBe((string) __('capell-admin::navigation.group_websites'))
         ->and(CapellDashboard::getNavigationGroup())->toBeNull()
@@ -33,22 +42,24 @@ it('keeps primary admin navigation in the approved groups', function (): void {
 });
 
 it('uses clearer admin navigation groups without conflicting group icons', function (): void {
+    $navigationTranslations = require __DIR__ . '/../../../resources/lang/en/navigation.php';
+
     $groups = collect(CapellAdmin::getNavigationGroups())
         ->mapWithKeys(fn (NavigationGroup $group): array => [
             $group->getLabel() => $group->getIcon(),
         ]);
 
     expect($groups->all())->toBe([
-        'capell-admin::navigation.group_dashboard' => null,
-        'capell-admin::navigation.group_websites' => null,
-        'capell-admin::navigation.group_content' => null,
-        'capell-admin::navigation.group_workflow' => null,
-        'capell-admin::navigation.group_layouts' => null,
-        'capell-admin::navigation.group_marketing' => null,
-        'capell-admin::navigation.group_reports' => null,
-        'capell-admin::navigation.group_monitoring' => null,
-        'capell-admin::navigation.group_settings' => null,
-        'capell-admin::navigation.group_system' => null,
+        $navigationTranslations['group_dashboard'] => null,
+        $navigationTranslations['group_websites'] => null,
+        $navigationTranslations['group_content'] => null,
+        $navigationTranslations['group_workflow'] => null,
+        $navigationTranslations['group_layouts'] => null,
+        $navigationTranslations['group_marketing'] => null,
+        $navigationTranslations['group_reports'] => null,
+        $navigationTranslations['group_monitoring'] => null,
+        $navigationTranslations['group_settings'] => null,
+        $navigationTranslations['group_system'] => null,
     ]);
 });
 

@@ -58,5 +58,8 @@ Route::get('/screenshot-fixtures/record-states/media', static fn (): RedirectRes
 Route::get('/screenshot-fixtures/record-states/media-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::mediaEditUrl()))
     ->middleware(['web', RequireScreenshotAdmin::class]);
 
+Route::get('/screenshot-fixtures/record-states/site-editor', static fn (): RedirectResponse => redirect()->to(RecordStateScreenshotFixture::siteEditUrl()))
+    ->middleware(['web', RequireScreenshotAdmin::class]);
+
 Route::get('/api/v1/marketplace-fixtures/seo-suite/{image}.png', static fn (string $image): BinaryFileResponse => response()->file(MarketplaceFixture::imagePath($image . '.png')))
     ->where('image', '[0-9]+');

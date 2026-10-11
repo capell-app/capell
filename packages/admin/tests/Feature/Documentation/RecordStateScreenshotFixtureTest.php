@@ -7,6 +7,7 @@ use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Pages\EditMedia;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
+use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Media;
@@ -84,6 +85,22 @@ it('initializes idempotent record-state fixtures at actual Filament list and edi
 it('denies guests access to record-state fixture routes', function (): void {
     test()->get('/screenshot-fixtures/record-states/pages')
         ->assertForbidden();
+});
+
+it('uses a separate display-only site for site-domain relation captures', function (): void {
+    test()->actingAsAdmin();
+    RecordStateScreenshotFixture::initialize();
+
+    $site = RecordStateScreenshotFixture::site();
+
+    expect($site->siteDomains()->pluck('domain')->all())->toBe(['documentation.example'])
+        ->and($site->default)->toBeFalse()
+        ->and(RecordStateScreenshotFixture::siteEditUrl())->toBe(SiteResource::getUrl('edit', ['record' => $site]));
+
+    RecordStateScreenshotFixture::initialize();
+
+    expect(RecordStateScreenshotFixture::site()->getKey())->toBe($site->getKey())
+        ->and($site->siteDomains()->count())->toBe(1);
 });
 
 it('does not expose a screenshot fixture login endpoint', function (): void {

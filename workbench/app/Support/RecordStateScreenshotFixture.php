@@ -7,6 +7,7 @@ namespace Workbench\App\Support;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
+use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\AssetAttachment;
 use Capell\Core\Models\Blueprint;
@@ -31,6 +32,8 @@ final class RecordStateScreenshotFixture
     private const string PageSlug = 'scheduled-no-active-url';
 
     private const string MediaUuid = 'c6de44d7-a8d4-4c5d-9e24-7c6492811d48';
+
+    private const string SiteName = 'Documentation site';
 
     /**
      * Seeds deterministic local records before the runner starts concurrent
@@ -85,7 +88,39 @@ final class RecordStateScreenshotFixture
             );
 
             self::ensureUnusedMedia($page);
+
+            // The public fixture's transport domain is required for routing,
+            // but must not appear in a documented site-domain relation table.
+            $displaySite = Site::query()->where('name', self::SiteName)->first();
+
+            if (! ($displaySite instanceof Site)) {
+                $displaySite = $site->replicate(['uuid']);
+                $displaySite->name = self::SiteName;
+                $displaySite->default = false;
+                $displaySite->save();
+            }
+
+            $displaySite->siteDomains()->updateOrCreate([
+                'language_id' => $site->language_id,
+                'domain' => 'documentation.example',
+                'scheme' => 'https',
+                'port' => null,
+                'path' => null,
+            ], [
+                'default' => true,
+                'status' => true,
+            ]);
         });
+    }
+
+    public static function site(): Site
+    {
+        return Site::query()->where('name', self::SiteName)->firstOrFail();
+    }
+
+    public static function siteEditUrl(): string
+    {
+        return SiteResource::getUrl('edit', ['record' => self::site()]);
     }
 
     public static function pagesUrl(): string

@@ -169,7 +169,7 @@
                 },
                 {
                     "type": "waitFor",
-                    "selector": ".fi-fo-field:has(label:has-text('Alt text')) input"
+                    "selector": "input[id$='.meta.alt']"
                 }
             ],
             "docsPage": "packages/admin/docs/overview.md",
