@@ -8,6 +8,25 @@ use Capell\Tests\Fixtures\Providers\GeneratedTestbenchProvider;
 use Capell\Tests\Support\IsolatedTestbenchSkeleton;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Env;
+use Livewire\ComponentHook;
+use Livewire\ComponentHookRegistry;
+
+it('rebuilds Livewire hooks from the current applications providers', function (): void {
+    $hook = new class extends ComponentHook
+    {
+        public function skip(): bool
+        {
+            return true;
+        }
+    };
+    resolve('livewire')->componentHook($hook);
+    $hooks = new ReflectionProperty(ComponentHookRegistry::class, 'componentHooks');
+    expect($hooks->getValue())->toContain($hook);
+
+    $this->refreshApplication();
+
+    expect($hooks->getValue())->not->toContain($hook);
+});
 
 it('keeps generated host providers out of a copied package test application', function (): void {
     $directory = sys_get_temp_dir() . '/capell-provider-isolation-' . bin2hex(random_bytes(8));
