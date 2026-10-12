@@ -121,7 +121,7 @@ class LanguageSelect extends Select
 
     public function withCreateForm(): self
     {
-        return $this->createOptionForm(fn (Schema $schema): Schema => LanguageForm::configure($schema))
+        return $this->createOptionForm(fn (Schema $schema): Schema => LanguageForm::configure($schema->model(Language::class)))
             ->createOptionAction(
                 fn (Action $action): Action => $action
                     ->modalHeading(__('capell-admin::generic.language'))
@@ -158,7 +158,7 @@ class LanguageSelect extends Select
 
             return $record?->attributesToArray() ?? [];
         })
-            ->editOptionForm(fn (Schema $schema): Schema => LanguageForm::configure($schema))
+            ->editOptionForm(fn (Schema $schema): Schema => LanguageForm::configure($schema->model($this->getSelectedRecord() ?? Language::class)))
             ->editOptionAction(
                 fn (Action $action): Action => $action
                     ->modalHeading(__('capell-admin::generic.language'))

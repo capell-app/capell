@@ -54,8 +54,14 @@ it('configures create and edit forms used by language relationship selects', fun
     $mounted = $schema->getComponents()[0];
     assert($mounted instanceof LanguageSelect);
 
+    $create = $mounted->getCreateOptionActionForm(Schema::make(Livewire::make()));
+    $edit = $mounted->getEditOptionActionForm(Schema::make(Livewire::make()));
+    throw_if(! $create instanceof Schema || ! $edit instanceof Schema, RuntimeException::class, 'Nested language forms must return schemas.');
+
     expect($mounted->getCreateOptionActionName())->toBe('createOption')
         ->and($mounted->getEditOptionActionName())->toBe('editOption')
         ->and($mounted->getCreateOptionActionForm($schema))->not->toBeEmpty()
-        ->and($mounted->getEditOptionActionForm($schema))->not->toBeEmpty();
+        ->and($mounted->getEditOptionActionForm($schema))->not->toBeEmpty()
+        ->and($create->getModel())->toBe(Language::class)
+        ->and($edit->getModel())->toBe(Language::class);
 });
