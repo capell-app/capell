@@ -40,9 +40,7 @@ function expectedMarketplaceComposerRunnerEnvironmentForTest(string $composerHom
 }
 
 it('keeps the composer cache by default so an install does not re-download the world', function (): void {
-    $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'composerRequireArguments');
-
-    expect($method->invoke(new ProcessMarketplaceComposerRunner, 'vendor/example', '^1.2'))->toBe([
+    expect(marketplaceComposerRunnerArguments())->toBe([
         'require',
         '--no-interaction',
         '--no-scripts',
@@ -57,8 +55,7 @@ it('keeps the composer cache by default so an install does not re-download the w
 it('disables the composer cache only when the host asks for it', function (): void {
     config()->set('capell.process.composer.no_cache', true);
 
-    $method = new ReflectionMethod(ProcessMarketplaceComposerRunner::class, 'composerRequireArguments');
-    $arguments = $method->invoke(new ProcessMarketplaceComposerRunner, 'vendor/example', '^1.2');
+    $arguments = marketplaceComposerRunnerArguments();
 
     // --no-cache is a global option, so Composer only accepts it before the command.
     expect($arguments[0])->toBe('--no-cache')
@@ -362,3 +359,31 @@ it('reports abandoned composer auth directories without failing the operations d
         $workspace->removeDirectory($abandoned);
     }
 });
+
+/** @return list<string> */
+function marketplaceComposerRunnerArguments(): array
+{
+    $directory = sys_get_temp_dir() . '/capell-composer-arguments-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0755, true);
+    file_put_contents($directory . '/php', "#!/bin/sh\nexec \"$@\"\n");
+    file_put_contents($directory . '/composer', <<<'SH'
+#!/bin/sh
+printf '%s\n' "$@"
+SH);
+    chmod($directory . '/php', 0755);
+    chmod($directory . '/composer', 0755);
+    $previousPath = getenv('PATH');
+    putenv('PATH=' . $directory);
+
+    try {
+        $result = new ProcessMarketplaceComposerRunner()->require('vendor/example', '^1.2', 5);
+        expect($result->exitCode)->toBe(0, $result->errorOutput);
+
+        return explode("\n", trim($result->output));
+    } finally {
+        putenv($previousPath === false ? 'PATH' : 'PATH=' . $previousPath);
+        unlink($directory . '/php');
+        unlink($directory . '/composer');
+        rmdir($directory);
+    }
+}
