@@ -6,8 +6,8 @@ namespace Capell\Core\Actions\Install;
 
 use Closure;
 use Illuminate\Console\Application;
+use Illuminate\Contracts\Console\Kernel as KernelContract;
 use Illuminate\Foundation\Console\Kernel;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\ServiceProvider;
 use Lorisleiva\Actions\Concerns\AsObject;
 use ReflectionFunction;
@@ -34,26 +34,50 @@ final class RegisterProviderCommandsInCurrentProcessAction
         /** @var array<array-key, Closure> $after */
         $after = $bootstrappers->getValue();
 
-        if (! app()->isBooted()) {
+        $declarations = $this->newDeclarations($before, $after);
+
+        // Ordinary requests register nothing here, and a console kernel that has
+        // not been resolved yet will collect the declarations during its normal
+        // start-up. Resolving it now would re-run application bootstrap hooks.
+        if ($declarations === [] || ! app()->isBooted() || ! app()->resolved(KernelContract::class)) {
             return $result;
         }
 
-        // Before the kernel builds Artisan, these declarations will be picked
-        // up normally. Building it here can re-enter an unfinished bootstrap.
-        $kernel = Artisan::getFacadeRoot();
+        $kernel = resolve(KernelContract::class);
         if (! $kernel instanceof Kernel
             || ! new ReflectionProperty(Kernel::class, 'artisan')->getValue($kernel) instanceof Application) {
             return $result;
         }
 
+        foreach ($declarations as $commands) {
+            RegisterCommandsInCurrentProcessAction::run($commands);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Laravel captures the list in ServiceProvider::commands() as a console
+     * starting callback. Read only the declarations added while the providers
+     * loaded: replaying arbitrary starting callbacks would repeat unrelated
+     * console bootstrap side effects.
+     *
+     * @param  array<array-key, Closure>  $before
+     * @param  array<array-key, Closure>  $after
+     * @return list<list<class-string<Command>|Command>>
+     */
+    private function newDeclarations(array $before, array $after): array
+    {
+        if (count($after) === count($before)) {
+            return [];
+        }
+
+        $declarations = [];
         foreach ($after as $bootstrapper) {
             if (in_array($bootstrapper, $before, true)) {
                 continue;
             }
 
-            // Laravel captures this list in ServiceProvider::commands(). Read
-            // only new declarations: replaying arbitrary starting callbacks
-            // would repeat unrelated console bootstrap side effects.
             $reflection = new ReflectionFunction($bootstrapper);
             if ($reflection->getClosureScopeClass()?->getName() !== ServiceProvider::class) {
                 continue;
@@ -71,9 +95,11 @@ final class RegisterProviderCommandsInCurrentProcessAction
                 }
             }
 
-            RegisterCommandsInCurrentProcessAction::run($commandClasses);
+            if ($commandClasses !== []) {
+                $declarations[] = $commandClasses;
+            }
         }
 
-        return $result;
+        return $declarations;
     }
 }

@@ -5,14 +5,19 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\RegisterCommandsInCurrentProcessAction;
 use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\InstallStepExecutor;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Illuminate\Console\Application as ConsoleApplication;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Console\Kernel as ConsoleKernelContract;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 use Symfony\Component\Console\Exception\CommandNotFoundException;
 
@@ -160,4 +165,41 @@ it('leaves late provider declarations for normal startup when the console applic
 
     expect($application->getValue($kernel))->toBeNull()
         ->and(Artisan::call('test:late-package-install'))->toBe(0);
+});
+
+it('does not resolve the console kernel when loading providers that declare no commands', function (): void {
+    $resolutions = 0;
+    app()->forgetInstance(ConsoleKernelContract::class);
+    Facade::clearResolvedInstance(ConsoleKernelContract::class);
+    app()->singleton(ConsoleKernelContract::class, function () use (&$resolutions): ConsoleKernel {
+        $resolutions++;
+
+        return new ConsoleKernel(app(), resolve(Dispatcher::class));
+    });
+
+    $result = RegisterProviderCommandsInCurrentProcessAction::run(fn (): string => 'loaded without commands');
+
+    expect($result)->toBe('loaded without commands')->and($resolutions)->toBe(0);
+});
+
+it('makes commands from providers Composer discovered during the installer run callable', function (): void {
+    Artisan::all();
+    $basePath = app()->basePath();
+    $temporaryPath = sys_get_temp_dir() . '/capell-composer-providers-' . bin2hex(random_bytes(4));
+    mkdir($temporaryPath . '/bootstrap/cache', 0777, true);
+    file_put_contents(
+        $temporaryPath . '/bootstrap/cache/packages.php',
+        '<?php return ' . var_export(['vendor/composer-late' => ['providers' => [LateInstallTestProvider::class]]], true) . ';',
+    );
+    app()->setBasePath($temporaryPath);
+
+    try {
+        $executor = resolve(InstallStepExecutor::class);
+        new ReflectionMethod($executor, 'registerComposerDiscoveredProviders')->invoke($executor);
+    } finally {
+        app()->setBasePath($basePath);
+        File::deleteDirectory($temporaryPath);
+    }
+
+    expect(Artisan::call('test:late-package-install'))->toBe(0);
 });
