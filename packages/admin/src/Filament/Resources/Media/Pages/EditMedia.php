@@ -33,6 +33,7 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Override;
 
@@ -234,7 +235,7 @@ class EditMedia extends EditRecord
         $data['crop_presets'] = $cropPresetNames !== []
             ? $cropPresetNames
             : resolve(MediaCropPresetRepository::class)->names();
-        $data['translations'] = SiteAccess::current()->scope($this->record->translations()->getQuery())
+        $data['translations'] = $this->translationsQuery()
             ->orderBy('language_id')
             ->get()
             ->map(fn (Translation $translation): array => [
@@ -321,7 +322,7 @@ class EditMedia extends EditRecord
     private function shouldSaveLocalizedMetadata(array $data): bool
     {
         // An untouched initial row must not create a translation or block unrelated file edits.
-        if ($this->record->translations->contains('language_id', (int) ($data['language_id'] ?? 0))) {
+        if ($this->translationsQuery()->where('language_id', (int) ($data['language_id'] ?? 0))->exists()) {
             return true;
         }
 
@@ -342,6 +343,12 @@ class EditMedia extends EditRecord
         }
 
         return (bool) data_get($data, 'meta.decorative', false);
+    }
+
+    /** @return Builder<Translation> */
+    private function translationsQuery(): Builder
+    {
+        return SiteAccess::current()->scope($this->record->translations()->getQuery());
     }
 
     private function ownerUrl(): ?string
