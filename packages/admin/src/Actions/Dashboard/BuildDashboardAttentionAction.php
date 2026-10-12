@@ -13,10 +13,12 @@ use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildDashboardAttentionAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return list<ReportFindingData> */

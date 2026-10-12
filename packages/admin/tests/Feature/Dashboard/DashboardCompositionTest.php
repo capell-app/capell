@@ -73,6 +73,7 @@ it('retains legacy contributions in the specialist tools view rather than the ov
 
 it('places the native welcome widgets before filters and overview content', function (): void {
     test()->actingAsAdmin();
+    Site::factory()->createOne();
     $dashboard = new CompositionDashboard;
     $dashboard->widgets = [CapellAccountFilamentWidget::class, CapellInfoFilamentWidget::class];
 
@@ -85,9 +86,10 @@ it('places the native welcome widgets before filters and overview content', func
 
 it('lets a single visible native welcome widget fill its row', function (): void {
     test()->actingAsAdmin();
+    Site::factory()->createOne();
     $dashboard = new CompositionDashboard;
     $dashboard->widgets = [CapellAccountFilamentWidget::class];
-    CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Pulse, CapellAccountFilamentWidget::class, DashboardEnum::NotInstalled);
+    CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Pulse, CapellAccountFilamentWidget::class, DashboardEnum::Main);
 
     $components = $dashboard->content(Schema::make($dashboard))->getComponents();
     $welcome = $components[0];

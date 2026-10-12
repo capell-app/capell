@@ -6,6 +6,7 @@ use Capell\Admin\Data\MarketingStudioActionData;
 use Capell\Admin\Enums\MarketingStudioSectionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
+use Capell\Admin\Filament\Pages\DashboardToolsPage;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioAdvancedFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
@@ -17,7 +18,7 @@ use Livewire\Livewire;
 
 uses(CreatesAdminUser::class);
 
-it('renders marketing dashboard actions through the dashboard Filament widgets', function (): void {
+it('renders marketing dashboard actions in the specialist dashboard tools view', function (): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
 
@@ -56,6 +57,12 @@ it('renders marketing dashboard actions through the dashboard Filament widgets',
     ));
 
     Livewire::test(CapellDashboard::class)
+        ->assertSuccessful()
+        ->assertDontSee('capell.admin.filament.widgets.marketing-studio.marketing-studio-quick-actions-filament-widget', stripInitialData: false)
+        ->assertDontSee('capell.admin.filament.widgets.marketing-studio.marketing-studio-work-queue-filament-widget', stripInitialData: false)
+        ->assertDontSee('capell.admin.filament.widgets.marketing-studio.marketing-studio-advanced-filament-widget', stripInitialData: false);
+
+    Livewire::test(DashboardToolsPage::class)
         ->assertSuccessful()
         ->assertSeeLivewire(MarketingStudioQuickActionsFilamentWidget::class)
         ->assertSeeLivewire(MarketingStudioWorkQueueFilamentWidget::class)

@@ -115,6 +115,12 @@ class CapellDashboard extends Dashboard
     public function content(Schema $schema): Schema
     {
         $widgets = $this->getWidgets();
+        if ($this->dashboardEnum() === DashboardEnum::NotInstalled) {
+            return $schema->components([
+                Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($widgets))->columnSpanFull(),
+            ]);
+        }
+
         $welcome = array_values(array_filter($widgets, $this->isWelcomeWidget(...)));
         $components = [];
 
