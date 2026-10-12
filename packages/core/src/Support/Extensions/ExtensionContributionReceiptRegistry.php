@@ -31,6 +31,12 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     /** @var array<string, list<ExtensionContributionReceiptContext>> */
     private array $namespaceContexts = [];
 
+    /** @return list<ExtensionContributionReceiptContext> */
+    public function activeContexts(): array
+    {
+        return $this->contexts;
+    }
+
     public function rememberProviderContext(string $provider, ExtensionContributionReceiptContext $context): void
     {
         $this->providerContexts[$provider] ??= [];

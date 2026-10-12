@@ -44,7 +44,7 @@ return [
     'site_health' => 'Site Health',
     'site_admin_metrics' => 'Site metrics',
     'queue_health' => 'Queue Health',
-    'redirects' => 'URL Redirects',
+    'redirects' => 'Redirects',
     'settings' => 'Settings',
     'sites' => 'Sites',
     'stale_drafts' => 'Stale Drafts',
