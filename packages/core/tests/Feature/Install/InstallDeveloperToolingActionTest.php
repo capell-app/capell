@@ -7,6 +7,10 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Tests\Support\Install\MidInstallBoostTestProvider;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\PackageManifest;
+use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function (): void {
     InstallDeveloperToolingAction::resetProcessFactory();
@@ -39,6 +43,14 @@ function bindInstallDeveloperToolingState(bool $installed): void
 }
 
 it('requires boost and capell agent-bridge then configures boost tooling', function (): void {
+    Artisan::all();
+    $manifest = Mockery::mock(PackageManifest::class);
+    $manifest->manifestPath = '/test/discovered-packages.php';
+    $manifest->files = Mockery::mock(Filesystem::class);
+    $manifest->files->shouldReceive('getRequire')->once()->with($manifest->manifestPath)->andReturn([
+        'laravel/boost' => ['providers' => [MidInstallBoostTestProvider::class]],
+    ]);
+    app()->instance(PackageManifest::class, $manifest);
     $commands = [];
     $composerJsonPath = tempnam(sys_get_temp_dir(), 'capell-composer-');
     $boostJsonPath = tempnam(sys_get_temp_dir(), 'capell-boost-');
@@ -101,6 +113,10 @@ it('requires boost and capell agent-bridge then configures boost tooling', funct
         $unsupportedOptions = array_diff(array_keys($parameters), $validOptions[$command] ?? []);
 
         expect($unsupportedOptions)->toBe([]);
+
+        if ($command === 'boost:install') {
+            expect(Artisan::call('test:boost-mid-install'))->toBe(0);
+        }
 
         $artisanCalls[] = [$command, $parameters];
 
