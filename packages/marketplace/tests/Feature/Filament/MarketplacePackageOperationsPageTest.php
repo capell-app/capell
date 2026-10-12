@@ -69,14 +69,14 @@ it('renders filterable package operations with selected operation details and ti
 });
 
 it('uses extension breadcrumbs and header actions with filament table search for package operations', function (): void {
-    marketplacePackageOperationsPageAttempt([
+    $seoAttempt = marketplacePackageOperationsPageAttempt([
         'composer_name' => 'capell-app/seo-suite',
         'extension_name' => 'SEO Suite',
         'status' => MarketplaceInstallIntentStatus::Failed,
         'completed_at' => now(),
     ]);
 
-    marketplacePackageOperationsPageAttempt([
+    $formsAttempt = marketplacePackageOperationsPageAttempt([
         'composer_name' => 'capell-app/forms',
         'extension_name' => 'Forms',
         'status' => MarketplaceInstallIntentStatus::Failed,
@@ -101,9 +101,13 @@ it('uses extension breadcrumbs and header actions with filament table search for
 
     Livewire::test(MarketplacePackageOperationsPage::class)
         ->set('activeTab', 'failed')
-        ->set('tableSearch', 'seo-suite')
-        ->assertSee('SEO Suite')
-        ->assertDontSee('Forms');
+        ->assertCanSeeTableRecords([$seoAttempt, $formsAttempt])
+        ->searchTable('seo-suite')
+        ->assertCanSeeTableRecords([$seoAttempt])
+        ->assertCanNotSeeTableRecords([$formsAttempt])
+        ->searchTable('forms')
+        ->assertCanSeeTableRecords([$formsAttempt])
+        ->assertCanNotSeeTableRecords([$seoAttempt]);
 });
 
 it('exposes redacted diagnostics and can mark operations resolved', function (): void {
