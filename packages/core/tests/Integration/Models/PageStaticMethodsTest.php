@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -39,6 +40,19 @@ it('getDefaultType returns the first enabled visible accessible page type ordere
     // Assert: should return the earliest ordered (ordered() defaults asc by order then lft; factory may not set order, so we assert not null)
     expect($found)->toBeInstanceOf(Blueprint::class);
     expect($found->group)->toBe($group);
+});
+
+it('never defaults content pages to a system blueprint', function (?string $group): void {
+    Blueprint::factory()->page()->group(BlueprintGroupEnum::System->value)->default()->create(['order' => 0]);
+    $contentType = Blueprint::factory()->page()->group('marketing')->create(['order' => 10]);
+
+    expect(Page::getDefaultType($group)?->id)->toBe($contentType->id);
+})->with([null, 'default', 'page', 'marketing']);
+
+it('has no content page default when only system blueprints exist', function (): void {
+    Blueprint::factory()->page()->group(BlueprintGroupEnum::System->value)->default()->createOne();
+
+    expect(Page::getDefaultType(null))->toBeNull();
 });
 
 it('getSiteHomePage returns published home page for site and language', function (): void {

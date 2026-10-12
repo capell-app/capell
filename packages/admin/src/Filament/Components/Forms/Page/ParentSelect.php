@@ -14,11 +14,13 @@ use Closure;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+use Override;
 
 class ParentSelect extends PageSelect
 {
     private ?Schema $relationshipSchema = null;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -66,6 +68,17 @@ class ParentSelect extends PageSelect
 
                 return ($type->admin['without_parent_page'] ?? false) === true;
             });
+    }
+
+    #[Override]
+    public function pageGroup(string|Closure $pageGroup): static
+    {
+        // The generic Pages workspace permits hierarchy across content groups.
+        $this->pageGroup = is_string($pageGroup) && in_array($pageGroup, ['page', 'default'], true)
+            ? null
+            : $pageGroup;
+
+        return $this;
     }
 
     public function setupRelation(string $relation, Schema $schema): self

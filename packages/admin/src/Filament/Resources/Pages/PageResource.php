@@ -40,7 +40,6 @@ use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
-use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -312,10 +311,7 @@ class PageResource extends SiteScopedResource implements ValidatesDelete
         if (! array_key_exists('blueprint_id', $data) || $data['blueprint_id'] === '') {
             $group = static::getResourceName();
 
-            /** @var class-string<Blueprint> $model */
-            $model = Blueprint::class;
-
-            $typeId = $model::query()->pageType()->default()->adminResource($group)->value('id');
+            $typeId = Page::getDefaultType($group)?->getKey();
 
             if ($typeId !== null) {
                 $data['blueprint_id'] = $typeId;

@@ -12,7 +12,6 @@ use Capell\Core\Concerns\RestoresSoftDeletedRelations;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
-use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\CapellCoreHelper;
@@ -31,7 +30,7 @@ class PageObserver
         }
 
         if ($page->getAttribute('blueprint_id') === null) {
-            $page->blueprint_id = Blueprint::query()->pageType()->default()->value('id');
+            $page->blueprint_id = Page::getDefaultType(null)?->getKey();
             throw_unless($page->blueprint_id !== null, InvalidArgumentException::class, 'Unable to create page without a type.');
         }
 
