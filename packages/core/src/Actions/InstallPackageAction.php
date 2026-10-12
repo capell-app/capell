@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Actions\Install\RunDeclaredPackageMigrationsAction;
 use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
 use Capell\Core\Actions\RuntimeRefresh\RestartQueueWorkersAction;
@@ -85,13 +86,15 @@ class InstallPackageAction
             // package surfaces at all.
             resolve(PackageSurfaceRegistrar::class)->duringPackageInstallation(
                 function () use ($package, $arguments, $reporter, $allowLegacyCommand, $freshLifecycleProcess): void {
-                    if ($package->serviceProviderClass !== null) {
-                        app()->getProvider($package->serviceProviderClass)?->callBootedCallbacks();
-                    }
+                    RegisterProviderCommandsInCurrentProcessAction::run(function () use ($package): void {
+                        if ($package->serviceProviderClass !== null) {
+                            app()->getProvider($package->serviceProviderClass)?->callBootedCallbacks();
+                        }
 
-                    foreach (array_unique(array_merge($package->getProviderClasses('install'), $package->getProviderClasses('console'))) as $providerClass) {
-                        app()->register($providerClass);
-                    }
+                        foreach (array_unique(array_merge($package->getProviderClasses('install'), $package->getProviderClasses('console'))) as $providerClass) {
+                            app()->register($providerClass);
+                        }
+                    });
 
                     RunDeclaredPackageMigrationsAction::run($package, $reporter);
 

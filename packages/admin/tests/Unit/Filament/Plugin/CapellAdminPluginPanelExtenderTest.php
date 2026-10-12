@@ -15,6 +15,7 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateRuntimeResource;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateRuntimeWidget;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateSecurityMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateSecurityPanelExtender;
+use Capell\Admin\Tests\Fixtures\Filament\Plugin\LateTopologyRuntimeProvider;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeAllowMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeBlockMiddleware;
 use Capell\Admin\Tests\Fixtures\Filament\Plugin\RuntimeCounterComponent;
@@ -25,7 +26,10 @@ use Capell\Admin\Tests\Fixtures\Filament\Plugin\TestAdminPanelExtender;
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
+use Capell\Core\Contracts\AdminPermissionSynchronizer;
+use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\CapellExtension;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -298,6 +302,32 @@ it('defers new pages resources and widgets until a fresh application constructs 
         ->and($panel->getResources())->not->toContain(LateRuntimeResource::class)
         ->and($panel->getWidgets())->not->toContain(LateRuntimeWidget::class);
     $this->get('/admin/late-runtime')->assertNotFound();
+});
+
+it('completes an install whose panel extender changes topology after boot and defers the panel to a fresh application', function (): void {
+    $panel = Filament::getPanel('admin');
+    CapellCore::registerPackage('test/panel-topology');
+    CapellCore::forcePackageInstalled('test/panel-topology', false);
+    app()->register(LateTopologyRuntimeProvider::class);
+
+    InstallPackageAction::run(CapellCore::getPackage('test/panel-topology'));
+
+    expect(CapellExtension::query()->where('composer_name', 'test/panel-topology')->first()?->status)->toBe(ExtensionStatusEnum::Enabled)
+        ->and(CapellCore::isPackageEnabled('test/panel-topology'))->toBeTrue()
+        ->and(resolve(InstalledRuntimeLifecycle::class)->packageFailed('test/panel-topology'))->toBeFalse()
+        ->and(resolve(InstalledRuntimeLifecycle::class)->isUnavailable())->toBeFalse()
+        // The process that saw the late topology must not serve the half-built panel.
+        ->and(resolve(InstalledPanelRuntime::class)->isUnavailable('admin'))->toBeTrue()
+        ->and(resolve(InstalledPanelRuntime::class)->requiresFreshApplication('admin'))->toBeTrue()
+        // Install-time permission sync must therefore boot a fresh application.
+        ->and(resolve(AdminPermissionSynchronizer::class)->hasBootedPanel())->toBeFalse();
+    $this->get('/admin/login')->assertStatus(503);
+    expect(fn () => resolve(InstalledPanelRuntime::class)->extend($panel))->toThrow(RuntimeException::class, 'fresh application');
+
+    // Later installs in the same run continue against the deferred panel.
+    CapellCore::registerPackage('test/after-topology');
+    InstallPackageAction::run(CapellCore::getPackage('test/after-topology'));
+    expect(CapellCore::isPackageEnabled('test/after-topology'))->toBeTrue();
 });
 
 it('closes existing routes after ambiguous security refresh', function (): void {

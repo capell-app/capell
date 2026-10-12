@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\PackageRegistry;
 
+use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\SchemaProbeResult;
 use Capell\Core\Facades\CapellCore;
@@ -56,7 +57,9 @@ final class CapellPackageLoader
     public function refreshPackage(PackageData $package, bool $replayBootedCallbacks = true): void
     {
         $this->app->make(InstalledRuntimeLifecycle::class)->duringProviderRegistration(function () use ($package, $replayBootedCallbacks): void {
-            $this->registerPackageProviders($package, $replayBootedCallbacks);
+            RegisterProviderCommandsInCurrentProcessAction::run(function () use ($package, $replayBootedCallbacks): void {
+                $this->registerPackageProviders($package, $replayBootedCallbacks);
+            });
         }, $package->name);
     }
 
@@ -97,7 +100,9 @@ final class CapellPackageLoader
                         $this->selectedProviderBuckets($manifest, $provider, $runtimeProvidersSelected),
                     );
 
-                    $this->receipts->withContexts($contexts, fn (): mixed => $this->app->register($provider));
+                    $this->receipts->withContexts($contexts, fn (): mixed => RegisterProviderCommandsInCurrentProcessAction::run(
+                        fn (): mixed => $this->app->register($provider),
+                    ));
                     $loadedProviders[] = $provider;
                     foreach ($contexts as $context) {
                         $this->receipts->rememberProviderContext($provider, $context);
