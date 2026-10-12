@@ -6,6 +6,7 @@ namespace Capell\Admin\Support\Install;
 
 use Capell\Admin\Actions\SyncCapellPermissionsAction;
 use Capell\Admin\Enums\PermissionSyncMode;
+use Capell\Admin\Support\InstalledPanelRuntime;
 use Capell\Core\Contracts\AdminPermissionSynchronizer as AdminPermissionSynchronizerContract;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
@@ -19,10 +20,13 @@ final class AdminPermissionSynchronizer implements AdminPermissionSynchronizerCo
     public function hasBootedPanel(): bool
     {
         try {
-            return Filament::getDefaultPanel() !== null;
+            $panel = Filament::getDefaultPanel();
         } catch (Throwable) {
             return false;
         }
+
+        // A panel withheld for late topology lacks the resources permissions must cover.
+        return ! resolve(InstalledPanelRuntime::class)->isUnavailable($panel->getId());
     }
 
     public function syncForInstall(): void

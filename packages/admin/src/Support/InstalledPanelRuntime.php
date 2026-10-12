@@ -6,6 +6,7 @@ namespace Capell\Admin\Support;
 
 use Capell\Admin\Contracts\Extenders\AdminPanelExtender;
 use Capell\Admin\Contracts\Extenders\DeclaresFullPageOnlyMiddleware;
+use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
@@ -34,6 +35,9 @@ final class InstalledPanelRuntime
     /** @var array<string, true> */
     private array $unavailable = [];
 
+    /** @var array<string, true> */
+    private array $freshApplicationRequired = [];
+
     /** @var WeakMap<Panel, list<class-string>> */
     private WeakMap $fullPageOnly;
 
@@ -49,6 +53,12 @@ final class InstalledPanelRuntime
         return isset($this->unavailable[$panel]);
     }
 
+    /** The panel is withheld from this process only because its topology grew after boot. */
+    public function requiresFreshApplication(string $panel): bool
+    {
+        return isset($this->freshApplicationRequired[$panel]);
+    }
+
     /** @param Closure(): void $callback */
     public function guard(Panel $panel, Closure $callback): void
     {
@@ -60,6 +70,11 @@ final class InstalledPanelRuntime
         $this->protectRoutes($panel, $id);
         try {
             $callback();
+        } catch (PanelTopologyRefreshRequiredException $panelTopologyRefreshRequiredException) {
+            // The wiring is valid; this process simply cannot rebuild routes it already built.
+            $this->unavailable[$id] = true;
+            $this->freshApplicationRequired[$id] = true;
+            throw_if(app()->isBooted(), $panelTopologyRefreshRequiredException);
         } catch (Throwable $throwable) {
             $this->unavailable[$id] = true;
             resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, 'capell-app/admin', self::class, 'admin', 'panel-refresh', $id);
@@ -133,7 +148,7 @@ final class InstalledPanelRuntime
 
         // Resolve messages only on failure: namespaces may not exist during panel bootstrap.
         if (app()->isBooted() && $topology !== [$panel->getPages(), $panel->getResources(), $panel->getWidgets()]) {
-            throw new RuntimeException(__('capell-admin::message.extension_panel_topology_refresh'));
+            throw PanelTopologyRefreshRequiredException::make();
         }
 
         if (! $hasId) {
