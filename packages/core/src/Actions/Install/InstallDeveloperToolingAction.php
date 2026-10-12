@@ -11,6 +11,8 @@ use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Filesystem\AbsolutePath;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Json\JsonCodec;
+use Illuminate\Foundation\PackageManifest;
+use Illuminate\Support\ServiceProvider;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -293,6 +295,23 @@ class InstallDeveloperToolingAction
         if ($exitCode !== 0) {
             throw new RuntimeException(sprintf("Command 'package:discover' failed with exit code %d.", $exitCode));
         }
+
+        // Discovery rebuilds the file, but the running manifest and console
+        // still retain their pre-Composer state. Load only the tooling provider;
+        // Capell extension providers keep their normal lifecycle bucket policy.
+        $manifest = resolve(PackageManifest::class);
+        $discovered = $manifest->files->getRequire($manifest->manifestPath ?? app()->getCachedPackagesPath());
+        $manifest->manifest = is_array($discovered) ? $discovered : [];
+
+        $providers = $manifest->manifest['laravel/boost']['providers'] ?? [];
+        $providers = is_array($providers) ? $providers : [];
+        RegisterProviderCommandsInCurrentProcessAction::run(function () use ($providers): void {
+            foreach ($providers as $provider) {
+                if (is_string($provider) && is_subclass_of($provider, ServiceProvider::class)) {
+                    app()->register($provider);
+                }
+            }
+        });
 
         CapellCore::clearExtensionCache();
     }
