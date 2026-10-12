@@ -183,7 +183,8 @@ class EditMedia extends EditRecord
                             TextInput::make('meta.alt')
                                 ->label(__('capell-admin::media.alt_text'))
                                 ->helperText(__('capell-admin::media.alt_text_helper'))
-                                ->required(fn (Get $get): bool => ! (bool) $get('meta.decorative'))
+                                ->required(fn (Get $get): bool => ! (bool) $get('meta.decorative')
+                                    && $this->shouldSaveLocalizedMetadata($get->array('')))
                                 ->maxLength(255),
                             Textarea::make('meta.caption')
                                 ->label(__('capell-admin::media.caption'))
@@ -200,6 +201,10 @@ class EditMedia extends EditRecord
                         ])
                         ->columns(2)
                         ->defaultItems(0)
+                        ->mutateDehydratedStateUsing(fn (Repeater $component, ?array $state): array => array_values(array_filter(
+                            $component->dehydrateItems($state),
+                            $this->shouldSaveLocalizedMetadata(...),
+                        )))
                         ->addActionLabel(__('capell-admin::media.add_locale_metadata'))
                         ->columnSpanFull(),
                 ]),
@@ -244,6 +249,20 @@ class EditMedia extends EditRecord
             ])
             ->values()
             ->all();
+
+        // Uploaded media has no translations yet; expose the fields without requiring an add action first.
+        if ($data['translations'] === []) {
+            $languageId = Language::query()->orderByDesc('default')->ordered()->value('id');
+
+            if ($languageId !== null) {
+                $data['translations'] = [[
+                    'language_id' => $languageId,
+                    'title' => null,
+                    'meta' => ['alt' => null, 'caption' => null, 'credit' => null, 'decorative' => false],
+                ]];
+            }
+        }
+
         $data['external_video_url'] = $this->record->externalVideo()?->url;
 
         return $data;
@@ -296,6 +315,33 @@ class EditMedia extends EditRecord
                 }),
             $this->getCancelFormAction(),
         ];
+    }
+
+    /** @param array<array-key, mixed> $data */
+    private function shouldSaveLocalizedMetadata(array $data): bool
+    {
+        // An untouched initial row must not create a translation or block unrelated file edits.
+        if ($this->record->translations->contains('language_id', (int) ($data['language_id'] ?? 0))) {
+            return true;
+        }
+
+        if (filled($data['title'] ?? null)) {
+            return true;
+        }
+
+        if (filled(data_get($data, 'meta.alt'))) {
+            return true;
+        }
+
+        if (filled(data_get($data, 'meta.caption'))) {
+            return true;
+        }
+
+        if (filled(data_get($data, 'meta.credit'))) {
+            return true;
+        }
+
+        return (bool) data_get($data, 'meta.decorative', false);
     }
 
     private function ownerUrl(): ?string
