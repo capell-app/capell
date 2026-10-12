@@ -41,6 +41,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use Laravel\Prompts\Prompt;
+use Livewire\ComponentHookRegistry;
 use Livewire\Livewire;
 use Lorisleiva\Actions\ActionServiceProvider;
 use Mockery\MockInterface;
@@ -48,6 +49,7 @@ use Orchestra\Testbench\Concerns\WithWorkbench;
 use Orchestra\Testbench\TestCase;
 use Orchestra\Workbench\WorkbenchServiceProvider;
 use Override;
+use ReflectionProperty;
 use RuntimeException;
 use Sinnbeck\DomAssertions\DomAssertionsServiceProvider;
 use Spatie\Activitylog\ActivitylogServiceProvider;
@@ -175,6 +177,16 @@ abstract class AbstractTestCase extends TestCase
     public static function applicationBasePath(): string
     {
         return IsolatedTestbenchSkeleton::basePath();
+    }
+
+    #[Override]
+    protected function refreshApplication(): void
+    {
+        // Rebuild provider hook order for each app: a prior Core app must not put
+        // Livewire's lifecycle authorisation ahead of Filament's record scoping.
+        new ReflectionProperty(ComponentHookRegistry::class, 'componentHooks')->setValue(null, []);
+
+        parent::refreshApplication();
     }
 
     #[Override]

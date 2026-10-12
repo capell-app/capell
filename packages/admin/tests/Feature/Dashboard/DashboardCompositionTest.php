@@ -5,10 +5,14 @@ declare(strict_types=1);
 use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Filament\Pages\DashboardToolsPage;
+use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\CompositionDashboard;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\HiddenCompositionWidget;
 use Capell\Admin\Tests\Feature\Dashboard\Fixtures\VisibleCompositionWidget;
+use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\ActionGroup;
 use Filament\Schemas\Components\Component;
@@ -16,6 +20,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Widgets\AccountWidget;
 
 uses(CreatesAdminUser::class);
 
@@ -35,9 +40,10 @@ it('retains configured extension widgets and their properties', function (): voi
     CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Pulse, VisibleCompositionWidget::class, DashboardEnum::NotInstalled);
 
     $regions = compositionChildren($dashboard->getWidgetsContentComponent());
-    expect($regions)->toHaveCount(1)->and($regions[0])->toBeInstanceOf(Grid::class);
-    $widgets = compositionChildren($regions[0]);
-    expect($widgets)->toHaveCount(1)->and(compositionChild($regions[0], 0, Livewire::class)->getData()['example'])->toBe('retained');
+    expect($regions)->toHaveCount(1)->and($regions[0])->toBeInstanceOf(Section::class);
+    $pulse = compositionChild($regions[0], 0, Grid::class);
+    $widgets = compositionChildren($pulse);
+    expect($widgets)->toHaveCount(1)->and(compositionChild($pulse, 0, Livewire::class)->getData()['example'])->toBe('retained');
 });
 
 it('expands the remaining lead panel when its neighbour is hidden', function (): void {
@@ -47,17 +53,49 @@ it('expands the remaining lead panel when its neighbour is hidden', function ():
     CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Insights, HiddenCompositionWidget::class, DashboardEnum::NotInstalled);
 
     $regions = compositionChildren($dashboard->getWidgetsContentComponent());
-    expect($regions)->toHaveCount(1)->and($regions[0])->toBeInstanceOf(Grid::class)
-        ->and($regions[0]->getColumns())->toMatchArray(['lg' => 1]);
+    expect($regions)->toHaveCount(1)->and($regions[0])->toBeInstanceOf(Section::class)
+        ->and(compositionChild($regions[0], 0, Grid::class)->getColumns())->toMatchArray(['lg' => 1]);
 });
 
-it('collapses unregistered extension panels into additional information', function (): void {
+it('retains legacy contributions in the specialist tools view rather than the overview', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    CapellAdmin::registerDashboardFilamentWidget(VisibleCompositionWidget::class, DashboardEnum::Main);
+    CapellAdmin::registerDashboardFilamentWidget(AccountWidget::class, DashboardEnum::Main);
+
+    expect((new DashboardToolsPage)->getWidgets())->toContain(VisibleCompositionWidget::class)->not->toContain(AccountWidget::class);
     $dashboard = new CompositionDashboard;
     $dashboard->widgets = [VisibleCompositionWidget::class];
 
-    $regions = compositionChildren($dashboard->getWidgetsContentComponent());
-    expect($regions)->toHaveCount(1)->and($regions[0])->toBeInstanceOf(Section::class)
-        ->and(compositionChild($dashboard->getWidgetsContentComponent(), 0, Section::class)->isCollapsed())->toBeTrue();
+    expect(compositionChild($dashboard->getWidgetsContentComponent(), 0, Section::class)->getHeading())
+        ->toBe(__('capell-admin::dashboard.empty_heading'));
+});
+
+it('places the native welcome widgets before filters and overview content', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    $dashboard = new CompositionDashboard;
+    $dashboard->widgets = [CapellAccountFilamentWidget::class, CapellInfoFilamentWidget::class];
+
+    $components = $dashboard->content(Schema::make($dashboard))->getComponents();
+    $welcome = $components[0];
+    throw_unless($welcome instanceof Grid, LogicException::class);
+    expect(compositionChild($welcome, 0, Livewire::class)->getComponent())->toBe(CapellAccountFilamentWidget::class)
+        ->and(compositionChild($welcome, 1, Livewire::class)->getComponent())->toBe(CapellInfoFilamentWidget::class);
+});
+
+it('lets a single visible native welcome widget fill its row', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    $dashboard = new CompositionDashboard;
+    $dashboard->widgets = [CapellAccountFilamentWidget::class];
+    CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Pulse, CapellAccountFilamentWidget::class, DashboardEnum::Main);
+
+    $components = $dashboard->content(Schema::make($dashboard))->getComponents();
+    $welcome = $components[0];
+    throw_unless($welcome instanceof Grid, LogicException::class);
+    expect($welcome->getColumns())->toMatchArray(['default' => 1, 'lg' => 1])
+        ->and(compositionChild($dashboard->getWidgetsContentComponent(), 0, Section::class)->getHeading())->toBe(__('capell-admin::dashboard.empty_heading'));
 });
 
 it('keeps configured lead panels distinct within the two column overview', function (): void {
@@ -67,7 +105,8 @@ it('keeps configured lead panels distinct within the two column overview', funct
         VisibleCompositionWidget::make(['example' => 'second']),
     ];
     CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, VisibleCompositionWidget::class, DashboardEnum::NotInstalled);
-    $lead = compositionChild($dashboard->getWidgetsContentComponent(), 0, Grid::class);
+    $performance = compositionChild($dashboard->getWidgetsContentComponent(), 0, Section::class);
+    $lead = compositionChild($performance, 0, Grid::class);
     $panels = compositionChildren($lead);
     $first = compositionChild($panels[0], 0, Livewire::class);
     $second = compositionChild($panels[1], 0, Livewire::class);

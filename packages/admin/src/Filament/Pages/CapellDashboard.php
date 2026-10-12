@@ -11,6 +11,8 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\DashboardRegionEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
+use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Core\Facades\CapellCore;
@@ -20,7 +22,6 @@ use Capell\Core\Support\Database\RuntimeSchemaState;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Pages\Page;
@@ -31,6 +32,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Widgets\AccountWidget;
+use Filament\Widgets\FilamentInfoWidget;
 use Filament\Widgets\Widget;
 use Filament\Widgets\WidgetConfiguration;
 use Override;
@@ -66,16 +69,11 @@ class CapellDashboard extends Dashboard
                 ->default(null)
                 ->placeholder(__('capell-admin::dashboard.filter_all_languages'))
                 ->selectablePlaceholder(),
-            ToggleButtons::make('date_range')
+            Select::make('date_range')
+                ->label($this->periodFilterLabel())
                 ->options(DashboardDateRangeEnum::options())
-                ->columnSpanFull()
-                ->default(fn (): string => $this->defaultDashboardPeriod())
-                ->extraAttributes([
-                    'style' => 'grid-auto-columns: max-content; max-width: 100%; white-space: nowrap; width: max-content;',
-                ])
-                ->extraFieldWrapperAttributes(['class' => 'w-full'])
-                ->inline()
-                ->grouped(),
+                ->selectablePlaceholder(false)
+                ->default(fn (): string => $this->defaultDashboardPeriod()),
         ]);
     }
 
@@ -114,80 +112,87 @@ class CapellDashboard extends Dashboard
     }
 
     #[Override]
-    public function getWidgetsContentComponent(): Grid
+    public function content(Schema $schema): Schema
     {
-        $widgets = array_values(array_filter(
-            $this->getWidgets(),
-            fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget)::canView(),
-        ));
-        $dashboard = $this->dashboardEnum();
-        $registeredClasses = [];
-        $byRegion = [];
-
-        foreach (DashboardRegionEnum::cases() as $region) {
-            $regionClasses = CapellAdmin::getDashboardFilamentWidgetsByRegion($dashboard, $region);
-            $regionWidgets = array_values(array_filter(
-                $widgets,
-                fn (string|WidgetConfiguration $widget): bool => in_array($this->normalizeWidgetClass($widget), $regionClasses, true),
-            ));
-            $registeredClasses = [...$registeredClasses, ...$regionClasses];
-            $byRegion[$region->value] = $regionWidgets;
+        $widgets = $this->getWidgets();
+        if ($this->dashboardEnum() === DashboardEnum::NotInstalled) {
+            return $schema->components([
+                Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($widgets))->columnSpanFull(),
+            ]);
         }
 
-        $byRegion[DashboardRegionEnum::Additional->value] = [
-            ...$byRegion[DashboardRegionEnum::Additional->value],
-            ...array_values(array_filter(
-                $widgets,
-                fn (string|WidgetConfiguration $widget): bool => ! in_array($this->normalizeWidgetClass($widget), $registeredClasses, true),
-            )),
-        ];
+        $welcome = array_values(array_filter($widgets, $this->isWelcomeWidget(...)));
+        $components = [];
 
-        $regions = [];
-        $leadWidgets = [
-            ...$byRegion[DashboardRegionEnum::Trends->value],
-            ...$byRegion[DashboardRegionEnum::Insights->value],
-        ];
-
-        if ($leadWidgets !== []) {
-            $regions[] = Grid::make(['default' => 1, 'lg' => min(2, count($leadWidgets))])
-                ->schema(array_map(
-                    fn (Component|Action|ActionGroup $component): Grid => Grid::make(1)
-                        ->schema([$component])
-                        ->columnSpan(1),
-                    $this->getWidgetsSchemaComponents($leadWidgets),
-                ))
+        $welcomeComponents = $this->getWidgetsSchemaComponents($welcome);
+        if ($welcomeComponents !== []) {
+            $components[] = Grid::make(['default' => 1, 'lg' => min(2, count($welcomeComponents))])
+                ->schema($welcomeComponents)
                 ->columnSpanFull();
         }
 
-        foreach ([DashboardRegionEnum::Pulse, DashboardRegionEnum::Activity, DashboardRegionEnum::Additional] as $region) {
-            $regionWidgets = $byRegion[$region->value];
+        $components[] = $this->getFiltersFormContentComponent();
+        $attention = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) === NeedsAttentionFilamentWidget::class));
+        if ($this->getWidgetsSchemaComponents($attention) !== []) {
+            $components[] = Grid::make(1)->schema($this->getWidgetsSchemaComponents($attention))->columnSpanFull();
+        }
 
-            if ($regionWidgets === []) {
-                continue;
-            }
+        $components[] = $this->getWidgetsContentComponent();
 
-            $components = $this->getWidgetsSchemaComponents($regionWidgets);
-            $regions[] = $region === DashboardRegionEnum::Additional
-                ? Section::make($region->getLabel())
-                    ->schema($components)
-                    ->columns($this->getColumns())
-                    ->collapsible()
-                    ->collapsed()
-                    ->columnSpanFull()
-                : Grid::make($this->getColumns())
-                    ->schema($components)
-                    ->columnSpanFull();
+        return $schema->components($components);
+    }
+
+    #[Override]
+    public function getWidgetsContentComponent(): Grid
+    {
+        $widgets = array_values(array_filter($this->getWidgets(), fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget)::canView()
+            && ! $this->isWelcomeWidget($widget)
+            && $this->normalizeWidgetClass($widget) !== NeedsAttentionFilamentWidget::class));
+        $regions = [];
+
+        foreach ([DashboardRegionEnum::Pulse, DashboardRegionEnum::Trends, DashboardRegionEnum::Insights] as $region) {
+            $classes = CapellAdmin::getDashboardFilamentWidgetsByRegion($this->dashboardEnum(), $region);
+            $byRegion[$region->value] = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => in_array($this->normalizeWidgetClass($widget), $classes, true)));
+        }
+
+        $performance = [];
+        if ($byRegion[DashboardRegionEnum::Pulse->value] !== []) {
+            $performance[] = Grid::make($this->getColumns())
+                ->schema($this->getWidgetsSchemaComponents($byRegion[DashboardRegionEnum::Pulse->value]))
+                ->columnSpanFull();
+        }
+
+        $lead = [...$byRegion[DashboardRegionEnum::Trends->value], ...$byRegion[DashboardRegionEnum::Insights->value]];
+        if ($lead !== []) {
+            $performance[] = Grid::make(['default' => 1, 'lg' => min(2, count($lead))])
+                ->schema(array_map(fn (Component|Action|ActionGroup $component): Grid => Grid::make(1)
+                    ->schema([$component])->columnSpan(1), $this->getWidgetsSchemaComponents($lead)))
+                ->columnSpanFull();
+        }
+
+        if ($performance !== []) {
+            $regions[] = Section::make(__('capell-admin::dashboard.performance_heading'))
+                ->description(__('capell-admin::dashboard.performance_description'))
+                ->headerActions(AnalyticsDashboard::canAccess() ? [Action::make('exploreAnalytics')
+                    ->label(__('capell-admin::dashboard.explore_analytics'))
+                    ->url(fn (): string => AnalyticsDashboard::getUrl(['filters' => $this->filters ?? []]))] : [])
+                ->schema($performance)->columnSpanFull();
+        }
+
+        $activityClasses = CapellAdmin::getDashboardFilamentWidgetsByRegion($this->dashboardEnum(), DashboardRegionEnum::Activity);
+        $activity = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => in_array($this->normalizeWidgetClass($widget), $activityClasses, true)
+            && $this->normalizeWidgetClass($widget) !== AnalyticsRecentActivityFilamentWidget::class));
+        if ($activity !== []) {
+            $regions[] = Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($activity))->columnSpanFull();
         }
 
         if ($regions === []) {
             $regions[] = Section::make(__('capell-admin::dashboard.empty_heading'))
-                ->schema([Text::make(__('capell-admin::dashboard.empty_description'))])
+                ->schema([Text::make(__('capell-admin::dashboard.overview_empty_description'))])
                 ->columnSpanFull();
         }
 
-        return Grid::make($this->getColumns())
-            ->schema($regions)
-            ->columnSpanFull();
+        return Grid::make(1)->schema($regions)->columnSpanFull();
     }
 
     /**
@@ -242,6 +247,19 @@ class CapellDashboard extends Dashboard
         ], SORT_REGULAR)));
     }
 
+    /** @param class-string<Widget>|WidgetConfiguration $widget */
+    protected function isWelcomeWidget(string|WidgetConfiguration $widget): bool
+    {
+        $class = $this->normalizeWidgetClass($widget);
+
+        return is_a($class, AccountWidget::class, true) || is_a($class, FilamentInfoWidget::class, true);
+    }
+
+    protected function periodFilterLabel(): string
+    {
+        return (string) __('capell-admin::dashboard.performance_period');
+    }
+
     /**
      * @return array<int, Action|ActionGroup>
      */
@@ -257,6 +275,11 @@ class CapellDashboard extends Dashboard
     private function reportsAction(): ?ActionGroup
     {
         $actions = [];
+        foreach ([AnalyticsDashboard::class, DashboardToolsPage::class] as $page) {
+            if ($page::canAccess()) {
+                $actions[] = Action::make(class_basename($page))->label($page::getNavigationLabel())->url($page::getUrl());
+            }
+        }
 
         if (SiteHealthPage::canAccess()) {
             $actions[] = Action::make('siteHealth')

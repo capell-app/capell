@@ -22,11 +22,21 @@ Prefer overview stats for small package counters. Use a standalone dashboard Fil
 
 ## Dashboard Composition
 
-The main dashboard places `Trends` and `Insights` panels side by side, followed by
-`Pulse` metrics and `Activity`. Register a panel with
-`CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, YourWidget::class, DashboardEnum::Main)`
-to join that layout. Existing registrations without a region remain available in
-the collapsed Additional dashboard panels section.
+The main dashboard keeps the native account and Filament information widgets at
+its top, followed by filters, a brief Needs attention summary and site performance.
+`Pulse` metrics precede the `Trends` and `Insights` panels, which sit side by side on
+desktop and stack on mobile. Content `Activity` follows the performance section.
+
+Register a compact overview panel with
+`CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, YourWidget::class, DashboardEnum::Main)`.
+Widgets without an explicit overview region remain available in **Reports →
+Dashboard tools**, rather than expanding the home page. Native welcome widgets
+remain in the top row even if registered into another region. **Explore analytics**
+opens the specialist analytics dashboard with the current filter context.
+
+Needs attention checks up to three pages missing basic publishing requirements in
+the actor's accessible site scope. Its clear state is not a full health or readiness
+assessment; links lead to the existing specialist views for those checks.
 
 Visibility is evaluated before composition: empty regions are omitted and a lone
 lead panel fills the row. Configured Filament widgets retain their properties.
@@ -59,7 +69,7 @@ Each bucket maps to an admin surface:
 | Dashboard enum                   | Surface                                               |
 | -------------------------------- | ----------------------------------------------------- |
 | `DashboardEnum::Main`            | Installed admin dashboard at `/admin`.                |
-| `DashboardEnum::MarketingStudio` | Marketing widgets composed into the main Dashboard.   |
+| `DashboardEnum::MarketingStudio` | Marketing widgets available in Dashboard tools.       |
 | `DashboardEnum::Extensions`      | Extensions dashboard at `/admin/extensions`.          |
 | `DashboardEnum::SystemHealth`    | Reserved for system-health dashboard integrations.    |
 | `DashboardEnum::NotInstalled`    | Setup/empty state before Admin has an installed site. |

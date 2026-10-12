@@ -21,6 +21,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsTrendFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionDependencyGraphFilamentWidget;
@@ -180,6 +181,7 @@ it('registers the built-in dashboard widgets for each dashboard', function (): v
         AnalyticsRecentActivityFilamentWidget::class,
         CapellAccountFilamentWidget::class,
         CapellInfoFilamentWidget::class,
+        NeedsAttentionFilamentWidget::class,
         ListPagesFilamentWidget::class,
         RecentActivityFilamentWidget::class,
     ])->and($adminWidgets(DashboardEnum::MarketingStudio))->toBe([
