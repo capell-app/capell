@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Media\BuildMediaUsageItemsAction;
 use Capell\Admin\Contracts\Extenders\MediaEditActionExtender;
 use Capell\Admin\Filament\Resources\Media\Pages\EditMedia;
+use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
 use Capell\Core\Models\AssetAttachment;
@@ -295,6 +296,90 @@ it('saves focal point crop presets and localized metadata', function (): void {
         ->toEqualCanonicalizing(['thumbnail', 'hero'])
         ->and($fileManipulator->calls[0]['responsive'])
         ->toBeTrue();
+});
+
+it('shows alt text and rights credit fields before adding locale metadata', function (): void {
+    $media = createEditableImageMedia();
+
+    expect($media->translations()->exists())->toBeFalse();
+
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee(__('capell-admin::media.alt_text'))
+        ->assertSee(__('capell-admin::media.credit'));
+});
+
+it('saves the visible alt text per language and clears the missing metadata flags', function (): void {
+    $media = createEditableImageMedia();
+    $english = Language::query()->default()->firstOrFail();
+    $french = Language::factory()->french()->createOne();
+
+    Livewire::test(ListMedia::class)
+        ->assertTableColumnStateSet('health_state', 'missing_alt', $media)
+        ->filterTable('health', 'missing_alt')
+        ->assertCanSeeTableRecords([$media]);
+
+    $editor = Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->assertSuccessful();
+
+    $translations = $editor->get('data.translations');
+    expect($translations)->toHaveCount(1);
+    $rowKey = array_key_first($translations);
+
+    $editor
+        ->assertFormFieldExists(sprintf('translations.%s.meta.alt', $rowKey))
+        ->assertFormFieldExists(sprintf('translations.%s.meta.credit', $rowKey))
+        ->fillForm([
+            'translations' => [
+                $rowKey => [
+                    'language_id' => $english->getKey(),
+                    'meta' => ['alt' => 'Children playing in a park', 'credit' => 'Park Studio'],
+                ],
+                'french' => [
+                    'language_id' => $french->getKey(),
+                    'meta' => ['alt' => 'Des enfants jouent dans un parc', 'credit' => 'Studio du parc'],
+                ],
+            ],
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertNotified();
+
+    $media->refresh();
+    expect($media->getAltText($english))->toBe('Children playing in a park')
+        ->and($media->getAltText($french))->toBe('Des enfants jouent dans un parc')
+        ->and($media->getCredit($english))->toBe('Park Studio')
+        ->and($media->getCredit($french))->toBe('Studio du parc');
+
+    $reopened = Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()]);
+    $savedTranslations = collect($reopened->get('data.translations'))->keyBy('language_id');
+    expect($savedTranslations->get($english->getKey())['meta'])->toMatchArray([
+        'alt' => 'Children playing in a park',
+        'credit' => 'Park Studio',
+    ])->and($savedTranslations->get($french->getKey())['meta'])->toMatchArray([
+        'alt' => 'Des enfants jouent dans un parc',
+        'credit' => 'Studio du parc',
+    ]);
+
+    Livewire::test(ListMedia::class)
+        ->assertTableColumnStateSet('health_state', 'unused', $media)
+        ->filterTable('health', 'missing_alt')
+        ->assertCanNotSeeTableRecords([$media])
+        ->resetTableFilters()
+        ->filterTable('health', 'missing_rights')
+        ->assertCanNotSeeTableRecords([$media]);
+});
+
+it('does not save an untouched initial locale metadata row when renaming media', function (): void {
+    $media = createEditableImageMedia();
+
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->fillForm(['name' => 'Renamed hero'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($media->refresh()->name)->toBe('Renamed hero')
+        ->and($media->translations()->exists())->toBeFalse();
 });
 
 it('requires alt text for non-decorative localized metadata', function (): void {
