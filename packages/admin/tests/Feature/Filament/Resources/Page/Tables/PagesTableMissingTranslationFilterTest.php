@@ -7,8 +7,10 @@ use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Translation;
+use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\BaseFilter;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -17,12 +19,12 @@ use Illuminate\Database\Eloquent\Builder;
  */
 function applyMissingTranslationFilter(array $data): Builder
 {
-    $method = new ReflectionMethod(PagesTable::class, 'applyMissingTranslationFilterQuery');
+    $filter = collect(PagesTable::getBaseTableFilters())->first(
+        fn (BaseFilter $filter): bool => $filter->getName() === 'missing_translation',
+    );
+    assert($filter instanceof BaseFilter);
 
-    /** @var Builder<Page> $builder */
-    $builder = $method->invoke(null, Page::query(), $data);
-
-    return $builder;
+    return $filter->apply(Page::query(), $data);
 }
 
 it('returns only pages without a translation for the chosen language', function (): void {
@@ -112,10 +114,8 @@ it('keeps the filter within the extender and mutate composition', function (): v
         }
     };
 
-    $method = new ReflectionMethod($table::class, 'getTableFilters');
-
-    /** @var list<BaseFilter> $filters */
-    $filters = $method->invoke(null);
+    $configured = $table::configure(Table::make(Mockery::mock(HasTable::class)));
+    $filters = $configured->getFilters(withHidden: true);
 
     $names = array_map(fn (BaseFilter $filter): string => $filter->getName(), $filters);
 

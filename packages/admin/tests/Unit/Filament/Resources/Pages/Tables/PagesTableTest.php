@@ -8,6 +8,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 
@@ -50,8 +51,9 @@ it('uses the canonical page url for the unfiltered url column when a redirect lo
     $livewire = Mockery::mock(HasTable::class);
     $livewire->shouldReceive('getTableFilterState')->with('filter')->andReturn([]);
 
-    $method = new ReflectionMethod(PagesTable::class, 'getUrlColumnState');
-    $html = $method->invoke(null, $page, $livewire);
+    $livewire->shouldReceive('getTableRecordKey')->andReturn((string) $page->getKey());
+    $table = PagesTable::configure(Table::make($livewire));
+    $html = $table->getColumn('url')?->record($page)->getState();
 
     expect($html)->toBeInstanceOf(HtmlString::class);
     assert($html instanceof HtmlString);
@@ -73,8 +75,9 @@ it('returns no url state when a page has no canonical page url', function (): vo
     $livewire = Mockery::mock(HasTable::class);
     $livewire->shouldReceive('getTableFilterState')->with('filter')->andReturn([]);
 
-    $method = new ReflectionMethod(PagesTable::class, 'getUrlColumnState');
-    $html = $method->invoke(null, $page, $livewire);
+    $livewire->shouldReceive('getTableRecordKey')->andReturn((string) $page->getKey());
+    $table = PagesTable::configure(Table::make($livewire));
+    $html = $table->getColumn('url')?->record($page)->getState();
 
     expect($html)->toBeNull();
 });

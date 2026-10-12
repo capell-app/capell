@@ -366,20 +366,20 @@ it('caches values, null sentinels, disabled saves, and cache increments through 
     expect($disabledRuns)->toBe(2);
 });
 
-it('folds the configured app host into the normalized cache key so hosts sharing a backend cannot collide', function (): void {
+it('keeps cached values separate for hosts sharing a backend', function (): void {
+    config(['cache.default' => 'array', 'capell.disable_cache' => false]);
     $manager = resolve(CapellCacheManager::class);
-    $normalizeCacheKey = new ReflectionMethod($manager, 'normalizeCacheKey');
 
     config(['app.url' => 'https://tenant-a.example.test']);
-    $keyForHostA = $normalizeCacheKey->invoke($manager, 'shared-key');
+    $manager->setToCache('shared-key', 'tenant-a');
 
     config(['app.url' => 'https://tenant-b.example.test']);
-    $keyForHostB = $normalizeCacheKey->invoke($manager, 'shared-key');
-
-    expect($keyForHostA)->not->toBe($keyForHostB);
+    expect($manager->cacheExists('shared-key'))->toBeFalse();
+    $manager->setToCache('shared-key', 'tenant-b');
+    expect($manager->getFromCache('shared-key'))->toBe('tenant-b');
 
     config(['app.url' => 'https://tenant-a.example.test']);
-    expect($normalizeCacheKey->invoke($manager, 'shared-key'))->toBe($keyForHostA);
+    expect($manager->getFromCache('shared-key'))->toBe('tenant-a');
 });
 
 it('refreshes matching cache entries after pattern invalidation without disturbing unrelated entries', function (): void {

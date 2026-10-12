@@ -165,7 +165,22 @@ it('prepares a real Laravel manifest before installation without replacing an ex
     $expectedManifest = $temporary . '/expected-package.json';
     $log = $temporary . '/commands.log';
 
-    expect(hash_file('sha256', $fixture))->toBe('023d511d768e05b69e8127e18ae0e3d4a2e91702e8dd82917c655e53e5908de5');
+    // The install needs an application manifest; formatting of its shipped JSON is irrelevant.
+    $applicationManifest = json_decode((string) file_get_contents($fixture), true, flags: JSON_THROW_ON_ERROR);
+    expect($applicationManifest)->toEqual([
+        '$schema' => 'https://www.schemastore.org/package.json',
+        'private' => true,
+        'type' => 'module',
+        'scripts' => ['build' => 'vite build', 'dev' => 'vite'],
+        'devDependencies' => [
+            '@tailwindcss/vite' => '^4.0.0',
+            'concurrently' => '^10.0.3',
+            'laravel-vite-plugin' => '^3.1',
+            'tailwindcss' => '^4.0.0',
+            'vite' => '^8.0.0',
+        ],
+        'optionalDependencies' => ['@laravel/multiplex' => '^0.4.1'],
+    ]);
 
     mkdir($binaryDirectory, 0777, true);
     mkdir($root . '/scripts/screenshots', 0777, true);
