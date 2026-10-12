@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Configurators\Pages;
 
 use Capell\Admin\Contracts\ConfiguratorInterface;
+use Capell\Admin\Contracts\Configurators\ProvidesRelationManagers;
 use Capell\Admin\Contracts\ConfiguratorTypeEnumInterface;
 use Capell\Admin\Contracts\Extenders\PageSchemaExtender;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
@@ -44,9 +45,10 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 use UnhandledMatchError;
 
-class DefaultPageConfigurator implements ConfiguratorInterface
+class DefaultPageConfigurator implements ConfiguratorInterface, ProvidesRelationManagers
 {
     use HasConfigurator;
     use HasDefaultRelationManagers {
@@ -58,6 +60,7 @@ class DefaultPageConfigurator implements ConfiguratorInterface
     protected bool $hasCreatePageSchema = true;
 
     /** @return array<int, mixed> */
+    #[Override]
     public static function relationManagers(Model $record): array
     {
         $relationManagers = $record instanceof Page ? static::baseRelationManagers($record) : [];

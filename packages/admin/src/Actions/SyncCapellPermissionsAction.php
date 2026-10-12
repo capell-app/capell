@@ -9,6 +9,8 @@ use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Core\Data\PackageData;
+use Capell\Core\Facades\CapellCore;
 use Filament\Facades\Filament;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -29,6 +31,10 @@ class SyncCapellPermissionsAction
             ),
             pages: array_merge(PageEnum::cases(), CapellAdmin::getAdminSurfaceRegistry()->pages()),
             widgets: array_merge(FilamentWidgetEnum::cases(), Filament::getWidgets()),
+            permissions: array_values(CapellCore::getPackages(withoutCore: false)
+                ->filter(fn (PackageData $package): bool => CapellCore::isPackageEnabled($package->name))
+                ->flatMap(fn (PackageData $package): array => $package->manifest->permissions ?? $package->permissions)
+                ->all()),
         );
 
         AssignPermissionsToRole::run(

@@ -55,8 +55,7 @@ final class SiteAccessQueryAllowList
                 'grantSuperAdminPermissions|$permissionModel::query()->where(\'guard_name\', $guardName)->whereIn(\'name\', $permissions)->pluck($this->modelKeyName($permissionModel))->all()',
                 'grantSuperAdminPermissions|' . Utils::class . "::getRoleModel()::firstOrCreate(['name' => " . Utils::class . '::getSuperAdminName(), \'guard_name\' => $guardName, ' . Utils::class . '::getTenantModelForeignKey() => $tenantId])->permissions()->syncWithoutDetaching($permissionIds)',
                 'grantSuperAdminPermissions|' . Utils::class . '::getRoleModel()::firstOrCreate($attributes)->permissions()->syncWithoutDetaching($permissionIds)',
-                'pageOrWidgetPermissions|' . Utils::class . '::getPermissionModel()::firstOrCreate([\'name\' => \'View:\' . class_basename($class), \'guard_name\' => $guardName])->name',
-                'resourcePermissions|' . Utils::class . '::getPermissionModel()::firstOrCreate([\'name\' => $permission, \'guard_name\' => $guardName])->name',
+                'createPermissions|' . Utils::class . '::getPermissionModel()::firstOrCreate([\'name\' => $permission, \'guard_name\' => $guardName])->name',
                 // Shield tenant enumeration assigns global permissions; it returns
                 // no site content and is a system provisioning operation.
                 'grantSuperAdminPermissions|$tenantModel::query()->pluck($this->modelKeyName($tenantModel))',

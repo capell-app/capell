@@ -615,7 +615,10 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     {
         $pipeline = resolve(AdminSchemaExtensionPipeline::class);
 
-        $extenderActions = collect($pipeline->resourceHeaderActions(static::class))
+        $extenderActions = collect([
+            ...$pipeline->resourceHeaderActions(static::class),
+            ...$pipeline->pageHeaderActions(),
+        ])
             ->reject(fn (Action $action): bool => $this->isContentBlocksConversionHeaderAction($action))
             ->values();
 

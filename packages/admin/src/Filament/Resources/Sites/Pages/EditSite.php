@@ -100,6 +100,13 @@ class EditSite extends EditRecord
         ]);
     }
 
+    #[Override]
+    protected function getAllRelationManagers(): array
+    {
+        return resolve(AdminSchemaExtensionPipeline::class)
+            ->siteRelationManagers($this->record, parent::getAllRelationManagers());
+    }
+
     /** @return array<int, mixed> */
     #[Override]
     protected function getActions(): array
