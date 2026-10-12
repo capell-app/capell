@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Packages;
 
+use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Actions\Packages\FindUnmetPackageRequirementsAction;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
@@ -360,7 +361,9 @@ final class InstalledRuntimeLifecycle
                         ? ExtensionContributionReceiptContext::foundation($package, $registration['bucket'], $provider)
                         : ExtensionContributionReceiptContext::forPackage($package, $registration['bucket'], $provider);
                     $receipts->withContexts([$context], static function () use ($router, $registration): void {
-                        RouteGroupIsolation::run($router, $registration['activate']);
+                        RegisterProviderCommandsInCurrentProcessAction::run(function () use ($router, $registration): void {
+                            RouteGroupIsolation::run($router, $registration['activate']);
+                        });
                     });
                     $this->states[$provider] = 'active';
                     unset($this->pending[$package][$provider]);

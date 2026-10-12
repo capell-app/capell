@@ -19,6 +19,7 @@ use Capell\Core\Actions\Install\PrepareInstallApplicationAction;
 use Capell\Core\Actions\Install\PublishCapellMigrationsAction;
 use Capell\Core\Actions\Install\PublishPackageMigrationsAction;
 use Capell\Core\Actions\Install\PublishVendorMigrationsAction;
+use Capell\Core\Actions\Install\RegisterProviderCommandsInCurrentProcessAction;
 use Capell\Core\Actions\Install\RequireExtraPackagesAction;
 use Capell\Core\Actions\Install\ResolveInstallUserAction;
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
@@ -249,7 +250,9 @@ final class InstallStepExecutor
                 ->unique()
                 ->sortBy(fn (string $providerClass): int => $this->composerProviderPriority($providerClass))
                 ->each(function (string $providerClass): void {
-                    app()->register($providerClass);
+                    RegisterProviderCommandsInCurrentProcessAction::run(
+                        static fn () => app()->register($providerClass),
+                    );
                 });
         });
     }
