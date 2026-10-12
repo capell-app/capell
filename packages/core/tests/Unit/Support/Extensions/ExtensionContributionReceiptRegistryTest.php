@@ -2,10 +2,25 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Support\CapellAdminManager;
 use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+
+it('attributes an early registration through a core helper to its registered implementation package', function (): void {
+    $registry = new ExtensionContributionReceiptRegistry;
+    $registry->rememberNamespaceContext('Vendor\\Example', new ExtensionContributionReceiptContext('vendor/example', 'runtime', 'ExampleRuntimeProvider'));
+    $registry->rememberNamespaceContext('Vendor\\Example', new ExtensionContributionReceiptContext('vendor/example', 'admin', 'ExampleAdminProvider'));
+
+    $registry->recordContribution(ExtensionContributionType::AdminPage, 'example-page', 'Vendor\\Example\\ExamplePage', CapellAdminManager::class);
+
+    $receipt = $registry->all()[0];
+    expect($receipt->ownerPackage)->toBe('vendor/example')
+        ->and($receipt->providerBucket)->toBe('admin')
+        ->and($receipt->sourceClass)->toBe(CapellAdminManager::class)
+        ->and($receipt->foundationBuiltIn)->toBeFalse();
+});
 
 it('deduplicates exact receipts while retaining every distinct receipt in insertion order', function (): void {
     $registry = new ExtensionContributionReceiptRegistry;

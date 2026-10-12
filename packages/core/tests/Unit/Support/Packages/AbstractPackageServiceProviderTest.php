@@ -2,7 +2,15 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Support\CapellAdminManager;
+use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
+use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
+use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Capell\Core\Tests\Support\InstalledLifecycleTestServiceProvider;
 use Capell\Core\Tests\Support\LivewireCompatibilityTestComponent;
 use Capell\Core\Tests\Support\LivewireCompatibilityTestServiceProvider;
@@ -147,4 +155,59 @@ it('preserves the legacy installed and unconditional hook callback semantics', f
     // Replaying the legacy callback must emit both externally observed signals.
     Event::assertDispatchedTimes('capell.test.installed-booted', 2);
     Event::assertDispatchedTimes('capell.test.package-booted', 2);
+});
+
+it('attributes direct provider registrations before application boot to their manifest package', function (): void {
+    $packages = app()->make(CapellPackageRegistry::class);
+    $packages->register(CapellManifestData::fromArray(capellManifestV3Array(
+        name: InstalledLifecycleTestServiceProvider::$packageName,
+        namespace: 'Vendor\\EarlyPackage',
+        providers: ['runtime' => [InstalledLifecycleTestServiceProvider::class]],
+    )));
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    new InstalledLifecycleTestServiceProvider(app(), installed: true)->registeringPackage();
+    $receipts->recordContribution(ExtensionContributionType::AdminPage, 'early-page', 'Vendor\\EarlyPackage\\EarlyPage', CapellAdminManager::class, 'admin');
+
+    $receipt = $receipts->all()[0];
+    expect($receipt->ownerPackage)->toBe(InstalledLifecycleTestServiceProvider::$packageName)
+        ->and($receipt->providerBucket)->toBe('runtime')
+        ->and($receipt->foundationBuiltIn)->toBeFalse();
+});
+
+it('preserves the selected provider bucket when remembering early manifest provenance', function (): void {
+    $provider = InstalledLifecycleTestServiceProvider::class;
+    app()->make(CapellPackageRegistry::class)->register(CapellManifestData::fromArray(capellManifestV3Array(
+        name: $provider::$packageName,
+        namespace: 'Vendor\\SelectedPackage',
+        providers: ['runtime' => [$provider], 'admin' => [$provider]],
+    )));
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+    $context = ExtensionContributionReceiptContext::forPackage($provider::$packageName, 'runtime', $provider);
+
+    $receipts->withContext($context, function (): void {
+        new InstalledLifecycleTestServiceProvider(app(), installed: true)->registeringPackage();
+    });
+    $receipts->recordContribution(ExtensionContributionType::AdminPage, 'selected-page', 'Vendor\\SelectedPackage\\SelectedPage', CapellAdminManager::class, 'admin');
+
+    expect($receipts->loadedBuckets($provider::$packageName))->toBe(['runtime'])
+        ->and($receipts->all()[0]->providerBucket)->toBe('runtime');
+});
+
+it('does not attribute direct public registrations to authoring buckets', function (): void {
+    $provider = InstalledLifecycleTestServiceProvider::class;
+    app()->instance(RuntimeRoleResolver::class, new RuntimeRoleResolver(RuntimeRoleSelectionData::fromConfiguredValue('public')));
+    app()->make(CapellPackageRegistry::class)->register(CapellManifestData::fromArray(capellManifestV3Array(
+        name: $provider::$packageName,
+        namespace: 'Vendor\\PublicPackage',
+        providers: ['runtime' => [$provider], 'admin' => [$provider]],
+    )));
+    $receipts = new ExtensionContributionReceiptRegistry;
+    app()->instance(ExtensionContributionReceiptRegistry::class, $receipts);
+
+    new InstalledLifecycleTestServiceProvider(app(), installed: true)->registeringPackage();
+
+    expect($receipts->loadedBuckets($provider::$packageName))->toBe(['runtime']);
 });

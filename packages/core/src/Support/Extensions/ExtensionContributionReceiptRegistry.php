@@ -31,6 +31,12 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
     /** @var array<string, list<ExtensionContributionReceiptContext>> */
     private array $namespaceContexts = [];
 
+    /** @return list<ExtensionContributionReceiptContext> */
+    public function activeContexts(): array
+    {
+        return $this->contexts;
+    }
+
     public function rememberProviderContext(string $provider, ExtensionContributionReceiptContext $context): void
     {
         $this->providerContexts[$provider] ??= [];
@@ -118,7 +124,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         $contexts = array_values($this->contexts !== [] ? $this->contexts : $this->bootProviderContexts());
         $contexts = $this->contextsForBucket($contexts, $providerBucket);
         $contexts = $providerBucket === null ? $this->contextsForType($contexts, $type) : $contexts;
-        $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass ?? self::class)]);
+        $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass ?? self::class, $implementation, $providerBucket ?? $type->bucket())]);
 
         $this->recordForContexts($type, $key, $implementation, $sourceClass, $contexts);
     }
@@ -148,7 +154,7 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
 
         $contexts = $this->contextsForBucket($contexts, $providerBucket);
         $contexts = $providerBucket === null ? $this->contextsForType($contexts, $type) : $contexts;
-        $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass)]);
+        $contexts = array_values($contexts !== [] ? $contexts : [$this->fallbackContext($sourceClass, $implementation, $providerBucket ?? $type->bucket())]);
 
         $this->recordForContexts($type, $key, $implementation, $sourceClass, $contexts);
     }
@@ -306,8 +312,14 @@ final class ExtensionContributionReceiptRegistry implements BootsExtensionContri
         return $this->contextsForBucket($contexts, $providerBucket);
     }
 
-    private function fallbackContext(string $sourceClass): ExtensionContributionReceiptContext
+    private function fallbackContext(string $sourceClass, string $implementation, string $providerBucket): ExtensionContributionReceiptContext
     {
+        // A core helper does not make an extension's implementation built in.
+        $implementationContexts = $this->contextForClass($implementation, $providerBucket);
+        if ($implementationContexts !== null && $implementationContexts !== []) {
+            return $implementationContexts[0];
+        }
+
         foreach ([
             'Capell\\Core\\' => ['capell-app/core', 'runtime'],
             'Capell\\Admin\\' => ['capell-app/admin', 'admin'],

@@ -11,6 +11,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Capell\Core\Support\Runtime\RuntimeRoleResolver;
 use Closure;
 use Composer\InstalledVersions;
 use Illuminate\Console\Scheduling\Schedule;
@@ -48,6 +49,7 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
     {
         $this->app->singletonIf(CapellPackageRegistry::class);
         $this->registerPackageMetadata();
+        $this->rememberManifestReceiptContexts();
 
         $usesInstalledRuntime = new ReflectionMethod($this, 'bootInstalledRuntime')->getDeclaringClass()->getName() !== self::class;
 
@@ -243,6 +245,46 @@ abstract class AbstractPackageServiceProvider extends PackageServiceProvider imp
         }
 
         throw new RuntimeException('Package root could not be resolved for ' . static::$packageName);
+    }
+
+    // Direct Laravel provider registration also needs provenance before app-booting callbacks.
+    private function rememberManifestReceiptContexts(): void
+    {
+        $manifest = $this->app->make(CapellPackageRegistry::class)->get($this->receiptOwnerPackage());
+        $namespace = $manifest?->resolvedNamespace();
+        if ($manifest === null || $namespace === null) {
+            return;
+        }
+
+        $receipts = $this->app->make(ExtensionContributionReceiptRegistry::class);
+        $activeContexts = $receipts->activeContexts();
+        if ($activeContexts !== []) {
+            foreach ($activeContexts as $context) {
+                if ($context->ownerPackage === $manifest->name && $context->sourceClass === static::class) {
+                    $receipts->rememberProviderContext(static::class, $context);
+                    $receipts->rememberNamespaceContext($namespace, $context);
+                }
+            }
+
+            return;
+        }
+
+        $role = $this->app->make(RuntimeRoleResolver::class)->role();
+        foreach ($manifest->providers->toArray() as $bucket => $providers) {
+            if (! $role->loadsAuthoringProviders() && in_array($bucket, ['install', 'admin'], true)) {
+                continue;
+            }
+
+            if (! in_array(static::class, $providers, true)) {
+                continue;
+            }
+
+            $context = TrustedCorePackages::contains($manifest->name)
+                ? ExtensionContributionReceiptContext::foundation($manifest->name, $bucket, static::class)
+                : ExtensionContributionReceiptContext::forPackage($manifest->name, $bucket, static::class);
+            $receipts->rememberProviderContext(static::class, $context);
+            $receipts->rememberNamespaceContext($namespace, $context);
+        }
     }
 
     private function receiptOwnerPackage(): string

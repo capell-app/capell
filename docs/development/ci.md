@@ -8,7 +8,9 @@ Capell's CI runs code-quality checks and divides the test suite with Pest's nati
 
 Run `composer test:shards` when the timing manifest needs refreshing. Pest writes `tests/.pest/shards.json` directly.
 
-Pest 4.7 requires a small sharding compatibility patch for this monorepo. It supports package namespaces, preserves the discovery process memory limit, and prevents parallel-worker PHP options from leaking into PHPUnit test discovery. Composer applies it after autoload refreshes, and `composer check:pest-shards` fails on unsupported Pest versions so the patch is reviewed and removed once upstream behavior is sufficient.
+This checkout uses Pest 5 with its native sharding support. Composer excludes ParaTest 7.26.1 until a published Pest release contains the upstream compatibility fix and the required Fast PR cells pass with the newer dependency.
+
+Use `composer test:preflight:serial -- <paths or filter>` for focused selections. With the pinned Pest 5.3.1, a filter across the whole tree can report passing tests while its parallel result has `hasTests=false` and exits 1. Retain that exit as a tooling failure; use the serial runner for focused proof and require the full parallel suite and hosted matrix before merge.
 
 ## Immutable lock admission
 
@@ -23,6 +25,8 @@ commits in Core's lane cache key; missing or mutable pins fail admission.
 ## Composer Refresh For Screenshot Fixtures
 
 Composer install and autoload refresh matter for screenshot and docs checks because generated Filament/admin fixtures depend on package discovery and Testbench state. CI runs Composer validation and dependency install before quality checks so package providers, screenshot fixtures, and generated docs state use the current lock file rather than stale vendor metadata.
+
+The documentation receipt checks also need the shared screenshot runner. In a linked worktree, `npm ci` can leave the local `file:../capell-screenshot-tools` dependency pointing at an absent sibling; set `CAPELL_SCREENSHOT_RUNNER_PATH` to the absolute path of a clean, committed runner checkout before `composer preflight:all`. The receipt check validates that checkout's `src/receipt-validator-cli.mjs`; an unavailable validator is a missing prerequisite, not a passing screenshot check.
 
 ## Local Checks
 
