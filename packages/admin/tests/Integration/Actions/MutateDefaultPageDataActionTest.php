@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\MutateDefaultPageDataAction;
+use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
@@ -12,6 +13,14 @@ use Illuminate\Support\Str;
 uses(CreatesAdminUser::class);
 
 describe('MutateDefaultPageDataAction feature', function (): void {
+    it('uses a content fallback rather than a system default for inline page creation', function (): void {
+        test()->actingAsAdmin();
+        Blueprint::factory()->page()->group(BlueprintGroupEnum::System->value)->default()->create(['order' => 0]);
+        $contentType = Blueprint::factory()->page()->group('marketing')->create(['order' => 10]);
+
+        expect(MutateDefaultPageDataAction::run()['blueprint_id'])->toBe($contentType->id);
+    });
+
     it('returns correct default page data structure and values', function (): void {
         test()->actingAsAdmin();
         $layout = Layout::factory()->default()->create();

@@ -328,9 +328,9 @@ class Page extends Model implements Blueprintable, DraftableContract, EventSourc
 
     public static function getDefaultType(?string $group): ?Blueprint
     {
-        $query = Blueprint::query()->pageType();
+        $query = Blueprint::query()->pageType()->hiddenSystemGroup();
 
-        if ($group !== null) {
+        if ($group !== null && ! in_array($group, ['page', 'default'], true)) {
             $query->adminResource($group);
         }
 

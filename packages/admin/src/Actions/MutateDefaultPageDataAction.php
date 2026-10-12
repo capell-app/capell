@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions;
 
 use Capell\Core\Contracts\Actionable;
-use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Support\Str;
@@ -35,13 +35,7 @@ class MutateDefaultPageDataAction implements Actionable
 
         $data['layout_id'] = SiteAccess::current()->query($layoutModel)->default()->value('id');
 
-        /** @var class-string<Blueprint> $model */
-        $model = Blueprint::class;
-
-        $data['blueprint_id'] = $model::query()
-            ->pageType()
-            ->default()
-            ->value('id');
+        $data['blueprint_id'] = Page::getDefaultType(null)?->getKey();
 
         if ($site instanceof Site) {
             $data['site_id'] = $site->id;

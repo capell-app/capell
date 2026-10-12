@@ -33,6 +33,7 @@ use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
@@ -344,6 +345,8 @@ class DefaultPageConfigurator implements ConfiguratorInterface, ProvidesRelation
             return TranslationsRepeater::make('translations')
                 ->columnSpanFull()
                 ->schema([
+                    // Focused system forms still need the selected language when inserting a translation.
+                    Hidden::make('language_id')->required(),
                     TextInput::make('title')
                         ->label(__('capell-admin::form.page_title'))
                         ->required()
