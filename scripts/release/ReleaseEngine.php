@@ -784,7 +784,23 @@ final class ReleaseEngine
     /** @return list<string> */
     private function pushCommand(string $repository, string $refspec, ?string $lease = null): array
     {
-        return $this->pushTo(sprintf('https://github.com/%s.git', $repository), $refspec, $lease);
+        $remote = sprintf('https://github.com/%s.git', $repository);
+        if ($lease !== null && $lease !== '') {
+            $proposed = explode(':', $refspec, 2)[0];
+            // A fresh lease can name a main that moved after split construction.
+            // Fetch that exact commit: a lease alone permits rewinding it.
+            $fetch = $this->runner->run(['git', 'fetch', '--no-tags', $remote, $lease], $this->root);
+            if ($fetch['exitCode'] !== 0) {
+                throw new ReleaseException(sprintf('Publication stopped for %s: cannot fetch leased main %s for proposed split %s.', $repository, $lease, $proposed));
+            }
+
+            $ancestry = $this->runner->run(['git', 'merge-base', '--is-ancestor', $lease, $proposed], $this->root);
+            if ($ancestry['exitCode'] !== 0) {
+                throw new ReleaseException(sprintf('Publication stopped for %s: leased main %s is not a proven ancestor of proposed split %s (git exit %d).', $repository, $lease, $proposed, $ancestry['exitCode']));
+            }
+        }
+
+        return $this->pushTo($remote, $refspec, $lease);
     }
 
     /**
