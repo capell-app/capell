@@ -17,7 +17,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
- * @method static void run(array<int, ResourceEnum|class-string> $resources = [], array<int, PageEnum|class-string> $pages = [], array<int, FilamentWidgetEnum|class-string> $widgets = [], ?string $guardName = null)
+ * @method static void run(array<int, ResourceEnum|class-string> $resources = [], array<int, PageEnum|class-string> $pages = [], array<int, FilamentWidgetEnum|class-string> $widgets = [], ?string $guardName = null, list<string> $permissions = [])
  */
 class AssignPermissionsToRole
 {
@@ -28,11 +28,13 @@ class AssignPermissionsToRole
      * @param  array<int, ResourceEnum|class-string>  $resources
      * @param  array<int, PageEnum|class-string>  $pages
      * @param  array<int, FilamentWidgetEnum|class-string>  $widgets
+     * @param  list<string>  $permissions
      */
-    public function handle(array $resources = [], array $pages = [], array $widgets = [], ?string $guardName = null): void
+    public function handle(array $resources = [], array $pages = [], array $widgets = [], ?string $guardName = null, array $permissions = []): void
     {
         $guardName ??= Utils::getFilamentAuthGuard();
         $permissions = [
+            ...$this->declaredPermissions($permissions, $guardName),
             ...$this->resourcePermissions($resources, $guardName),
             ...$this->pageOrWidgetPermissions($pages, $guardName),
             ...$this->pageOrWidgetPermissions($widgets, $guardName),
@@ -41,6 +43,21 @@ class AssignPermissionsToRole
         if ($permissions !== []) {
             $this->grantSuperAdminPermissions(array_values(array_unique($permissions)), $guardName);
         }
+    }
+
+    /**
+     * @param  list<string>  $permissions
+     * @return list<string>
+     */
+    private function declaredPermissions(array $permissions, string $guardName): array
+    {
+        return array_values(array_map(
+            static fn (string $permission): string => Utils::getPermissionModel()::firstOrCreate([
+                'name' => $permission,
+                'guard_name' => $guardName,
+            ])->name,
+            array_unique($permissions),
+        ));
     }
 
     /**

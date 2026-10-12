@@ -9,9 +9,78 @@ use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
+use Capell\Core\Enums\ExtensionStatusEnum;
+use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+
+it('syncs enabled manifest permissions with the existing administrator grant policy', function (PermissionSyncMode $mode): void {
+    config()->set('filament-shield.super_admin.define_via_gate', false);
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/redirects',
+        overrides: ['permissions' => ['Manage:RedirectRules', 'Manage:RedirectRules']],
+    ));
+    CapellCore::registerManifestPackage($manifest);
+    CapellCore::forcePackageInstalled($manifest->name);
+    $superAdmin = Role::findOrCreate('super_admin', 'web');
+    $customPermission = Permission::findOrCreate('Custom:Existing', 'web');
+    $superAdmin->givePermissionTo($customPermission);
+    $otherGuard = Role::findOrCreate('super_admin', 'api');
+
+    SyncCapellPermissionsAction::run($mode);
+    SyncCapellPermissionsAction::run($mode);
+
+    expect(Permission::query()->where('name', 'Manage:RedirectRules')->where('guard_name', 'web')->count())->toBe(1)
+        ->and($superAdmin->refresh()->hasPermissionTo('Manage:RedirectRules', 'web'))->toBeTrue()
+        ->and($superAdmin->hasPermissionTo('Custom:Existing', 'web'))->toBeTrue()
+        ->and(Role::findByName('admin', 'web')->hasPermissionTo('Manage:RedirectRules', 'web'))->toBeFalse()
+        ->and(Role::findByName('editor', 'web')->hasPermissionTo('Manage:RedirectRules', 'web'))->toBeFalse()
+        ->and($otherGuard->refresh()->permissions()->count())->toBe(0);
+})->with([PermissionSyncMode::Install, PermissionSyncMode::Upgrade]);
+
+it('does not materialise permissions from inactive manifests', function (?ExtensionStatusEnum $status): void {
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/inactive',
+        overrides: ['permissions' => ['Manage:InactivePackage']],
+    ));
+    CapellCore::registerManifestPackage($manifest);
+    if ($status instanceof ExtensionStatusEnum) {
+        CapellExtension::query()->create([
+            'composer_name' => $manifest->name,
+            'name' => 'Inactive package',
+            'version' => '1.0.0',
+            'status' => $status,
+            'installed_at' => now(),
+        ]);
+        CapellCore::forcePackageInstalled($manifest->name);
+    }
+
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Upgrade);
+
+    expect(Permission::query()->where('name', 'Manage:InactivePackage')->exists())->toBeFalse();
+})->with([null, ExtensionStatusEnum::Disabled, ExtensionStatusEnum::Failed, ExtensionStatusEnum::Uninstalled]);
+
+it('respects Shield settings when granting manifest permissions during upgrade', function (bool $enabled, bool $viaGate): void {
+    config()->set('filament-shield.super_admin.enabled', $enabled);
+    config()->set('filament-shield.super_admin.define_via_gate', $viaGate);
+    config()->set('filament-shield.super_admin.name', 'package-administrator');
+
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: 'vendor/redirects',
+        overrides: ['permissions' => ['Manage:RedirectRules']],
+    ));
+    CapellCore::registerManifestPackage($manifest);
+    CapellCore::forcePackageInstalled($manifest->name);
+    $role = Role::findOrCreate('package-administrator', 'web');
+
+    SyncCapellPermissionsAction::run(PermissionSyncMode::Upgrade);
+
+    expect(Permission::query()->where('name', 'Manage:RedirectRules')->where('guard_name', 'web')->exists())->toBeTrue()
+        ->and($role->refresh()->hasPermissionTo('Manage:RedirectRules', 'web'))->toBe($enabled && ! $viaGate);
+})->with([[true, false], [true, true], [false, false]]);
 
 it('syncs generated and Capell catalog permissions during install', function (): void {
     SyncCapellPermissionsAction::run(PermissionSyncMode::Install);
