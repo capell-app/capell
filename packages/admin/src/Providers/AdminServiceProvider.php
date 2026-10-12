@@ -58,6 +58,7 @@ use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Enums\PageEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Events\ServingAdmin;
+use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Imports\RedirectImporter;
 use Capell\Admin\Filament\Livewire\PageScratchDraftPanel;
@@ -272,6 +273,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
@@ -374,6 +376,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 if ($panel->hasPlugin(CapellAdminPlugin::ID)) {
                     try {
                         resolve(CapellAdminPlugin::class)->synchronizePanelAdminSurface($panel);
+                    } catch (PanelTopologyRefreshRequiredException) {
+                        // The package activated correctly; only this process's panel is withheld.
+                        Log::warning(__('capell-admin::message.extension_panel_refresh_deferred', ['panel' => $panel->getId()]), [
+                            'package' => $event->package->name,
+                            'panel' => $panel->getId(),
+                        ]);
                     } catch (Throwable $throwable) {
                         // A new failure belongs to this activation; an earlier denial is deferred.
                         resolve(InstalledRuntimeLifecycle::class)->recordFailure($throwable, $event->package->name, self::class, 'admin', 'panel-refresh');
