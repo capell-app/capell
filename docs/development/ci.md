@@ -26,6 +26,8 @@ commits in Core's lane cache key; missing or mutable pins fail admission.
 
 Composer install and autoload refresh matter for screenshot and docs checks because generated Filament/admin fixtures depend on package discovery and Testbench state. CI runs Composer validation and dependency install before quality checks so package providers, screenshot fixtures, and generated docs state use the current lock file rather than stale vendor metadata.
 
+The documentation receipt checks also need the shared screenshot runner. In a linked worktree, `npm ci` can leave the local `file:../capell-screenshot-tools` dependency pointing at an absent sibling; set `CAPELL_SCREENSHOT_RUNNER_PATH` to the absolute path of a clean, committed runner checkout before `composer preflight:all`. The receipt check validates that checkout's `src/receipt-validator-cli.mjs`; an unavailable validator is a missing prerequisite, not a passing screenshot check.
+
 ## Local Checks
 
 Use the narrowest command while changing code:
