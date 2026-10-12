@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\Page\LayoutSelect;
+use Capell\Admin\Filament\Resources\Pages\Pages\CreatePage;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -48,9 +50,7 @@ it('layout select falls back to generated preview image metadata', function (): 
         ],
     ]);
 
-    $method = new ReflectionMethod($component, 'layoutPreviewImageUrl');
-
-    expect($method->invoke($component, $layout))
+    expect($component->getOptionLabelFromRecord($layout))
         ->toContain('generated-layout-previews/layout-preview.png');
 });
 
@@ -67,7 +67,7 @@ it('layout select keeps thumbnail in selected option without rendering preview b
     expect($component->getOptionLabelFromRecord($layout))
         ->toContain('generated-layout-previews/layout-preview.png')
         ->and(layoutSelectChildComponents($component))
-        ->not->toHaveKey(LayoutSelect::BELOW_CONTENT_SCHEMA_KEY);
+        ->toBe([]);
 });
 
 it('marks disabled and unused layouts in select options', function (): void {
@@ -136,11 +136,8 @@ it('loads a single cross-variation usage aggregate for relationship options', fu
  */
 function layoutSelectChildComponents(LayoutSelect $component): array
 {
-    $callback = Closure::bind(
-        fn (): array => $component->childComponents,
-        null,
-        LayoutSelect::class,
-    );
+    Schema::make(new CreatePage)
+        ->model(Page::class)->components([$component])->getComponents();
 
-    return $callback();
+    return $component->getChildSchema(LayoutSelect::BELOW_CONTENT_SCHEMA_KEY)?->getComponents() ?? [];
 }

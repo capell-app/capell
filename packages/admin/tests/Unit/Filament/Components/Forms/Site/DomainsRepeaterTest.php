@@ -3,9 +3,13 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\Site\DomainsRepeater;
+use Capell\Admin\Filament\Resources\Sites\Pages\CreateSite;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\View\View;
 
@@ -118,17 +122,15 @@ it('renders existing domain labels from the loaded record language', function ()
  */
 function domainsRepeaterItemLabel(DomainsRepeater $component, array $state, ?Site $record): string
 {
-    $callback = Closure::bind(fn (): mixed => $component->itemLabel, null, DomainsRepeater::class)();
-
-    if (! $callback instanceof Closure) {
-        return '';
-    }
-
-    $label = $component->evaluate($callback, [
-        'uuid' => 'item-1',
-        'state' => $state,
-        'record' => $record,
-    ]);
+    $host = new CreateSite;
+    Schema::make($host)->record($record)->statePath('data')
+        ->components([$component])->getComponents();
+    $component->schema([
+        Hidden::make('id'),
+        Hidden::make('language_id'),
+        TextInput::make('url'),
+    ])->state(['item-1' => $state]);
+    $label = $component->getItemLabel('item-1');
 
     return match (true) {
         $label instanceof View => $label->render(),

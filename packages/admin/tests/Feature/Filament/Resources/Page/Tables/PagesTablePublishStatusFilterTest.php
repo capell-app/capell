@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
 use Capell\Core\Models\Page;
 use Carbon\CarbonImmutable;
+use Filament\Tables\Filters\BaseFilter;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -13,12 +14,12 @@ use Illuminate\Database\Eloquent\Builder;
  */
 function applyPublishStatusFilter(array $data): Builder
 {
-    $method = new ReflectionMethod(PagesTable::class, 'applyPublishStatusFilterQuery');
+    $filter = collect(PagesTable::getBaseTableFilters())->first(
+        fn (BaseFilter $filter): bool => $filter->getName() === 'publish_status',
+    );
+    assert($filter instanceof BaseFilter);
 
-    /** @var Builder<Page> $builder */
-    $builder = $method->invoke(null, Page::query(), $data);
-
-    return $builder;
+    return $filter->apply(Page::query(), $data);
 }
 
 it('partitions pages across every publish status filter option', function (): void {

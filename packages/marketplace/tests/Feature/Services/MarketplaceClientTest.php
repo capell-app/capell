@@ -1112,8 +1112,7 @@ it('applies the configured proxy and CA bundle to every outbound marketplace cal
         'capell-marketplace.marketplace.http.verify' => '/etc/ssl/capell-ca.pem',
     ]);
 
-    $method = new ReflectionMethod(MarketplaceClient::class, 'pendingRequest');
-    $options = $method->invoke(resolve(MarketplaceClient::class), null)->getOptions();
+    $options = marketplaceHeartbeatOptions();
 
     expect($options['proxy'])->toBe('http://proxy.test:3128')
         ->and($options['verify'])->toBe('/etc/ssl/capell-ca.pem');
@@ -1145,9 +1144,7 @@ it('sends the configured proxy on a real marketplace call, not only when the hel
 it('reads a boolean verify expressed as an environment string', function (): void {
     config(['capell-marketplace.marketplace.http.verify' => 'false']);
 
-    $method = new ReflectionMethod(MarketplaceClient::class, 'pendingRequest');
-
-    expect($method->invoke(resolve(MarketplaceClient::class), null)->getOptions()['verify'])->toBeFalse();
+    expect(marketplaceHeartbeatOptions()['verify'])->toBeFalse();
 });
 
 it('leaves the http options alone when no proxy or CA bundle is configured', function (): void {
@@ -1156,9 +1153,27 @@ it('leaves the http options alone when no proxy or CA bundle is configured', fun
         'capell-marketplace.marketplace.http.verify' => null,
     ]);
 
-    $method = new ReflectionMethod(MarketplaceClient::class, 'pendingRequest');
-    $options = $method->invoke(resolve(MarketplaceClient::class), null)->getOptions();
+    $options = marketplaceHeartbeatOptions();
 
     expect($options)->not->toHaveKey('proxy')
-        ->and($options)->not->toHaveKey('verify');
+        // Guzzle supplies its secure default at the transport boundary.
+        ->and($options['verify'])->toBeTrue();
 });
+
+/** @return array<string, mixed> */
+function marketplaceHeartbeatOptions(): array
+{
+    $options = [];
+    Http::fake(function ($request, array $sentOptions) use (&$options): PromiseInterface {
+        $options = $sentOptions;
+
+        return Http::response(['data' => [
+            'instance_id' => 'instance-123',
+            'checked_at' => '2026-05-07T09:30:00+00:00',
+        ]]);
+    });
+
+    resolve(MarketplaceClient::class)->heartbeat(['instance_id' => 'instance-123']);
+
+    return $options;
+}
