@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\BlueprintSelect as BaseBlueprintSelect;
+use Capell\Admin\Filament\Components\Forms\DefaultToggle;
 use Capell\Admin\Filament\Components\Forms\Page\BlueprintSelect as PageBlueprintSelect;
 use Capell\Admin\Filament\Components\Forms\Site\BlueprintSelect as SiteBlueprintSelect;
 use Capell\Admin\Settings\AdminSettings;
@@ -73,6 +74,30 @@ it('loads relationship options for enabled blueprints in the selected subject', 
         ->toHaveKey($enabledBlueprint->getKey())
         ->not->toHaveKey($disabledBlueprint->getKey())
         ->not->toContain('Page type');
+});
+
+it('binds nested blueprint forms to their own model and selected record', function (): void {
+    $blueprint = Blueprint::factory()->site()->create(['name' => 'Embedded site type']);
+    $component = mountedBlueprintSelect(
+        SiteBlueprintSelect::make('blueprint_id')->withRelation()->withCreateForm()->withEditForm(),
+        ['blueprint_id' => $blueprint->getKey()],
+        Site::class,
+    );
+    $create = $component->getCreateOptionActionForm(Schema::make(Livewire::make()));
+    $edit = $component->getEditOptionActionForm(Schema::make(Livewire::make()));
+    throw_if(! $create instanceof Schema || ! $edit instanceof Schema, RuntimeException::class, 'Nested option forms must return schemas.');
+
+    $record = $edit->getRecord();
+    throw_unless($record instanceof Blueprint, RuntimeException::class, 'Nested edit form must retain its selected record.');
+
+    $default = array_find($edit->getFlatComponents(withHidden: true), static fn (mixed $component): bool => $component instanceof DefaultToggle);
+    throw_unless($default instanceof DefaultToggle, RuntimeException::class, 'Nested option form must expose its default toggle.');
+
+    expect($default->getLabel())->not->toBeEmpty();
+
+    expect($create->getModel())->toBe(Blueprint::class)
+        ->and($edit->getModel())->toBe(Blueprint::class)
+        ->and($record->getKey())->toBe($blueprint->getKey());
 });
 
 it('configures nested create and edit actions for blueprint management', function (): void {
