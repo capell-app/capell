@@ -8,6 +8,7 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Enums\FilamentWidgetEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
+use Capell\Admin\Filament\Pages\DashboardToolsPage;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsInsightsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\AnalyticsRecentActivityFilamentWidget;
@@ -16,6 +17,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\CapellAccountFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\CapellInfoFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\MyWorkQueueFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\NeedsAttentionFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\PageStatusFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
@@ -92,6 +94,7 @@ it('orders dashboard Filament widgets by their filament sort value', function ()
         AnalyticsRecentActivityFilamentWidget::class,
         CapellAccountFilamentWidget::class,
         CapellInfoFilamentWidget::class,
+        NeedsAttentionFilamentWidget::class,
         ListPagesFilamentWidget::class,
         RecentActivityFilamentWidget::class,
         MarketplaceCommercialWarningFilamentWidget::class,
@@ -179,6 +182,7 @@ it('falls back to filament sort values after pinned dashboard Filament widgets w
             AnalyticsTrendFilamentWidget::class,
             AnalyticsInsightsFilamentWidget::class,
             AnalyticsRecentActivityFilamentWidget::class,
+            NeedsAttentionFilamentWidget::class,
             ListPagesFilamentWidget::class,
             RecentActivityFilamentWidget::class,
             MarketplaceCommercialWarningFilamentWidget::class,
@@ -252,41 +256,25 @@ it('uses a responsive dashboard layout for content-heavy widgets', function (): 
         ]);
 });
 
-it('composes visible dashboard regions without empty section wrappers', function (): void {
+it('composes performance summaries without the legacy widget bucket', function (): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
-
     $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
     $components = $components instanceof Schema ? $components->getComponents() : $components;
-
-    expect($components)->toHaveCount(4)
-        ->and($components[0])->toBeInstanceOf(Grid::class)
-        ->and($components[1])->toBeInstanceOf(Grid::class)
-        ->and($components[2])->toBeInstanceOf(Grid::class)
-        ->and($components[3])->toBeInstanceOf(Section::class);
-
-    assert($components[0] instanceof Grid);
-    assert($components[1] instanceof Grid);
-    assert($components[2] instanceof Grid);
-    assert($components[3] instanceof Section);
-
-    expect(defaultDashboardRegionWidgets($components[0]))->toBe([
-        AnalyticsTrendFilamentWidget::class,
-        AnalyticsInsightsFilamentWidget::class,
-    ])
-        ->and(defaultDashboardRegionWidgets($components[1]))->toBe([AnalyticsOverviewFilamentWidget::class])
-        ->and(defaultDashboardRegionWidgets($components[2]))->toBe([AnalyticsRecentActivityFilamentWidget::class])
-        ->and($components[3]->getHeading())->toBe(__('capell-admin::dashboard.region_additional'))
-        ->and($components[3]->isCollapsed())->toBeTrue()
-        ->and(defaultDashboardRegionWidgets($components[3]))->toContain(
-            CapellAccountFilamentWidget::class,
-            CapellInfoFilamentWidget::class,
-            ListPagesFilamentWidget::class,
-            RecentActivityFilamentWidget::class,
-        );
+    expect($components)->toHaveCount(2)->and($components[0])->toBeInstanceOf(Section::class);
+    $performance = $components[0];
+    throw_unless($performance instanceof Section, LogicException::class);
+    expect($performance->getHeading())->toBe(__('capell-admin::dashboard.performance_heading'))
+        ->and(defaultDashboardRegionWidgets($performance))->toBe([
+            AnalyticsOverviewFilamentWidget::class,
+            AnalyticsTrendFilamentWidget::class,
+            AnalyticsInsightsFilamentWidget::class,
+        ]);
+    expect((new DashboardToolsPage)->getWidgets())->toContain(ListPagesFilamentWidget::class)
+        ->not->toContain(CapellAccountFilamentWidget::class, CapellInfoFilamentWidget::class);
 });
 
-it('retains enabled marketing contributions in the compact dashboard additional information', function (bool $enabled): void {
+it('retains enabled marketing contributions in the specialist tools view', function (bool $enabled): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
 
@@ -304,16 +292,9 @@ it('retains enabled marketing contributions in the compact dashboard additional 
     );
     $settings->save();
 
-    $dashboard = new CapellDashboard;
-    $components = $dashboard->getWidgetsContentComponent()->getDefaultChildComponents();
-    $components = $components instanceof Schema ? $components->getComponents() : $components;
-
-    expect($components)->toHaveCount(4)
-        ->and($components[3])->toBeInstanceOf(Section::class);
-    assert($components[3] instanceof Section);
-
+    $dashboard = new DashboardToolsPage;
     $widgets = $dashboard->getWidgets();
-    $additionalWidgets = defaultDashboardRegionWidgets($components[3]);
+    $additionalWidgets = $widgets;
 
     foreach ($marketingWidgets as $marketingWidget) {
         expect(in_array($marketingWidget, $widgets, true))->toBe($enabled)

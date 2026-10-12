@@ -3,6 +3,23 @@
 declare(strict_types=1);
 
 return [
+    'attention_heading' => 'Needs attention',
+    'attention_description' => 'Publishing setup issues, with links to full readiness and health checks.',
+    'attention_clear' => 'No publishing setup issues found. Open the specialist views below for full readiness and health checks.',
+    'attention_blocked_description' => 'Publishing requirements to review: :count.',
+    'attention_page_setup' => 'Page setup needs attention',
+    'review_content' => 'Review content',
+    'review_publishing' => 'Publishing readiness',
+    'review_extensions' => 'Extensions',
+    'performance_period' => 'Performance period',
+    'performance_heading' => 'Site performance',
+    'performance_description' => 'Observed traffic for the selected site, language and period.',
+    'explore_analytics' => 'Explore analytics',
+    'analytics_heading' => 'Analytics',
+    'tools_period' => 'Date range',
+    'tools_heading' => 'Dashboard tools',
+    'overview_empty_description' => 'No performance panels are available for your role or current settings.',
+
     'empty_heading' => 'Your dashboard is ready',
     'empty_description' => 'No dashboard panels are available for your current access. Use the navigation to continue working.',
     'region_pulse' => 'Site pulse',
