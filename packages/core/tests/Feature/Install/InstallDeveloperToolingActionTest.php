@@ -7,30 +7,10 @@ use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\NullProgressReporter;
-use Illuminate\Console\Command;
+use Capell\Core\Tests\Support\Install\MidInstallBoostTestProvider;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\ServiceProvider;
-
-final class MidInstallBoostTestCommand extends Command
-{
-    protected $signature = 'test:boost-mid-install';
-
-    public function handle(): int
-    {
-        return self::SUCCESS;
-    }
-}
-
-final class MidInstallBoostTestProvider extends ServiceProvider
-{
-    #[Override]
-    public function register(): void
-    {
-        $this->commands([MidInstallBoostTestCommand::class]);
-    }
-}
 
 beforeEach(function (): void {
     InstallDeveloperToolingAction::resetProcessFactory();

@@ -10,38 +10,17 @@ use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Packages\InstalledRuntimeLifecycle;
+use Capell\Core\Tests\Support\Install\FailingLateInstallTestProvider;
+use Capell\Core\Tests\Support\Install\LateInstallTestCommand;
+use Capell\Core\Tests\Support\Install\LateInstallTestProvider;
 use Illuminate\Console\Application as ConsoleApplication;
-use Illuminate\Console\Command;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernelContract;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\ServiceProvider;
 use Symfony\Component\Console\Exception\CommandNotFoundException;
-
-final class LateInstallTestCommand extends Command
-{
-    protected $signature = 'test:late-package-install {--value=}';
-
-    public function handle(): int
-    {
-        $value = $this->option('value');
-        $this->line(is_string($value) ? $value : '');
-
-        return self::SUCCESS;
-    }
-}
-
-final class LateInstallTestProvider extends ServiceProvider
-{
-    #[Override]
-    public function register(): void
-    {
-        $this->commands([LateInstallTestCommand::class]);
-    }
-}
 
 it('reproduces a package command missing after its provider is added to a booted console', function (): void {
     Artisan::all();
@@ -113,17 +92,6 @@ it('does not replay unrelated console starting callbacks during late registratio
     expect($calls)->toBe(0)->and($return)->toBe('provider loaded')
         ->and(Artisan::call('test:late-package-install'))->toBe(0);
 });
-
-final class FailingLateInstallTestProvider extends ServiceProvider
-{
-    #[Override]
-    public function register(): void
-    {
-        $this->commands([LateInstallTestCommand::class]);
-
-        throw new RuntimeException('Late provider failed.');
-    }
-}
 
 it('leaves commands from a quarantined provider unregistered in the running console', function (): void {
     Artisan::all();

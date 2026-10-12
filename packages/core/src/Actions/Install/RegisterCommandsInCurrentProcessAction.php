@@ -7,12 +7,14 @@ namespace Capell\Core\Actions\Install;
 use Illuminate\Console\Application;
 use Illuminate\Foundation\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use ReflectionProperty;
 use Symfony\Component\Console\Command\Command;
 
 final class RegisterCommandsInCurrentProcessAction
 {
+    use AsFake;
     use AsObject;
 
     /** @param iterable<class-string<Command>|Command> $commands */

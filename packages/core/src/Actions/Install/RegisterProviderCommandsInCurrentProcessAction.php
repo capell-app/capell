@@ -9,6 +9,7 @@ use Illuminate\Console\Application;
 use Illuminate\Contracts\Console\Kernel as KernelContract;
 use Illuminate\Foundation\Console\Kernel;
 use Illuminate\Support\ServiceProvider;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use ReflectionFunction;
 use ReflectionProperty;
@@ -17,6 +18,7 @@ use Symfony\Component\Console\Command\Command;
 /** Bridges Laravel's deferred ServiceProvider::commands() declarations during installation. */
 final class RegisterProviderCommandsInCurrentProcessAction
 {
+    use AsFake;
     use AsObject;
 
     /**
