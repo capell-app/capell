@@ -175,25 +175,25 @@ php artisan capell:admin-install
 
 ### Published pages still show old content
 
-**Why:** You are looking at cached static HTML from the installed cache/static package.
+**Why:** The optional HTML Cache package may still be serving stale public HTML. Clearing it marks URLs stale; it does not regenerate them.
 
-**Run:**
+**Run:** Check `php artisan list capell` first. The following commands require `capell-app/html-cache`; bare Foundation does not register them.
 
 <!-- capell-docs-commands: optional-package -->
 
 ```bash
+php artisan view:clear
 php artisan capell:html-cache:clear
+php artisan capell:html-cache:process-stale --suppress-inline-edge-purge
 ```
 
-Only run commands that exist in the installed package set. Check with `php artisan list capell`. If `capell-app/html-cache` is installed, also run `php artisan capell:static-site` to rebuild generated public HTML.
+Check the refresh summary for failures or deferred URLs. Verify the expected content in the origin response at the canonical public URL, without a query string or signed-in session. If a CDN is configured, reach the origin directly while preserving the canonical host; an edge response does not prove the origin is fresh.
 
-If your queue is not `sync`, keep a worker running:
+Only after the origin serves the new bytes, purge the affected URLs using your configured edge provider, then verify the ordinary canonical public response. Skip this step when there is no edge cache.
 
-```bash
-php artisan queue:work
-```
+Static export is a separate operation. An ordinary `capell:static-site` run can read existing cached HTML; it is not a substitute for processing stale URLs. Refresh and verify the origin before generating an export.
 
-**You should see:** The frontend updates after refresh.
+**You should see:** The canonical origin response contains the updated published content, followed by the public edge response if configured.
 
 ### Published pages never generate
 

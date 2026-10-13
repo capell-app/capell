@@ -96,13 +96,13 @@ php artisan capell:upgrade
 ## Standard flow
 
 ```bash
-composer update capell-app/capell                  # core
+composer update capell-app/core                    # core
 composer update 'capell-app/*'                     # core + every approved package
 php artisan capell:upgrade --dry-run               # interactive CLI preview
 php artisan capell:upgrade                         # interactive CLI apply
 ```
 
-The admin/manual fallback commands are deliberately non-interactive and match what the Upgrades page shows:
+The admin/manual fallback commands skip confirmations and match what the Upgrades page shows. For unattended runs and automatic requirement reconciliation, also pass `--no-interaction`:
 
 ```bash
 php artisan capell:upgrade --force --no-clear-cache --dry-run
@@ -165,10 +165,10 @@ You can audit upgrades with plain SQL — no joins required.
 
 ## Rollback
 
-Steps that implement `rollback()` can be reverted:
+Steps that implement `rollback()` can be reverted. Replace `<step-id>` with the recorded step ID:
 
 ```bash
-php artisan capell:rollback --step=<step-id>
+php artisan capell:rollback --step='<step-id>'
 ```
 
 Writes a `rolled_back` row, then marks the original `success` row as `superseded`. Re-running `capell:upgrade` will re-apply the step.
@@ -188,9 +188,13 @@ Writes a `rolled_back` row, then marks the original `success` row as `superseded
 ## CI / automated deploys
 
 ```bash
-php artisan capell:upgrade --force --force-downgrade --no-clear-cache
+php artisan capell:upgrade --force --no-interaction
 php artisan optimize
 ```
+
+Keep downgrade protection enabled for ordinary deploys. Pass `--force-downgrade` only when deliberately applying an older Composer version. `--force` skips confirmations; `--no-interaction` also enables automatic reconciliation of available first-party requirements.
+
+Use `--no-clear-cache` only when the deployment pipeline clears and rebuilds its runtime caches afterwards. With optional HTML Cache installed, follow the [stale public HTML refresh procedure](troubleshooting.md#published-pages-still-show-old-content) before purging an edge cache. `php artisan optimize` alone does not refresh public HTML.
 
 Exit code is `0` on success, `1` on failure (including lock contention and downgrade without `--force-downgrade`).
 

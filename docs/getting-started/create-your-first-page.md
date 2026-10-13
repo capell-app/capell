@@ -145,15 +145,7 @@ If the public URL returns a 404 or the page stays unavailable, check the selecte
 
 Use **Unpublish** from the edit page when the page should come down. To schedule a removal, set **Visible until** in the Publish Dates section. Use **Cancel scheduled unpublish** if the page should stay live after a removal date was set.
 
-If the frontend still shows old content, use the admin **Clear Cache** action. Ask a developer to run the cache commands below only when the admin action does not clear the stale output:
-
-<!-- capell-docs-commands: optional-package -->
-
-```bash
-php artisan capell:html-cache:clear
-```
-
-If the project uses `capell-app/html-cache`, a developer can also run `php artisan capell:static-site` to warm the [generated public cache](../architecture/page-cache.md).
+If the frontend still shows old content, follow [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). The procedure checks which cache package is installed, regenerates stale origin HTML and verifies the canonical response before any edge purge. Static export is separate from refreshing stale pages.
 
 If the project uses a queue connection such as `database` or `redis`, a developer should keep a worker running while testing publishes:
 

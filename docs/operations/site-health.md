@@ -98,8 +98,8 @@ _Healthy looks like deliberate global and per-site maintenance state, with gener
 
 - Set `CAPELL_HTML_CACHE=true` and `CAPELL_WRITE_HTML_CACHE=true` only when the installed HTML-cache/static package owns and documents a writable cache disk.
 - Configure the web server to serve generated static HTML only after the installed cache package documents the path and the safety tests pass for the site and installed packages.
-- Run `php artisan capell:html-cache:clear` after deploys that change public Blade, themes, layouts, or frontend assets.
-- If `capell-app/html-cache` is installed, run `php artisan capell:static-site` after a full cache clear when you want the public cache warmed before traffic arrives.
+- With `capell-app/html-cache` installed, follow the [stale public HTML refresh procedure](troubleshooting.md#published-pages-still-show-old-content) after changes to public Blade, themes, layouts or frontend assets: mark stale, process stale URLs, verify canonical origin bytes, then purge an edge cache only if configured.
+- Static generation is a separate operation; an ordinary `capell:static-site` run can read existing cached HTML and does not establish freshness.
 - Keep queues running for package jobs that purge CDN cache, generate assets, or refresh static output.
 
 ## Optimizer and assets

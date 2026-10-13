@@ -27,14 +27,17 @@ php artisan route:list
 php artisan list capell
 ```
 
-When static HTML cache is installed:
+When optional `capell-app/html-cache` is installed, refresh stale origin output explicitly:
 
 <!-- capell-docs-commands: optional-package -->
 
 ```bash
+php artisan view:clear
 php artisan capell:html-cache:clear
-php artisan queue:work
+php artisan capell:html-cache:process-stale --suppress-inline-edge-purge
 ```
+
+Check the processing summary for failed or deferred URLs, then follow the [canonical origin verification and conditional edge purge procedure](../operations/troubleshooting.md#published-pages-still-show-old-content). Complete that refresh before scanning the served bytes; a queued job or clear command alone does not prove fresh output.
 
 ## Safety Scan
 

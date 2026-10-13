@@ -393,7 +393,7 @@ If frontend output is missing or stale, start with [Extension Troubleshooting](e
 - inspect `FrontendRouteMiddlewareRegistry::all()` in a test when middleware order matters;
 - assert `FrontendComponentRegistryInterface::has()` or `hasReference()` when component aliases are not resolving;
 - `php artisan optimize:clear` after changing route, config, or provider registration;
-- `php artisan capell:html-cache:clear` when static output is stale;
+- with optional HTML Cache installed, follow the [stale origin refresh procedure](../operations/troubleshooting.md#published-pages-still-show-old-content) when cached output is stale; clearing alone does not regenerate it;
 - `php artisan queue:work` when invalidation or static generation is queued;
 - the package asset report or `TailwindAssetsRegistry::toReport()` when CSS is missing;
 - anonymous HTML inspection when cache writes are bypassed by public-output safety checks.
