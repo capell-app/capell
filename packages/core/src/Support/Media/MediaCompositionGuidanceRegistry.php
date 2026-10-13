@@ -115,6 +115,17 @@ final class MediaCompositionGuidanceRegistry
             return MediaCompositionTemplateStatus::UnsupportedFormat;
         }
 
+        $expectedImageType = match ($extension) {
+            'png' => IMAGETYPE_PNG,
+            'jpg', 'jpeg' => IMAGETYPE_JPEG,
+            'webp' => IMAGETYPE_WEBP,
+            default => null,
+        };
+
+        if ($size[2] !== $expectedImageType) {
+            return MediaCompositionTemplateStatus::UnsupportedFormat;
+        }
+
         return $size[0] === $preset['width'] && $size[1] === $preset['height']
             ? MediaCompositionTemplateStatus::Available
             : MediaCompositionTemplateStatus::DimensionMismatch;

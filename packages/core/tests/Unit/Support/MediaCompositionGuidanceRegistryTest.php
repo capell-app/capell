@@ -18,6 +18,24 @@ function compositionPng(int $width, int $height): string
     return (string) ob_get_clean();
 }
 
+function compositionJpeg(int $width, int $height): string
+{
+    $image = imagecreatetruecolor($width, $height);
+    ob_start();
+    imagejpeg($image);
+
+    return (string) ob_get_clean();
+}
+
+function compositionWebp(int $width, int $height): string
+{
+    $image = imagecreatetruecolor($width, $height);
+    ob_start();
+    imagewebp($image);
+
+    return (string) ob_get_clean();
+}
+
 function compositionGuidance(string $path = 'guides/hero.png', string $preset = 'hero', array $quietRegions = []): MediaCompositionGuidanceData
 {
     return new MediaCompositionGuidanceData(
@@ -64,8 +82,14 @@ it('reports template status against the crop preset', function (string $scenario
     $disk = Storage::disk('guides');
     $files = [
         'available raster' => ['guides/hero.png', compositionPng(40, 20)],
+        'available jpg' => ['guides/hero.jpg', compositionJpeg(40, 20)],
+        'available jpeg' => ['guides/hero.jpeg', compositionJpeg(40, 20)],
+        'available webp' => ['guides/hero.webp', compositionWebp(40, 20)],
         'available document' => ['guides/hero.pdf', '%PDF-1.4'],
         'dimension mismatch' => ['guides/hero.png', compositionPng(30, 20)],
+        'jpeg bytes named png' => ['guides/hero.png', compositionJpeg(40, 20)],
+        'png bytes named jpeg' => ['guides/hero.jpeg', compositionPng(40, 20)],
+        'png bytes named webp' => ['guides/hero.webp', compositionPng(40, 20)],
         'unsupported extension' => ['guides/hero.psd', 'x'],
         'corrupt raster' => ['guides/hero.png', 'not an image'],
         'quiet region outside preset' => ['guides/hero.png', compositionPng(40, 20)],
@@ -84,9 +108,15 @@ it('reports template status against the crop preset', function (string $scenario
     expect(new MediaCompositionGuidanceRegistry(new MediaCropPresetRepository)->status($guidance)->value)->toBe($expected);
 })->with([
     'available raster' => ['available raster', MediaCompositionTemplateStatus::Available->value],
+    'available jpg' => ['available jpg', MediaCompositionTemplateStatus::Available->value],
+    'available jpeg' => ['available jpeg', MediaCompositionTemplateStatus::Available->value],
+    'available webp' => ['available webp', MediaCompositionTemplateStatus::Available->value],
     'available document' => ['available document', MediaCompositionTemplateStatus::Available->value],
     'missing' => ['missing', MediaCompositionTemplateStatus::Missing->value],
     'dimension mismatch' => ['dimension mismatch', MediaCompositionTemplateStatus::DimensionMismatch->value],
+    'jpeg bytes named png' => ['jpeg bytes named png', MediaCompositionTemplateStatus::UnsupportedFormat->value],
+    'png bytes named jpeg' => ['png bytes named jpeg', MediaCompositionTemplateStatus::UnsupportedFormat->value],
+    'png bytes named webp' => ['png bytes named webp', MediaCompositionTemplateStatus::UnsupportedFormat->value],
     'unsupported extension' => ['unsupported extension', MediaCompositionTemplateStatus::UnsupportedFormat->value],
     'corrupt raster' => ['corrupt raster', MediaCompositionTemplateStatus::UnsupportedFormat->value],
     'unknown preset' => ['unknown preset', MediaCompositionTemplateStatus::UnknownPreset->value],

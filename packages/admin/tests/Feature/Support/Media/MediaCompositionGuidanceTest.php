@@ -8,6 +8,7 @@ use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Data\Media\MediaCompositionGuidanceData;
 use Capell\Core\Data\Media\MediaCompositionQuietRegionData;
 use Capell\Core\Support\Media\MediaCompositionGuidanceRegistry;
+use Dom\Element;
 use Dom\HTMLDocument;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\TextInput;
@@ -23,6 +24,32 @@ function guidancePng(int $width, int $height): string
     imagepng($image);
 
     return (string) ob_get_clean();
+}
+
+function guidanceJpeg(int $width, int $height): string
+{
+    throw_if($width < 1 || $height < 1, InvalidArgumentException::class, 'Guidance image dimensions must be positive.');
+
+    $image = imagecreatetruecolor($width, $height);
+    ob_start();
+    imagejpeg($image);
+
+    return (string) ob_get_clean();
+}
+
+function registerSvgGuidance(): void
+{
+    resolve(MediaCompositionGuidanceRegistry::class)->register(new MediaCompositionGuidanceData(
+        key: 'hero-svg',
+        label: 'Hero banner',
+        preset: 'hero',
+        templatePath: 'guides/hero.svg',
+        templateVersion: '3',
+        instructions: 'Place the subject on the right.',
+        templateDisk: 'guides',
+    ));
+
+    Storage::disk('guides')->put('guides/hero.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"></svg>');
 }
 
 function mountedGuidanceSchema(Field $field): Schema
@@ -79,11 +106,16 @@ it('renders accessible guidance with a labelled template download above the uplo
 
     $document = guidanceDocument(MediaLibraryFileUpload::makeWithGuidance('image', 'hero'));
     $section = $document->querySelector('[data-media-composition-guidance]');
+    $preview = $section?->querySelector('img[data-media-composition-guidance-preview]');
     $links = $document->querySelectorAll('[data-media-composition-guidance] a[download]');
     $link = $links->item(0);
 
+    expect($preview)->toBeInstanceOf(Element::class);
+    assert($preview instanceof Element);
+
     expect($section?->getAttribute('data-media-composition-guidance-status'))->toBe('available')
         ->and($section?->getAttribute('aria-label'))->toBe('Composition guide: Hero banner')
+        ->and($preview->getAttribute('src'))->toContain('guides/hero.png')->toEndWith('v=3')
         ->and($links->length)->toBe(1)
         ->and($link?->getAttribute('download'))->toBe('hero.png')
         ->and($link?->getAttribute('href'))->toContain('guides/hero.png')->toEndWith('v=3')
@@ -95,10 +127,53 @@ it('renders accessible guidance with a labelled template download above the uplo
         ->and($document->querySelectorAll('[role="alert"]')->length)->toBe(0);
 });
 
+it('previews a registered SVG guide and offers its verified PNG companion', function (): void {
+    registerSvgGuidance();
+    Storage::disk('guides')->put('guides/hero.png', guidancePng(40, 20));
+
+    $document = guidanceDocument(MediaLibraryFileUpload::makeWithGuidance('image', 'hero-svg'));
+    $preview = $document->querySelector('[data-media-composition-guidance-preview]');
+    $links = $document->querySelectorAll('[data-media-composition-guidance] a[download]');
+
+    expect($preview)->toBeInstanceOf(Element::class);
+    assert($preview instanceof Element);
+
+    expect($preview->getAttribute('src'))->toContain('guides/hero.svg')->toEndWith('v=3')
+        ->and($preview->getAttribute('alt'))->toBe('Preview of the Hero banner composition guide')
+        ->and($links->length)->toBe(2)
+        ->and($links->item(0)?->getAttribute('download'))->toBe('hero.svg')
+        ->and($links->item(1)?->getAttribute('href'))->toContain('guides/hero.png')->toEndWith('v=3')
+        ->and($links->item(1)?->getAttribute('download'))->toBe('hero.png')
+        ->and($links->item(1)?->getAttribute('aria-label'))->toBe('Download the Hero banner composition guide as PNG');
+});
+
+it('keeps the SVG preview and download when its PNG companion is absent or invalid', function (string $png): void {
+    registerSvgGuidance();
+
+    if ($png === 'wrong_dimensions') {
+        Storage::disk('guides')->put('guides/hero.png', guidancePng(80, 20));
+    } elseif ($png === 'corrupt') {
+        Storage::disk('guides')->put('guides/hero.png', 'not an image');
+    } elseif ($png === 'wrong_format') {
+        Storage::disk('guides')->put('guides/hero.png', guidanceJpeg(40, 20));
+    }
+
+    $document = guidanceDocument(MediaLibraryFileUpload::makeWithGuidance('image', 'hero-svg'));
+    $preview = $document->querySelector('[data-media-composition-guidance-preview]');
+
+    expect($preview)->toBeInstanceOf(Element::class);
+    assert($preview instanceof Element);
+
+    expect($preview->getAttribute('src'))->toContain('guides/hero.svg')
+        ->and($document->querySelectorAll('[data-media-composition-guidance] a[download]')->length)->toBe(1)
+        ->and($document->querySelector('[data-media-composition-guidance] a[download]')?->getAttribute('download'))->toBe('hero.svg');
+})->with(['absent', 'wrong_dimensions', 'corrupt', 'wrong_format']);
+
 it('flags a missing template visibly instead of linking to it', function (): void {
     $document = guidanceDocument(MediaLibraryFileUpload::makeWithGuidance('image', 'hero'));
 
     expect($document->querySelector('[data-media-composition-guidance]')?->getAttribute('data-media-composition-guidance-status'))->toBe('missing')
+        ->and($document->querySelector('[data-media-composition-guidance-preview]'))->toBeNull()
         ->and($document->querySelectorAll('a[download], a[href]')->length)->toBe(0)
         ->and(trim((string) $document->querySelector('[role="alert"]')?->textContent))->toBe(__('capell-admin::media.composition_guidance.status.missing'));
 });
