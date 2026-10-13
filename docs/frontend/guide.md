@@ -50,9 +50,11 @@ Render hooks that inject into public output follow the same rules. See [Extendin
 
 Operations available when `capell-app/html-cache` is installed:
 
-- regenerate all cached pages with `php artisan capell:static-site`
-- regenerate one site with `php artisan capell:static-site --site=1`
-- clear cached HTML with `php artisan capell:html-cache:clear`
+- generate static HTML for all sites with `php artisan capell:static-site`;
+- generate static HTML for one site with `php artisan capell:static-site --site=1`;
+- mark all cached URLs stale with `php artisan capell:html-cache:clear`.
+
+Static generation can read existing cached HTML. For stale content, follow the [origin refresh and verification procedure](../operations/troubleshooting.md#published-pages-still-show-old-content) before generating an export or purging a configured edge cache.
 
 ## Tailwind Asset Setup
 
