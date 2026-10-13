@@ -66,7 +66,7 @@ After enabling or disabling Lockdown, clear runtime caches and verify public rou
 Standard host upgrade flow:
 
 ```bash
-composer update capell-app/capell -W
+composer update capell-app/core -W
 php artisan capell:upgrade
 php artisan optimize:clear
 php artisan queue:restart
