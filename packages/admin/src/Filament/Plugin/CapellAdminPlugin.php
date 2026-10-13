@@ -10,6 +10,7 @@ use Capell\Admin\Data\AdminWorkspaceItemData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\AvatarProviders\InlineSvgAvatarProvider;
@@ -371,7 +372,14 @@ class CapellAdminPlugin implements Plugin
             $panel->plugin(FilamentClearCachePlugin::make());
         }
 
-        resolve(InstalledPanelRuntime::class)->extend($panel);
+        try {
+            resolve(InstalledPanelRuntime::class)->extend($panel);
+        } catch (PanelTopologyRefreshRequiredException) {
+            // Cold installs can construct a panel after application boot, outside the
+            // runtime-refresh listener. Keep it withheld without aborting the install.
+            $id = new ReflectionProperty($panel, 'id')->isInitialized($panel) ? $panel->getId() : 'admin';
+            Log::warning(__('capell-admin::message.extension_panel_refresh_deferred', ['panel' => $id]), ['panel' => $id]);
+        }
 
         return $this;
     }
