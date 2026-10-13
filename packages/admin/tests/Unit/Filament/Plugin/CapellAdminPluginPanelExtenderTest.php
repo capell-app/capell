@@ -45,6 +45,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Configuration\ApplicationBuilder;
+use Illuminate\Foundation\Support\Providers\RouteServiceProvider;
 use Illuminate\Queue\QueueManager;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
@@ -487,8 +488,14 @@ it('round three confines failures to admin while unrelated entry points run', fu
     $panel = Filament::getPanel('admin');
     Route::get('/runtime-public', static fn (): string => 'public');
     $builder = new ApplicationBuilder(app());
-    $routes = new ReflectionMethod($builder, 'buildRoutingCallback')->invoke($builder, null, null, null, '/up', 'api', null);
-    $routes();
+    $builder->withRouting(health: '/up');
+
+    try {
+        app()->register(RouteServiceProvider::class, force: true);
+    } finally {
+        RouteServiceProvider::loadRoutesUsing(null);
+    }
+
     if ($failure === 'hook') {
         CapellCore::registerPackage('test/failed-runtime');
         CapellCore::markPackageInstalled('test/failed-runtime');

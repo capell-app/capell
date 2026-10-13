@@ -6,7 +6,6 @@ use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\BuildInstallRunResultAction;
 use Capell\Core\Actions\Install\ClearCachesAction;
 use Capell\Core\Actions\Install\RunInstallAction;
-use Capell\Core\Console\Commands\InstallCommand;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
@@ -1057,15 +1056,26 @@ it('describes each package in the checklist so newcomers can see what they add',
     setupInstallTest(['vendor/described', 'vendor/undescribed']);
     CapellCore::getPackage('vendor/described')->description = 'Adds a described feature to your site.';
 
-    $command = resolve(InstallCommand::class);
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
 
-    $options = new ReflectionMethod($command, 'packagePromptOptions')->invoke(
-        $command,
-        CapellCore::getPackages()->only(['vendor/described', 'vendor/undescribed']),
-    );
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+    ])
+        ->expectsChoice('Would you like to install any extra extensions?', ['vendor/described', 'vendor/undescribed'], [
+            'vendor/described' => 'Described — Adds a described feature to your site.',
+            'vendor/undescribed' => 'Undescribed',
+        ])
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'yes')
+        ->expectsConfirmation('Would you like to star our repo on GitHub?', 'no')
+        ->assertExitCode(Command::SUCCESS);
 
-    expect($options['vendor/described'])->toBe('Described — Adds a described feature to your site.')
-        ->and($options['vendor/undescribed'])->toBe('Undescribed');
+    expect($fake->capturedInput->packages)->toBe(['vendor/described', 'vendor/undescribed']);
 });
 
 function configureInstallSuiteForTest(bool $demo = false): void
