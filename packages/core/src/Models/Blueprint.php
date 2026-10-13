@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Models;
 
 use Aimeos\Nestedset\Collection;
+use BackedEnum;
 use Bkwld\Cloner\Cloneable;
 use Capell\Core\Actions\Properties\ResolveEffectiveDefinitionsAction;
 use Capell\Core\Concerns\HasCapellMedia;
@@ -480,6 +481,10 @@ class Blueprint extends Model implements Defaultable, HasMedia, HasMediaContract
 
     private function nullableComponentString(mixed $value): ?string
     {
+        if ($value instanceof BackedEnum) {
+            $value = $value->value;
+        }
+
         if (! is_scalar($value)) {
             return null;
         }
