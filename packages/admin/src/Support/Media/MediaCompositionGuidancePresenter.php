@@ -54,6 +54,22 @@ final class MediaCompositionGuidancePresenter
             $status = MediaCompositionTemplateStatus::Missing;
         }
 
+        $previewUrl = $status->isAvailable() && in_array($guidance->templateExtension(), ['svg', ...MediaCompositionGuidanceRegistry::RASTER_FORMATS], true)
+            ? $url
+            : null;
+        $pngUrl = null;
+        $pngName = null;
+
+        if ($previewUrl !== null && $guidance->templateExtension() === 'svg') {
+            $pngGuidance = clone $guidance;
+            $pngGuidance->templatePath = substr($guidance->templatePath, 0, -4) . '.png';
+
+            if ($this->registry->status($pngGuidance)->isAvailable()) {
+                $pngUrl = $this->registry->templateUrl($pngGuidance);
+                $pngName = basename($pngGuidance->templatePath);
+            }
+        }
+
         $position = $guidance->position;
 
         return new HtmlString(view('capell-admin::components.forms.media-composition-guidance', [
@@ -79,6 +95,11 @@ final class MediaCompositionGuidancePresenter
             ),
             'downloadUrl' => $url,
             'downloadName' => basename($guidance->templatePath),
+            'previewUrl' => $previewUrl,
+            'previewAlt' => __('capell-admin::media.composition_guidance.preview_alt', ['label' => $label]),
+            'pngUrl' => $pngUrl,
+            'pngName' => $pngName,
+            'pngAccessibleName' => __('capell-admin::media.composition_guidance.download_png', ['label' => $label]),
             'downloadAccessibleName' => $preset === null ? null : __('capell-admin::media.composition_guidance.download', [
                 'label' => $label,
                 'width' => $preset['width'],

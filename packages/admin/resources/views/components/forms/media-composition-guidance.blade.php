@@ -41,6 +41,16 @@
             </div>
         @endif
 
+        @if ($previewUrl !== null)
+            <img
+                src="{{ $previewUrl }}"
+                alt="{{ $previewAlt }}"
+                class="max-h-80 w-full object-contain"
+                loading="lazy"
+                data-media-composition-guidance-preview
+            />
+        @endif
+
         @if ($warning !== null)
             <p class="text-danger-600 dark:text-danger-400" role="alert">{{ $warning }}</p>
         @elseif ($downloadUrl !== null)
@@ -51,6 +61,15 @@
                 class="font-medium text-primary-600 underline dark:text-primary-400"
                 >{{ __('capell-admin::media.composition_guidance.download_label') }}</a
             >
+            @if ($pngUrl !== null)
+                <a
+                    href="{{ $pngUrl }}"
+                    download="{{ $pngName }}"
+                    aria-label="{{ $pngAccessibleName }}"
+                    class="ms-3 font-medium text-primary-600 underline dark:text-primary-400"
+                    >{{ __('capell-admin::media.composition_guidance.download_png_label') }}</a
+                >
+            @endif
         @endif
     </section>
 @endif
