@@ -3,23 +3,9 @@
 declare(strict_types=1);
 
 use Capell\Core\Models\Blueprint;
-
-enum BlueprintRenderingMetadataString: string
-{
-    case Component = '  rendered.component  ';
-    case Blank = '   ';
-}
-
-enum BlueprintRenderingMetadataInteger: int
-{
-    case Component = 42;
-    case Zero = 0;
-}
-
-enum BlueprintRenderingMetadataUnit
-{
-    case Component;
-}
+use Capell\Core\Tests\Support\BlueprintRenderingMetadataInteger;
+use Capell\Core\Tests\Support\BlueprintRenderingMetadataString;
+use Capell\Core\Tests\Support\BlueprintRenderingMetadataUnit;
 
 it('persists rendering metadata values without leaking them back into metadata', function (mixed $value, ?string $expected): void {
     $record = Blueprint::factory()->create();
