@@ -530,7 +530,7 @@ it('can skip package doctor checks for installer health gates', function (): voi
         ->and($report->passed())->toBeTrue();
 });
 
-it('routes newly installed package doctor checks through the shared helper', function (): void {
+it('includes newly installed package doctor results in the public install report', function (): void {
     registerDoctorPackageForTest('capell-app/late-doctor', 'test:late-doctor');
     $spy = bindFakeAction(CallArtisanCommandAction::class, new ArtisanCommandResultData(
         1,
@@ -540,12 +540,14 @@ it('routes newly installed package doctor checks through the shared helper', fun
         ]]], JSON_THROW_ON_ERROR),
         'A diagnostic on stderr.',
     ));
-    $action = resolve(BuildDoctorReportAction::class);
-    $checks = new ReflectionMethod($action, 'installedPackageDoctorChecks')->invoke($action);
+    $report = BuildDoctorReportAction::run(installSummary: true);
+    $checks = $report->checks;
 
     expect($spy->args)->toBe(['test:late-doctor', ['--json' => true]])
         ->and($checks->firstWhere('id', 'test.package-ready')?->passed)->toBeFalse()
-        ->and($checks->firstWhere('id', 'test.package-ready')?->message)->toBe('Requires setup.');
+        ->and($checks->firstWhere('id', 'test.package-ready')?->message)->toBe('Requires setup.')
+        ->and($checks->firstWhere('id', 'test.package-ready')?->label)->toBe('Late package doctor')
+        ->and($report->passed())->toBeFalse();
 });
 
 it('reports invalid package doctor output without hiding the rest of the install summary', function (): void {

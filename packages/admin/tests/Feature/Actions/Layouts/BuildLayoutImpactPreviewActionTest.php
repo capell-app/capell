@@ -82,7 +82,7 @@ it('limits the preview to assigned sites and fails closed without update access'
     expect(BuildLayoutImpactPreviewAction::run($layout))->toBeNull();
 });
 
-it('keeps consequence planning out of save validation and reconciliation', function (): void {
+it('adds no consequence planning when saving beyond the rendered impact preview', function (): void {
     test()->actingAsAdmin();
     $layout = Layout::factory()->createOne();
     $planner = new class implements EditorImpactConsequencePlanner
@@ -100,10 +100,21 @@ it('keeps consequence planning out of save validation and reconciliation', funct
     app()->tag($planner::class, EditorImpactConsequencePlanner::TAG);
 
     $editor = Livewire::test(EditLayout::class, ['record' => $layout->getRouteKey()]);
+    // The displayed record preview plans consequences during each render.
     $planner->calls = 0;
-    $component = $editor->instance();
-    new ReflectionMethod($component, 'beforeSave')->invoke($component);
-    new ReflectionMethod($component, 'reconcileImpactPlan')->invoke($component);
+    $editor->call('$refresh');
+    $renderCalls = $planner->calls;
+
+    $editor->fillForm(['name' => 'Saved without consequence planning']);
+    $planner->calls = 0;
+    $editor->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($layout->refresh()->name)->toBe('Saved without consequence planning')
+        ->and($planner->calls)->toBe($renderCalls);
+
+    $planner->calls = 0;
+    BuildLayoutImpactPreviewAction::run($layout);
     expect($planner->calls)->toBe(0);
 
     BuildLayoutImpactPreviewAction::run($layout, includeConsequences: true);

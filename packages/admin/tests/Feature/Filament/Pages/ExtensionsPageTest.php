@@ -26,6 +26,7 @@ use Capell\Admin\Support\Extensions\ExtensionPageRegistry;
 use Capell\Admin\Support\Extensions\InRequestExtensionRemovalCoordinator;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSchema;
 use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSettings;
+use Capell\Admin\Tests\Fixtures\Autoload\TestDashboardFilamentWidgetForRegistrar;
 use Capell\Admin\Tests\Fixtures\Extensions\FakeExtensionCatalogueMetadataProvider;
 use Capell\Core\Actions\DisablePackageAction;
 use Capell\Core\Enums\ExtensionHealthAlertCategory;
@@ -48,12 +49,9 @@ use Capell\Tests\Fixtures\Filament\Pages\ExampleExtensionPage;
 use Capell\Tests\Fixtures\Filament\Pages\PlainRegisteredExtensionPage;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
 use Filament\Tables\Columns\Column;
-use Filament\Widgets\WidgetConfiguration;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\HtmlString;
@@ -63,6 +61,8 @@ use function Pest\Laravel\get;
 
 use Spatie\Permission\Models\Permission;
 use Symfony\Component\Process\Process;
+
+require_once dirname(__DIR__, 6) . '/tests/Support/DomQuery.php';
 
 uses(CreatesAdminUser::class)->group('extension');
 
@@ -175,32 +175,26 @@ it('routes Extensions dashboard content actions and configured widgets through s
     $registry->register(new AdminZoneContributionData(
         zone: AdminZone::ExtensionsDashboardHeaderActions,
         key: 'tests.extensions.header-action',
-        resolver: static fn (): array => [Action::make('stableExtensionsHeaderAction')],
+        resolver: static fn (): array => [Action::make('stableExtensionsHeaderAction')->label('Contributed header action')],
         position: ExtensionPosition::after('capell-admin.extensions.dashboard.header-actions'),
     ));
     $registry->register(new AdminZoneContributionData(
         zone: AdminZone::ExtensionsDashboardHeaderWidgets,
         key: 'tests.extensions.header-widget',
-        resolver: static fn (): array => [ExtensionStatsOverviewFilamentWidget::make()],
+        resolver: static fn (): array => [TestDashboardFilamentWidgetForRegistrar::make()],
         position: ExtensionPosition::after('capell-admin.extensions.dashboard.header-widgets'),
     ));
 
-    $page = Livewire::test(ExtensionsPage::class)->assertSuccessful()->instance();
+    $editor = Livewire::test(ExtensionsPage::class)
+        ->assertSuccessful()
+        ->assertSee('stable_extensions_before')
+        ->assertSee('stable_extensions_after')
+        ->assertActionExists('stableExtensionsHeaderAction')
+        ->assertSee('Contributed header action')
+        ->assertSeeLivewire(TestDashboardFilamentWidgetForRegistrar::class);
+    $page = $editor->instance();
 
-    assert($page instanceof ExtensionsPage);
-
-    $content = $page->content(Schema::make())->getComponents();
-    $headerActions = new ReflectionMethod(ExtensionsPage::class, 'getHeaderActions')->invoke($page);
-    $headerWidgets = new ReflectionMethod(ExtensionsPage::class, 'getHeaderWidgets')->invoke($page);
-
-    expect(collect($content)->contains(fn (object $component): bool => $component instanceof Section
-        && $component->getHeading() === 'stable_extensions_before'))->toBeTrue()
-        ->and(collect($content)->contains(fn (object $component): bool => $component instanceof Section
-            && $component->getHeading() === 'stable_extensions_after'))->toBeTrue()
-        ->and(collect($headerActions)->map(fn (object $action): ?string => method_exists($action, 'getName') ? $action->getName() : null)->all())
-        ->toContain('stableExtensionsHeaderAction')
-        ->and(collect($headerWidgets)->contains(fn (mixed $widget): bool => $widget instanceof WidgetConfiguration))->toBeTrue()
-        ->and($seenContexts['before']->user)->toBe(test()->authenticatedUser())
+    expect($seenContexts['before']->user)->toBe(test()->authenticatedUser())
         ->and($seenContexts['before']->subject)->toBe($page)
         ->and($seenContexts['after']->user)->toBe(test()->authenticatedUser())
         ->and($seenContexts['after']->subject)->toBe($page);
@@ -376,30 +370,45 @@ it('renders extension dashboard Filament widgets as header widgets above the ins
     ];
     $settings->save();
 
-    $page = resolve(ExtensionsPage::class);
-    $method = new ReflectionMethod($page, 'getHeaderWidgets');
-    $headerWidgets = $method->invoke($page);
+    $editor = Livewire::test(ExtensionsPage::class)
+        ->assertSuccessful()
+        ->assertSeeLivewire(ExtensionStatsOverviewFilamentWidget::class);
+    $page = domXPath($editor->html());
+    $widgets = domElement($page, '//*[@x-data[contains(., "headerWidgets")]]');
+    $widgetNames = array_map(
+        static fn (DOMElement $element): string => domAttribute($element, 'wire:name'),
+        domElements($page, './/*[@*[name()="wire:name"]]', $widgets),
+    );
 
-    expect($headerWidgets[0])->toBe(ExtensionStatsOverviewFilamentWidget::class)
-        ->and($headerWidgets)->not->toContain(InstalledExtensionsFilamentWidget::class)
+    expect($widgetNames[0] ?? null)->toBe(Livewire::new(ExtensionStatsOverviewFilamentWidget::class)->getName())
+        ->and($widgetNames)->not->toContain(Livewire::new(InstalledExtensionsFilamentWidget::class)->getName())
         ->and(AdminSettings::instance()->refresh()->enabled_widgets)
         ->toHaveKey('extensions.stats', true);
 });
 
-it('uses three extension stats columns on large screens', function (): void {
-    $method = new ReflectionMethod(ExtensionStatsOverviewFilamentWidget::class, 'getColumns');
+it('renders extension stats with two default, three medium and five large columns', function (): void {
+    grantExtensionsPageAccess();
+    $editor = Livewire::test(ExtensionStatsOverviewFilamentWidget::class)->assertSuccessful();
+    $page = domXPath($editor->html());
 
-    expect($method->invoke(new ExtensionStatsOverviewFilamentWidget))->toBe([
-        'default' => 2,
-        'md' => 3,
-        'lg' => 5,
-    ]);
+    $grid = domElement($page, '//*[contains(concat(" ", normalize-space(@class), " "), " fi-section-content " )]');
+    preg_match_all('/(--cols-[a-z]+)\s*:\s*repeat\((\d+),\s*minmax\(0,\s*1fr\)\)/', domAttribute($grid, 'style'), $matches, PREG_SET_ORDER);
+    $columns = [];
+
+    foreach ($matches as $match) {
+        $columns[$match[1]] = (int) $match[2];
+    }
+
+    expect($columns)->toHaveCount(3)
+        ->toMatchArray(['--cols-default' => 2, '--cols-md' => 3, '--cols-lg' => 5]);
 });
 
 it('does not poll extension stats while the extensions page is idle', function (): void {
-    $method = new ReflectionMethod(ExtensionStatsOverviewFilamentWidget::class, 'getPollingInterval');
+    grantExtensionsPageAccess();
+    $editor = Livewire::test(ExtensionStatsOverviewFilamentWidget::class)->assertSuccessful();
+    $page = domXPath($editor->html());
 
-    expect($method->invoke(new ExtensionStatsOverviewFilamentWidget))->toBeNull();
+    expect(domCount($page, '//@*[starts-with(name(), "wire:poll")]'))->toBe(0);
 });
 
 it('can not render extensions page without permission', function (): void {
@@ -1768,28 +1777,23 @@ it('keeps the extensions hub free of sub navigation and moves sibling extension 
     CapellAdmin::registerExtensionPage('vendor/local-extension', PlainRegisteredExtensionPage::class);
     CapellAdmin::registerExtensionPage('vendor/analytics-suite', SettingsPage::class);
 
-    $page = resolve(ExampleExtensionPage::class);
-    $headerActionGroups = (fn (): array => $this->getHeaderActions())->call($page);
-    $headerActionGroup = $headerActionGroups[0];
-    throw_unless($headerActionGroup instanceof ActionGroup, LogicException::class, 'Expected extension header actions to be grouped.');
+    $editor = Livewire::test(ExampleExtensionPage::class)
+        ->assertSuccessful()
+        ->assertActionExists('extensionPagePlainRegisteredExtension', fn (Action $action): bool => $action->getLabel() === PlainRegisteredExtensionPage::getNavigationLabel()
+            && $action->getUrl() === PlainRegisteredExtensionPage::getNavigationUrl());
+    $page = $editor->instance();
+    $document = domXPath($editor->html());
+    $header = domElement($document, '//*[contains(concat(" ", normalize-space(@class), " "), " fi-header-actions-ctn ")]');
+    $links = domElements($document, './/a[@href]', $header);
 
-    $headerActions = collect($headerActionGroup->getActions())
-        ->map(static function (Action|ActionGroup $action): string {
-            throw_unless($action instanceof Action, LogicException::class, 'Expected an extension page action.');
-
-            return filamentText($action->getLabel());
-        })
-        ->values()
-        ->all();
+    expect($links)->toHaveCount(1)
+        ->and(domAttribute($links[0], 'href'))->toBe(PlainRegisteredExtensionPage::getNavigationUrl())
+        ->and(trim(domText($links[0])))->toBe(PlainRegisteredExtensionPage::getNavigationLabel());
 
     expect($page->getBreadcrumbs())->toBe([
         ExtensionsPage::getUrl() => ExtensionsPage::getNavigationLabel(),
         ExampleExtensionPage::getNavigationLabel(),
     ])
-        ->and($headerActionGroups)->toHaveCount(1)
-        ->and($headerActions)->toBe([
-            PlainRegisteredExtensionPage::getNavigationLabel(),
-        ])
         ->and(resolve(ExtensionPageRegistry::class)->pagesForPackage('vendor/local-extension'))->toBe([
             ExampleExtensionPage::class,
             PlainRegisteredExtensionPage::class,
