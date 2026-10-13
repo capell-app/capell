@@ -43,3 +43,23 @@ it('exposes a Blade directive for theme views', function (): void {
 
     expect($html)->toContain('href="http://127.0.0.1:8000/css/theme.css"');
 });
+
+it('keeps front controllers out of public asset paths while retaining application mounts', function (string $uri, string $script, string $expectedOrigin): void {
+    $request = Request::create($uri, server: [
+        'SCRIPT_FILENAME' => '/srv/capell/public/index.php',
+        'SCRIPT_NAME' => $script,
+        'PHP_SELF' => parse_url($uri, PHP_URL_PATH),
+    ]);
+    app()->instance('request', $request);
+
+    $path = 'vendor/example/theme.css?version=1';
+    expect(resolve(PublicFrontendAssetUrl::class)->to($path))->toBe($expectedOrigin . '/' . $path);
+
+    $html = Blade::render('<link href="@frontendAsset(\'vendor/example/theme.css?version=1\')" rel="stylesheet">');
+    expect($html)->toContain('href="' . $expectedOrigin . '/' . $path . '"');
+})->with([
+    'root front controller' => ['https://example.test/index.php/guide', '/index.php', 'https://example.test'],
+    'mounted front controller' => ['https://example.test/cms/index.php/guide', '/cms/index.php', 'https://example.test/cms'],
+    'ordinary root request' => ['https://example.test/guide', '/index.php', 'https://example.test'],
+    'ordinary mounted request' => ['https://example.test:8443/cms/guide', '/cms/index.php', 'https://example.test:8443/cms'],
+]);
