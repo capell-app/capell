@@ -11,7 +11,11 @@ use Capell\Core\Support\Manifest\Exceptions\InvalidManifestException;
 use Capell\Core\Support\Manifest\ManifestLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageLoader;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 use Throwable;
 
@@ -24,6 +28,8 @@ final readonly class PackageRegistryBootstrapper
 
     public function bootstrap(): void
     {
+        $this->bindLifecycleModelContext();
+
         $registry = $this->app->make(CapellPackageRegistry::class);
         $cachePath = $this->app->bootstrapPath('cache/capell-package-manifests.php');
         $manifests = $this->manifests($cachePath);
@@ -44,6 +50,21 @@ final readonly class PackageRegistryBootstrapper
             $registry,
             receipts: $this->app->make(ExtensionContributionReceiptRegistry::class),
         )->loadProviders();
+    }
+
+    private function bindLifecycleModelContext(): void
+    {
+        if (Container::getInstance() !== $this->app
+            || $this->app->isBooted()
+            || ! $this->app->bound('db')
+            || ! $this->app->bound('events')) {
+            return;
+        }
+
+        // Lifecycle gates query models before Laravel's database provider boots.
+        // A refreshed application must not retain a previous, flushed container.
+        Model::setConnectionResolver($this->app->make(ConnectionResolverInterface::class));
+        Model::setEventDispatcher($this->app->make(Dispatcher::class));
     }
 
     /** @return array<string, CapellManifestData> */
