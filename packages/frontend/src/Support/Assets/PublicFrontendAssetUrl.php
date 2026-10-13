@@ -36,7 +36,7 @@ final class PublicFrontendAssetUrl
             : null;
 
         if ($request instanceof Request) {
-            $origin = rtrim($request->getSchemeAndHttpHost() . $request->getBaseUrl(), '/');
+            $origin = rtrim($request->getSchemeAndHttpHost() . $request->getBasePath(), '/');
 
             return $origin . '/' . ltrim($path, '/');
         }
