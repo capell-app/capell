@@ -136,3 +136,23 @@ function finishPanelProviderProcess(stdClass $barrier): string
 
     return trim($process->getOutput());
 }
+
+it('fails with a clear message instead of waiting forever for a hung lock holder', function (): void {
+    $lockPath = base_path('storage/framework/cache/capell-install-state.lock');
+    File::ensureDirectoryExists(dirname($lockPath));
+    $holder = fopen($lockPath, 'c');
+    throw_unless(is_resource($holder) && flock($holder, LOCK_EX), RuntimeException::class, 'Unable to hold the install state lock.');
+    $started = microtime(true);
+
+    try {
+        expect(fn () => InstallRunState::usePanelScaffoldRun('waiting-run'))
+            ->toThrow(RuntimeException::class, 'Another installer process has held the install state lock');
+    } finally {
+        flock($holder, LOCK_UN);
+        fclose($holder);
+    }
+
+    expect(microtime(true) - $started)->toBeLessThan(30.0);
+
+    InstallRunState::usePanelScaffoldRun('released-run');
+});

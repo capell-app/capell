@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Sleep;
 use RuntimeException;
 
 final class InstallRunState
@@ -23,7 +24,7 @@ final class InstallRunState
     // Stands in for the provider an install will scaffold before its path is known.
     private const string SCAFFOLD_TARGET = '';
 
-    private static int $lockDepth = 0;
+    private const int LOCK_TIMEOUT_SECONDS = 10;
 
     /** @var Collection<string, PackageData>|null */
     private ?Collection $selectedPackages = null;
@@ -77,45 +78,18 @@ final class InstallRunState
     }
 
     /**
-     * Serialise install-state and panel provider writes across installer processes.
+     * Save a panel provider and record its identity as one step that no other
+     * installer process can interleave with. The callback verifies and writes
+     * the provider bytes; the recorded identity is the hash of $contents.
      *
-     * @template TResult
-     *
-     * @param  Closure(): TResult  $callback
-     * @return TResult
+     * @param  Closure(): void  $write
      */
-    public static function exclusively(Closure $callback): mixed
+    public static function commitPanelProviderSave(string $path, string $original, string $contents, Closure $write): void
     {
-        if (self::$lockDepth > 0) {
-            self::$lockDepth++;
-
-            try {
-                return $callback();
-            } finally {
-                self::$lockDepth--;
-            }
-        }
-
-        $lockPath = base_path('storage/framework/cache/capell-install-state.lock');
-        File::ensureDirectoryExists(dirname($lockPath));
-        $handle = fopen($lockPath, 'c');
-        throw_unless(is_resource($handle), RuntimeException::class, 'Unable to open the install state lock.');
-
-        if (! flock($handle, LOCK_EX)) {
-            fclose($handle);
-
-            throw new RuntimeException('Unable to lock install state.');
-        }
-
-        self::$lockDepth = 1;
-
-        try {
-            return $callback();
-        } finally {
-            self::$lockDepth = 0;
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        self::exclusively(static function () use ($path, $original, $contents, $write): void {
+            $write();
+            self::recordSave($path, $original, $contents);
+        });
     }
 
     /** @return list<string> */
@@ -155,9 +129,7 @@ final class InstallRunState
     public static function recordPanelProviderSave(string $path, string $original, ?string $contents = null): void
     {
         self::exclusively(static function () use ($path, $original, $contents): void {
-            $record = self::panelProviderRecord();
-            $wasOwned = $record !== null && $record['path'] === self::panelProviderKey($path) && hash_equals($record['hash'], hash('sha256', $original));
-            self::savePanelProvider($path, $wasOwned && $record['pending'], $wasOwned ? $record['run'] : null, hash('sha256', $contents ?? $original));
+            self::recordSave($path, $original, $contents ?? $original);
         });
     }
 
@@ -271,6 +243,54 @@ final class InstallRunState
         $state['panel_provider'] = ['path' => self::panelProviderKey($path), 'hash' => $hash, 'pending' => $pending, 'run' => $run];
         unset($state['scaffolded_panel_providers']);
         self::saveProgressState($state);
+    }
+
+    private static function recordSave(string $path, string $original, string $contents): void
+    {
+        $record = self::panelProviderRecord();
+        $wasOwned = $record !== null && $record['path'] === self::panelProviderKey($path) && hash_equals($record['hash'], hash('sha256', $original));
+        self::savePanelProvider($path, $wasOwned && $record['pending'], $wasOwned ? $record['run'] : null, hash('sha256', $contents));
+    }
+
+    /**
+     * Serialise install-state writes across installer processes. Callers never
+     * nest: each public mutation takes the lock once and uses private helpers.
+     * A holder that never releases fails this request after a bounded wait.
+     *
+     * @template TResult
+     *
+     * @param  Closure(): TResult  $callback
+     * @return TResult
+     */
+    private static function exclusively(Closure $callback): mixed
+    {
+        $lockPath = base_path('storage/framework/cache/capell-install-state.lock');
+        File::ensureDirectoryExists(dirname($lockPath));
+        $handle = fopen($lockPath, 'c');
+        throw_unless(is_resource($handle), RuntimeException::class, 'Unable to open the install state lock: ' . $lockPath);
+
+        $deadline = microtime(true) + self::LOCK_TIMEOUT_SECONDS;
+
+        while (! flock($handle, LOCK_EX | LOCK_NB)) {
+            if (microtime(true) >= $deadline) {
+                fclose($handle);
+
+                throw new RuntimeException(sprintf(
+                    'Another installer process has held the install state lock for more than %d seconds. Wait for it to finish, or stop it, then retry. Lock file: %s',
+                    self::LOCK_TIMEOUT_SECONDS,
+                    $lockPath,
+                ));
+            }
+
+            Sleep::usleep(50_000);
+        }
+
+        try {
+            return $callback();
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
     }
 
     private static function carryScaffoldThemeDecline(string $path): void

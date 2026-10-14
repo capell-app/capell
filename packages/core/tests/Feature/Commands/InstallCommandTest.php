@@ -1022,7 +1022,7 @@ it('prompts for packages when no --packages option is given', function (): void 
         ]);
 });
 
-it('remembers a declined theme prompt for later non-interactive install passes', function (): void {
+it('remembers a declined theme prompt only once the install proceeds', function (bool $proceed): void {
     setupInstallTest([
         'capell-app/core',
         'capell-app/admin',
@@ -1038,7 +1038,7 @@ it('remembers a declined theme prompt for later non-interactive install passes',
 
     expect($declined())->toBeFalse();
 
-    artisanCommand('capell:install', [
+    $command = artisanCommand('capell:install', [
         '--url' => 'https://example.test',
         '--user' => 'test@example.com',
         '--clear-cache' => true,
@@ -1052,12 +1052,20 @@ it('remembers a declined theme prompt for later non-interactive install passes',
         ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
         ->expectsConfirmation('Build production frontend assets now?', 'no')
         ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'no')
-        ->expectsConfirmation('Install Capell with these settings?', 'no')
-        ->assertExitCode(Command::SUCCESS);
+        ->expectsConfirmation('Install Capell with these settings?', $proceed ? 'yes' : 'no');
 
-    expect($fake->callCount)->toBe(0)
-        ->and($declined())->toBeTrue();
-});
+    if ($proceed) {
+        $command->expectsConfirmation('Would you like to star our repo on GitHub?', 'no');
+    }
+
+    $command->assertExitCode(Command::SUCCESS)->run();
+
+    expect($fake->callCount)->toBe($proceed ? 1 : 0)
+        ->and($declined())->toBe($proceed);
+})->with([
+    'install confirmed' => true,
+    'install cancelled' => false,
+]);
 
 it('leads the interactive review with the essentials and collapses the step list', function (): void {
     setupInstallTest([

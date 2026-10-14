@@ -34,9 +34,12 @@ final class PanelProviderTargetResolver
         $candidates = $this->candidates();
 
         if ($selection !== null && $selection !== '') {
-            $selected = $candidates->first(fn (PanelProviderData $panel): bool => $panel->matches($selection));
+            $selected = $candidates->filter(fn (PanelProviderData $panel): bool => $panel->matches($selection));
 
-            return $selected instanceof PanelProviderData ? [$selected->path] : [];
+            // An ambiguous selection (shared class name or panel id) never targets a guess.
+            $only = $selected->count() === 1 ? $selected->first() : null;
+
+            return $only instanceof PanelProviderData ? [$only->path] : [];
         }
 
         $ownedPath = InstallRunState::authorisedPanelProvider();

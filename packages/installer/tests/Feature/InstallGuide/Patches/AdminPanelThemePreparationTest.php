@@ -11,6 +11,7 @@ use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelThemePatch;
 use Capell\Tests\Support\GeneratedPhpFixture;
@@ -115,6 +116,41 @@ it('treats an explicit theme patch apply as opting back in', function (): void {
     expect(themePreparationViteTheme($path))->toBe('resources/css/filament/admin/theme.css')
         ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
 });
+
+it('refuses an ambiguous admin panel selection instead of theming the first match', function (string $selection): void {
+    $first = themePreparationProvider('AdminPanelProvider', 'admin');
+    $tenant = app_path('Providers/Filament/Tenant/AdminPanelProvider.php');
+    File::ensureDirectoryExists(dirname($tenant));
+    File::put($tenant, str_replace('namespace App\\Providers\\Filament;', 'namespace App\\Providers\\Filament\\Tenant;', File::get($first)));
+    $firstBytes = File::get($first);
+    $tenantBytes = File::get($tenant);
+
+    prepareThemeInstall(adminPanel: $selection, interactive: false);
+
+    expect(resolve(PanelProviderTargetResolver::class)->resolve($selection))->toBe([])
+        ->and(File::get($first))->toBe($firstBytes)
+        ->and(File::get($tenant))->toBe($tenantBytes)
+        ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
+})->with([
+    'shared panel id' => 'admin',
+    'shared class name' => 'AdminPanelProvider',
+]);
+
+it('still targets an ambiguous name by its unique class or path', function (string $selection): void {
+    $first = themePreparationProvider('AdminPanelProvider', 'admin');
+    $tenant = app_path('Providers/Filament/Tenant/AdminPanelProvider.php');
+    File::ensureDirectoryExists(dirname($tenant));
+    File::put($tenant, str_replace('namespace App\\Providers\\Filament;', 'namespace App\\Providers\\Filament\\Tenant;', File::get($first)));
+    $firstBytes = File::get($first);
+
+    prepareThemeInstall(adminPanel: $selection, interactive: false);
+
+    expect(File::get($first))->toBe($firstBytes)
+        ->and(themePreparationViteTheme((string) realpath($tenant)))->toBe('resources/css/filament/admin/theme.css');
+})->with([
+    'provider class' => 'App\\Providers\\Filament\\Tenant\\AdminPanelProvider',
+    'provider path' => 'app/Providers/Filament/Tenant/AdminPanelProvider.php',
+]);
 
 function themePreparationProvider(string $class, string $id): string
 {

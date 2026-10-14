@@ -24,7 +24,7 @@ final class PrepareInstallApplicationAction
     use AsObject;
 
     /**
-     * @param  Closure(InstallPatchConfirmation): bool  $confirmPatch
+     * @param  Closure(InstallPatchConfirmation): ?bool  $confirmPatch  The user's answer, or null when they were not asked.
      * @param  Closure(string): void  $recordManualInstallChange
      */
     public function handle(
@@ -86,10 +86,12 @@ final class PrepareInstallApplicationAction
 
             $confirmation = $registeredPatch->confirmation;
             $asks = $confirmation instanceof InstallPatchConfirmation && $interactive && ! $useFreshDemoDefaults;
-            $accepted = ! $asks || $confirmPatch($confirmation);
+            $answer = $asks ? $confirmPatch($confirmation) : null;
+            // An unanswered prompt skips the patch for this run without becoming a remembered decline.
+            $accepted = ! $asks || $answer === true;
 
-            if ($asks && $patch instanceof RemembersInstallPatchDecision) {
-                $patch->rememberDecision($accepted);
+            if ($answer !== null && $patch instanceof RemembersInstallPatchDecision) {
+                $patch->rememberDecision($answer);
             }
 
             // Without a fresh answer, an earlier decline stands until the user opts in again.
