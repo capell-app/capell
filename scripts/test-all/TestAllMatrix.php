@@ -80,6 +80,7 @@ final class TestAllMatrix
                         $cells[] = [
                             ...$cell,
                             'id' => $cell['id'] . $suffix,
+                            'command' => 'test:database:package:sharded:ci',
                             'shard' => $shard . '/2',
                             'package_label' => $cell['package'] . ' (' . $shard . '/2)',
                             'package_slug' => $cell['package'] . $suffix,

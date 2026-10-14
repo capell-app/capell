@@ -7,6 +7,41 @@ use Symfony\Component\Yaml\Yaml;
 
 require_once __DIR__ . '/../Support/DomQuery.php';
 
+it('recreates only the current worker database before sharded tests', function (bool $worker): void {
+    $root = dirname(__DIR__, 2);
+    $directory = sys_get_temp_dir() . '/capell-parallel-database-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+    $database = $directory . '/database.sqlite';
+    $workerDatabase = $database . '_test_7';
+    $otherDatabase = $database . '_test_8';
+    foreach ([$database, $workerDatabase, $otherDatabase] as $file) {
+        file_put_contents($file, 'previous database');
+    }
+
+    try {
+        $process = new Process([PHP_BINARY, 'tests/Support/ParallelDatabaseBootstrap.php'], $root, [
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => $database,
+            'DB_URL' => '',
+            'PARATEST' => $worker ? '1' : '0',
+            'TEST_TOKEN' => '7',
+            'UNIQUE_TEST_TOKEN' => '7_' . bin2hex(random_bytes(6)),
+        ]);
+        $process->setTimeout(60);
+
+        expect($process->run())->toBe(0, $process->getOutput() . $process->getErrorOutput())
+            ->and(is_file($workerDatabase))->toBe(! $worker)
+            ->and(file_get_contents($database))->toBe('previous database')
+            ->and(file_get_contents($otherDatabase))->toBe('previous database');
+    } finally {
+        foreach (glob($directory . '/*') ?: [] as $file) {
+            unlink($file);
+        }
+
+        rmdir($directory);
+    }
+})->with(['discovery' => false, 'parallel worker' => true]);
+
 it('starts sentinel independently of the still failing fast PR gate', function (): void {
     $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/test-full.yml');
     $jobs = $workflow['jobs'];

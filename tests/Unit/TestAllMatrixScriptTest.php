@@ -9,6 +9,29 @@ use Symfony\Component\Yaml\Yaml;
 require_once dirname(__DIR__, 2) . '/scripts/test-all/TestAllMatrix.php';
 require_once dirname(__DIR__, 2) . '/scripts/test-all/TestAllDatabaseService.php';
 
+function matrixListedTestIdentity(string $line): string
+{
+    // A full stop is invalid in a generated PHP method name. Remove only that
+    // display suffix, retaining the class, evaluable method and dataset label.
+    return (string) preg_replace(
+        '/^([^:]+::__pest_evaluable_[a-zA-Z0-9_\\x80-\\xff]+)\\.(?="|#|$)/',
+        '$1',
+        substr($line, 3),
+    );
+}
+
+it('compares listed test identities independently of rendered terminal punctuation', function (): void {
+    $identity = 'P\\Packages\\admin\\tests\\Feature\\Views\\AdminLanguageSelectTest::__pest_evaluable_it_does_not_render_the_admin_language_select_before_the_user_preference_column_exists';
+
+    expect(matrixListedTestIdentity(' - ' . $identity . '.'))->toBe($identity)
+        ->and(matrixListedTestIdentity(' - ' . $identity))->toBe($identity)
+        ->and(matrixListedTestIdentity(' - ' . $identity . '."label."'))->toBe($identity . '"label."')
+        ->and(matrixListedTestIdentity(' - ' . $identity . '"label."'))->toBe($identity . '"label."')
+        ->and(matrixListedTestIdentity(' - ' . $identity . '_'))->not->toBe($identity)
+        ->and(matrixListedTestIdentity(' - ' . $identity . '"label"'))->not->toBe($identity . '"label."')
+        ->and(matrixListedTestIdentity(' - OtherClass::__pest_evaluable_same_name'))->not->toBe(matrixListedTestIdentity(' - OriginalClass::__pest_evaluable_same_name'));
+});
+
 it('defines the complete Laravel 13 Test All matrix once', function (): void {
     $sentinel = TestAllMatrix::sentinel();
     $behaviour = TestAllMatrix::behaviour();
@@ -85,8 +108,12 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
                 $actualGroups = array_column($suiteCells, 'test_group');
                 sort($expectedGroups);
                 sort($actualGroups);
-                expect($actualGroups)->toBe($expectedGroups)
-                    ->and(array_column($suiteCells, 'command'))->each->toBe('test:database:package:ci');
+                expect($actualGroups)->toBe($expectedGroups);
+                foreach ($suiteCells as $suiteCell) {
+                    expect($suiteCell['command'])->toBe(isset($suiteCell['shard'])
+                        ? 'test:database:package:sharded:ci'
+                        : 'test:database:package:ci');
+                }
             } else {
                 expect($suiteCells)->toHaveCount(1)
                     ->and($suiteCells[0]['command'])->toBe('test:database:ci');
@@ -119,7 +146,8 @@ it('shards every Admin Feature test exactly once through the exported matrix', f
         $process->setTimeout(120);
 
         expect($process->run())->toBe(0, $process->getErrorOutput());
-        $tests = array_values(array_filter(explode(PHP_EOL, $process->getOutput()), static fn (string $line): bool => str_starts_with($line, ' - ')));
+        $lines = array_values(array_filter(explode(PHP_EOL, $process->getOutput()), static fn (string $line): bool => str_starts_with($line, ' - ')));
+        $tests = array_map(matrixListedTestIdentity(...), $lines);
         expect($tests)->not->toBeEmpty();
         sort($tests);
 
@@ -164,6 +192,47 @@ it('exports focused database portability cells for complete and targeted runs', 
             'database_driver' => 'pgsql',
             'database_version' => '16',
         ]);
+});
+
+it('accepts the complete parallel database command for each exported shard', function (): void {
+    $root = dirname(__DIR__, 2);
+    $directory = sys_get_temp_dir() . '/capell-shard-command-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+
+    try {
+        foreach (TestAllMatrix::behaviour() as $cell) {
+            if (! isset($cell['shard'])) {
+                continue;
+            }
+
+            // Keep every CI option, including the parallel runner options. An
+            // empty filter validates shard discovery and argument handling
+            // without executing the database suite or creating databases.
+            $process = new Process([
+                'composer', 'run', $cell['command'], '--', '--shard=' . $cell['shard'], '--filter=^$',
+            ], $root, [
+                'PATH' => dirname(PHP_BINARY) . PATH_SEPARATOR . getenv('PATH'),
+                'DB_CONNECTION' => 'sqlite',
+                'DB_DATABASE' => ':memory:',
+                'CACHE_STORE' => 'array',
+                'QUEUE_CONNECTION' => 'sync',
+                'SESSION_DRIVER' => 'array',
+                'PAO_DISABLE' => '1',
+                'PEST_TEST_SUITE' => $cell['test_suite'],
+                'PEST_TEST_GROUP' => $cell['test_group'],
+                'PEST_JUNIT_LOG' => $directory . '/' . $cell['junit'],
+            ]);
+            $process->setTimeout(120);
+
+            expect($process->run())->toBe(0, $process->getOutput() . $process->getErrorOutput());
+        }
+    } finally {
+        foreach (glob($directory . '/*') ?: [] as $file) {
+            unlink($file);
+        }
+
+        rmdir($directory);
+    }
 });
 
 it('passes each matrix selection and database driver through the cell runtime', function (
@@ -233,7 +302,7 @@ PHP);
                 'test_group' => $group,
             ])
             ->and(array_slice($captured['argv'], 1))->toBe([
-                'run', $group === 'admin' ? 'test:database:package:ci' : 'test:database:portability:ci',
+                'run', $group === 'admin' ? 'test:database:package:sharded:ci' : 'test:database:portability:ci',
                 ...($shard === null ? [] : ['--', '--shard=' . $shard]),
             ]);
     } finally {
