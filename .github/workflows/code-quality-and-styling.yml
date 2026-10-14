@@ -171,6 +171,15 @@ jobs:
       - name: Run Composer audit
         run: composer audit --locked
 
+      - name: Cache Rector result cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: var/rector
+          key: rector-${{ runner.os }}-${{ hashFiles('composer.lock', 'rector.php', 'packages/*/rector.php') }}-${{ github.sha }}
+          restore-keys: |
+            rector-${{ runner.os }}-${{ hashFiles('composer.lock', 'rector.php', 'packages/*/rector.php') }}-
+            rector-${{ runner.os }}-
+
       - name: Apply Rector transformations
         run: composer rector
 
