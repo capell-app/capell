@@ -39,6 +39,9 @@
         "symfony/html-sanitizer": "^7.0|^8.0",
         "voku/html-min": "^5.0"
     },
+    "conflict": {
+        "capell-app/core": "<1.0.72"
+    },
     "autoload": {
         "psr-4": {
             "Capell\\Frontend\\": "src/"

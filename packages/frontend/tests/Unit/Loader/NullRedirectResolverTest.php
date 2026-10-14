@@ -97,3 +97,27 @@ function frontendNullRedirectSite(): array
 
     return [$site, $language];
 }
+
+it('identifies generated targets and preserves the fallback resolver status contract', function (bool $manual, bool $explicitTarget, bool $useSiteDomain): void {
+    [$site, $language] = frontendNullRedirectSite();
+    $page = Page::factory()->site($site)->createOne();
+    PageUrl::factory()->page($page)->site($site)->language($language)->createOne(['url' => '/canonical']);
+    $redirect = PageUrl::factory()->page($page)->site($site)->language($language)->type(UrlTypeEnum::Redirect)->createOne([
+        'url' => '/former',
+        'target_url' => $explicitTarget ? '/explicit-target' : null,
+        'is_manual' => $manual,
+        'status_code' => RedirectStatusCodeEnum::Temporary,
+    ]);
+
+    $decision = expectPresent((new NullRedirectResolver)->resolve($site, $language, '/former', pageUrl: $redirect));
+
+    expect($decision->targetUrl)->toBe($explicitTarget ? '/explicit-target' : '/canonical')
+        ->and($decision->statusCode)->toBe(302)
+        ->and($decision->useSiteDomain)->toBe($useSiteDomain)
+        ->and($redirect->refresh()->hit_count)->toBe(0);
+})->with([
+    'authored explicit target' => [true, true, false],
+    'generated explicit target' => [false, true, true],
+    'generated canonical fallback' => [false, false, true],
+    'authored row with canonical fallback' => [true, false, true],
+]);

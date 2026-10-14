@@ -11,9 +11,11 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Override;
 
 class NullRedirectResolver implements RedirectResolver
 {
+    #[Override]
     public function resolve(Site $site, Language $language, string $url, ?int $pageId = null, ?PageUrl $pageUrl = null): ?RedirectDecisionData
     {
         $isWildcardHomeRedirect = false;
@@ -44,6 +46,7 @@ class NullRedirectResolver implements RedirectResolver
                     ? $this->appendRequestedPath((string) $pageUrl->target_url, $url)
                     : (string) $pageUrl->target_url,
                 $statusCode,
+                useSiteDomain: ! $pageUrl->isManualRedirect(),
             );
         }
 
@@ -56,7 +59,7 @@ class NullRedirectResolver implements RedirectResolver
             ->where(fn ($query) => $query->whereNull('type')->orWhere('type', '!=', UrlTypeEnum::Redirect))
             ->value('url');
 
-        return is_string($targetUrl) ? new RedirectDecisionData($targetUrl, $statusCode) : null;
+        return is_string($targetUrl) ? new RedirectDecisionData($targetUrl, $statusCode, useSiteDomain: true) : null;
     }
 
     private function appendRequestedPath(string $targetUrl, string $requestedPath): string

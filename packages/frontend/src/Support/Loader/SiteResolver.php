@@ -98,6 +98,11 @@ class SiteResolver
             throw new UrlSiteDomainNotFoundException($fullUrl);
         }
 
+        // The cached site is shared by all domains for this site and language.
+        // Restore request-specific relations after loading that shared model.
+        $site->setRelation('translation', $translation);
+        $site->setRelation('siteDomain', $siteDomain);
+
         return [$site, $language, $siteDomain, $url];
     }
 }
