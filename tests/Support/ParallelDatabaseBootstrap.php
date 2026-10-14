@@ -7,7 +7,6 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Bootstrap\HandleExceptions;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\ParallelTesting;
-use Illuminate\Support\Facades\Request;
 use Illuminate\Testing\ParallelTestingServiceProvider;
 use Orchestra\Sidekick\Env;
 use Orchestra\Testbench\Foundation\Application;
@@ -25,7 +24,7 @@ foreach (['LARAVEL_PARALLEL_TESTING', 'LARAVEL_PARALLEL_TESTING_RECREATE_DATABAS
 }
 
 // Discovery runs in the parent; only actual workers may recreate databases.
-if (empty(Request::server('PARATEST')) || empty(Request::server('TEST_TOKEN'))) {
+if (in_array(getenv('PARATEST'), [false, ''], true) || in_array(getenv('TEST_TOKEN'), [false, ''], true)) {
     return;
 }
 
