@@ -13,6 +13,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
+use Capell\Core\Support\Install\PanelThemeTargetResolver;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Installer\Support\InstallerDatabaseTableState;
@@ -185,7 +186,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         );
 
         $installPatchRegistry->register(
-            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin') && $context->hasFilamentAdminPanelProvider
+            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin') && resolve(PanelThemeTargetResolver::class)->resolve() !== []
                 ? new AdminPanelThemePatch
                 : null,
             new InstallPatchConfirmation(

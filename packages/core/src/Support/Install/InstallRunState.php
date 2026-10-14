@@ -38,10 +38,19 @@ final class InstallRunState
         $store = self::progressStore();
         $state = $store->get('capell.install.state', []);
         $state = is_array($state) ? $state : [];
-        $state['scaffolded_panel_providers'] = array_values(array_unique([
-            ...self::scaffoldedPanelProviders(),
-            ...array_map(fn (string $path): string => str($path)->after(base_path() . DIRECTORY_SEPARATOR)->toString(), $paths),
-        ]));
+
+        $identities = [];
+
+        foreach (array_unique([...self::scaffoldedPanelProviders(), ...$paths]) as $path) {
+            $absolutePath = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
+            $hash = is_file($absolutePath) ? hash_file('sha256', $absolutePath) : false;
+
+            if ($hash !== false) {
+                $identities[str($absolutePath)->after(base_path() . DIRECTORY_SEPARATOR)->toString()] = $hash;
+            }
+        }
+
+        $state['scaffolded_panel_providers'] = $identities;
         throw_unless($store->forever('capell.install.state', $state), RuntimeException::class, 'Unable to persist panel scaffold provenance.');
     }
 
@@ -49,9 +58,45 @@ final class InstallRunState
     public static function scaffoldedPanelProviders(): array
     {
         $state = self::progressStore()->get('capell.install.state', []);
-        $paths = is_array($state) ? ($state['scaffolded_panel_providers'] ?? []) : [];
+        $identities = is_array($state) ? ($state['scaffolded_panel_providers'] ?? []) : [];
+        $paths = [];
 
-        return is_array($paths) ? array_values(array_filter($paths, is_string(...))) : [];
+        if (! is_array($identities)) {
+            return [];
+        }
+
+        foreach ($identities as $path => $hash) {
+            // Legacy path-only records cannot establish ownership of the current file.
+            if (! is_string($path)) {
+                continue;
+            }
+
+            if (! is_string($hash)) {
+                continue;
+            }
+
+            $absolutePath = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
+            $currentHash = is_file($absolutePath) ? hash_file('sha256', $absolutePath) : false;
+
+            if ($currentHash !== false && hash_equals($hash, $currentHash)) {
+                $paths[] = $path;
+            }
+        }
+
+        return $paths;
+    }
+
+    public static function retireScaffoldedPanelProviders(): void
+    {
+        $store = self::progressStore();
+        $state = $store->get('capell.install.state', []);
+
+        if (! is_array($state) || ! array_key_exists('scaffolded_panel_providers', $state)) {
+            return;
+        }
+
+        unset($state['scaffolded_panel_providers']);
+        throw_unless($store->forever('capell.install.state', $state), RuntimeException::class, 'Unable to retire panel scaffold provenance.');
     }
 
     /**

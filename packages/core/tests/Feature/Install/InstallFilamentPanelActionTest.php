@@ -22,6 +22,7 @@ use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process as SymfonyProcess;
@@ -631,7 +632,11 @@ $app->register(\Illuminate\Cache\CacheServiceProvider::class);
 $action = new \Capell\Core\Actions\Install\InstallFilamentPanelAction(new \Capell\Core\Support\Process\SymfonyProcessFactory);
 $action->handle(new \Capell\Core\Support\Install\NullProgressReporter);
 PHP;
-    $process = new SymfonyProcess([PHP_BINARY, '-r', $resume, $this->originalBasePath . '/vendor/autoload.php', $this->temporaryBasePath]);
+    // CI Testbench skeletons have no vendor directory; use this checkout's loader.
+    $autoloadPath = dirname(__DIR__, 5) . '/vendor/autoload.php';
+    expect($autoloadPath)->toBeFile()
+        ->not->toBe($this->originalBasePath . '/vendor/autoload.php');
+    $process = new SymfonyProcess([PHP_BINARY, '-r', $resume, $autoloadPath, $this->temporaryBasePath]);
     $process->mustRun();
 
     expect($process->getExitCode())->toBe(0);
@@ -674,4 +679,113 @@ it('leaves an unrelated admin-id provider unchanged without scaffold provenance'
     resolve(InstallFilamentPanelAction::class)->handle(new NullProgressReporter);
     expect(File::get($path))->toBe($source)
         ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
+});
+
+it('ignores theme mentions outside the returned panel configuration', function (string $chain, string $extraMethod): void {
+    $path = app_path('Providers/Filament/MentionedThemePanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, '<?php namespace App\\Providers\\Filament; class MentionedThemePanelProvider extends \\Filament\\PanelProvider { #[\\Override] public function panel(\\Filament\\Panel $panel): \\Filament\\Panel { ' . $chain . ' } ' . $extraMethod . ' }');
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    $panel = GeneratedPhpFixture::load($path, PanelProvider::class, app())->panel(Panel::make());
+    expect($panel->getViteTheme())->toBe('resources/css/filament/admin/theme.css')
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
+})->with([
+    'comment' => ["// Later: ->viteTheme('custom.css')\nreturn \$panel->id('workspace');", ''],
+    'string literal' => ['return $panel->id("workspace")->brandName("Example ->viteTheme(\'custom.css\')");', ''],
+    'unrelated method' => ['return $panel->id("workspace");', 'public function preview($panel) { return $panel->viteTheme("custom.css"); }'],
+    'deferred callback' => ['return $panel->id("workspace")->brandName(fn () => $panel->viteTheme("custom.css"));', ''],
+]);
+
+it('repairs the missing default stylesheet without rewriting an authorised provider', function (string $themeMethod): void {
+    $path = app_path('Providers/Filament/DefaultThemePanelProvider.php');
+    $source = '<?php namespace App\\Providers\\Filament; class DefaultThemePanelProvider { public function panel($panel) { return $panel->id("workspace")->' . $themeMethod . '("resources/css/filament/admin/theme.css"); } }';
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, $source);
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(File::get($path))->toBe($source)
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
+    $stylesheet = File::get(resource_path('css/filament/admin/theme.css'));
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    expect(File::get($path))->toBe($source)
+        ->and(File::get(resource_path('css/filament/admin/theme.css')))->toBe($stylesheet);
+})->with(['viteTheme', 'theme']);
+
+it('does not give a replacement host provider ownership of a pending scaffold path', function (): void {
+    $path = app_path('Providers/Filament/ReplacedPanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, '<?php class ReplacedPanelProvider { public function panel($panel) { return $panel->id("scaffolded"); } }');
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+    $replacement = '<?php class ReplacedPanelProvider { public function panel($panel) { return $panel->id("host")->brandName("Host replacement"); } }';
+    File::put($path, $replacement);
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(File::get($path))->toBe($replacement)
+        ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
+});
+
+it('retires pending scaffold provenance after the panel step succeeds', function (): void {
+    $path = app_path('Providers/Filament/CompletedPanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, '<?php class CompletedPanelProvider { public function panel($panel) { return $panel->id("admin"); } }');
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(InstallRunState::scaffoldedPanelProviders())->toBe([]);
+    $replacement = '<?php class CompletedPanelProvider { public function panel($panel) { return $panel->id("host"); } }';
+    File::put($path, $replacement);
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    expect(File::get($path))->toBe($replacement);
+});
+
+it('does not infer ownership from legacy path-only or missing provenance', function (array $state): void {
+    $path = app_path('Providers/Filament/LegacyPanelProvider.php');
+    $source = '<?php class LegacyPanelProvider { public function panel($panel) { return $panel->id("host"); } }';
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, $source);
+    Cache::build(['driver' => 'file', 'path' => base_path('storage/framework/cache/data')])->forever('capell.install.state', $state);
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(File::get($path))->toBe($source)
+        ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
+})->with([
+    'missing key' => [[]],
+    'path-only key' => [['scaffolded_panel_providers' => ['app/Providers/Filament/LegacyPanelProvider.php']]],
+]);
+
+it('repairs a missing default stylesheet when the panel argument has a different name', function (): void {
+    $path = app_path('Providers/Filament/RenamedArgumentPanelProvider.php');
+    $source = '<?php namespace App\\Providers\\Filament; class RenamedArgumentPanelProvider extends \\Filament\\PanelProvider { #[\\Override] public function panel(\\Filament\\Panel $workspace): \\Filament\\Panel { return $workspace->id("workspace")->viteTheme("resources/css/filament/admin/theme.css"); } }';
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, $source);
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(File::get($path))->toBe($source)
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile()
+        ->and(GeneratedPhpFixture::load($path, PanelProvider::class, app())->panel(Panel::make())->getViteTheme())->toBe('resources/css/filament/admin/theme.css');
+});
+
+it('repairs a default stylesheet referenced by a conditional panel return', function (): void {
+    $path = app_path('Providers/Filament/ConditionalThemePanelProvider.php');
+    $source = '<?php namespace App\\Providers\\Filament; class ConditionalThemePanelProvider extends \\Filament\\PanelProvider { #[\\Override] public function panel(\\Filament\\Panel $panel): \\Filament\\Panel { if (config("app.debug")) { return $panel->id("workspace")->viteTheme("resources/css/filament/admin/theme.css"); } return $panel->id("workspace"); } }';
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, $source);
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+    config(['app.debug' => true]);
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(File::get($path))->toBe($source)
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile()
+        ->and(GeneratedPhpFixture::load($path, PanelProvider::class, app())->panel(Panel::make())->getViteTheme())->toBe('resources/css/filament/admin/theme.css');
 });

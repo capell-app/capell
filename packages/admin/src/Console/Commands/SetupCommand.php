@@ -89,9 +89,8 @@ class SetupCommand extends Command
             }
         }
 
-        $this->registerTailwindSources();
-
         if ($this->option('skip-panel-integration')) {
+            $this->registerTailwindSources();
             $this->info('Admin setup complete.');
 
             return Command::SUCCESS;
@@ -101,6 +100,7 @@ class SetupCommand extends Command
         $discoveredPanels = DiscoverFilamentPanelsAction::run();
 
         if (! $this->option('integration-only') && $discoveredPanels->isEmpty()) {
+            $this->registerTailwindSources();
             $this->info('Admin setup complete.');
 
             return Command::SUCCESS;
@@ -110,6 +110,7 @@ class SetupCommand extends Command
             $shouldIntegrate = confirm('Integrate Capell Admin into Filament?', default: true);
 
             if (! $shouldIntegrate) {
+                $this->registerTailwindSources();
                 $this->info('Admin setup complete.');
 
                 return Command::SUCCESS;
@@ -124,6 +125,7 @@ class SetupCommand extends Command
             return Command::FAILURE;
         }
 
+        $this->registerTailwindSources();
         $this->info('Admin setup complete.');
 
         return Command::SUCCESS;
@@ -555,6 +557,10 @@ class SetupCommand extends Command
 
     private function registerTailwindSources(): void
     {
+        if ($this->option('preview')) {
+            return;
+        }
+
         resolve(TailwindSourceRegistrar::class)->register(
             function (string $message): void {
                 $this->line($message);

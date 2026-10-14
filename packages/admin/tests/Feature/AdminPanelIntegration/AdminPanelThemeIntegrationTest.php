@@ -79,3 +79,18 @@ it('does not theme or change the selected provider in integration preview', func
         ->and(File::get($path))->toBe($source)
         ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
 });
+
+it('creates a missing stylesheet for an adopted default theme without rewriting the provider again', function (): void {
+    $path = app_path('Providers/Filament/AdoptedDefaultPanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, '<?php namespace App\\Providers\\Filament; class AdoptedDefaultPanelProvider { public function panel($panel) { return $panel->id("workspace")->viteTheme("resources/css/filament/admin/theme.css"); } }');
+    $options = new AdminPanelSetupOptionsData(panelPath: 'workspace', addColors: false, addWidgets: false, addNavigation: false, createBackup: false);
+
+    expect(IntegrateCapellAdminPanelAction::run($options)->hasFailures())->toBeFalse()
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
+    $integrated = File::get($path);
+    File::delete(resource_path('css/filament/admin/theme.css'));
+    expect(IntegrateCapellAdminPanelAction::run($options)->hasFailures())->toBeFalse()
+        ->and(File::get($path))->toBe($integrated)
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
+});

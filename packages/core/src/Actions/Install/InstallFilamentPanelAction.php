@@ -8,6 +8,8 @@ use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\InstallRunState;
+use Capell\Core\Support\Install\PanelThemeTargetResolver;
+use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -19,12 +21,18 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Override;
+use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Scalar\String_;
+use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\Return_;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitorAbstract;
 use RuntimeException;
 use Throwable;
 
@@ -32,6 +40,8 @@ class InstallFilamentPanelAction
 {
     use AsFake;
     use AsObject;
+
+    private const string DEFAULT_THEME_PATH = 'resources/css/filament/admin/theme.css';
 
     private const array THEME_METHODS = [
         'viteTheme',
@@ -92,11 +102,31 @@ class InstallFilamentPanelAction
         if (is_file(resolve(RuntimeRoleCachePaths::class)->metadata())) {
             BuildRuntimeRoleProviderManifestsAction::run();
         }
+
+        InstallRunState::retireScaffoldedPanelProviders();
     }
 
     public function configureThemeForProvider(string $path, ProgressReporter $reporter): void
     {
-        $this->configurePanelThemes([$path], $reporter);
+        $this->configurePanelThemes(resolve(PanelThemeTargetResolver::class)->resolve($path), $reporter);
+    }
+
+    public function themePatchStatus(string $path): PatchStatus
+    {
+        try {
+            $editor = new PhpFileEditor($path);
+            $themeCalls = $this->themeCalls($editor, $path);
+
+            if ($themeCalls !== []) {
+                return $this->referencesDefaultTheme($themeCalls) && ! File::exists(resource_path('css/filament/admin/theme.css'))
+                    ? PatchStatus::Applicable
+                    : PatchStatus::AlreadyApplied;
+            }
+
+            return $this->canAppendTheme($editor, $path) ? PatchStatus::Applicable : PatchStatus::Customised;
+        } catch (RuntimeException) {
+            return PatchStatus::Unsupported;
+        }
     }
 
     /**
@@ -104,19 +134,7 @@ class InstallFilamentPanelAction
      */
     private static function panelProviderPaths(): array
     {
-        $providersDir = app_path('Providers/Filament');
-
-        if (! is_dir($providersDir)) {
-            return [];
-        }
-
-        $paths = glob($providersDir . '/*PanelProvider.php');
-
-        if ($paths === false) {
-            return [];
-        }
-
-        return array_values(array_filter($paths, is_file(...)));
+        return resolve(PanelThemeTargetResolver::class)->providerPaths();
     }
 
     private function installPanel(ProgressReporter $reporter): void
@@ -125,11 +143,7 @@ class InstallFilamentPanelAction
 
         if ($panelProviderPaths !== []) {
             $reporter->report('→ Filament admin panel already configured.');
-            $ownedPaths = array_values(array_filter($panelProviderPaths, fn (string $path): bool => in_array(
-                str($path)->after(base_path() . DIRECTORY_SEPARATOR)->toString(),
-                InstallRunState::scaffoldedPanelProviders(),
-                true,
-            )));
+            $ownedPaths = resolve(PanelThemeTargetResolver::class)->resolve();
             $this->configurePanelThemes($ownedPaths, $reporter);
             $this->reportMissingThemeConfiguration(array_values(array_diff($panelProviderPaths, $ownedPaths)), $reporter);
 
@@ -140,7 +154,7 @@ class InstallFilamentPanelAction
             $this->installFilamentInFreshProcess($reporter, null);
             $this->ensurePanelProviderWasCreated();
             self::registerPanelProviders();
-            $this->configurePanelThemes(self::panelProviderPaths(), $reporter);
+            $this->configurePanelThemes(resolve(PanelThemeTargetResolver::class)->resolve(), $reporter);
 
             return;
         }
@@ -164,7 +178,7 @@ class InstallFilamentPanelAction
 
         $this->ensurePanelProviderWasCreated();
         self::registerPanelProviders();
-        $this->configurePanelThemes(self::panelProviderPaths(), $reporter);
+        $this->configurePanelThemes(resolve(PanelThemeTargetResolver::class)->resolve(), $reporter);
     }
 
     private function installFilamentInFreshProcess(ProgressReporter $reporter, ?Throwable $previous): void
@@ -249,52 +263,126 @@ CSS);
     private function configurePanelThemes(array $panelProviderPaths, ProgressReporter $reporter): void
     {
         foreach ($panelProviderPaths as $path) {
-            if ($this->hasThemeConfiguration($path)) {
-                continue;
-            }
-
             $editor = new PhpFileEditor($path);
+            $themeCalls = $this->themeCalls($editor, $path);
+
+            if ($themeCalls !== []) {
+                if ($this->referencesDefaultTheme($themeCalls)) {
+                    $this->ensureDefaultThemeStylesheetExists();
+                }
+
+                continue;
+            }
+
+            if (! $this->canAppendTheme($editor, $path)) {
+                $this->reportMissingThemeConfiguration([$path], $reporter);
+
+                continue;
+            }
+
+            $wasScaffolded = in_array(str($path)->after(base_path() . DIRECTORY_SEPARATOR)->toString(), InstallRunState::scaffoldedPanelProviders(), true);
             $method = $editor->findMethodInClass(pathinfo($path, PATHINFO_FILENAME), 'panel');
-
-            if ($method?->stmts === null || count($method->stmts) !== 1) {
-                $this->reportMissingThemeConfiguration([$path], $reporter);
-
-                continue;
-            }
-
-            $statement = $method->stmts[0];
-            if (! $statement instanceof Return_ || ! $statement->expr instanceof MethodCall) {
-                $this->reportMissingThemeConfiguration([$path], $reporter);
-
-                continue;
-            }
-
-            $call = $statement->expr;
-            while ($call instanceof MethodCall) {
-                if (! $call->name instanceof Identifier) {
-                    continue 2;
-                }
-
-                if (in_array($call->name->toString(), self::THEME_METHODS, true)) {
-                    continue 2;
-                }
-
-                $call = $call->var;
-            }
-
-            if (! $call instanceof Variable || $call->name !== 'panel') {
-                $this->reportMissingThemeConfiguration([$path], $reporter);
-
-                continue;
-            }
+            $statement = $method?->stmts[0] ?? null;
+            throw_unless($statement instanceof Return_ && $statement->expr instanceof MethodCall, RuntimeException::class, 'Unable to append panel theme.');
 
             $this->ensureDefaultThemeStylesheetExists();
             $statement->expr = new MethodCall($statement->expr, 'viteTheme', [
-                new Arg(new String_('resources/css/filament/admin/theme.css')),
+                new Arg(new String_(self::DEFAULT_THEME_PATH)),
             ]);
             $editor->save();
+
+            if ($wasScaffolded) {
+                InstallRunState::recordScaffoldedPanelProviders([$path]);
+            }
+
             $reporter->report('→ Configured the compiled Filament admin theme.');
         }
+    }
+
+    /** @return list<MethodCall> */
+    private function themeCalls(PhpFileEditor $editor, string $path): array
+    {
+        $method = $editor->findMethodInClass(pathinfo($path, PATHINFO_FILENAME), 'panel');
+        $panelArgument = $method->params[0]->var ?? null;
+        $argumentName = $panelArgument instanceof Variable && is_string($panelArgument->name) ? $panelArgument->name : null;
+        $visitor = new class($argumentName, self::THEME_METHODS) extends NodeVisitorAbstract
+        {
+            /** @var array<int, MethodCall> */
+            public array $calls = [];
+
+            /** @param list<string> $themeMethods */
+            public function __construct(
+                private readonly ?string $argumentName,
+                private readonly array $themeMethods,
+            ) {}
+
+            #[Override]
+            public function enterNode(Node $node): ?int
+            {
+                // Deferred callbacks and nested declarations do not configure this panel.
+                if ($node instanceof FunctionLike || $node instanceof ClassLike) {
+                    return NodeTraverser::DONT_TRAVERSE_CHILDREN;
+                }
+
+                $call = $node instanceof Return_ ? $node->expr : $node;
+                $calls = [];
+
+                while ($call instanceof MethodCall) {
+                    if ($call->name instanceof Identifier && in_array($call->name->toString(), $this->themeMethods, true)) {
+                        $calls[] = $call;
+                    }
+
+                    $call = $call->var;
+                }
+
+                if ($node instanceof Return_ || ($call instanceof Variable && $this->argumentName !== null && $call->name === $this->argumentName)) {
+                    foreach ($calls as $themeCall) {
+                        $this->calls[spl_object_id($themeCall)] = $themeCall;
+                    }
+                }
+
+                return null;
+            }
+        };
+        $traverser = new NodeTraverser;
+        $traverser->addVisitor($visitor);
+        $traverser->traverse($method->stmts ?? []);
+
+        return array_values($visitor->calls);
+    }
+
+    /** @param list<MethodCall> $calls */
+    private function referencesDefaultTheme(array $calls): bool
+    {
+        return array_any($calls, static fn (MethodCall $call): bool => ($call->args[0] ?? null) instanceof Arg
+            && $call->args[0]->value instanceof String_
+            && $call->args[0]->value->value === self::DEFAULT_THEME_PATH);
+    }
+
+    private function canAppendTheme(PhpFileEditor $editor, string $path): bool
+    {
+        $method = $editor->findMethodInClass(pathinfo($path, PATHINFO_FILENAME), 'panel');
+
+        if ($method?->stmts === null || count($method->stmts) !== 1) {
+            return false;
+        }
+
+        $statement = $method->stmts[0];
+        $call = $statement instanceof Return_ ? $statement->expr : null;
+
+        if (! $call instanceof MethodCall) {
+            return false;
+        }
+
+        while ($call instanceof MethodCall) {
+            if (! $call->name instanceof Identifier) {
+                return false;
+            }
+
+            $call = $call->var;
+        }
+
+        return $call instanceof Variable && $call->name === 'panel';
     }
 
     /**
@@ -311,12 +399,10 @@ CSS);
 
     private function hasThemeConfiguration(string $panelProviderPath): bool
     {
-        $contents = file_get_contents($panelProviderPath);
-
-        if (! is_string($contents)) {
+        try {
+            return $this->themeCalls(new PhpFileEditor($panelProviderPath), $panelProviderPath) !== [];
+        } catch (RuntimeException) {
             return false;
         }
-
-        return array_any(self::THEME_METHODS, fn (string $method): bool => preg_match('/->\\s*' . preg_quote($method, '/') . '\\s*\\(/', $contents) === 1);
     }
 }
