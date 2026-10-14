@@ -8,11 +8,20 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Tests\Support\Install\MidInstallBoostTestProvider;
+use Composer\Autoload\ClassLoader;
+use Composer\InstalledVersions;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\Facades\Artisan;
 
-beforeEach(function (): void {
+/** @var array<string, ClassLoader> $originalLoaders */
+$originalLoaders = [];
+$originalInstalled = [];
+
+beforeEach(function () use (&$originalLoaders, &$originalInstalled): void {
+    $originalLoaders = ClassLoader::getRegisteredLoaders();
+    $originalInstalled = require dirname(__DIR__, 5) . '/vendor/composer/installed.php';
+
     InstallDeveloperToolingAction::resetProcessFactory();
     InstallDeveloperToolingAction::resetArtisanCaller();
     InstallDeveloperToolingAction::resetAgentBridgeRepositoryPath();
@@ -21,7 +30,19 @@ beforeEach(function (): void {
     bindInstallDeveloperToolingState(false);
 });
 
-afterEach(function (): void {
+afterEach(function () use (&$originalLoaders, &$originalInstalled): void {
+    // Fake Composer installs still reload Testbench's vendor autoloader. Restore
+    // the owning checkout's loaders so subsequent tests cannot load foreign source.
+    foreach (ClassLoader::getRegisteredLoaders() as $loader) {
+        $loader->unregister();
+    }
+
+    foreach (array_reverse($originalLoaders) as $loader) {
+        $loader->register(prepend: true);
+    }
+
+    InstalledVersions::reload($originalInstalled);
+
     InstallDeveloperToolingAction::resetProcessFactory();
     InstallDeveloperToolingAction::resetArtisanCaller();
     InstallDeveloperToolingAction::resetAgentBridgeRepositoryPath();

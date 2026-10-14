@@ -13,6 +13,7 @@ use Capell\Core\Support\Composer\InstallPackageArguments;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -30,14 +31,17 @@ final class InstallerOptions
         private readonly ThemePackageCandidates $themes,
     ) {}
 
-    /** @return array<int, array<string, mixed>> */
-    public function downloadablePackages(): array
+    /**
+     * @param  Collection<int, array<string, mixed>>|null  $remote
+     * @return array<int, array<string, mixed>>
+     */
+    public function downloadablePackages(?Collection $remote = null): array
     {
         try {
             $packages = [];
-            $packageBatches = GetPluginsAction::run('download')
+            $packageBatches = ($remote instanceof Collection ? GetPluginsAction::run('download', $remote) : GetPluginsAction::run('download'))
                 ->reject(fn (PackageData $package): bool => CapellCore::hasPackage($package->name))
-                ->filter(fn (PackageData $package): bool => $this->composerPackageIsAvailable($package->name))
+                ->filter(fn (PackageData $package): bool => $this->composerPackageIsAvailable($package->name, $remote instanceof Collection))
                 ->filter(fn (PackageData $package): bool => $package->isVisibleInCatalogue())
                 ->reject(fn (PackageData $package): bool => $package->getThemeKey() !== null)
                 ->lazy()
@@ -84,11 +88,14 @@ final class InstallerOptions
             || in_array($package->name, $this->configuredDefaultPackageNames(), true);
     }
 
-    /** @return array<string, array{key: string, name: string, description: ?string, packageName: ?string, previewImageUrl: ?string}> */
-    public function themeOptions(): array
+    /**
+     * @param  Collection<int, array<string, mixed>>|null  $remote
+     * @return array<string, array{key: string, name: string, description: ?string, packageName: ?string, previewImageUrl: ?string}>
+     */
+    public function themeOptions(?Collection $remote = null): array
     {
         $themes = [];
-        $themeBatches = collect($this->themes->optionDataForCatalogue())
+        $themeBatches = collect($this->themes->optionDataForCatalogue($remote))
             ->lazy()
             ->chunk(25);
 
@@ -249,10 +256,22 @@ final class InstallerOptions
         return $name !== false ? Str::headline($name) : Str::upper($code);
     }
 
-    private function composerPackageIsAvailable(string $packageName): bool
+    private function composerPackageIsAvailable(string $packageName, bool $forPage = false): bool
     {
         $key = 'capell.installer.package_installable.' . hash('sha256', $packageName);
         $trusted = TrustedCorePackages::contains($packageName);
+        if ($forPage || request()->hasSession()) {
+            // Rendering choices must not run dependency resolution. Selected
+            // packages are dry-run by preflight in every execution mode.
+            try {
+                return $this->sessions->cacheStoreIsUsable()
+                    ? Cache::get($key, $trusted) === true
+                    : $trusted;
+            } catch (Throwable) {
+                return $trusted;
+            }
+        }
+
         $resolver = function () use ($packageName): bool {
             $process = new Process([
                 (string) config('capell-installer.composer_binary', 'composer'), 'require',

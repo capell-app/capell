@@ -7,9 +7,11 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
 use Capell\Installer\Support\InstallerSessionRepository;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Spatie\Permission\Models\Role;
 
 it('clears stale installer locks before rendering web installer data', function (): void {
@@ -185,6 +187,9 @@ SH);
 });
 
 it('offers composer-available trusted core packages before they are installed', function (): void {
+    Cache::put('capell.installer.package_installable.' . hash('sha256', 'capell-app/admin'), true);
+    Cache::put('capell.installer.package_installable.' . hash('sha256', 'capell-app/frontend'), false);
+    Cache::put('capell.installer.package_installable.' . hash('sha256', 'capell-app/marketplace'), false);
     CapellCore::clearPackages();
     CapellCore::registerPackage('capell-app/installer', type: PackageTypeEnum::Package);
 
@@ -271,6 +276,10 @@ it('keeps malformed installer defaults out of package and admin user state', fun
 });
 
 it('fails closed when optional installer page data dependencies are unavailable', function (): void {
+    foreach (['capell-app/admin', 'capell-app/frontend', 'capell-app/marketplace'] as $package) {
+        Cache::put('capell.installer.package_installable.' . hash('sha256', $package), false);
+    }
+
     CapellCore::clearPackages();
 
     config([
@@ -292,3 +301,33 @@ it('fails closed when optional installer page data dependencies are unavailable'
         ->and($data['showFilamentPanelToggle'])->toBeFalse()
         ->and($data['showRoleUsersToggle'])->toBeTrue();
 });
+
+it('reuses one bounded catalogue result throughout each uncached installer page', function (string $response): void {
+    FakeProcessFactory::bind()->byDefault(output: 'Available');
+    config(['capell.disable_cache' => true, 'capell.plugins_source_url' => 'https://catalogue.capell.test/extensions']);
+    $timeouts = [];
+    Http::fake(function ($request, array $options) use (&$timeouts, $response) {
+        $timeouts[] = $options['timeout'];
+
+        return match ($response) {
+            'offline' => Http::response(null, 503),
+            'connection' => Http::failedConnection(),
+            'empty' => Http::response(['packages' => []]),
+            default => Http::response(['packages' => [[
+                'name' => 'vendor/catalogue-theme', 'type' => 'theme', 'themeKey' => 'catalogue-theme',
+            ]]]),
+        };
+    });
+
+    $page = $this->get('/install')->assertOk();
+    expect($timeouts)->not->toBeEmpty()
+        ->and(max($timeouts))->toBeLessThanOrEqual(2);
+    Http::assertSentCount(1);
+    if ($response === 'populated') {
+        $page->assertSee('catalogue-theme');
+    }
+
+    $this->get('/install')->assertOk();
+    Http::assertSentCount(2);
+    expect(max($timeouts))->toBeLessThanOrEqual(2);
+})->with(['empty', 'offline', 'connection', 'populated']);
