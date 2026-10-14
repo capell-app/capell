@@ -4,6 +4,43 @@ declare(strict_types=1);
 
 use Capell\Core\Support\Json\JsonEquivalence;
 
+it('keeps identical raw JSON equivalent without decoding', function (string $json): void {
+    expect(JsonEquivalence::equivalent($json, $json))->toBeTrue();
+})->with([
+    'leading zero string' => ['{"code":"001"}'],
+    'quoted big integer' => ['{"value":"9223372036854775808"}'],
+    'big integer token' => ['{"value":9223372036854775808}'],
+    'invalid JSON' => ['{"value":'],
+    'beyond decode depth' => [str_repeat('[', 513) . '0' . str_repeat(']', 513)],
+]);
+
+it('compares numeric tokens losslessly and distinguishes quoted strings', function (string $original, string $submitted, bool $equivalent): void {
+    expect(json_validate($original))->toBeTrue()
+        ->and(json_validate($submitted))->toBeTrue()
+        ->and(JsonEquivalence::equivalent($original, $submitted))->toBe($equivalent)
+        ->and(JsonEquivalence::equivalent($submitted, $original))->toBe($equivalent);
+})->with([
+    'quoted leading zero with whitespace' => ['{"code":"001"}', '{ "code": "001" }', true],
+    'quoted big integer with whitespace' => ['{"value":"9223372036854775808"}', '{ "value": "9223372036854775808" }', true],
+    'reordered big integer token' => ['{"a":1,"value":9223372036854775808}', '{"value":9223372036854775808,"a":1}', true],
+    'rounding collision' => ['{"value":0.1}', '{"value":0.10000000000000001}', false],
+    'underflow' => ['{"value":0.0}', '{"value":1e-400}', false],
+    'overflow collision' => ['1e400', '2e400', false],
+    'exact exponent' => ['1.0', '1e0', true],
+    'fractional exponent' => ['0.0100', '1e-2', true],
+    'negative exponent' => ['-10.50', '-105e-1', true],
+    'leading zero exponent' => ['1.0', '1e+0000', true],
+    'different scalar types' => ['1', '1.0', false],
+    // Zero has the same exact numeric value regardless of its sign.
+    'signed integer zero' => ['-0', '0', true],
+    'signed decimal zero' => ['-0.0', '0e0', true],
+    'numeric marker in a string' => ['"integer:1"', '1', false],
+    'escaped quote before number' => ['{"x":"a\"0.1","n":0.1}', '{"n":0.10000000000000001,"x":"a\"0.1"}', false],
+    'duplicate keys retain the last number' => ['{"x":0.1,"x":0.2}', '{"x":0.2}', true],
+    'huge exponent remains uncertain' => ['1e99999999999999999999', '10e99999999999999999998', false],
+    'huge identical token with whitespace' => ['1e99999999999999999999', ' 1e99999999999999999999 ', true],
+]);
+
 it('compares JSON while preserving identity and scalar types', function (string $original, string $submitted, bool $equivalent): void {
     expect(JsonEquivalence::equivalent($original, $submitted))->toBe($equivalent)
         ->and(JsonEquivalence::equivalent($submitted, $original))->toBe($equivalent);
@@ -34,12 +71,12 @@ it('compares JSON while preserving identity and scalar types', function (string 
     'object and scalar' => ['{}', 'null', false],
     'changed big integer' => ['9223372036854775808', '9223372036854775809', false],
     'big integer and string' => ['9223372036854775808', '"9223372036854775808"', false],
-    'uncertain same big integer' => ['9223372036854775808', '9223372036854775808', false],
-    'uncertain numeric strings' => ['"9223372036854775808"', '"9223372036854775808"', false],
+    'identical big integer' => ['9223372036854775808', '9223372036854775808', true],
+    'identical numeric strings' => ['"9223372036854775808"', '"9223372036854775808"', true],
     'negative big integer' => ['-9223372036854775809', '"-9223372036854775809"', false],
     'nested big integer' => ['{"value":9223372036854775808}', '{"value":"9223372036854775808"}', false],
-    'non-finite float' => ['1e400', '1e400', false],
+    'identical overflow token' => ['1e400', '1e400', true],
     'invalid original' => ['{"value":', '{"value":1}', false],
-    'both invalid' => ['not JSON', 'not JSON', false],
-    'empty input' => ['', '', false],
+    'both invalid' => ['not JSON', 'not JSON', true],
+    'empty input' => ['', '', true],
 ]);

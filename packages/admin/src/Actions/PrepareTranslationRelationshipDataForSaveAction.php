@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions;
 
+use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Content\ContentStructureResolver;
 use Capell\Core\Support\Json\JsonEquivalence;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class PrepareTranslationRelationshipDataForSaveAction
 {
+    use AsFake;
     use AsObject;
 
     /**
@@ -32,11 +36,15 @@ final class PrepareTranslationRelationshipDataForSaveAction
                 continue;
             }
 
-            if (! JsonEquivalence::equivalent($original, $submitted)) {
+            $equivalent = $attribute === 'content' && ContentStructureResolver::resolve($candidate) !== ContentStructure::Blocks
+                ? $original === $submitted
+                : JsonEquivalence::equivalent($original, $submitted);
+
+            if (! $equivalent) {
                 continue;
             }
 
-            // Preserve database JSON formatting and object key order, even when
+            // Preserve equivalent JSON formatting or identical HTML, even when
             // another field changes. Ordered lists and scalar types stay strict.
             unset($data[$attribute]);
         }

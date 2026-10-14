@@ -11,14 +11,78 @@ final class JsonEquivalence
 {
     public static function equivalent(string $original, string $submitted): bool
     {
+        if ($original === $submitted) {
+            return true;
+        }
+
+        if (! json_validate($original) || ! json_validate($submitted)) {
+            return false;
+        }
+
         try {
             return self::equivalentValues(
-                json_decode($original, flags: JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING),
-                json_decode($submitted, flags: JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING),
+                self::decodeForComparison($original),
+                self::decodeForComparison($submitted),
             );
         } catch (JsonException) {
             return false;
         }
+    }
+
+    private static function decodeForComparison(string $json): mixed
+    {
+        // Tag every string and number, including keys, so quoted values cannot
+        // impersonate numeric tokens and no number is converted to a PHP float.
+        $normalised = preg_replace_callback(
+            '/"(?:[^"\\\\]|\\\\.)*"|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/s',
+            fn (array $token): string => json_encode(
+                str_starts_with($token[0], '"')
+                    ? 'string:' . json_decode($token[0], flags: JSON_THROW_ON_ERROR)
+                    : self::normaliseNumber($token[0]),
+                JSON_THROW_ON_ERROR,
+            ),
+            $json,
+        );
+
+        return json_decode($normalised ?? '', flags: JSON_THROW_ON_ERROR);
+    }
+
+    private static function normaliseNumber(string $token): string
+    {
+        if (strpbrk($token, '.eE') === false) {
+            return 'integer:' . ($token === '-0' ? '0' : $token);
+        }
+
+        if (preg_match('/^(-?)([0-9]+)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?$/D', $token, $parts) !== 1) {
+            return 'decimal:raw:' . $token;
+        }
+
+        $fraction = $parts[3] ?? '';
+        $digits = ltrim($parts[2] . $fraction, '0');
+
+        if ($digits === '') {
+            return 'decimal:0';
+        }
+
+        $exponentText = $parts[4] ?? '0';
+        $exponentDigits = ltrim(ltrim($exponentText, '+-'), '0');
+        $exponentText = (str_starts_with($exponentText, '-') ? '-' : '') . ($exponentDigits === '' ? '0' : $exponentDigits);
+        $exponent = filter_var($exponentText, FILTER_VALIDATE_INT, [
+            'options' => [
+                'min_range' => PHP_INT_MIN + strlen($token),
+                'max_range' => PHP_INT_MAX - strlen($token),
+            ],
+        ]);
+
+        if ($exponent === false) {
+            // Retain differing tokens when their exponent cannot be normalised safely.
+            return 'decimal:raw:' . $token;
+        }
+
+        $coefficient = rtrim($digits, '0');
+        $exponent += strlen($digits) - strlen($coefficient) - strlen($fraction);
+
+        return 'decimal:' . $parts[1] . $coefficient . 'e' . $exponent;
     }
 
     private static function equivalentValues(mixed $original, mixed $submitted): bool
@@ -38,16 +102,6 @@ final class JsonEquivalence
             }
 
             return array_all($original, fn (mixed $value, int|string $key): bool => array_key_exists($key, $submitted) && self::equivalentValues($value, $submitted[$key]));
-        }
-
-        // A decoded big integer is indistinguishable from a quoted numeric string.
-        // Persist when that distinction is uncertain rather than discard a real edit.
-        if (is_string($original) && preg_match('/^-?[0-9]+$/D', $original) === 1 && filter_var($original, FILTER_VALIDATE_INT) === false) {
-            return false;
-        }
-
-        if (is_float($original) && ! is_finite($original)) {
-            return false;
         }
 
         return $original === $submitted;

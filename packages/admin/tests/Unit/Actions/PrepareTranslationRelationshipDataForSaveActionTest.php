@@ -9,6 +9,38 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Translation;
 use Illuminate\Support\Facades\DB;
 
+it('persists JSON-looking HTML content verbatim for a real page', function (): void {
+    $blueprint = Blueprint::factory()->contentStructure(ContentStructure::Blocks)->createOne();
+    $page = Page::factory()->type($blueprint)->createOne([
+        'content_structure_override' => ContentStructure::Html->value,
+    ]);
+    $translation = Translation::factory()->translatable($page)->createOne(['content' => '{"b":2,"a":1}'])->fresh();
+    $data = ['content' => '{"a":1,"b":2}'];
+
+    $prepared = PrepareTranslationRelationshipDataForSaveAction::run($translation, $data);
+    $translation->fill($prepared)->save();
+
+    expect($translation->refresh()->getRawOriginal('content'))->toBe($data['content'])
+        ->and($translation->content)->toBe($data['content'])
+        ->and($prepared)->toBe($data);
+});
+
+it('persists lossy float collisions in Blocks content', function (string $stored, string $submitted): void {
+    $blueprint = Blueprint::factory()->contentStructure(ContentStructure::Blocks)->createOne();
+    $page = Page::factory()->type($blueprint)->createOne();
+    $translation = Translation::factory()->translatable($page)->createOne(['content' => $stored])->fresh();
+    $data = ['content' => $submitted];
+
+    $prepared = PrepareTranslationRelationshipDataForSaveAction::run($translation, $data);
+    $translation->fill($prepared)->save();
+
+    expect($translation->refresh()->getRawOriginal('content'))->toBe($submitted)
+        ->and($prepared)->toBe($data);
+})->with([
+    'rounding collision' => ['{"value":0.1}', '{"value":0.10000000000000001}'],
+    'underflow' => ['{"value":0.0}', '{"value":1e-400}'],
+]);
+
 it('retains stored JSON when only object key order or formatting changes', function (string $attribute): void {
     $page = new Page(['content_structure_override' => ContentStructure::Blocks->value]);
     $page->setRelation('blueprint', new Blueprint);
@@ -110,5 +142,5 @@ it('persists JSON when decoding fails or scalar types differ', function (string 
     'integer to float' => ['{"value":1}', '{"value":1.0}'],
     'invalid stored JSON' => ['{"value":', '{"value":1}'],
     'invalid candidate JSON' => ['{"value":1}', '{"value":'],
-    'both invalid' => ['not JSON', 'not JSON'],
+    'both invalid' => ['not JSON', 'different invalid JSON'],
 ]);

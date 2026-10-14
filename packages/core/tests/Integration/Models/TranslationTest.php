@@ -14,6 +14,57 @@ use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
+it('does not update untouched raw metadata', function (string $stored): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->createOne();
+    DB::table($translation->getTable())->where('id', $translation->id)->update(['meta' => $stored]);
+    $original = $translation->refresh()->getAttributes();
+
+    $this->travel(2)->seconds();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        $saved = $translation->save();
+        $updates = collect(DB::getQueryLog())->filter(
+            fn (array $query): bool => str_starts_with(strtolower(ltrim($query['query'])), 'update ')
+                && str_contains($query['query'], $translation->getTable()),
+        );
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+
+    expect($updates)->toBeEmpty()
+        ->and($saved)->toBeTrue()
+        ->and($translation->refresh()->getRawOriginal('updated_at'))->toBe($original['updated_at'])
+        ->and($translation->getRawOriginal('meta'))->toBe($stored);
+})->with([
+    'leading zero string' => ['{"code":"001"}'],
+    'quoted big integer' => ['{"value":"9223372036854775808"}'],
+    'big integer token' => ['{"value":9223372036854775808}'],
+    'invalid JSON' => ['{"value":'],
+    'beyond decode depth' => [str_repeat('[', 513) . '0' . str_repeat(']', 513)],
+]);
+
+it('persists lossy float collisions in raw metadata', function (string $stored, string $submitted): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->createOne();
+    DB::table($translation->getTable())->where('id', $translation->id)->update(['meta' => $stored]);
+    $original = $translation->refresh()->getAttributes();
+
+    $this->travel(2)->seconds();
+    $translation->setRawAttributes([...$original, 'meta' => $submitted]);
+    $saved = $translation->save();
+
+    expect($saved)->toBeTrue()
+        ->and($translation->refresh()->getRawOriginal('meta'))->toBe($submitted)
+        ->and($translation->getRawOriginal('updated_at'))->not->toBe($original['updated_at']);
+})->with([
+    'rounding collision' => ['{"value":0.1}', '{"value":0.10000000000000001}'],
+    'underflow' => ['{"value":0.0}', '{"value":1e-400}'],
+]);
+
 it('does not update a translation when assigned equivalent MySQL-shaped meta', function (): void {
     $page = Page::factory()->createOne();
     $translation = Translation::factory()->translatable($page)->createOne();
