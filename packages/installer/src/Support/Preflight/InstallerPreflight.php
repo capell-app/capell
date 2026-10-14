@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\Preflight;
 
+use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
 use Capell\Core\Data\Install\InstallReadinessCheckData;
 use Capell\Core\Data\Install\InstallReadinessReportData;
 use Capell\Core\Data\InstallInputData;
@@ -626,55 +627,19 @@ final class InstallerPreflight
      */
     private function selectedPackages(string $key, string $label, array $packages, bool $dev = false): array
     {
-        $binary = $this->binaryResolver->misconfiguredComposerBinary() === null
-            ? $this->binaryResolver->composerOrNull()
-            : null;
-
-        if ($binary === null) {
-            return $this->check(
-                $key,
-                $label,
-                'fail',
-                'Composer is required to install selected downloadable packages.',
-                'Make Composer available to the web PHP process or deselect downloadable packages.',
-            );
-        }
-
-        $arguments = array_map(fn (string $package): string => $package . ':*', $packages);
-        $options = [
-            '--dry-run',
-            '--no-audit',
-            '--no-interaction',
-            '--no-progress',
-            '--no-scripts',
-            '--with-all-dependencies',
-        ];
-
-        if ($dev) {
-            $options[] = '--dev';
-        }
-
-        $process = $this->processFactory->make(
-            array_merge([
-                ...$binary,
-                'require',
-            ], $arguments, $options),
-            base_path(),
-            ComposerProcessEnvironment::forInstall($_SERVER),
+        $result = RunInstallPreflightChecksAction::make()->selectedPackageCheck(
+            $packages,
+            $dev,
+            $this->processFactory,
+            $this->binaryResolver,
         );
-        $process->setTimeout(120);
-        $process->run();
-
-        if ($process->isSuccessful()) {
-            return $this->check($key, $label, 'pass', 'Selected downloadable packages can be resolved by Composer.');
-        }
 
         return $this->check(
             $key,
             $label,
-            'fail',
-            $this->clean($process->getErrorOutput() !== '' ? $process->getErrorOutput() : $process->getOutput()),
-            'Check package names, Composer repositories, GitHub access, and HTTPS/SSH clone configuration.',
+            $result->failed() ? 'fail' : 'pass',
+            $result->message,
+            $result->remediation ?? '',
         );
     }
 

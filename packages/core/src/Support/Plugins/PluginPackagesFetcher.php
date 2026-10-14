@@ -6,6 +6,7 @@ namespace Capell\Core\Support\Plugins;
 
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Http\OutboundHttpRetry;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
@@ -18,19 +19,45 @@ class PluginPackagesFetcher
 
     private const int CACHE_SCHEMA = 2;
 
-    private ?float $deadline = null;
-
     /** @return Collection<int, array<string, mixed>> */
     public function fetchWithinBudget(float $seconds): Collection
     {
-        $fetcher = clone $this;
-        $fetcher->deadline = microtime(true) + max(0, $seconds);
-
-        return $fetcher->fetch();
+        return $this->fetchCatalogue(false, microtime(true) + max(0, $seconds));
     }
 
     /** @return Collection<int, array<string, mixed>> */
     public function fetch(bool $force = false): Collection
+    {
+        return $this->fetchCatalogue($force);
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    public function getCached(): Collection
+    {
+        if (config('capell.disable_cache') === true) {
+            return collect();
+        }
+
+        if (resolve(CapellCacheManager::class)->getFreshFromCache(CacheEnum::ExtensionPackages->value . '-source') !== config('capell.plugins_source_url')
+            || resolve(CapellCacheManager::class)->getFreshFromCache(CacheEnum::ExtensionPackages->value . '-schema') !== self::CACHE_SCHEMA) {
+            return collect();
+        }
+
+        $cached = resolve(CapellCacheManager::class)->getFreshFromCache(CacheEnum::ExtensionPackages->value);
+
+        if ($cached instanceof Collection) {
+            return $cached;
+        }
+
+        if (is_array($cached)) {
+            return collect($cached);
+        }
+
+        return collect();
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    private function fetchCatalogue(bool $force, ?float $deadline = null): Collection
     {
         $cacheKey = CacheEnum::ExtensionPackages->value;
         $ttl = config('capell.plugins_cache_ttl', 3600);
@@ -42,7 +69,7 @@ class PluginPackagesFetcher
             }
 
             if (config('capell.disable_cache') !== true
-                && CapellCore::getFromCache($cacheKey . '-unavailable-source') === config('capell.plugins_source_url')) {
+                && resolve(CapellCacheManager::class)->getFreshFromCache($cacheKey . '-unavailable-source') === config('capell.plugins_source_url')) {
                 return collect();
             }
         }
@@ -62,14 +89,14 @@ class PluginPackagesFetcher
         // pagination URLs, which could send the next request to a private host.
         for ($page = 1; $page <= $lastPage; $page++) {
             $pageUrl = $page === 1 ? $url : $url . (str_contains($url, '?') ? '&' : '?') . 'page=' . $page;
-            $remaining = $this->deadline === null ? 10.0 : $this->deadline - microtime(true);
+            $remaining = $deadline === null ? 10.0 : $deadline - microtime(true);
             if ($remaining <= 0) {
                 return $this->unavailable();
             }
 
-            $request = Http::acceptJson()->connectTimeout(min($remaining, $this->deadline === null ? 5 : 1))
+            $request = Http::acceptJson()->connectTimeout(min($remaining, $deadline === null ? 5 : 1))
                 ->timeout($remaining)->withOptions(['allow_redirects' => false]);
-            if ($this->deadline === null) {
+            if ($deadline === null) {
                 $request = OutboundHttpRetry::fromConfig('capell.plugins_http')->apply($request);
             }
 
@@ -124,37 +151,12 @@ class PluginPackagesFetcher
         return $packages;
     }
 
-    /** @return Collection<int, array<string, mixed>> */
-    public function getCached(): Collection
-    {
-        if (config('capell.disable_cache') === true) {
-            return collect();
-        }
-
-        if (CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-source') !== config('capell.plugins_source_url')
-            || CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-schema') !== self::CACHE_SCHEMA) {
-            return collect();
-        }
-
-        $cached = CapellCore::getFromCache(CacheEnum::ExtensionPackages->value);
-
-        if ($cached instanceof Collection) {
-            return $cached;
-        }
-
-        if (is_array($cached)) {
-            return collect($cached);
-        }
-
-        return collect();
-    }
-
     private function hasCachedCatalogue(): bool
     {
         return config('capell.disable_cache') !== true
-            && CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-source') === config('capell.plugins_source_url')
-            && CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-schema') === self::CACHE_SCHEMA
-            && CapellCore::cacheExists(CacheEnum::ExtensionPackages->value);
+            && resolve(CapellCacheManager::class)->getFreshFromCache(CacheEnum::ExtensionPackages->value . '-source') === config('capell.plugins_source_url')
+            && resolve(CapellCacheManager::class)->getFreshFromCache(CacheEnum::ExtensionPackages->value . '-schema') === self::CACHE_SCHEMA
+            && resolve(CapellCacheManager::class)->getFreshFromCache(CacheEnum::ExtensionPackages->value) !== null;
     }
 
     /** @return Collection<int, array<string, mixed>> */

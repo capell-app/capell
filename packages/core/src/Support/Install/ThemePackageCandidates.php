@@ -118,12 +118,15 @@ final class ThemePackageCandidates
         );
     }
 
-    /** @return array<string, ThemeInstallOptionData> */
-    public function optionDataForCatalogue(): array
+    /**
+     * @param  Collection<int, array<string, mixed>>|null  $remote
+     * @return array<string, ThemeInstallOptionData>
+     */
+    public function optionDataForCatalogue(?Collection $remote = null): array
     {
         return array_replace(
             $this->staticOptions(),
-            $this->optionDataFromPackages($this->downloadablePackages()),
+            $this->optionDataFromPackages($this->downloadablePackages($remote)),
             $this->localAppThemeOptions(),
             $this->localThemeOptions(),
             $this->optionDataFromPackages(
@@ -222,11 +225,14 @@ final class ThemePackageCandidates
             ->all();
     }
 
-    /** @return Collection<string, PackageData> */
-    private function downloadablePackages(): Collection
+    /**
+     * @param  Collection<int, array<string, mixed>>|null  $remote
+     * @return Collection<string, PackageData>
+     */
+    private function downloadablePackages(?Collection $remote = null): Collection
     {
         try {
-            return GetPluginsAction::run('download')
+            return ($remote instanceof Collection ? GetPluginsAction::run('download', $remote) : GetPluginsAction::run('download'))
                 ->filter(fn (PackageData $package): bool => $package->getThemeKey() !== null);
         } catch (Throwable) {
             return collect();

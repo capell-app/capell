@@ -221,3 +221,19 @@ it('shares the page time budget across pagination without caching partial data',
         ->and($fetcher->getCached())->toBeEmpty();
     Http::assertSentCount(1);
 });
+
+it('expires catalogue decisions in one process without flushing local cache', function (bool $unavailable): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions', 'capell.plugins_cache_ttl' => 60]);
+    Http::fakeSequence()
+        ->push(['packages' => []], $unavailable ? 503 : 200)
+        ->push(['packages' => [['name' => 'vendor/recovered']]]);
+    $fetcher = resolve(PluginPackagesFetcher::class);
+
+    expect($fetcher->fetchWithinBudget(2))->toBeEmpty()
+        ->and($fetcher->fetch())->toBeEmpty();
+    Http::assertSentCount(1);
+
+    $this->travel($unavailable ? 31 : 61)->seconds();
+    expect($fetcher->fetch()->pluck('name')->all())->toBe(['vendor/recovered']);
+    Http::assertSentCount(2);
+})->with(['cooldown' => true, 'valid empty' => false]);

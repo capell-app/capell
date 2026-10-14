@@ -2,14 +2,18 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\GetPluginsAction;
 use Capell\Core\Actions\Install\RunInstallPreflightChecksAction;
 use Capell\Core\Contracts\Database\DatabasePlatform;
 use Capell\Core\Data\Install\InstallReadinessCheckData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\Install\InstallReadinessStatus;
+use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Support\Database\DatabasePlatformRegistry;
 use Capell\Core\Tests\Support\Install\RecordingInstallProgressReporter;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Support\Facades\File;
 
 function runInstallPreflightInput(string $siteUrl = 'https://example.test'): InstallInputData
@@ -176,4 +180,59 @@ it('reports missing, unsupported, and extension-incomplete database configuratio
             'database.connections' => $originalDatabaseConnections,
         ]);
     }
+});
+
+it('freshly resolves the combined selected packages before installation', function (): void {
+    $factory = FakeProcessFactory::bind()->byDefault(exitCode: 2, errorOutput: "\e[31mdependency conflict\e[0m\n");
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        extraPackages: ['capell-app/admin', 'capell-app/frontend'],
+    );
+    $action = RunInstallPreflightChecksAction::make();
+
+    for ($attempt = 0; $attempt < 2; $attempt++) {
+        $report = $action->report($input);
+        $selectedCheck = collect($report->checks)->firstWhere('key', 'selected-packages');
+        expect($selectedCheck)->toBeInstanceOf(InstallReadinessCheckData::class);
+        $check = installReadinessCheck($selectedCheck);
+        expect($check->status)->toBe(InstallReadinessStatus::Blocked)
+            ->and($check->message)->toBe('dependency conflict')
+            ->and($check->remediation)->toBe('Check package names, Composer repositories, GitHub access, and HTTPS/SSH clone configuration.');
+    }
+
+    expect($factory->commands())->toHaveCount(2);
+    foreach ($factory->commands() as $command) {
+        expect($command)->toContain('require', '--dry-run', '--no-scripts', 'capell-app/admin:*', 'capell-app/frontend:*');
+    }
+
+    $reporter = new RecordingInstallProgressReporter;
+    expect(fn () => runBoundAction(RunInstallPreflightChecksAction::class, $action, $input, $reporter))->toThrow(RuntimeException::class, 'dependency conflict');
+    expect(implode(' ', $reporter->lines))->toContain('dependency conflict');
+});
+
+it('preflights the same explicit and prerelease constraints that installation will require', function (): void {
+    GetPluginsAction::mock()->shouldReceive('handle')->with('download')->andReturn(collect([
+        'capell-app/address' => new PackageData(name: 'capell-app/address', type: PackageTypeEnum::Plugin, version: '1.1.0-beta.45'),
+    ]));
+    $factory = FakeProcessFactory::bind();
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        extraPackages: ['capell-app/address', 'vendor/explicit:^2.0'],
+    );
+
+    $check = installReadinessCheck(collect(RunInstallPreflightChecksAction::make()->report($input)->checks)->firstWhere('key', 'selected-packages'));
+    expect($check->status)->toBe(InstallReadinessStatus::Passed);
+    expect($factory->commands()[0])->toContain('capell-app/address:^1.1.0-beta.45', 'vendor/explicit:^2.0', '--dry-run');
 });

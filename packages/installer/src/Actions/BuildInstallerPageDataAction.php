@@ -36,9 +36,10 @@ final class BuildInstallerPageDataAction
 
     public function handle(bool $capellAlreadyInstalled, bool $canReinstall): InstallerPageData
     {
-        // Fill the shared catalogue once, with a bounded budget for page rendering.
+        // Pass one bounded snapshot through all page consumers, even without caching.
+        $remote = collect();
         try {
-            resolve(PluginPackagesFetcher::class)->fetchWithinBudget(2);
+            $remote = resolve(PluginPackagesFetcher::class)->fetchWithinBudget(2);
         } catch (Throwable) {
             // Catalogue choices are optional, as in InstallerOptions. Local
             // packages and preflight must still render if discovery is unavailable.
@@ -71,12 +72,12 @@ final class BuildInstallerPageDataAction
         unset($packageBatches, $batch);
 
         $registeredPackageNames = array_column($packages, 'name');
-        $downloadablePackages = collect($this->options->downloadablePackages())
+        $downloadablePackages = collect($this->options->downloadablePackages($remote))
             ->reject(fn (array $package): bool => in_array($package['name'] ?? null, $registeredPackageNames, true))
             ->values()
             ->all();
         [$installId, $installStatus] = $this->sessions->activeInstallState();
-        $themeOptions = $this->options->themeOptions();
+        $themeOptions = $this->options->themeOptions($remote);
         $corePackages = array_values(array_filter(
             $packages,
             fn (array $package): bool => $package['core'] && ! $this->packageArrayIsTheme($package),

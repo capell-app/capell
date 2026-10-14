@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Install\RequireExtraPackagesAction;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
 use Capell\Core\Contracts\ProgressReporter;
@@ -22,6 +23,7 @@ use Capell\Installer\Enums\InstallerRunMode;
 use Capell\Installer\Enums\InstallerRunStepResultCode;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -564,3 +566,40 @@ it('refuses starting a destructive browser install before it queues work', funct
         ->toThrow(ValidationException::class);
     Queue::assertNothingPushed();
 });
+
+it('blocks conflicting package selections before requiring packages in synchronous and queued runs', function (bool $queued): void {
+    config(['cache.default' => 'array', 'queue.default' => 'database']);
+    Queue::fake();
+    $factory = FakeProcessFactory::bind()->byDefault(exitCode: 2, errorOutput: 'dependency conflict');
+    // Guard the broken path too: this regression must never install anything.
+    RequireExtraPackagesAction::mock()->shouldNotReceive('handle');
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        extraPackages: ['capell-app/admin', 'capell-app/frontend'],
+    );
+    $installId = '35353535-3535-4353-a353-353535353535';
+
+    if ($queued) {
+        StartInstallerRunAction::run($installId, $input, InstallerRunMode::Queued);
+        // The worker rechecks the selection even if the page cached success.
+        Cache::put('capell.installer.package_installable.' . hash('sha256', 'capell-app/admin'), true);
+        expect(fn () => new RunCapellInstallJob($input, $installId)->handle())
+            ->toThrow(RuntimeException::class, 'dependency conflict');
+    } else {
+        $result = StartInstallerRunAction::run($installId, $input, InstallerRunMode::Synchronous);
+        expect($result->completed)->toBeFalse()->and($result->status)->toBe('failed');
+    }
+
+    expect(Cache::get('capell.install.' . $installId . '.status'))->toBe('failed');
+    expect($factory->commands())->toHaveCount(1);
+    expect($factory->commands()[0])->toContain('require', '--dry-run', '--no-scripts', 'capell-app/admin:*', 'capell-app/frontend:*');
+
+    $log = Cache::get('capell.install.' . $installId . '.output', '');
+    expect(json_encode($log))->toContain('dependency conflict', 'preflight-checks');
+})->with(['synchronous' => false, 'queued worker' => true]);
