@@ -7,6 +7,31 @@ use Symfony\Component\Yaml\Yaml;
 
 require_once __DIR__ . '/../Support/DomQuery.php';
 
+it('starts sentinel independently of the still failing fast PR gate', function (): void {
+    $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/test-full.yml');
+    $jobs = $workflow['jobs'];
+    expect($jobs['sentinel']['needs'])->toBe(['matrix'])
+        ->and($jobs['sentinel']['if'])->not->toContain('needs.fast-pr')
+        ->and($jobs['sentinel']['if'])->toContain(
+            "github.actor != 'dependabot[bot]'",
+            'always()',
+            "needs.matrix.result == 'success'",
+            "(github.event_name != 'pull_request' || github.event.pull_request.draft == false)",
+            "!(github.event_name == 'workflow_dispatch' && inputs.cell != '')",
+        )
+        ->and($jobs['fast-pr']['uses'])->toBe('./.github/workflows/test-fast-pr.yml')
+        ->and($jobs['fast-pr']['if'])->toBe("\${{ github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' && github.event.pull_request.draft == false) }}")
+        ->and($jobs['fast-pr']['continue-on-error'] ?? false)->toBeFalse()
+        ->and($workflow['concurrency']['cancel-in-progress'])->toBeTrue();
+    foreach (['test-behaviour', 'test-unit', 'test-portability'] as $job) {
+        expect($jobs[$job]['needs'])->toBe(['sentinel', 'matrix']);
+    }
+
+    $fast = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/test-fast-pr.yml');
+    expect($fast['jobs']['test']['continue-on-error'] ?? false)->toBeFalse()
+        ->and($fast['jobs']['test']['strategy']['matrix']['include'])->toHaveCount(3);
+});
+
 it('configures isolated matrix jobs and retains portable runner safety flags', function (): void {
     $root = dirname(__DIR__, 2);
     $workflow = Yaml::parseFile($root . '/.github/workflows/test-full.yml');
@@ -83,7 +108,17 @@ it('requires the exact metric identities emitted by the current matrix', functio
         $suite = $cell['test_suite_slug'] ?? strtolower($cell['test_suite']);
         $package = $cell['package_slug'] ?? $cell['package'];
         $file = $directory . sprintf('/engineering-metrics/engineering-metrics-%s-%s.json', $suite, $package);
-        file_put_contents($file, json_encode(['tests' => 1, 'assertions' => 2, 'phpstan_level' => 10], JSON_THROW_ON_ERROR));
+        $job = $workflow['jobs'][$suite === 'unit' ? 'test-unit' : 'test-behaviour'];
+        $producer = array_column($job['steps'], null, 'name')['Write engineering metrics artifact']['run'];
+        $producer = str_replace([
+            '${{ matrix.test_suite_slug }}', '${{ matrix.package_slug || matrix.package }}', '${{ matrix.package_slug }}',
+        ], [$suite, $package, $package], $producer);
+        $write = new Process(['bash', '-eu', '-c', $producer], $directory . '/engineering-metrics', [
+            'TESTS' => '1', 'ASSERTIONS' => '2', 'PHPSTAN_LEVEL' => '10',
+            'PATH' => dirname(PHP_BINARY) . PATH_SEPARATOR . getenv('PATH'),
+        ]);
+        expect($write->run())->toBe(0, $write->getErrorOutput())
+            ->and(is_file($file))->toBeTrue();
         $files[] = $file;
     }
 

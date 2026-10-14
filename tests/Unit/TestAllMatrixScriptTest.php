@@ -78,6 +78,10 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
             if (in_array($suite, ['Unit', 'Feature'], true)) {
                 $directories = glob(dirname(__DIR__, 2) . '/packages/*/tests/' . $suite, GLOB_ONLYDIR) ?: [];
                 $expectedGroups = array_map(static fn (string $path): string => basename(dirname($path, 2)), $directories);
+                if ($suite === 'Feature') {
+                    $expectedGroups[] = 'admin';
+                }
+
                 $actualGroups = array_column($suiteCells, 'test_group');
                 sort($expectedGroups);
                 sort($actualGroups);
@@ -92,6 +96,46 @@ it('defines the complete Laravel 13 Test All matrix once', function (): void {
                 in_array($suite, ['Unit', 'Arch'], true) ? 'sqlite' : 'mysql',
             );
         }
+    }
+});
+
+it('shards every Admin Feature test exactly once through the exported matrix', function (): void {
+    $root = dirname(__DIR__, 2);
+    $export = new Process([PHP_BINARY, 'scripts/test-all-matrix.php', 'behaviour'], $root);
+    expect($export->run())->toBe(0, $export->getErrorOutput());
+    $matrix = json_decode($export->getOutput(), true, flags: JSON_THROW_ON_ERROR)['include'];
+    $cells = array_values(array_filter($matrix, static fn (array $cell): bool => $cell['package'] === 'Admin'));
+    expect($cells)->toHaveCount(2)
+        ->and(array_column($cells, 'shard'))->toBe(['1/2', '2/2']);
+
+    $discover = static function (?array $cell) use ($root): array {
+        $command = [PHP_BINARY, 'vendor/bin/pest', '--configuration=phpunit.xml',
+            '--testsuite=' . ($cell['test_suite'] ?? 'Feature'), '--group=' . ($cell['test_group'] ?? 'admin'), '--list-tests'];
+        if ($cell !== null) {
+            $command[] = '--shard=' . $cell['shard'];
+        }
+
+        $process = new Process($command, $root, ['PATH' => dirname(PHP_BINARY) . PATH_SEPARATOR . getenv('PATH')]);
+        $process->setTimeout(120);
+
+        expect($process->run())->toBe(0, $process->getErrorOutput());
+        $tests = array_values(array_filter(explode(PHP_EOL, $process->getOutput()), static fn (string $line): bool => str_starts_with($line, ' - ')));
+        expect($tests)->not->toBeEmpty();
+        sort($tests);
+
+        return $tests;
+    };
+
+    $unsharded = $discover(null);
+    $first = $discover($cells[0]);
+    $second = $discover($cells[1]);
+    $union = [...$first, ...$second];
+    sort($union);
+
+    expect(array_intersect($first, $second))->toBe([])
+        ->and($union)->toBe($unsharded);
+    foreach (['id', 'artifact_slug', 'junit', 'log', 'package_slug'] as $identity) {
+        expect(array_unique(array_column($cells, $identity)))->toHaveCount(2);
     }
 });
 
@@ -122,11 +166,15 @@ it('exports focused database portability cells for complete and targeted runs', 
         ]);
 });
 
-it('passes each portability family and driver through the cell runtime', function (
+it('passes each matrix selection and database driver through the cell runtime', function (
     string $cell,
     string $family,
     string $driver,
     string $version,
+    string $suite,
+    string $group,
+    ?string $shard,
+    int $commandExit = 0,
 ): void {
     $root = dirname(__DIR__, 2);
     $temporaryDirectory = sys_get_temp_dir() . '/capell-cell-runtime-' . bin2hex(random_bytes(6));
@@ -144,12 +192,16 @@ file_put_contents((string) getenv('CAPTURE_PATH'), json_encode([
     'database_connection' => getenv('DB_CONNECTION'),
     'database_family' => getenv('CAPELL_TEST_DATABASE_FAMILY'),
     'database_version' => getenv('CAPELL_TEST_DATABASE_VERSION'),
+    'test_suite' => getenv('PEST_TEST_SUITE'),
+    'test_group' => getenv('PEST_TEST_GROUP'),
 ], JSON_THROW_ON_ERROR));
+exit((int) getenv('CAPTURE_EXIT'));
 PHP);
     chmod($composerPath, 0700);
 
     $environment = [
         'CAPTURE_PATH' => $capturePath,
+        'CAPTURE_EXIT' => (string) $commandExit,
         'DB_DATABASE' => 'capell_portability_test',
         'DB_HOST' => '127.0.0.1',
         'DB_PASSWORD' => 'capell-test',
@@ -172,23 +224,31 @@ PHP);
         exec($command, $output, $exitCode);
         $captured = json_decode((string) file_get_contents($capturePath), true, flags: JSON_THROW_ON_ERROR);
 
-        expect($exitCode)->toBe(0)
+        expect($exitCode)->toBe($commandExit)
             ->and($captured)->toMatchArray([
                 'database_connection' => $driver,
                 'database_family' => $family,
                 'database_version' => $version,
+                'test_suite' => $suite,
+                'test_group' => $group,
             ])
-            ->and(array_slice($captured['argv'], 1))->toBe(['run', 'test:database:portability:ci']);
+            ->and(array_slice($captured['argv'], 1))->toBe([
+                'run', $group === 'admin' ? 'test:database:package:ci' : 'test:database:portability:ci',
+                ...($shard === null ? [] : ['--', '--shard=' . $shard]),
+            ]);
     } finally {
         @unlink($capturePath);
-        @unlink($temporaryDirectory . '/output/pest-output-portability-' . str_replace('l13-portability-', '', $cell) . '.txt');
+        @unlink($temporaryDirectory . '/output/' . TestAllMatrix::find($cell)['log']);
         @rmdir($temporaryDirectory . '/output');
         @unlink($composerPath);
         @rmdir($temporaryDirectory);
     }
 })->with([
-    'MariaDB 10.5' => ['l13-portability-mariadb-10-5', 'mariadb', 'mariadb', '10.5'],
-    'PostgreSQL 16' => ['l13-portability-postgresql-16', 'postgresql', 'pgsql', '16'],
+    'MariaDB 10.5' => ['l13-portability-mariadb-10-5', 'mariadb', 'mariadb', '10.5', 'Portability', 'database-portability', null],
+    'PostgreSQL 16' => ['l13-portability-postgresql-16', 'postgresql', 'pgsql', '16', 'Portability', 'database-portability', null],
+    'Admin shard 1' => ['l13-feature-admin-shard-1', 'mysql', 'mysql', 'runtime', 'Feature', 'admin', '1/2'],
+    'Admin shard 2' => ['l13-feature-admin-shard-2', 'mysql', 'mysql', 'runtime', 'Feature', 'admin', '2/2'],
+    'Failed Admin shard' => ['l13-feature-admin-shard-1', 'mysql', 'mysql', 'runtime', 'Feature', 'admin', '1/2', 7],
 ]);
 
 it('describes a distinct disposable service for each server database family', function (
@@ -338,11 +398,12 @@ it('runs an isolated selected matrix cell and preserves its evidence and failure
     ['l13-unit-core', false], ['l13-portability-sqlite', false], ['l13-unit-core', true],
 ]);
 
-it('can select one exact hosted repair cell without changing its topology', function (): void {
+it('can select one exact hosted repair cell without changing its topology', function (string $cellId, string $shard): void {
     $root = dirname(__DIR__, 2);
     $command = sprintf(
-        'php %s target --cell=l13-feature-admin',
+        'php %s target --cell=%s',
         escapeshellarg($root . '/scripts/test-all-matrix.php'),
+        escapeshellarg($cellId),
     );
     exec($command, $output, $exitCode);
 
@@ -351,11 +412,15 @@ it('can select one exact hosted repair cell without changing its topology', func
     $matrix = json_decode(implode(PHP_EOL, $output), true, flags: JSON_THROW_ON_ERROR);
 
     expect($matrix['include'])->toHaveCount(1)
-        ->and($matrix['include'][0]['id'])->toBe('l13-feature-admin')
+        ->and($matrix['include'][0]['id'])->toBe($cellId)
+        ->and($matrix['include'][0]['shard'])->toBe($shard)
         ->and($matrix['include'][0]['database'])->toBe('mysql')
         ->and($matrix['include'][0]['test_suite'])->toBe('Feature')
         ->and($matrix['include'][0]['package'])->toBe('Admin');
-});
+})->with([
+    ['l13-feature-admin-shard-1', '1/2'],
+    ['l13-feature-admin-shard-2', '2/2'],
+]);
 
 it('rejects sentinel cells as targeted hosted repairs', function (string $cell): void {
     $root = dirname(__DIR__, 2);

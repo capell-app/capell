@@ -61,6 +61,7 @@ final class TestAllMatrix
                     'test_suite' => 'Feature',
                     'test_suite_slug' => 'feature',
                     'package' => $package['package'],
+                    'package_label' => $package['package'],
                     'test_group' => $package['group'],
                     'database' => 'mysql',
                     'command' => 'test:database:package:ci',
@@ -73,7 +74,23 @@ final class TestAllMatrix
                     $cell['max_processes'] = $package['max_processes'];
                 }
 
-                $cells[] = $cell;
+                if ($package['group'] === 'admin') {
+                    foreach ([1, 2] as $shard) {
+                        $suffix = '-shard-' . $shard;
+                        $cells[] = [
+                            ...$cell,
+                            'id' => $cell['id'] . $suffix,
+                            'shard' => $shard . '/2',
+                            'package_label' => $cell['package'] . ' (' . $shard . '/2)',
+                            'package_slug' => $cell['package'] . $suffix,
+                            'junit' => 'junit-feature-' . $cell['package'] . $suffix . '.xml',
+                            'log' => 'pest-output-feature-' . $cell['package'] . $suffix . '.txt',
+                            'artifact_slug' => $cell['artifact_slug'] . $suffix,
+                        ];
+                    }
+                } else {
+                    $cells[] = $cell;
+                }
             }
 
             // One unfiltered cell runs every architecture guard, including new
@@ -84,6 +101,7 @@ final class TestAllMatrix
                 'test_suite' => 'Arch',
                 'test_suite_slug' => 'arch',
                 'package' => 'All',
+                'package_label' => 'All',
                 'test_group' => 'unused',
                 'database' => 'sqlite',
                 'command' => 'test:database:ci',
@@ -98,6 +116,7 @@ final class TestAllMatrix
                 'test_suite' => 'Integration',
                 'test_suite_slug' => 'integration',
                 'package' => 'All',
+                'package_label' => 'All',
                 'test_group' => 'unused',
                 'database' => 'mysql',
                 'command' => 'test:database:ci',
