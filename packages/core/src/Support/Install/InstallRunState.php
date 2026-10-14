@@ -31,72 +31,81 @@ final class InstallRunState
     /** @param list<string> $paths */
     public static function recordScaffoldedPanelProviders(array $paths): void
     {
-        if ($paths === []) {
-            return;
-        }
+        foreach ($paths as $path) {
+            if (is_file($path)) {
+                $state = self::progressState();
+                self::savePanelProvider($path, true, is_string($state['panel_scaffold_run'] ?? null) ? $state['panel_scaffold_run'] : null);
 
-        $store = self::progressStore();
-        $state = $store->get('capell.install.state', []);
-        $state = is_array($state) ? $state : [];
-
-        $identities = [];
-
-        foreach (array_unique([...self::scaffoldedPanelProviders(), ...$paths]) as $path) {
-            $absolutePath = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
-            $hash = is_file($absolutePath) ? hash_file('sha256', $absolutePath) : false;
-
-            if ($hash !== false) {
-                $identities[str($absolutePath)->after(base_path() . DIRECTORY_SEPARATOR)->toString()] = $hash;
+                return;
             }
         }
-
-        $state['scaffolded_panel_providers'] = $identities;
-        throw_unless($store->forever('capell.install.state', $state), RuntimeException::class, 'Unable to persist panel scaffold provenance.');
     }
 
     /** @return list<string> */
     public static function scaffoldedPanelProviders(): array
     {
-        $state = self::progressStore()->get('capell.install.state', []);
-        $identities = is_array($state) ? ($state['scaffolded_panel_providers'] ?? []) : [];
-        $paths = [];
+        $record = self::panelProviderRecord();
+        $path = self::authorisedPanelProvider();
 
-        if (! is_array($identities)) {
-            return [];
-        }
-
-        foreach ($identities as $path => $hash) {
-            // Legacy path-only records cannot establish ownership of the current file.
-            if (! is_string($path)) {
-                continue;
-            }
-
-            if (! is_string($hash)) {
-                continue;
-            }
-
-            $absolutePath = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
-            $currentHash = is_file($absolutePath) ? hash_file('sha256', $absolutePath) : false;
-
-            if ($currentHash !== false && hash_equals($hash, $currentHash)) {
-                $paths[] = $path;
-            }
-        }
-
-        return $paths;
+        return $record !== null && $record['pending'] && $path !== null ? [self::panelProviderKey($path)] : [];
     }
 
-    public static function retireScaffoldedPanelProviders(): void
+    public static function authorisedPanelProvider(): ?string
     {
-        $store = self::progressStore();
-        $state = $store->get('capell.install.state', []);
+        $record = self::panelProviderRecord();
 
-        if (! is_array($state) || ! array_key_exists('scaffolded_panel_providers', $state)) {
+        if ($record === null) {
+            return null;
+        }
+
+        $path = str_starts_with($record['path'], DIRECTORY_SEPARATOR) ? $record['path'] : base_path($record['path']);
+        $hash = is_file($path) ? hash_file('sha256', $path) : false;
+
+        return $hash !== false && hash_equals($record['hash'], $hash) ? (realpath($path) ?: $path) : null;
+    }
+
+    public static function hasPanelProviderRecord(): bool
+    {
+        $state = self::progressState();
+
+        return array_key_exists('panel_provider', $state) || ($state['scaffolded_panel_providers'] ?? []) !== [];
+    }
+
+    public static function recordPanelProviderSave(string $path, string $original): void
+    {
+        $record = self::panelProviderRecord();
+        $wasOwned = $record !== null && $record['path'] === self::panelProviderKey($path) && hash_equals($record['hash'], hash('sha256', $original));
+        self::savePanelProvider($path, $wasOwned && $record['pending'], $wasOwned ? $record['run'] : null);
+    }
+
+    public static function retireScaffoldedPanelProviders(?string $runId = null): void
+    {
+        $record = self::panelProviderRecord();
+
+        if ($record === null || ($runId !== null && $record['run'] !== null && $record['run'] !== $runId)) {
             return;
         }
 
+        // Completing a step retires pending work, not ownership of the panel it serves.
+        $state = self::progressState();
+        $state['panel_provider'] = [...$record, 'pending' => false];
         unset($state['scaffolded_panel_providers']);
-        throw_unless($store->forever('capell.install.state', $state), RuntimeException::class, 'Unable to retire panel scaffold provenance.');
+        self::saveProgressState($state);
+    }
+
+    public static function usePanelScaffoldRun(string $runId): void
+    {
+        $state = self::progressState();
+        $state['panel_scaffold_run'] = $runId;
+        self::saveProgressState($state);
+    }
+
+    public static function panelProviderKey(string $path): string
+    {
+        $absolutePath = realpath($path) ?: $path;
+        $basePath = realpath(base_path()) ?: base_path();
+
+        return str($absolutePath)->after($basePath . DIRECTORY_SEPARATOR)->toString();
     }
 
     /**
@@ -165,6 +174,57 @@ final class InstallRunState
         }
 
         return $user;
+    }
+
+    private static function savePanelProvider(string $path, bool $pending, ?string $run): void
+    {
+        $hash = hash_file('sha256', $path);
+        throw_unless(is_string($hash), RuntimeException::class, 'Unable to read panel provider identity.');
+        $state = self::progressState();
+        $state['panel_provider'] = ['path' => self::panelProviderKey($path), 'hash' => $hash, 'pending' => $pending, 'run' => $run];
+        unset($state['scaffolded_panel_providers']);
+        self::saveProgressState($state);
+    }
+
+    /** @return array{path: string, hash: string, pending: bool, run: ?string}|null */
+    private static function panelProviderRecord(): ?array
+    {
+        $state = self::progressState();
+        $record = $state['panel_provider'] ?? null;
+
+        if (is_array($record) && is_string($record['path'] ?? null) && is_string($record['hash'] ?? null)) {
+            return [
+                'path' => $record['path'],
+                'hash' => $record['hash'],
+                'pending' => ($record['pending'] ?? false) === true,
+                'run' => is_string($record['run'] ?? null) ? $record['run'] : null,
+            ];
+        }
+
+        $legacy = $state['scaffolded_panel_providers'] ?? [];
+
+        foreach (is_array($legacy) ? $legacy : [] as $path => $hash) {
+            // Path-only records cannot establish ownership of the current file.
+            if (is_string($path) && is_string($hash)) {
+                return ['path' => $path, 'hash' => $hash, 'pending' => true, 'run' => null];
+            }
+        }
+
+        return null;
+    }
+
+    /** @return array<string, mixed> */
+    private static function progressState(): array
+    {
+        $state = self::progressStore()->get('capell.install.state', []);
+
+        return is_array($state) ? $state : [];
+    }
+
+    /** @param array<string, mixed> $state */
+    private static function saveProgressState(array $state): void
+    {
+        throw_unless(self::progressStore()->forever('capell.install.state', $state), RuntimeException::class, 'Unable to persist panel provider ownership.');
     }
 
     private static function progressStore(): Repository

@@ -180,11 +180,12 @@ final class InstallerSessionRepository
             $this->forget($this->key($installId, $suffix));
         }
 
-        InstallRunState::retireScaffoldedPanelProviders();
+        InstallRunState::retireScaffoldedPanelProviders($installId);
     }
 
     public function lock(string $installId, bool $queued = false): void
     {
+        InstallRunState::usePanelScaffoldRun($installId);
         $payload = ['installId' => $installId];
 
         if ($queued) {

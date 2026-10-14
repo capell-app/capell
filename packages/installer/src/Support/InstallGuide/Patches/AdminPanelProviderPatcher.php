@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
+use Capell\Core\Support\Install\PanelProviderWriter;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use PhpParser\Node;
@@ -23,16 +25,16 @@ use Throwable;
 final class AdminPanelProviderPatcher
 {
     public function __construct(
-        private readonly string $providerPath = 'app/Providers/Filament/AdminPanelProvider.php',
-        private readonly string $className = 'AdminPanelProvider',
+        private readonly ?string $providerPath = null,
+        private readonly ?string $className = null,
         private readonly string $panelMethodName = 'panel',
     ) {}
 
     public function probe(callable $decide): PatchStatus
     {
-        $absolutePath = base_path($this->providerPath);
+        $absolutePath = resolve(PanelProviderTargetResolver::class)->resolve($this->providerPath, adoptDefault: true)[0] ?? null;
 
-        if (! file_exists($absolutePath)) {
+        if ($absolutePath === null) {
             return PatchStatus::Unsupported;
         }
 
@@ -66,10 +68,10 @@ final class AdminPanelProviderPatcher
      */
     public function apply(callable $decide, callable $mutate, array $useStatements = [], array $removeUseStatements = []): void
     {
-        $absolutePath = base_path($this->providerPath);
+        $absolutePath = resolve(PanelProviderTargetResolver::class)->resolve($this->providerPath, adoptDefault: true)[0] ?? null;
 
         throw_unless(
-            file_exists($absolutePath),
+            $absolutePath !== null,
             RuntimeException::class,
             'AdminPanelProvider not found at: ' . $absolutePath,
         );
@@ -97,7 +99,7 @@ final class AdminPanelProviderPatcher
             $mutate($panelMethodNode->stmts[0]);
         }
 
-        $editor->save();
+        resolve(PanelProviderWriter::class)->save($absolutePath, $editor->originalContent(), $editor->print());
     }
 
     public function hasMethodCall(Node $stmt, string $methodName): bool

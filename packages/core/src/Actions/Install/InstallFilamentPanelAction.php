@@ -8,7 +8,8 @@ use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\InstallRunState;
-use Capell\Core\Support\Install\PanelThemeTargetResolver;
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
+use Capell\Core\Support\Install\PanelProviderWriter;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
@@ -54,9 +55,9 @@ class InstallFilamentPanelAction
 
     public static function registerPanelProviders(): void
     {
-        foreach (self::panelProviderPaths() as $path) {
-            $relativePath = str_replace(app_path() . DIRECTORY_SEPARATOR, '', $path);
-            $class = 'App\\' . str_replace(['/', '.php'], ['\\', ''], $relativePath);
+        foreach (resolve(PanelProviderTargetResolver::class)->candidates() as $candidate) {
+            $path = $candidate->path;
+            $class = $candidate->className;
 
             if (! class_exists($class)) {
                 require_once $path;
@@ -108,7 +109,7 @@ class InstallFilamentPanelAction
 
     public function configureThemeForProvider(string $path, ProgressReporter $reporter): void
     {
-        $this->configurePanelThemes(resolve(PanelThemeTargetResolver::class)->resolve($path), $reporter);
+        $this->configurePanelThemes(resolve(PanelProviderTargetResolver::class)->resolve($path), $reporter);
     }
 
     public function themePatchStatus(string $path): PatchStatus
@@ -132,18 +133,18 @@ class InstallFilamentPanelAction
     /**
      * @return list<string>
      */
-    private static function panelProviderPaths(): array
+    private function panelProviderPaths(): array
     {
-        return resolve(PanelThemeTargetResolver::class)->providerPaths();
+        return resolve(PanelProviderTargetResolver::class)->providerPaths();
     }
 
     private function installPanel(ProgressReporter $reporter): void
     {
-        $panelProviderPaths = self::panelProviderPaths();
+        $panelProviderPaths = $this->panelProviderPaths();
 
         if ($panelProviderPaths !== []) {
             $reporter->report('→ Filament admin panel already configured.');
-            $ownedPaths = resolve(PanelThemeTargetResolver::class)->resolve();
+            $ownedPaths = resolve(PanelProviderTargetResolver::class)->resolve();
             $this->configurePanelThemes($ownedPaths, $reporter);
             $this->reportMissingThemeConfiguration(array_values(array_diff($panelProviderPaths, $ownedPaths)), $reporter);
 
@@ -154,7 +155,7 @@ class InstallFilamentPanelAction
             $this->installFilamentInFreshProcess($reporter, null);
             $this->ensurePanelProviderWasCreated();
             self::registerPanelProviders();
-            $this->configurePanelThemes(resolve(PanelThemeTargetResolver::class)->resolve(), $reporter);
+            $this->configurePanelThemes(resolve(PanelProviderTargetResolver::class)->resolve(), $reporter);
 
             return;
         }
@@ -169,7 +170,7 @@ class InstallFilamentPanelAction
                 ], $reporter);
             } finally {
                 // Scaffolding may succeed before asset publication interrupts installation.
-                InstallRunState::recordScaffoldedPanelProviders(self::panelProviderPaths());
+                InstallRunState::recordScaffoldedPanelProviders($this->panelProviderPaths());
             }
         } catch (Throwable $throwable) {
             $reporter->error(sprintf('✗ Failed to scaffold Filament panel: %s', $throwable->getMessage()));
@@ -178,7 +179,7 @@ class InstallFilamentPanelAction
 
         $this->ensurePanelProviderWasCreated();
         self::registerPanelProviders();
-        $this->configurePanelThemes(resolve(PanelThemeTargetResolver::class)->resolve(), $reporter);
+        $this->configurePanelThemes(resolve(PanelProviderTargetResolver::class)->resolve(), $reporter);
     }
 
     private function installFilamentInFreshProcess(ProgressReporter $reporter, ?Throwable $previous): void
@@ -189,7 +190,7 @@ class InstallFilamentPanelAction
 
         // Asset publication can fail after scaffolding succeeds. Regenerating
         // that registered panel would remove its default and login configuration.
-        if (self::panelProviderPaths() === []) {
+        if ($this->panelProviderPaths() === []) {
             $command[] = '--panels';
         }
 
@@ -202,7 +203,7 @@ class InstallFilamentPanelAction
         );
         $process->setTimeout(300);
 
-        $existingPaths = self::panelProviderPaths();
+        $existingPaths = $this->panelProviderPaths();
         try {
             $process->run(function (string $type, string $buffer) use ($reporter): void {
                 foreach (explode("\n", trim($buffer)) as $line) {
@@ -212,7 +213,7 @@ class InstallFilamentPanelAction
                 }
             });
         } finally {
-            InstallRunState::recordScaffoldedPanelProviders(array_values(array_diff(self::panelProviderPaths(), $existingPaths)));
+            InstallRunState::recordScaffoldedPanelProviders(array_values(array_diff($this->panelProviderPaths(), $existingPaths)));
         }
 
         if ($process->isSuccessful()) {
@@ -231,7 +232,7 @@ class InstallFilamentPanelAction
 
     private function ensurePanelProviderWasCreated(): void
     {
-        if (self::panelProviderPaths() !== []) {
+        if ($this->panelProviderPaths() !== []) {
             return;
         }
 
@@ -271,6 +272,8 @@ CSS);
                     $this->ensureDefaultThemeStylesheetExists();
                 }
 
+                resolve(PanelProviderWriter::class)->save($path, $editor->originalContent(), $editor->originalContent());
+
                 continue;
             }
 
@@ -280,7 +283,6 @@ CSS);
                 continue;
             }
 
-            $wasScaffolded = in_array(str($path)->after(base_path() . DIRECTORY_SEPARATOR)->toString(), InstallRunState::scaffoldedPanelProviders(), true);
             $method = $editor->findMethodInClass(pathinfo($path, PATHINFO_FILENAME), 'panel');
             $statement = $method?->stmts[0] ?? null;
             throw_unless($statement instanceof Return_ && $statement->expr instanceof MethodCall, RuntimeException::class, 'Unable to append panel theme.');
@@ -289,11 +291,7 @@ CSS);
             $statement->expr = new MethodCall($statement->expr, 'viteTheme', [
                 new Arg(new String_(self::DEFAULT_THEME_PATH)),
             ]);
-            $editor->save();
-
-            if ($wasScaffolded) {
-                InstallRunState::recordScaffoldedPanelProviders([$path]);
-            }
+            resolve(PanelProviderWriter::class)->save($path, $editor->originalContent(), $editor->print());
 
             $reporter->report('→ Configured the compiled Filament admin theme.');
         }

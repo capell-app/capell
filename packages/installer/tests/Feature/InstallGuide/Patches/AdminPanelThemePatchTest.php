@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Enums\FilamentColorEnum;
+use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\InstallRunState;
+use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Installer\Support\InstallGuide\Patches\AdminPanelColorsPatch;
 use Capell\Installer\Support\InstallGuide\Patches\AdminPanelThemePatch;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
 use Capell\Tests\Support\GeneratedPanelProvider;
@@ -186,8 +190,11 @@ it('contributes automatic theme patches only for authorised targets', function (
     File::ensureDirectoryExists(dirname($path));
     File::put($path, str_replace('AdminPanelProvider', 'WorkspacePanelProvider', stockAdminPanelThemeProvider()));
 
-    if ($owned) {
-        InstallRunState::recordScaffoldedPanelProviders([$path]);
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+
+    if (! $owned) {
+        // A replacement at a known path cannot become the default adoption target.
+        File::put($path, str_replace("->id('admin')", "->id('host')", File::get($path)));
     }
 
     $patches = resolve(InstallPatchRegistry::class)->patchesFor(new InstallPatchContext(['capell-app/admin'], true));
@@ -199,3 +206,49 @@ it('contributes automatic theme patches only for authorised targets', function (
         expect($themePatches->first()?->probe())->toBe(PatchStatus::Applicable);
     }
 })->with([false, true]);
+
+it('preserves scaffold ownership through colours then theme and resume', function (): void {
+    $path = app_path('Providers/Filament/AdminPanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, stockAdminPanelThemeProvider());
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+
+    (new AdminPanelColorsPatch)->apply();
+
+    expect(InstallRunState::scaffoldedPanelProviders())->toContain('app/Providers/Filament/AdminPanelProvider.php');
+    $theme = new AdminPanelThemePatch;
+    expect($theme->probe())->toBe(PatchStatus::Applicable);
+    $theme->apply();
+    $configured = File::get($path);
+    File::delete(resource_path('css/filament/admin/theme.css'));
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(File::get($path))->toBe($configured)
+        ->and(GeneratedPanelProvider::load($path)->getViteTheme())->toBe('resources/css/filament/admin/theme.css')
+        ->and(GeneratedPanelProvider::load($path)->getColors())->toBe(FilamentColorEnum::colors())
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
+});
+
+it('offers the theme patch for the default adoption target and leaves other providers unchanged on resume', function (): void {
+    $target = app_path('Providers/Filament/AdminPanelProvider.php');
+    $host = app_path('Providers/Filament/OtherPanelProvider.php');
+    File::ensureDirectoryExists(dirname($target));
+    File::put($target, stockAdminPanelThemeProvider());
+    File::put($host, str_replace('AdminPanelProvider', 'OtherPanelProvider', stockAdminPanelThemeProvider()));
+    $hostBytes = File::get($host);
+    $context = new InstallPatchContext(['capell-app/admin'], true);
+    $patches = resolve(InstallPatchRegistry::class)->patchesFor($context);
+    $registered = collect($patches)->first(fn ($registered): bool => $registered->patch instanceof AdminPanelThemePatch);
+    expect($registered)->not->toBeNull();
+    expect($registered?->confirmation?->label)->toBe('Add the Capell Filament Vite theme to AdminPanelProvider?');
+
+    $registered?->patch->apply();
+    $configured = File::get($target);
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    $resumed = collect(resolve(InstallPatchRegistry::class)->patchesFor($context))->first(fn ($registered): bool => $registered->patch instanceof AdminPanelThemePatch);
+    expect($resumed?->patch->probe())->toBe(PatchStatus::AlreadyApplied)
+        ->and(File::get($target))->toBe($configured)
+        ->and(File::get($host))->toBe($hostBytes)
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
+});

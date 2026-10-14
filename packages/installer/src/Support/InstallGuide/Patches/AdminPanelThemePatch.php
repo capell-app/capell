@@ -6,7 +6,7 @@ namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Support\Install\NullProgressReporter;
-use Capell\Core\Support\Install\PanelThemeTargetResolver;
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
@@ -18,6 +18,7 @@ class AdminPanelThemePatch implements Patch
 {
     public function __construct(
         private readonly ?string $providerPath = null,
+        private readonly bool $adoptDefault = false,
     ) {}
 
     #[Override]
@@ -59,22 +60,9 @@ class AdminPanelThemePatch implements Patch
     #[Override]
     public function probe(): PatchStatus
     {
-        $paths = resolve(PanelThemeTargetResolver::class)->resolve($this->providerPath);
+        $path = $this->target();
 
-        if ($paths === []) {
-            return PatchStatus::Unsupported;
-        }
-
-        $action = resolve(InstallFilamentPanelAction::class);
-        $statuses = array_map($action->themePatchStatus(...), $paths);
-
-        foreach ([PatchStatus::Unsupported, PatchStatus::Customised, PatchStatus::Applicable] as $status) {
-            if (in_array($status, $statuses, true)) {
-                return $status;
-            }
-        }
-
-        return PatchStatus::AlreadyApplied;
+        return $path !== null ? resolve(InstallFilamentPanelAction::class)->themePatchStatus($path) : PatchStatus::Unsupported;
     }
 
     #[Override]
@@ -87,17 +75,13 @@ class AdminPanelThemePatch implements Patch
     public function apply(): void
     {
         try {
-            $status = $this->probe();
-            throw_unless($status === PatchStatus::Applicable, RuntimeException::class, 'Cannot apply patch when status is: ' . $status->value);
-
+            $path = $this->target();
             $action = resolve(InstallFilamentPanelAction::class);
+            $status = $path !== null ? $action->themePatchStatus($path) : PatchStatus::Unsupported;
+            throw_unless($path !== null && $status === PatchStatus::Applicable, RuntimeException::class, 'Cannot apply patch when status is: ' . $status->value);
 
-            foreach (resolve(PanelThemeTargetResolver::class)->resolve($this->providerPath) as $path) {
-                if ($action->themePatchStatus($path) === PatchStatus::Applicable) {
-                    new PhpFileEditor($path)->backup();
-                    $action->configureThemeForProvider($path, new NullProgressReporter);
-                }
-            }
+            new PhpFileEditor($path)->backup();
+            $action->configureThemeForProvider($path, new NullProgressReporter);
         } catch (Throwable $throwable) {
             throw new RuntimeException(
                 'Failed to apply AdminPanelThemePatch: ' . $throwable->getMessage(),
@@ -105,5 +89,10 @@ class AdminPanelThemePatch implements Patch
                 $throwable,
             );
         }
+    }
+
+    private function target(): ?string
+    {
+        return resolve(PanelProviderTargetResolver::class)->resolve($this->providerPath, $this->adoptDefault)[0] ?? null;
     }
 }

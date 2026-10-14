@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\AdminPanelIntegration\IntegrateCapellAdminPanelAction;
 use Capell\Admin\Data\AdminPanelIntegration\AdminPanelSetupOptionsData;
+use Capell\Admin\Support\AdminPanelIntegration\AdminPanelProviderEditor;
 use Capell\Core\Actions\Install\InstallFilamentPanelAction;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Tests\Support\GeneratedPhpFixture;
 use Filament\Panel;
@@ -93,4 +95,43 @@ it('creates a missing stylesheet for an adopted default theme without rewriting 
     expect(IntegrateCapellAdminPanelAction::run($options)->hasFailures())->toBeFalse()
         ->and(File::get($path))->toBe($integrated)
         ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
+});
+
+it('preserves scaffold ownership across adoption editor saves before theming resumes', function (): void {
+    $path = app_path('Providers/Filament/WorkspacePanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, '<?php namespace App\\Providers\\Filament; class WorkspacePanelProvider { public function panel($panel) { return $panel->id("workspace"); } }');
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+    $editor = new AdminPanelProviderEditor($path);
+    $editor->addColors();
+    $editor->addPlugin([]);
+    $editor->save();
+
+    expect(InstallRunState::scaffoldedPanelProviders())->toContain('app/Providers/Filament/WorkspacePanelProvider.php');
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    expect(resource_path('css/filament/admin/theme.css'))->toBeFile();
+    $configured = File::get($path);
+    IntegrateCapellAdminPanelAction::run(new AdminPanelSetupOptionsData(createBackup: false));
+    $integrated = File::get($path);
+    expect($integrated)->not->toBe($configured);
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    expect(File::get($path))->toBe($integrated);
+});
+
+it('refuses to overwrite a host replacement made after the adoption editor read the provider', function (): void {
+    $path = app_path('Providers/Filament/WorkspacePanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, '<?php class WorkspacePanelProvider { public function panel($panel) { return $panel->id("workspace"); } }');
+    InstallRunState::recordScaffoldedPanelProviders([$path]);
+    $editor = new AdminPanelProviderEditor($path);
+    $editor->addColors();
+
+    $replacement = '<?php class WorkspacePanelProvider { public function panel($panel) { return $panel->id("host"); } }';
+    File::put($path, $replacement);
+
+    expect(fn () => $editor->save())->toThrow(RuntimeException::class);
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    expect(File::get($path))->toBe($replacement)
+        ->and(InstallRunState::scaffoldedPanelProviders())->toBe([])
+        ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
 });

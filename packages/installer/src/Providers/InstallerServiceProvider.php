@@ -13,7 +13,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
-use Capell\Core\Support\Install\PanelThemeTargetResolver;
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Installer\Support\InstallerDatabaseTableState;
@@ -148,7 +148,7 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         $registry->register(new AdminPanelDashboardPatch);
         $registry->register(new AdminPanelNavigationPatch);
         $registry->register(new AdminPanelPluginPatch);
-        $registry->register(new AdminPanelThemePatch);
+        $registry->register(new AdminPanelThemePatch(adoptDefault: true));
         $registry->register(new AdminPanelWidgetsPatch);
         $registry->register(new ThemeSourcesPatch);
         $registry->register(new ViteThemeInputPatch);
@@ -186,8 +186,10 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
         );
 
         $installPatchRegistry->register(
-            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin') && resolve(PanelThemeTargetResolver::class)->resolve() !== []
-                ? new AdminPanelThemePatch
+            static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')
+                && (resolve(PanelProviderTargetResolver::class)->resolve(adoptDefault: true) !== []
+                    || ($context->hasFilamentAdminPanelProvider && resolve(PanelProviderTargetResolver::class)->providerPaths() === []))
+                ? new AdminPanelThemePatch(adoptDefault: true)
                 : null,
             new InstallPatchConfirmation(
                 label: __('capell-installer::install-guide.admin_panel_theme_confirm_label'),

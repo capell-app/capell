@@ -30,6 +30,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\BlueprintCreator;
 use Capell\Core\Support\Creator\LayoutCreator;
 use Capell\Core\Support\Install\FileCacheStoreDirectory;
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
@@ -261,8 +262,11 @@ class SetupCommand extends Command
             }
         }
 
+        $selection = is_string($panel) && $panel !== '' ? $panel : null;
+        $target = resolve(PanelProviderTargetResolver::class)->resolve($selection, adoptDefault: true)[0] ?? $selection;
+
         return new AdminPanelSetupOptionsData(
-            panelPath: is_string($panel) && $panel !== '' ? $panel : null,
+            panelPath: $target,
             discoverConfigurators: $this->parseConfiguratorOption(),
             addColors: ! $this->option('no-colors'),
             addWidgets: ! $this->option('no-widgets'),
