@@ -6,8 +6,10 @@ use Capell\Admin\Filament\Components\Forms\RepeaterTabs;
 use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Language;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Support\ViewErrorBag;
 use Tanmuhittin\LaravelGoogleTranslate\Translators\ApiTranslate;
 
 beforeEach(function (): void {
@@ -280,3 +282,107 @@ function mountedRepeaterTabs(RepeaterTabs $component, array $state): RepeaterTab
 
     return $mounted;
 }
+
+it('keeps missing editor state paths available while preserving values through item re-keying', function (): void {
+    $values = ['language_id' => 4, 'title' => 'French title', 'meta' => ['slug' => 'french-title', 'sentinel' => false, 'count' => 0, 'blank' => '']];
+    $component = mountedRepeaterTabs(
+        RepeaterTabs::make('translations')->tabs([
+            TextInput::make('title'),
+            TextInput::make('meta.description'),
+            TextInput::make('meta.hero'),
+            TextInput::make('meta.summary'),
+            TextInput::make('meta.sentinel'),
+            TextInput::make('meta.count'),
+            TextInput::make('meta.blank'),
+        ]),
+        ['new-french' => $values],
+    );
+
+    foreach (['new-french', 'record-42'] as $itemKey) {
+        $component->state([$itemKey => $values]);
+        $item = $component->getItems()[$itemKey];
+        $state = $item->getRawState();
+
+        expect($state)->toBe([
+            ...$values,
+            'meta' => [...$values['meta'], 'description' => null, 'hero' => null, 'summary' => null],
+        ]);
+    }
+});
+
+it('renders independent projections with unique identities and valid panel labels', function (bool $minimal): void {
+    view()->share('errors', new ViewErrorBag);
+    $livewire = Livewire::make()->data([
+        'translations' => [
+            'record-42' => ['title' => 'French title', 'meta' => ['description' => 'French description']],
+            'record-43' => ['title' => 'English title', 'meta' => ['description' => 'English description']],
+        ],
+    ]);
+    $schema = Schema::make($livewire)->statePath('data')->components([
+        RepeaterTabs::make('translations')->key('content-editor')
+            ->tabs([TextInput::make('title')])->itemLabel(fn (array $state): string => $state['title'])
+            ->addable(false)->deletable(false)->minimal($minimal),
+        RepeaterTabs::make('translations')->key('seo-editor')
+            ->tabs([TextInput::make('meta.description')])->itemLabel(fn (array $state): string => $state['title'])
+            ->addable(false)->deletable(false)->minimal($minimal),
+    ]);
+
+    $document = new DOMDocument;
+    $html = $schema->toHtml();
+    throw_if($html === '', RuntimeException::class, 'The repeater schema rendered no HTML.');
+    $previousLibxmlErrors = libxml_use_internal_errors(true);
+    try {
+        $document->loadHTML($html);
+    } finally {
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlErrors);
+    }
+
+    $xpath = new DOMXPath($document);
+    $ids = [];
+    $keys = [];
+    $idElements = $xpath->query('//*[@id]');
+    $keyElements = $xpath->query('//*[@*[name()="wire:key"]]');
+    $panels = $xpath->query('//*[@role="tabpanel"]');
+    throw_unless($idElements !== false && $keyElements !== false && $panels !== false, RuntimeException::class, 'Invalid repeater DOM query.');
+    foreach ($idElements as $element) {
+        throw_unless($element instanceof DOMElement, RuntimeException::class, 'Expected an element with an ID.');
+        $ids[] = $element->getAttribute('id');
+    }
+
+    foreach ($keyElements as $element) {
+        throw_unless($element instanceof DOMElement, RuntimeException::class, 'Expected an element with a Livewire key.');
+        $keys[] = $element->getAttribute('wire:key');
+    }
+
+    expect($ids)->not->toBeEmpty()->toHaveCount(count(array_unique($ids)))
+        ->and($keys)->not->toBeEmpty()->toHaveCount(count(array_unique($keys)))
+        ->and($panels->length)->toBe(4);
+
+    foreach ($panels as $panel) {
+        throw_unless($panel instanceof DOMElement, RuntimeException::class, 'Expected a panel element.');
+        if ($minimal) {
+            expect($panel->getAttribute('aria-label'))->not->toBeEmpty();
+        } else {
+            $labelId = $panel->getAttribute('aria-labelledby');
+            expect($ids)->toContain($labelId);
+            $labels = $xpath->query(sprintf('//*[@id="%s"]', $labelId));
+            throw_if($labels === false, RuntimeException::class, 'Invalid panel label query.');
+            $label = $labels->item(0);
+            throw_unless($label instanceof DOMElement, RuntimeException::class, 'The panel label does not exist.');
+            expect($label->getAttribute('aria-controls'))->toBe($panel->getAttribute('id'));
+        }
+    }
+})->with([false, true]);
+
+it('completes nested fields when their metadata container is entirely absent', function (): void {
+    $component = mountedRepeaterTabs(
+        RepeaterTabs::make('translations')->tabs([
+            Group::make([TextInput::make('description')])->statePath('meta'),
+        ]),
+        ['new-french' => ['language_id' => 4]],
+    );
+
+    expect($component->getItems()['new-french']->getRawState())
+        ->toBe(['language_id' => 4, 'meta' => ['description' => null]]);
+});

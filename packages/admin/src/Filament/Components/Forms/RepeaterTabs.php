@@ -8,6 +8,7 @@ use Capell\Admin\Actions\TranslateTextAction;
 use Capell\Core\Models\Language;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Concerns\CanBeCompact;
@@ -16,6 +17,7 @@ use Filament\Support\Components\Attributes\ExposedLivewireMethod;
 use Filament\Support\Concerns\CanBeContained;
 use Filament\Support\Concerns\HasExtraAlpineAttributes;
 use Filament\Support\Enums\Size;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Override;
 use RuntimeException;
@@ -54,6 +56,23 @@ class RepeaterTabs extends Repeater
                 fn (self $component): Action => $component->cloneItemAction(),
                 fn (self $component): Action => $component->deleteItemAction(),
             ]);
+    }
+
+    /**
+     * @return array<Schema>
+     */
+    #[Override]
+    public function getItems(): array
+    {
+        $items = parent::getItems();
+
+        // A shared-state projection can reload rows without another editor's empty field paths.
+        // Complete only missing bindings; stored metadata and existing form values stay intact.
+        foreach ($items as $item) {
+            $this->completeRenderedItemState($item);
+        }
+
+        return $items;
     }
 
     public function setupActiveTabAfterStateHydrated(): self
@@ -650,6 +669,30 @@ class RepeaterTabs extends Repeater
     public function getAfterStateHydrated(): ?Closure
     {
         return $this->afterStateHydrated;
+    }
+
+    private function completeRenderedItemState(Schema $schema): void
+    {
+        foreach ($schema->getComponents(withActions: false) as $component) {
+            if (! $component instanceof Component) {
+                continue;
+            }
+
+            $statePath = $component->getStatePath();
+            if (filled($statePath) && ! Arr::has((array) $component->getLivewire(), $statePath)) {
+                $component->state(null);
+            }
+
+            // Scalar editors have no item state to traverse. A content-mode change
+            // may leave the previous Builder mounted until the schema is rebuilt.
+            if ($component instanceof Field && ! is_array($component->getRawState())) {
+                continue;
+            }
+
+            foreach ($component->getChildSchemas() as $childSchema) {
+                $this->completeRenderedItemState($childSchema);
+            }
+        }
     }
 
     private function canCreateLanguage(mixed $languageId): bool
