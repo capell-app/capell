@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeKind;
 use Capell\Core\Enums\ContentGraph\ContentGraphEdgeStrength;
+use Capell\Core\Events\InstalledRuntimeRefreshed;
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\ContentGraphEdge;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -19,6 +21,7 @@ use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Tests\Support\FixtureCatalogueProduct;
+use Illuminate\Events\Dispatcher;
 
 it('invalidates dependent page render data when a graph target model changes', function (): void {
     config()->set('cache.default', 'array');
@@ -91,10 +94,50 @@ it('observes declared catalogue models and preserves unrelated render entries', 
     $executor->setToCache('catalogue-render', 'stale');
     $executor->setToCache('unrelated-render', 'keep');
 
-    $product->name = 'updated';
+    $product->setAttribute('name', 'updated');
     $product->save();
 
     expect($executor->getFromCache('catalogue-render'))->toBeNull()
+        ->and($executor->getFromCache('unrelated-render'))->toBe('keep');
+});
+
+it('observes a changed media backend after runtime refresh exactly once', function (): void {
+    $page = Page::factory()->withTranslations()->createOne();
+    $product = new FixtureCatalogueProduct;
+    $product->setRawAttributes(['id' => $page->id, 'name' => $page->name]);
+    $product->exists = true;
+
+    $dependency = PublicRenderDataCacheDependencyData::forModel($product);
+    resolve(PublicRenderDataCacheDependencyRegistry::class)->register($dependency, 'media-render');
+    $executor = resolve(CacheInvalidationExecutor::class);
+    $executor->setToCache('media-render', 'stale');
+    $executor->setToCache('unrelated-render', 'keep');
+
+    config()->set('capell.media.model', FixtureCatalogueProduct::class);
+    $events = resolve(Dispatcher::class);
+    $refresh = new InstalledRuntimeRefreshed(CapellCore::getPackage('capell-app/frontend'));
+    $events->dispatch($refresh);
+    $events->dispatch($refresh);
+
+    $assertObservers = static function () use ($events): void {
+        $listeners = $events->getRawListeners();
+        foreach (['saved', 'deleted', 'restored'] as $event) {
+            $modelListeners = $listeners['eloquent.' . $event . ': ' . FixtureCatalogueProduct::class] ?? [];
+            throw_unless(is_array($modelListeners), RuntimeException::class);
+            expect(array_filter(
+                $modelListeners,
+                static fn (mixed $listener): bool => $listener === FrontendCacheInvalidationObserver::class . '@' . $event,
+            ))->toHaveCount(1);
+        }
+    };
+    $assertObservers();
+    resolve(FrontendEventBootstrapper::class)->boot();
+    $assertObservers();
+
+    $product->setAttribute('name', 'updated');
+    $product->save();
+
+    expect($executor->getFromCache('media-render'))->toBeNull()
         ->and($executor->getFromCache('unrelated-render'))->toBe('keep');
 });
 

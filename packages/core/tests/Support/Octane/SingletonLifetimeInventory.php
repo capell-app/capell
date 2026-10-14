@@ -83,6 +83,7 @@ use Capell\Frontend\Support\Assets\FrontendAssetsService;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
 use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
 use Capell\Frontend\Support\Assets\FrontendViteInputRegistry;
+use Capell\Frontend\Support\Bootstrap\FrontendEventBootstrapper;
 use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Components\FrontendComponentRegistry;
@@ -195,6 +196,7 @@ final class SingletonLifetimeInventory
 
             // Frontend boot registration state and one reset participant.
             FrontendAssetsService::class => self::boot('Asset declarations are package boot registrations.'),
+            FrontendEventBootstrapper::class => self::boot('Event listener and observer registration marks are package boot state.'),
             FrontendComponentRegistry::class => self::boot('Frontend components are package boot registrations.'),
             PublicRouteAliasRegistry::class => self::boot('Public route aliases are package boot registrations.'),
             RenderableDynamicDataRegistry::class => self::boot('Dynamic data resolvers are package boot registrations.'),
