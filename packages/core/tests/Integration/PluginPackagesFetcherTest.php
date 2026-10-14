@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 
 it('fetches and caches plugin packages', function (): void {
     config()->set('capell.plugins_source_url', 'https://plugin.capell.test/packages.json');
@@ -150,3 +152,88 @@ it('does not cache a partial catalogue when a later page fails', function (): vo
     expect($fetcher->fetch(force: true))->toBeEmpty()
         ->and($fetcher->getCached())->toBeEmpty();
 });
+
+it('caches empty catalogues for the configured ttl', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions', 'capell.plugins_cache_ttl' => 60]);
+    Http::fake(['*' => Http::response(['packages' => []])]);
+    $fetcher = resolve(PluginPackagesFetcher::class);
+    expect($fetcher->fetch())->toBeEmpty()->and($fetcher->fetch())->toBeEmpty();
+    Http::assertSentCount(1);
+
+    $this->travel(61)->seconds();
+    CapellCore::flushLocalCache();
+    expect($fetcher->fetch())->toBeEmpty();
+    Http::assertSentCount(2);
+});
+
+it('bounds page fetches without retrying and allows recovery after an offline cooldown', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions']);
+    $budgets = [];
+    $state = new stdClass;
+    $state->available = false;
+    Http::fake(function ($request, array $options) use (&$budgets, $state) {
+        $budgets[] = [$options['connect_timeout'], $options['timeout']];
+
+        return $state->available
+            ? Http::response(['packages' => [['name' => 'vendor/recovered']]])
+            : Http::response(null, 503, ['Retry-After' => '60']);
+    });
+    $fetcher = resolve(PluginPackagesFetcher::class);
+    expect($fetcher->fetchWithinBudget(2))->toBeEmpty()
+        ->and($fetcher->fetch())->toBeEmpty();
+    Http::assertSentCount(1);
+    expect($budgets[0][0])->toBeLessThanOrEqual(1)
+        ->and($budgets[0][1])->toBeLessThanOrEqual(2);
+
+    $state->available = true;
+    $this->travel(31)->seconds();
+    CapellCore::flushLocalCache();
+    expect($fetcher->fetch()->pluck('name')->all())->toBe(['vendor/recovered']);
+});
+
+it('honours disabled catalogue caching and forced refreshes', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions']);
+    Http::fake(['*' => Http::response(['packages' => []])]);
+    $fetcher = resolve(PluginPackagesFetcher::class);
+    $fetcher->fetch();
+    $fetcher->fetch(force: true);
+    Http::assertSentCount(2);
+
+    config(['capell.disable_cache' => true]);
+    $fetcher->fetch();
+    $fetcher->fetch();
+    Http::assertSentCount(4);
+});
+
+it('shares the page time budget across pagination without caching partial data', function (): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions']);
+    Http::fake(function () {
+        Sleep::usleep(500000);
+
+        return Http::response([
+            'data' => [['composer_name' => 'vendor/first-page']],
+            'meta' => ['last_page' => 2],
+        ]);
+    });
+    $fetcher = resolve(PluginPackagesFetcher::class);
+
+    expect($fetcher->fetchWithinBudget(0.25))->toBeEmpty()
+        ->and($fetcher->getCached())->toBeEmpty();
+    Http::assertSentCount(1);
+});
+
+it('expires catalogue decisions in one process without flushing local cache', function (bool $unavailable): void {
+    config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions', 'capell.plugins_cache_ttl' => 60]);
+    Http::fakeSequence()
+        ->push(['packages' => []], $unavailable ? 503 : 200)
+        ->push(['packages' => [['name' => 'vendor/recovered']]]);
+    $fetcher = resolve(PluginPackagesFetcher::class);
+
+    expect($fetcher->fetchWithinBudget(2))->toBeEmpty()
+        ->and($fetcher->fetch())->toBeEmpty();
+    Http::assertSentCount(1);
+
+    $this->travel($unavailable ? 31 : 61)->seconds();
+    expect($fetcher->fetch()->pluck('name')->all())->toBe(['vendor/recovered']);
+    Http::assertSentCount(2);
+})->with(['cooldown' => true, 'valid empty' => false]);

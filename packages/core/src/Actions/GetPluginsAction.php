@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static Collection<string, PackageData> run(?string $filter = null)
+ * @method static Collection<string, PackageData> run(?string $filter = null, ?Collection<int, array<string, mixed>> $remote = null)
  */
 class GetPluginsAction
 {
@@ -23,15 +23,15 @@ class GetPluginsAction
     use AsObject;
 
     /**
+     * @param  Collection<int, array<string, mixed>>|null  $remote
      * @return Collection<string, PackageData>
      */
-    public function handle(?string $filter = null): Collection
+    public function handle(?string $filter = null, ?Collection $remote = null): Collection
     {
-        /** @var PluginPackagesFetcher $fetcher */
-        $fetcher = resolve(PluginPackagesFetcher::class);
-        $remote = $fetcher->getCached();
-        if ($remote->isEmpty()) {
-            $remote = $fetcher->fetch();
+        // An explicit snapshot (including empty/unavailable) is authoritative
+        // for this caller, independently of persistent catalogue caching.
+        if (! $remote instanceof Collection) {
+            $remote = resolve(PluginPackagesFetcher::class)->fetch();
         }
 
         $packages = CapellCore::getPackages();

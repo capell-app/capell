@@ -13,7 +13,11 @@ use Capell\Core\Enums\Install\InstallReadinessStage;
 use Capell\Core\Enums\Install\InstallReadinessStatus;
 use Capell\Core\Exceptions\UnsupportedDatabaseDriver;
 use Capell\Core\Facades\CapellDatabase;
+use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Composer\InstallPackageArguments;
 use Capell\Core\Support\Install\InstallSiteUrl;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Support\Process\RuntimeBinaryResolver;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -45,6 +49,12 @@ final class RunInstallPreflightChecksAction
         if ($failures !== []) {
             foreach ($failures as $failure) {
                 $reporter->error('✗ ' . $failure);
+            }
+
+            foreach ($report->blockingChecks() as $check) {
+                if ($check->remediation !== null) {
+                    $reporter->report($check->remediation);
+                }
             }
 
             throw new RuntimeException("Install preflight failed:\n- " . implode("\n- ", $failures));
@@ -95,9 +105,87 @@ final class RunInstallPreflightChecksAction
             remediation: 'Set the site URL to an absolute URL, including the scheme.',
         );
 
+        if ($inputData->extraPackages !== []) {
+            $checks[] = $this->selectedPackageCheck($inputData->extraPackages);
+        }
+
         return new InstallReadinessReportData(
             stage: InstallReadinessStage::Boot,
             checks: $checks,
+        );
+    }
+
+    /** @param array<int, string> $packages */
+    public function selectedPackageCheck(
+        array $packages,
+        bool $dev = false,
+        ?ProcessFactoryInterface $processFactory = null,
+        ?RuntimeBinaryResolver $binaryResolver = null,
+    ): InstallReadinessCheckData {
+        $binaryResolver ??= resolve(RuntimeBinaryResolver::class);
+        $binary = $binaryResolver->misconfiguredComposerBinary() === null
+            ? $binaryResolver->composerOrNull()
+            : null;
+
+        if ($binary === null) {
+            return $this->selectedPackageResult(
+                $dev,
+                false,
+                'Composer is required to install selected downloadable packages.',
+                'Make Composer available to the web PHP process or deselect downloadable packages.',
+            );
+        }
+
+        $arguments = array_map(
+            fn (string $package): string => str_contains($package, ':') ? $package : $package . ':*',
+            resolve(InstallPackageArguments::class)->resolve(array_values($packages)),
+        );
+        $options = [
+            '--dry-run', '--no-audit', '--no-interaction', '--no-progress', '--no-scripts', '--with-all-dependencies',
+        ];
+        if ($dev) {
+            $options[] = '--dev';
+        }
+
+        // Resolve the whole selection afresh in the process that will install it.
+        $process = ($processFactory ?? resolve(ProcessFactoryInterface::class))->make(
+            [...$binary, 'require', ...$arguments, ...$options],
+            base_path(),
+            ComposerProcessEnvironment::forInstall($_SERVER),
+        );
+        $process->setTimeout(120);
+        $process->run();
+
+        if ($process->isSuccessful()) {
+            return $this->selectedPackageResult($dev, true, 'Selected downloadable packages can be resolved by Composer.');
+        }
+
+        $message = $process->getErrorOutput() !== '' ? $process->getErrorOutput() : $process->getOutput();
+        $message = preg_replace('/\e\[[0-9;]*m/', '', $message) ?? $message;
+        $message = trim(preg_replace('/\s+/', ' ', $message) ?? $message);
+        if (strlen($message) > 600) {
+            $message = substr($message, 0, 597) . '...';
+        }
+
+        return $this->selectedPackageResult(
+            $dev,
+            false,
+            $message,
+            'Check package names, Composer repositories, GitHub access, and HTTPS/SSH clone configuration.',
+        );
+    }
+
+    private function selectedPackageResult(bool $dev, bool $passed, string $message, ?string $remediation = null): InstallReadinessCheckData
+    {
+        return new InstallReadinessCheckData(
+            key: $dev ? 'developer-tooling-packages' : 'selected-packages',
+            stage: InstallReadinessStage::Boot,
+            category: 'packages',
+            status: $passed ? InstallReadinessStatus::Passed : InstallReadinessStatus::Blocked,
+            blocking: ! $passed,
+            outcome: $passed ? InstallReadinessOutcome::AutomatedNow : InstallReadinessOutcome::Blocked,
+            message: $message,
+            remediation: $remediation,
         );
     }
 

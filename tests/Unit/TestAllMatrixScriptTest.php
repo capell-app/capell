@@ -11,11 +11,12 @@ require_once dirname(__DIR__, 2) . '/scripts/test-all/TestAllDatabaseService.php
 
 function matrixListedTestIdentity(string $line): string
 {
-    // A full stop is invalid in a generated PHP method name. Remove only that
-    // display suffix, retaining the class, evaluable method and dataset label.
+    // A full stop is invalid in a generated PHP method name and outside a quoted
+    // dataset label. Remove only that display suffix, retaining the class,
+    // evaluable method and dataset label.
     return (string) preg_replace(
-        '/^([^:]+::__pest_evaluable_[a-zA-Z0-9_\\x80-\\xff]+)\\.(?="|#|$)/',
-        '$1',
+        ['/^([^:]+::__pest_evaluable_[a-zA-Z0-9_\\x80-\\xff]+)\\.(?="|#|$)/', '/(?<=")\\.$/'],
+        ['$1', ''],
         substr($line, 3),
     );
 }
@@ -27,6 +28,8 @@ it('compares listed test identities independently of rendered terminal punctuati
         ->and(matrixListedTestIdentity(' - ' . $identity))->toBe($identity)
         ->and(matrixListedTestIdentity(' - ' . $identity . '."label."'))->toBe($identity . '"label."')
         ->and(matrixListedTestIdentity(' - ' . $identity . '"label."'))->toBe($identity . '"label."')
+        ->and(matrixListedTestIdentity(' - ' . $identity . '"dataset "page edit"".'))->toBe($identity . '"dataset "page edit""')
+        ->and(matrixListedTestIdentity(' - ' . $identity . '"dataset "page edit""'))->toBe($identity . '"dataset "page edit""')
         ->and(matrixListedTestIdentity(' - ' . $identity . '_'))->not->toBe($identity)
         ->and(matrixListedTestIdentity(' - ' . $identity . '"label"'))->not->toBe($identity . '"label."')
         ->and(matrixListedTestIdentity(' - OtherClass::__pest_evaluable_same_name'))->not->toBe(matrixListedTestIdentity(' - OriginalClass::__pest_evaluable_same_name'));

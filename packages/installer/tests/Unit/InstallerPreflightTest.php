@@ -14,6 +14,7 @@ use Capell\Core\Support\Process\ProcessExecutionSupport;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Composer\InstalledVersions;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -643,4 +644,25 @@ it('reports process support through the shared probe rather than a bare function
     expect(installerPreflightCheck($report, 'process-support')['status'])->toBe(
         ProcessExecutionSupport::isAvailable() ? 'pass' : 'fail',
     );
+});
+
+it('uses the injected process factory for selected package resolution', function (): void {
+    $containerFactory = FakeProcessFactory::bind()->byDefault(exitCode: 2, errorOutput: 'Wrong process factory');
+    $injectedFactory = new FakeProcessFactory()->byDefault(output: 'Available');
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        extraPackages: ['capell-app/admin'],
+    );
+
+    $report = new InstallerPreflight($injectedFactory)->run($input);
+    expect(installerPreflightCheck($report, 'selected-packages')['status'])->toBe('pass');
+    expect(collect($injectedFactory->commands())->filter(fn (array $command): bool => in_array('--dry-run', $command, true)))->toHaveCount(1);
+
+    $containerFactory->assertNothingRan();
 });
