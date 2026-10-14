@@ -8,9 +8,12 @@ use Capell\Admin\Filament\Components\Forms\Page\BlueprintSelect as PageBlueprint
 use Capell\Admin\Filament\Components\Forms\Site\BlueprintSelect as SiteBlueprintSelect;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Tests\Fixtures\Livewire;
+use Capell\Admin\Tests\Unit\Filament\Components\Forms\Fixtures\PageTranslationsRepeaterLivewireForTest;
 use Capell\Admin\Tests\Unit\Filament\Components\Forms\Fixtures\StringTypedBlueprintSelectForTest;
+use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Icon;
@@ -75,6 +78,77 @@ it('loads relationship options for enabled blueprints in the selected subject', 
         ->not->toHaveKey($disabledBlueprint->getKey())
         ->not->toContain('Page type');
 });
+
+it('accepts ordinary page blueprints through the legacy page group alias', function (bool $callableGroup): void {
+    $defaultBlueprint = Blueprint::factory()->page()->group(BlueprintGroupEnum::Default->value)->createOne();
+    $ungroupedBlueprint = Blueprint::factory()->page()->createOne();
+    $disabledBlueprint = Blueprint::factory()->page()->group(BlueprintGroupEnum::Default->value)->createOne(['status' => false]);
+    $customBlueprint = Blueprint::factory()->page()->group('articles')->createOne();
+    $systemBlueprint = Blueprint::factory()->page()->group(BlueprintGroupEnum::System->value)->createOne();
+    $siteBlueprint = Blueprint::factory()->site()->group(BlueprintGroupEnum::Default->value)->createOne();
+
+    $component = mountedBlueprintSelect(
+        PageBlueprintSelect::make('blueprint_id')
+            ->pageGroup($callableGroup ? static fn (): string => 'page' : 'page')
+            ->withSystemTypes(false)
+            ->withRelation(),
+        ['blueprint_id' => $defaultBlueprint->getKey()],
+        Page::class,
+    );
+
+    expect($component->getOptionsFromRelationship())
+        ->toHaveKey($defaultBlueprint->getKey())
+        ->toHaveKey($ungroupedBlueprint->getKey())
+        ->not->toHaveKey($disabledBlueprint->getKey())
+        ->not->toHaveKey($customBlueprint->getKey())
+        ->not->toHaveKey($systemBlueprint->getKey())
+        ->not->toHaveKey($siteBlueprint->getKey());
+    expect($component->getOptionLabel(withDefault: false))->not->toBeEmpty()
+        ->and($component->getInValidationRuleValues())->toBeNull();
+})->with([false, true]);
+
+it('retains explicit custom page group and enabled subject constraints', function (): void {
+    $customBlueprint = Blueprint::factory()->page()->group('articles')->createOne();
+    $disabledBlueprint = Blueprint::factory()->page()->group('articles')->createOne(['status' => false]);
+    $defaultBlueprint = Blueprint::factory()->page()->group(BlueprintGroupEnum::Default->value)->createOne();
+    $otherBlueprint = Blueprint::factory()->page()->group('events')->createOne();
+    $siteBlueprint = Blueprint::factory()->site()->group('articles')->createOne();
+
+    $component = mountedBlueprintSelect(
+        PageBlueprintSelect::make('blueprint_id')
+            ->pageGroup('articles')
+            ->withSystemTypes(false)
+            ->withRelation(),
+        model: Page::class,
+    );
+
+    expect($component->getOptionsFromRelationship())
+        ->toHaveKey($customBlueprint->getKey())
+        ->not->toHaveKey($disabledBlueprint->getKey())
+        ->not->toHaveKey($defaultBlueprint->getKey())
+        ->not->toHaveKey($otherBlueprint->getKey())
+        ->not->toHaveKey($siteBlueprint->getKey());
+});
+
+it('offers system blueprint options only for enabled system subjects', function (bool $withSystemTypes, string $subject, bool $expectedSystem): void {
+    $defaultBlueprint = Blueprint::factory()->type($subject)->group(BlueprintGroupEnum::Default->value)->createOne();
+    $systemBlueprint = Blueprint::factory()->type($subject)->group(BlueprintGroupEnum::System->value)->createOne();
+    $component = mountedBlueprintSelect(
+        PageBlueprintSelect::make('blueprint_id')
+            ->subject($subject)
+            ->withSystemTypes($withSystemTypes)
+            ->withRelation(),
+        model: $subject === BlueprintSubjectEnum::Page->value ? Page::class : Site::class,
+    );
+    $options = $component->getOptionsFromRelationship();
+
+    expect($options)->toHaveKey($defaultBlueprint->getKey())
+        ->and(array_key_exists($systemBlueprint->getKey(), $options ?? []))->toBe($expectedSystem);
+})->with([
+    'page system types enabled' => [true, BlueprintSubjectEnum::Page->value, true],
+    'page system types hidden' => [false, BlueprintSubjectEnum::Page->value, false],
+    'site subject has no system group' => [true, BlueprintSubjectEnum::Site->value, false],
+]);
 
 it('binds nested blueprint forms to their own model and selected record', function (): void {
     $blueprint = Blueprint::factory()->site()->create(['name' => 'Embedded site type']);
@@ -198,7 +272,10 @@ it('shows configurator path hints only when enabled in admin settings', function
  */
 function mountedBlueprintSelect(BaseBlueprintSelect $component, array $state = [], ?string $model = null): BaseBlueprintSelect
 {
-    $schema = Schema::make(Livewire::make()->data($state))
+    $livewire = $component instanceof PageBlueprintSelect
+        ? new PageTranslationsRepeaterLivewireForTest
+        : Livewire::make();
+    $schema = Schema::make($livewire->data($state))
         ->statePath('data')
         ->operation('edit')
         ->model($model)

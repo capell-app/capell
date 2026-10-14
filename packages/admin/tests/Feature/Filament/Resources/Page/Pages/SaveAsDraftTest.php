@@ -11,8 +11,10 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Support\AdminZoneRegistry;
+use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
@@ -24,6 +26,9 @@ use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 use function Pest\Laravel\assertDatabaseHas;
+
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 uses(CreatesAdminUser::class)
     ->group('page');
@@ -61,6 +66,52 @@ it('can save an existing page as draft from the edit page', function (): void {
         ->assertNotified();
 
     assertDatabaseHas(Page::class, ['name' => $updatedName]);
+});
+
+it('lets a site content editor save a default-group page as draft without editing its blueprint or shared layout', function (): void {
+    $site = Site::factory()->hasSiteDomains()->createOne();
+    $blueprint = Blueprint::factory()->page()->group(BlueprintGroupEnum::Default->value)->createOne();
+    $layout = Layout::factory()->site($site)->createOne();
+    $page = Page::factory()->site($site)->type($blueprint)->layout($layout)->withTranslations()->createOne();
+    $blueprintAttributes = $blueprint->refresh()->getAttributes();
+    $layoutAttributes = $layout->refresh()->getAttributes();
+    $permissions = ['View:Page', 'Update:Page'];
+
+    foreach ($permissions as $permission) {
+        Permission::findOrCreate($permission, 'web');
+    }
+
+    $role = Role::findOrCreate('default-page-draft-editor', 'web');
+    $role->syncPermissions($permissions);
+
+    $editor = test()->createUserWithRole($role);
+    $editor->assignedSiteIds = collect([$site->getKey()]);
+
+    test()->actingAs($editor);
+
+    expect($editor->getAllPermissions()->pluck('name')->sort()->values()->all())->toBe(['Update:Page', 'View:Page']);
+    expect($editor->can('update', $page))->toBeTrue()
+        ->and($editor->can('update', $blueprint))->toBeFalse()
+        ->and($editor->can('update', $layout))->toBeFalse()
+        ->and($editor->can('editLayout', $layout))->toBeFalse();
+
+    Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])
+        ->assertSuccessful()
+        ->assertFormSet(['blueprint_id' => $blueprint->getKey()])
+        ->fillForm(['name' => 'Saved default-group draft'])
+        ->call('saveAsDraft')
+        ->assertHasNoFormErrors()
+        ->assertNotified();
+
+    assertDatabaseHas(Page::class, [
+        'id' => $page->getKey(),
+        'name' => 'Saved default-group draft',
+        'blueprint_id' => $blueprint->getKey(),
+        'layout_id' => $layout->getKey(),
+        'site_id' => $site->getKey(),
+    ]);
+    expect($blueprint->refresh()->getAttributes())->toBe($blueprintAttributes);
+    expect($layout->refresh()->getAttributes())->toBe($layoutAttributes);
 });
 
 it('delegates edit page draft operations to the workspace draft handler when installed', function (): void {
