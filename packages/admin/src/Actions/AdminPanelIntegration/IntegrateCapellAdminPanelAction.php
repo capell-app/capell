@@ -11,7 +11,9 @@ use Capell\Admin\Data\AdminPanelIntegration\AdminPanelSetupResultData;
 use Capell\Admin\Enums\AdminPanelChangeStatus;
 use Capell\Admin\Enums\AdminPanelFailureCategory;
 use Capell\Admin\Support\AdminPanelIntegration\AdminPanelProviderEditor;
-use Illuminate\Support\Collection;
+use Capell\Core\Actions\Install\InstallFilamentPanelAction;
+use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -26,7 +28,8 @@ final class IntegrateCapellAdminPanelAction
     public function handle(AdminPanelSetupOptionsData $options): AdminPanelSetupResultData
     {
         $panels = DiscoverFilamentPanelsAction::run();
-        $panel = $this->selectPanel($panels, $options->panelPath);
+        $path = resolve(PanelProviderTargetResolver::class)->resolve($options->panelPath, adoptDefault: true)[0] ?? null;
+        $panel = $panels->first(fn (AdminPanelCandidateData $candidate): bool => $candidate->path === $path);
 
         if (! $panel instanceof AdminPanelCandidateData) {
             return new AdminPanelSetupResultData(null, null, [
@@ -70,6 +73,10 @@ final class IntegrateCapellAdminPanelAction
                 $editor->save();
             }
 
+            if (! $options->preview) {
+                resolve(InstallFilamentPanelAction::class)->configureThemeForProvider($panel->path, new NullProgressReporter);
+            }
+
             return new AdminPanelSetupResultData($panel->path, $backupPath, $changes, self::DOCS_URL);
         } catch (Throwable $throwable) {
             return new AdminPanelSetupResultData($panel->path, null, [
@@ -82,21 +89,5 @@ final class IntegrateCapellAdminPanelAction
                 ),
             ], self::DOCS_URL);
         }
-    }
-
-    /**
-     * @param  Collection<int, AdminPanelCandidateData>  $panels
-     */
-    private function selectPanel(Collection $panels, ?string $panelPath): ?AdminPanelCandidateData
-    {
-        if ($panelPath === null || $panelPath === '') {
-            return $panels->first();
-        }
-
-        return $panels->first(fn (AdminPanelCandidateData $panel): bool => $panel->path === $panelPath
-                || $panel->relativePath === $panelPath
-                || $panel->className === $panelPath
-                || class_basename($panel->className) === $panelPath
-                || $panel->panelId === $panelPath);
     }
 }

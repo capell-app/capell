@@ -30,6 +30,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\BlueprintCreator;
 use Capell\Core\Support\Creator\LayoutCreator;
 use Capell\Core\Support\Install\FileCacheStoreDirectory;
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
@@ -89,9 +90,8 @@ class SetupCommand extends Command
             }
         }
 
-        $this->registerTailwindSources();
-
         if ($this->option('skip-panel-integration')) {
+            $this->registerTailwindSources();
             $this->info('Admin setup complete.');
 
             return Command::SUCCESS;
@@ -101,6 +101,7 @@ class SetupCommand extends Command
         $discoveredPanels = DiscoverFilamentPanelsAction::run();
 
         if (! $this->option('integration-only') && $discoveredPanels->isEmpty()) {
+            $this->registerTailwindSources();
             $this->info('Admin setup complete.');
 
             return Command::SUCCESS;
@@ -110,6 +111,7 @@ class SetupCommand extends Command
             $shouldIntegrate = confirm('Integrate Capell Admin into Filament?', default: true);
 
             if (! $shouldIntegrate) {
+                $this->registerTailwindSources();
                 $this->info('Admin setup complete.');
 
                 return Command::SUCCESS;
@@ -124,6 +126,7 @@ class SetupCommand extends Command
             return Command::FAILURE;
         }
 
+        $this->registerTailwindSources();
         $this->info('Admin setup complete.');
 
         return Command::SUCCESS;
@@ -259,8 +262,11 @@ class SetupCommand extends Command
             }
         }
 
+        $selection = is_string($panel) && $panel !== '' ? $panel : null;
+        $target = resolve(PanelProviderTargetResolver::class)->resolve($selection, adoptDefault: true)[0] ?? $selection;
+
         return new AdminPanelSetupOptionsData(
-            panelPath: is_string($panel) && $panel !== '' ? $panel : null,
+            panelPath: $target,
             discoverConfigurators: $this->parseConfiguratorOption(),
             addColors: ! $this->option('no-colors'),
             addWidgets: ! $this->option('no-widgets'),
@@ -555,6 +561,10 @@ class SetupCommand extends Command
 
     private function registerTailwindSources(): void
     {
+        if ($this->option('preview')) {
+            return;
+        }
+
         resolve(TailwindSourceRegistrar::class)->register(
             function (string $message): void {
                 $this->line($message);

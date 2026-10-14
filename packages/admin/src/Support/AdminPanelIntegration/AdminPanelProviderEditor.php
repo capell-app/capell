@@ -12,6 +12,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Plugin\CapellAdminPlugin;
 use Capell\Admin\Http\Middleware\SetSitePermissionScope;
+use Capell\Core\Support\Install\PanelProviderWriter;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use Filament\Http\Middleware\Authenticate;
 use PhpParser\Node\Arg;
@@ -248,7 +249,7 @@ final class AdminPanelProviderEditor
 
     public function save(): void
     {
-        file_put_contents($this->panelPath, $this->preview());
+        resolve(PanelProviderWriter::class)->save($this->panelPath, $this->editor->originalContent(), $this->preview());
     }
 
     public function preview(): string

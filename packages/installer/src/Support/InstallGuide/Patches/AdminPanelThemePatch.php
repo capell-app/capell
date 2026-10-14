@@ -4,69 +4,84 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
+use Capell\Core\Actions\Install\InstallFilamentPanelAction;
+use Capell\Core\Support\Install\NullProgressReporter;
+use Capell\Core\Support\Install\PanelProviderTargetResolver;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
-use PhpParser\Node;
-use PhpParser\Node\Arg;
-use PhpParser\Node\Expr\MethodCall;
-use PhpParser\Node\Scalar\String_;
+use Capell\Core\Support\Patching\PhpFileEditor;
+use Override;
 use RuntimeException;
 use Throwable;
 
 class AdminPanelThemePatch implements Patch
 {
-    private const string THEME_PATH = 'resources/css/filament/admin/theme.css';
-
     public function __construct(
-        private readonly AdminPanelProviderPatcher $patcher = new AdminPanelProviderPatcher,
+        private readonly ?string $providerPath = null,
+        private readonly bool $adoptDefault = false,
     ) {}
 
+    #[Override]
     public function id(): string
     {
         return 'admin-panel-theme-patch';
     }
 
+    #[Override]
     public function group(): string
     {
         return 'providers';
     }
 
+    #[Override]
     public function label(): string
     {
         return __('capell-installer::install-guide.admin_panel_theme_patch_label');
     }
 
+    #[Override]
     public function description(): string
     {
         return __('capell-installer::install-guide.admin_panel_theme_patch_description');
     }
 
+    #[Override]
     public function docUrl(): ?string
     {
         return null;
     }
 
+    #[Override]
     public function defaultEnabled(): bool
     {
         return true;
     }
 
+    #[Override]
     public function probe(): PatchStatus
     {
-        return $this->patcher->probe($this->decide(...));
+        $path = $this->target();
+
+        return $path !== null ? resolve(InstallFilamentPanelAction::class)->themePatchStatus($path) : PatchStatus::Unsupported;
     }
 
+    #[Override]
     public function reason(): ?string
     {
         return null;
     }
 
+    #[Override]
     public function apply(): void
     {
         try {
-            $this->patcher->apply($this->decide(...), function (Node $stmt): void {
-                $this->injectViteThemeCall($stmt);
-            });
+            $path = $this->target();
+            $action = resolve(InstallFilamentPanelAction::class);
+            $status = $path !== null ? $action->themePatchStatus($path) : PatchStatus::Unsupported;
+            throw_unless($path !== null && $status === PatchStatus::Applicable, RuntimeException::class, 'Cannot apply patch when status is: ' . $status->value);
+
+            new PhpFileEditor($path)->backup();
+            $action->configureThemeForProvider($path, new NullProgressReporter);
         } catch (Throwable $throwable) {
             throw new RuntimeException(
                 'Failed to apply AdminPanelThemePatch: ' . $throwable->getMessage(),
@@ -76,36 +91,8 @@ class AdminPanelThemePatch implements Patch
         }
     }
 
-    private function decide(Node $stmt): PatchStatus
+    private function target(): ?string
     {
-        if ($this->hasThemeMethod($stmt)) {
-            return PatchStatus::AlreadyApplied;
-        }
-
-        return PatchStatus::Applicable;
-    }
-
-    private function hasThemeMethod(Node $stmt): bool
-    {
-        if ($this->patcher->hasMethodCall($stmt, 'viteTheme')) {
-            return true;
-        }
-
-        return $this->patcher->hasMethodCall($stmt, 'theme');
-    }
-
-    private function injectViteThemeCall(Node $stmt): void
-    {
-        if (! property_exists($stmt, 'expr') || ! $stmt->expr instanceof MethodCall) {
-            return;
-        }
-
-        $stmt->expr = new MethodCall(
-            $stmt->expr,
-            'viteTheme',
-            [
-                new Arg(new String_(self::THEME_PATH)),
-            ],
-        );
+        return resolve(PanelProviderTargetResolver::class)->resolve($this->providerPath, $this->adoptDefault)[0] ?? null;
     }
 }

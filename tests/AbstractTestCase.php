@@ -34,6 +34,7 @@ use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Facade;
@@ -118,6 +119,12 @@ abstract class AbstractTestCase extends TestCase
 
         $cacheConfiguration = Config::get('cache', []);
         $this->originalCacheConfiguration = is_array($cacheConfiguration) ? $cacheConfiguration : [];
+
+        // Each test is a separate host; retries within a test share persisted provenance.
+        Cache::build([
+            'driver' => 'file',
+            'path' => base_path('storage/framework/cache/data'),
+        ])->forget('capell.install.state');
 
         if (getenv('TEST_TOKEN')) {
             Config::set(

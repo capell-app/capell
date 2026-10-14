@@ -12,6 +12,8 @@ use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Installer\Actions\InstallGuide\ApplyInstallGuidePatchesAction;
 use Capell\Installer\Data\InstallGuide\ApplyPatchesInputData;
+use Capell\Installer\Support\InstallGuide\Patches\AdminPanelThemePatch;
+use Capell\Installer\Support\InstallGuide\PatchRegistry;
 use Capell\Tests\Support\GeneratedPhpFixture;
 use Capell\Tests\Support\JavascriptFixture;
 use Dotenv\Dotenv;
@@ -42,7 +44,7 @@ afterEach(function (): void {
     }
 });
 
-it('applies the installer install guide patches to a stock Laravel and Filament skeleton', function (): void {
+it('applies the installer install guide patches to a stock skeleton with an explicitly adopted panel', function (): void {
     writeInstallerInstallGuideFixture('.env', "APP_NAME=Capell\nQUEUE_CONNECTION=sync\n");
     writeInstallerInstallGuideFixture('app/Models/User.php', installerInstallGuideUserModel());
     writeInstallerInstallGuideFixture('app/Providers/Filament/AdminPanelProvider.php', installerInstallGuideAdminPanelProvider());
@@ -52,6 +54,10 @@ it('applies the installer install guide patches to a stock Laravel and Filament 
     writeInstallerInstallGuideFixture('resources/css/filament/admin/theme.css', "@import '../../../../vendor/filament/filament/resources/css/theme.css';\n");
     writeInstallerInstallGuideFixture('routes/web.php', installerInstallGuideRoutes());
     writeInstallerInstallGuideFixture('vite.config.js', "export default { input: ['resources/css/app.css', 'resources/js/app.js'] };\n");
+
+    resolve(PatchRegistry::class)->register(new AdminPanelThemePatch(
+        providerPath: base_path('app/Providers/Filament/AdminPanelProvider.php'),
+    ));
 
     $patchIds = [
         'user-model-patch',

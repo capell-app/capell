@@ -574,3 +574,61 @@ function setupHostStylesheets(): array
         '../../../../vendor/awcodes/filament-curator/resources/css/plugin.css' => '.curator { display: block; }',
     ];
 }
+
+it('registers Capell package sources on the first integration-only setup run', function (): void {
+    $originalBasePath = app()->basePath();
+    $temporaryBasePath = sys_get_temp_dir() . '/capell-first-setup-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($temporaryBasePath);
+    app()->setBasePath($temporaryBasePath);
+
+    try {
+        writeSetupCommandPanelProvider();
+        artisanCommand('capell:admin-setup', [
+            '--integration-only' => true,
+            '--no-colors' => true,
+            '--no-widgets' => true,
+            '--no-navigation' => true,
+            '--force' => true,
+        ])->assertExitCode(0);
+
+        $themeCss = resource_path('css/filament/admin/theme.css');
+        expect($themeCss)->toBeFile();
+        $result = StylesheetRuntime::inspect($themeCss, tailwind: true, stylesheets: setupHostStylesheets());
+        $sources = array_map(static fn (array $source): string => $source['base'] . '/' . $source['pattern'], $result['sources']);
+        foreach (['admin', 'core', 'frontend'] as $package) {
+            expect(array_filter($sources, static fn (string $source): bool => str_ends_with($source, '/' . $package . '/resources/views/**/*.blade.php')))->not->toBeEmpty();
+        }
+
+        expect(array_filter($sources, static fn (string $source): bool => str_ends_with($source, '/storage/capell/tailwind-classes.txt')))->not->toBeEmpty();
+    } finally {
+        app()->setBasePath($originalBasePath);
+        File::deleteDirectory($temporaryBasePath);
+    }
+});
+
+it('leaves an existing stylesheet unchanged when setup integration is previewed', function (): void {
+    $themeCss = resource_path('css/filament/admin/theme.css');
+    $originalContents = File::exists($themeCss) ? File::get($themeCss) : null;
+    $previewContents = "@import 'tailwindcss';\n";
+    File::ensureDirectoryExists(dirname($themeCss));
+    File::put($themeCss, $previewContents);
+    $panelPath = writeSetupCommandPanelProvider();
+    $panelContents = File::get($panelPath);
+
+    try {
+        artisanCommand('capell:admin-setup', [
+            '--integration-only' => true,
+            '--preview' => true,
+            '--force' => true,
+        ])->assertExitCode(0);
+
+        expect(File::get($themeCss))->toBe($previewContents)
+            ->and(File::get($panelPath))->toBe($panelContents);
+    } finally {
+        if ($originalContents === null) {
+            File::delete($themeCss);
+        } else {
+            File::put($themeCss, $originalContents);
+        }
+    }
+});

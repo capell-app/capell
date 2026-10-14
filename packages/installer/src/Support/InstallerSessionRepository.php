@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Installer\Support;
 
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Installer\Data\ActiveInstallData;
 use Capell\Installer\Enums\InstallerRunStatus;
 use Illuminate\Support\Facades\Cache;
@@ -178,10 +179,13 @@ final class InstallerSessionRepository
         foreach (self::INSTALL_SESSION_CACHE_SUFFIXES as $suffix) {
             $this->forget($this->key($installId, $suffix));
         }
+
+        InstallRunState::retireScaffoldedPanelProviders($installId);
     }
 
     public function lock(string $installId, bool $queued = false): void
     {
+        InstallRunState::usePanelScaffoldRun($installId);
         $payload = ['installId' => $installId];
 
         if ($queued) {
