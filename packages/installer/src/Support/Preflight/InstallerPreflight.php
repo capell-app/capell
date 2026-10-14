@@ -715,6 +715,10 @@ final class InstallerPreflight
                 return $this->commandCheckCache[$cacheKey] = $check;
             }
 
+            if (request()->hasSession()) {
+                request()->session()->forget($sessionKey);
+            }
+
             return $this->commandCheckCache[$cacheKey] = $this->check(
                 $key,
                 $label,
@@ -723,6 +727,10 @@ final class InstallerPreflight
                 'Make sure the command is executable by the web PHP process.',
             );
         } catch (Throwable $throwable) {
+            if (request()->hasSession()) {
+                request()->session()->forget($sessionKey);
+            }
+
             return $this->commandCheckCache[$cacheKey] = $this->check(
                 $key,
                 $label,

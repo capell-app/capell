@@ -136,6 +136,42 @@ it('does not reuse page probe success for authoritative install preflight', func
     expect($processes->commands())->toHaveCount(6);
 });
 
+it('invalidates page command success after an authoritative failure', function (bool $throws): void {
+    $processes = FakeProcessFactory::bind()->byDefault(output: 'Command available');
+    Http::fake(['*' => Http::response(['packages' => []])]);
+    $first = $this->get('/install')->assertOk();
+    expect(installerPageProbe($first, 'php-binary'))
+        ->toMatchArray(['status' => 'pass', 'message' => 'Command available']);
+    $this->withCookie((string) config('session.cookie'), session()->getId());
+
+    $processes->push(
+        exitCode: 1,
+        errorOutput: 'Command now fails',
+        throws: $throws ? new RuntimeException('Command now fails') : null,
+    )->byDefault(exitCode: 1, errorOutput: 'Command now fails');
+    $report = resolve(InstallerPreflight::class)->run(new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+    ));
+    expect(collect($report['checks'])->firstWhere('key', 'php-binary'))
+        ->toMatchArray(['status' => 'fail', 'message' => 'Command now fails']);
+    expect($processes->commands())->toHaveCount(6);
+    // The direct authoritative call needs the session save normally performed by middleware.
+    request()->session()->save();
+
+    app()->forgetScopedInstances();
+    CapellCore::flushLocalCache();
+    $next = $this->get('/install')->assertOk();
+    expect(installerPageProbe($next, 'php-binary'))
+        ->toMatchArray(['status' => 'fail', 'message' => 'Command now fails']);
+    expect($processes->commands())->toHaveCount(9);
+})->with(['unsuccessful command' => false, 'command exception' => true]);
+
 it('does not repeat an offline catalogue fetch on the next install request', function (): void {
     $processes = FakeProcessFactory::bind()->byDefault(output: 'Command available');
     Http::fake(['*' => Http::failedConnection()]);
