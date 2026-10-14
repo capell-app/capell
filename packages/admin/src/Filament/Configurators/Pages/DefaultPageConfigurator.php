@@ -363,6 +363,7 @@ class DefaultPageConfigurator implements ConfiguratorInterface, ProvidesRelation
             $this->getContentEditor($schema),
             ...$this->resolveTranslationHookComponents($schema, PageTranslationSchemaHookEnum::AfterContentEditor),
             ExtraContentSection::make()
+                ->key('extra-content')
                 ->statePath('meta')
                 ->schema([
                     Textarea::make('summary')

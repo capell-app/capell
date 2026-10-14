@@ -7,6 +7,8 @@ namespace Capell\Admin\Filament\Components\Forms;
 use Capell\Admin\Actions\CheckTranslationCompletenessAction;
 use Capell\Admin\Actions\GetFlatComponentKeysAction;
 use Capell\Admin\Actions\MutateContentPresenterAction;
+use Capell\Admin\Actions\PrepareTranslationRelationshipDataForSaveAction;
+use Capell\Admin\Actions\RestoreDeletedTranslationForLanguageAction;
 use Capell\Admin\Support\Filament\RawState;
 use Capell\Admin\Support\Loader\LanguageLoader;
 use Capell\Core\Enums\ContentStructure;
@@ -22,11 +24,18 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use DateTimeInterface;
 use Filament\Actions\Action;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Override;
+use RuntimeException;
+use Throwable;
 
 class TranslationsRepeater extends RepeaterTabs
 {
+    /** @var array<string, array<array-key, mixed>> */
+    private array $restoredTranslationMetadata = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -128,6 +137,87 @@ class TranslationsRepeater extends RepeaterTabs
                 return 'flag-4x3-' . $language->flag;
             })
             ->contained();
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>|null
+     */
+    #[Override]
+    public function mutateRelationshipDataBeforeSave(array $data, Model $record): ?array
+    {
+        $data = parent::mutateRelationshipDataBeforeSave($data, $record);
+        $key = 'record-' . $record->getKey();
+        if (array_key_exists($key, $this->restoredTranslationMetadata)) {
+            throw_if($data === null, RuntimeException::class, 'The restored translation save was cancelled.');
+            $data['meta'] = array_replace(
+                $this->restoredTranslationMetadata[$key],
+                is_array($data['meta'] ?? null) ? $data['meta'] : [],
+            );
+        }
+
+        return $record instanceof Translation && $data !== null
+            ? PrepareTranslationRelationshipDataForSaveAction::run($record, $data)
+            : $data;
+    }
+
+    #[Override]
+    public function saveToRelationship(): void
+    {
+        $relationship = $this->getRelationship();
+        if ($relationship === null || ! $relationship->getRelated() instanceof Translation) {
+            parent::saveToRelationship();
+
+            return;
+        }
+
+        $originalState = RawState::array($this->getRawState());
+
+        try {
+            $relationship->getRelated()->getConnection()->transaction(function () use ($relationship, $originalState): void {
+                $existingRecords = $this->getCachedExistingRecords();
+                $state = [];
+                $restoredRecords = [];
+                foreach ($originalState as $key => $itemData) {
+                    $languageId = is_array($itemData) ? ($itemData['language_id'] ?? null) : null;
+                    if (! $existingRecords->has($key) && is_numeric($languageId)) {
+                        $translation = RestoreDeletedTranslationForLanguageAction::run($relationship->getQuery(), (int) $languageId);
+                        if ($translation instanceof Translation) {
+                            $key = 'record-' . $translation->getKey();
+                            $restoredRecords[$key] = $translation;
+                            $this->restoredTranslationMetadata[$key] = $translation->meta ?? [];
+                        }
+                    }
+
+                    $state[$key] = $itemData;
+                }
+
+                if ($restoredRecords !== []) {
+                    $this->state($state);
+                    $this->clearCachedExistingRecords();
+                }
+
+                parent::saveToRelationship();
+
+                // Existing-record saves do not repeat the child relationship pass
+                // which ran while these newly added items had no persisted model.
+                $items = $this->getItems();
+                foreach (array_keys($restoredRecords) as $key) {
+                    $item = $items[$key] ?? null;
+                    throw_unless($item instanceof Schema, RuntimeException::class, 'The restored translation editor is missing.');
+                    $savedTranslation = $this->getCachedExistingRecords()->get($key);
+                    throw_unless($savedTranslation instanceof Translation, RuntimeException::class, 'The saved translation is missing.');
+                    $this->saveRestoredTranslationRelationships($item, $savedTranslation);
+                }
+            });
+        } catch (Throwable $throwable) {
+            $this->state($originalState);
+            $this->clearCachedExistingRecords();
+
+            throw $throwable;
+        } finally {
+            $this->restoredTranslationMetadata = [];
+        }
     }
 
     /**
@@ -261,6 +351,11 @@ class TranslationsRepeater extends RepeaterTabs
         return $query->select(['id', 'name', 'flag'])
             ->enabled()
             ->ordered();
+    }
+
+    private function saveRestoredTranslationRelationships(Schema $item, Translation $translation): void
+    {
+        $item->model($translation)->saveRelationships();
     }
 
     private function resolveDefaultTranslation(Translation $record): ?Translation

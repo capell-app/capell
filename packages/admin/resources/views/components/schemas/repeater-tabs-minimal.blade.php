@@ -1,24 +1,23 @@
 @php
-    $containers = $getChildComponentContainers();
+    $containers = $getItems();
     $fieldWrapperView = $getFieldWrapperView();
     $isCompact = $isCompact();
-    $statePath = $getStatePath();
-    $hasSection = $hasSection();
+    $isContained = $isContained();
 @endphp
 
 <x-dynamic-component
     :component="$fieldWrapperView"
     :field="$field"
-    wire:key="{{ $this->getId() }}.{{ $statePath }}.{{ $field::class }}.nav"
-    {{
-        $attributes->merge($getExtraAttributes(), escape: false)->class([
+    wire:key="{{ $getLivewireKey() }}.nav"
+    :attributes="
+        $attributes->merge($getExtraAttributes(), escape: false)
+            ->merge($getExtraAlpineAttributeBag()->getAttributes(), escape: false)->class([
             'fi-fo-repeater fi-fo-repeater-minimal',
-            'fi-contained sticky top-16 flex flex-col' => $hasSection,
-            'p-4' => $isCompact && $hasSection,
-            'p-6' => ! $isCompact && $hasSection,
+            'fi-contained sticky top-16 flex flex-col' => $isContained,
+            'p-4' => $isCompact && $isContained,
+            'p-6' => ! $isCompact && $isContained,
         ])
-    }}
-    {{ $getExtraAlpineAttributeBag() }}
+    "
 >
     <input
         type="hidden"
@@ -27,11 +26,11 @@
     />
     @foreach ($containers as $uuid => $item)
         <div
-            id="{{ $this->getId() . '-' . $item->getStatePath() }}"
+            id="{{ $item->getLivewireKey() }}.panel"
             role="tabpanel"
-            aria-labelledby="{{ $uuid }}"
+            aria-label="{{ $getItemLabel($uuid) }}"
             tabindex="0"
-            wire:key="{{ $this->getId() }}.{{ $item->getStatePath() }}.{{ $field::class }}.item"
+            wire:key="{{ $item->getLivewireKey() }}.item"
         >
             {{ $item }}
         </div>
