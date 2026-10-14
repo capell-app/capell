@@ -11,5 +11,6 @@ final class RedirectDecisionData extends Data
     public function __construct(
         public string $targetUrl,
         public int $statusCode = 301,
+        public bool $useSiteDomain = false,
     ) {}
 }

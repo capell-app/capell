@@ -6,6 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Actions\ResolvePublicPageByUrlAction;
+use Capell\Core\Actions\SiteDomains\ResolveSiteDomainUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Contracts\RedirectResolver;
 use Capell\Core\Data\RedirectDecisionData;
@@ -13,6 +14,7 @@ use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Frontend\Data\PageResolutionData;
 use Capell\Frontend\Data\PublicPageResolutionInputData;
 use Capell\Frontend\Support\Loader\PageLoader;
@@ -130,7 +132,22 @@ final class ResolvePublicPageRequestAction
             return null;
         }
 
-        return redirect($redirectDecision->targetUrl, $redirectDecision->statusCode);
+        if (! $redirectDecision->useSiteDomain) {
+            return redirect($redirectDecision->targetUrl, $redirectDecision->statusCode);
+        }
+
+        $targetUrl = $redirectDecision->targetUrl;
+        $siteDomain = $site->relationLoaded('siteDomain') ? $site->getRelation('siteDomain') : null;
+
+        if ($siteDomain instanceof SiteDomain
+            && $siteDomain->site_id === $site->getKey()
+            && $siteDomain->language_id === $language->getKey()
+            && parse_url($targetUrl, PHP_URL_HOST) === null) {
+            $targetUrl = ResolveSiteDomainUrlAction::run($siteDomain, $targetUrl);
+        }
+
+        // Site URL rewriting would duplicate a resolved mount or replace an external origin.
+        return new RedirectResponse($targetUrl, $redirectDecision->statusCode);
     }
 
     private function findPageUrl(Site $site, Language $language, string $url): ?PageUrl

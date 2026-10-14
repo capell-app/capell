@@ -12,6 +12,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
+use Override;
 
 final class PageUrlRedirectResolver implements RedirectResolver
 {
@@ -19,6 +20,7 @@ final class PageUrlRedirectResolver implements RedirectResolver
         private readonly PageUrlRedirectHitRecorder $redirectRecorder,
     ) {}
 
+    #[Override]
     public function resolve(Site $site, Language $language, string $url, ?int $pageId = null, ?PageUrl $pageUrl = null): ?RedirectDecisionData
     {
         $pageUrl ??= $this->findPageUrl($site, $language, $url, $pageId);
@@ -43,6 +45,7 @@ final class PageUrlRedirectResolver implements RedirectResolver
                     ? $this->appendRequestedPath((string) $pageUrl->target_url, $url)
                     : (string) $pageUrl->target_url,
                 statusCode: $statusCode instanceof RedirectStatusCodeEnum ? $statusCode->value : 301,
+                useSiteDomain: ! $pageUrl->isManualRedirect(),
             );
         }
 
@@ -52,7 +55,7 @@ final class PageUrlRedirectResolver implements RedirectResolver
             return null;
         }
 
-        return new RedirectDecisionData(targetUrl: $targetPageUrl->url, statusCode: 301);
+        return new RedirectDecisionData(targetUrl: $targetPageUrl->url, statusCode: 301, useSiteDomain: true);
     }
 
     private function findPageUrl(Site $site, Language $language, string $url, ?int $pageId = null): ?PageUrl

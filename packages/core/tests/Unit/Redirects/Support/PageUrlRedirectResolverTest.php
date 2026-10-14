@@ -27,6 +27,40 @@ function ensurePageUrlHitColumns(): void
     });
 }
 
+it('keeps existing custom redirect decisions independent of site domain qualification', function (): void {
+    $decision = new RedirectDecisionData('/custom-target', 307);
+
+    expect($decision->targetUrl)->toBe('/custom-target')
+        ->and($decision->statusCode)->toBe(307)
+        ->and($decision->useSiteDomain)->toBeFalse();
+});
+
+it('identifies generated targets without changing authored redirect targets or recording hits twice', function (bool $manual, bool $explicitTarget, bool $useSiteDomain): void {
+    ensurePageUrlHitColumns();
+    $site = Site::factory()->createOne();
+    $language = Language::factory()->createOne();
+    $page = Page::factory()->site($site)->createOne();
+    PageUrl::factory()->page($page)->site($site)->language($language)->createOne(['url' => '/canonical']);
+    $redirect = PageUrl::factory()->page($page)->site($site)->language($language)->type(UrlTypeEnum::Redirect)->createOne([
+        'url' => '/former',
+        'target_url' => $explicitTarget ? '/explicit-target' : null,
+        'is_manual' => $manual,
+        'status_code' => RedirectStatusCodeEnum::Temporary,
+    ]);
+
+    $decision = expectPresent(resolve(PageUrlRedirectResolver::class)->resolve($site, $language, '/former', pageUrl: $redirect));
+
+    expect($decision->targetUrl)->toBe($explicitTarget ? '/explicit-target' : '/canonical')
+        ->and($decision->statusCode)->toBe($explicitTarget ? 302 : 301)
+        ->and($decision->useSiteDomain)->toBe($useSiteDomain)
+        ->and($redirect->refresh()->hit_count)->toBe(1);
+})->with([
+    'authored explicit target' => [true, true, false],
+    'generated explicit target' => [false, true, true],
+    'generated canonical fallback' => [false, false, true],
+    'authored row with canonical fallback' => [true, false, true],
+]);
+
 it('returns manual target urls with configured status code', function (): void {
     ensurePageUrlHitColumns();
 
