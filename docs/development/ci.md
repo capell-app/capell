@@ -6,6 +6,21 @@ Capell's CI runs code-quality checks and divides the test suite with Pest's nati
 
 `composer test:preflight` runs Pest's parallel suite. Pull-request jobs set `PEST_SHARD` and use `composer test:fast:ci` to select their native Pest shard.
 
+On ready pull requests, the three SQLite Fast PR gate shards start alongside
+matrix resolution. Sentinel waits only for matrix resolution, then the Test All
+behaviour, unit and portability jobs wait for sentinel. Fast PR gate remains an
+independent failing job: all three fast shards and all Test All cells must pass
+for a successful workflow. Draft, Dependabot and targeted-dispatch conditions,
+and concurrency cancellation, still apply.
+
+The MySQL Admin Feature cell uses two native Pest shards, named
+`Feature - Admin (1/2) - DBmysql` and `Feature - Admin (2/2) - DBmysql`.
+Both retain the `Feature` suite and `admin` group and partition that selection
+with `--shard=1/2` and `--shard=2/2`. Each has separate JUnit, logs and engineering
+metrics, so aggregation counts both shards. Exact dispatches use
+`l13-feature-admin-shard-1` or `l13-feature-admin-shard-2`; the local matrix runner
+uses the same definitions and cell runner.
+
 Run `composer test:shards` when the timing manifest needs refreshing. Pest writes `tests/.pest/shards.json` directly.
 
 This checkout uses Pest 5 with its native sharding support. Composer excludes ParaTest 7.26.1 until a published Pest release contains the upstream compatibility fix and the required Fast PR cells pass with the newer dependency.

@@ -65,8 +65,14 @@ if ($databaseDriver === 'sqlite') {
 
 fwrite(STDOUT, sprintf('Running Test All cell [%s].', $cellId) . PHP_EOL);
 
+$command = ['composer', 'run', $cell['command']];
+
+if (isset($cell['shard'])) {
+    $command = [...$command, '--', '--shard=' . $cell['shard']];
+}
+
 exit(ProcessRunner::run(
-    ['composer', 'run', $cell['command']],
+    $command,
     dirname(__DIR__),
     $environment,
     $outputDirectory . DIRECTORY_SEPARATOR . $cell['log'],
