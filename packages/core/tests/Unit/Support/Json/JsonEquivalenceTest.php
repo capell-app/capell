@@ -80,3 +80,33 @@ it('compares JSON while preserving identity and scalar types', function (string 
     'both invalid' => ['not JSON', 'not JSON', true],
     'empty input' => ['', '', true],
 ]);
+
+it('compares documents with very long strings without PCRE failures', function (int $length): void {
+    $value = substr(str_repeat('Long "quoted" text with a \\ backslash, é and 0.1 digits. ', intdiv($length, 40) + 1), 0, $length);
+    $original = json_encode(['first' => $value, 'number' => 0.10, 'second' => [1, $value]], JSON_THROW_ON_ERROR);
+    $reordered = json_encode(['second' => [1, $value], 'number' => 0.10, 'first' => $value], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    $edited = json_encode(['first' => $value . '!', 'number' => 0.10, 'second' => [1, $value]], JSON_THROW_ON_ERROR);
+    $preciseNumber = str_replace('"number":0.1', '"number":0.10000000000000001', $original);
+
+    expect(JsonEquivalence::equivalent($original, $reordered))->toBeTrue()
+        ->and(preg_last_error())->toBe(PREG_NO_ERROR)
+        ->and(JsonEquivalence::equivalent($reordered, $original))->toBeTrue()
+        ->and(JsonEquivalence::equivalent($original, $edited))->toBeFalse()
+        ->and(JsonEquivalence::equivalent($original, $preciseNumber))->toBeFalse()
+        ->and(preg_last_error())->toBe(PREG_NO_ERROR);
+})->with([
+    '16 KB' => [16 * 1024],
+    '64 KB' => [64 * 1024],
+    '1 MB' => [1024 * 1024],
+    '10 MB' => [10 * 1024 * 1024],
+]);
+
+it('compares long escaped strings token by token', function (): void {
+    $escapes = str_repeat('\\\\\\"\\/\\b\\f\\n\\r\\t\\u00e9', 2048);
+    $original = '{"a":"' . $escapes . '","b":"' . $escapes . '\\\\"}';
+    $reordered = ' { "b" : "' . $escapes . '\\\\" , "a" : "' . $escapes . '" } ';
+    $shifted = '{"a":"' . $escapes . '\\\\","b":"' . $escapes . '"}';
+
+    expect(JsonEquivalence::equivalent($original, $reordered))->toBeTrue()
+        ->and(JsonEquivalence::equivalent($original, $shifted))->toBeFalse();
+});

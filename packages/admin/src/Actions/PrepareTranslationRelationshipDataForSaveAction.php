@@ -26,6 +26,12 @@ final class PrepareTranslationRelationshipDataForSaveAction
         $candidate->fill($data);
 
         foreach (['meta', 'content'] as $attribute) {
+            // Unsubmitted attributes keep their stored value, so there is nothing
+            // to compare and no reason to load the translatable's structure.
+            if (! array_key_exists($attribute, $data)) {
+                continue;
+            }
+
             $original = $record->getAttributes()[$attribute] ?? null;
             $submitted = $candidate->getAttributes()[$attribute] ?? null;
             if (! is_string($original)) {
