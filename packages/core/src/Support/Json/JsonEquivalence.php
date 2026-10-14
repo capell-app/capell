@@ -33,18 +33,65 @@ final class JsonEquivalence
     {
         // Tag every string and number, including keys, so quoted values cannot
         // impersonate numeric tokens and no number is converted to a PHP float.
-        $normalised = preg_replace_callback(
-            '/"(?:[^"\\\\]|\\\\.)*"|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/s',
-            fn (array $token): string => json_encode(
-                str_starts_with($token[0], '"')
-                    ? 'string:' . json_decode($token[0], flags: JSON_THROW_ON_ERROR)
-                    : self::normaliseNumber($token[0]),
-                JSON_THROW_ON_ERROR,
-            ),
-            $json,
-        );
+        // The scan avoids regular expressions so string length is never bounded
+        // by PCRE backtracking or JIT stack limits. Input is already validated.
+        $length = strlen($json);
+        $normalised = '';
+        $offset = 0;
 
-        return json_decode($normalised ?? '', flags: JSON_THROW_ON_ERROR);
+        while ($offset < $length) {
+            $structural = strcspn($json, '"-0123456789', $offset);
+            $normalised .= substr($json, $offset, $structural);
+            $offset += $structural;
+
+            if ($offset >= $length) {
+                break;
+            }
+
+            if ($json[$offset] === '"') {
+                $end = self::stringTokenEnd($json, $offset + 1);
+                $decoded = json_decode(substr($json, $offset, $end - $offset), flags: JSON_THROW_ON_ERROR);
+
+                throw_unless(is_string($decoded), JsonException::class, 'Unexpected string token.');
+
+                $normalised .= json_encode('string:' . $decoded, JSON_THROW_ON_ERROR);
+                $offset = $end;
+
+                continue;
+            }
+
+            $numberLength = strspn($json, '-+.eE0123456789', $offset);
+            $normalised .= json_encode(self::normaliseNumber(substr($json, $offset, $numberLength)), JSON_THROW_ON_ERROR);
+            $offset += $numberLength;
+        }
+
+        return json_decode($normalised, flags: JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Return the offset just past the closing quote of the string token whose
+     * content starts at $offset.
+     */
+    private static function stringTokenEnd(string $json, int $offset): int
+    {
+        $start = $offset;
+
+        while (($quote = strpos($json, '"', $offset)) !== false) {
+            // A quote preceded by an odd run of backslashes is escaped.
+            $backslashes = 0;
+
+            while ($quote - $backslashes > $start && $json[$quote - $backslashes - 1] === '\\') {
+                $backslashes++;
+            }
+
+            if ($backslashes % 2 === 0) {
+                return $quote + 1;
+            }
+
+            $offset = $quote + 1;
+        }
+
+        throw new JsonException('Unterminated string token.');
     }
 
     private static function normaliseNumber(string $token): string

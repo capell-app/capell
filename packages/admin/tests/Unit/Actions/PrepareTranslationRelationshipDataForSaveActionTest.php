@@ -144,3 +144,27 @@ it('persists JSON when decoding fails or scalar types differ', function (string 
     'invalid candidate JSON' => ['{"value":1}', '{"value":'],
     'both invalid' => ['not JSON', 'different invalid JSON'],
 ]);
+
+it('prepares a title-only save without resolving the content structure', function (): void {
+    $blueprint = Blueprint::factory()->contentStructure(ContentStructure::Blocks)->createOne();
+    $page = Page::factory()->type($blueprint)->createOne();
+    $translation = Translation::factory()->translatable($page)->createOne([
+        'content' => '{"blocks":[]}',
+        'meta' => ['label' => 'Original'],
+    ])->fresh();
+    $data = ['title' => 'Edited title'];
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    try {
+        $prepared = PrepareTranslationRelationshipDataForSaveAction::run($translation, $data);
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+    }
+
+    expect($prepared)->toBe($data)
+        ->and(array_column($queries, 'query'))->toBe([])
+        ->and($translation->relationLoaded('translatable'))->toBeFalse();
+});
