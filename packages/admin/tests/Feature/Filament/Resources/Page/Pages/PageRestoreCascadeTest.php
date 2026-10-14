@@ -6,6 +6,7 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
@@ -112,7 +113,7 @@ it('counts overlapping bulk restore selections as successes while retaining casc
         $actor->givePermissionTo(Permission::findOrCreate($name, 'web'));
     }
 
-    session()->forget('filament.notifications');
+    FilamentNotificationSnapshots::pull();
     $component = Livewire::test(ListPages::class)
         ->filterTable('trashed', true)
         ->assertCanSeeTableRecords($selected)

@@ -6,7 +6,7 @@ use Capell\Admin\Tests\Fixtures\Autoload\SiteDomainValidationHarness;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Tests\Fixtures\Models\User;
-use Filament\Notifications\Notification;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 
 it('rejects duplicate null domains with the same scheme and path', function (): void {
     $site = Site::factory()->createOne();
@@ -139,8 +139,7 @@ it('protects global domain uniqueness without revealing a foreign site name or e
     test()->actingAs($actor);
 
     expect(SiteDomainValidationHarness::validateExists(['scheme' => 'https', 'host' => 'private.example.test', 'path' => '/private']))->toBeFalse();
-    $notifications = session('filament.notifications');
-    $notification = Notification::fromArray(end($notifications));
+    $notification = FilamentNotificationSnapshots::pull()->reverse()->firstOrFail();
     expect($notification->getTitle())->not->toContain('Private foreign site')
         ->and($notification->getActions())->toBe([]);
 });

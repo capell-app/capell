@@ -16,6 +16,7 @@ use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Illuminate\Contracts\Translation\Translator;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -149,10 +150,10 @@ it('shows only accessible usage in the theme deletion notification', function ()
     ['theme' => $theme, 'sites' => $sites] = themeSiteCountScopeFixture();
     actAsThemeSiteScopedUser($sites[0]);
     $page = Livewire::test(ManageThemes::class)->instance();
-    session()->forget('filament.notifications');
+    FilamentNotificationSnapshots::pull();
 
     expect($page->validateDelete($theme))->toBeFalse();
-    $notification = collect(session()->get('filament.notifications'))->first();
+    $notification = FilamentNotificationSnapshots::pull()->firstOrFail();
 
-    expect($notification['body'])->toBe(__('capell-admin::message.theme_not_deletable_info', ['count' => 1]));
+    expect($notification->getBody())->toBe(__('capell-admin::message.theme_not_deletable_info', ['count' => 1]));
 });

@@ -39,6 +39,7 @@ use Capell\Core\Models\TermPropertyValue;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Htmlable;
@@ -233,14 +234,14 @@ it('blocks shared layout deletion without disclosing foreign page totals', funct
     Page::factory()->site($this->beta)->layout($layout)->count(4)->create();
     test()->actingAs($this->actor);
     resolve(Translator::class)->addLines(['message.layout_not_deletable_info' => 'Used by :count pages'], 'en', 'capell-admin');
-    session()->forget('filament.notifications');
+    FilamentNotificationSnapshots::pull();
     $validator = new class implements ValidatesDelete
     {
         use LayoutValidation;
     };
     expect($validator->validateDelete($layout))->toBeFalse();
-    $notification = collect(session('filament.notifications'))->last();
-    expect($notification['body'])->toBe('Used by 1 pages');
+    $notification = FilamentNotificationSnapshots::pull()->reverse()->firstOrFail();
+    expect($notification->getBody())->toBe('Used by 1 pages');
     expect($layout->fresh())->not->toBeNull()->and($layout->relationLoaded('pages'))->toBeFalse();
 });
 
@@ -251,13 +252,13 @@ it('blocks canonical page deletion without disclosing foreign variation totals',
     Page::factory()->site($this->beta)->count(3)->create(['meta' => $meta]);
     test()->actingAs($this->actor);
     resolve(Translator::class)->addLines(['message.canonical_page_not_deletable' => 'Used by :count variations'], 'en', 'capell-admin');
-    session()->forget('filament.notifications');
+    FilamentNotificationSnapshots::pull();
     $validator = new class implements ValidatesDelete
     {
         use PageValidation;
     };
     expect($validator->validateDelete($page))->toBeFalse();
-    expect(collect(session('filament.notifications'))->last()['body'])->toBe('Used by 1 variations');
+    expect(FilamentNotificationSnapshots::pull()->reverse()->firstOrFail()->getBody())->toBe('Used by 1 variations');
 });
 
 it('denies a mounted editor update when its page moves out of scope before hydration', function (): void {
