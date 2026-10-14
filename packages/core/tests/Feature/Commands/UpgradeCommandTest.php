@@ -8,11 +8,14 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\UpgradeRun;
 use Capell\Core\Models\UpgradeRunEvent;
 use Capell\Core\Tests\Feature\Commands\Fixtures\TestUpgradeCommand;
+use Capell\Core\Tests\Support\HostMigrationIsolation;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
+    $this->beforeApplicationDestroyed(HostMigrationIsolation::setUp(app()));
+
     Artisan::registerCommand(new TestUpgradeCommand);
 
     $fakeSettingsMigrate = new class extends Command
