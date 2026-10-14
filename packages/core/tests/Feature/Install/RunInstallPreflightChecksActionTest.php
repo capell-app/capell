@@ -212,7 +212,7 @@ it('freshly resolves the combined selected packages before installation', functi
     }
 
     $reporter = new RecordingInstallProgressReporter;
-    expect(fn () => runBoundAction(RunInstallPreflightChecksAction::class, $action, $input, $reporter))->toThrow(RuntimeException::class, 'dependency conflict');
+    expect(fn (): mixed => runBoundAction(RunInstallPreflightChecksAction::class, $action, $input, $reporter))->toThrow(RuntimeException::class, 'dependency conflict');
     expect(implode(' ', $reporter->lines))->toContain('dependency conflict');
 });
 
