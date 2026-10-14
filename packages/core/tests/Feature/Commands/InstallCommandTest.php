@@ -16,6 +16,9 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\Cli\InstallCacheOptionCatalog;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
+use Capell\Core\Support\Install\InstallPatchContext;
+use Capell\Core\Support\Install\InstallPatchRegistry;
+use Capell\Core\Support\Install\RemembersInstallPatchDecision;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
@@ -1017,6 +1020,43 @@ it('prompts for packages when no --packages option is given', function (): void 
             'capell-app/frontend',
             'capell-app/marketplace',
         ]);
+});
+
+it('remembers a declined theme prompt for later non-interactive install passes', function (): void {
+    setupInstallTest([
+        'capell-app/core',
+        'capell-app/admin',
+        'capell-app/frontend',
+        'capell-app/marketplace',
+    ]);
+    createTestUser();
+    $fake = bindFakeRunInstallAction();
+    $context = new InstallPatchContext(['capell-app/admin'], true);
+    $declined = static fn (): bool => collect(resolve(InstallPatchRegistry::class)->patchesFor($context))
+        ->pluck('patch')
+        ->contains(fn ($patch): bool => $patch instanceof RemembersInstallPatchDecision && $patch->declined());
+
+    expect($declined())->toBeFalse();
+
+    artisanCommand('capell:install', [
+        '--url' => 'https://example.test',
+        '--user' => 'test@example.com',
+        '--clear-cache' => true,
+        '--theme' => 'foundation',
+    ])
+        ->expectsQuestion('What core Capell packages should be installed?', [
+            'capell-app/admin',
+            'capell-app/frontend',
+            'capell-app/marketplace',
+        ])
+        ->expectsConfirmation('Install AI / Agent Bridge developer tooling?', 'no')
+        ->expectsConfirmation('Build production frontend assets now?', 'no')
+        ->expectsConfirmation('Add the Capell Filament Vite theme to AdminPanelProvider?', 'no')
+        ->expectsConfirmation('Install Capell with these settings?', 'no')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($fake->callCount)->toBe(0)
+        ->and($declined())->toBeTrue();
 });
 
 it('leads the interactive review with the essentials and collapses the step list', function (): void {

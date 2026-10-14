@@ -9,15 +9,22 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\TrustedCorePackages;
+use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 
 final class InstallRunState
 {
+    // Stands in for the provider an install will scaffold before its path is known.
+    private const string SCAFFOLD_TARGET = '';
+
+    private static int $lockDepth = 0;
+
     /** @var Collection<string, PackageData>|null */
     private ?Collection $selectedPackages = null;
 
@@ -31,13 +38,83 @@ final class InstallRunState
     /** @param list<string> $paths */
     public static function recordScaffoldedPanelProviders(array $paths): void
     {
-        foreach ($paths as $path) {
-            if (is_file($path)) {
-                $state = self::progressState();
-                self::savePanelProvider($path, true, is_string($state['panel_scaffold_run'] ?? null) ? $state['panel_scaffold_run'] : null);
+        self::exclusively(static function () use ($paths): void {
+            foreach ($paths as $path) {
+                if (is_file($path)) {
+                    $state = self::progressState();
+                    self::savePanelProvider($path, true, is_string($state['panel_scaffold_run'] ?? null) ? $state['panel_scaffold_run'] : null);
+                    self::carryScaffoldThemeDecline($path);
 
-                return;
+                    return;
+                }
             }
+        });
+    }
+
+    /**
+     * Persist the answer to the Capell theme prompt for a provider, or for the
+     * provider this install will scaffold when no path exists yet.
+     */
+    public static function rememberPanelThemeDecision(?string $path, bool $accepted): void
+    {
+        self::exclusively(static function () use ($path, $accepted): void {
+            $state = self::progressState();
+            $key = self::themeDecisionKey($path);
+            $declined = array_values(array_filter(self::declinedPanelThemes($state), static fn (string $declinedKey): bool => $declinedKey !== $key));
+
+            if (! $accepted) {
+                $declined[] = $key;
+            }
+
+            $state['declined_panel_themes'] = $declined;
+            self::saveProgressState($state);
+        });
+    }
+
+    public static function panelThemeDeclined(?string $path): bool
+    {
+        return in_array(self::themeDecisionKey($path), self::declinedPanelThemes(self::progressState()), true);
+    }
+
+    /**
+     * Serialise install-state and panel provider writes across installer processes.
+     *
+     * @template TResult
+     *
+     * @param  Closure(): TResult  $callback
+     * @return TResult
+     */
+    public static function exclusively(Closure $callback): mixed
+    {
+        if (self::$lockDepth > 0) {
+            self::$lockDepth++;
+
+            try {
+                return $callback();
+            } finally {
+                self::$lockDepth--;
+            }
+        }
+
+        $lockPath = base_path('storage/framework/cache/capell-install-state.lock');
+        File::ensureDirectoryExists(dirname($lockPath));
+        $handle = fopen($lockPath, 'c');
+        throw_unless(is_resource($handle), RuntimeException::class, 'Unable to open the install state lock.');
+
+        if (! flock($handle, LOCK_EX)) {
+            fclose($handle);
+
+            throw new RuntimeException('Unable to lock install state.');
+        }
+
+        self::$lockDepth = 1;
+
+        try {
+            return $callback();
+        } finally {
+            self::$lockDepth = 0;
+            flock($handle, LOCK_UN);
+            fclose($handle);
         }
     }
 
@@ -71,33 +148,43 @@ final class InstallRunState
         return array_key_exists('panel_provider', $state) || ($state['scaffolded_panel_providers'] ?? []) !== [];
     }
 
-    public static function recordPanelProviderSave(string $path, string $original): void
+    /**
+     * Record the identity of the bytes a save intended, never whatever the file
+     * holds afterwards, so a concurrent replacement is not adopted.
+     */
+    public static function recordPanelProviderSave(string $path, string $original, ?string $contents = null): void
     {
-        $record = self::panelProviderRecord();
-        $wasOwned = $record !== null && $record['path'] === self::panelProviderKey($path) && hash_equals($record['hash'], hash('sha256', $original));
-        self::savePanelProvider($path, $wasOwned && $record['pending'], $wasOwned ? $record['run'] : null);
+        self::exclusively(static function () use ($path, $original, $contents): void {
+            $record = self::panelProviderRecord();
+            $wasOwned = $record !== null && $record['path'] === self::panelProviderKey($path) && hash_equals($record['hash'], hash('sha256', $original));
+            self::savePanelProvider($path, $wasOwned && $record['pending'], $wasOwned ? $record['run'] : null, hash('sha256', $contents ?? $original));
+        });
     }
 
     public static function retireScaffoldedPanelProviders(?string $runId = null): void
     {
-        $record = self::panelProviderRecord();
+        self::exclusively(static function () use ($runId): void {
+            $record = self::panelProviderRecord();
 
-        if ($record === null || ($runId !== null && $record['run'] !== null && $record['run'] !== $runId)) {
-            return;
-        }
+            if ($record === null || ($runId !== null && $record['run'] !== null && $record['run'] !== $runId)) {
+                return;
+            }
 
-        // Completing a step retires pending work, not ownership of the panel it serves.
-        $state = self::progressState();
-        $state['panel_provider'] = [...$record, 'pending' => false];
-        unset($state['scaffolded_panel_providers']);
-        self::saveProgressState($state);
+            // Completing a step retires pending work, not ownership of the panel it serves.
+            $state = self::progressState();
+            $state['panel_provider'] = [...$record, 'pending' => false];
+            unset($state['scaffolded_panel_providers']);
+            self::saveProgressState($state);
+        });
     }
 
     public static function usePanelScaffoldRun(string $runId): void
     {
-        $state = self::progressState();
-        $state['panel_scaffold_run'] = $runId;
-        self::saveProgressState($state);
+        self::exclusively(static function () use ($runId): void {
+            $state = self::progressState();
+            $state['panel_scaffold_run'] = $runId;
+            self::saveProgressState($state);
+        });
     }
 
     public static function panelProviderKey(string $path): string
@@ -176,14 +263,44 @@ final class InstallRunState
         return $user;
     }
 
-    private static function savePanelProvider(string $path, bool $pending, ?string $run): void
+    private static function savePanelProvider(string $path, bool $pending, ?string $run, ?string $hash = null): void
     {
-        $hash = hash_file('sha256', $path);
+        $hash ??= hash_file('sha256', $path);
         throw_unless(is_string($hash), RuntimeException::class, 'Unable to read panel provider identity.');
         $state = self::progressState();
         $state['panel_provider'] = ['path' => self::panelProviderKey($path), 'hash' => $hash, 'pending' => $pending, 'run' => $run];
         unset($state['scaffolded_panel_providers']);
         self::saveProgressState($state);
+    }
+
+    private static function carryScaffoldThemeDecline(string $path): void
+    {
+        $state = self::progressState();
+        $declined = self::declinedPanelThemes($state);
+
+        if (! in_array(self::SCAFFOLD_TARGET, $declined, true)) {
+            return;
+        }
+
+        $declined = array_filter($declined, static fn (string $key): bool => $key !== self::SCAFFOLD_TARGET);
+        $state['declined_panel_themes'] = array_values(array_unique([...$declined, self::panelProviderKey($path)]));
+        self::saveProgressState($state);
+    }
+
+    private static function themeDecisionKey(?string $path): string
+    {
+        return $path === null || $path === '' ? self::SCAFFOLD_TARGET : self::panelProviderKey(str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path));
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     * @return list<string>
+     */
+    private static function declinedPanelThemes(array $state): array
+    {
+        $declined = $state['declined_panel_themes'] ?? [];
+
+        return is_array($declined) ? array_values(array_filter($declined, is_string(...))) : [];
     }
 
     /** @return array{path: string, hash: string, pending: bool, run: ?string}|null */

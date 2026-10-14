@@ -135,3 +135,15 @@ it('refuses to overwrite a host replacement made after the adoption editor read 
         ->and(InstallRunState::scaffoldedPanelProviders())->toBe([])
         ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
 });
+
+it('honours a declined installer theme prompt when integration runs during an install', function (): void {
+    $path = app_path('Providers/Filament/WorkspacePanelProvider.php');
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, '<?php namespace App\\Providers\\Filament; class WorkspacePanelProvider extends \\Filament\\PanelProvider { #[\\Override] public function panel(\\Filament\\Panel $panel): \\Filament\\Panel { return $panel->id("workspace"); } }');
+    InstallRunState::rememberPanelThemeDecision($path, accepted: false);
+    $options = new AdminPanelSetupOptionsData(panelPath: 'workspace', addColors: false, addWidgets: false, addNavigation: false, createBackup: false);
+
+    expect(IntegrateCapellAdminPanelAction::run($options)->hasFailures())->toBeFalse()
+        ->and(GeneratedPhpFixture::load($path, PanelProvider::class, app())->panel(Panel::make())->getViteTheme())->toBeNull()
+        ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
+});

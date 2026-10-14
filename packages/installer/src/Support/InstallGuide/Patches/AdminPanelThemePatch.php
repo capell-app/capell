@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Core\Actions\Install\InstallFilamentPanelAction;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Support\Install\PanelProviderTargetResolver;
+use Capell\Core\Support\Install\RemembersInstallPatchDecision;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
@@ -14,7 +16,7 @@ use Override;
 use RuntimeException;
 use Throwable;
 
-class AdminPanelThemePatch implements Patch
+class AdminPanelThemePatch implements Patch, RemembersInstallPatchDecision
 {
     public function __construct(
         private readonly ?string $providerPath = null,
@@ -81,7 +83,8 @@ class AdminPanelThemePatch implements Patch
             throw_unless($path !== null && $status === PatchStatus::Applicable, RuntimeException::class, 'Cannot apply patch when status is: ' . $status->value);
 
             new PhpFileEditor($path)->backup();
-            $action->configureThemeForProvider($path, new NullProgressReporter);
+            // Applying this patch is an explicit opt-in, even after an earlier decline.
+            $action->configureThemeForProvider($path, new NullProgressReporter, optIn: true);
         } catch (Throwable $throwable) {
             throw new RuntimeException(
                 'Failed to apply AdminPanelThemePatch: ' . $throwable->getMessage(),
@@ -89,6 +92,18 @@ class AdminPanelThemePatch implements Patch
                 $throwable,
             );
         }
+    }
+
+    #[Override]
+    public function rememberDecision(bool $accepted): void
+    {
+        InstallRunState::rememberPanelThemeDecision($this->target(), $accepted);
+    }
+
+    #[Override]
+    public function declined(): bool
+    {
+        return InstallRunState::panelThemeDeclined($this->target());
     }
 
     private function target(): ?string

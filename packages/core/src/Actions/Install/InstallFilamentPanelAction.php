@@ -107,9 +107,21 @@ class InstallFilamentPanelAction
         InstallRunState::retireScaffoldedPanelProviders();
     }
 
-    public function configureThemeForProvider(string $path, ProgressReporter $reporter): void
+    /**
+     * Theme one provider. An explicit opt-in clears an earlier declined theme
+     * prompt; otherwise that decline is honoured.
+     */
+    public function configureThemeForProvider(string $path, ProgressReporter $reporter, bool $optIn = false): void
     {
-        $this->configurePanelThemes(resolve(PanelProviderTargetResolver::class)->resolve($path), $reporter);
+        $targets = resolve(PanelProviderTargetResolver::class)->resolve($path);
+
+        if ($optIn) {
+            foreach ($targets as $target) {
+                InstallRunState::rememberPanelThemeDecision($target, accepted: true);
+            }
+        }
+
+        $this->configurePanelThemes($targets, $reporter);
     }
 
     public function themePatchStatus(string $path): PatchStatus
@@ -264,6 +276,12 @@ CSS);
     private function configurePanelThemes(array $panelProviderPaths, ProgressReporter $reporter): void
     {
         foreach ($panelProviderPaths as $path) {
+            if (InstallRunState::panelThemeDeclined($path)) {
+                $reporter->report('→ Left the Filament panel theme unchanged because it was declined during installation.');
+
+                continue;
+            }
+
             $editor = new PhpFileEditor($path);
             $themeCalls = $this->themeCalls($editor, $path);
 

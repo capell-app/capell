@@ -54,6 +54,7 @@ use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Install\InstallSiteUrl;
+use Capell\Core\Support\Install\RemembersInstallPatchDecision;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -759,6 +760,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $context = new InstallPatchContext(
             array_values(array_unique([...$inputData->packages, ...$inputData->extraPackages])),
             $hasPanel || $creatingPanel,
+            $inputData->adminPanel,
         );
         foreach (resolve(InstallPatchRegistry::class)->patchesFor($context) as $registeredPatch) {
             $status = $registeredPatch->patch->probe();
@@ -769,10 +771,17 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $confirmation = $registeredPatch->confirmation;
             $accepted = true;
             if ($confirmation !== null) {
-                $accepted = $this->reviewedPatchChoices[spl_object_id($confirmation)] ?? ($this->basicInstall || ! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults() || $this->option('plan')
-                    ? $confirmation->default
-                    : confirm(label: $confirmation->label, default: $confirmation->default, hint: $confirmation->hint ?? ''));
+                $reviewed = $this->reviewedPatchChoices[spl_object_id($confirmation)] ?? null;
+                $prompted = $reviewed === null && ! ($this->basicInstall || ! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults() || $this->option('plan'));
+                $accepted = $reviewed ?? ($prompted
+                    ? confirm(label: $confirmation->label, default: $confirmation->default, hint: $confirmation->hint ?? '')
+                    : $confirmation->default);
                 $this->reviewedPatchChoices[spl_object_id($confirmation)] = $accepted;
+
+                // Answers given before a panel is scaffolded must reach the scaffolding step.
+                if ($prompted && $registeredPatch->patch instanceof RemembersInstallPatchDecision) {
+                    $registeredPatch->patch->rememberDecision($accepted);
+                }
             }
 
             $patchLabels[] = $registeredPatch->patch->label() . ' — ' . ($status === PatchStatus::Applicable
