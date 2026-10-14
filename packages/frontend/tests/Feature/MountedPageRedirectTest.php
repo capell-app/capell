@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Capell\Core\Contracts\RedirectResolver;
-use Capell\Core\Data\RedirectDecisionData;
 use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
 use Capell\Core\Enums\UrlTypeEnum;
@@ -18,6 +17,7 @@ use Capell\Frontend\Actions\ResolvePublicPageRequestAction;
 use Capell\Frontend\Data\PublicPageResolutionInputData;
 use Capell\Frontend\Enums\CacheEnum;
 use Capell\Frontend\Support\Loader\NullRedirectResolver;
+use Capell\Frontend\Tests\Support\LegacyDecisionRedirectResolverForMountedRoute;
 use Illuminate\Http\RedirectResponse;
 use PHPUnit\Framework\Assert;
 
@@ -221,17 +221,4 @@ function mountedRedirectPage(Site $site, array $languages, string $slug, string 
     }
 
     return $page;
-}
-
-final class LegacyDecisionRedirectResolverForMountedRoute implements RedirectResolver
-{
-    public function __construct(private readonly PageUrlRedirectResolver $resolver) {}
-
-    #[Override]
-    public function resolve(Site $site, Language $language, string $url, ?int $pageId = null, ?PageUrl $pageUrl = null): ?RedirectDecisionData
-    {
-        $decision = $this->resolver->resolve($site, $language, $url, $pageId, $pageUrl);
-
-        return $decision instanceof RedirectDecisionData ? new RedirectDecisionData($decision->targetUrl, $decision->statusCode) : null;
-    }
 }
