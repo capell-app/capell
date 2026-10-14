@@ -11,6 +11,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Json\JsonEquivalence;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -38,16 +39,16 @@ it('does not update untouched raw metadata', function (string $stored): void {
     expect($updates)->toBeEmpty()
         ->and($saved)->toBeTrue()
         ->and($translation->refresh()->getRawOriginal('updated_at'))->toBe($original['updated_at'])
-        ->and($translation->getRawOriginal('meta'))->toBe($stored);
+        ->and($translation->getRawOriginal('meta'))->toBe($original['meta']);
 })->with([
     'leading zero string' => ['{"code":"001"}'],
     'quoted big integer' => ['{"value":"9223372036854775808"}'],
     'big integer token' => ['{"value":9223372036854775808}'],
-    'invalid JSON' => ['{"value":'],
-    'beyond decode depth' => [str_repeat('[', 513) . '0' . str_repeat(']', 513)],
+    // Invalid/deep raw identity belongs in JsonEquivalenceTest: native JSON
+    // columns cannot represent those documents.
 ]);
 
-it('persists lossy float collisions in raw metadata', function (string $stored, string $submitted): void {
+it('persists distinct representable numbers in raw metadata', function (string $stored, string $submitted): void {
     $page = Page::factory()->createOne();
     $translation = Translation::factory()->translatable($page)->createOne();
     DB::table($translation->getTable())->where('id', $translation->id)->update(['meta' => $stored]);
@@ -56,13 +57,15 @@ it('persists lossy float collisions in raw metadata', function (string $stored, 
     $this->travel(2)->seconds();
     $translation->setRawAttributes([...$original, 'meta' => $submitted]);
     $saved = $translation->save();
+    $persisted = $translation->refresh()->getRawOriginal('meta');
 
     expect($saved)->toBeTrue()
-        ->and($translation->refresh()->getRawOriginal('meta'))->toBe($submitted)
+        ->and(JsonEquivalence::equivalent($persisted, $submitted))->toBeTrue()
+        ->and(JsonEquivalence::equivalent($original['meta'], $persisted))->toBeFalse()
         ->and($translation->getRawOriginal('updated_at'))->not->toBe($original['updated_at']);
 })->with([
-    'rounding collision' => ['{"value":0.1}', '{"value":0.10000000000000001}'],
-    'underflow' => ['{"value":0.0}', '{"value":1e-400}'],
+    'unsigned integer float collision' => ['{"value":9223372036854775808}', '{"value":9223372036854775809}'],
+    'exact fractional edit' => ['{"value":0.125}', '{"value":0.25}'],
 ]);
 
 it('does not update a translation when assigned equivalent MySQL-shaped meta', function (): void {
@@ -98,15 +101,17 @@ it('persists meta identity and large integer edits through model assignment', fu
     $page = Page::factory()->createOne();
     $translation = Translation::factory()->translatable($page)->createOne();
     DB::table($translation->getTable())->where('id', $translation->id)->update(['meta' => $stored]);
-    $original = $translation->refresh()->getRawOriginal('updated_at');
+    $original = $translation->refresh()->getAttributes();
 
     $this->travel(2)->seconds();
     $translation->meta = $submitted;
     $saved = $translation->save();
+    $persisted = $translation->refresh()->getRawOriginal('meta');
 
     expect($saved)->toBeTrue()
-        ->and($translation->refresh()->getRawOriginal('meta'))->toBe(json_encode($submitted, JSON_THROW_ON_ERROR))
-        ->and($translation->getRawOriginal('updated_at'))->not->toBe($original);
+        ->and(JsonEquivalence::equivalent($persisted, json_encode($submitted, JSON_THROW_ON_ERROR)))->toBeTrue()
+        ->and(JsonEquivalence::equivalent($original['meta'], $persisted))->toBeFalse()
+        ->and($translation->getRawOriginal('updated_at'))->not->toBe($original['updated_at']);
 })->with([
     'root empty object to list' => ['{}', []],
     'root numeric object to list' => ['{"0":"a","1":"b"}', ['a', 'b']],
