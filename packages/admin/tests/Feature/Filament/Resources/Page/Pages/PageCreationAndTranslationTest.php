@@ -255,7 +255,7 @@ it('fires saved for an unchanged translation through the page editor without upd
     expect($saved)->toBe(1)
         ->and($translation->refresh()->getAttributes())->toBe($original)
         ->and($translation->getRawOriginal('updated_at'))->toBe($original['updated_at'])
-        ->and($translation->getRawOriginal('meta'))->toBe($storedMeta);
+        ->and($translation->getRawOriginal('meta'))->toBe($original['meta']);
 });
 
 it('persists nested relationship edits on a restored translation model', function (bool $editPrimaryFields): void {
