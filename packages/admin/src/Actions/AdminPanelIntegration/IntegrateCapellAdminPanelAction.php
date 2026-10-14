@@ -11,6 +11,8 @@ use Capell\Admin\Data\AdminPanelIntegration\AdminPanelSetupResultData;
 use Capell\Admin\Enums\AdminPanelChangeStatus;
 use Capell\Admin\Enums\AdminPanelFailureCategory;
 use Capell\Admin\Support\AdminPanelIntegration\AdminPanelProviderEditor;
+use Capell\Core\Actions\Install\InstallFilamentPanelAction;
+use Capell\Core\Support\Install\NullProgressReporter;
 use Illuminate\Support\Collection;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -68,6 +70,10 @@ final class IntegrateCapellAdminPanelAction
             if (! $options->preview && $hasAppliedChanges) {
                 $backupPath = $options->createBackup ? $editor->backup() : null;
                 $editor->save();
+            }
+
+            if (! $options->preview) {
+                resolve(InstallFilamentPanelAction::class)->configureThemeForProvider($panel->path, new NullProgressReporter);
             }
 
             return new AdminPanelSetupResultData($panel->path, $backupPath, $changes, self::DOCS_URL);

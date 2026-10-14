@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
@@ -93,8 +94,13 @@ class InstallFilamentPanelAction
         }
     }
 
+    public function configureThemeForProvider(string $path, ProgressReporter $reporter): void
+    {
+        $this->configurePanelThemes([$path], $reporter);
+    }
+
     /**
-     * @return array<int, string>
+     * @return list<string>
      */
     private static function panelProviderPaths(): array
     {
@@ -119,7 +125,13 @@ class InstallFilamentPanelAction
 
         if ($panelProviderPaths !== []) {
             $reporter->report('→ Filament admin panel already configured.');
-            $this->configurePanelThemes($panelProviderPaths, $reporter);
+            $ownedPaths = array_values(array_filter($panelProviderPaths, fn (string $path): bool => in_array(
+                str($path)->after(base_path() . DIRECTORY_SEPARATOR)->toString(),
+                InstallRunState::scaffoldedPanelProviders(),
+                true,
+            )));
+            $this->configurePanelThemes($ownedPaths, $reporter);
+            $this->reportMissingThemeConfiguration(array_values(array_diff($panelProviderPaths, $ownedPaths)), $reporter);
 
             return;
         }
@@ -128,7 +140,6 @@ class InstallFilamentPanelAction
             $this->installFilamentInFreshProcess($reporter, null);
             $this->ensurePanelProviderWasCreated();
             self::registerPanelProviders();
-            $this->ensureDefaultThemeStylesheetExists();
             $this->configurePanelThemes(self::panelProviderPaths(), $reporter);
 
             return;
@@ -137,10 +148,15 @@ class InstallFilamentPanelAction
         $reporter->step('Setting up Filament admin panel…');
 
         try {
-            RunArtisanCommandAction::run('filament:install', [
-                '--panels' => true,
-                '--no-interaction' => true,
-            ], $reporter);
+            try {
+                RunArtisanCommandAction::run('filament:install', [
+                    '--panels' => true,
+                    '--no-interaction' => true,
+                ], $reporter);
+            } finally {
+                // Scaffolding may succeed before asset publication interrupts installation.
+                InstallRunState::recordScaffoldedPanelProviders(self::panelProviderPaths());
+            }
         } catch (Throwable $throwable) {
             $reporter->error(sprintf('✗ Failed to scaffold Filament panel: %s', $throwable->getMessage()));
             $this->installFilamentInFreshProcess($reporter, $throwable);
@@ -148,7 +164,6 @@ class InstallFilamentPanelAction
 
         $this->ensurePanelProviderWasCreated();
         self::registerPanelProviders();
-        $this->ensureDefaultThemeStylesheetExists();
         $this->configurePanelThemes(self::panelProviderPaths(), $reporter);
     }
 
@@ -172,13 +187,19 @@ class InstallFilamentPanelAction
             ArtisanProcessEnvironment::prepare(ComposerProcessEnvironment::forInstall($_SERVER)),
         );
         $process->setTimeout(300);
-        $process->run(function (string $type, string $buffer) use ($reporter): void {
-            foreach (explode("\n", trim($buffer)) as $line) {
-                if ($line !== '') {
-                    $reporter->report($line);
+
+        $existingPaths = self::panelProviderPaths();
+        try {
+            $process->run(function (string $type, string $buffer) use ($reporter): void {
+                foreach (explode("\n", trim($buffer)) as $line) {
+                    if ($line !== '') {
+                        $reporter->report($line);
+                    }
                 }
-            }
-        });
+            });
+        } finally {
+            InstallRunState::recordScaffoldedPanelProviders(array_values(array_diff(self::panelProviderPaths(), $existingPaths)));
+        }
 
         if ($process->isSuccessful()) {
             return;
@@ -228,6 +249,10 @@ CSS);
     private function configurePanelThemes(array $panelProviderPaths, ProgressReporter $reporter): void
     {
         foreach ($panelProviderPaths as $path) {
+            if ($this->hasThemeConfiguration($path)) {
+                continue;
+            }
+
             $editor = new PhpFileEditor($path);
             $method = $editor->findMethodInClass(pathinfo($path, PATHINFO_FILENAME), 'panel');
 
@@ -277,32 +302,21 @@ CSS);
      */
     private function reportMissingThemeConfiguration(array $panelProviderPaths, ProgressReporter $reporter): void
     {
-        if ($panelProviderPaths === [] || $this->hasThemeConfiguration($panelProviderPaths)) {
-            return;
+        foreach ($panelProviderPaths as $path) {
+            if (! $this->hasThemeConfiguration($path)) {
+                $reporter->report('→ Filament panel theme is not configured. Add ->viteTheme(...) or another theme configuration to your panel provider.');
+            }
         }
-
-        $reporter->report('→ Filament panel theme is not configured. Add ->viteTheme(...) or another theme configuration to your panel provider.');
     }
 
-    /**
-     * @param  array<int, string>  $panelProviderPaths
-     */
-    private function hasThemeConfiguration(array $panelProviderPaths): bool
+    private function hasThemeConfiguration(string $panelProviderPath): bool
     {
-        foreach ($panelProviderPaths as $panelProviderPath) {
-            $contents = file_get_contents($panelProviderPath);
+        $contents = file_get_contents($panelProviderPath);
 
-            if (! is_string($contents)) {
-                continue;
-            }
-
-            foreach (self::THEME_METHODS as $method) {
-                if (preg_match('/->\s*' . preg_quote($method, '/') . '\s*\(/', $contents) === 1) {
-                    return true;
-                }
-            }
+        if (! is_string($contents)) {
+            return false;
         }
 
-        return false;
+        return array_any(self::THEME_METHODS, fn (string $method): bool => preg_match('/->\\s*' . preg_quote($method, '/') . '\\s*\\(/', $contents) === 1);
     }
 }

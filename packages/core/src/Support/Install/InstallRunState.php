@@ -10,8 +10,10 @@ use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Packages\TrustedCorePackages;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
 final class InstallRunState
@@ -25,6 +27,32 @@ final class InstallRunState
         private ?int $resolvedUserId = null,
         private bool $packageMetadataRefreshed = false,
     ) {}
+
+    /** @param list<string> $paths */
+    public static function recordScaffoldedPanelProviders(array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        $store = self::progressStore();
+        $state = $store->get('capell.install.state', []);
+        $state = is_array($state) ? $state : [];
+        $state['scaffolded_panel_providers'] = array_values(array_unique([
+            ...self::scaffoldedPanelProviders(),
+            ...array_map(fn (string $path): string => str($path)->after(base_path() . DIRECTORY_SEPARATOR)->toString(), $paths),
+        ]));
+        throw_unless($store->forever('capell.install.state', $state), RuntimeException::class, 'Unable to persist panel scaffold provenance.');
+    }
+
+    /** @return list<string> */
+    public static function scaffoldedPanelProviders(): array
+    {
+        $state = self::progressStore()->get('capell.install.state', []);
+        $paths = is_array($state) ? ($state['scaffolded_panel_providers'] ?? []) : [];
+
+        return is_array($paths) ? array_values(array_filter($paths, is_string(...))) : [];
+    }
 
     /**
      * @return Collection<string, PackageData>
@@ -92,5 +120,14 @@ final class InstallRunState
         }
 
         return $user;
+    }
+
+    private static function progressStore(): Repository
+    {
+        // File-backed install progress survives fresh invocations before database setup.
+        return Cache::build([
+            'driver' => 'file',
+            'path' => base_path('storage/framework/cache/data'),
+        ]);
     }
 }
