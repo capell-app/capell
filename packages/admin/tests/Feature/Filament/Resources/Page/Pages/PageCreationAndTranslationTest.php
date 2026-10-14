@@ -20,6 +20,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Testing\TestAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 
@@ -159,7 +160,7 @@ it('lets the same editor renew the content lock after a translation save fails',
     ]))->assertSuccessful();
 });
 
-it('reuses a deleted language translation when the editor adds it again', function (): void {
+it('reuses a deleted language translation when the editor adds it again', function (bool $normalizeJson): void {
     $english = Language::factory()->createOne(['default' => true]);
     $french = Language::factory()->createOne(['default' => false]);
     $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
@@ -177,7 +178,15 @@ it('reuses a deleted language translation when the editor adds it again', functi
         'description' => null,
         'keywords' => null,
     ]])->save();
-    $englishAttributes = $originalEnglish->getAttributes();
+    if ($normalizeJson) {
+        $meta = array_reverse($originalEnglish->meta ?? [], preserve_keys: true);
+        $storedMeta = '{' . collect($meta)->map(
+            fn (mixed $value, string $key): string => json_encode($key, JSON_THROW_ON_ERROR) . ': ' . json_encode($value, JSON_THROW_ON_ERROR),
+        )->implode(', ') . '}';
+        DB::table($originalEnglish->getTable())->where('id', $originalEnglish->id)->update(['meta' => $storedMeta]);
+    }
+
+    $englishAttributes = $originalEnglish->refresh()->getAttributes();
     $deletedFrench->forceFill(['meta' => [...($deletedFrench->meta ?? []), 'undeclared_metadata' => 'retained']])->save();
     $deletedFrench->delete();
 
@@ -189,6 +198,7 @@ it('reuses a deleted language translation when the editor adds it again', functi
         fn (array $translation): bool => (int) ($translation['language_id'] ?? 0) === $french->id,
     );
     throw_unless(is_string($translationKey), RuntimeException::class, 'The added French translation is missing.');
+    $this->travel(2)->seconds();
     $livewire->set('data.translations.' . $translationKey . '.title', 'Traduction rétablie')
         ->call('save')->assertHasNoFormErrors();
 
@@ -197,7 +207,7 @@ it('reuses a deleted language translation when the editor adds it again', functi
         ->and($deletedFrench->meta['undeclared_metadata'] ?? null)->toBe('retained')
         ->and($originalEnglish->refresh()->getAttributes())->toBe($englishAttributes)
         ->and($page->translations()->withTrashed()->count())->toBe(2);
-});
+})->with(['original JSON' => false, 'MySQL-shaped JSON' => true]);
 
 it('restores only translations belonging to the supplied relationship owner', function (): void {
     $language = Language::factory()->createOne();
@@ -211,15 +221,18 @@ it('restores only translations belonging to the supplied relationship owner', fu
         ->and($otherTranslation->refresh()->trashed())->toBeTrue();
 });
 
-it('persists nested relationship edits on a restored translation model', function (): void {
+it('persists nested relationship edits on a restored translation model', function (bool $editPrimaryFields): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->language($language)->withTranslations($language)->createOne();
     $page = Page::factory()->site($site)->withTranslations($language)->createOne();
     $translation = $page->translations->sole();
     $translation->delete();
 
+    $title = $editPrimaryFields ? 'Restored title' : $translation->title;
+    $meta = $editPrimaryFields ? ['primary_marker' => 'Primary form edit'] : $translation->meta;
+
     $livewire = FormLivewire::make()->data(['translations' => [
-        'new-language' => ['language_id' => $language->id, 'title' => 'Restored title', 'meta' => ['primary_marker' => 'Primary form edit'], 'nested_marker' => 'Nested relationship edit'],
+        'new-language' => ['language_id' => $language->id, 'title' => $title, 'meta' => $meta, 'nested_marker' => 'Nested relationship edit'],
     ]]);
     $schema = Schema::make($livewire)->model($page)->statePath('data')->components([
         TranslationsRepeater::make('translations')->tabs([
@@ -238,11 +251,11 @@ it('persists nested relationship edits on a restored translation model', functio
     $schema->saveRelationships();
 
     expect($translation->refresh()->trashed())->toBeFalse()
-        ->and($translation->title)->toBe('Restored title')
+        ->and($translation->title)->toBe($title)
         ->and($translation->meta['nested_marker'] ?? null)->toBe('Nested relationship edit')
-        ->and($translation->meta['primary_marker'] ?? null)->toBe('Primary form edit')
+        ->and($translation->meta['primary_marker'] ?? null)->toBe($meta['primary_marker'] ?? null)
         ->and($page->translations()->withTrashed()->count())->toBe(1);
-});
+})->with(['primary and nested edits' => true, 'nested edits only' => false]);
 
 it('rolls back a restored translation when restoration or persistence is cancelled', function (string $failure, string $message): void {
     $language = Language::factory()->createOne();

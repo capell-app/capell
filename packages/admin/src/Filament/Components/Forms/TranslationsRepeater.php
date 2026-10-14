@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Components\Forms;
 use Capell\Admin\Actions\CheckTranslationCompletenessAction;
 use Capell\Admin\Actions\GetFlatComponentKeysAction;
 use Capell\Admin\Actions\MutateContentPresenterAction;
+use Capell\Admin\Actions\PrepareTranslationRelationshipDataForSaveAction;
 use Capell\Admin\Actions\RestoreDeletedTranslationForLanguageAction;
 use Capell\Admin\Support\Filament\RawState;
 use Capell\Admin\Support\Loader\LanguageLoader;
@@ -147,17 +148,17 @@ class TranslationsRepeater extends RepeaterTabs
     {
         $data = parent::mutateRelationshipDataBeforeSave($data, $record);
         $key = 'record-' . $record->getKey();
-        if (! array_key_exists($key, $this->restoredTranslationMetadata)) {
-            return $data;
+        if (array_key_exists($key, $this->restoredTranslationMetadata)) {
+            throw_if($data === null, RuntimeException::class, 'The restored translation save was cancelled.');
+            $data['meta'] = array_replace(
+                $this->restoredTranslationMetadata[$key],
+                is_array($data['meta'] ?? null) ? $data['meta'] : [],
+            );
         }
 
-        throw_if($data === null, RuntimeException::class, 'The restored translation save was cancelled.');
-        $data['meta'] = array_replace(
-            $this->restoredTranslationMetadata[$key],
-            is_array($data['meta'] ?? null) ? $data['meta'] : [],
-        );
-
-        return $data;
+        return $record instanceof Translation && $data !== null
+            ? PrepareTranslationRelationshipDataForSaveAction::run($record, $data)
+            : $data;
     }
 
     #[Override]
