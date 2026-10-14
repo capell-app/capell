@@ -206,7 +206,7 @@ class TranslationsRepeater extends RepeaterTabs
                     throw_unless($item instanceof Schema, RuntimeException::class, 'The restored translation editor is missing.');
                     $savedTranslation = $this->getCachedExistingRecords()->get($key);
                     throw_unless($savedTranslation instanceof Translation, RuntimeException::class, 'The saved translation is missing.');
-                    $item->model($savedTranslation)->saveRelationships();
+                    $this->saveRestoredTranslationRelationships($item, $savedTranslation);
                 }
             });
         } catch (Throwable $throwable) {
@@ -350,6 +350,11 @@ class TranslationsRepeater extends RepeaterTabs
         return $query->select(['id', 'name', 'flag'])
             ->enabled()
             ->ordered();
+    }
+
+    private function saveRestoredTranslationRelationships(Schema $item, Translation $translation): void
+    {
+        $item->model($translation)->saveRelationships();
     }
 
     private function resolveDefaultTranslation(Translation $record): ?Translation
