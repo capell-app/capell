@@ -789,3 +789,28 @@ it('repairs a default stylesheet referenced by a conditional panel return', func
         ->and(resource_path('css/filament/admin/theme.css'))->toBeFile()
         ->and(GeneratedPhpFixture::load($path, PanelProvider::class, app())->panel(Panel::make())->getViteTheme())->toBe('resources/css/filament/admin/theme.css');
 });
+
+it('leaves the panel it scaffolds unthemed after the theme prompt was declined until the user opts in', function (): void {
+    InstallRunState::rememberPanelThemeDecision(null, accepted: false);
+    bindFilamentPanelInstallProcessFactory();
+    $kernel = Mockery::mock(ConsoleKernel::class);
+    $kernel->shouldReceive('all')->once()->andReturn([]);
+    $kernel->shouldReceive('output')->zeroOrMoreTimes()->andReturn('');
+    $this->app->instance(ConsoleKernel::class, $kernel);
+    Artisan::clearResolvedInstances();
+    $path = app_path('Providers/Filament/FilamentInstallTestPanelProvider.php');
+
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+    $scaffolded = File::get($path);
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(File::get($path))->toBe($scaffolded)
+        ->and(GeneratedPhpFixture::load($path, PanelProvider::class, app())->panel(Panel::make())->getViteTheme())->toBeNull()
+        ->and(File::exists(resource_path('css/filament/admin/theme.css')))->toBeFalse();
+
+    InstallRunState::rememberPanelThemeDecision($path, accepted: true);
+    InstallFilamentPanelAction::run(new NullProgressReporter);
+
+    expect(GeneratedPhpFixture::load($path, PanelProvider::class, app())->panel(Panel::make())->getViteTheme())->toBe('resources/css/filament/admin/theme.css')
+        ->and(resource_path('css/filament/admin/theme.css'))->toBeFile();
+});

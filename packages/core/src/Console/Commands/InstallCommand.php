@@ -54,6 +54,7 @@ use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Install\InstallSiteUrl;
+use Capell\Core\Support\Install\RemembersInstallPatchDecision;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
@@ -139,6 +140,13 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     /** @var array<int, bool> */
     private array $reviewedPatchChoices = [];
 
+    /**
+     * Answers typed at the review prompt, persisted only once the install proceeds.
+     *
+     * @var array<int, array{patch: RemembersInstallPatchDecision, accepted: bool}>
+     */
+    private array $promptedPatchDecisions = [];
+
     private bool $configureHomepage = false;
 
     /** @var list<string> Suite extensions that are not installed yet and must be downloaded with Composer. */
@@ -178,6 +186,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $this->homepageChoice = null;
         $this->cacheChoices = null;
         $this->reviewedPatchChoices = [];
+        $this->promptedPatchDecisions = [];
         $this->wizardBooted = false;
         $this->freshConfirmed = false;
         $this->editAdministrator = false;
@@ -265,7 +274,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             interactive: $this->input->isInteractive(),
             useFreshDemoDefaults: $this->shouldUseFreshDemoDefaults(),
             reporter: $reporter,
-            confirmPatch: fn (InstallPatchConfirmation $confirmation): bool => $this->reviewedPatchChoices[spl_object_id($confirmation)] ?? false,
+            confirmPatch: fn (InstallPatchConfirmation $confirmation): ?bool => $this->reviewedPatchChoices[spl_object_id($confirmation)] ?? null,
             recordManualInstallChange: function (string $message): void {
                 $this->recordManualInstallChange($message);
             },
@@ -700,6 +709,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             return CommandAlias::SUCCESS;
         }
 
+        $this->persistPromptedPatchDecisions();
+
         if (! resolve(FilamentAdminInstallPreflight::class)->ensureReady(
             packages: $packages,
             interactive: false,
@@ -759,6 +770,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $context = new InstallPatchContext(
             array_values(array_unique([...$inputData->packages, ...$inputData->extraPackages])),
             $hasPanel || $creatingPanel,
+            $inputData->adminPanel,
         );
         foreach (resolve(InstallPatchRegistry::class)->patchesFor($context) as $registeredPatch) {
             $status = $registeredPatch->patch->probe();
@@ -769,10 +781,18 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             $confirmation = $registeredPatch->confirmation;
             $accepted = true;
             if ($confirmation !== null) {
-                $accepted = $this->reviewedPatchChoices[spl_object_id($confirmation)] ?? ($this->basicInstall || ! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults() || $this->option('plan')
-                    ? $confirmation->default
-                    : confirm(label: $confirmation->label, default: $confirmation->default, hint: $confirmation->hint ?? ''));
+                $reviewed = $this->reviewedPatchChoices[spl_object_id($confirmation)] ?? null;
+                $prompted = $reviewed === null && ! ($this->basicInstall || ! $this->input->isInteractive() || $this->shouldUseFreshDemoDefaults() || $this->option('plan'));
+                $accepted = $reviewed ?? ($prompted
+                    ? confirm(label: $confirmation->label, default: $confirmation->default, hint: $confirmation->hint ?? '')
+                    : $confirmation->default);
                 $this->reviewedPatchChoices[spl_object_id($confirmation)] = $accepted;
+
+                // Answers given before a panel is scaffolded must reach the scaffolding step,
+                // but only once the user confirms the install.
+                if ($prompted && $registeredPatch->patch instanceof RemembersInstallPatchDecision) {
+                    $this->promptedPatchDecisions[spl_object_id($confirmation)] = ['patch' => $registeredPatch->patch, 'accepted' => $accepted];
+                }
             }
 
             $patchLabels[] = $registeredPatch->patch->label() . ' — ' . ($status === PatchStatus::Applicable
@@ -801,6 +821,15 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         return ! $this->input->hasParameterOption('--fresh');
+    }
+
+    private function persistPromptedPatchDecisions(): void
+    {
+        foreach ($this->promptedPatchDecisions as $decision) {
+            $decision['patch']->rememberDecision($decision['accepted']);
+        }
+
+        $this->promptedPatchDecisions = [];
     }
 
     private function reviewInstallation(InstallInputData $input): bool
@@ -882,6 +911,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 $this->homepageChoice = null;
                 $this->cacheChoices = null;
                 $this->reviewedPatchChoices = [];
+                $this->promptedPatchDecisions = [];
             }
 
             if ($choice === 'packages' || $choice === 'customise') {

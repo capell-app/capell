@@ -9,6 +9,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
+use Capell\Core\Support\Install\RemembersInstallPatchDecision;
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
 
@@ -280,3 +281,100 @@ function prepareInstallApplicationTestReporter(): ProgressReporter
         }
     };
 }
+
+it('remembers only answers the user actually gave', function (?bool $answer, bool $applied, array $remembered): void {
+    $patch = new class implements Patch, RemembersInstallPatchDecision
+    {
+        public bool $applied = false;
+
+        /** @var list<bool> */
+        public array $remembered = [];
+
+        #[Override]
+        public function id(): string
+        {
+            return 'remembering-test';
+        }
+
+        #[Override]
+        public function group(): string
+        {
+            return 'testing';
+        }
+
+        #[Override]
+        public function label(): string
+        {
+            return 'Remembering test patch';
+        }
+
+        #[Override]
+        public function description(): string
+        {
+            return 'A test patch.';
+        }
+
+        #[Override]
+        public function docUrl(): ?string
+        {
+            return null;
+        }
+
+        #[Override]
+        public function defaultEnabled(): bool
+        {
+            return true;
+        }
+
+        #[Override]
+        public function probe(): PatchStatus
+        {
+            return PatchStatus::Applicable;
+        }
+
+        #[Override]
+        public function reason(): ?string
+        {
+            return null;
+        }
+
+        #[Override]
+        public function apply(): void
+        {
+            $this->applied = true;
+        }
+
+        #[Override]
+        public function rememberDecision(bool $accepted): void
+        {
+            $this->remembered[] = $accepted;
+        }
+
+        #[Override]
+        public function declined(): bool
+        {
+            return false;
+        }
+    };
+    $registry = new InstallPatchRegistry;
+    $registry->register(static fn (InstallPatchContext $context): Patch => $patch, new InstallPatchConfirmation(label: 'Apply the remembering patch?'), key: 'remembering-test');
+
+    app()->instance(InstallPatchRegistry::class, $registry);
+
+    PrepareInstallApplicationAction::run(
+        inputData: prepareInstallApplicationTestInput(),
+        hasFilamentAdminPanelProvider: false,
+        interactive: true,
+        useFreshDemoDefaults: false,
+        reporter: prepareInstallApplicationTestReporter(),
+        confirmPatch: static fn (InstallPatchConfirmation $confirmation): ?bool => $answer,
+        recordManualInstallChange: static function (string $message): void {},
+    );
+
+    expect($patch->applied)->toBe($applied)
+        ->and($patch->remembered)->toBe($remembered);
+})->with([
+    'not asked' => [null, false, []],
+    'declined' => [false, false, [false]],
+    'accepted' => [true, true, [true]],
+]);

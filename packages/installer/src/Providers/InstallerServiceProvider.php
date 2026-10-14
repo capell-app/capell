@@ -187,9 +187,9 @@ class InstallerServiceProvider extends AbstractPackageServiceProvider
 
         $installPatchRegistry->register(
             static fn (InstallPatchContext $context): ?Patch => $context->hasPackage('capell-app/admin')
-                && (resolve(PanelProviderTargetResolver::class)->resolve(adoptDefault: true) !== []
+                && (resolve(PanelProviderTargetResolver::class)->resolve($context->adminPanel, adoptDefault: true) !== []
                     || ($context->hasFilamentAdminPanelProvider && resolve(PanelProviderTargetResolver::class)->providerPaths() === []))
-                ? new AdminPanelThemePatch(adoptDefault: true)
+                ? new AdminPanelThemePatch($context->adminPanel, adoptDefault: true)
                 : null,
             new InstallPatchConfirmation(
                 label: __('capell-installer::install-guide.admin_panel_theme_confirm_label'),

@@ -11,6 +11,7 @@ use Capell\Core\Support\Install\InstallPatchConfirmation;
 use Capell\Core\Support\Install\InstallPatchContext;
 use Capell\Core\Support\Install\InstallPatchRegistry;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
+use Capell\Core\Support\Install\RemembersInstallPatchDecision;
 use Capell\Core\Support\Patching\PatchStatus;
 use Closure;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -23,7 +24,7 @@ final class PrepareInstallApplicationAction
     use AsObject;
 
     /**
-     * @param  Closure(InstallPatchConfirmation): bool  $confirmPatch
+     * @param  Closure(InstallPatchConfirmation): ?bool  $confirmPatch  The user's answer, or null when they were not asked.
      * @param  Closure(string): void  $recordManualInstallChange
      */
     public function handle(
@@ -53,6 +54,7 @@ final class PrepareInstallApplicationAction
         $patchContext = new InstallPatchContext(
             packageNames: $selectedPackageNames,
             hasFilamentAdminPanelProvider: $hasFilamentAdminPanelProvider,
+            adminPanel: $inputData->adminPanel,
         );
 
         foreach (resolve(InstallPatchRegistry::class)->patchesFor($patchContext) as $registeredPatch) {
@@ -83,12 +85,21 @@ final class PrepareInstallApplicationAction
             }
 
             $confirmation = $registeredPatch->confirmation;
+            $asks = $confirmation instanceof InstallPatchConfirmation && $interactive && ! $useFreshDemoDefaults;
+            $answer = $asks ? $confirmPatch($confirmation) : null;
+            // An unanswered prompt skips the patch for this run without becoming a remembered decline.
+            $accepted = ! $asks || $answer === true;
 
-            if ($confirmation instanceof InstallPatchConfirmation
-                && $interactive
-                && ! $useFreshDemoDefaults
-                && ! $confirmPatch($confirmation)
-            ) {
+            if ($answer !== null && $patch instanceof RemembersInstallPatchDecision) {
+                $patch->rememberDecision($answer);
+            }
+
+            // Without a fresh answer, an earlier decline stands until the user opts in again.
+            if (! $asks && $confirmation instanceof InstallPatchConfirmation && $patch instanceof RemembersInstallPatchDecision && $patch->declined()) {
+                $accepted = false;
+            }
+
+            if ($confirmation instanceof InstallPatchConfirmation && ! $accepted) {
                 if ($confirmation->skippedMessage !== null) {
                     $reporter->report($confirmation->skippedMessage);
                 }
