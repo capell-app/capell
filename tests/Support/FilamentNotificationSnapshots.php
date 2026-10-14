@@ -8,6 +8,7 @@ use Filament\Notifications\Livewire\Notifications;
 use Filament\Notifications\Notification;
 use Filament\Notifications\NotificationMailbox;
 use Illuminate\Support\Collection;
+use UnexpectedValueException;
 
 final class FilamentNotificationSnapshots
 {
@@ -26,8 +27,14 @@ final class FilamentNotificationSnapshots
             $component->pullNotificationsFromSession();
         }
 
-        return collect($component->notifications->all())
-            ->values()
-            ->map(static fn (Notification $notification): Notification => $notification);
+        $notifications = [];
+
+        foreach ($component->notifications as $notification) {
+            throw_unless($notification instanceof Notification, UnexpectedValueException::class, 'Delivered notifications must be Filament notification objects.');
+
+            $notifications[] = $notification;
+        }
+
+        return new Collection($notifications);
     }
 }

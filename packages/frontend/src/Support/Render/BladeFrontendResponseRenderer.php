@@ -65,12 +65,17 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
         $this->primePublicRenderDependencies($context, $runtimeManifest);
 
         $response = resolve(PublicViewQueryGuard::class)->guard($context, function () use ($context, $page, $runtimeManifest): Response {
-            $slot = $this->hydratedLayoutGraphSlot($context)
-                ?? $this->layoutBuilderSlot($context)
-                ?? View::make($this->masterFile($context->layout), [
-                    'componentName' => 'capell.frontend.page',
-                    'params' => [],
-                ])->render();
+            $slot = null;
+
+            if (! $this->hasAuthoredMasterForPreparedGraph($context)) {
+                $slot = $this->hydratedLayoutGraphSlot($context)
+                    ?? $this->layoutBuilderSlot($context);
+            }
+
+            $slot ??= View::make($this->masterFile($context->layout), [
+                'componentName' => 'capell.frontend.page',
+                'params' => [],
+            ])->render();
 
             return response()->view(
                 $this->layoutFile($context->layout),
@@ -105,6 +110,15 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
     private function masterFile(?Layout $layout): string
     {
         return $layout?->meta['master_file'] ?? 'capell::livewire.page.page';
+    }
+
+    private function hasAuthoredMasterForPreparedGraph(FrontendRenderContextData $context): bool
+    {
+        $masterFile = $context->layout?->meta['master_file'] ?? null;
+
+        return is_object($context->publicRenderData?->layoutGraph)
+            && is_string($masterFile)
+            && trim($masterFile) !== '';
     }
 
     private function layoutBuilderSlot(FrontendRenderContextData $context): ?string

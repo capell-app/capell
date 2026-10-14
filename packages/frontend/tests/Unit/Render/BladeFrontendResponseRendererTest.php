@@ -17,11 +17,15 @@ use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Data\ThemePresetData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRenderPayload;
+use Capell\Frontend\Data\FrontendRuntimeManifestData;
 use Capell\Frontend\Data\MainContentRenderHookData;
+use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\RenderHookContext;
 use Capell\Frontend\Enums\RenderHookLocation;
+use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
@@ -205,6 +209,123 @@ it('renders custom master and layout files from layout metadata', function (): v
         ->not->toContain('data-field-path')
         ->not->toContain('signature=');
 });
+
+it('honours authored masters for prepared graphs while retaining graph and container fallbacks', function (string $graphState, string $masterState, string $expectedContent, int $expectedRawHookCalls): void {
+    $viewNamespace = 'capell-renderer-prepared-' . bin2hex(random_bytes(6));
+    $viewPath = storage_path('framework/testing/' . $viewNamespace);
+    $site = Site::factory()->make(['name' => 'Prepared graph site']);
+    $site->setRelation('blueprint', Blueprint::factory()->make());
+
+    $language = Language::factory()->make(['code' => 'en']);
+    $theme = Theme::factory()->make(['key' => 'default', 'meta' => []]);
+    $page = Page::factory()->make(['name' => 'Prepared graph page', 'meta' => []]);
+    $page->setRelation('translation', Translation::factory()->make(['title' => 'Prepared graph title', 'meta' => []]));
+    $page->setRelation('blueprint', Blueprint::factory()->make());
+
+    $layout = Layout::factory()->make([
+        'key' => 'home',
+        'meta' => [
+            'layout_file' => $viewNamespace . '::layout',
+            ...match ($masterState) {
+                'explicit' => ['master_file' => $viewNamespace . '::master'],
+                'blank' => ['master_file' => ''],
+                default => [],
+            },
+        ],
+    ]);
+    $layout->admin = ['system_page_layout' => false];
+    $layout->containers = ['main' => ['widgets' => [['widget_key' => 'page-content']]]];
+
+    $rawHookCalls = 0;
+
+    resolve(RenderHookRegistry::class)->registerCallable(
+        RenderHookLocation::MainContent,
+        static function () use (&$rawHookCalls): string {
+            $rawHookCalls++;
+
+            return '<section>Raw container fallback</section>';
+        },
+        scenario: 'frontend-main-layout',
+        target: 'capell::layout.main',
+    );
+    bindBladeRendererContext($page, $site, $language, $layout, $theme);
+
+    $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
+    $layoutGraph = $graphState === 'missing' ? null : (object) [
+        'containers' => [
+            'main' => [
+                'widgets' => [
+                    [
+                        'data' => [
+                            'sections' => $graphState === 'populated'
+                                ? [['html' => '<section>Hydrated graph content</section>', 'order' => 1]]
+                                : [['html' => ''], ['html' => '  '], ['html' => null]],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+    $publicRenderData = new PublicPageRenderData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: $layout,
+        theme: $theme,
+        layoutGraph: $layoutGraph,
+        runtimeManifest: $runtimeManifest,
+        resourcePlan: new FrontendResourcePlanData(
+            headResources: [],
+            bodyEndResources: [],
+            lazyActivationGraphs: [],
+            hints: [],
+            aliases: [],
+            diagnostics: [],
+            cspOrigins: [],
+            fingerprint: 'prepared-renderer-contract',
+        ),
+        surrogateKeys: [],
+    );
+    View::addNamespace($viewNamespace, $viewPath);
+    File::ensureDirectoryExists($viewPath);
+    File::put($viewPath . '/master.blade.php', '<main>Authored master content</main>');
+    File::put($viewPath . '/layout.blade.php', '<html><body>{!! $slot !!}</body></html>');
+
+    try {
+        $response = (new BladeFrontendResponseRenderer)->render(new FrontendRenderContextData(
+            page: $page,
+            site: $site,
+            language: $language,
+            layout: $layout,
+            theme: $theme,
+            runtimeManifest: $runtimeManifest,
+            publicRenderData: $publicRenderData,
+        ));
+        throw_unless($response instanceof Response, RuntimeException::class, 'Expected blade renderer to return an HTTP response.');
+
+        expect($response->getStatusCode())->toBe(200)
+            ->and($response->getContent())->toContain($expectedContent)
+            ->not->toContain('data-model-id')
+            ->not->toContain('data-field-path')
+            ->not->toContain('signature=')
+            ->and($rawHookCalls)->toBe($expectedRawHookCalls);
+
+        foreach (['Authored master content', 'Hydrated graph content', 'Raw container fallback'] as $otherContent) {
+            if ($otherContent !== $expectedContent) {
+                expect($response->getContent())->not->toContain($otherContent);
+            }
+        }
+    } finally {
+        File::deleteDirectory($viewPath);
+    }
+})->with([
+    'empty graph and explicit master' => ['empty', 'explicit', 'Authored master content', 0],
+    'graph-less containers and explicit master' => ['missing', 'explicit', 'Raw container fallback', 1],
+    'empty graph without a master' => ['empty', 'missing', 'Raw container fallback', 1],
+    'empty graph with a blank master' => ['empty', 'blank', 'Raw container fallback', 1],
+    'populated graph and explicit master' => ['populated', 'explicit', 'Authored master content', 0],
+    'populated graph without a master' => ['populated', 'missing', 'Hydrated graph content', 0],
+]);
 
 it('renders the layout builder main content for a definition-only theme with containers, never a data-section attribute', function (): void {
     resolve(ThemeRegistry::class)->register(definitionOnlyThemeDefinition('definition-only-with-containers'));

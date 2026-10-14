@@ -50,6 +50,11 @@ class BlueprintSelect extends BaseBlueprintSelect
                     }
                 }
 
+                // Match the generic Pages resource's legacy group alias.
+                if ($group === 'page') {
+                    $group = BlueprintGroupEnum::Default->value;
+                }
+
                 $groups = [];
 
                 if ($group) {
