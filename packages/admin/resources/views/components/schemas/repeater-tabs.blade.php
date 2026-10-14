@@ -15,6 +15,7 @@
     $fieldWrapperView = $getFieldWrapperView();
     $key = $getKey();
     $statePath = $getStatePath();
+    $livewireKey = $getLivewireKey();
 
     $createItems = $getCreateItems();
     $activeTab = $getActiveTab();
@@ -34,7 +35,7 @@
             : null
     "
     x-cloak
-    wire:key="{{ $this->getId() }}.{{ $statePath }}.{{ $field::class }}.nav"
+    wire:key="{{ $livewireKey }}.nav"
     :attributes="
         $attributes->merge($getExtraAttributes(), escape: false)
             ->class([
@@ -53,7 +54,7 @@
                 'fi-contained' => $isContained,
                 'flex max-w-full min-w-0 flex-col' => $isContained,
             ])
-            wire:key=".repeater-tabs-container"
+            wire:key="{{ $livewireKey }}.container"
         >
             @if ($isAddable || count($items) > 1)
                 <x-filament::tabs
@@ -72,7 +73,9 @@
                             :badge="$tab['badge']"
                             :badge-color="$tab['badgeColor']"
                             :title="$tab['badgeTooltip']"
-                            wire:key="{{ $this->getId() }}.{{ $item->getStatePath() }}.{{ $field::class }}.nav"
+                            id="{{ $item->getLivewireKey() }}.tab"
+                            aria-controls="{{ $item->getLivewireKey() }}.panel"
+                            wire:key="{{ $item->getLivewireKey() }}.nav"
                             x-bind:aria-selected="tab === {{ $loop->iteration }}"
                             x-on:click.stop="tab = {{ $loop->iteration }}"
                             x-bind:tabindex="tab === {{ $loop->iteration }} ? 0 : -1"
@@ -178,7 +181,7 @@
 
             @foreach ($items as $itemKey => $item)
                 @php
-                    $id = $this->getId() . '-' . $item->getStatePath();
+                    $id = $item->getLivewireKey() . '.panel';
                 @endphp
 
                 <div
@@ -190,11 +193,11 @@
                     {{
                         $attributes
                             ->merge([
-                                'aria-labelledby' => $id,
+                                'aria-labelledby' => $item->getLivewireKey() . '.tab',
                                 'id' => $id,
                                 'role' => 'tabpanel',
                                 'tabindex' => '0',
-                                'wire:key' => $id . '.' . $field::class . '.item',
+                                'wire:key' => $item->getLivewireKey() . '.item',
                             ], escape: false)
                             ->merge($getExtraAttributes(), escape: false)
                             ->class([
