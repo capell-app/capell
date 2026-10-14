@@ -12,14 +12,19 @@ use Capell\Core\Support\Upgrade\DatabaseUpgradeLock;
 use Capell\Core\Tests\Feature\Console\Fixtures\CmdTrackedStep;
 use Capell\Core\Tests\Feature\Console\Fixtures\MissingDependencyStep;
 use Capell\Core\Tests\Feature\Console\Fixtures\ReportOnlyMutatingStep;
+use Capell\Core\Tests\Support\HostMigrationIsolation;
 use Composer\InstalledVersions;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function (): void {
+    $this->beforeApplicationDestroyed(HostMigrationIsolation::setUp(app()));
+
     CmdTrackedStep::$runs = 0;
     ReportOnlyMutatingStep::$shouldRunCalls = 0;
     app()->tag([CmdTrackedStep::class], 'capell.upgrade-steps');
@@ -38,6 +43,63 @@ it('runs the full pipeline and records state in the log', function (): void {
         ->and(UpgradeLogEntry::query()->steps()->where('key', 'core.cmd-tracked')->where('status', 'success')->exists())->toBeTrue()
         ->and(UpgradeLogEntry::query()->versionSnapshots()->where('key', 'capell-app/capell')->exists())->toBeTrue();
 })->group('database-portability');
+
+it('preserves applied settings while running a pending host migration exactly once', function (): void {
+    $applied = '2025_11_20_000000_create_settings_table';
+    $pending = '2099_01_01_000001_create_upgrade_command_fixture_table';
+    $settings = DB::table('settings')->orderBy('id')->get()->all();
+    expect(DB::table('migrations')->where('migration', $applied)->count())->toBe(1);
+
+    File::put(database_path('migrations/' . $applied . '.php'), <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        use Illuminate\Database\Migrations\Migration;
+        use Illuminate\Database\Schema\Blueprint;
+        use Illuminate\Support\Facades\Schema;
+
+        return new class extends Migration
+        {
+            public function up(): void
+            {
+                Schema::create('settings', function (Blueprint $table): void {
+                    $table->id();
+                });
+            }
+        };
+        PHP);
+    File::put(database_path('migrations/' . $pending . '.php'), <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        use Illuminate\Database\Migrations\Migration;
+        use Illuminate\Database\Schema\Blueprint;
+        use Illuminate\Support\Facades\Schema;
+
+        return new class extends Migration
+        {
+            public function up(): void
+            {
+                Schema::create('upgrade_command_fixture', function (Blueprint $table): void {
+                    $table->id();
+                });
+            }
+        };
+        PHP);
+
+    expect(Schema::hasTable('upgrade_command_fixture'))->toBeFalse();
+
+    for ($run = 0; $run < 2; $run++) {
+        artisanCommand('capell:upgrade', ['--force' => true, '--no-clear-cache' => true])->assertSuccessful();
+
+        expect(Schema::hasTable('upgrade_command_fixture'))->toBeTrue()
+            ->and(DB::table('settings')->orderBy('id')->get()->all())->toEqual($settings)
+            ->and(DB::table('migrations')->where('migration', $applied)->count())->toBe(1)
+            ->and(DB::table('migrations')->where('migration', $pending)->count())->toBe(1);
+    }
+});
 
 it('skips already-applied steps on re-run', function (): void {
     artisanCommand('capell:upgrade', ['--force' => true, '--no-clear-cache' => true])->assertSuccessful();
