@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Install\InstallFilamentPanelAction;
 use Capell\Core\Actions\Install\RequireExtraPackagesAction;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
@@ -10,6 +11,8 @@ use Capell\Core\Data\Install\RunInstallStepResultData;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\InstallRunState;
+use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Installer\Actions\AdvanceInstallerRunAction;
 use Capell\Installer\Actions\BuildInstallerRunReportAction;
 use Capell\Installer\Actions\CancelInstallerRunAction;
@@ -25,6 +28,7 @@ use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 
@@ -603,3 +607,31 @@ it('blocks conflicting package selections before requiring packages in synchrono
     $log = Cache::get('capell.install.' . $installId . '.output', '');
     expect(json_encode($log))->toContain('dependency conflict', 'preflight-checks');
 })->with(['synchronous' => false, 'queued worker' => true]);
+
+it('preserves the active runs scaffold ownership when an older run is cancelled', function (): void {
+    $originalBasePath = app()->basePath();
+    $temporaryBasePath = sys_get_temp_dir() . '/capell-run-scaffold-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($temporaryBasePath);
+    app()->setBasePath($temporaryBasePath);
+
+    try {
+        config(['cache.default' => 'array']);
+        $sessions = resolve(InstallerSessionRepository::class);
+        $sessions->run('older-run')->markRunning();
+        $sessions->run('active-run')->startSynchronous();
+        $path = app_path('Providers/Filament/AdminPanelProvider.php');
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, '<?php class AdminPanelProvider { public function panel($panel) { return $panel->id("admin"); } }');
+        InstallRunState::recordScaffoldedPanelProviders([$path]);
+
+        CancelInstallerRunAction::run('older-run');
+
+        expect($sessions->activeInstallId())->toBe('active-run')
+            ->and(InstallRunState::scaffoldedPanelProviders())->toContain('app/Providers/Filament/AdminPanelProvider.php');
+        InstallFilamentPanelAction::run(new NullProgressReporter);
+        expect(resource_path('css/filament/admin/theme.css'))->toBeFile();
+    } finally {
+        app()->setBasePath($originalBasePath);
+        File::deleteDirectory($temporaryBasePath);
+    }
+});

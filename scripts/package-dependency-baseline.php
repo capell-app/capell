@@ -38,7 +38,6 @@ return [
             'spatie/laravel-medialibrary',
             'spatie/laravel-permission',
             'spatie/laravel-settings',
-            'symfony/finder',
             'symfony/http-foundation',
             'symfony/http-kernel',
             'symfony/routing',

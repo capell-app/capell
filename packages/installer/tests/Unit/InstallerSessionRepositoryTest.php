@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 it('fails closed when the database cache store is selected before the cache table exists', function (): void {
     config()->set('cache.default', 'database');
@@ -226,4 +228,26 @@ it('persists recommendation selections so a browser install can resume', functio
     $repository->clearInstallSession($installId);
 
     expect($repository->recommendation($installId))->toBeNull();
+});
+
+it('retires pending scaffold ownership when an installer session is cleaned up', function (): void {
+    $originalBasePath = app()->basePath();
+    $temporaryBasePath = sys_get_temp_dir() . '/capell-scaffold-cleanup-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($temporaryBasePath);
+    app()->setBasePath($temporaryBasePath);
+
+    try {
+        $path = app_path('Providers/Filament/AdminPanelProvider.php');
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, '<?php class AdminPanelProvider { public function panel($panel) { return $panel->id("admin"); } }');
+        InstallRunState::recordScaffoldedPanelProviders([$path]);
+        expect(InstallRunState::scaffoldedPanelProviders())->not->toBeEmpty();
+
+        (new InstallerSessionRepository)->clearInstallSession('cancelled-install');
+
+        expect(InstallRunState::scaffoldedPanelProviders())->toBe([]);
+    } finally {
+        app()->setBasePath($originalBasePath);
+        File::deleteDirectory($temporaryBasePath);
+    }
 });
