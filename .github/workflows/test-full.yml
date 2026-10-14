@@ -85,12 +85,11 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   sentinel:
-    needs: [fast-pr, matrix]
+    needs: [matrix]
     if: >-
       ${{ github.actor != 'dependabot[bot]' && (
       always()
       && needs.matrix.result == 'success'
-      && (needs.fast-pr.result == 'success' || needs.fast-pr.result == 'skipped')
       && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
       && !(github.event_name == 'workflow_dispatch' && inputs.cell != '')
       ) }}
@@ -184,7 +183,7 @@ jobs:
       && (inputs.cell == ''
         || (!contains(inputs.cell, '-unit-') && !contains(inputs.cell, '-portability-')))
       ) }}
-    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package }} - DB${{ matrix.database }}
+    name: Test All - P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.test_suite }} - ${{ matrix.package_label }} - DB${{ matrix.database }}
     runs-on: ubuntu-latest
     env:
       COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
@@ -284,7 +283,7 @@ jobs:
           PHPSTAN_LEVEL: ${{ steps.engineering-metrics.outputs.phpstan_level }}
         run: |
           php -r 'file_put_contents(
-              "engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package }}.json",
+              "engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package_slug || matrix.package }}.json",
               json_encode([
                   "tests" => (int) getenv("TESTS"),
                   "assertions" => (int) getenv("ASSERTIONS"),
@@ -297,7 +296,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: engineering-metrics-${{ matrix.artifact_slug }}
-          path: engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package }}.json
+          path: engineering-metrics-${{ matrix.test_suite_slug }}-${{ matrix.package_slug || matrix.package }}.json
           if-no-files-found: error
 
   test-unit:
