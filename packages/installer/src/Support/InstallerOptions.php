@@ -253,6 +253,18 @@ final class InstallerOptions
     {
         $key = 'capell.installer.package_installable.' . hash('sha256', $packageName);
         $trusted = TrustedCorePackages::contains($packageName);
+        if (request()->hasSession()) {
+            // Rendering choices must not run dependency resolution. Selected
+            // packages are dry-run by preflight when the browser install starts.
+            try {
+                return $this->sessions->cacheStoreIsUsable()
+                    ? Cache::get($key, $trusted) === true
+                    : $trusted;
+            } catch (Throwable) {
+                return $trusted;
+            }
+        }
+
         $resolver = function () use ($packageName): bool {
             $process = new Process([
                 (string) config('capell-installer.composer_binary', 'composer'), 'require',

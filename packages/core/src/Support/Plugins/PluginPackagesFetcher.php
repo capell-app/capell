@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Plugins;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Http\OutboundHttpRetry;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,17 @@ class PluginPackagesFetcher
 
     private const int CACHE_SCHEMA = 2;
 
+    private ?float $deadline = null;
+
+    /** @return Collection<int, array<string, mixed>> */
+    public function fetchWithinBudget(float $seconds): Collection
+    {
+        $fetcher = clone $this;
+        $fetcher->deadline = microtime(true) + max(0, $seconds);
+
+        return $fetcher->fetch();
+    }
+
     /** @return Collection<int, array<string, mixed>> */
     public function fetch(bool $force = false): Collection
     {
@@ -25,8 +37,13 @@ class PluginPackagesFetcher
 
         if (! $force) {
             $cached = $this->getCached();
-            if ($cached->isNotEmpty()) {
+            if ($cached->isNotEmpty() || $this->hasCachedCatalogue()) {
                 return $cached;
+            }
+
+            if (config('capell.disable_cache') !== true
+                && CapellCore::getFromCache($cacheKey . '-unavailable-source') === config('capell.plugins_source_url')) {
+                return collect();
             }
         }
 
@@ -45,37 +62,50 @@ class PluginPackagesFetcher
         // pagination URLs, which could send the next request to a private host.
         for ($page = 1; $page <= $lastPage; $page++) {
             $pageUrl = $page === 1 ? $url : $url . (str_contains($url, '?') ? '&' : '?') . 'page=' . $page;
-            $response = OutboundHttpRetry::fromConfig('capell.plugins_http')
-                ->apply(Http::acceptJson()->connectTimeout(5)->timeout(10)->withOptions(['allow_redirects' => false]))
-                ->get($pageUrl);
+            $remaining = $this->deadline === null ? 10.0 : $this->deadline - microtime(true);
+            if ($remaining <= 0) {
+                return $this->unavailable();
+            }
+
+            $request = Http::acceptJson()->connectTimeout(min($remaining, $this->deadline === null ? 5 : 1))
+                ->timeout($remaining)->withOptions(['allow_redirects' => false]);
+            if ($this->deadline === null) {
+                $request = OutboundHttpRetry::fromConfig('capell.plugins_http')->apply($request);
+            }
+
+            try {
+                $response = $request->get($pageUrl);
+            } catch (ConnectionException) {
+                return $this->unavailable();
+            }
 
             if (! $response->ok()) {
-                return collect();
+                return $this->unavailable();
             }
 
             $body = $response->body();
             if (strlen($body) > self::MAX_RESPONSE_BYTES) {
                 Log::warning('Plugin packages response exceeded maximum size', ['url' => $pageUrl]);
 
-                return collect();
+                return $this->unavailable();
             }
 
             $data = json_decode($body, true);
             if (! is_array($data)) {
-                return collect();
+                return $this->unavailable();
             }
 
             $rawPackages = $data['packages'] ?? $data['data'] ?? (array_is_list($data) ? $data : null);
             if (! is_array($rawPackages)) {
                 Log::warning('Invalid JSON structure for plugin packages', ['url' => $pageUrl]);
 
-                return collect();
+                return $this->unavailable();
             }
 
             if (isset($data['data'])) {
                 $lastPage = $data['meta']['last_page'] ?? 1;
                 if (! is_int($lastPage) || $lastPage < $page || $lastPage > 20) {
-                    return collect();
+                    return $this->unavailable();
                 }
             }
 
@@ -89,6 +119,7 @@ class PluginPackagesFetcher
         CapellCore::setToCache($cacheKey, $packages, $ttl);
         CapellCore::setToCache($cacheKey . '-source', $url, $ttl);
         CapellCore::setToCache($cacheKey . '-schema', self::CACHE_SCHEMA, $ttl);
+        CapellCore::removeCacheKey($cacheKey . '-unavailable-source');
 
         return $packages;
     }
@@ -96,6 +127,10 @@ class PluginPackagesFetcher
     /** @return Collection<int, array<string, mixed>> */
     public function getCached(): Collection
     {
+        if (config('capell.disable_cache') === true) {
+            return collect();
+        }
+
         if (CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-source') !== config('capell.plugins_source_url')
             || CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-schema') !== self::CACHE_SCHEMA) {
             return collect();
@@ -112,6 +147,28 @@ class PluginPackagesFetcher
         }
 
         return collect();
+    }
+
+    private function hasCachedCatalogue(): bool
+    {
+        return config('capell.disable_cache') !== true
+            && CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-source') === config('capell.plugins_source_url')
+            && CapellCore::getFromCache(CacheEnum::ExtensionPackages->value . '-schema') === self::CACHE_SCHEMA
+            && CapellCore::cacheExists(CacheEnum::ExtensionPackages->value);
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    private function unavailable(): Collection
+    {
+        // A brief cooldown avoids repeatedly blocking an offline installer. It
+        // never replaces a complete catalogue, and a forced refresh bypasses it.
+        $configuredTtl = (int) config('capell.plugins_cache_ttl', 3600);
+        $ttl = $configuredTtl === 0 ? 30 : min(30, max(0, $configuredTtl));
+        if ($ttl > 0) {
+            CapellCore::setToCache(CacheEnum::ExtensionPackages->value . '-unavailable-source', config('capell.plugins_source_url'), $ttl);
+        }
+
+        return $this->getCached();
     }
 
     /**

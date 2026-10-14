@@ -27,6 +27,12 @@ use Throwable;
 
 final class InstallerPreflight
 {
+    private const int COMMAND_CACHE_TTL_SECONDS = 300;
+
+    private bool $cacheCommandsForPage = false;
+
+    private ?float $commandDeadline = null;
+
     /** @var array<string, array<string, string>> */
     private array $commandCheckCache = [];
 
@@ -68,6 +74,8 @@ final class InstallerPreflight
      */
     public function run(?InstallInputData $inputData = null): array
     {
+        $this->cacheCommandsForPage = ! $inputData instanceof InstallInputData && request()->hasSession();
+        $this->commandDeadline = $this->cacheCommandsForPage ? microtime(true) + 2 : null;
         $missingDeveloperToolingPackages = $inputData?->installDeveloperTooling === true
             ? resolve(DeveloperToolingInstallationState::class)->missingPackageNames()
             : [];
@@ -677,26 +685,69 @@ final class InstallerPreflight
             return $this->check($key, $label, $required ? 'fail' : 'warning', 'Cannot test command because proc_open is disabled.');
         }
 
-        $cacheKey = hash('sha256', base_path() . '|' . implode("\0", $command) . '|' . ($required ? '1' : '0'));
+        $environment = ComposerProcessEnvironment::forInstall($_SERVER);
+        $processEnvironment = array_replace(getenv(), array_intersect_key($environment, array_flip([
+            'PATH', 'HOME', 'COMPOSER_HOME', 'COMPOSER', 'PHPRC', 'PHP_INI_SCAN_DIR',
+        ])));
+        ksort($processEnvironment);
+        $binaryState = array_map(static function (string $argument): array|false {
+            if (! is_file($argument)) {
+                return false;
+            }
 
-        if (isset($this->commandCheckCache[$cacheKey])) {
+            $stat = stat($argument);
+
+            return $stat === false ? false : array_intersect_key($stat, array_flip(['ino', 'mode', 'size', 'mtime', 'ctime']));
+        }, $command);
+        $cacheKey = hash('sha256', serialize([base_path(), $command, $required, $processEnvironment, $binaryState]));
+        $sessionKey = 'capell.installer.command_checks.' . $cacheKey;
+
+        if ($this->cacheCommandsForPage) {
+            $cached = request()->session()->get($sessionKey);
+            if (is_array($cached) && ($cached['expiresAt'] ?? 0) > now()->timestamp
+                && is_array($cached['check'] ?? null) && ($cached['check']['status'] ?? null) === 'pass') {
+                return $cached['check'];
+            }
+        }
+
+        if (! request()->hasSession() && isset($this->commandCheckCache[$cacheKey])) {
             return $this->commandCheckCache[$cacheKey];
         }
 
+        $remaining = $this->commandDeadline === null ? 15.0 : $this->commandDeadline - microtime(true);
+        if ($remaining <= 0) {
+            return $this->check(
+                $key,
+                $label,
+                $required ? 'fail' : 'warning',
+                'The page command-check time budget was exhausted.',
+                'Reload the installer to re-check commands that have not passed.',
+            );
+        }
+
         try {
-            $process = $this->processFactory->make($command, base_path(), ComposerProcessEnvironment::forInstall($_SERVER));
-            $process->setTimeout(15);
+            $process = $this->processFactory->make($command, base_path(), $environment);
+            $process->setTimeout($remaining);
             $process->run();
 
             if ($process->isSuccessful()) {
                 $firstOutputLine = strtok($this->clean($process->getOutput()), "\n");
 
-                return $this->commandCheckCache[$cacheKey] = $this->check(
+                $check = $this->check(
                     $key,
                     $label,
                     'pass',
                     trim($firstOutputLine !== false ? $firstOutputLine : 'Command is available.'),
                 );
+
+                if ($this->cacheCommandsForPage) {
+                    request()->session()->put($sessionKey, [
+                        'expiresAt' => now()->addSeconds(self::COMMAND_CACHE_TTL_SECONDS)->getTimestamp(),
+                        'check' => $check,
+                    ]);
+                }
+
+                return $this->commandCheckCache[$cacheKey] = $check;
             }
 
             return $this->commandCheckCache[$cacheKey] = $this->check(

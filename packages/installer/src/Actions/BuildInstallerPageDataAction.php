@@ -11,6 +11,7 @@ use Capell\Core\Support\Install\InstallRecommendationRepository;
 use Capell\Core\Support\Install\ThemePackageCandidates;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Packages\TrustedCorePackages;
+use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Installer\Data\InstallerPageData;
 use Capell\Installer\Support\InstallerOptions;
 use Capell\Installer\Support\InstallerSessionRepository;
@@ -35,6 +36,14 @@ final class BuildInstallerPageDataAction
 
     public function handle(bool $capellAlreadyInstalled, bool $canReinstall): InstallerPageData
     {
+        // Fill the shared catalogue once, with a bounded budget for page rendering.
+        try {
+            resolve(PluginPackagesFetcher::class)->fetchWithinBudget(2);
+        } catch (Throwable) {
+            // Catalogue choices are optional, as in InstallerOptions. Local
+            // packages and preflight must still render if discovery is unavailable.
+        }
+
         $packages = [];
         $packageBatches = CapellCore::getPackages(sortByDependencies: true)
             ->filter(fn (PackageData $package): bool => $package->isVisibleInCatalogue()
