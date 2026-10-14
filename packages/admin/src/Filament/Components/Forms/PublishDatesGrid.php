@@ -8,9 +8,11 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Support\Facades\Date;
+use Override;
 
 class PublishDatesGrid extends Grid
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -44,25 +46,20 @@ class PublishDatesGrid extends Grid
             ->time()
             ->seconds(false)
             ->nullable()
-            ->rules([
-                'nullable',
-                'date',
-                function (string $operation): ?string {
-                    if (! in_array($operation, ['create', 'createOption'], true)) {
-                        return null;
-                    }
+            ->rules(function (Get $get, string $operation): array {
+                $rules = ['nullable', 'date'];
 
-                    return 'before_or_equal:now';
-                },
-                function (Get $get): ?string {
-                    $publishTo = $get('visible_until');
-                    if ($publishTo === null || $publishTo === '') {
-                        return null;
-                    }
+                if (in_array($operation, ['create', 'createOption'], true)) {
+                    $rules[] = 'before_or_equal:now';
+                }
 
-                    return 'before_or_equal:' . Date::parse($publishTo)->toDateTimeString();
-                },
-            ]);
+                $publishTo = $get('visible_until');
+                if ($publishTo !== null && $publishTo !== '') {
+                    $rules[] = 'before_or_equal:' . Date::parse($publishTo)->toDateTimeString();
+                }
+
+                return $rules;
+            });
     }
 
     public static function getVisibleUntilField(): DateTimePicker
@@ -85,17 +82,15 @@ class PublishDatesGrid extends Grid
             ->time()
             ->seconds(false)
             ->nullable()
-            ->rules([
-                'nullable',
-                'date',
-                function (Get $get): ?string {
-                    $publishFrom = $get('visible_from');
-                    if ($publishFrom === null || $publishFrom === '') {
-                        return null;
-                    }
+            ->rules(function (Get $get): array {
+                $rules = ['nullable', 'date'];
+                $publishFrom = $get('visible_from');
 
-                    return 'after_or_equal:' . Date::parse($publishFrom)->toDateTimeString();
-                },
-            ]);
+                if ($publishFrom !== null && $publishFrom !== '') {
+                    $rules[] = 'after_or_equal:' . Date::parse($publishFrom)->toDateTimeString();
+                }
+
+                return $rules;
+            });
     }
 }

@@ -19,6 +19,7 @@ use Capell\Core\Models\Contracts\Userstampable;
 use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Activity\LogOptions;
 use Capell\Core\Support\Activity\LogsActivity;
+use Capell\Core\Support\Json\JsonEquivalence;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -115,6 +116,22 @@ class Translation extends Model implements HasMedia, HasMediaContract, Userstamp
     ];
 
     protected static string $factory = TranslationFactory::class;
+
+    /** @param string $key */
+    #[Override]
+    public function originalIsEquivalent(mixed $key): bool
+    {
+        if ($key === 'meta') {
+            $original = $this->original[$key] ?? null;
+            $submitted = $this->attributes[$key] ?? null;
+
+            if (is_string($original) && is_string($submitted)) {
+                return JsonEquivalence::equivalent($original, $submitted);
+            }
+        }
+
+        return parent::originalIsEquivalent($key);
+    }
 
     public function hasContent(): bool
     {
