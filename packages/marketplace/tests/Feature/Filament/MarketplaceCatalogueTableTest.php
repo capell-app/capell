@@ -32,6 +32,7 @@ use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceInstallNotifications;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -2678,8 +2679,8 @@ function marketplaceCatalogueExtensionPayload(array $overrides = []): array
  */
 function filamentNotificationTitles(): array
 {
-    return collect(session('filament.notifications', []))
-        ->pluck('title')
+    return FilamentNotificationSnapshots::pull()
+        ->map(static fn (Notification $notification): string => (string) $notification->getTitle())
         ->all();
 }
 

@@ -15,6 +15,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
@@ -506,10 +507,10 @@ it('explains historical exclusions in recently deleted and the restore notificat
     Page::query()->whereKey([$parent->id, $child->id])->update(['deleted_at' => now()]);
 
     (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
-    $notification = array_values(session('filament.notifications', []))[0];
+    $notification = FilamentNotificationSnapshots::pull()->firstOrFail();
 
-    expect($notification['status'])->toBe('warning')
-        ->and($notification['body'])->toBe(__('capell-admin::message.page_restore_excluded_descendants', ['pages' => 'Historical child']))
+    expect($notification->getStatus())->toBe('warning')
+        ->and($notification->getBody())->toBe(__('capell-admin::message.page_restore_excluded_descendants', ['pages' => 'Historical child']))
         ->and($parent->fresh()->trashed())->toBeFalse()
         ->and($child->fresh()->trashed())->toBeTrue();
     Page::query()->whereKey($parent->id)->update(['deleted_at' => now()]);
@@ -529,10 +530,10 @@ it('withholds inaccessible historical descendants without disclosing their exist
     Gate::before(static fn (mixed $user, string $ability): ?bool => $ability === 'restore' ? true : null);
 
     (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
-    $notification = array_values(session('filament.notifications', []))[0];
+    $notification = FilamentNotificationSnapshots::pull()->firstOrFail();
 
-    expect($notification['status'])->toBe('success')
-        ->and($notification['body'])->toBeNull()
+    expect($notification->getStatus())->toBe('success')
+        ->and($notification->getBody())->toBeNull()
         ->and($parent->fresh()->trashed())->toBeFalse()
         ->and($child->fresh()->trashed())->toBeTrue();
 })->group('restore-review');

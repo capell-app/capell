@@ -35,6 +35,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -614,7 +615,7 @@ it('warns and blocks saves while another editor has an active page lock', functi
         ->assertSee(__('capell-admin::message.content_lock_read_only'))
         ->assertSee(__('capell-admin::button.request_content_lock_takeover'));
 
-    session()->forget('filament.notifications');
+    FilamentNotificationSnapshots::pull();
 
     $component
         ->set('data', [])

@@ -11,7 +11,7 @@ use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
-use Filament\Notifications\Notification;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Illuminate\Contracts\Translation\Translator;
 
 it('blocks page deletion for non-deletable page types and canonical dependants', function (): void {
@@ -84,7 +84,6 @@ it('keeps blueprint delete protection global while exposing only accessible page
     resolve(Translator::class)->addLines(['message.page_type_not_deletable_info' => 'Accessible pages: :count'], 'en', 'capell-admin');
 
     expect((new BlueprintDeleteValidationHarness)->validateDelete($type))->toBeFalse();
-    $notifications = session('filament.notifications');
-    $notification = Notification::fromArray(end($notifications));
+    $notification = FilamentNotificationSnapshots::pull()->reverse()->firstOrFail();
     expect($notification->getBody())->toBe('Accessible pages: 1');
 });

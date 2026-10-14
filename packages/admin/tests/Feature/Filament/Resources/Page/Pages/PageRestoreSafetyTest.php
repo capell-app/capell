@@ -13,6 +13,7 @@ use Capell\Core\Actions\RestoreSiteAction;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -126,8 +127,8 @@ it('withholds restricted historical titles and existence from restore notices an
     expect(Gate::allows('view', $child->fresh()))->toBeFalse()
         ->and(Gate::allows('restore', $child->fresh()))->toBeFalse();
     (new RecentlyDeletedPage)->restoreRecord('page', $parent->id);
-    $notification = array_values(session('filament.notifications', []))[0];
-    expect($notification['body'])->toBeNull()
+    $notification = FilamentNotificationSnapshots::pull()->firstOrFail();
+    expect($notification->getBody())->toBeNull()
         ->and($parent->fresh()->trashed())->toBeFalse()
         ->and($child->fresh()->trashed())->toBeTrue();
     Livewire::test(RecentlyDeletedPage::class)->assertDontSee('Confidential acquisition plan');
