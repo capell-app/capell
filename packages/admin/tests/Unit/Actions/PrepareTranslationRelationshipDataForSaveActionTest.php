@@ -7,6 +7,7 @@ use Capell\Core\Enums\ContentStructure;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Translation;
+use Illuminate\Support\Facades\DB;
 
 it('retains stored JSON when only object key order or formatting changes', function (string $attribute): void {
     $page = new Page(['content_structure_override' => ContentStructure::Blocks->value]);
@@ -23,7 +24,7 @@ it('retains stored JSON when only object key order or formatting changes', funct
     $attributes = $translation->getAttributes();
     $data = [$attribute => ['first' => ['items' => [1, '2'], 'label' => 'Original'], 'second' => null]];
 
-    expect(PrepareTranslationRelationshipDataForSaveAction::run($translation, $data))->toBeNull()
+    expect(PrepareTranslationRelationshipDataForSaveAction::run($translation, $data))->toBe([])
         ->and(PrepareTranslationRelationshipDataForSaveAction::run($translation, [...$data, 'title' => 'Edited title']))->toBe(['title' => 'Edited title'])
         ->and($translation->getAttributes())->toBe($attributes);
 })->with(['meta', 'content']);
@@ -48,4 +49,66 @@ it('persists meaningful JSON changes without treating scalar types or list order
     'replaced list with object' => [['label' => 'Original', 'items' => ['first' => 1, 'second' => '2'], 'optional' => null]],
     'different object keys' => [['label' => 'Original', 'items' => [1, '2'], 'replacement' => null]],
     'nested change' => [['label' => 'Original', 'items' => [1, ['label' => 'Edited']], 'optional' => null]],
+]);
+
+it('persists JSON edits without losing object identity or integer precision', function (string $attribute, string $stored, string $submitted): void {
+    $blueprint = Blueprint::factory()->contentStructure(ContentStructure::Blocks)->createOne();
+    $page = Page::factory()->type($blueprint)->createOne();
+    $translation = Translation::factory()->translatable($page)->createOne();
+    DB::table($translation->getTable())->where('id', $translation->id)->update([$attribute => $stored]);
+    $translation->refresh();
+
+    $data = [$attribute => $attribute === 'content' ? $submitted : get_object_vars(json_decode($submitted, flags: JSON_THROW_ON_ERROR))];
+    $expectedRaw = $attribute === 'content' ? $submitted : json_encode($data[$attribute], JSON_THROW_ON_ERROR);
+    $prepared = PrepareTranslationRelationshipDataForSaveAction::run($translation, $data);
+
+    $translation->fill($prepared ?? [])->save();
+
+    expect($translation->refresh()->getRawOriginal($attribute))->toBe($expectedRaw)
+        ->and(json_decode((string) $translation->getRawOriginal($attribute), flags: JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING))
+        ->toEqual(json_decode($expectedRaw, flags: JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING))
+        ->and($prepared)->toBe($data);
+})->with(['meta', 'content'])->with([
+    'empty object to list' => ['{"settings":{}}', '{"settings":[]}'],
+    'empty list to object' => ['{"settings":[]}', '{"settings":{}}'],
+    'numeric object to list' => ['{"settings":{"0":"a","1":"b"}}', '{"settings":["a","b"]}'],
+    'list to numeric object' => ['{"settings":["a","b"]}', '{"settings":{"0":"a","1":"b"}}'],
+    'large integer change' => ['{"value":9223372036854775808}', '{"value":9223372036854775809}'],
+    'large integer to string' => ['{"value":9223372036854775808}', '{"value":"9223372036854775808"}'],
+]);
+
+it('retains raw JSON when numeric object keys are reordered', function (string $attribute): void {
+    $page = new Page(['content_structure_override' => ContentStructure::Blocks->value]);
+    $page->setRelation('blueprint', new Blueprint);
+
+    $translation = new Translation;
+    $translation->setRawAttributes([
+        'translatable_id' => 1,
+        $attribute => '{"settings":{"1":"b","0":"a"}}',
+    ], sync: true);
+    $translation->setRelation('translatable', $page);
+
+    $data = [$attribute => ['settings' => (object) ['0' => 'a', '1' => 'b']]];
+
+    expect(PrepareTranslationRelationshipDataForSaveAction::run($translation, $data))->toBe([])
+        ->and(PrepareTranslationRelationshipDataForSaveAction::run($translation, [...$data, 'title' => 'Edited']))->toBe(['title' => 'Edited'])
+        ->and($translation->getRawOriginal($attribute))->toBe('{"settings":{"1":"b","0":"a"}}');
+})->with(['meta', 'content']);
+
+it('persists JSON when decoding fails or scalar types differ', function (string $stored, string $submitted): void {
+    $page = new Page(['content_structure_override' => ContentStructure::Blocks->value]);
+    $page->setRelation('blueprint', new Blueprint);
+
+    $translation = new Translation;
+    $translation->setRawAttributes(['translatable_id' => 1, 'content' => $stored], sync: true);
+    $translation->setRelation('translatable', $page);
+
+    $data = ['content' => $submitted];
+
+    expect(PrepareTranslationRelationshipDataForSaveAction::run($translation, $data))->toBe($data);
+})->with([
+    'integer to float' => ['{"value":1}', '{"value":1.0}'],
+    'invalid stored JSON' => ['{"value":', '{"value":1}'],
+    'invalid candidate JSON' => ['{"value":1}', '{"value":'],
+    'both invalid' => ['not JSON', 'not JSON'],
 ]);

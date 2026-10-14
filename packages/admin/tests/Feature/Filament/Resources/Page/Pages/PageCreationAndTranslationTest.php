@@ -221,6 +221,43 @@ it('restores only translations belonging to the supplied relationship owner', fu
         ->and($otherTranslation->refresh()->trashed())->toBeTrue();
 });
 
+it('fires saved for an unchanged translation through the page editor without updating its timestamp or raw meta', function (): void {
+    $language = Language::factory()->createOne(['default' => true]);
+    $site = Site::factory()->language($language)->withTranslations($language)->createOne();
+    $type = PageTypeEnum::Default->createPageType();
+    $page = Page::factory()->site($site)->for($type, 'blueprint')->withTranslations($language)->createOne();
+    $translation = $page->translations->sole();
+    $translation->forceFill(['meta' => [
+        ...($translation->meta ?? []),
+        'summary' => null,
+        'label' => null,
+        'link_text' => null,
+        'title' => null,
+        'description' => null,
+        'keywords' => null,
+    ]])->save();
+    $storedMeta = '{' . collect(array_reverse($translation->meta ?? [], preserve_keys: true))->map(
+        fn (mixed $value, string $key): string => json_encode($key, JSON_THROW_ON_ERROR) . ': ' . json_encode($value, JSON_THROW_ON_ERROR),
+    )->implode(', ') . '}';
+    DB::table($translation->getTable())->where('id', $translation->id)->update(['meta' => $storedMeta]);
+    $original = $translation->refresh()->getAttributes();
+    $livewire = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()]);
+    $saved = 0;
+    Event::listen('eloquent.saved: ' . Translation::class, function (Translation $record) use ($translation, &$saved): void {
+        if ($record->is($translation)) {
+            $saved++;
+        }
+    });
+
+    $this->travel(2)->seconds();
+    $livewire->call('save')->assertHasNoFormErrors();
+
+    expect($saved)->toBe(1)
+        ->and($translation->refresh()->getAttributes())->toBe($original)
+        ->and($translation->getRawOriginal('updated_at'))->toBe($original['updated_at'])
+        ->and($translation->getRawOriginal('meta'))->toBe($storedMeta);
+});
+
 it('persists nested relationship edits on a restored translation model', function (bool $editPrimaryFields): void {
     $language = Language::factory()->createOne();
     $site = Site::factory()->language($language)->withTranslations($language)->createOne();

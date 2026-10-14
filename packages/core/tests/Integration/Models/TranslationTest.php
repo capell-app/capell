@@ -12,6 +12,61 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+
+it('does not update a translation when assigned equivalent MySQL-shaped meta', function (): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->createOne();
+    $storedMeta = '{"slug": "unchanged", "label": null}';
+    DB::table($translation->getTable())->where('id', $translation->id)->update(['meta' => $storedMeta]);
+    $original = $translation->refresh()->getAttributes();
+
+    $this->travel(2)->seconds();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        $translation->meta = ['label' => null, 'slug' => 'unchanged'];
+        $saved = $translation->save();
+        $updates = collect(DB::getQueryLog())->filter(
+            fn (array $query): bool => str_starts_with(strtolower(ltrim($query['query'])), 'update ')
+                && str_contains($query['query'], $translation->getTable()),
+        );
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+
+    expect($updates)->toBeEmpty()
+        ->and($saved)->toBeTrue()
+        ->and($translation->refresh()->getRawOriginal('updated_at'))->toBe($original['updated_at'])
+        ->and($translation->getRawOriginal('meta'))->toBe($original['meta']);
+});
+
+it('persists meta identity and large integer edits through model assignment', function (string $stored, array $submitted): void {
+    $page = Page::factory()->createOne();
+    $translation = Translation::factory()->translatable($page)->createOne();
+    DB::table($translation->getTable())->where('id', $translation->id)->update(['meta' => $stored]);
+    $original = $translation->refresh()->getRawOriginal('updated_at');
+
+    $this->travel(2)->seconds();
+    $translation->meta = $submitted;
+    $saved = $translation->save();
+
+    expect($saved)->toBeTrue()
+        ->and($translation->refresh()->getRawOriginal('meta'))->toBe(json_encode($submitted, JSON_THROW_ON_ERROR))
+        ->and($translation->getRawOriginal('updated_at'))->not->toBe($original);
+})->with([
+    'root empty object to list' => ['{}', []],
+    'root numeric object to list' => ['{"0":"a","1":"b"}', ['a', 'b']],
+    'empty object to list' => ['{"settings":{}}', ['settings' => []]],
+    'empty list to object' => ['{"settings":[]}', ['settings' => (object) []]],
+    'numeric object to list' => ['{"settings":{"0":"a","1":"b"}}', ['settings' => ['a', 'b']]],
+    'list to numeric object' => ['{"settings":["a","b"]}', ['settings' => (object) ['0' => 'a', '1' => 'b']]],
+    'large integer change' => ['{"value":9223372036854775808}', ['value' => '9223372036854775809']],
+    'large integer decoded as float' => ['{"value":9223372036854775808}', ['value' => json_decode('9223372036854775809', flags: JSON_THROW_ON_ERROR)]],
+    'large integer to string' => ['{"value":9223372036854775808}', ['value' => '9223372036854775808']],
+]);
 
 it('belongs to a language', function (): void {
     $language = Language::factory()->createOne();
