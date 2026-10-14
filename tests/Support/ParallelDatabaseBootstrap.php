@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 use Capell\Tests\Support\PackageTestDatabaseGuard;
 use Illuminate\Contracts\Config\Repository;
-use Illuminate\Database\DatabaseServiceProvider;
-use Illuminate\Filesystem\Filesystem;
-use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Bootstrap\HandleExceptions;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\ParallelTesting;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Testing\ParallelTestingServiceProvider;
 use Orchestra\Sidekick\Env;
-use Orchestra\Testbench\Bootstrap\LoadConfiguration;
+use Orchestra\Testbench\Foundation\Application;
 
 require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -34,21 +32,21 @@ if (empty(Request::server('PARATEST')) || empty(Request::server('TEST_TOKEN'))) 
 PackageTestDatabaseGuard::assertEnvironmentIsSafe();
 // Only framework database callbacks are needed here. Package providers are
 // booted later by the real test case with its own configuration overrides.
-$application = new Application(dirname(__DIR__, 2));
-$application->detectEnvironment(static fn (): string => 'testing');
-(new LoadConfiguration)->bootstrap($application);
+$application = Application::create(options: [
+    'extra' => [
+        'env' => ['APP_ENV' => 'testing'],
+        'dont-discover' => ['*'],
+    ],
+]);
 $application->make(Repository::class)->set('view.compiled');
-$application->instance('files', new Filesystem);
-Facade::clearResolvedInstances();
-Facade::setFacadeApplication($application);
-$application->register(DatabaseServiceProvider::class);
 $application->register(ParallelTestingServiceProvider::class);
-$application->boot();
 
 try {
     PackageTestDatabaseGuard::assertConfigurationIsSafe($application);
     ParallelTesting::callSetUpProcessCallbacks();
 } finally {
+    $application->terminate();
+    HandleExceptions::flushState();
     $application->flush();
     Facade::clearResolvedInstances();
     Facade::setFacadeApplication(null);

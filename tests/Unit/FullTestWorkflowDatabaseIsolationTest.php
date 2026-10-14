@@ -19,7 +19,23 @@ it('recreates only the current worker database before sharded tests', function (
     }
 
     try {
-        $process = new Process([PHP_BINARY, 'tests/Support/ParallelDatabaseBootstrap.php'], $root, [
+        $bootstrap = <<<'PHP'
+            <?php
+            require 'vendor/autoload.php';
+            $exceptionHandler = get_exception_handler();
+            $errorHandler = get_error_handler();
+            require 'tests/Support/ParallelDatabaseBootstrap.php';
+            if (get_exception_handler() !== $exceptionHandler || get_error_handler() !== $errorHandler) {
+                throw new RuntimeException('Parallel database bootstrap leaked global handlers.');
+            }
+            PHP;
+        file_put_contents($directory . '/bootstrap.php', $bootstrap);
+        // Use the runner's public CLI so its configuration exists before
+        // Laravel restores PHPUnit's error handler during application teardown.
+        $process = new Process([
+            PHP_BINARY, 'vendor/bin/phpunit', '--no-configuration',
+            '--bootstrap=' . $directory . '/bootstrap.php', '--list-tests', $directory,
+        ], $root, [
             'DB_CONNECTION' => 'sqlite',
             'DB_DATABASE' => $database,
             'DB_URL' => '',
