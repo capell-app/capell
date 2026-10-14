@@ -24,7 +24,7 @@ foreach (['LARAVEL_PARALLEL_TESTING', 'LARAVEL_PARALLEL_TESTING_RECREATE_DATABAS
 }
 
 // Discovery runs in the parent; only actual workers may recreate databases.
-if (in_array(getenv('PARATEST'), [false, ''], true) || in_array(getenv('TEST_TOKEN'), [false, ''], true)) {
+if (in_array(getenv('PARATEST'), [false, '', '0'], true) || in_array(getenv('TEST_TOKEN'), [false, '', '0'], true)) {
     return;
 }
 
