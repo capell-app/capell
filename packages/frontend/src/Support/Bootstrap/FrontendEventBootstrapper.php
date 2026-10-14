@@ -30,12 +30,26 @@ use Capell\Frontend\Observers\ErrorPageModelInvalidationObserver;
 use Capell\Frontend\Support\Agent\AgentPropertyCacheObserver;
 use Capell\Frontend\Support\Cache\FrontendCacheInvalidationObserver;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 
 final class FrontendEventBootstrapper
 {
+    private bool $booted = false;
+
+    /** @var array<class-string<Model>, true> */
+    private array $observedCacheModels = [];
+
     public function boot(): void
     {
+        if ($this->booted) {
+            $this->registerCacheInvalidationObservers();
+
+            return;
+        }
+
+        $this->booted = true;
+
         Event::listen(FrontendContextResolved::class, [OnFrontendContextResolved::class, 'handle']);
         Event::listen(PageSaved::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleSaved']);
         Event::listen(PageDeleted::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleDeleted']);
@@ -63,6 +77,18 @@ final class FrontendEventBootstrapper
             $propertyModel::observe(AgentPropertyCacheObserver::class);
         }
 
+        $this->registerCacheInvalidationObservers();
+    }
+
+    public function refresh(): void
+    {
+        if ($this->booted) {
+            $this->registerCacheInvalidationObservers();
+        }
+    }
+
+    private function registerCacheInvalidationObservers(): void
+    {
         $models = array_unique([
             Language::class,
             Layout::class,
@@ -76,7 +102,12 @@ final class FrontendEventBootstrapper
         ]);
 
         foreach ($models as $model) {
+            if (isset($this->observedCacheModels[$model])) {
+                continue;
+            }
+
             $model::observe(FrontendCacheInvalidationObserver::class);
+            $this->observedCacheModels[$model] = true;
         }
     }
 }

@@ -419,16 +419,17 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             );
         });
 
-        // Resolve optional middleware after provider boot and late installation,
-        // including when an existing route has already consumed its group.
-        $refreshFrontendMiddleware = static function (): void {
+        // Resolve optional integrations after provider boot and late installation,
+        // including middleware groups already consumed by an existing route.
+        $refreshFrontendRuntime = static function (): void {
             resolve(Router::class)->middlewareGroup(
                 'capell-frontend',
                 resolve(FrontendRouteMiddlewareRegistry::class)->all(),
             );
+            resolve(FrontendEventBootstrapper::class)->refresh();
         };
-        $this->app->booted($refreshFrontendMiddleware);
-        $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, $refreshFrontendMiddleware);
+        $this->app->booted($refreshFrontendRuntime);
+        $this->app->make(Dispatcher::class)->listen(InstalledRuntimeRefreshed::class, $refreshFrontendRuntime);
         Blade::component(FrontendLayout::class, 'capell::layout');
         $this->registerMiddlewareAliases();
         $this->registerErrorViewFallbackPath();
