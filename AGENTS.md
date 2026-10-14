@@ -1,273 +1,33 @@
 # Capell Foundation Monorepo
 
-This repository is the version-aligned `capell-app/capell` foundation aggregate.
-It owns the stable contracts shared by Core, Admin, Frontend, Installer, and
-Marketplace. Optional product features live in the companion packages repository;
-customer account, marketing, billing, and operational workflows live in
-`capell-app`.
+This foundation monorepo owns stable Core, Admin, Frontend, Installer and Marketplace contracts. App owns commerce/marketing/operations; optional features belong in companion Packages.
 
-## Ownership Boundaries
+- Read the affected package's nested AGENTS.md and the ownership/extension routes below before changes. Core must not import optional packages, UI siblings or provider runtimes.
+- Use strict types, Actions for business work, Data for structured boundaries, translations and thin entry points. Mark real vendor/interface overrides with `#[Override]`; trait replacements must not carry it.
+- Public output, cache, fragments and exports must contain no authoring state or internals. Blade receives hydrated render data, without queries/lazy-loading. Rendering changes need presence and absence behaviour assertions.
+- Use manifest provider buckets and typed registries; preserve stable API baselines and migration registration. Never bypass extension contracts or edit vendor code.
+- Preserve foreign work. Use this checkout's wrapper, explicit origin/main worktree bases and the shared external `.capell-wt` root. Provision runtime work; instruction-only checks need no application stack/dependency install unless a hook requires tooling.
+- Every change gets an owned branch/PR. Stage explicit paths; inspect HEAD/status before committing and `git show --stat HEAD` before pushing. Stop on index errors; do not change shared remotes/config inside worktrees.
+- Read verification procedures before checks, discover changed symbols/callers, collect related failures and run final affected/full gates. Do not weaken tests or replace required full gates. Line coverage stays at least 90%; hosted CI requirements before merge remain in force.
+- Screenshot acceptance requires shared-runner provenance; ad-hoc browser captures are diagnostic only. Read the screenshot route before capture.
+- Programme work starts at `./ledger brief --project capell` and selected task evidence. Ledger IDs belong in commit/PR history, not source. Merges/releases/cleanup retain their existing authorisation and ownership checks.
 
-- `packages/core` owns neutral CMS models, sites, pages, layouts, themes, media
-  contracts, settings support, package discovery, install/upgrade primitives,
-  publication invariants, and deterministic SiteSpec validation/import. It must
-  not import sibling UI packages, optional package classes, or AI provider
-  runtimes.
-- `packages/admin` owns the Filament authoring workspace, policies, resources,
-  settings shell, dashboard slots, and admin extension bridges. Domain work
-  belongs in Actions and structured boundaries in Data objects; admin state must
-  never enter public output.
-- `packages/frontend` owns anonymous request resolution, rendering, render hooks,
-  HTML caching, static-export behaviour, and public assets. Public Blade receives
-  hydrated render data and must not query, lazy-load, resolve models, or expose
-  authoring state.
-- `packages/installer` owns the browser installer and concrete install-guide
-  patches. Core owns the patch editors, `Patch` contract, and
-  `InstallPatchRegistry`; Core invokes registered patches without importing an
-  Installer class.
-- `packages/marketplace` owns Marketplace transport, account linking, acquisition,
-  entitlement/install coordination, and package-operation UI. Core remains the
-  owner of package discovery and lifecycle state.
-- Independently installable, disableable, versioned, or sold features belong in
-  `../capell-packages-4`. Packages integrate through public contracts; they do not
-  reach into one another's internals or make Core depend on their models.
-- Core owns publication state, readiness, and transition contracts. Publishing
-  Studio owns approvals, reviewers, release workspaces, comments, notifications,
-  orchestration, rollback history, and other advanced collaboration records.
-- Core owns deterministic SiteSpec import and safe media intake. Prompt execution,
-  provider clients, metering, and AI authoring products belong in optional
-  packages.
+## Procedure routing
 
-## Ledger References Don't Belong In Source Code
+Read only the procedure for the operation you are about to perform, before executing it. The detailed rules remain mandatory within their scope. Commands and bare file paths below are relative to the checkout root. Do not load the complete reference directory.
 
-Do not put internal ledger task IDs (`CAP-XXXX`) in code comments, docblocks,
-or class/file names. A ticket reference explains nothing to a future reader
-without ledger access, and it rots the moment the ticket is archived or
-renumbered — unlike the comment, which lives in the codebase indefinitely.
-State the underlying reason directly (the bug, the constraint, the trap being
-guarded against); that survives on its own. Ticket IDs belong in commit
-messages and PR descriptions, where they're paired with the diff that
-resolved them and age gracefully as history rather than as live
-documentation.
+| Operation or concern | Required reference |
+|---|---|
+| Capell Foundation Monorepo | [Read procedure](.agents/docs/00-capell-foundation-monorepo.md) |
+| Ownership Boundaries | [Read procedure](.agents/docs/01-ownership-boundaries.md) |
+| Ledger References Don't Belong In Source Code | [Read procedure](.agents/docs/02-ledger-references-don-t-belong-in-source-code.md) |
+| Public Rendering Safety | [Read procedure](.agents/docs/03-public-rendering-safety.md) |
+| Extension Contracts | [Read procedure](.agents/docs/04-extension-contracts.md) |
+| Screenshot Evidence | [Read procedure](.agents/docs/05-screenshot-evidence.md) |
+| Verification Commands | [Read procedure](.agents/docs/06-verification-commands.md) |
+| Verification Operating Pattern | [Read procedure](.agents/docs/07-verification-operating-pattern.md) |
+| Local Hazards | [Read procedure](.agents/docs/08-local-hazards.md) |
+| Line coverage stays at or above 90% — not negotiable | [Read procedure](.agents/docs/09-line-coverage-stays-at-or-above-90-not-negotiable.md) |
+| Held pull requests carry the `awaiting-merge` label | [Read procedure](.agents/docs/10-held-pull-requests-carry-the-awaiting-merge-label.md) |
 
-If removing a `CAP-XXXX:` prefix from an existing comment would leave nothing
-of substance behind, the comment was doing no real work either — delete it
-rather than just de-prefixing it.
-
-## Public Rendering Safety
-
-Anonymous HTML, cached responses, crawler output, and static exports must contain no
-authoring HTML or JavaScript, edit markers, model IDs, field paths, permissions,
-package names, component internals, or signed editor URLs. Frontend authoring is a
-post-load, authenticated-admin concern. Public-output, render-hook, cache, theme,
-fragment, or export changes require absence assertions as well as expected-content
-tests.
-
-## Extension Contracts
-
-- Register package behaviour from the correct manifest-v3 provider bucket.
-  `metadata` and `install` providers are lifecycle-safe; `runtime`, `admin`, and
-  `frontend` providers load only in their intended enabled contexts. Providers wire
-  contracts and delegate work; they do not perform domain writes.
-- Register page types and model aliases through `CapellCore::registerPageType()` and
-  `CapellCore::registerModels()`. Use model interceptors only through the documented
-  facade contract.
-- Use `AdminBridgeRegistrar` for grouped Admin integration and
-  `CapellAdmin::contributeToAdminSurface()` for focused surfaces. Extend forms,
-  tables, actions, and workflows through their contract `TAG` constants, including
-  `PageSchemaExtender::TAG` and `PageTableExtender::TAG`; never publish or copy Core
-  schemas (`capell:admin-publish-schemas` is not an extension path).
-- Register public hooks and assets through `RenderHookRegistry`,
-  `FrontendResourceRegistry`, `TailwindAssetsRegistry`, and related typed
-  registries. Declare cache dependencies through `CacheInvalidationRegistry`.
-- Register package settings through `PackageSurfaceRegistrar`; external Admin
-  integrations use `AdminBridgeRegistrar`. Do not write directly to the settings
-  registry outside its supported provider boundary.
-- Add install-time host edits through `InstallPatchRegistry`, not duplicated file
-  editors or package imports in Core.
-- Add every Core migration filename to
-  `packages/core/src/Concerns/HasMigrations.php`. Settings migrations live in
-  `database/settings/`, are registered by the owning install/setup flow, and must
-  tolerate the settings table not existing during early bootstrap.
-- `docs/packages/extension-surface-catalog.{json,md}` is generated from executable
-  catalogue metadata. Stable surfaces, public signatures, Core migrations,
-  constraints, and config keys are protected by
-  `docs/packages/stable-extension-api-baseline.json`; compatibility drift requires
-  an explicit matching decision record.
-
-## Screenshot Evidence
-
-- Documentation, release, and promotional screenshots are accepted only when
-  produced by the shared `capell-screenshot-runner` through this repository's
-  `@capell-app/screenshot-tools` entry point and backed by its report/receipt
-  provenance. Manifests must retain `generatedFor` set to
-  `shared-capell-screenshot-runner` and `provenancePolicy` set to `runner-only-v1`.
-- Direct captures from `capell-app`, `capell.test`, or an ad-hoc browser session are
-  diagnostics only and must remain ignored. They cannot be promoted as accepted
-  artifacts, and capturing Core evidence does not authorize changes in the
-  consuming App.
-- Validate manifests with `npm run screenshots:check`. Prepare and capture through
-  `bash scripts/local-core-screenshots.sh --package <name>` (omit the filter for all
-  Core manifests). Inside the Codex sandbox pass `--skip-install` and never run
-  `npm ci`/`npm install` yourself: the sandbox cannot chmod the runner-linked bin,
-  and disabling bin links to get past that empties `node_modules/.bin`. Report
-  missing dependencies instead. Validate documentation coverage and provenance with
-  `npm run docs:screenshots:check` and `npm run docs:screenshot-receipts`.
-
-## Verification Commands
-
-Write tests that assert behaviour, never implementation, line positions or SHAs: see
-[Test behaviour, not implementation](docs/packages/testing-packages.md#test-behaviour-not-implementation).
-
-Broad tests and preflights use the [host release verification gate](docs/release-verification-lock.md). Use this checkout's wrapper for Docker commands; focused single-file runs remain available while a release holds the gate.
-
-- Focused Pest: `./capell pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
-  (host: `vendor/bin/pest ...` with PHP 8.4)
-- Changed-file formatting: `composer lint:changed`
-- Source analysis while iterating: `composer analyze:source`
-- Ad-hoc path-scoped analysis (e.g. one package): `composer analyze:diff -- <path>`.
-  Never pass a path to plain `composer analyze` — see Local Hazards.
-- Standard repository gate: `composer preflight`
-- Full repository gate before completion: `composer preflight:all`
-- Local equivalent of the hosted Test All topology:
-  `composer test:all:matrix:local`
-- Extension contracts: `composer check:extension-surfaces` and
-  `composer check:stable-extension-api`
-- Documentation contracts: `composer check:docs-links`,
-  `composer check:docs-orphans`, `composer check:docs-requirements`,
-  `composer check:docs-commands`, and `composer check:docs-screenshots`
-- New development documentation changes generated distribution exclusions. Run
-  `php scripts/sync-split-repository-health.php`, then its `--check` mode before committing it.
-
-Run the narrowest relevant command first. Rendering/cache changes need focused
-Frontend safety tests; migration, config, constraint, or public-extension changes
-also need both extension-contract checks.
-
-## Verification Operating Pattern
-
-Use affected/diff checks while iterating, then run one full PHPStan lane at a time
-across App, Core, and companion packages. Keep `maximumNumberOfProcesses: 4`;
-parallelism is part of the configured contract and must not be reduced to hide a
-timeout, race, or memory failure. Keep result caches warm but branch-isolated,
-and clear or prime only the exact cache whose path provenance is known.
-
-The shared PHPStan configuration must define an explicit child-process timeout.
-A timeout is an incomplete harness result, not a green or a type error; rerun
-with the configured bound and preserve the first diagnostic. Server-backed Pest
-shards must use distinct generated databases (including sequential fallback),
-while static checks remain database-free. Run `preflight:all` only after focused
-gates pass and competing lanes are idle; classify setup, tooling, isolation,
-source, and hosted failures separately rather than skipping or baselining them.
-
-**`preflight:all`, `test:all:matrix:local`, and any other whole-tree gate go through
-the orchestrator agent, not an arbitrary session** — a focused/diff-scoped run is
-always fine to run yourself, but two full runs against the same checkout at once
-corrupts shared state and OOM-kills the host. Ask the orchestrator for a full-suite
-result rather than running one yourself.
-
-## Local Hazards
-
-- Audit all three JavaScript locks: the root, `packages/admin`, and
-  `packages/frontend`. Typography's scoped parser override fixes the selector
-  complexity advisory; the CLI's scoped Parcel watcher override removes its
-  unpatched brace dependency. Remove each override when its parent requires a
-  safe version. Verify native watch rebuilds and the owning asset builds after
-  changing these locks; a root audit alone misses package assets.
-- This primary checkout stays on latest `main`, clean, when not actively in use
-  (canonical version and the incident behind it: capell-app's `AGENTS.md`, "Standing
-  hygiene: primary checkouts stay on main; pin worktree bases"). Return it to `main`
-  the moment any branch work here lands or pauses — a stale branch left checked out
-  gets silently inherited by the next worktree provisioned from it.
-- The supported runtime is PHP 8.4. Do not interpret failures from a different host
-  PHP as release evidence.
-- Provision a new worktree completely before the first gate, in this order:
-  `./capell up -d`, `./capell composer install`, `npm ci --no-audit --no-fund`.
-  `bash scripts/init-worktree.sh` refuses the Docker path and exits before its own
-  `node_modules/` step, so the npm step is never done for you; a preflight that
-  stops on "node_modules/ is missing" is an unprovisioned worktree, not a result.
-  `bash scripts/init-worktree.sh --host-only` does not run `npm ci` either, and
-  `packages/admin` carries its own `package.json` and lock: run `npm ci --no-audit
---no-fund` in the repository root and again in `packages/admin` before building
-  bundles (`npm run build:js` there). The lock pins esbuild; a different version
-  rewrites unrelated published bundles, so regenerate with the pinned one, never
-  hand-edit `packages/admin/publishes/build`, and restore bundles you did not mean
-  to change. Automated workers cannot run `npm ci` in their sandbox: provision
-  before handing them the worktree and have them stop, not work around it, when a
-  module is missing.
-- Focused Pest in the container: `./capell pest <path> --configuration=phpunit.xml`.
-  The wrapper runs it as the `capell` user with SQLite `:memory:`. Never use raw
-  `./capell compose exec app vendor/bin/pest`: it runs as root with the container's
-  MySQL environment, so it trips the package database guard ("Refusing to run
-  Capell package Pest tests against database") and, as root, falsely fails every
-  "unwritable file" test (`PhpFileEditorTest`, `EnvFileEditorTest`,
-  `RunInstallPreflightChecksActionTest`). `./capell test` takes no path.
-- Host worktrees must set `CAPELL_SCREENSHOT_RUNNER_PATH=<shared runner checkout>`
-  before screenshot-receipt checks or full preflight. `npm ci` leaves the declared
-  relative `file:` dependency pointing beside the worktree, where the shared runner
-  is absent; the verifier supports this explicit path without changing either lock.
-- Host-only worktrees: `bash scripts/init-worktree.sh --host-only`. Never symlink `vendor/` or
-  `vendor/composer/`: Composer then resolves Capell classes from the primary
-  checkout and green tests exercise the wrong source. Verify a changed class with
-  `ReflectionClass::getFileName()`; use a real `composer install` for authoritative
-  full-suite proof when the hybrid vendor limitation is relevant.
-- Do not run dependency-mutating Composer commands in a hybrid worktree. Its
-  third-party package directories are intentionally shared with the primary
-  checkout.
-- `composer preflight` requires the pinned `node_modules`; run `npm ci` when it is
-  absent. `preflight:all` intentionally applies Rector and Pint, so review its diff.
-- `composer test:all:matrix:local` verifies the committed exact `HEAD` in isolated
-  worktrees/containers. It does not include uncommitted changes.
-- Host and container PHPStan caches must remain separate. `phpstan.neon` uses
-  `var/phpstan/full`, while Docker masks `var/`; a cache containing paths from the
-  other execution context can raise `phpstorm-stubs` “is not a file” internal
-  errors. Confirm the cached path provenance before clearing only that cache.
-- Keep local Composer path repositories out of public `composer.json` and
-  `composer.lock`; `composer check:composer-paths` enforces this.
-- `composer analyze -- <path>` (a raw path argument on the full config) reports
-  false "stale ignore" errors: `ignoreErrors` entries in `ignore-errors.neon`
-  whose `path`/`paths` sit outside the given argument are flagged as unmatched
-  even though the underlying error still occurs — `reportUnmatchedIgnoredErrors`
-  only sees the CLI-narrowed report set, not the full tree the pattern is
-  written against. Verified 2026-09-04: `composer analyze -- packages/core`
-  reported 4 unmatched patterns targeting `packages/admin` files; `composer
-analyze` (full, unscoped) confirmed all 4 still fire as real errors (16
-  errors total once the `packages/admin` call sites are back in scope). Use
-  `composer analyze:diff -- <path>` for any path-scoped run instead —
-  `phpstan/diff.neon` sets `reportUnmatchedIgnoredErrors: false`, the same
-  relaxation `source.neon`/`tests.neon` already apply for the same reason.
-  Only the full `composer analyze` can prove an ignore pattern has actually
-  gone stale.
-
-Use available Boost capabilities and reusable skills as live tooling. Do not copy
-generated Boost guideline dumps or static skill inventories into this file.
-
-## Line coverage stays at or above 90% — not negotiable
-
-`scripts/merge-clover-coverage.php` fails the coverage job below
-`REQUIRED_COVERAGE_PERCENTAGE` (90). Never lower it, and never delete or skip
-tests without replacing the lines they covered. To slim a slow or coupled
-test, rewrite it, don't delete it. Fold near-duplicate cases into a `->with()`
-dataset, and replace hand-built mocks of collaborators with the shared fakes:
-
-- `Capell\Tests\Support\Fakes\FakeProcessFactory` for anything resolved
-  through `ProcessFactoryInterface`. Use `bind()`, `push()` scripted results
-  and `expect()` commands, then assert `getEnv()`/`getTimeout()` on the
-  recorded `FakeProcess`. Do not Mockery-mock a Symfony `Process`; its
-  `run()`/`mustRun()`/`wait()` are `@final`, so a mock or subclass that
-  overrides them is invisible to PHPStan and drifts from real behaviour.
-- `Capell\Tests\Support\Fakes\FakeConsoleKernel` for Artisan calls, in place
-  of `Mockery::mock(ConsoleKernel::class)`.
-
-## Held pull requests carry the `awaiting-merge` label
-
-A reviewed, ready pull request whose merge must wait (most often until a running
-release has deployed) gets the `awaiting-merge` label, which exists in the App,
-Core and Packages repositories. Anyone can then list what is queued with
-`gh pr list --label awaiting-merge`. Remove the label in the same step as the
-merge. Never leave a held PR unlabelled: an unlabelled open PR reads as still in
-progress and gets forgotten.
-
-While an App release is running, hold every App merge this way: release
-preflight requires the App worktree to equal `origin/main`, so any App merge,
-even documentation, invalidates the prepared release. Core and Packages merges
-are safe mid-release because the release pins their refs.
+Keep the scope, evidence and unresolved approval visible at closeout.
