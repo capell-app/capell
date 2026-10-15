@@ -155,26 +155,38 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
             return null;
         }
 
-        $sections = collect(data_get($layoutGraph, 'containers', []))
-            ->flatMap(
-                fn (mixed $container): array => collect(data_get($container, 'widgets', []))
-                    ->flatMap(
-                        fn (mixed $widget): array => collect(data_get($widget, 'data.sections', []))
-                            ->sortBy(static fn (mixed $section): int => is_array($section) && is_numeric($section['order'] ?? null) ? (int) $section['order'] : PHP_INT_MAX)
-                            ->values()
-                            ->all(),
-                    )
-                    ->all(),
-            )
-            ->filter(fn (mixed $section): bool => is_array($section) && is_string($section['html'] ?? null) && trim($section['html']) !== '')
-            ->map(fn (array $section): string => (string) $section['html'])
-            ->values();
+        // Public graph producers may omit container metadata. Consult the original
+        // layout too, and let the layout renderer preserve container presentation.
+        foreach (collect($context->layout?->getAttribute('containers') ?? [])
+            ->concat(collect(data_get($layoutGraph, 'containers', []))) as $container) {
+            $meta = data_get($container, 'meta', []);
 
-        if ($sections->isEmpty()) {
-            return null;
+            // A main landmark label has no container presentation to preserve.
+            if (is_array($meta) && $meta !== [] && $meta !== ['landmark' => 'main']) {
+                return null;
+            }
         }
 
-        return $sections->implode("\n");
+        $sections = [];
+
+        foreach (collect(data_get($layoutGraph, 'containers', [])) as $container) {
+            foreach (collect(data_get($container, 'widgets', [])) as $widget) {
+                $widgetSections = collect(data_get($widget, 'data.sections', []))
+                    ->filter(static fn (mixed $section): bool => is_array($section) && is_string($section['html'] ?? null) && trim($section['html']) !== '')
+                    ->sortBy(static fn (array $section): int => is_numeric($section['order'] ?? null) ? (int) $section['order'] : PHP_INT_MAX);
+
+                // One hydrated widget cannot stand in for the rest of the layout.
+                if ($widgetSections->isEmpty()) {
+                    return null;
+                }
+
+                foreach ($widgetSections as $section) {
+                    $sections[] = $section['html'];
+                }
+            }
+        }
+
+        return $sections === [] ? null : implode("\n", $sections);
     }
 
     private function primePublicRenderDependencies(FrontendRenderContextData $context, FrontendRuntimeManifestData $runtimeManifest): void

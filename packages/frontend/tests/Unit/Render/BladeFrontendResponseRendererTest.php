@@ -327,6 +327,144 @@ it('honours authored masters for prepared graphs while retaining graph and conta
     'populated graph without a master' => ['populated', 'missing', 'Hydrated graph content', 0],
 ]);
 
+it('renders every widget and container presentation unless the entire graph can supply the slot', function (string $hydration, string $presentation, bool $separateContainers): void {
+    $viewNamespace = 'capell-renderer-hydration-' . bin2hex(random_bytes(6));
+    $viewPath = sys_get_temp_dir() . '/' . $viewNamespace;
+    $site = Site::factory()->make(['name' => 'Hydration site']);
+    $site->setRelation('blueprint', Blueprint::factory()->make());
+
+    $language = Language::factory()->make(['code' => 'en']);
+    $theme = Theme::factory()->make(['key' => 'default', 'meta' => []]);
+    $page = Page::factory()->make(['name' => 'Hydration page', 'meta' => []]);
+    $page->setRelation('translation', Translation::factory()->make(['meta' => []]));
+    $page->setRelation('blueprint', Blueprint::factory()->make());
+
+    $layout = Layout::factory()->make([
+        'key' => 'home',
+        'admin' => ['system_page_layout' => false],
+        'meta' => ['layout_file' => $viewNamespace . '::layout'],
+    ]);
+    $containerMeta = match ($presentation) {
+        'none' => [],
+        'landmark' => ['landmark' => 'main'],
+        default => ['html_class' => 'ppc-shell'],
+    };
+    $widgets = [
+        ['widget_key' => 'page-content', 'html' => '<section>First widget</section>'],
+        ['widget_key' => 'sidebar', 'html' => '<aside>Second widget</aside>'],
+    ];
+    $layout->containers = $separateContainers
+        ? ['main' => ['meta' => $containerMeta, 'widgets' => [$widgets[0]]], 'sidebar' => ['widgets' => [$widgets[1]]]]
+        : ['main' => ['meta' => $containerMeta, 'widgets' => $widgets]];
+
+    $secondSections = match ($hydration) {
+        'full' => [['html' => '<aside>Second widget</aside>', 'order' => 0]],
+        'blank' => [['html' => '  '], ['html' => null], ['html' => 42]],
+        default => [],
+    };
+    $graphWidgets = [
+        (object) ['data' => ['sections' => [
+            ['html' => '<section>First widget</section>', 'order' => 2],
+            ['html' => '<p>First introduction</p>', 'order' => 1],
+            ['html' => '  '],
+        ]]],
+        (object) ['data' => ['sections' => $secondSections]],
+    ];
+    $graphMeta = in_array($presentation, ['graph', 'landmark'], true) ? $containerMeta : [];
+    $graphContainers = $separateContainers
+        ? [(object) ['meta' => $graphMeta, 'widgets' => [$graphWidgets[0]]], (object) ['meta' => [], 'widgets' => [$graphWidgets[1]]]]
+        : [(object) ['meta' => $graphMeta, 'widgets' => $graphWidgets]];
+    // Real graph producers omit container metadata; presentation remains on Layout.
+    if ($presentation === 'graph') {
+        $layout->containers = ['main' => ['widgets' => $widgets]];
+    }
+
+    $fallbackCalls = 0;
+    resolve(RenderHookRegistry::class)->registerCallable(
+        RenderHookLocation::MainContent,
+        static function (RenderHookContext $context) use (&$fallbackCalls, $viewNamespace, $containerMeta): string {
+            throw_unless($context->item instanceof MainContentRenderHookData, RuntimeException::class);
+            $fallbackCalls++;
+
+            return View::make($viewNamespace . '::containers', [
+                'containers' => $context->item->layout?->containers,
+                'graphMeta' => $containerMeta,
+            ])->render();
+        },
+        scenario: 'frontend-main-layout',
+        target: 'capell::layout.main',
+    );
+    bindBladeRendererContext($page, $site, $language, $layout, $theme);
+    $runtimeManifest = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
+    $renderContext = new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: $layout,
+        theme: $theme,
+        runtimeManifest: $runtimeManifest,
+        publicRenderData: new PublicPageRenderData(
+            page: $page,
+            site: $site,
+            language: $language,
+            layout: $layout,
+            theme: $theme,
+            layoutGraph: (object) ['containers' => $graphContainers],
+            runtimeManifest: $runtimeManifest,
+            resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], 'hydration-test'),
+            surrogateKeys: [],
+        ),
+    );
+    View::addNamespace($viewNamespace, $viewPath);
+    File::ensureDirectoryExists($viewPath);
+    File::put($viewPath . '/layout.blade.php', '<html><body>{!! $slot !!}</body></html>');
+    File::put($viewPath . '/containers.blade.php', '@foreach ($containers as $container)<div class="{{ $container["meta"]["html_class"] ?? $graphMeta["html_class"] ?? "" }}">@foreach ($container["widgets"] as $widget){!! $widget["html"] !!}@endforeach</div>@endforeach');
+
+    try {
+        $response = (new BladeFrontendResponseRenderer)->render($renderContext);
+        throw_unless($response instanceof Response, RuntimeException::class);
+        $content = (string) $response->getContent();
+        $usesShortcut = $hydration === 'full' && in_array($presentation, ['none', 'landmark'], true);
+
+        expect($content)->toContain('<section>First widget</section>')
+            ->toContain('<aside>Second widget</aside>')
+            ->not->toContain('data-model-id')
+            ->not->toContain('data-field-path')
+            ->not->toContain('wire:')
+            ->not->toContain('signature=')
+            ->and($fallbackCalls)->toBe($usesShortcut ? 0 : 1);
+
+        if ($usesShortcut) {
+            expect($content)->toBe("<html><body><p>First introduction</p>\n<section>First widget</section>\n<aside>Second widget</aside></body></html>");
+        } elseif ($presentation !== 'none') {
+            expect($content)->toContain('class="ppc-shell"');
+        }
+
+        resolve(RenderHookRegistry::class)->registerCallable(
+            RenderHookLocation::AfterContent,
+            static fn (): string => '<div data-model-id="42">Unsafe hook</div>',
+            scenario: 'frontend-main-layout',
+            target: 'capell::layout.main',
+        );
+        if (! $usesShortcut) {
+            expect(fn (): Symfony\Component\HttpFoundation\Response|Responsable => (new BladeFrontendResponseRenderer)->render($renderContext))
+                ->toThrow(RuntimeException::class, 'Public HTML contains an authoring marker.');
+        }
+    } finally {
+        File::deleteDirectory($viewPath);
+    }
+})->with([
+    'mixed widgets and layout class' => ['missing', 'layout', false],
+    'mixed widgets without presentation' => ['missing', 'none', false],
+    'unhydrated widget in a later container' => ['missing', 'none', true],
+    'blank section HTML is unhydrated' => ['blank', 'none', false],
+    'fully hydrated widgets and layout class' => ['full', 'layout', false],
+    'fully hydrated widgets and graph class' => ['full', 'graph', false],
+    'fully hydrated widgets retain the exact shortcut output' => ['full', 'none', false],
+    'fully hydrated containers retain the exact shortcut output' => ['full', 'none', true],
+    'fully hydrated demo graphs retain neutral main landmark metadata' => ['full', 'landmark', false],
+]);
+
 it('renders the layout builder main content for a definition-only theme with containers, never a data-section attribute', function (): void {
     resolve(ThemeRegistry::class)->register(definitionOnlyThemeDefinition('definition-only-with-containers'));
 
