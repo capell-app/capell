@@ -13,10 +13,12 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Enums\ErrorPageStatusEnum;
+use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Support\Error\ErrorPagePathResolver;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationScope;
+use Capell\Frontend\Support\State\FrontendState;
 use Illuminate\Support\Facades\Date;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -40,6 +42,12 @@ final class GenerateErrorPageCacheAction
 
     /** @return array<int, array<string, mixed>> */
     public function handle(Site $site): array
+    {
+        return resolve(FrontendState::class)->preserving(fn (): array => $this->generate($site));
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function generate(Site $site): array
     {
         throw_unless(app()->bound(StaticErrorPageStore::class), RuntimeException::class, 'No static error page store is registered.');
 
@@ -166,6 +174,13 @@ final class GenerateErrorPageCacheAction
 
         $renderSiteDomain = $renderSite->siteDomains->firstWhere('id', $siteDomain->id) ?? $siteDomain;
         $renderSite->setRelation('siteDomain', $renderSiteDomain);
+
+        // The preview renderer restores this context before static validation.
+        resolve(FrontendState::class)->reset()
+            ->withSite($renderSite)->withPage($renderPage)
+            ->withLayout($renderPage->layout)->withTheme($renderSite->theme)
+            ->withLanguage($language)->withDomain($renderSiteDomain)
+            ->setFrontendData('renderAudience', FrontendRenderAudience::Public);
 
         $content = $this->renderer->render($renderSite->theme, $renderSite, $renderPage, $language, $renderSiteDomain)->getContent();
         $html = is_string($content) ? $content : '';

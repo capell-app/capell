@@ -79,13 +79,25 @@ class PageCreator implements PageCreatable
             ],
         ];
 
-        return DB::transaction(function () use ($defaults, $languages, $layout, $site, $type): Page {
+        return DB::transaction(function () use ($defaults, $languages, $site, $type): Page {
+            // Presentation is mutable; the site's system-page type is its identity.
+            $existing = $this->pageModel::query()
+                ->where('site_id', $site->id)
+                ->where('blueprint_id', $type->id)
+                ->whereNull('parent_id')
+                ->first();
+            $defaults = array_replace(
+                $defaults,
+                $existing?->only(['layout_id', 'name']) ?? [],
+            );
+            $defaults['meta'] = array_replace_recursive($defaults['meta'], $existing->meta ?? []);
+
             $page = CapellCore::createOrUpdateModel(
                 $this->pageModel,
                 [
-                    'layout_id' => $layout->id,
                     'site_id' => $site->id,
                     'blueprint_id' => $type->id,
+                    'parent_id' => null,
                 ],
                 fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
                 PageInterceptorInterface::class,
@@ -129,13 +141,25 @@ class PageCreator implements PageCreatable
             ],
         ];
 
-        return DB::transaction(function () use ($defaults, $languages, $layout, $site, $type): Page {
+        return DB::transaction(function () use ($defaults, $languages, $site, $type): Page {
+            // Presentation is mutable; the site's system-page type is its identity.
+            $existing = $this->pageModel::query()
+                ->where('site_id', $site->id)
+                ->where('blueprint_id', $type->id)
+                ->whereNull('parent_id')
+                ->first();
+            $defaults = array_replace(
+                $defaults,
+                $existing?->only(['layout_id', 'name']) ?? [],
+            );
+            $defaults['meta'] = array_replace_recursive($defaults['meta'], $existing->meta ?? []);
+
             $page = CapellCore::createOrUpdateModel(
                 $this->pageModel,
                 [
-                    'layout_id' => $layout->id,
                     'site_id' => $site->id,
                     'blueprint_id' => $type->id,
+                    'parent_id' => null,
                 ],
                 fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
                 PageInterceptorInterface::class,

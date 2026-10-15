@@ -43,9 +43,12 @@ it('renders a theme preview through the page livewire component and seeds public
     {
         public ?string $component = null;
 
+        public ?FrontendState $previewState = null;
+
         public function new(string $component): object
         {
             $this->component = $component;
+            $this->previewState = clone resolve(FrontendState::class);
 
             return new class
             {
@@ -59,6 +62,7 @@ it('renders a theme preview through the page livewire component and seeds public
 
     app()->instance('livewire', $livewireFactory);
 
+    $before = clone resolve(FrontendState::class);
     $response = resolve(FrontendThemePreviewRenderer::class)->render(
         theme: $theme,
         site: $site,
@@ -67,7 +71,7 @@ it('renders a theme preview through the page livewire component and seeds public
         siteDomain: $siteDomain,
     );
 
-    $state = resolve(FrontendState::class);
+    $state = expectPresent($livewireFactory->previewState);
 
     expect($response)->toBeInstanceOf(SymfonyResponse::class)
         ->and($response->getContent())->toBe('preview-html')
@@ -81,7 +85,8 @@ it('renders a theme preview through the page livewire component and seeds public
         ->and($state->getFrontendData('renderAudience'))->toBe(FrontendRenderAudience::Preview)
         ->and($state->getFrontendData('publicPageRenderData'))->not->toBeNull()
         ->and($site->theme)->toBe($theme)
-        ->and($state->layout()?->theme)->toBe($theme);
+        ->and($state->layout()?->theme)->toBe($theme)
+        ->and(resolve(FrontendState::class))->toEqual($before);
 });
 
 it('preserves response objects returned by preview page components', function (): void {
@@ -134,6 +139,8 @@ it('prepares a draft blade preview using the supplied theme domain and hydrated 
     {
         public ?FrontendRenderContextData $context = null;
 
+        public ?FrontendState $previewState = null;
+
         #[Override]
         public function runtime(): FrontendRuntime
         {
@@ -144,6 +151,7 @@ it('prepares a draft blade preview using the supplied theme domain and hydrated 
         public function render(FrontendRenderContextData $context): SymfonyResponse
         {
             $this->context = $context;
+            $this->previewState = clone resolve(FrontendState::class);
 
             return response('<main>Draft preview</main>');
         }
@@ -151,16 +159,20 @@ it('prepares a draft blade preview using the supplied theme domain and hydrated 
     resolve(FrontendResponseRendererRegistry::class)->register($renderer);
     resolve(FrontendState::class)->setFrontendData('stale', 'foreign');
 
+    $before = clone resolve(FrontendState::class);
+
     $response = resolve(FrontendThemePreviewRenderer::class)->render($theme, $site, $page, $language, $domain);
 
+    $state = expectPresent($renderer->previewState);
     expect($response->getContent())->toBe('<main>Draft preview</main>')
         ->and($renderer->context?->theme)->toBe($theme)
         ->and($renderer->context?->publicRenderData)->not->toBeNull()
         ->and($page->relationLoaded('translation'))->toBeTrue()
         ->and($page->translation?->language_id)->toBe($language->id)
         ->and($page->relationLoaded('pageUrl'))->toBeTrue()
-        ->and(resolve(FrontendState::class)->domain())->toBe($domain)
-        ->and(resolve(FrontendState::class)->renderPayload()->renderAudience)->toBe(FrontendRenderAudience::Preview)
-        ->and(resolve(FrontendState::class)->getFrontendData('stale'))->toBeNull()
+        ->and($state->domain())->toBe($domain)
+        ->and($state->renderPayload()->renderAudience)->toBe(FrontendRenderAudience::Preview)
+        ->and($state->getFrontendData('stale'))->toBeNull()
+        ->and(resolve(FrontendState::class))->toEqual($before)
         ->and($response->getContent())->not->toContain('data-capell-edit', 'signed-editor', 'authoring');
 });
