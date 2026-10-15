@@ -236,6 +236,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
@@ -342,6 +343,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         parent::registeringPackage();
+
+        $this->registerAdminEventSystem();
 
         $this->app->singleton(AgentAdminAuthorization::class);
         $this->app->singleton(AgentAdminConfirmationStore::class);
@@ -523,7 +526,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             fn (): AdminRuntimeActivator => new AdminRuntimeActivator(
                 $this->app->make(AdminBridgeRegistry::class),
                 function (): void {
-                    $this->prepareAdminRuntime();
+                    $receipts = $this->app->make(ExtensionContributionReceiptRegistry::class);
+                    $receipts->withContexts($receipts->providerContexts(self::class), function (): void {
+                        $this->prepareAdminRuntime();
+                    });
                 },
                 function (): void {
                     $this->activateAdminRuntime();
@@ -580,7 +586,6 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ->registerPublishCommands()
             ->registerSubscribers()
             ->registerModelInterceptors()
-            ->registerAdminEventSystem()
             ->registerPageUrlRewritePrompt()
             ->registerActAsOwnerAuditing()
             ->registerEventSourcingBridges()
@@ -1117,9 +1122,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
     private function registerAdminEventSystem(): self
     {
-        $this->app->singleton(AdminEventRegistry::class);
+        $this->app->singletonIf(AdminEventRegistry::class);
 
-        $this->app->singleton(AdminEventRouter::class);
+        $this->app->singletonIf(AdminEventRouter::class);
 
         return $this;
     }
