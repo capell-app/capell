@@ -158,3 +158,20 @@ it('emits the page and descendant old-to-new url maps when a page move rewrites 
             ],
     );
 });
+
+it('retains translation primary keys for retrieval listeners while rebuilding page and descendant urls', function (): void {
+    $parentTranslationId = $this->parent->translations()->firstOrFail()->getKey();
+    $childTranslationId = $this->child->translations()->firstOrFail()->getKey();
+    $retrievedTranslationIds = [];
+
+    Translation::retrieved(static function (Translation $translation) use (&$retrievedTranslationIds): void {
+        $retrievedTranslationIds[] = $translation->getKey();
+    });
+
+    SetupPageUrlsAction::run($this->parent, updateDescendants: true);
+
+    expect($retrievedTranslationIds)->toContain($parentTranslationId, $childTranslationId)
+        ->and($this->parent->translations->modelKeys())->toContain($parentTranslationId)
+        ->and(pageUrlFor($this->parent, $this->language)?->url)->toBe('/parent')
+        ->and(pageUrlFor($this->child, $this->language)?->url)->toBe('/parent/child');
+});

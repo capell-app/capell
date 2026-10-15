@@ -79,7 +79,7 @@ class SetupPageUrlsAction
     private function getRelations(): array
     {
         return [
-            'translations:translatable_id,translatable_type,language_id,meta',
+            'translations:id,translatable_id,translatable_type,language_id,meta',
             'translations.language',
         ];
     }
