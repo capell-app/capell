@@ -18,6 +18,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\Str;
 use Override;
 use Throwable;
 
@@ -121,6 +122,16 @@ class ImageSourcePicker extends Group
             ->visibleJs($this->sourceVisibilityJs($typePath, ImageSourceType::Media))
             ->saved(static fn (Get $get): bool => self::selectedSourceStoresMedia((string) ($get($typePath) ?? $defaultSource)))
             ->columnSpanFull();
+
+        // ID-based adapters persist a reference beside the source descriptor
+        // (e.g. meta.image_id). Relationship-backed uploaders keep their state.
+        if ($mediaField->getName() === $this->mediaName . '_id') {
+            $prefix = str_contains($this->sourceStatePath, '.')
+                ? Str::beforeLast($this->sourceStatePath, '.') . '.'
+                : '';
+
+            $mediaField->statePath($prefix . $mediaField->getName());
+        }
 
         $this
             ->columns(1)
