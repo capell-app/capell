@@ -44,8 +44,10 @@ trait CanReplicatePage
                         continue;
                     }
 
+                    $slugLabel = __('capell-admin::form.slug');
+
                     throw ValidationException::withMessages([
-                        $schema->getStatePath() . '.translations.' . $key . '.meta.slug' => __('validation.unique', ['attribute' => __('capell-admin::form.slug')]),
+                        $schema->getStatePath() . '.translations.' . $key . '.meta.slug' => __('validation.unique', ['attribute' => $slugLabel]),
                     ]);
                 }
 
