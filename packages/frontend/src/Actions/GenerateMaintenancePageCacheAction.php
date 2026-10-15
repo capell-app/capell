@@ -14,6 +14,7 @@ use Capell\Core\Support\Creator\PageCreator;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
 use Capell\Frontend\Support\Maintenance\MaintenancePagePathResolver;
+use Capell\Frontend\Support\State\FrontendState;
 use Illuminate\Support\Facades\Date;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -36,6 +37,12 @@ final class GenerateMaintenancePageCacheAction
 
     /** @return array<int, array<string, mixed>> */
     public function handle(Site $site): array
+    {
+        return resolve(FrontendState::class)->preserving(fn (): array => $this->generate($site));
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function generate(Site $site): array
     {
         throw_unless(app()->bound(StaticMaintenancePageStore::class), RuntimeException::class, 'No static maintenance page store is registered.');
 

@@ -53,6 +53,37 @@ final class FrontendState implements FrontendContextReader
         return $this;
     }
 
+    /**
+     * Run an isolated render without leaking its state into the caller.
+     *
+     * @template TResult
+     *
+     * @param  callable(): TResult  $callback
+     * @return TResult
+     */
+    public function preserving(callable $callback): mixed
+    {
+        $previous = clone $this;
+
+        try {
+            return $callback();
+        } finally {
+            $this->site = $previous->site;
+            $this->language = $previous->language;
+            $this->page = $previous->page;
+            $this->layout = $previous->layout;
+            $this->theme = $previous->theme;
+            $this->params = $previous->params;
+            $this->slug = $previous->slug;
+            $this->relativePath = $previous->relativePath;
+            $this->effectiveUrl = $previous->effectiveUrl;
+            $this->revisionPageId = $previous->revisionPageId;
+            $this->isError = $previous->isError;
+            $this->domain = $previous->domain;
+            $this->data = $previous->data;
+        }
+    }
+
     public function snapshot(): FrontendContext
     {
         return new FrontendContext(

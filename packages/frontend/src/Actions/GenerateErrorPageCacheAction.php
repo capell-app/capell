@@ -17,6 +17,7 @@ use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Support\Error\ErrorPagePathResolver;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationScope;
+use Capell\Frontend\Support\State\FrontendState;
 use Illuminate\Support\Facades\Date;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -40,6 +41,12 @@ final class GenerateErrorPageCacheAction
 
     /** @return array<int, array<string, mixed>> */
     public function handle(Site $site): array
+    {
+        return resolve(FrontendState::class)->preserving(fn (): array => $this->generate($site));
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function generate(Site $site): array
     {
         throw_unless(app()->bound(StaticErrorPageStore::class), RuntimeException::class, 'No static error page store is registered.');
 
