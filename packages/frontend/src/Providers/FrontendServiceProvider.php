@@ -692,12 +692,15 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->callAfterResolving(
             RenderHookRegistry::class,
             function (): void {
-                $this->app->make(FrontendHookRegistrar::class)->contribute(
-                    RenderHookLocation::HeadClose,
-                    ThemeTokenHeadCloseHook::class,
-                    owner: self::$packageName,
-                    key: 'theme-token-css',
-                );
+                $receipts = $this->app->make(ExtensionContributionReceiptRegistry::class);
+                $receipts->withContexts($receipts->providerContexts(self::class), function (): void {
+                    $this->app->make(FrontendHookRegistrar::class)->contribute(
+                        RenderHookLocation::HeadClose,
+                        ThemeTokenHeadCloseHook::class,
+                        owner: self::$packageName,
+                        key: 'theme-token-css',
+                    );
+                });
             },
         );
 
