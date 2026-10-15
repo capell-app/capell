@@ -95,7 +95,8 @@ it('round trips existing page image source data', function (array $source): void
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect(data_get($page->refresh()->meta, 'image_source'))->toBe($source);
+    // MySQL JSON columns do not preserve key order.
+    expect(data_get($page->refresh()->meta, 'image_source'))->toEqual($source);
 })->with([
     'media' => [['type' => 'media']],
     'url' => [['type' => 'url', 'url' => 'https://images.unsplash.com/example.jpg']],
