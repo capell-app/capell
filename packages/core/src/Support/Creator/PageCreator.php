@@ -88,8 +88,9 @@ class PageCreator implements PageCreatable
                 ->first();
             $defaults = array_replace(
                 $defaults,
-                $existing?->only(['layout_id', 'name', 'meta']) ?? [],
+                $existing?->only(['layout_id', 'name']) ?? [],
             );
+            $defaults['meta'] = array_replace_recursive($defaults['meta'], $existing->meta ?? []);
 
             $page = CapellCore::createOrUpdateModel(
                 $this->pageModel,
@@ -149,8 +150,9 @@ class PageCreator implements PageCreatable
                 ->first();
             $defaults = array_replace(
                 $defaults,
-                $existing?->only(['layout_id', 'name', 'meta']) ?? [],
+                $existing?->only(['layout_id', 'name']) ?? [],
             );
+            $defaults['meta'] = array_replace_recursive($defaults['meta'], $existing->meta ?? []);
 
             $page = CapellCore::createOrUpdateModel(
                 $this->pageModel,

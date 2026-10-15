@@ -13,6 +13,7 @@ use Capell\Core\Models\Translation;
 use Capell\Core\Support\Creator\PageCreator;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Enums\ErrorPageStatusEnum;
+use Capell\Frontend\Enums\FrontendRenderAudience;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Support\Error\ErrorPagePathResolver;
@@ -173,6 +174,13 @@ final class GenerateErrorPageCacheAction
 
         $renderSiteDomain = $renderSite->siteDomains->firstWhere('id', $siteDomain->id) ?? $siteDomain;
         $renderSite->setRelation('siteDomain', $renderSiteDomain);
+
+        // The preview renderer restores this context before static validation.
+        resolve(FrontendState::class)->reset()
+            ->withSite($renderSite)->withPage($renderPage)
+            ->withLayout($renderPage->layout)->withTheme($renderSite->theme)
+            ->withLanguage($language)->withDomain($renderSiteDomain)
+            ->setFrontendData('renderAudience', FrontendRenderAudience::Public);
 
         $content = $this->renderer->render($renderSite->theme, $renderSite, $renderPage, $language, $renderSiteDomain)->getContent();
         $html = is_string($content) ? $content : '';
