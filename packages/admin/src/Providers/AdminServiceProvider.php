@@ -236,6 +236,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Extensions\ExtensionPosition;
@@ -527,7 +528,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 $this->app->make(AdminBridgeRegistry::class),
                 function (): void {
                     $receipts = $this->app->make(ExtensionContributionReceiptRegistry::class);
-                    $receipts->withContexts($receipts->providerContexts(self::class), function (): void {
+                    $contexts = $receipts->providerContexts(self::class);
+                    // Direct provider registration may not retain manifest receipt contexts.
+                    $contexts = $contexts !== [] ? $contexts : [
+                        ExtensionContributionReceiptContext::foundation(self::$packageName, 'admin', self::class),
+                    ];
+                    $receipts->withContexts($contexts, function (): void {
                         $this->prepareAdminRuntime();
                     });
                 },

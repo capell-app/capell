@@ -15,6 +15,7 @@ use Capell\Core\Enums\FrontendRuntime;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Octane\Resettable;
+use Capell\Core\Support\Extensions\ExtensionContributionReceiptContext;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
 use Capell\Core\Support\Extensions\ExtensionOrderingAudit;
 use Capell\Core\Support\Migration\MigrationFilesystem;
@@ -693,7 +694,12 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             RenderHookRegistry::class,
             function (): void {
                 $receipts = $this->app->make(ExtensionContributionReceiptRegistry::class);
-                $receipts->withContexts($receipts->providerContexts(self::class), function (): void {
+                $contexts = $receipts->providerContexts(self::class);
+                // Direct provider registration may not retain manifest receipt contexts.
+                $contexts = $contexts !== [] ? $contexts : [
+                    ExtensionContributionReceiptContext::foundation(self::$packageName, 'frontend', self::class),
+                ];
+                $receipts->withContexts($contexts, function (): void {
                     $this->app->make(FrontendHookRegistrar::class)->contribute(
                         RenderHookLocation::HeadClose,
                         ThemeTokenHeadCloseHook::class,
