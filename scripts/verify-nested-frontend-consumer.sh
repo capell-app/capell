@@ -57,7 +57,10 @@ grep --fixed-strings --quiet \
 
 printf '@import "./capell/frontend.css";\n' > resources/css/app.css
 
-npm install --no-audit --no-fund
+# Vite 8.2+ declares an optional @vitejs/devtools peer; with the current
+# registry graph npm 10's arborist crashes resolving it ("reading 'edgesOut'").
+# The skeleton's own peers are all satisfied directly, so skip peer resolution.
+npm install --no-audit --no-fund --legacy-peer-deps
 
 # The current Laravel skeleton enables a remote Bunny font by default. This
 # resolution smoke verifies Capell's generated assets, so keep it deterministic
