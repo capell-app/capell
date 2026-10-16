@@ -35,6 +35,18 @@ final class FrontendThemePreviewRenderer implements ThemePreviewRendererInterfac
         ?Language $language = null,
         ?SiteDomain $siteDomain = null,
     ): SymfonyResponse {
+        return resolve(FrontendState::class)->preserving(
+            fn (): SymfonyResponse => $this->renderPreview($theme, $site, $page, $language, $siteDomain),
+        );
+    }
+
+    private function renderPreview(
+        Theme $theme,
+        Site $site,
+        Page $page,
+        ?Language $language,
+        ?SiteDomain $siteDomain,
+    ): SymfonyResponse {
         $page->loadMissing(['layout', 'site.language', 'translations.language']);
         $site->loadMissing(['language', 'siteDomains']);
 

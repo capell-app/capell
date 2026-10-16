@@ -11,10 +11,11 @@ use Capell\Admin\Filament\Actions;
 use Capell\Admin\Filament\Configurators\Pages\DefaultPageConfigurator;
 use Capell\Admin\Support\Configurators\ConfiguratorResolver;
 use Capell\Admin\Support\Filament\RawState;
+use Capell\Core\Exceptions\PageUrlCollisionException;
 use Capell\Core\Models\Page;
-use Capell\Core\Models\Translation;
 use Closure;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\ValidationException;
 
 trait CanReplicatePage
 {
@@ -35,7 +36,23 @@ trait CanReplicatePage
                 }
             }
 
-            $action->replica = ReplicatePageAction::run($record, $data);
+            try {
+                $action->replica = ReplicatePageAction::run($record, $data);
+            } catch (PageUrlCollisionException $pageUrlCollisionException) {
+                foreach ($data['translations'] as $key => $translation) {
+                    if ((int) $translation['language_id'] !== $pageUrlCollisionException->languageId) {
+                        continue;
+                    }
+
+                    $slugLabel = __('capell-admin::form.slug');
+
+                    throw ValidationException::withMessages([
+                        $schema->getStatePath() . '.translations.' . $key . '.meta.slug' => __('validation.unique', ['attribute' => $slugLabel]),
+                    ]);
+                }
+
+                throw $pageUrlCollisionException;
+            }
         });
 
         try {
@@ -52,23 +69,14 @@ trait CanReplicatePage
     {
         $data = $record->only($record->getFillable());
 
-        $data['name'] = '';
+        $defaults = resolve(ReplicatePageAction::class)->getDefaults($record);
+        $data['name'] = $defaults['name'];
 
         if ($action->mutateRecordDataUsing instanceof Closure) {
             $data = $action->evaluate($action->mutateRecordDataUsing, ['data' => $data]);
         }
 
-        $record->translations->loadMissing('language');
-
-        $translations = $record->translations->sortBy(fn (Translation $translation): int => $translation->language->default ? 0 : 1);
-
-        if ($translations->isNotEmpty()) {
-            $data['translations'] = [];
-
-            foreach ($translations as $translation) {
-                $data['translations']['record-' . $translation->id] = $translation->only($translation->getFillable());
-            }
-        }
+        $data['translations'] = $defaults['translations'];
 
         return $data;
     }
@@ -83,7 +91,7 @@ trait CanReplicatePage
 
         return $configurator::configure(
             $schema->operation('replicate'),
-            ConfiguratorContextData::forEdit(ConfiguratorTypeEnum::Page),
+            new ConfiguratorContextData(target: ConfiguratorTypeEnum::Page, operation: 'replicate'),
         );
     }
 }

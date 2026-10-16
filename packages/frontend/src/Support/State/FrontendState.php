@@ -14,6 +14,8 @@ use Capell\Core\Models\Theme;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Data\FrontendRenderPayload;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 final class FrontendState implements FrontendContextReader
 {
@@ -51,6 +53,68 @@ final class FrontendState implements FrontendContextReader
         $this->data = [];
 
         return $this;
+    }
+
+    /**
+     * Run an isolated render without leaking its state into the caller.
+     *
+     * @template TResult
+     *
+     * @param  callable(): TResult  $callback
+     * @return TResult
+     */
+    public function preserving(callable $callback): mixed
+    {
+        $previous = clone $this;
+        $relations = [];
+
+        // Loaded relations can hold caller models even when top-level fields are unset.
+        $models = [$this->site, $this->language, $this->page, $this->layout, $this->theme, $this->domain];
+        while ($models !== []) {
+            $model = array_pop($models);
+            if (! $model instanceof Model) {
+                continue;
+            }
+
+            if (isset($relations[spl_object_id($model)])) {
+                continue;
+            }
+
+            $relations[spl_object_id($model)] = [$model, $model->getRelations()];
+            foreach ($model->getRelations() as $relation) {
+                if ($relation instanceof Model) {
+                    $models[] = $relation;
+                } elseif ($relation instanceof Collection) {
+                    foreach ($relation as $relatedModel) {
+                        if ($relatedModel instanceof Model) {
+                            $models[] = $relatedModel;
+                        }
+                    }
+                }
+            }
+        }
+
+        try {
+            return $callback();
+        } finally {
+            foreach ($relations as [$model, $loadedRelations]) {
+                $model->setRelations($loadedRelations);
+            }
+
+            $this->site = $previous->site;
+            $this->language = $previous->language;
+            $this->page = $previous->page;
+            $this->layout = $previous->layout;
+            $this->theme = $previous->theme;
+            $this->params = $previous->params;
+            $this->slug = $previous->slug;
+            $this->relativePath = $previous->relativePath;
+            $this->effectiveUrl = $previous->effectiveUrl;
+            $this->revisionPageId = $previous->revisionPageId;
+            $this->isError = $previous->isError;
+            $this->domain = $previous->domain;
+            $this->data = $previous->data;
+        }
     }
 
     public function snapshot(): FrontendContext

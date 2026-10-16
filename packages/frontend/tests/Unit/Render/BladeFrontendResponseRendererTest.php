@@ -31,8 +31,11 @@ use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
+use Livewire\Blaze\Blaze;
+use Livewire\Blaze\BlazeServiceProvider;
 
 it('declares the blade runtime', function (): void {
     $renderer = new BladeFrontendResponseRenderer;
@@ -48,6 +51,8 @@ it('registers the blade renderer in the frontend renderer registry', function ()
 });
 
 it('uses the capell layout path for pages with layout builder containers', function (): void {
+    app()->register(BlazeServiceProvider::class);
+
     $site = Site::factory()->make(['name' => 'Fresh Site']);
     $site->setRelation('blueprint', Blueprint::factory()->make());
 
@@ -67,13 +72,16 @@ it('uses the capell layout path for pages with layout builder containers', funct
     resolve(RenderHookRegistry::class)->registerCallable(
         RenderHookLocation::MainContent,
         function (RenderHookContext $context) use (&$mainContentData): string {
-            expect($context->item)->toBeInstanceOf(MainContentRenderHookData::class);
+            $compiledContent = View::make('capell-renderer-test::compiled-content')->render();
+
+            expect(Blaze::isEnabled())->toBeTrue()
+                ->and($context->item)->toBeInstanceOf(MainContentRenderHookData::class);
 
             throw_unless($context->item instanceof MainContentRenderHookData, RuntimeException::class, 'Expected the main content hook data.');
 
             $mainContentData = $context->item;
 
-            return '<section>Layout builder hook output</section>';
+            return $compiledContent . '<section>Layout builder hook output</section>';
         },
         scenario: 'frontend-main-layout',
         target: 'capell::layout.main',
@@ -115,8 +123,11 @@ it('uses the capell layout path for pages with layout builder containers', funct
 
     $viewPath = sys_get_temp_dir() . '/capell-renderer-test-' . bin2hex(random_bytes(6));
     View::addNamespace('capell-renderer-test', $viewPath);
-    File::ensureDirectoryExists($viewPath);
+    Blade::anonymousComponentPath($viewPath . '/components', 'capell-renderer-test');
+    File::ensureDirectoryExists($viewPath . '/components');
     File::put($viewPath . '/layout.blade.php', '<html><body>{!! $slot !!}</body></html>');
+    File::put($viewPath . '/components/probe.blade.php', "@blaze\n<span>Blaze compiled content</span>");
+    File::put($viewPath . '/compiled-content.blade.php', '<x-capell-renderer-test::probe />');
 
     try {
         $renderContext = new FrontendRenderContextData(
@@ -126,6 +137,9 @@ it('uses the capell layout path for pages with layout builder containers', funct
             layout: $layout,
             theme: $theme,
         );
+        Blaze::enable();
+        expect(View::make('capell-renderer-test::compiled-content')->render())->toContain('Blaze compiled content');
+
         $response = (new BladeFrontendResponseRenderer)->render($renderContext);
 
         throw_unless($response instanceof Response, RuntimeException::class, 'Expected blade renderer to return an HTTP response.');
@@ -142,9 +156,15 @@ it('uses the capell layout path for pages with layout builder containers', funct
 
         expect($afterPosition)->toBeGreaterThan($mainPosition)
             ->and($content)
+            ->toContain('Blaze compiled content')
             ->not->toContain('wrong-scope-after-content')
             ->not->toContain('default-theme-shell')
             ->not->toContain('Theme Studio fallback should not render');
+
+        $warmResponse = (new BladeFrontendResponseRenderer)->render($renderContext);
+        throw_unless($warmResponse instanceof Response, RuntimeException::class, 'Expected a warm HTTP response.');
+        expect($warmResponse->getContent())->toBe($content)
+            ->and(Blaze::isEnabled())->toBeTrue();
 
         resolve(RenderHookRegistry::class)->registerCallable(
             RenderHookLocation::AfterContent,
