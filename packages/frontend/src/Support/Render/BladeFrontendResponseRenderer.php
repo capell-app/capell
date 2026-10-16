@@ -75,7 +75,7 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
             App::make(PublicLayoutRenderPreparer::class)->prepare($context);
         }
 
-        $response = resolve(PublicRenderDataScope::class)->during($context->publicRenderData, fn () => resolve(PublicViewQueryGuard::class)->guard($context, function () use ($context, $page, $runtimeManifest, $hasAuthoredMaster, $preparedSlot): Response {
+        $response = PublicRenderDataScope::during($context->publicRenderData, fn () => resolve(PublicViewQueryGuard::class)->guard($context, function () use ($context, $page, $runtimeManifest, $hasAuthoredMaster, $preparedSlot): Response {
             $slot = $hasAuthoredMaster ? null : ($preparedSlot ?? $this->layoutBuilderSlot($context));
 
             $slot ??= View::make($this->masterFile($context->layout), [

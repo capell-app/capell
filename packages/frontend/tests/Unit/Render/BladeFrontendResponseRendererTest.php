@@ -106,11 +106,9 @@ it('restores render data across recursive blade renders and exceptions', functio
     $inner = clone $outer;
     $inner->publicRenderData = clone $outerData;
 
-    $scope = resolve(PublicRenderDataScope::class);
-
-    View::composer($namespace . '::shell', function (Illuminate\View\View $view) use ($scope, $outer, $inner, $innerThrows, $outerThrows): void {
+    View::composer($namespace . '::shell', function (Illuminate\View\View $view) use ($outer, $inner, $innerThrows, $outerThrows): void {
         if ($view->getData()['publicRenderData'] === $inner->publicRenderData) {
-            expect($scope->current())->toBe($inner->publicRenderData);
+            expect(PublicRenderDataScope::current())->toBe($inner->publicRenderData);
             throw_if($innerThrows, RuntimeException::class, 'Inner render failed');
 
             $view->with('scopeLabel', 'Inner context');
@@ -118,7 +116,7 @@ it('restores render data across recursive blade renders and exceptions', functio
             return;
         }
 
-        expect($scope->current())->toBe($outer->publicRenderData);
+        expect(PublicRenderDataScope::current())->toBe($outer->publicRenderData);
         $render = fn (): Symfony\Component\HttpFoundation\Response|Responsable => (new BladeFrontendResponseRenderer)->render($inner);
         if ($innerThrows) {
             expect($render)->toThrow(RuntimeException::class, 'Inner render failed');
@@ -128,14 +126,14 @@ it('restores render data across recursive blade renders and exceptions', functio
             expect($response->getContent())->toContain('Inner context');
         }
 
-        expect($scope->current())->toBe($outer->publicRenderData);
+        expect(PublicRenderDataScope::current())->toBe($outer->publicRenderData);
         throw_if($outerThrows, RuntimeException::class, 'Outer render failed');
 
         $view->with('scopeLabel', 'Outer context');
     });
 
     try {
-        expect($scope->current())->toBeNull();
+        expect(PublicRenderDataScope::current())->toBeNull();
         $render = fn (): Symfony\Component\HttpFoundation\Response|Responsable => (new BladeFrontendResponseRenderer)->render($outer);
         if ($outerThrows) {
             expect($render)->toThrow(RuntimeException::class, 'Outer render failed');
@@ -145,7 +143,7 @@ it('restores render data across recursive blade renders and exceptions', functio
             expect($response->getContent())->toContain('Outer context')->not->toContain('Inner context', 'scope-secret');
         }
 
-        expect($scope->current())->toBeNull();
+        expect(PublicRenderDataScope::current())->toBeNull();
     } finally {
         File::deleteDirectory($path);
     }

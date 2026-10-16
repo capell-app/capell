@@ -9,16 +9,19 @@ use Closure;
 
 /**
  * Render-local data for layout providers, never a Blade component attribute.
- * Resolve the scoped service and read current() inside views or render hooks.
+ * Read PublicRenderDataScope::current() inside views or render hooks. It is
+ * static rather than a container binding so it adds no installed-runtime
+ * surface; during() always restores the previous value, so no state outlives
+ * a render, including under long-running workers.
  */
 final class PublicRenderDataScope
 {
-    private ?PublicPageRenderData $current = null;
+    private static ?PublicPageRenderData $current = null;
 
     /** Returns null outside a response render (including standalone components). */
-    public function current(): ?PublicPageRenderData
+    public static function current(): ?PublicPageRenderData
     {
-        return $this->current;
+        return self::$current;
     }
 
     /**
@@ -27,15 +30,15 @@ final class PublicRenderDataScope
      * @param  Closure(): T  $render
      * @return T
      */
-    public function during(?PublicPageRenderData $data, Closure $render): mixed
+    public static function during(?PublicPageRenderData $data, Closure $render): mixed
     {
-        $previous = $this->current;
-        $this->current = $data;
+        $previous = self::$current;
+        self::$current = $data;
 
         try {
             return $render();
         } finally {
-            $this->current = $previous;
+            self::$current = $previous;
         }
     }
 }

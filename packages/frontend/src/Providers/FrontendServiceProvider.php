@@ -137,7 +137,6 @@ use Capell\Frontend\Support\Render\FrontendHookRegistrar;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
 use Capell\Frontend\Support\Render\LivewireFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
-use Capell\Frontend\Support\Render\PublicRenderDataScope;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\Render\RenderHookFragmentRegistry;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
@@ -271,7 +270,6 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
         $this->app->scoped(FrontendResponseRendererRegistry::class);
         $this->app->singleton(StatelessPaginationResolver::class);
         $this->app->scoped(PublicViewQueryGuard::class);
-        $this->app->scoped(PublicRenderDataScope::class);
         $this->app->singleton(RenderHookRegistry::class);
         $this->app->scoped(RenderHookFragmentRegistry::class);
 

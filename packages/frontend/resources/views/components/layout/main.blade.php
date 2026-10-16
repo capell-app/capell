@@ -30,7 +30,7 @@
         containerClass: $containerClass,
         mainClass: $mainClass,
         mainContainerClass: $mainContainerClass,
-        publicRenderData: app(PublicRenderDataScope::class)->current(),
+        publicRenderData: PublicRenderDataScope::current(),
     );
 
     $mainContentHookOutput = app(RenderHookRegistry::class)->renderAll(
