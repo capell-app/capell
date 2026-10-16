@@ -62,6 +62,7 @@
             :$layout
             :$page
             :$theme
+            :$publicRenderData
             :page-slot="$pageSlot ?? $slot"
             :container-class="$containerClass"
             :main-class="$mainClass"

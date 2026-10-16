@@ -15,6 +15,7 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
+use Capell\Frontend\Contracts\PublicLayoutRenderPreparer;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendResourceContextData;
@@ -26,15 +27,18 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\HtmlString;
+use Override;
 use Symfony\Component\HttpFoundation\Response;
 
 final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
 {
+    #[Override]
     public function runtime(): FrontendRuntime
     {
         return FrontendRuntime::Blade;
     }
 
+    #[Override]
     public function render(FrontendRenderContextData $context): Response|Responsable
     {
         if (App::bound('capell.frontend.page-markdown-response')) {
@@ -63,13 +67,16 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
         RenderPageRecordDataAction::run($page, []);
         $this->primePublicRenderDependencies($context, $runtimeManifest);
 
-        $response = resolve(PublicViewQueryGuard::class)->guard($context, function () use ($context, $page, $runtimeManifest): Response {
-            $slot = null;
+        $hasAuthoredMaster = $this->hasAuthoredMasterForPreparedGraph($context);
+        $preparedSlot = $hasAuthoredMaster ? null : $this->hydratedLayoutGraphSlot($context);
 
-            if (! $this->hasAuthoredMasterForPreparedGraph($context)) {
-                $slot = $this->hydratedLayoutGraphSlot($context)
-                    ?? $this->layoutBuilderSlot($context);
-            }
+        if (! $hasAuthoredMaster && $preparedSlot === null && $this->layoutHasContainers($context->layout)
+            && App::bound(PublicLayoutRenderPreparer::class)) {
+            App::make(PublicLayoutRenderPreparer::class)->prepare($context);
+        }
+
+        $response = resolve(PublicViewQueryGuard::class)->guard($context, function () use ($context, $page, $runtimeManifest, $hasAuthoredMaster, $preparedSlot): Response {
+            $slot = $hasAuthoredMaster ? null : ($preparedSlot ?? $this->layoutBuilderSlot($context));
 
             $slot ??= View::make($this->masterFile($context->layout), [
                 'componentName' => 'capell.frontend.page',
@@ -128,8 +135,9 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
 
         // Keep compilation in the caller's mode: these views can already be
         // cached with Blaze calls from chrome preparation or an earlier render.
-        return Blade::render('<x-capell::layout />', [
+        return Blade::render('<x-capell::layout :public-render-data="$publicRenderData" />', [
             '__env' => resolve(Factory::class),
+            'publicRenderData' => $context->publicRenderData,
         ]);
     }
 
@@ -153,26 +161,7 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
             }
         }
 
-        $sections = [];
-
-        foreach (collect(data_get($layoutGraph, 'containers', [])) as $container) {
-            foreach (collect(data_get($container, 'widgets', [])) as $widget) {
-                $widgetSections = collect(data_get($widget, 'data.sections', []))
-                    ->filter(static fn (mixed $section): bool => is_array($section) && is_string($section['html'] ?? null) && trim($section['html']) !== '')
-                    ->sortBy(static fn (array $section): int => is_numeric($section['order'] ?? null) ? (int) $section['order'] : PHP_INT_MAX);
-
-                // One hydrated widget cannot stand in for the rest of the layout.
-                if ($widgetSections->isEmpty()) {
-                    return null;
-                }
-
-                foreach ($widgetSections as $section) {
-                    $sections[] = $section['html'];
-                }
-            }
-        }
-
-        return $sections === [] ? null : implode("\n", $sections);
+        return new PreparedLayoutGraph($layoutGraph)->html();
     }
 
     private function primePublicRenderDependencies(FrontendRenderContextData $context, FrontendRuntimeManifestData $runtimeManifest): void

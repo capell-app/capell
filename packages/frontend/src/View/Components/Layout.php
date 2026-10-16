@@ -13,10 +13,12 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Data\PublicPageRenderData;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\View\Component;
+use Override;
 
 final class Layout extends Component
 {
@@ -37,6 +39,7 @@ final class Layout extends Component
         public readonly ?string $mainClass = null,
         public readonly ?string $mainContainerClass = null,
         public readonly mixed $pageSlot = null,
+        public readonly ?PublicPageRenderData $publicRenderData = null,
     ) {
         $this->theme = $frontend->theme();
         $this->page = $frontend->page();
@@ -108,6 +111,7 @@ final class Layout extends Component
         return ContentStructure::Html;
     }
 
+    #[Override]
     public function render(): View
     {
         return $this->view->make('capell::components.layout.index');

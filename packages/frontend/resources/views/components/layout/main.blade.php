@@ -19,6 +19,7 @@
     'page',
     'pageSlot' => null,
     'theme' => [],
+    'publicRenderData' => null,
 ])
 @php
     $mainContentHookData = new MainContentRenderHookData(
@@ -29,6 +30,7 @@
         containerClass: $containerClass,
         mainClass: $mainClass,
         mainContainerClass: $mainContainerClass,
+        publicRenderData: $publicRenderData,
     );
 
     $mainContentHookOutput = app(RenderHookRegistry::class)->renderAll(
