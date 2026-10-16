@@ -29,6 +29,7 @@ use Capell\Frontend\Enums\RenderHookLocation;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Support\Render\BladeFrontendResponseRenderer;
 use Capell\Frontend\Support\Render\FrontendResponseRendererRegistry;
+use Capell\Frontend\Support\Render\PublicRenderDataScope;
 use Capell\Frontend\Support\Render\PublicViewQueryGuard;
 use Capell\Frontend\Support\Render\RenderHookRegistry;
 use Illuminate\Contracts\Support\Responsable;
@@ -38,6 +39,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\View;
+use Illuminate\View\Component;
 use Livewire\Blaze\Blaze;
 use Livewire\Blaze\BlazeServiceProvider;
 
@@ -46,6 +48,146 @@ it('declares the blade runtime', function (): void {
 
     expect($renderer->runtime())->toBe(FrontendRuntime::Blade);
 });
+
+it('preserves legacy anonymous component attribute output for unhydrated layouts', function (string $component, string $attributes, string $expected): void {
+    $namespace = 'legacy-render-scope-' . bin2hex(random_bytes(6));
+    $path = storage_path('framework/testing/' . $namespace);
+    File::ensureDirectoryExists($path);
+    config()->set('view.compiled', $path . '/compiled');
+    Component::flushCache();
+    View::addNamespace($namespace, $path);
+    File::put($path . '/shell.blade.php', '<html><body>{!! $slot !!}</body></html>');
+    File::put($path . '/legacy.blade.php', '@props(["layout" => null, "page" => null, "theme" => null, "pageSlot" => null, "containerClass" => null, "mainClass" => null, "mainContainerClass" => null])<main ' . $attributes . '>Legacy theme layout</main>');
+    if ($component === 'layout') {
+        Blade::component($namespace . '::legacy', 'capell::layout');
+    } else {
+        File::ensureDirectoryExists($path . '/components/layout');
+        File::copy($path . '/legacy.blade.php', $path . '/components/layout/main.blade.php');
+        View::prependNamespace('capell', $path);
+    }
+
+    $context = publicRenderScopeFixture($namespace);
+
+    try {
+        $response = (new BladeFrontendResponseRenderer)->render($context);
+        throw_unless($response instanceof Response, RuntimeException::class);
+        $html = (string) $response->getContent();
+
+        if ($component === 'layout') {
+            expect($html)->toBe('<html><body>' . $expected . '</body></html>');
+        } else {
+            expect($html)->toContain($expected);
+        }
+
+        expect($html)->not->toContain('public-render-data', 'publicRenderData', 'signed_url', 'scope-secret');
+    } finally {
+        File::deleteDirectory($path);
+    }
+})->with([
+    'layout merges attributes' => ['layout', '{{ $attributes->merge(["class" => "legacy-theme"]) }}', '<main class="legacy-theme">Legacy theme layout</main>'],
+    'layout forwards attributes' => ['layout', '{{ $attributes }}', '<main >Legacy theme layout</main>'],
+    'main merges attributes' => ['layout.main', '{{ $attributes->merge(["class" => "legacy-theme"]) }}', '<main class="legacy-theme">Legacy theme layout</main>'],
+    'main forwards attributes' => ['layout.main', '{{ $attributes }}', '<main >Legacy theme layout</main>'],
+]);
+
+it('restores render data across recursive blade renders and exceptions', function (bool $innerThrows, bool $outerThrows): void {
+    $namespace = 'recursive-render-scope-' . bin2hex(random_bytes(6));
+    $path = storage_path('framework/testing/' . $namespace);
+    File::ensureDirectoryExists($path);
+    config()->set('view.compiled', $path . '/compiled');
+    Component::flushCache();
+    View::addNamespace($namespace, $path);
+    File::put($path . '/shell.blade.php', '<html><body>{!! $slot !!}{{ $scopeLabel }}</body></html>');
+    Blade::component($namespace . '::legacy', 'capell::layout');
+    File::put($path . '/legacy.blade.php', '<main>Scoped theme</main>');
+    $outer = publicRenderScopeFixture($namespace);
+    $outerData = $outer->publicRenderData;
+    throw_unless($outerData instanceof PublicPageRenderData, RuntimeException::class);
+    $inner = clone $outer;
+    $inner->publicRenderData = clone $outerData;
+
+    $scope = resolve(PublicRenderDataScope::class);
+
+    View::composer($namespace . '::shell', function (Illuminate\View\View $view) use ($scope, $outer, $inner, $innerThrows, $outerThrows): void {
+        if ($view->getData()['publicRenderData'] === $inner->publicRenderData) {
+            expect($scope->current())->toBe($inner->publicRenderData);
+            throw_if($innerThrows, RuntimeException::class, 'Inner render failed');
+
+            $view->with('scopeLabel', 'Inner context');
+
+            return;
+        }
+
+        expect($scope->current())->toBe($outer->publicRenderData);
+        $render = fn (): Symfony\Component\HttpFoundation\Response|Responsable => (new BladeFrontendResponseRenderer)->render($inner);
+        if ($innerThrows) {
+            expect($render)->toThrow(RuntimeException::class, 'Inner render failed');
+        } else {
+            $response = $render();
+            throw_unless($response instanceof Response, RuntimeException::class);
+            expect($response->getContent())->toContain('Inner context');
+        }
+
+        expect($scope->current())->toBe($outer->publicRenderData);
+        throw_if($outerThrows, RuntimeException::class, 'Outer render failed');
+
+        $view->with('scopeLabel', 'Outer context');
+    });
+
+    try {
+        expect($scope->current())->toBeNull();
+        $render = fn (): Symfony\Component\HttpFoundation\Response|Responsable => (new BladeFrontendResponseRenderer)->render($outer);
+        if ($outerThrows) {
+            expect($render)->toThrow(RuntimeException::class, 'Outer render failed');
+        } else {
+            $response = $render();
+            throw_unless($response instanceof Response, RuntimeException::class);
+            expect($response->getContent())->toContain('Outer context')->not->toContain('Inner context', 'scope-secret');
+        }
+
+        expect($scope->current())->toBeNull();
+    } finally {
+        File::deleteDirectory($path);
+    }
+})->with([false, true])->with([false, true]);
+
+function publicRenderScopeFixture(string $namespace): FrontendRenderContextData
+{
+    $page = Page::factory()->make(['meta' => []]);
+    $page->setRelation('translation', Translation::factory()->make(['meta' => []]));
+    $page->setRelation('blueprint', Blueprint::factory()->make());
+
+    $site = Site::factory()->make();
+    $site->setRelation('blueprint', Blueprint::factory()->make());
+
+    $language = Language::factory()->make(['code' => 'en']);
+    $theme = Theme::factory()->make(['key' => 'default', 'meta' => []]);
+    $layout = Layout::factory()->make(['meta' => ['layout_file' => $namespace . '::shell'], 'admin' => ['system_page_layout' => false]]);
+    $layout->containers = ['main' => ['widgets' => [['widget_key' => 'unhydrated']]]];
+    bindBladeRendererContext($page, $site, $language, $layout, $theme);
+    $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
+
+    return new FrontendRenderContextData(
+        $page,
+        $site,
+        $language,
+        $layout,
+        $theme,
+        runtimeManifest: $runtime,
+        publicRenderData: new PublicPageRenderData(
+            $page,
+            $site,
+            $language,
+            $layout,
+            $theme,
+            null,
+            $runtime,
+            new FrontendResourcePlanData([], [], [], [], [], [], [], 'scope-test'),
+            [],
+            extensionData: ['probe' => (object) ['signed_url' => 'scope-secret']],
+        ),
+    );
+}
 
 it('registers the blade renderer in the frontend renderer registry', function (): void {
     $renderer = resolve(FrontendResponseRendererRegistry::class)

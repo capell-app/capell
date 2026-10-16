@@ -3,6 +3,7 @@
     use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
     use Capell\Frontend\Data\MainContentRenderHookData;
     use Capell\Frontend\Enums\RenderHookLocation;
+    use Capell\Frontend\Support\Render\PublicRenderDataScope;
     use Capell\Frontend\Support\Render\RenderHookRegistry;
 
     $containerWidth = GetLayoutContainerWidthAction::run();
@@ -19,7 +20,6 @@
     'page',
     'pageSlot' => null,
     'theme' => [],
-    'publicRenderData' => null,
 ])
 @php
     $mainContentHookData = new MainContentRenderHookData(
@@ -30,7 +30,7 @@
         containerClass: $containerClass,
         mainClass: $mainClass,
         mainContainerClass: $mainContainerClass,
-        publicRenderData: $publicRenderData,
+        publicRenderData: app(PublicRenderDataScope::class)->current(),
     );
 
     $mainContentHookOutput = app(RenderHookRegistry::class)->renderAll(

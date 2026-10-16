@@ -75,7 +75,7 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
             App::make(PublicLayoutRenderPreparer::class)->prepare($context);
         }
 
-        $response = resolve(PublicViewQueryGuard::class)->guard($context, function () use ($context, $page, $runtimeManifest, $hasAuthoredMaster, $preparedSlot): Response {
+        $response = resolve(PublicRenderDataScope::class)->during($context->publicRenderData, fn () => resolve(PublicViewQueryGuard::class)->guard($context, function () use ($context, $page, $runtimeManifest, $hasAuthoredMaster, $preparedSlot): Response {
             $slot = $hasAuthoredMaster ? null : ($preparedSlot ?? $this->layoutBuilderSlot($context));
 
             $slot ??= View::make($this->masterFile($context->layout), [
@@ -101,7 +101,7 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
                 ],
                 $context->status ?? 200,
             );
-        });
+        }));
 
         AssertPublicRenderContractAction::run($response);
 
@@ -135,9 +135,8 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
 
         // Keep compilation in the caller's mode: these views can already be
         // cached with Blaze calls from chrome preparation or an earlier render.
-        return Blade::render('<x-capell::layout :public-render-data="$publicRenderData" />', [
+        return Blade::render('<x-capell::layout />', [
             '__env' => resolve(Factory::class),
-            'publicRenderData' => $context->publicRenderData,
         ]);
     }
 
