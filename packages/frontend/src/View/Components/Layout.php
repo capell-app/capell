@@ -17,6 +17,7 @@ use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\View\Component;
+use Override;
 
 final class Layout extends Component
 {
@@ -108,6 +109,7 @@ final class Layout extends Component
         return ContentStructure::Html;
     }
 
+    #[Override]
     public function render(): View
     {
         return $this->view->make('capell::components.layout.index');

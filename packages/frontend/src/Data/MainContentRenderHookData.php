@@ -21,5 +21,6 @@ final class MainContentRenderHookData
         public mixed $mainClass = null,
         public mixed $mainContainerClass = null,
         public mixed $layoutNeighborLinks = null,
+        public ?PublicPageRenderData $publicRenderData = null,
     ) {}
 }

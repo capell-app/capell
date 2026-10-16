@@ -10,6 +10,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Frontend\Data\Assets\FrontendResourcePlanData;
+use Capell\Frontend\Support\Render\PreparedLayoutGraph;
 use Spatie\LaravelData\Data;
 
 class PublicPageRenderData extends Data
@@ -45,6 +46,15 @@ class PublicPageRenderData extends Data
     public function contentWidgetPayload(string $instanceId): ?object
     {
         return $this->contentWidgetPayloads[$instanceId] ?? null;
+    }
+
+    /**
+     * Raw public HTML for this occurrence; null asks the layout provider to use
+     * its normal widget renderer. Consume it once inside presentation wrappers.
+     */
+    public function preparedWidgetHtml(string $containerKey, string $widgetKey, int $occurrence = 1): ?string
+    {
+        return new PreparedLayoutGraph($this->layoutGraph)->widgetHtml($containerKey, $widgetKey, $occurrence);
     }
 
     public function widgetInteractionLocator(string $instanceId): ?string

@@ -66,6 +66,20 @@ When rendering, the scenario and target are passed automatically by the Blade co
 
 ---
 
+## Prepared layout render data
+
+Layout Builder and theme layout/container views can read the current public
+render DTO with `\Capell\Frontend\Support\Render\PublicRenderDataScope::current()`.
+It returns `?PublicPageRenderData`: null outside a Blade response render, including
+standalone component renders. Use its `preparedWidgetHtml()` accessor for prepared
+widget content. The main-content hook also receives this DTO in
+`MainContentRenderHookData::$publicRenderData`.
+
+The response renderer enters this scope after `PublicLayoutRenderPreparer` runs
+and restores the previous value in `finally`, including nested renders and
+exceptions. Do not retain the DTO beyond that render or pass it as a component
+attribute: legacy anonymous theme overrides may merge or serialise `$attributes`.
+
 ## Where Hooks Render
 
 Hooks are available in:

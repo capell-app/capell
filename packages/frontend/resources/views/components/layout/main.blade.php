@@ -3,6 +3,7 @@
     use Capell\Frontend\Actions\GetLayoutContainerWidthAction;
     use Capell\Frontend\Data\MainContentRenderHookData;
     use Capell\Frontend\Enums\RenderHookLocation;
+    use Capell\Frontend\Support\Render\PublicRenderDataScope;
     use Capell\Frontend\Support\Render\RenderHookRegistry;
 
     $containerWidth = GetLayoutContainerWidthAction::run();
@@ -29,6 +30,7 @@
         containerClass: $containerClass,
         mainClass: $mainClass,
         mainContainerClass: $mainContainerClass,
+        publicRenderData: PublicRenderDataScope::current(),
     );
 
     $mainContentHookOutput = app(RenderHookRegistry::class)->renderAll(
