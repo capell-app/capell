@@ -83,12 +83,14 @@
 /docs/images export-ignore
 /docs/operations/backups.md export-ignore
 /docs/operations/debugging-marketplace.md export-ignore
+/docs/operations/deploy-and-cache-refresh.md export-ignore
 /docs/operations/export-and-exit.md export-ignore
 /docs/operations/going-live.md export-ignore
 /docs/operations/index.md export-ignore
 /docs/operations/lockdown.md export-ignore
 /docs/operations/making-capell-fast.md export-ignore
 /docs/operations/octane.md export-ignore
+/docs/operations/php-fpm-sizing.md export-ignore
 /docs/operations/reporting.md export-ignore
 /docs/operations/runtime-roles.md export-ignore
 /docs/operations/site-health.md export-ignore

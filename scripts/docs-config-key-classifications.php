@@ -65,7 +65,6 @@ return [
         'Internal seed palette consumed through DefaultColorEnum; themes expose their own color contract.',
     ),
     'capell.agent.audit_severity' => 'Public Agent Schema audit policy covered by the documented agent tool mandate configuration.',
-    'capell.agent.rate_limit' => 'Public Agent Schema request limit covered by the documented agent read API configuration.',
     'capell.agent.read_api' => 'Public Agent Schema read API toggle covered by the documented agent delivery configuration.',
     'capell.diagnostics.allowed_roots' => 'Public diagnostics setting covered by the existing diagnostics.allowed_roots shorthand.',
     'capell.plugins' => 'Internal runtime catalogue cache populated by package discovery.',
