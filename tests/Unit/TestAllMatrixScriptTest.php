@@ -453,6 +453,8 @@ it('runs an isolated selected matrix cell and preserves its evidence and failure
             'MATRIX_FIXTURE_CELL' => $fixture->files->root . '/cell.php',
             'MATRIX_FIXTURE_CAPTURE' => $fixture->files->root . '/captured.json',
             'MATRIX_FIXTURE_FAIL' => $fail ? 'true' : 'false',
+            // Without TMPDIR PHP falls back to a temp directory with a trailing slash.
+            'TMPDIR' => '',
         ]);
         expect($process->getExitCode())->toBe($fail ? 1 : 0, $process->getErrorOutput());
         $summary = json_decode((string) file_get_contents($fixture->files->root . '/evidence/summary.json'), true, flags: JSON_THROW_ON_ERROR);
