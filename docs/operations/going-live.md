@@ -179,6 +179,8 @@ The rest of the server configuration — compression, static-asset headers, and 
 optional static HTML cache — is covered in
 [Web server configuration](web-server.md) and
 [frontend server configuration](../../packages/frontend/docs/server-config.md).
+Add the [`/index.php/<path>` redirect](../../packages/frontend/docs/server-config.md#canonicalising-indexphp-urls)
+to the server block before launch.
 
 ### Behind Cloudflare
 
