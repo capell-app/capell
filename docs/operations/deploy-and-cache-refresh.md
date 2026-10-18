@@ -23,6 +23,7 @@ Compiled Blade views live under `storage/framework/views`, which is often shared
 
 When the optional `capell-app/html-cache` package is installed, public pages are served as stored HTML. Changing templates or shared content does not change them until they are regenerated.
 
+<!-- capell-docs-commands: optional-package -->
 ```bash
 php artisan view:clear
 php artisan capell:html-cache:clear
