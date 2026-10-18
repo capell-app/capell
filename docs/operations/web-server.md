@@ -9,6 +9,9 @@ supervision — see [Going live](going-live.md). The base server block itself li
 [frontend server configuration](../../packages/frontend/docs/server-config.md); the rules
 below are added to it and only apply when `capell-app/html-cache` is installed.
 
+To redirect `/index.php/<path>` requests to the clean path, see
+[Canonicalising /index.php URLs](../../packages/frontend/docs/server-config.md#canonicalising-indexphp-urls).
+
 ## Three different things called "cache"
 
 Confusing these is the most common source of "why is my page stale" tickets, so it is

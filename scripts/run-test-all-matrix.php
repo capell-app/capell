@@ -39,7 +39,7 @@ if (! is_dir($outputDirectory) && ! mkdir($outputDirectory, 0777, true) && ! is_
     throw new RuntimeException(sprintf('Unable to create Test All output directory [%s].', $outputDirectory));
 }
 
-$temporaryRoot = sys_get_temp_dir() . '/capell-test-all-' . getmypid() . '-' . bin2hex(random_bytes(4));
+$temporaryRoot = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . '/capell-test-all-' . getmypid() . '-' . bin2hex(random_bytes(4));
 
 if (! mkdir($temporaryRoot, 0700, true) && ! is_dir($temporaryRoot)) {
     throw new RuntimeException(sprintf('Unable to create isolated Test All workspace [%s].', $temporaryRoot));

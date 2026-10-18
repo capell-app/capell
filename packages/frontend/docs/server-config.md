@@ -68,6 +68,39 @@ Two lines above are easy to leave out and expensive to get wrong:
   least as high as PHP's `upload_max_filesize` and `post_max_size`, and keep all three in
   step.
 
+### Canonicalising /index.php URLs
+
+Scanners and stray links request `/index.php/<path>`, for example `/index.php/login`. Laravel serves these, but it then builds absolute URLs, canonical tags and redirects underneath `/index.php`. That duplicates every page at a second URL and has caused `500` responses on routes such as `/index.php/login`. Redirect these requests to the clean path before they reach PHP.
+
+Add this inside the `server` block, above `location /`:
+
+```nginx
+# Canonicalise /index.php/<path> to /<path>. GET and HEAD only: a 301 turns a POST
+# into a GET and drops the body. nginx appends the original query string to a
+# rewrite replacement, so arguments survive.
+if ($request_method ~ ^(GET|HEAD)$) {
+    rewrite ^/index\.php(/.*)$ $1 permanent;
+}
+```
+
+The pattern requires a slash after `index.php`, so `/index.php` itself and the internal `/index.php?$query_string` fallback in `try_files` are untouched. Requests with other methods are not redirected. If you also run duplicate-slash handling, keep this block before it.
+
+Verify with:
+
+```sh
+curl -I https://example.test/index.php/login
+```
+
+The response should be `301` with `Location: /login`. `https://example.test/index.php` and `https://example.test/login` should behave as before.
+
+On Apache, the equivalent in `public/.htaccess` is below. It is untested here; place it above the Laravel front-controller rules and check it with the same `curl` command:
+
+```apache
+RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+RewriteCond %{THE_REQUEST} \s/index\.php/
+RewriteRule ^index\.php/(.*)$ /$1 [R=301,L]
+```
+
 Enable text compression for public HTML and text assets in the same server or proxy layer. Lighthouse's `uses-text-compression` audit expects compressed responses for HTML, CSS, JavaScript, SVG, JSON, and XML:
 
 ```nginx
