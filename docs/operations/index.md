@@ -4,22 +4,24 @@ Use this section if you deploy, upgrade, or respond to incidents on an installed
 
 The operations surface brings the pre-deployment checks together: Site Health reports on sites, languages, themes, migrations, queues, and public-output readiness. Where the optional optimiser is installed, administrators can see PageSpeed status alongside page operations. Upgrade runs retain durable records and state their rollback boundary, so an operator can distinguish a reversible application step from a database or infrastructure restore.
 
-| I need to...                                | Read                                              |
-| ------------------------------------------- | ------------------------------------------------- |
-| Put a new install on a public domain        | [Going live](going-live.md)                       |
-| Check whether the site is ready for traffic | [Site Health](site-health.md)                     |
-| Report operational failures consistently    | [Operational reporting](reporting.md)             |
-| Back up or restore data                     | [Backups and restore](backups.md)                 |
-| Block public traffic during an incident     | [Lockdown](lockdown.md)                           |
-| Upgrade packages and plan rollback          | [Upgrades](upgrading.md)                          |
-| Diagnose an installed site                  | [Troubleshooting](troubleshooting.md)             |
-| Debug Marketplace connection or installs    | [Debugging Marketplace](debugging-marketplace.md) |
-| Prepare a host for Marketplace operations   | [Marketplace hosting](marketplace-hosting.md)     |
-| Plan a reversible migration away            | [Export and exit plan](export-and-exit.md)        |
-| Configure nginx/Apache or scale to >1 node  | [Web server configuration](web-server.md)         |
-| Make public and dynamic requests faster     | [Making Capell fast](making-capell-fast.md)       |
-| Run Capell on Laravel Octane                | [Octane](octane.md)                               |
-| Split public and authoring processes        | [Runtime roles](runtime-roles.md)                 |
+| I need to...                                         | Read                                                     |
+| ---------------------------------------------------- | -------------------------------------------------------- |
+| Put a new install on a public domain                 | [Going live](going-live.md)                              |
+| Check whether the site is ready for traffic          | [Site Health](site-health.md)                            |
+| Report operational failures consistently             | [Operational reporting](reporting.md)                    |
+| Back up or restore data                              | [Backups and restore](backups.md)                        |
+| Block public traffic during an incident              | [Lockdown](lockdown.md)                                  |
+| Upgrade packages and plan rollback                   | [Upgrades](upgrading.md)                                 |
+| Diagnose an installed site                           | [Troubleshooting](troubleshooting.md)                    |
+| Debug Marketplace connection or installs             | [Debugging Marketplace](debugging-marketplace.md)        |
+| Prepare a host for Marketplace operations            | [Marketplace hosting](marketplace-hosting.md)            |
+| Plan a reversible migration away                     | [Export and exit plan](export-and-exit.md)               |
+| Configure nginx/Apache or scale to >1 node           | [Web server configuration](web-server.md)                |
+| Make public and dynamic requests faster              | [Making Capell fast](making-capell-fast.md)              |
+| Size PHP-FPM and read `pm.max_children` warnings     | [Sizing PHP-FPM](php-fpm-sizing.md)                      |
+| Deploy, refresh caches, roll back, clear failed jobs | [Deploys and cache refresh](deploy-and-cache-refresh.md) |
+| Run Capell on Laravel Octane                         | [Octane](octane.md)                                      |
+| Split public and authoring processes                 | [Runtime roles](runtime-roles.md)                        |
 
 ## First Checks
 
