@@ -7,6 +7,7 @@ namespace Capell\Core\Tests;
 use Capell\Core\Facades\CapellCore;
 use Capell\Tests\AbstractTestCase;
 use Livewire\LivewireServiceProvider;
+use Override;
 
 class CoreTestCase extends AbstractTestCase
 {
@@ -18,6 +19,12 @@ class CoreTestCase extends AbstractTestCase
             CapellCore::getSettingMigrations(),
             __DIR__ . '/../../../packages/core/database/settings',
         );
+    }
+
+    #[Override]
+    protected function shouldResetTestbenchMigrationState(): bool
+    {
+        return false;
     }
 
     protected function getPackageServiceName(): string
