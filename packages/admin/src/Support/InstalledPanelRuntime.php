@@ -41,11 +41,22 @@ final class InstalledPanelRuntime
     /** @var WeakMap<Panel, list<class-string>> */
     private WeakMap $fullPageOnly;
 
+    /**
+     * Routes already classified per panel id, with the name and declared middleware they were classified from.
+     *
+     * @var WeakMap<Route, array<string, list<mixed>>>
+     */
+    private WeakMap $inspectedRoutes;
+
+    /** @var array{0: array<string, string>, 1: array<string, array<int, string>>}|null */
+    private ?array $routerAliases = null;
+
     public function __construct(private readonly Router $router)
     {
         $this->applied = new WeakMap;
         $this->fullPageOnly = new WeakMap;
         $this->routeMiddleware = new WeakMap;
+        $this->inspectedRoutes = new WeakMap;
     }
 
     public function isUnavailable(string $panel): bool
@@ -95,13 +106,36 @@ final class InstalledPanelRuntime
         }
 
         Livewire::addPersistentMiddleware([EnsureInstalledPanelAvailable::class]);
+        // Classifying a route resolves and sorts its whole middleware stack. A route is only
+        // reclassified when its name or declared middleware changed, or when the router's
+        // aliases or groups (which decide what the declared names resolve to) changed.
+        $aliases = [$this->router->getMiddleware(), $this->router->getMiddlewareGroups()];
+        if ($this->routerAliases !== $aliases) {
+            $this->inspectedRoutes = new WeakMap;
+            $this->routerAliases = $aliases;
+        }
+
         foreach ($this->router->getRoutes()->getRoutes() as $route) {
+            $signature = [$route->getName(), $route->getAction('middleware')];
+            $inspected = $this->inspectedRoutes[$route] ?? [];
+            if (isset($inspected[$id]) && $inspected[$id] === $signature) {
+                continue;
+            }
+
+            $route->computedMiddleware = null;
             $declared = $this->router->resolveMiddleware($route->gatherMiddleware());
             if (str_starts_with((string) $route->getName(), 'filament.' . $id . '.')
                 || in_array(SetUpPanel::class . ':' . $id, $declared, true)) {
-                $route->middleware($middleware);
-                $route->computedMiddleware = null;
+                if (! in_array($middleware, $route->gatherMiddleware(), true)) {
+                    $route->middleware($middleware);
+                    $route->computedMiddleware = null;
+                }
+
+                $signature = [$route->getName(), $route->getAction('middleware')];
             }
+
+            $inspected[$id] = $signature;
+            $this->inspectedRoutes[$route] = $inspected;
         }
     }
 
