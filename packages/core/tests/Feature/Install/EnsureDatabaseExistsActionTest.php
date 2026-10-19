@@ -6,8 +6,11 @@ use Capell\Core\Actions\Install\EnsureDatabaseExistsAction;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Tests\Fixtures\Models\User;
+use Capell\Tests\Support\Concerns\ResetsTestbenchMigrationState;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+
+uses(ResetsTestbenchMigrationState::class);
 
 $originalDatabaseDefault = null;
 $originalSqliteDatabase = null;
@@ -171,7 +174,7 @@ it('skips server database creation when named connections do not provide a datab
         'database.connections.capell_named_install_connection' => [
             'driver' => $driver,
             'database' => ' ',
-            'host' => 'invalid.local',
+            'host' => 'capell-install.invalid',
         ],
     ]);
 
@@ -192,7 +195,7 @@ it('attempts server level database preparation for configured mysql and postgres
     'mysql' => [[
         'driver' => 'mysql',
         'database' => 'capell_install_test',
-        'host' => ['invalid.local'],
+        'host' => ['capell-install.invalid'],
         'port' => 3306,
         'username' => 'capell',
         'password' => 'secret',
@@ -204,7 +207,7 @@ it('attempts server level database preparation for configured mysql and postgres
         'driver' => 'pgsql',
         'database' => 'capell_install_test',
         'maintenance_database' => 'postgres',
-        'host' => ['invalid.local'],
+        'host' => ['capell-install.invalid'],
         'port' => 5432,
         'username' => 'capell',
         'password' => 'secret',

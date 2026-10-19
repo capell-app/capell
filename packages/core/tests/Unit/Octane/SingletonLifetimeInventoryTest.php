@@ -30,7 +30,10 @@ require_once dirname(__DIR__, 2) . '/Support/Octane/SingletonLifetimeGuard.php';
 
 function singletonLifetimeGuard(): SingletonLifetimeGuard
 {
-    return new SingletonLifetimeGuard(dirname(__DIR__, 4), SingletonLifetimeInventory::dynamicBindingTargets());
+    // The guard memoises its production-source scans, so one instance serves every test in the process.
+    static $guard = null;
+
+    return $guard ??= new SingletonLifetimeGuard(dirname(__DIR__, 4), SingletonLifetimeInventory::dynamicBindingTargets());
 }
 
 it('classifies every mutable Capell production singleton with an exact concrete target', function (): void {

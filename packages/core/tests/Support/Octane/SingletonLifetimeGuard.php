@@ -40,6 +40,12 @@ final class SingletonLifetimeGuard
 {
     private readonly Parser $parser;
 
+    /** @var array<string, array<array-key, mixed>> */
+    private array $scanResults = [];
+
+    /** @var list<string>|null */
+    private ?array $productionFileList = null;
+
     /** @param array<string, string> $dynamicBindingTargets */
     public function __construct(
         private readonly string $packagesPath,
@@ -63,30 +69,7 @@ final class SingletonLifetimeGuard
     /** @return array<string, string> */
     public function unresolvedClosureBindings(): array
     {
-        $unresolved = [];
-
-        foreach ($this->productionFiles() as $file) {
-            foreach ($this->bindingCalls($this->parse((string) file_get_contents($file)), ['singleton', 'singletonIf', 'scoped']) as $call) {
-                $concrete = $call->args[1]->value ?? null;
-                if (! $concrete instanceof Closure && ! $concrete instanceof ArrowFunction) {
-                    continue;
-                }
-
-                if ($this->bindingTarget($call) !== null) {
-                    continue;
-                }
-
-                $abstract = $this->className($call->args[0]->value ?? null);
-
-                if ($abstract !== null) {
-                    $unresolved[$abstract] = $file;
-                }
-            }
-        }
-
-        ksort($unresolved);
-
-        return $unresolved;
+        return $this->scanResults['unresolved'] ??= $this->scanUnresolvedClosureBindings();
     }
 
     /** @return array<string, true> */
@@ -132,17 +115,7 @@ final class SingletonLifetimeGuard
     /** @return array<string, string> */
     public function mutatedStaticState(): array
     {
-        $hazards = [];
-
-        foreach ($this->productionFiles() as $file) {
-            foreach ($this->staticMutationsInSource((string) file_get_contents($file)) as $class) {
-                $hazards[$class] = $file;
-            }
-        }
-
-        ksort($hazards);
-
-        return $hazards;
+        return $this->scanResults['static'] ??= $this->scanMutatedStaticState();
     }
 
     /** @return list<string> */
@@ -254,8 +227,62 @@ final class SingletonLifetimeGuard
         return $targets;
     }
 
+    /** @return array<string, string> */
+    private function scanUnresolvedClosureBindings(): array
+    {
+        $unresolved = [];
+
+        foreach ($this->productionFiles() as $file) {
+            foreach ($this->bindingCalls($this->parse((string) file_get_contents($file)), ['singleton', 'singletonIf', 'scoped']) as $call) {
+                $concrete = $call->args[1]->value ?? null;
+                if (! $concrete instanceof Closure && ! $concrete instanceof ArrowFunction) {
+                    continue;
+                }
+
+                if ($this->bindingTarget($call) !== null) {
+                    continue;
+                }
+
+                $abstract = $this->className($call->args[0]->value ?? null);
+
+                if ($abstract !== null) {
+                    $unresolved[$abstract] = $file;
+                }
+            }
+        }
+
+        ksort($unresolved);
+
+        return $unresolved;
+    }
+
+    /** @return array<string, string> */
+    private function scanMutatedStaticState(): array
+    {
+        $hazards = [];
+
+        foreach ($this->productionFiles() as $file) {
+            foreach ($this->staticMutationsInSource((string) file_get_contents($file)) as $class) {
+                $hazards[$class] = $file;
+            }
+        }
+
+        ksort($hazards);
+
+        return $hazards;
+    }
+
     /** @return array<string, array{file: string, abstract: string}> */
     private function bindingTargets(array $methods): array
+    {
+        return $this->scanResults['bindings:' . implode(',', $methods)] ??= $this->scanBindingTargets($methods);
+    }
+
+    /**
+     * @param  list<string>  $methods
+     * @return array<string, array{file: string, abstract: string}>
+     */
+    private function scanBindingTargets(array $methods): array
     {
         $targets = [];
 
@@ -344,6 +371,12 @@ final class SingletonLifetimeGuard
 
     /** @return list<string> */
     private function productionFiles(): array
+    {
+        return $this->productionFileList ??= $this->scanProductionFiles();
+    }
+
+    /** @return list<string> */
+    private function scanProductionFiles(): array
     {
         $files = [];
 

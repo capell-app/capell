@@ -11,6 +11,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Health\HealthCheckRegistry;
 use Capell\Core\Testing\Contracts\InstalledRuntimeContract;
 use Capell\Core\Tests\CoreTestCase;
+use Capell\Tests\Support\Concerns\ResetsTestbenchMigrationState;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -26,6 +27,8 @@ use RuntimeException;
 
 final class InstalledRuntimeParityTest extends CoreTestCase
 {
+    use ResetsTestbenchMigrationState;
+
     public function test_fresh_boot_matches_installation_and_repeated_refresh_without_deduplication(): void
     {
         InstalledRuntimeContract::assertParity(
