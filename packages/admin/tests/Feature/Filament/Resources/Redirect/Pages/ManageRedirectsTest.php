@@ -177,15 +177,28 @@ it('mounts the create redirect action with query string defaults', function (): 
         ->has(SiteDomain::factory()->state(['language_id' => $language->id]))
         ->create();
 
-    test()->get(ManageRedirects::getUrl([
+    $query = [
         'create_redirect' => true,
         'site_id' => $site->id,
         'language_id' => $language->id,
         'url' => '/missing-page',
         'target_url' => '/replacement',
         'status_code' => RedirectStatusCodeEnum::Temporary->value,
-    ]))
-        ->assertOk();
+    ];
+
+    test()->get(ManageRedirects::getUrl($query))->assertOk();
+
+    Livewire::withQueryParams($query)
+        ->test(ManageRedirects::class)
+        ->assertActionMounted(CreateAction::class)
+        ->assertActionDataSet([
+            'site_id' => $site->id,
+            'language_id' => $language->id,
+            'url' => '/missing-page',
+            'target_url' => '/replacement',
+            'status_code' => RedirectStatusCodeEnum::Temporary->value,
+        ])
+        ->assertMountedActionModalSee(__('capell-admin::generic.redirect_target_url_info'));
 });
 
 it('ignores blank create redirect query string values', function (): void {
@@ -199,4 +212,21 @@ it('ignores blank create redirect query string values', function (): void {
         'target_url' => '',
     ]))
         ->assertOk();
+});
+
+it('does not open the create modal without an explicit redirect handoff', function (): void {
+    test()->actingAsAdmin();
+
+    Livewire::withQueryParams(['url' => '/missing-page'])
+        ->test(ManageRedirects::class)
+        ->assertActionNotMounted();
+});
+
+it('does not open the redirect handoff for an actor without create permission', function (): void {
+    test()->actingAs(test()->createUserWithPermission('ViewAny:PageUrl'));
+
+    Livewire::withQueryParams(['create_redirect' => true, 'url' => '/missing-page'])
+        ->test(ManageRedirects::class)
+        ->assertSuccessful()
+        ->assertActionNotMounted();
 });

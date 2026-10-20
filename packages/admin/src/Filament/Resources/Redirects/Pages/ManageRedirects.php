@@ -86,11 +86,16 @@ class ManageRedirects extends ManageRecords
         ];
     }
 
+    protected function createAction(): CreateAction
+    {
+        return CreateAction::make();
+    }
+
     #[Override]
     protected function getActions(): array
     {
         return $this->prependImportHeaderAction([
-            CreateAction::make(),
+            $this->createAction(),
             ExportAction::make()
                 ->authorize(fn (): bool => Gate::allows('export', RedirectResource::getModel()))
                 ->visible(fn (): bool => resolve(AdminSettings::class)->enable_import_export)
