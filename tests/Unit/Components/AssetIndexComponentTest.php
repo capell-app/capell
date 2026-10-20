@@ -7,7 +7,11 @@ use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Tests\Support\Concerns\TestingFrontend;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\View;
+use Illuminate\Testing\TestResponse;
+use Illuminate\View\ComponentAttributeBag;
+use Sinnbeck\DomAssertions\Asserts\AssertElement;
 
 uses(TestingFrontend::class);
 
@@ -124,4 +128,28 @@ it('does not render heading tag when headingSize is null', function (): void {
 
     expect($html)
         ->toContain('No Heading Tag');
+});
+
+it('lets image-less blog-card content use the full card width', function (): void {
+    TestResponse::fromBaseResponse(new Response(view('capell-frontend::components.asset.index', [
+        'title' => 'Studio news',
+        'url' => '/news/studio',
+        'attributes' => new ComponentAttributeBag(['class' => 'capell-blog-article-card']),
+    ])->render()))->assertElementExists('.capell-blog-article-card', function (AssertElement $card): void {
+        $card->doesntContain('.asset-image')
+            ->doesntContain('script, iframe, [data-capell-authoring-selector]')
+            ->contains('a', ['href' => '/news/studio']);
+    })->assertDoesntExist('.capell-blog-article-card[style*="grid-template-columns"]');
+});
+
+it('keeps the blog-card media column when an image is present', function (): void {
+    TestResponse::fromBaseResponse(new Response(view('capell-frontend::components.asset.index', [
+        'title' => 'Studio news',
+        'url' => '/news/studio',
+        'image' => '/images/studio.jpg',
+        'attributes' => new ComponentAttributeBag(['class' => 'capell-blog-article-card']),
+    ])->render()))->assertElementExists('.capell-blog-article-card', function (AssertElement $card): void {
+        $card->contains('.asset-image img', ['alt' => 'Studio news'])
+            ->doesntContain('script, iframe, [data-capell-authoring-selector]');
+    })->assertContainsElement('.capell-blog-article-card[style*="grid-template-columns"]');
 });

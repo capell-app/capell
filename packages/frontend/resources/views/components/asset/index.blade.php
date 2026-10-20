@@ -37,7 +37,7 @@
     $parentTranslation = $parent !== null && method_exists($parent, 'relationLoaded') && $parent->relationLoaded('translation') ? $parent->translation : null;
     $parentLabel = $parentTranslation?->label;
     $isBlogArticleCard = str_contains((string) $attributes->get('class'), 'capell-blog-article-card');
-    $cardStyle = $isBlogArticleCard
+    $cardStyle = $isBlogArticleCard && $hasImage
         ? 'max-width: min(100%, calc(100vw - 3.75rem)); grid-template-columns: minmax(9.5rem, 10.5rem) minmax(0, 1fr);'
         : 'max-width: min(100%, calc(100vw - 3.75rem));';
 

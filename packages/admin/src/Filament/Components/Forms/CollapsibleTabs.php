@@ -10,6 +10,4 @@ use Filament\Schemas\Components\Tabs;
 class CollapsibleTabs extends Tabs
 {
     use CanBeCollapsed;
-
-    protected string $view = 'capell-admin::components.schemas.collapsible-tabs';
 }
