@@ -50,3 +50,26 @@ it('sanitizes nested public payload values and removes blocked authoring keys', 
             ],
         ]);
 });
+
+it('removes reserved editor envelopes while preserving public content and ordinary keys', function (): void {
+    $payload = [
+        'capell' => ['caption' => 'Public brand'],
+        'state_version' => 3,
+        'content' => [[
+            'type' => 'chart',
+            'data' => [
+                'title' => 'Workshop attendance',
+                '__capell' => ['instance_id' => 'private-editor-instance', 'state_version' => 1, 'presentation' => ['editor' => true]],
+            ],
+        ]],
+        'nested' => ['__CAPELL' => ['instance_id' => 'another-editor-instance']],
+        'admin-url' => '/admin/pages/1',
+    ];
+
+    expect((new PublicHtmlSanitizer)->sanitizePublicValue($payload))->toBe([
+        'capell' => ['caption' => 'Public brand'],
+        'state_version' => 3,
+        'content' => [['type' => 'chart', 'data' => ['title' => 'Workshop attendance']]],
+        'nested' => [],
+    ]);
+});

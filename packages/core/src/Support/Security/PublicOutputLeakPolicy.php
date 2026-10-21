@@ -12,6 +12,7 @@ namespace Capell\Core\Support\Security;
 final class PublicOutputLeakPolicy
 {
     private const array BLOCKED_PUBLIC_KEYS = [
+        '__capell',
         'access_token', 'admin_path', 'admin_url', 'api_key', 'api_secret', 'authorization',
         'bearer', 'bearer_token', 'client_secret', 'credential', 'credentials', 'edit_url',
         'editable_regions', 'expires', 'field_path', 'filament_url', 'internal_id',
@@ -28,6 +29,7 @@ final class PublicOutputLeakPolicy
     ];
 
     private const array AUTHORING_JSON_KEYS = [
+        '__capell',
         'field_path', 'fieldpath', 'model_id', 'modelid', 'editor_url', 'editorurl',
         'signed_editor_url', 'signededitorurl', 'signed_admin_url', 'signedadminurl',
     ];

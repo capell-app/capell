@@ -309,6 +309,12 @@ final class PublicHtmlSanitizer
             return false;
         }
 
+        // Reserved envelopes retain their leading underscores in the policy.
+        // Check them before alias normalisation so an ordinary `capell` key stays public.
+        if (isset($this->blockedPublicKeySet()[strtolower($key)])) {
+            return true;
+        }
+
         $normalizedKey = preg_replace('/[^a-z0-9]+/', '_', strtolower($key));
 
         if (! is_string($normalizedKey)) {
