@@ -24,6 +24,8 @@ it('detects frontend authoring markers in public html', function (string $html):
     '<button data-capell-editor-url="https://example.com/admin/pages/1/edit?signature=abc">Edit</button>',
     '<div class="capell-editor">Edit</div>',
     '<script type="application/json">{"field_path":"content.blocks.0.title"}</script>',
+    '<script type="application/json">{"__capell":{"instance_id":"editor-instance","state_version":1}}</script>',
+    '<div data-state="{&quot;__capell&quot;:{&quot;state_version&quot;:1}}"></div>',
     '<script type = "application/json">{"model_id":42}</script>',
     '<script>window.capellPreview = {"model_id":42}</script>',
     '<script>window.capellPreview = {model_id: 42}</script>',
