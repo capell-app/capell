@@ -25,30 +25,25 @@ final class AcquireContentLockAction
             ->where('expires_at', '<=', $now)
             ->delete();
 
-        /** @var ContentLock|null $lock */
-        $lock = ContentLock::query()
-            ->forModel($model)
-            ->first();
+        $expiresAt = $now->copy()->addMinutes($ttlMinutes);
+        $lock = ContentLock::query()->firstOrCreate([
+            'model_type' => $model->getMorphClass(),
+            'model_id' => $model->getKey(),
+        ], [
+            'user_id' => $user->getAuthIdentifier(),
+            'expires_at' => $expiresAt,
+        ]);
 
-        if ($lock instanceof ContentLock && ! $lock->isOwnedBy($user)) {
+        if (! $lock->isOwnedBy($user)) {
             return $lock->load('user');
         }
 
-        $expiresAt = $now->copy()->addMinutes($ttlMinutes);
-
-        if ($lock instanceof ContentLock) {
+        if (! $lock->wasRecentlyCreated) {
             $lock->forceFill([
                 'expires_at' => $expiresAt,
             ])->save();
-
-            return $lock->refresh()->load('user');
         }
 
-        return ContentLock::query()->create([
-            'user_id' => $user->getAuthIdentifier(),
-            'model_type' => $model->getMorphClass(),
-            'model_id' => $model->getKey(),
-            'expires_at' => $expiresAt,
-        ])->load('user');
+        return $lock->refresh()->load('user');
     }
 }
