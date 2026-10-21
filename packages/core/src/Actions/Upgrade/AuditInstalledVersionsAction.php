@@ -69,6 +69,11 @@ class AuditInstalledVersionsAction
 
     private function isComparableVersion(string $version): bool
     {
+        // Composer reports an unversioned root package as 1.0.0+no-version-set; that is a placeholder, not a release.
+        if (str_contains($version, '+no-version-set')) {
+            return false;
+        }
+
         return preg_match('/^v?\d+(\.\d+)*/i', $version) === 1;
     }
 }

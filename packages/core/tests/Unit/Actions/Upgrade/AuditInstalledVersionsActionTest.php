@@ -58,6 +58,20 @@ it('detects downgrades from dev branches against release ledger versions', funct
     expect($audit->downgrades)->toBe(['capell-app/capell' => ['from' => '99.0.0', 'to' => 'dev-main']]);
 });
 
+it('does not treat an unversioned root package placeholder as a release downgrade', function (): void {
+    UpgradeLogEntry::query()->create([
+        'type' => 'version_snapshot', 'key' => 'capell-app/capell-app', 'package' => 'capell-app/capell-app',
+        'status' => 'recorded', 'ran_at' => now()->subDay(),
+        'meta' => ['to_version' => '1.0.0+no-version-set'],
+    ]);
+
+    $audit = AuditInstalledVersionsAction::run([
+        'capell-app/capell-app' => '1.x-dev',
+    ]);
+
+    expect($audit->downgrades)->toBe([]);
+});
+
 it('ignores retired packages that remain only in the upgrade ledger', function (): void {
     foreach (['capell-app/installer', 'capell-app/url-manager', 'capell-app/ordinary-retired-drift'] as $package) {
         UpgradeLogEntry::query()->create([
