@@ -8,8 +8,10 @@ use Capell\Core\Actions\ContentLocks\ForceContentLockAction;
 use Capell\Core\Models\ContentLock;
 use Capell\Core\Models\Page;
 use Capell\Tests\Fixtures\Models\User as FixtureUser;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 
 it('acquires and renews a content lock for the same editor', function (): void {
     $userModel = config('auth.providers.users.model');
@@ -111,3 +113,39 @@ it('forces an active content lock to the requested editor', function (): void {
 
     Date::setTestNow();
 });
+
+it('preserves the winner when acquisition races after an empty lookup', function (bool $sameEditor): void {
+    $userModel = config('auth.providers.users.model');
+    assert(is_string($userModel) && is_subclass_of($userModel, FixtureUser::class));
+    $editor = $userModel::factory()->createOne();
+    $winner = $sameEditor ? $editor : $userModel::factory()->createOne();
+    $page = Page::factory()->createOne();
+    Date::setTestNow('2026-05-31 10:00:00');
+    $armed = true;
+
+    DB::listen(function (QueryExecuted $query) use (&$armed, $page, $winner): void {
+        if (! $armed || ! str_starts_with(strtolower($query->sql), 'select') || ! str_contains($query->sql, 'content_locks')) {
+            return;
+        }
+
+        $armed = false;
+        ContentLock::query()->create([
+            'model_type' => $page->getMorphClass(),
+            'model_id' => $page->getKey(),
+            'user_id' => $winner->getKey(),
+            'expires_at' => Date::now()->addMinutes(5),
+        ]);
+    });
+
+    try {
+        $lock = AcquireContentLockAction::run($page, $editor, ttlMinutes: 15);
+        expect($armed)->toBeFalse()
+            ->and(ContentLock::query()->count())->toBe(1)
+            ->and($lock->user_id)->toBe($winner->getKey())
+            ->and($lock->expires_at->toDateTimeString())->toBe($sameEditor ? '2026-05-31 10:15:00' : '2026-05-31 10:05:00')
+            ->and($lock->user?->getKey())->toBe($winner->getKey());
+    } finally {
+        $armed = false;
+        Date::setTestNow();
+    }
+})->with([true, false]);
