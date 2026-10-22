@@ -384,7 +384,7 @@ it('lets the handler reject a terminal workspace even for a persisted draft reco
     panelFor($page)->assertDontSeeHtml('data-workspace-draft-status');
 });
 
-it('does not infer an active workspace from a legacy historical draft count', function (): void {
+it('keeps showing the workspace row for an older handler that only counts retained drafts', function (): void {
     test()->actingAsAdmin();
     $page = Page::factory()->create(['visible_from' => now()->subDay()]);
     PageWorkflowState::query()->updateOrCreate(['page_uuid' => $page->uuid], ['status' => PageWorkflowStatus::Draft]);
@@ -396,5 +396,5 @@ it('does not infer an active workspace from a legacy historical draft count', fu
         }
     });
 
-    panelFor($page)->assertDontSeeHtml('data-workspace-draft-status');
+    panelFor($page)->assertSeeHtml('data-workspace-draft-status');
 });

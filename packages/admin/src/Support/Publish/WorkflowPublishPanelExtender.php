@@ -9,7 +9,6 @@ use Capell\Admin\Data\PagePublishStateData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageWorkflowState;
 use Capell\Core\Support\Permissions\SiteAccess;
-use Closure;
 use Illuminate\Contracts\View\View;
 use Override;
 
@@ -38,13 +37,7 @@ final class WorkflowPublishPanelExtender implements PublishPanelExtender
         $handler = app()->bound('capell.workspace.page-draft-handler')
             ? resolve('capell.workspace.page-draft-handler')
             : null;
-        $hasActiveDraft = is_object($handler) && is_callable([$handler, 'hasActiveDraft'])
-            ? $handler->hasActiveDraft(...)
-            : null;
-
-        $hasWorkspaceDraft = $hasActiveDraft instanceof Closure
-            ? (bool) $hasActiveDraft($page)
-            : (int) ($page->getAttributes()['workspace_id'] ?? 0) > 0;
+        $hasWorkspaceDraft = $this->hasWorkspaceDraft($handler, $page);
 
         if (! $hasWorkspaceDraft) {
             return null;
@@ -63,5 +56,25 @@ final class WorkflowPublishPanelExtender implements PublishPanelExtender
             'approverId' => $workflow->approver_id,
             'note' => $workflow->requested_changes_note,
         ]);
+    }
+
+    /**
+     * Prefer the handler's lifecycle-aware predicate. A handler from an older
+     * Publishing Studio only counts retained draft rows, which still answers
+     * "is there a draft" correctly until it is updated (it may keep showing the
+     * row for an abandoned workspace, as before). Without a handler, only the
+     * record's own workspace marks a draft.
+     */
+    private function hasWorkspaceDraft(mixed $handler, Page $page): bool
+    {
+        if (is_object($handler) && is_callable([$handler, 'hasActiveDraft'])) {
+            return (bool) $handler->hasActiveDraft($page);
+        }
+
+        if (is_object($handler) && is_callable([$handler, 'countDrafts'])) {
+            return (int) $handler->countDrafts($page) > 0;
+        }
+
+        return (int) ($page->getAttributes()['workspace_id'] ?? 0) > 0;
     }
 }
