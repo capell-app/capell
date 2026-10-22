@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Extensions;
 
 use Capell\Core\Support\Manifest\CapellManifestData;
+use finfo;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -45,17 +46,36 @@ final class ResolveExtensionAssetPathAction
             return null;
         }
 
-        // A declared image suffix must not turn an arbitrary text file into an asset.
-        if (! in_array(mime_content_type($assetPath), ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'], true)) {
+        $size = filesize($assetPath);
+        if ($size === false || $size > 10 * 1024 * 1024) {
             return null;
         }
 
-        return $assetPath;
+        // A declared image suffix must not turn an arbitrary text file into an asset.
+        $mimeType = new finfo(FILEINFO_MIME_TYPE)->file($assetPath);
+        if (strtolower(pathinfo($assetPath, PATHINFO_EXTENSION)) === 'svg') {
+            if ($mimeType !== 'image/svg+xml') {
+                return null;
+            }
+
+            $contents = file_get_contents($assetPath);
+
+            return is_string($contents)
+                && preg_match('/<\s*(?:script|foreignObject)\b|\bon[\w:-]*\s*=|javascript\s*:/i', $contents) === 0
+                ? $assetPath
+                : null;
+        }
+
+        if (! in_array($mimeType, ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'], true)) {
+            return null;
+        }
+
+        return @getimagesize($assetPath) !== false ? $assetPath : null;
     }
 
     private function isImagePath(string $path): bool
     {
-        if ($path === '' || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/')) {
+        if ($path === '' || trim($path) !== $path || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/')) {
             return false;
         }
 
@@ -65,6 +85,6 @@ final class ResolveExtensionAssetPathAction
             }
         }
 
-        return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'], true);
+        return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'svg'], true);
     }
 }

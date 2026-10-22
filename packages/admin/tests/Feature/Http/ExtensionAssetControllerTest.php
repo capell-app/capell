@@ -7,6 +7,10 @@ use Capell\Core\Data\Manifest\ExtensionScreenshotData;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
+use Filament\Facades\Filament;
+use Filament\Panel;
+use Filament\PanelRegistry;
+use Illuminate\Auth\SessionGuard;
 use Illuminate\Filesystem\Filesystem;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -31,15 +35,28 @@ beforeEach(function (): void {
     $files->makeDirectory($path . '/src');
     $files->makeDirectory($path . '/config');
     $files->makeDirectory($path . '/.private');
+    $files->makeDirectory($path . '/ docs');
 
     $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', strict: true);
     assert(is_string($png));
-    foreach (['docs/screenshot.png', 'docs/undeclared.png', '.private/secret.png', 'docs/assets/marketplace/extension-card.jpg'] as $image) {
+    foreach (['docs/screenshot.png', 'docs/undeclared.png', '.private/secret.png', 'docs/assets/marketplace/extension-card.jpg', ' docs/screenshot.png', 'docs/mixed.PnG', 'docs/image.JPG.php', 'docs/image.png.'] as $image) {
         $files->put($path . '/' . $image, $png);
     }
 
     foreach (['README.md', 'src/Secret.php', 'composer.json', '.env', '.env.local', 'config/private.php', 'docs/fake.png', 'docs/vector.svg'] as $file) {
         $files->put($path . '/' . $file, 'private package contents');
+    }
+
+    $files->put($path . '/docs/clean.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1" fill="red"/></svg>');
+    $files->put($path . '/docs/truncated.gif', 'GIF89a');
+    $files->put($path . '/docs/oversized.png', $png . str_repeat(' ', 10 * 1024 * 1024));
+    foreach ([
+        'script' => '<ScRiPt>alert(1)</ScRiPt>',
+        'event' => '<rect OnLoad = "alert(1)"/>',
+        'javascript' => '<a href="JaVaScRiPt:alert(1)">link</a>',
+        'foreign-object' => '<foreignObject><p>HTML</p></foreignObject>',
+    ] as $name => $markup) {
+        $files->put($path . '/docs/' . $name . '.svg', '<svg xmlns="http://www.w3.org/2000/svg">' . $markup . '</svg>');
     }
 
     $files->put(dirname($path) . '/outside.png', $png);
@@ -53,7 +70,7 @@ beforeEach(function (): void {
         surfaces: ['admin'],
         overrides: ['marketplace' => ['screenshots' => array_map(
             static fn (string $path): array => ['path' => $path, 'alt' => 'Test image'],
-            ['docs/screenshot.png', 'README.md', 'src/Secret.php', 'composer.json', '.env', '.env.local', 'config/private.php', 'docs/fake.png', 'docs/vector.svg', '.private/secret.png', 'docs/escaped.png', 'docs/hidden.png', 'docs/markdown.png', 'docs'],
+            ['docs/screenshot.png', 'README.md', 'src/Secret.php', 'composer.json', '.env', '.env.local', 'config/private.php', 'docs/fake.png', 'docs/vector.svg', '.private/secret.png', 'docs/escaped.png', 'docs/hidden.png', 'docs/markdown.png', 'docs', 'docs/clean.svg', 'docs/script.svg', 'docs/event.svg', 'docs/javascript.svg', 'docs/foreign-object.svg', 'docs/truncated.gif', 'docs/oversized.png', ' docs/screenshot.png', 'docs/mixed.PnG', 'docs/image.JPG.php', 'docs/image.png.', 'docs//screenshot.png', 'docs/../docs/screenshot.png', '../outside.png', '/docs/screenshot.png', dirname($path) . '/outside.png'],
         )]],
     ), $path);
     resolve(CapellPackageRegistry::class)->fill([$manifest->name => $manifest]);
@@ -64,11 +81,21 @@ afterEach(function (): void {
 });
 
 it('serves declared screenshots and the fixed marketplace card to an admin as images', function (string $path): void {
-    $this->actingAsAdmin()->get(extensionAssetUrl($path))
+    $response = $this->actingAsAdmin()->get(extensionAssetUrl($path))
         ->assertOk()
         ->assertHeader('Content-Type', 'image/png')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
-})->with(['docs/screenshot.png', 'docs/assets/marketplace/extension-card.jpg']);
+
+    expect($response->headers->get('Cache-Control'))->toContain('private', 'no-store')->not->toContain('public');
+})->with(['docs/screenshot.png', 'docs/assets/marketplace/extension-card.jpg', 'docs/mixed.PnG']);
+
+it('serves a clean declared SVG with a sandbox policy', function (): void {
+    $this->actingAsAdmin()->get(extensionAssetUrl('docs/clean.svg'))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'image/svg+xml')
+        ->assertHeader('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'")
+        ->assertHeader('X-Content-Type-Options', 'nosniff');
+});
 
 it('denies private and unsafe package targets even when declared as screenshots', function (string $path): void {
     $this->actingAsAdmin()->get(extensionAssetUrl($path))->assertNotFound();
@@ -81,7 +108,17 @@ it('denies private and unsafe package targets even when declared as screenshots'
     'configuration' => 'config/private.php',
     'undeclared image' => 'docs/undeclared.png',
     'disguised text' => 'docs/fake.png',
-    'svg' => 'docs/vector.svg',
+    'disguised SVG' => 'docs/vector.svg',
+    'script SVG' => 'docs/script.svg',
+    'event handler SVG' => 'docs/event.svg',
+    'javascript SVG' => 'docs/javascript.svg',
+    'foreign object SVG' => 'docs/foreign-object.svg',
+    'truncated raster' => 'docs/truncated.gif',
+    'oversized raster' => 'docs/oversized.png',
+    'leading whitespace' => ' docs/screenshot.png',
+    'executable double suffix' => 'docs/image.JPG.php',
+    'trailing dot' => 'docs/image.png.',
+    'double slash' => 'docs//screenshot.png',
     'dot directory' => '.private/secret.png',
     'directory' => 'docs',
     'parent segment' => 'docs/../docs/screenshot.png',
@@ -115,9 +152,62 @@ it('denies authenticated users without admin panel access even with the page per
     $this->get(extensionAssetUrl('docs/screenshot.png'))->assertForbidden();
 });
 
-it('requires the Extensions page permission as well as panel access', function (): void {
+it('allows panel users without the Extensions page permission', function (): void {
     Role::findOrCreate('panel_user', 'web');
-    $this->actingAsRole('panel_user')->get(extensionAssetUrl('docs/screenshot.png'))->assertForbidden();
+    $this->actingAsRole('panel_user')->get(extensionAssetUrl('docs/screenshot.png'))->assertOk();
+});
+
+it('uses only the admin panel guard even when another panel is the default', function (bool $otherDefault, bool $adminSession, bool $panelAccess): void {
+    config()->set('auth.guards.admin', config('auth.guards.web'));
+    $panel = Filament::getPanel('admin');
+    expect($panel)->toBeInstanceOf(Panel::class);
+    $panel->authGuard('admin');
+
+    if ($otherDefault) {
+        $other = Panel::make()->id('other')->authGuard('web')->default();
+        resolve(PanelRegistry::class)->defaultPanel = $other;
+        Filament::setCurrentPanel($other);
+    }
+
+    Role::findOrCreate('panel_user', 'web');
+    $user = $panelAccess ? $this->createUserWithRole('panel_user') : $this->createUser();
+    if ($adminSession) {
+        $guard = $panel->auth();
+        assert($guard instanceof SessionGuard);
+        $this->withSession([$guard->getName() => $user->getAuthIdentifier()]);
+    } else {
+        $this->actingAs($user, 'web');
+    }
+
+    auth()->shouldUse('web');
+    expect(auth()->guard('web')->check())->toBe(! $adminSession)
+        ->and(auth()->guard('admin')->check())->toBe($adminSession);
+    $response = $this->get(extensionAssetUrl('docs/screenshot.png'));
+    $response->assertStatus($adminSession ? ($panelAccess ? 200 : 403) : 401);
+})->with([
+    'admin guard session only' => [false, true, true],
+    'alternative default panel' => [true, true, true],
+    'default guard must not authorise admin assets' => [false, false, true],
+    'alternative panel must not authorise admin assets' => [true, false, true],
+    'admin guard without panel admission' => [true, true, false],
+]);
+
+it('denies unauthenticated requests when the admin panel uses a separate guard', function (): void {
+    config()->set('auth.guards.admin', config('auth.guards.web'));
+    Filament::getPanel('admin')->authGuard('admin');
+
+    $this->getJson(extensionAssetUrl('docs/screenshot.png'))->assertUnauthorized();
+});
+
+it('denies access when the admin panel is missing', function (): void {
+    $this->actingAsAdmin();
+    unset(resolve(PanelRegistry::class)->panels['admin']);
+
+    $this->get(extensionAssetUrl('docs/screenshot.png'))->assertForbidden();
+});
+
+it('rejects an absolute filesystem path even when maliciously declared', function (): void {
+    $this->actingAsAdmin()->get(extensionAssetUrl(dirname(extensionAssetFixturePath()) . '/outside.png'))->assertNotFound();
 });
 
 it('allows a panel user with the Extensions page permission', function (): void {
@@ -144,6 +234,15 @@ it('links only serviceable local screenshots and preserves the marketplace fallb
     }
 })->with([
     'declared image' => ['docs/screenshot.png', true],
+    'clean SVG' => ['docs/clean.svg', true],
+    'script SVG' => ['docs/script.svg', false],
+    'leading whitespace' => [' docs/screenshot.png', false],
+    'trailing whitespace' => ['docs/screenshot.png ', false],
+    'malicious declared traversal' => ['../outside.png', false],
+    'mixed case' => ['docs/mixed.PnG', true],
+    'executable double suffix' => ['docs/image.JPG.php', false],
+    'trailing dot' => ['docs/image.png.', false],
+    'double slash' => ['docs//screenshot.png', false],
     'missing image' => ['docs/missing.png', false],
     'non image declaration' => ['README.md', false],
     'disguised text' => ['docs/fake.png', false],

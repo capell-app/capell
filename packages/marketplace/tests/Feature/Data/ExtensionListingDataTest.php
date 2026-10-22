@@ -8,10 +8,11 @@ use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Filesystem\Filesystem;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 uses(CreatesAdminUser::class);
 
-it('links the local card only when the asset route can serve it', function (string $target): void {
+it('links the local card only when the asset route can serve it', function (string $target, string $viewer): void {
     $directory = sys_get_temp_dir() . '/capell-listing-asset-' . bin2hex(random_bytes(8));
     $path = $directory . '/package';
     $files = new Filesystem;
@@ -42,9 +43,18 @@ it('links the local card only when the asset route can serve it', function (stri
             'image_url' => 'https://capell.test/fallback.png',
         ]);
 
-        $this->actingAsAdmin();
-        Permission::findOrCreate('View:ExtensionsPage', 'web');
-        $this->authenticatedUser()->givePermissionTo('View:ExtensionsPage');
+        if ($viewer === 'marketplace') {
+            Role::findOrCreate('panel_user', 'web');
+            Permission::findOrCreate('View:MarketplacePage', 'web');
+            Permission::findOrCreate('View:ExtensionsPage', 'web');
+            $this->actingAsRole('panel_user');
+            $this->authenticatedUser()->givePermissionTo('View:MarketplacePage');
+            expect($this->authenticatedUser()->can('View:MarketplacePage'))->toBeTrue()
+                ->and($this->authenticatedUser()->can('View:ExtensionsPage'))->toBeFalse();
+        } else {
+            $this->actingAsAdmin();
+        }
+
         $url = route('capell-admin.extension-asset', [
             'package' => $manifest->name,
             'path' => 'docs/assets/marketplace/extension-card.jpg',
@@ -61,4 +71,4 @@ it('links the local card only when the asset route can serve it', function (stri
     } finally {
         $files->deleteDirectory($directory);
     }
-})->with(['image', 'missing', 'text', 'symlink', 'directory']);
+})->with(['image', 'missing', 'text', 'symlink', 'directory'])->with(['admin', 'marketplace']);
