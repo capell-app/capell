@@ -181,9 +181,9 @@ class DefaultPageConfigurator implements ConfiguratorInterface, ProvidesRelation
                 ->columns()
                 ->columnSpanFull()
                 ->heading(__('capell-admin::form.publish_setup'))
-                ->description(__($this->operation($schema) === 'create'
-                    ? 'capell-admin::generic.publish_setup_description'
-                    : 'capell-admin::generic.publish_option_setup_description'))
+                ->description($this->operation($schema) === 'create'
+                    ? __('capell-admin::generic.publish_setup_description')
+                    : __('capell-admin::generic.publish_option_setup_description'))
                 ->schema($this->getCreateExtraFor($schema))
                 ->contained(in_array($this->operation($schema), ['create', 'edit'], true)),
         ];
