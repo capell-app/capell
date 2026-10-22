@@ -789,7 +789,7 @@ it('renders manifest metadata for installed extension packages', function (): vo
     mkdir($packagePath . '/docs/assets/marketplace', recursive: true);
     file_put_contents(
         $packagePath . '/docs/assets/marketplace/extension-card.png',
-        base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', strict: true),
+        base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', strict: true),
     );
 
     $manifest = CapellManifestData::fromArray(capellManifestV3Array(

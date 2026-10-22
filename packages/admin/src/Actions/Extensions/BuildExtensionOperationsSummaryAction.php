@@ -467,21 +467,11 @@ final class BuildExtensionOperationsSummaryAction
             return $path;
         }
 
-        if ($manifest->installPath !== null && Route::has('capell-admin.extension-asset')) {
-            $packagePath = realpath($manifest->installPath);
-            $assetPath = realpath($manifest->installPath . DIRECTORY_SEPARATOR . ltrim($path, '/'));
-
-            if (
-                is_string($packagePath)
-                && is_string($assetPath)
-                && str_starts_with($assetPath, $packagePath . DIRECTORY_SEPARATOR)
-                && is_file($assetPath)
-            ) {
-                return route('capell-admin.extension-asset', [
-                    'package' => $manifest->name,
-                    'path' => ltrim($path, '/'),
-                ]);
-            }
+        if (Route::has('capell-admin.extension-asset') && ResolveExtensionAssetPathAction::run($manifest, $path) !== null) {
+            return route('capell-admin.extension-asset', [
+                'package' => $manifest->name,
+                'path' => $path,
+            ]);
         }
 
         return $this->marketplaceAssetUrl($path);
