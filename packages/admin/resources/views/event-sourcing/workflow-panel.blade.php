@@ -21,7 +21,7 @@
 >
     <div class="flex items-center gap-2">
         <span class="text-gray-500 dark:text-gray-400">
-            {{ __('capell-admin::publish_panel.editorial_status') }}
+            {{ __('capell-admin::event-sourcing.workflow_status') }}
         </span>
         <span
             class="{{ $badgeClass }} ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"

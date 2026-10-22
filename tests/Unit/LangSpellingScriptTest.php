@@ -60,3 +60,50 @@ it('still checks the rest of a value that mentions a product name', function ():
         ->and($output)->toContain('"colors" must use British spelling')
         ->not->toContain('"Center" must use British spelling');
 });
+
+it('accepts reviewed verb phrases, proper names and embedded code', function (string $value): void {
+    [$exit, $output] = runLangSpellingFixture('<?php return ["label" => ' . var_export($value, true) . '];');
+
+    expect($exit)->toBe(0)->and($output)->toContain('1 English language files');
+})->with([
+    'License this software; she licenses it',
+    'Organization for Security and Co-operation in Europe',
+    'Use <code>color: red; text-align: center</code>',
+    'Use <pre class="example">color: red; text-align: center</pre>',
+    'Use `color: red; text-align: center`',
+]);
+
+it('checks prose around reviewed exceptions', function (string $value): void {
+    [$exit, $output] = runLangSpellingFixture('<?php return ["label" => ' . var_export($value, true) . '];');
+
+    expect($exit)->toBe(1)->and($output)->toContain('"colors" must use British spelling');
+})->with([
+    'License this software; she licenses it; colors',
+    'Organization for Security and Co-operation in Europe colors',
+    'Use <code>color: red; text-align: center</code> colors',
+    'Privacy Centers and colors',
+]);
+
+it('inspects concatenated constant translation values', function (string $expression, int $expectedExit): void {
+    [$exit, $output] = runLangSpellingFixture('<?php return ["label" => ' . $expression . '];');
+
+    expect($exit)->toBe($expectedExit);
+    if ($expectedExit === 1) {
+        expect($output)->toContain('"Color" must use British spelling');
+    }
+})->with([
+    'literal concatenation' => ["'Color' . ' settings'", 1],
+    'split word' => ["'Col' . ('or' . ' settings')", 1],
+    'British concatenation' => ["'Colour' . ' settings'", 0],
+]);
+
+it('rejects unsupported translation expressions explicitly', function (string $expression): void {
+    [$exit, $output] = runLangSpellingFixture('<?php return ["label" => ' . $expression . '];');
+
+    expect($exit)->toBe(1)->and($output)->toContain('Unsupported translation expression');
+})->with([
+    'function call' => ['strtoupper("colors")'],
+    'dynamic concatenation' => ['"Colour " . $suffix'],
+    'interpolated string' => ['"Colour $suffix"'],
+    'unpacked array' => ['[...["label" => "Color"]]'],
+]);

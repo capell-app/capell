@@ -29,6 +29,8 @@ use function Pest\Laravel\assertDatabaseCount;
 use function Pest\Laravel\assertDatabaseHas;
 use function Pest\Laravel\assertDatabaseMissing;
 
+require_once dirname(__DIR__, 8) . '/tests/Support/DomQuery.php';
+
 uses(CreatesAdminUser::class)
     ->group('page');
 
@@ -51,7 +53,7 @@ it('renders guided setup and publish sections on the create page form', function
     Site::factory()->withTranslations()->createOne();
     Blueprint::factory()->page()->default()->createOne();
 
-    Livewire::test(CreatePage::class)
+    $form = Livewire::test(CreatePage::class)
         ->assertSuccessful()
         ->assertSee(__('capell-admin::form.page_setup'))
         ->assertSee(__('capell-admin::generic.page_setup_description'))
@@ -60,7 +62,14 @@ it('renders guided setup and publish sections on the create page form', function
         ->assertSee(__('capell-admin::form.publish_setup'))
         ->assertSee(__('capell-admin::generic.publish_setup_description'))
         ->assertSee(__('capell-admin::generic.page_layout_select_info'))
-        ->assertSee(__('capell-admin::form.publish_from'));
+        ->assertSee('Save as draft')
+        ->assertSee('Save and Publish');
+
+    $label = domElement(domXPath($form->html()), '//label[@for="form.visible_from"]');
+    expect(trim(domText($label)))->toBe('Visible from');
+
+    expect(strip_tags($form->html()))->toContain('To schedule a future date, save as draft first, then use Schedule.')
+        ->not->toContain('leave it empty and use Publish now');
 });
 
 it('can search parent results', function (): void {

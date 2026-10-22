@@ -350,7 +350,7 @@ return [
     'property_sets' => 'Property sets',
     'property_overrides' => 'Overrides',
     'profile_image' => 'Profile image',
-    'publish_from' => 'Publish from',
+    'publish_from' => 'Visible from',
     'publish_setup' => 'Publish',
     'publish_date' => 'Visible from',
     'publish_status' => 'Publish status',

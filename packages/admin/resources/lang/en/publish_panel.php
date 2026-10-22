@@ -7,7 +7,6 @@ return [
     'created' => 'Created',
     'deactivate' => 'Deactivate',
     'edit' => 'Edit',
-    'editorial_status' => 'Workspace draft',
     'editorial_status_helper' => 'A workspace draft of this page is open; the public page is unchanged until it is released.',
     'expires' => 'Expires',
     'goes_live' => 'Goes live',
