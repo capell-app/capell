@@ -645,6 +645,23 @@ it('renders preflight feedback and removes post-install operational toggles', fu
     }
 });
 
+it('labels the overall preflight status with its translation rather than a raw key', function (): void {
+    $response = get(route('capell-installer.show'))->assertOk();
+    $status = $response->viewData('preflightReport')['status'];
+
+    expect($status)->toBeIn(['pass', 'warning', 'fail']);
+
+    $response
+        ->assertSee(__('capell-installer::installer.preflight_status_' . $status), false)
+        ->assertDontSee('capell-installer::installer.preflight_status_', false);
+});
+
+it('translates every preflight status the preflight can report', function (string $status): void {
+    $key = 'capell-installer::installer.preflight_status_' . $status;
+
+    expect(__($key))->not->toBe($key)->not->toBeEmpty();
+})->with(['pass', 'warning', 'fail']);
+
 it('uses the left rail step navigation as the installer progress indicator', function (): void {
     $page = installerShowMarkup();
     expect(domCount($page, '//*[contains(concat(" ", normalize-space(@class), " "), " installer-step ") and contains(concat(" ", normalize-space(@class), " "), " active ")]'))->toBe(1)

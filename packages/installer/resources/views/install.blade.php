@@ -271,7 +271,13 @@
                                                 $preflightStatus,
                                             ])
                                             >
-                                                {{ __('capell-installer::installer.preflight_status_' . $preflightStatus) }}
+                                                {{
+                                                    match ($preflightStatus) {
+                                                        'pass' => __('capell-installer::installer.preflight_status_pass'),
+                                                        'fail' => __('capell-installer::installer.preflight_status_fail'),
+                                                        default => __('capell-installer::installer.preflight_status_warning'),
+                                                    }
+                                                }}
                                             </span>
                                         </div>
 
