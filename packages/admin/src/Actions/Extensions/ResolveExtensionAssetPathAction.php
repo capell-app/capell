@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Extensions;
 
 use Capell\Core\Support\Manifest\CapellManifestData;
 use finfo;
+use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
@@ -15,6 +16,8 @@ final class ResolveExtensionAssetPathAction
     use AsObject;
 
     public const string CARD_IMAGE_PATH = 'docs/assets/marketplace/extension-card.jpg';
+
+    private const int MAX_DECODED_PIXELS = 8_000_000;
 
     public function handle(CapellManifestData $manifest, string $path): ?string
     {
@@ -61,7 +64,7 @@ final class ResolveExtensionAssetPathAction
             $contents = file_get_contents($assetPath);
 
             return is_string($contents)
-                && preg_match('/<\s*(?:script|foreignObject)\b|\bon[\w:-]*\s*=|javascript\s*:/i', $contents) === 0
+                && preg_match('/<\s*(?:script|foreignObject)\b|<!\s*(?:DOCTYPE|ENTITY)|\bon[\w:-]*\s*=|javascript\s*:/i', $contents) === 0
                 ? $assetPath
                 : null;
         }
@@ -70,12 +73,46 @@ final class ResolveExtensionAssetPathAction
             return null;
         }
 
-        return @getimagesize($assetPath) !== false ? $assetPath : null;
+        return $this->decodesAsRaster($assetPath, $mimeType) ? $assetPath : null;
+    }
+
+    /**
+     * getimagesize() only reads headers, so a truncated file passes it. Small images are fully
+     * decoded with GD; a decode of a very large image could exhaust the request's memory, so
+     * those are checked for a complete container (final marker or declared length) instead.
+     */
+    private function decodesAsRaster(string $assetPath, string $mimeType): bool
+    {
+        $dimensions = @getimagesize($assetPath);
+
+        if ($dimensions === false || $dimensions[0] < 1 || $dimensions[1] < 1) {
+            return false;
+        }
+
+        $contents = file_get_contents($assetPath);
+
+        if (! is_string($contents)) {
+            return false;
+        }
+
+        if ($dimensions[0] * $dimensions[1] <= self::MAX_DECODED_PIXELS) {
+            return function_exists('imagecreatefromstring') && @imagecreatefromstring($contents) !== false;
+        }
+
+        $riffLength = unpack('V', substr($contents, 4, 4));
+
+        return match ($mimeType) {
+            'image/png' => str_ends_with($contents, "IEND\xAEB`\x82"),
+            'image/jpeg' => str_ends_with(rtrim($contents, "\0"), "\xFF\xD9"),
+            'image/gif' => str_ends_with($contents, ';'),
+            'image/webp' => str_starts_with($contents, 'RIFF') && is_array($riffLength) && strlen($contents) === $riffLength[1] + 8,
+            default => false,
+        };
     }
 
     private function isImagePath(string $path): bool
     {
-        if ($path === '' || trim($path) !== $path || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/')) {
+        if ($path === '' || Str::trim($path) !== $path || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/')) {
             return false;
         }
 

@@ -19,7 +19,7 @@ it('links the local card only when the asset route can serve it', function (stri
     $files->makeDirectory($path . '/docs/assets/marketplace', recursive: true);
 
     $card = $path . '/docs/assets/marketplace/extension-card.jpg';
-    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', strict: true);
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', strict: true);
     assert(is_string($png));
 
     try {

@@ -9,6 +9,7 @@ use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Filament\Facades\Filament;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 final class ExtensionAssetController
@@ -30,7 +31,7 @@ final class ExtensionAssetController
         if (is_string($queryString)) {
             parse_str($queryString, $rawQuery);
             $rawPath = $rawQuery['path'] ?? null;
-            abort_if(is_string($rawPath) && trim($rawPath) !== $rawPath, 404);
+            abort_if(is_string($rawPath) && Str::trim($rawPath) !== $rawPath, 404);
         }
 
         $packageName = $request->query('package');

@@ -37,7 +37,14 @@ beforeEach(function (): void {
     $files->makeDirectory($path . '/.private');
     $files->makeDirectory($path . '/ docs');
 
-    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', strict: true);
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', strict: true);
+    assert(is_string($png));
+    foreach (["\x0C", "\u{00A0}", "\u{200B}"] as $padding) {
+        $files->makeDirectory($path . '/' . $padding . 'docs');
+        $files->put($path . '/' . $padding . 'docs/screenshot.png', $png);
+    }
+
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', strict: true);
     assert(is_string($png));
     foreach (['docs/screenshot.png', 'docs/undeclared.png', '.private/secret.png', 'docs/assets/marketplace/extension-card.jpg', ' docs/screenshot.png', 'docs/mixed.PnG', 'docs/image.JPG.php', 'docs/image.png.'] as $image) {
         $files->put($path . '/' . $image, $png);
@@ -49,6 +56,15 @@ beforeEach(function (): void {
 
     $files->put($path . '/docs/clean.svg', '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1" fill="red"/></svg>');
     $files->put($path . '/docs/truncated.gif', 'GIF89a');
+    $files->put($path . '/docs/header-only.png', substr($png, 0, 25));
+
+    $large = imagecreatetruecolor(3000, 3000);
+    ob_start();
+    imagepng($large, null, 9);
+    $largePng = (string) ob_get_clean();
+    $files->put($path . '/docs/large.png', $largePng);
+    $files->put($path . '/docs/large-truncated.png', substr($largePng, 0, (int) (strlen($largePng) / 2)));
+    $files->put($path . '/docs/doctype.svg', '<!DOCTYPE svg [<!ENTITY a "b">]><svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1"/></svg>');
     $files->put($path . '/docs/oversized.png', $png . str_repeat(' ', 10 * 1024 * 1024));
     foreach ([
         'script' => '<ScRiPt>alert(1)</ScRiPt>',
@@ -70,7 +86,7 @@ beforeEach(function (): void {
         surfaces: ['admin'],
         overrides: ['marketplace' => ['screenshots' => array_map(
             static fn (string $path): array => ['path' => $path, 'alt' => 'Test image'],
-            ['docs/screenshot.png', 'README.md', 'src/Secret.php', 'composer.json', '.env', '.env.local', 'config/private.php', 'docs/fake.png', 'docs/vector.svg', '.private/secret.png', 'docs/escaped.png', 'docs/hidden.png', 'docs/markdown.png', 'docs', 'docs/clean.svg', 'docs/script.svg', 'docs/event.svg', 'docs/javascript.svg', 'docs/foreign-object.svg', 'docs/truncated.gif', 'docs/oversized.png', ' docs/screenshot.png', 'docs/mixed.PnG', 'docs/image.JPG.php', 'docs/image.png.', 'docs//screenshot.png', 'docs/../docs/screenshot.png', '../outside.png', '/docs/screenshot.png', dirname($path) . '/outside.png'],
+            ['docs/screenshot.png', 'README.md', 'src/Secret.php', 'composer.json', '.env', '.env.local', 'config/private.php', 'docs/fake.png', 'docs/vector.svg', '.private/secret.png', 'docs/escaped.png', 'docs/hidden.png', 'docs/markdown.png', 'docs', 'docs/clean.svg', 'docs/script.svg', 'docs/event.svg', 'docs/javascript.svg', 'docs/foreign-object.svg', 'docs/truncated.gif', 'docs/header-only.png', 'docs/large.png', 'docs/large-truncated.png', 'docs/doctype.svg', 'docs/oversized.png', ' docs/screenshot.png', "\x0Cdocs/screenshot.png", "\u{00A0}docs/screenshot.png", "\u{200B}docs/screenshot.png", 'docs/mixed.PnG', 'docs/image.JPG.php', 'docs/image.png.', 'docs//screenshot.png', 'docs/../docs/screenshot.png', '../outside.png', '/docs/screenshot.png', dirname($path) . '/outside.png'],
         )]],
     ), $path);
     resolve(CapellPackageRegistry::class)->fill([$manifest->name => $manifest]);
@@ -87,7 +103,7 @@ it('serves declared screenshots and the fixed marketplace card to an admin as im
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
     expect($response->headers->get('Cache-Control'))->toContain('private', 'no-store')->not->toContain('public');
-})->with(['docs/screenshot.png', 'docs/assets/marketplace/extension-card.jpg', 'docs/mixed.PnG']);
+})->with(['docs/screenshot.png', 'docs/assets/marketplace/extension-card.jpg', 'docs/mixed.PnG', 'docs/large.png']);
 
 it('serves a clean declared SVG with a sandbox policy', function (): void {
     $this->actingAsAdmin()->get(extensionAssetUrl('docs/clean.svg'))
@@ -114,6 +130,12 @@ it('denies private and unsafe package targets even when declared as screenshots'
     'javascript SVG' => 'docs/javascript.svg',
     'foreign object SVG' => 'docs/foreign-object.svg',
     'truncated raster' => 'docs/truncated.gif',
+    'header-only PNG that does not decode' => 'docs/header-only.png',
+    'large truncated PNG without a final chunk' => 'docs/large-truncated.png',
+    'SVG with a DOCTYPE and entity' => 'docs/doctype.svg',
+    'leading form feed' => "\x0Cdocs/screenshot.png",
+    'leading no-break space' => "\u{00A0}docs/screenshot.png",
+    'leading zero-width space' => "\u{200B}docs/screenshot.png",
     'oversized raster' => 'docs/oversized.png',
     'leading whitespace' => ' docs/screenshot.png',
     'executable double suffix' => 'docs/image.JPG.php',
