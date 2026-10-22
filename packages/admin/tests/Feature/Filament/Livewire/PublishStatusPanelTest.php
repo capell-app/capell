@@ -10,13 +10,17 @@ use Capell\Admin\Enums\PublishPanelStatusEnum;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Support\Pages\PagePublishSentinel;
+use Capell\Core\EventSourcing\Enums\PageWorkflowStatus;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\PageWorkflowState;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
+
+require_once dirname(__DIR__, 6) . '/tests/Support/DomQuery.php';
 
 uses(CreatesAdminUser::class);
 
@@ -283,4 +287,42 @@ it('retains the recorded publication date for a dated live page', function (): v
         ->assertSee($publishedAt->translatedFormat('j M Y, H:i'))
         ->assertDontSee('Date not recorded')
         ->assertDontSee(__('capell-admin::publish_panel.not_published'));
+});
+
+it('shows the workspace row only when the draft handler finds a saved draft', function (int $draftCount): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create(['visible_from' => now()->subDay(), 'visible_until' => null]);
+    PageWorkflowState::query()->updateOrCreate(['page_uuid' => $page->uuid], ['status' => PageWorkflowStatus::Draft]);
+    $handler = new class($draftCount)
+    {
+        public ?int $checkedPageId = null;
+
+        public function __construct(private readonly int $draftCount) {}
+
+        public function countDrafts(Page $page): int
+        {
+            $this->checkedPageId = (int) $page->getKey();
+
+            return $this->draftCount;
+        }
+    };
+    app()->instance('capell.workspace.page-draft-handler', $handler);
+
+    $panel = panelFor($page)->assertSee(__('capell-admin::publish_panel.status_published'));
+    $panel->assertSeeHtml('capell-publish-status-panel');
+    expect(domCount(domXPath($panel->html()), '//*[@data-workspace-draft-status]'))->toBe($draftCount > 0 ? 1 : 0)
+        ->and($handler->checkedPageId)->toBe((int) $page->getKey());
+
+    if ($draftCount > 0) {
+        $panel->assertSee(__('capell-admin::publish_panel.editorial_status'))
+            ->assertSee(__('capell-admin::publish_panel.editorial_status_helper'));
+    }
+})->with([0, 1]);
+
+it('hides workspace workflow state when no draft handler is installed', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create(['visible_from' => now()->subDay()]);
+    PageWorkflowState::query()->updateOrCreate(['page_uuid' => $page->uuid], ['status' => PageWorkflowStatus::Draft]);
+
+    panelFor($page)->assertDontSeeHtml('data-workspace-draft-status');
 });

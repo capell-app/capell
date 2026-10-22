@@ -6,7 +6,7 @@ return [
     'admin' => 'Admin',
     'assets' => 'Assets',
     'children' => 'Children',
-    'colors' => 'Colors',
+    'colors' => 'Colours',
     'content' => 'Content',
     'details' => 'Details',
     'display' => 'Display',

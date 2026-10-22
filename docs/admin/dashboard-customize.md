@@ -1,5 +1,4 @@
-# Customize your dashboard
-
+# Customise your dashboard
 
 The dashboard shows role-aware widgets. To change which widgets appear and their order:
 

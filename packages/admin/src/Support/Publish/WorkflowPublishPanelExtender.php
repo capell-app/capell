@@ -9,10 +9,12 @@ use Capell\Admin\Data\PagePublishStateData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageWorkflowState;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Closure;
 use Illuminate\Contracts\View\View;
+use Override;
 
 /**
- * Enriches the publish panel with the editorial workflow status projected from
+ * Enriches the publish panel with the saved workspace draft status projected from
  * the event stream (who is reviewing, who approved) — intent the inferred
  * publish state cannot express.
  *
@@ -24,11 +26,24 @@ use Illuminate\Contracts\View\View;
  */
 final class WorkflowPublishPanelExtender implements PublishPanelExtender
 {
+    #[Override]
     public function extendPanel(PagePublishStateData $state): ?View
     {
         $page = SiteAccess::current()->query(Page::class)->find($state->pageId);
 
         if ($page === null) {
+            return null;
+        }
+
+        $handler = app()->bound('capell.workspace.page-draft-handler')
+            ? resolve('capell.workspace.page-draft-handler')
+            : null;
+        $countDrafts = is_object($handler) && is_callable([$handler, 'countDrafts'])
+            ? $handler->countDrafts(...)
+            : null;
+
+        if ((int) ($page->getAttributes()['workspace_id'] ?? 0) === 0
+            && (! $countDrafts instanceof Closure || (int) $countDrafts($page) <= 0)) {
             return null;
         }
 

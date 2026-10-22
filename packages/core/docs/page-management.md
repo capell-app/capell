@@ -83,7 +83,7 @@ Changes to a published page create a new draft version. Publishing the draft upd
 
 ### Scheduled publishing
 
-You can set a future **Publish Date** on a page. Capell will hold the page in draft state and publish it automatically when the date arrives (requires a running queue worker).
+Set **Visible from** to a future date and time to schedule a page. Capell makes the page visible when that time arrives. Leave **Visible from** empty and use **Publish now** to publish immediately.
 
 ### Draft previews
 

@@ -325,7 +325,7 @@ Dashboard settings are normalised by `SyncDashboardFilamentWidgetSettingsAction`
 
 `NormalizeDashboardFilamentWidgetSettingsAction` handles submitted dashboard layout state. It updates only the keys for the dashboard being customised and preserves settings for other dashboards.
 
-The built-in numeric settings (`my_work_queue_limit`, `recently_published_limit`, and friends) are documented on the admin [Customize your dashboard](../../../docs/admin/dashboard-customize.md#widget-limits) page.
+The built-in numeric settings (`my_work_queue_limit`, `recently_published_limit`, and friends) are documented on the admin [Customise your dashboard](../../../docs/admin/dashboard-customize.md#widget-limits) page.
 
 Avoid using `setEnabledWidgets()` for new package dashboards. It stores legacy enum/class values for `getWidgets()` and does not express the settings-key layout used by the current dashboard customiser.
 
@@ -361,4 +361,4 @@ If `canView()` and widget hydration need the same expensive data, put that looku
 ## Next
 
 - [Admin dashboard Filament widgets](../../../docs/admin/dashboard-widgets.md)
-- [Customize your dashboard](../../../docs/admin/dashboard-customize.md)
+- [Customise your dashboard](../../../docs/admin/dashboard-customize.md)

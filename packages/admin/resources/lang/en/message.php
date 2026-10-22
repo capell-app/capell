@@ -104,7 +104,7 @@ return [
     'layout_not_deletable' => 'This layout cannot be deleted.',
     'layout_not_deletable_info' => 'It is still used by one or more pages.',
     'layout_saved' => 'Layout saved successfully.',
-    'settings_saved' => 'Settings saved successfully.',
+    'settings_saved' => 'Settings saved',
     'layout_unsaved' => 'You have unsaved layout changes.',
     'content_inventory_empty' => 'No editable content has been attached to this layout yet.',
     'content_inventory_empty_hint' => 'Open advanced layout to add widgets or attach content.',

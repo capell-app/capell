@@ -41,5 +41,4 @@ return [
     'preview_intro_forward' => 'Rolling forward to version :version — changed by :actor on :date.',
     'revert_subject_missing' => 'The page being reverted could not be found.',
     'revert_no_revision' => 'No event-sourced revision exists for this page yet.',
-    'workflow_status' => 'Editorial status',
 ];
