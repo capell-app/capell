@@ -61,6 +61,6 @@ $adminRoutes->group(function (): void {
         ->name('capell-admin.avatar');
 
     Route::get('extension-asset', ExtensionAssetController::class)
-        ->middleware(['web', 'auth'])
+        ->middleware(['web'])
         ->name('capell-admin.extension-asset');
 });
