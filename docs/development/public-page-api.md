@@ -1,6 +1,5 @@
 # Public Page API Internals
 
-
 Capell public page data is resolved in Core so frontend rendering and API delivery do not drift.
 
 ## Page Resolution
@@ -22,7 +21,7 @@ The action returns `Capell\Core\Data\PublicPageResolutionData`:
 - `content`
 - `meta`
 
-The resolver applies public constraints: matching site and language URL, enabled non-redirect URL, accessible enabled type, publish dates, and a translation for the requested language. Revision IDs are only accepted when they belong to the same base page identity as the resolved URL.
+The resolver applies public constraints: matching site and language URL, enabled non-redirect URL, accessible enabled type, **Visible from** and **Visible until** dates, and a translation for the requested language. Revision IDs are only accepted when they belong to the same base page identity as the resolved URL.
 
 ## Layout Graph
 

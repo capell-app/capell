@@ -143,7 +143,7 @@ The [published public-page example](../frontend/guide.md) shows the kind of fron
 
 If the public URL returns a 404 or the page stays unavailable, check the selected site, URL, publishing blockers and dates, then use [Troubleshooting](../operations/troubleshooting.md). For a queued page that never generates, follow [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate).
 
-Use **Unpublish** from the edit page when the page should come down. To schedule a removal, set **Visible until** in the Publish Dates section. Use **Cancel scheduled unpublish** if the page should stay live after a removal date was set.
+Use **Unpublish** from the edit page when the page should come down. To schedule a removal, set **Visible until** in the Publish section. Use **Cancel scheduled unpublish** if the page should stay live after a removal date was set.
 
 If the frontend still shows old content, follow [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). The procedure checks which cache package is installed, regenerates stale origin HTML and verifies the canonical response before any edge purge. Static export is separate from refreshing stale pages.
 

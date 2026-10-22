@@ -32,6 +32,17 @@
         "check:support-contract": "@php scripts/check-support-contract.php",
         "check:queue-contract": "@php scripts/check-queue-contract.php",
         "check:lang-keys": "@php scripts/check-language-key-drift.php",
+        "docs:check": [
+            "@check:docs-spelling",
+            "@check:docs-links",
+            "@check:docs-orphans",
+            "@check:docs-requirements",
+            "@check:docs-commands",
+            "@check:docs-env",
+            "@check:docs-config",
+            "@check:docs-screenshots"
+        ],
+        "check:docs-spelling": "@php scripts/check-lang-spelling.php",
         "check:docs-links": "@php scripts/check-docs-links.php",
         "check:docs-orphans": "@php scripts/check-docs-orphans.php",
         "check:docs-requirements": "@php scripts/check-docs-requirements.php",

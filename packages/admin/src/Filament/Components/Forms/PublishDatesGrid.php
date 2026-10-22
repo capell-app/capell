@@ -30,7 +30,15 @@ class PublishDatesGrid extends Grid
         return DateTimePicker::make('visible_from')
             ->label(__('capell-admin::form.publish_from'))
             ->validationAttribute(__('capell-admin::form.publish_from'))
-            ->helperText(function (?string $state): ?string {
+            ->helperText(function (?string $state, string $operation): ?string {
+                if ($operation === 'create') {
+                    return __('capell-admin::generic.visible_from_create_info');
+                }
+
+                if ($operation === 'createOption') {
+                    return __('capell-admin::generic.visible_from_create_option_info');
+                }
+
                 if (in_array($state, [null, '', '0'], true)) {
                     return __('capell-admin::generic.visible_from_info');
                 }

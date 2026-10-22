@@ -18,11 +18,11 @@ The optional [Layout Builder package](https://docs.capell.app/packages/layout-bu
 6. The `RenderHookLocation::HeadClose` hook resolves the active preset through `ResolveThemeRuntimeAction` and adds the theme-token stylesheet when available.
 7. The frontend response pipeline builds hydrated public render data and produces public HTML through the configured response renderer.
 
-The public page does not need to know that Theme Library, Customize, or Preview exist.
+The public page does not need to know that Theme Library, Customise, or Preview exist.
 
 ## Active Preset
 
-Theme Studio settings still provide the fallback active preset. Installed theme records can override that through `meta.editor.preset.active`, which is set from the admin Customize slide-over or initialized from the first preset when an available theme definition is created.
+Theme Studio settings still provide the fallback active preset. Installed theme records can override that through `meta.editor.preset.active`, which is set from the admin Customise slide-over or initialized from the first preset when an available theme definition is created.
 
 Resolution order:
 

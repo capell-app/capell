@@ -1,7 +1,6 @@
 # Register a dashboard Filament widget
 
-
-Capell Admin dashboards are built from Filament widgets: product status, content activity, editor work queues, extension health, and marketing operations. Package developers register widgets in code. Admins choose which registered widgets appear from [Customize your dashboard](dashboard-customize.md).
+Capell Admin dashboards are built from Filament widgets: product status, content activity, editor work queues, extension health, and marketing operations. Package developers register widgets in code. Admins choose which registered widgets appear from [Customise your dashboard](dashboard-customize.md).
 
 Build a dashboard widget when a package needs its own table, chart, health panel, calendar, or actions on a dashboard. For a small count, status, or link, register an overview stat instead.
 
@@ -19,11 +18,11 @@ The full API — dashboard buckets, built-in widgets, overview stats, settings s
 
 ## Related Tasks
 
-| Task                                          | Read                                                               |
-| --------------------------------------------- | ------------------------------------------------------------------ |
-| Choose which widgets appear and their order   | [Customize your dashboard](dashboard-customize.md)                 |
-| Add widgets to resource or page surfaces      | [Admin extensions](../packages/admin-extensions.md)                |
-| Add a frontend Layout Builder widget          | [Frontend widget registration](../frontend/widget-registration.md) |
+| Task                                        | Read                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------ |
+| Choose which widgets appear and their order | [Customise your dashboard](dashboard-customize.md)                 |
+| Add widgets to resource or page surfaces    | [Admin extensions](../packages/admin-extensions.md)                |
+| Add a frontend Layout Builder widget        | [Frontend widget registration](../frontend/widget-registration.md) |
 
 ## Next
 

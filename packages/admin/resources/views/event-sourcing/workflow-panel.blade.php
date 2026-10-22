@@ -15,7 +15,10 @@
     $badgeClass = $colors[$status->value] ?? $colors['draft'];
 @endphp
 
-<div class="space-y-1.5 text-sm">
+<div
+    class="space-y-1.5 text-sm"
+    data-workspace-draft-status
+>
     <div class="flex items-center gap-2">
         <span class="text-gray-500 dark:text-gray-400">
             {{ __('capell-admin::event-sourcing.workflow_status') }}
@@ -26,6 +29,10 @@
             {{ Str::headline($status->value) }}
         </span>
     </div>
+
+    <p class="text-xs text-gray-500 dark:text-gray-400">
+        {{ __('capell-admin::publish_panel.editorial_status_helper') }}
+    </p>
 
     @if ($note)
         <p class="text-xs text-gray-500 dark:text-gray-400">{{ $note }}</p>

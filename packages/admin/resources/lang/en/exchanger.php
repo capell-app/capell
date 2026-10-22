@@ -137,7 +137,7 @@ return [
     'status_failed' => 'Failed',
     'status_queued' => 'Queued',
     'status_running' => 'Running',
-    'stub_tracked_in_later_phase' => 'This recovery-center tool is a placeholder. The full implementation is tracked in a later phase.',
+    'stub_tracked_in_later_phase' => 'This recovery-centre tool is a placeholder. The full implementation is tracked in a later phase.',
     'summary_blocking_errors' => 'Blocking errors',
     'summary_blocking_errors_instruction' => 'Resolve the blocking errors above before dispatching.',
     'summary_clone' => 'Clone',

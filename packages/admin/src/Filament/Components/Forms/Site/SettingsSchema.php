@@ -51,7 +51,9 @@ class SettingsSchema
                 ->default(fn (): int => SiteAccess::current()->query(Site::class)->enabled()->max('order') + 1)
                 ->minValue(0)
                 ->step(1),
-            DefaultToggle::make('default'),
+            DefaultToggle::make('default')
+                ->label(__('capell-admin::form.default_site'))
+                ->helperText(__('capell-admin::form.default_site_helper')),
             StatusToggle::make('status'),
         ];
     }

@@ -154,7 +154,7 @@ it('reports optimizer runtime failures latest artifacts and failed critical css 
         ->and($checks->firstWhere('label', 'Playwright runtime'))
         ->status->toBe('amber')
         ->detail->toBe('playwright unavailable')
-        ->and($checks->firstWhere('label', 'Latest optimizer profile'))
+        ->and($checks->firstWhere('label', __('capell-admin::diagnostics.latest_optimizer_profile')))
         ->status->toBe('green')
         ->path->toEndWith('profile.css')
         ->and($checks->firstWhere('label', 'Failed critical CSS jobs'))
@@ -287,7 +287,7 @@ it('keeps optimizer artifact paths relative outside debug mode', function (bool 
         $factory->shouldReceive('make')->twice()->andReturn($process);
         app()->instance(ProcessFactoryInterface::class, $factory);
         $checks = new Collection(BuildOptimizerReadinessDiagnosticsAction::run());
-        expect($checks->firstWhere('label', 'Latest optimizer profile')->path)->toBe(
+        expect($checks->firstWhere('label', __('capell-admin::diagnostics.latest_optimizer_profile'))->path)->toBe(
             $debug ? $artifact : 'storage/app/capell/frontend-optimizer/profile.css',
         );
     } finally {

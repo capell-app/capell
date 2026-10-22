@@ -10,9 +10,10 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageWorkflowState;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\View\View;
+use Override;
 
 /**
- * Enriches the publish panel with the editorial workflow status projected from
+ * Enriches the publish panel with the saved workspace draft status projected from
  * the event stream (who is reviewing, who approved) — intent the inferred
  * publish state cannot express.
  *
@@ -24,11 +25,21 @@ use Illuminate\Contracts\View\View;
  */
 final class WorkflowPublishPanelExtender implements PublishPanelExtender
 {
+    #[Override]
     public function extendPanel(PagePublishStateData $state): ?View
     {
         $page = SiteAccess::current()->query(Page::class)->find($state->pageId);
 
         if ($page === null) {
+            return null;
+        }
+
+        $handler = app()->bound('capell.workspace.page-draft-handler')
+            ? resolve('capell.workspace.page-draft-handler')
+            : null;
+        $hasWorkspaceDraft = $this->hasWorkspaceDraft($handler, $page);
+
+        if (! $hasWorkspaceDraft) {
             return null;
         }
 
@@ -45,5 +56,25 @@ final class WorkflowPublishPanelExtender implements PublishPanelExtender
             'approverId' => $workflow->approver_id,
             'note' => $workflow->requested_changes_note,
         ]);
+    }
+
+    /**
+     * Prefer the handler's lifecycle-aware predicate. A handler from an older
+     * Publishing Studio only counts retained draft rows, which still answers
+     * "is there a draft" correctly until it is updated (it may keep showing the
+     * row for an abandoned workspace, as before). Without a handler, only the
+     * record's own workspace marks a draft.
+     */
+    private function hasWorkspaceDraft(mixed $handler, Page $page): bool
+    {
+        if (is_object($handler) && is_callable([$handler, 'hasActiveDraft'])) {
+            return (bool) $handler->hasActiveDraft($page);
+        }
+
+        if (is_object($handler) && is_callable([$handler, 'countDrafts'])) {
+            return (int) $handler->countDrafts($page) > 0;
+        }
+
+        return (int) ($page->getAttributes()['workspace_id'] ?? 0) > 0;
     }
 }

@@ -155,7 +155,7 @@ The public foundation is five packages:
 
 ## Theme it
 
-Installed themes use one Admin path: **Theme Library → Customize → Preview → Apply**. Preview a change against real content before making it active, and keep theme presentation in the Laravel application rather than in page records.
+Installed themes use one Admin path: **Theme Library → Customise → Preview → Apply**. Preview a change against real content before making it active, and keep theme presentation in the Laravel application rather than in page records.
 
 Read [Theme Library](docs/admin/theme-library.md) to operate installed themes or [Creating custom themes](docs/packages/creating-custom-themes.md) to own the Blade, assets, settings, and compatibility contract yourself. Marketplace themes are only installable when their listing states a released distribution path and compatible Capell line; the [theme gallery](https://capell.app/extensions/themes) shows what each ships on the public web.
 

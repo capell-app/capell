@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 return [
-    'admin_panel_colors_patch_description' => 'Adds color configuration to the Filament admin panel',
-    'admin_panel_colors_patch_label' => 'Admin Panel Colors Patch',
+    'admin_panel_colors_patch_description' => 'Adds colour configuration to the Filament admin panel',
+    'admin_panel_colors_patch_label' => 'Admin Panel Colours Patch',
     'admin_panel_dashboard_patch_description' => 'Registers the Capell dashboard page in AdminPanelProvider',
     'admin_panel_dashboard_patch_label' => 'Admin Panel Dashboard Patch',
     'admin_panel_navigation_patch_description' => 'Adds navigation items and groups configuration to AdminPanelProvider',

@@ -2,15 +2,21 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Components\Forms\DefaultToggle;
 use Capell\Admin\Filament\Components\Forms\Editor\TinyEditor;
+use Capell\Admin\Filament\Components\Forms\Site\SettingsSchema;
 use Capell\Admin\Filament\Components\Forms\Site\Tab\MediaTab;
 use Capell\Admin\Filament\Components\Tables\Actions\VisitUrlAction;
 use Capell\Admin\Filament\Components\Tables\Filters\PageSelectFilter;
+use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+
+require_once dirname(__DIR__, 6) . '/tests/Support/DomQuery.php';
 
 it('builds the site media tab schema', function (): void {
     $tab = MediaTab::make();
@@ -82,3 +88,18 @@ function pageSelectFilterIndicatorForTest(PageSelectFilter $filter, array $state
         'state' => $state,
     ]);
 }
+
+it('describes the default site toggle in the site settings schema', function (): void {
+    $schema = Schema::make(Livewire::make())->model(Site::class)->operation('edit');
+    $schema->components(SettingsSchema::make($schema));
+
+    $toggle = array_find($schema->getComponents(withHidden: true), static fn (mixed $component): bool => $component instanceof DefaultToggle);
+
+    expect($toggle)->toBeInstanceOf(DefaultToggle::class);
+    assert($toggle instanceof DefaultToggle);
+    $dom = domXPath($toggle->toHtml());
+
+    expect($toggle->getLabel())->toBe(__('capell-admin::form.default_site'))
+        ->and(domCount($dom, '//button[@role="switch" and @id="default"]'))->toBe(1)
+        ->and(trim(domText(domElement($dom, '//span[@class="fi-sc-text"]'))))->toBe(__('capell-admin::form.default_site_helper'));
+});

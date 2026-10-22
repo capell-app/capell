@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 return [
     'title' => 'Theme Library',
-    'subheading' => 'Customize, preview, and apply installed themes from one workflow.',
+    'subheading' => 'Customise, preview, and apply installed themes from one workflow.',
     'sections' => [
         'installed' => 'Installed themes',
         'available' => 'Available themes',
@@ -59,7 +59,7 @@ return [
         'create_available' => 'Create theme',
         'create_available_named' => 'Create :theme theme',
         'creating_available' => 'Creating...',
-        'customize' => 'Customize',
+        'customize' => 'Customise',
         'diagnostics_for_theme' => ':theme diagnostics',
         'hide_details' => 'Hide details',
         'install_theme' => 'Add installed package',
@@ -73,7 +73,7 @@ return [
     'help' => [
         'activation_scope' => 'Global changes the default theme for sites without an override. Selected sites changes only the chosen site records.',
         'apply' => 'Choose where this theme should be used. Applying a theme refreshes affected frontend cache keys.',
-        'available_theme' => 'Create or complete the installed theme record before customizing, previewing, or applying this package definition.',
+        'available_theme' => 'Create or complete the installed theme record before customising, previewing, or applying this package definition.',
         'marketplace' => 'Use the Marketplace button above to browse and install marketplace themes.',
         'preview' => 'Choose the exact site, page, and preset to preview before applying this theme.',
         'preset' => 'Choose a saved preset, then preview a site/page before applying the theme.',

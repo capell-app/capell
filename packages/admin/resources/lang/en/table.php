@@ -19,7 +19,7 @@ return [
     'chain_warning_unknown' => 'Unknown',
     'code' => 'Code',
     'collection' => 'Collection',
-    'colors' => 'Colors',
+    'colors' => 'Colours',
     'component' => 'Section',
     'configurator' => 'Configurator',
     'container_widgets' => 'Container Elements',

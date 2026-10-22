@@ -20,7 +20,7 @@ The page aggregates operational checks that affect whether public traffic can be
 - Public HTML cache status for each cacheable page URL: `HIT`, `MISS`, or `BYPASS`, with the cache file path and generated timestamp where available.
 - Public-output safety checks for cached HTML that contains authoring markers or signed admin URLs.
 - Static generation checks, including the current generation lock, the latest generated cache timestamp, and failed static generation jobs.
-- Optimizer readiness for Node, Playwright, generated optimizer artifacts, and failed critical CSS jobs.
+- Optimiser readiness for Node, Playwright, generated optimiser artefacts, and failed critical CSS jobs.
 - Server checks for Laravel runtime basics: `APP_URL`, `APP_KEY`, `APP_ENV`, `APP_DEBUG`, cache/session/queue drivers, database-backed cache and queue tables, scheduler visibility, failed-jobs table, trusted proxy config, and writable paths.
 
 Treat red checks as release blockers. Treat amber checks as deployment risks that need either remediation or an explicit operational decision.
@@ -64,7 +64,7 @@ _Healthy looks like an empty report: every public URL resolves uniquely, redirec
 
 **Static generation** reports the static-site generation lock, newest generated public cache timestamp, and failed jobs related to static generation. Use it after cache clears, full static builds, or failed deployment jobs.
 
-**Optimizer readiness** checks Node, Playwright, optimizer artifacts, and failed critical CSS jobs. Missing optimizer tooling is amber when the site can still serve normal CSS and JavaScript, but failed critical CSS jobs should be investigated before relying on generated assets.
+**Optimiser readiness** checks Node, Playwright, optimiser artefacts, and failed critical CSS jobs. Missing optimiser tooling is amber when the site can still serve normal CSS and JavaScript, but failed critical CSS jobs should be investigated before relying on generated assets.
 
 **Server checks** cover the Laravel and filesystem basics Site Health can inspect locally: `APP_URL`, `APP_KEY`, `APP_ENV`, `APP_DEBUG`, cache store, session driver, queue connection, scheduler visibility, database-backed cache and queue tables, failed-jobs table, trusted proxy config, writable `storage`, and writable `bootstrap/cache`.
 

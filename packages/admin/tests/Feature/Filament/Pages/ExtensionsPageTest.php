@@ -1623,13 +1623,21 @@ it('opens package settings as a native extension management modal', function ():
 
     Livewire::test(InstalledExtensionsFilamentWidget::class)
         ->assertSuccessful()
+        ->assertTableActionExists('manageExtension', fn (Action $action): bool => $action->getModalSubmitActionLabel() === __('capell-admin::button.settings.save')
+            && $action->getModalCancelActionLabel() === __('capell-admin::button.cancel'), record: 'vendor/settings-extension')
         ->assertTableActionVisible('manageExtension', record: 'vendor/settings-extension')
         ->assertTableActionHidden('openExtension', record: 'vendor/settings-extension')
         ->mountTableAction('manageExtension', 'vendor/settings-extension')
         ->assertMountedActionModalSee('Extension settings')
         ->assertSchemaStateSet([
             'headline' => 'Existing setting',
-        ]);
+        ])
+        ->fillForm(['headline' => 'Updated setting'])
+        ->callMountedAction()
+        ->assertHasNoActionErrors()
+        ->assertNotified(__('capell-admin::message.settings_saved'));
+
+    expect(AbstractPackageSettingsPageTestSettings::$savedValues['headline'] ?? null)->toBe('Updated setting');
 
     $extensionRecord = collect((new InstalledExtensionsFilamentWidget)->getExtensionsData())
         ->firstWhere('id', 'vendor/settings-extension');
@@ -1662,7 +1670,7 @@ it('opens package settings through URL query parameters', function (): void {
         settingsGroup: 'abstract-page-test',
     ));
 
-    Livewire::withQueryParams([
+    $component = Livewire::withQueryParams([
         'manage' => 'vendor/settings-extension',
         'surface' => 'abstract-page-test',
     ])
@@ -1672,6 +1680,19 @@ it('opens package settings through URL query parameters', function (): void {
         ->assertSchemaStateSet([
             'headline' => 'Existing setting',
         ]);
+
+    $action = $component->instance()->getMountedAction();
+    expect($action)->toBeInstanceOf(Action::class);
+    assert($action instanceof Action);
+    expect($action->getModalSubmitActionLabel())->toBe(__('capell-admin::button.settings.save'))
+        ->and($action->getModalCancelActionLabel())->toBe(__('capell-admin::button.cancel'));
+
+    $component->fillForm(['headline' => 'Saved through query parameters'])
+        ->callMountedAction()
+        ->assertHasNoActionErrors()
+        ->assertNotified(__('capell-admin::message.settings_saved'));
+
+    expect(AbstractPackageSettingsPageTestSettings::$savedValues['headline'] ?? null)->toBe('Saved through query parameters');
 });
 
 it('does not expose settings management for extensions without a management page', function (): void {

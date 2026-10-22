@@ -1,6 +1,6 @@
 # Theme Library
 
-The admin theme workflow is **Theme Library -> Customize -> Preview -> Apply**. It replaces the generic theme-record editing habit with one owner/admin flow for installed theme instances, catalogue/local definitions, pending installs, and diagnostics.
+The admin theme workflow is **Theme Library -> Customise -> Preview -> Apply**. It replaces the generic theme-record editing habit with one owner/admin flow for installed theme instances, catalogue/local definitions, pending installs, and diagnostics.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/theme-library-admin-flow-dark.png">
@@ -15,7 +15,7 @@ _The full workflow keeps discovery, customization, preview, and activation in on
 
 | Section          | Source                                                                          | What admins do                                                                                           |
 | ---------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Installed themes | `themes` records plus registered package definitions                            | Customize, preview, and apply a theme instance.                                                          |
+| Installed themes | `themes` records plus registered package definitions                            | Customise, preview, and apply a theme instance.                                                          |
 | Available themes | registered `ThemeDefinitionData` entries without a matching `themes.key` record | Create the missing installed theme instance from the unified **Add theme** slide-over.                   |
 | Pending installs | Marketplace install intents when the Marketplace table exists                   | See that a theme install is still waiting for Composer/deployment work.                                  |
 | Diagnostics      | `ValidateThemeDefinitionAction` output                                          | Find missing renderer, preset, section, asset, preview image, and parent-theme problems before applying. |
@@ -40,9 +40,9 @@ Use **Add theme** for all new theme entry points:
 
 When you create a theme from a package definition, the first preset is automatically selected as the active preset, so the theme can be customized, previewed, and applied immediately. Creating a theme does not make it the global default; you still use **Apply theme** to activate it. Themes with diagnostics errors stay blocked until the missing parent, renderer, or preset problem is fixed.
 
-## Customize
+## Customise
 
-Use **Customize** on an installed theme. The slide-over is a guided editor with sections on the left and a sticky sandboxed iframe preview on the right. The preview is built from unsaved form state and only persists when the admin explicitly saves.
+Use **Customise** on an installed theme. The slide-over is a guided editor with sections on the left and a sticky sandboxed iframe preview on the right. The preview is built from unsaved form state and only persists when the admin explicitly saves.
 
 Core sections in the editor:
 
@@ -77,7 +77,7 @@ Site-scoped admins can only apply themes to sites they manage.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/theme-customize-preview-apply-dark.png">
-  <img alt="Customize, preview, and apply flow" src="../images/generated/admin/theme-customize-preview-apply.png">
+  <img alt="Customise, preview, and apply flow" src="../images/generated/admin/theme-customize-preview-apply.png">
 </picture>
 
 [Light](../images/generated/admin/theme-customize-preview-apply.png) · [Dark](../images/generated/admin/theme-customize-preview-apply-dark.png)
@@ -86,7 +86,7 @@ _The preview uses unsaved admin state; Apply is the separate step that persists 
 
 ## How it works (developers)
 
-### Customize storage and sections
+### Customise storage and sections
 
 The customize editor is structured around the theme's metadata schema. Storage keys are:
 
