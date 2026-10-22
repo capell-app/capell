@@ -38,12 +38,15 @@ final class WorkflowPublishPanelExtender implements PublishPanelExtender
         $handler = app()->bound('capell.workspace.page-draft-handler')
             ? resolve('capell.workspace.page-draft-handler')
             : null;
-        $countDrafts = is_object($handler) && is_callable([$handler, 'countDrafts'])
-            ? $handler->countDrafts(...)
+        $hasActiveDraft = is_object($handler) && is_callable([$handler, 'hasActiveDraft'])
+            ? $handler->hasActiveDraft(...)
             : null;
 
-        if ((int) ($page->getAttributes()['workspace_id'] ?? 0) === 0
-            && (! $countDrafts instanceof Closure || (int) $countDrafts($page) <= 0)) {
+        $hasWorkspaceDraft = $hasActiveDraft instanceof Closure
+            ? (bool) $hasActiveDraft($page)
+            : (int) ($page->getAttributes()['workspace_id'] ?? 0) > 0;
+
+        if (! $hasWorkspaceDraft) {
             return null;
         }
 

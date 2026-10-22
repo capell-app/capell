@@ -293,7 +293,7 @@ it('retains the recorded publication date for a dated live page', function (): v
         ->assertDontSee(__('capell-admin::publish_panel.not_published'));
 });
 
-it('shows the workspace row only when the draft handler finds a saved draft', function (int $draftCount): void {
+it('shows the workspace row only when the draft handler finds an active saved draft', function (int $draftCount): void {
     test()->actingAsAdmin();
     $page = Page::factory()->create(['visible_from' => now()->subDay(), 'visible_until' => null]);
     PageWorkflowState::query()->updateOrCreate(['page_uuid' => $page->uuid], ['status' => PageWorkflowStatus::Draft]);
@@ -303,11 +303,11 @@ it('shows the workspace row only when the draft handler finds a saved draft', fu
 
         public function __construct(private readonly int $draftCount) {}
 
-        public function countDrafts(Page $page): int
+        public function hasActiveDraft(Page $page): bool
         {
             $this->checkedPageId = (int) $page->getKey();
 
-            return $this->draftCount;
+            return $this->draftCount > 0;
         }
     };
     app()->instance('capell.workspace.page-draft-handler', $handler);
@@ -363,4 +363,38 @@ it('shows the persisted workspace draft without an installed draft handler', fun
         ->assertSeeHtml('data-workspace-draft-status')
         ->assertSee('Workspace draft')
         ->assertSee(__('capell-admin::publish_panel.editorial_status_helper'));
+});
+
+it('lets the handler reject a terminal workspace even for a persisted draft record', function (): void {
+    test()->actingAsAdmin();
+    Schema::table('pages', function (Blueprint $table): void {
+        $table->unsignedBigInteger('workspace_id')->default(0);
+    });
+    $page = Page::factory()->create(['visible_from' => now()->subDay()]);
+    $page->forceFill(['workspace_id' => 42])->save();
+    PageWorkflowState::query()->updateOrCreate(['page_uuid' => $page->uuid], ['status' => PageWorkflowStatus::Draft]);
+    app()->instance('capell.workspace.page-draft-handler', new class
+    {
+        public function hasActiveDraft(Page $page): bool
+        {
+            return false;
+        }
+    });
+
+    panelFor($page)->assertDontSeeHtml('data-workspace-draft-status');
+});
+
+it('does not infer an active workspace from a legacy historical draft count', function (): void {
+    test()->actingAsAdmin();
+    $page = Page::factory()->create(['visible_from' => now()->subDay()]);
+    PageWorkflowState::query()->updateOrCreate(['page_uuid' => $page->uuid], ['status' => PageWorkflowStatus::Draft]);
+    app()->instance('capell.workspace.page-draft-handler', new class
+    {
+        public function countDrafts(Page $page): int
+        {
+            return 1;
+        }
+    });
+
+    panelFor($page)->assertDontSeeHtml('data-workspace-draft-status');
 });
