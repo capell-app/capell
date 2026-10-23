@@ -35,6 +35,7 @@ it('builds a stable redacted install handoff without account or telemetry requir
         warnings: [
             base_path('routes/web.php') . ': password=hunter2 token=private',
         ],
+        adminEmail: 'operator@example.test',
     );
 
     expect($handoff->toArray())->toBe([
@@ -60,6 +61,18 @@ it('builds a stable redacted install handoff without account or telemetry requir
             'summary' => 'Capell completed the selected foundation and extension setup. Public rendering remains application-owned.',
             'accountConnection' => 'not_required',
             'telemetrySubmission' => 'not_performed',
+        ],
+        'tips' => [
+            [
+                'key' => 'sign_in',
+                'label' => 'Sign in',
+                'detail' => 'https://example.test/admin as operator@example.test',
+            ],
+            [
+                'key' => 'first_page',
+                'label' => 'Your site',
+                'detail' => 'Your homepage is live at https://example.test/. Edit it under Admin → Pages.',
+            ],
         ],
     ])->and(json_encode($handoff->toArray(), JSON_THROW_ON_ERROR))
         ->not->toContain('secret')
@@ -93,7 +106,8 @@ it('fails closed for incomplete outcomes and unsupported first page states', fun
             'migrations' => 'incomplete',
             'setup' => 'incomplete',
             'doctor' => 'unknown',
-        ])->and($handoff->firstPage)->toBe(['status' => 'unavailable']);
+        ])->and($handoff->firstPage)->toBe(['status' => 'unavailable'])
+        ->and(array_column($handoff->tips, 'key'))->toBe(['review']);
 });
 
 it('requires an asset build before the first page when frontend preparation has not been rebuilt', function (bool $rebuilt): void {
@@ -106,7 +120,8 @@ it('requires an asset build before the first page when frontend preparation has 
     $handoff = BuildInstallHandoffAction::run($input, new InstallRunResultData(['capell-app/frontend'], $steps, 'passed'), null, 'editable', []);
     expect($handoff->status)->toBe('completed')
         ->and($handoff->nextAction['label'])->toBe($rebuilt ? 'Create and verify your first editable public page' : 'Install and build frontend assets before opening Admin or the public page')
-        ->and($handoff->warnings)->toHaveCount($rebuilt ? 0 : 1);
+        ->and($handoff->warnings)->toHaveCount($rebuilt ? 0 : 1)
+        ->and(array_column($handoff->tips, 'key'))->toBe($rebuilt ? ['sign_in', 'first_page'] : ['frontend_build', 'sign_in']);
 })->with([false, true]);
 
 it('uses executed frontend preparation for a theme-only requested selection', function (bool $rebuilt): void {
