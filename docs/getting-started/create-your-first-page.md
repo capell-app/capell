@@ -200,7 +200,8 @@ Do not install every package on day one. Add the next package when the page you 
 
 | Extension                                                      | Add it when you need                                                                                       |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| [ContentSections](../packages/catalog.md#capell-foundation)    | Custom rows, columns, widgets, reusable content blocks, and richer page layouts.                           |
+| [Layout Builder](../packages/layout-builder.md)                | Containers, reusable layout widgets, and approved section composition in a page layout.                    |
+| [ContentSections](../packages/content-sections.md)             | Ready-made, themeable page sections (hero, FAQ, pricing) built on Layout Builder.                          |
 | [Navigation](../packages/catalog.md#capell-foundation)         | Header, footer, sidebar, or utility menus that link your pages together.                                   |
 | [Redirects](../packages/catalog.md#capell-foundation)          | Manual redirects or safer URL changes after pages have been published.                                     |
 | Built-in Default Theme                                         | A practical frontend starting point provided by `capell-app/frontend` without installing a theme package.  |
