@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Support\Patching\RootRouteEditor;
 use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 
 it('leaves custom and nested route statements untouched', function (string $source, bool $hasRoot): void {
@@ -103,6 +104,50 @@ it('detects executable roots separately from safe removal candidates', function 
     $registered = array_any(Route::getRoutes()->getRoutes(), static fn (Illuminate\Routing\Route $route): bool => $route->uri() === '/');
     expect($registered)->toBe($root);
 })->with([
+    'assigned group callback' => ["\$routes = function () { R::get('/', fn () => 'custom'); }; R::group([], \$routes);", true],
+    'assigned arrow group router' => ["\$routes = fn (\$router) => \$router->get('/', fn () => 'custom'); R::group([], \$routes);", true],
+    'assigned prefixed callback' => ["\$routes = function () { R::get('/', fn () => 'custom'); }; R::prefix('admin')->group(\$routes);", false],
+    'explicit closure invocation' => ["(function () { R::get('/', fn () => 'custom'); })->__invoke();", true],
+    'explicit arrow invocation' => ["(fn () => R::get('/', fn () => 'custom'))->__invoke();", true],
+    'assigned closure invocation' => ["\$routes = function () { R::get('/', fn () => 'custom'); }; \$routes();", true],
+    'assigned explicit invocation' => ["\$routes = fn () => R::get('/', fn () => 'custom'); \$routes->__invoke();", true],
+    'call_user_func closure' => ["call_user_func(function () { R::get('/', fn () => 'custom'); });", true],
+    'call_user_func assigned callback' => ["\$routes = fn () => R::get('/', fn () => 'custom'); call_user_func(\$routes);", true],
+    'call_user_func_array callback' => ["\$routes = fn () => R::get('/', fn () => 'custom'); call_user_func_array(\$routes, []);", true],
+    'named registration function' => ["function rootRouteEditorRegisterHome() { R::get('/', fn () => 'custom'); } rootRouteEditorRegisterHome();", true],
+    'local facade router' => ["\$router = R::getFacadeRoot(); \$router->get('/', fn () => 'custom');", true],
+    'local container router' => ["\$router = app('router'); \$router->get('/', fn () => 'custom');", true],
+    'local resolved router' => ['$router = resolve(' . Router::class . '::class); $router->get(\'/\', fn () => \'custom\');', true],
+    'parenthesised set root URI' => ["(R::get('/health', fn () => 'custom'))->setUri('/');", true],
+    'parenthesised prefix' => ["(R::get('/', fn () => 'custom'))->prefix('admin');", false],
+    'nested parenthesised mutation' => ["((R::get('/health', fn () => 'custom'))->setUri('/'))->prefix('admin');", false],
+    'parenthesised resource filter' => ["(R::resource('/', HomeController::class))->only('show');", false],
+    'callback array lookup' => ["\$callbacks = ['home' => fn () => R::get('/', fn () => 'custom')]; R::group([], \$callbacks['home']);", true],
+    'named group callback' => ['function rootRouteEditorGroupHome($router) { $router->get(\'/\', fn () => \'custom\'); } R::group([], ' . Closure::class . "::fromCallable('rootRouteEditorGroupHome'));", true],
+    'named forward registration' => ["rootRouteEditorForwardHome(); function rootRouteEditorForwardHome() { R::get('/', fn () => 'custom'); }", true],
+    'second named registration' => ["function rootRouteEditorNamespaceHome() { R::get('/', fn () => 'custom'); } rootRouteEditorNamespaceHome();", true],
+    'call_user_func named callback' => ["function rootRouteEditorIndirectHome() { R::get('/', fn () => 'custom'); } call_user_func('rootRouteEditorIndirectHome');", true],
+    'named first class group callback' => ["function rootRouteEditorFirstClass(\$router) { \$router->get('/', fn () => 'custom'); } R::group([], rootRouteEditorFirstClass(...));", true],
+    'prefixed assigned router callback' => ["\$routes = fn (\$router) => \$router->get('/', fn () => 'custom'); R::prefix('admin')->group(callback: \$routes);", false],
+    'local router alias' => ["\$router = R::getFacadeRoot(); \$alias = \$router; \$alias->get('/', fn () => 'custom');", true],
+    'deferred named function' => ["function rootRouteEditorDeferredHome() { R::get('/', fn () => 'custom'); }", false],
+    'callback with deferred nested route' => ["\$routes = function () { \$later = fn () => R::get('/', fn () => 'custom'); }; R::group([], \$routes);", false],
+    'assigned non-root callback' => ["\$routes = fn () => R::get('/health', fn () => 'custom'); \$routes();", false],
+    'call_user_func non-root callback' => ["call_user_func(fn () => R::get('/health', fn () => 'custom'));", false],
+    'callback reassignment' => ["\$routes = fn () => R::get('/', fn () => 'custom'); \$routes = fn () => R::get('/health', fn () => 'custom'); \$routes();", false],
+    'parenthesised registrar prefix' => ["(R::prefix('admin'))->group(fn () => R::get('/', fn () => 'custom'));", false],
+    'parenthesised reset URI' => ["((R::get('/', fn () => 'custom'))->prefix('admin'))->setUri('/');", true],
+    'parenthesised assigned callback' => ["\$routes = (static fn () => R::get('/', fn () => 'custom')); (\$routes)();", true],
+    'named router argument' => ["function rootRouteEditorRouterArgument(\$router) { \$router->get('/', fn () => 'custom'); } rootRouteEditorRouterArgument(app('router'));", true],
+    'invoked router argument' => ["(function (\$router) { \$router->get('/', fn () => 'custom'); })(R::getFacadeRoot());", true],
+    'call_user_func router argument' => ["call_user_func(fn (\$router) => \$router->get('/', fn () => 'custom'), app('router'));", true],
+    'call_user_func_array router argument' => ["call_user_func_array(fn (\$router) => \$router->get('/', fn () => 'custom'), [app('router')]);", true],
+    'local container make router' => ["\$router = app()->make('router'); \$router->get('/', fn () => 'custom');", true],
+    'deferred first class function' => ["function rootRouteEditorDeferredCallable() { R::get('/', fn () => 'custom'); } \$later = rootRouteEditorDeferredCallable(...);", false],
+    'deferred first class closure' => ["\$register = fn () => R::get('/', fn () => 'custom'); \$later = \$register(...);", false],
+    'deferred first class facade' => ['$later = R::get(...);', false],
+    'deferred first class callback executor' => ['$later = call_user_func(...);', false],
+    'deferred first class URI mutation' => ["\$later = R::get('/health', fn () => 'custom')->setUri(...);", false],
     'resource index' => ["R::resource('/', HomeController::class)->only('index');", true],
     'api resource store' => ["R::apiResource('/', HomeController::class)->only('store');", true],
     'resource without root actions' => ["R::resource('/', HomeController::class)->only('show');", false],
@@ -219,3 +264,33 @@ final class RootRouteEditorCustomRouter
         self::$calls++;
     }
 }
+
+it('treats unavailable executing group callbacks as possible roots', function (string $source): void {
+    $content = "<?php\n" . $source;
+    $editor = new RootRouteEditor($content);
+
+    expect($editor->hasRootRoute())->toBeTrue()
+        ->and($editor->hasStockWelcomeRoute())->toBeFalse()
+        ->and($editor->removeStockWelcomeRoutes())->toBe($content);
+})->with([
+    'callback variable' => 'Route::group([], $unknown);',
+    'callback factory' => 'Route::middleware("auth")->group(makeApplicationRoutes());',
+    'included routes' => 'Route::group([], __DIR__ . "/application.php");',
+]);
+
+it('resolves executed registration functions in their namespace', function (): void {
+    $content = <<<'PHP_SOURCE'
+<?php
+namespace RootRouteEditorFixtures;
+use Illuminate\Support\Facades\Route as R;
+registerHome();
+function registerHome() { R::get('/', fn () => 'custom'); }
+PHP_SOURCE;
+    $editor = new RootRouteEditor($content);
+    Route::setRoutes(new RouteCollection);
+    eval(substr($content, 5));
+
+    expect($editor->hasRootRoute())->toBeTrue()
+        ->and($editor->removeStockWelcomeRoutes())->toBe($content)
+        ->and(Route::getRoutes()->match(Request::create('/'))->run())->toBe('custom');
+});

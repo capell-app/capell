@@ -607,6 +607,13 @@ it('keeps frontend root registration disabled when an accepted CLI choice leaves
     'group router' => "Route::group([], function (\\Illuminate\\Routing\\Router \$router) { \$router->get('/', fn () => 'custom'); });",
     'invoked closure' => "(function () { Route::get('/', fn () => 'custom'); })();",
     'set root URI' => "Route::get('/health', fn () => 'custom')->setUri('/');",
+    'assigned group callback' => "\$registerHome = function () { Route::get('/', fn () => 'custom'); }; Route::group([], \$registerHome);",
+    'explicit invocation' => "(function () { Route::get('/', fn () => 'custom'); })->__invoke();",
+    'call_user_func' => "call_user_func(function () { Route::get('/', fn () => 'custom'); });",
+    'named registration function' => "function coreWelcomeRouteRegisterHome() { Route::get('/', fn () => 'custom'); } coreWelcomeRouteRegisterHome();",
+    'local router' => "\$router = app('router'); \$router->get('/', fn () => 'custom');",
+    'parenthesised setUri' => "(Route::get('/health', fn () => 'custom'))->setUri('/');",
+    'unresolved group callback expression' => "Route::group([], [fn () => Route::get('/', fn () => 'custom')][0]);",
     'stock plus custom root' => "Route::get('/', fn () => view('welcome'));\nRoute::redirect('/', '/health');",
 ]);
 
@@ -655,4 +662,6 @@ it('enables the frontend root when fluent mutations move the application route a
 })->with([
     'prefix' => "Route::get('/', fn () => 'custom')->prefix('admin');",
     'setUri' => "Route::get('/', fn () => 'custom')->setUri('/admin');",
+    'parenthesised prefix' => "(Route::get('/', fn () => 'custom'))->prefix('admin');",
+    'parenthesised setUri' => "(Route::get('/', fn () => 'custom'))->setUri('/admin');",
 ]);
