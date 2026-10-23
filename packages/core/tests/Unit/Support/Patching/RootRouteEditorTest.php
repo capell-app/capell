@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Support\Patching\RootRouteEditor;
+use Capell\Core\Tests\Support\Patching\RootRouteEditorCustomRouter;
 use Illuminate\Http\Request;
 use Illuminate\Routing\RouteCollection;
 use Illuminate\Routing\Router;
@@ -251,19 +252,9 @@ PHP_SOURCE;
         }
     }
 })->with([
-    'custom class' => ['use RootRouteEditorCustomRouter as Route;', "Route::get('/', fn () => view('welcome'));", false],
+    'custom class' => ['use Capell\\Core\\Tests\\Support\\Patching\\RootRouteEditorCustomRouter as Route;', "Route::get('/', fn () => view('welcome'));", false],
     'custom helper' => ['use Illuminate\\Support\\Facades\\Route; use function strtoupper as view;', "Route::get('/', fn () => view('welcome'));", true],
 ]);
-
-final class RootRouteEditorCustomRouter
-{
-    public static int $calls = 0;
-
-    public static function get(): void
-    {
-        self::$calls++;
-    }
-}
 
 it('treats unavailable executing group callbacks as possible roots', function (string $source): void {
     $content = "<?php\n" . $source;
