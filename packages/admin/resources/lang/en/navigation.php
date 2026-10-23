@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'workspace_library' => 'Content Library',
+    'workspace_library' => 'Content library',
     'workspace_design' => 'Design',
     'workspace_marketing' => 'Marketing',
     'workspace_publishing' => 'Publishing',
@@ -20,14 +20,17 @@ return [
     'extension_type_uncategorised' => 'Other',
     'group_system' => 'System',
     'group_content' => 'Content',
+    'group_customers' => 'Customers',
     'group_dashboard' => 'Dashboard',
     'group_extensions' => 'Extensions',
     'group_growth' => 'Growth',
     'group_integrations' => 'Integrations',
     'group_marketing' => 'Marketing',
     'group_monitoring' => 'Insights & health',
+    'group_operations' => 'Operations',
     'group_layouts' => 'Layouts',
     'group_reports' => 'Reports',
+    'group_security' => 'Security',
     'group_users' => 'Users',
     'group_settings' => 'Settings',
     'group_websites' => 'Website',

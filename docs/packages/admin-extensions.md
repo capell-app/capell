@@ -370,6 +370,39 @@ Marketplace connection UI should stay action-oriented:
 
 Use Filament page methods for labels, icons, groups, and sort order. Store labels in package translation files.
 
+Prefer a shared job group over a package-named heading. Admin declares these
+translated groups and their default order through
+`CapellAdmin::getNavigationGroups()`, consumed by the panel provider:
+Dashboard, Website, Content, Publishing, Layouts, Marketing, Customers, Reports,
+Operations, Insights & health, Security, Settings, System. The workspace sidebar
+organises these into its existing content and design sections; Customers follows
+Marketing, Operations follows Reports, and Security precedes System. Empty groups
+are hidden, and the three job groups are collapsed by default without group icons.
+
+| Job        | Shared translation key                      | Intended destinations              |
+| ---------- | ------------------------------------------- | ---------------------------------- |
+| Customers  | `capell-admin::navigation.group_customers`  | Bookings and customer portal tools |
+| Operations | `capell-admin::navigation.group_operations` | HTML cache and live chat tools     |
+| Security   | `capell-admin::navigation.group_security`   | Access rules and security tools    |
+
+Return the translated group from a resource or page's `getNavigationGroup()`:
+
+```php
+use Override;
+
+#[Override]
+public static function getNavigationGroup(): ?string
+{
+    return __('capell-admin::navigation.group_customers');
+}
+```
+
+Shared groups are already registered; packages do not need to register them again.
+The workspace sidebar honours these explicit job groups before legacy URL-based
+placement, including the HTML cache route. Group assignment does not grant access:
+keep resource policies and page permissions in place. Use sentence case for group
+headings.
+
 If a package uses a custom parent navigation group from `getNavigationGroup()`, register that group from the package admin provider:
 
 ```php
