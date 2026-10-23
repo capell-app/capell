@@ -329,9 +329,9 @@ public function boot(CacheInvalidationRegistry $cacheInvalidation): void
 
 Prefer exact keys. A pattern containing `*` intentionally flushes the whole `capell-frontend` cache tag because wildcard matching is not portable across cache drivers.
 
-## Content Sections Areas
+## Layout Builder Areas
 
-Use Content Sections areas when a frontend package or theme needs editor-managed elements outside the standard page body. Areas keep the normal Content Sections storage model: elements live in containers, and containers set `meta.area`. Missing `meta.area` values render as `main`.
+Use Layout Builder areas when a frontend package or theme needs editor-managed widgets outside the standard page body. Areas keep the normal Layout Builder storage model: widgets live in containers, and containers set `meta.area`. Missing `meta.area` values render as `main`.
 
 An optional chrome or Layout Builder package can register `header` and render it from its theme view:
 

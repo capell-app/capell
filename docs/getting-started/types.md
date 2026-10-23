@@ -46,7 +46,7 @@ The important difference: a page blueprint controls what a page is allowed to do
 
 ## Demo And Artwork Variations
 
-Demo variations should prove range without changing the core mental model. They combine the same site blueprints, page blueprints, layouts, sections, and widgets with stronger visual direction.
+Demo variations should prove range without changing the core mental model. They combine the same site blueprints, page blueprints and layouts and, with the optional packages, sections and widgets, with stronger visual direction.
 
 Good demo families:
 
@@ -81,7 +81,7 @@ Blueprint-specific fields can also appear in expandable sections or package-prov
 
 ## Blueprint Configuration
 
-The Blueprints screen groups records by model family, such as pages, sites, themes, sections, and widgets. Each blueprint has a unique key used by configuration, templates, URL generation, and package integrations.
+The Blueprints screen groups records by model family: pages, sites and themes (plus any families optional packages add). Each blueprint has a unique key used by configuration, templates, URL generation, and package integrations.
 
 | Browse blueprint families                                                                                                                                                                                                                                                                                                                                                                                                            | Define a blueprint                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -97,7 +97,7 @@ The admin tab controls the editor-facing side: configurator selection, icon, sho
 
 ## Extension Points
 
-Developers and packages register blueprints through Capell extension points. Core page blueprints, package page blueprints, widgets, page sections, and content blocks all use the same idea: give a model a reusable named configuration that can be discovered, edited, and rendered consistently.
+Developers and packages register blueprints through Capell extension points. Core page blueprints and package page blueprints use this idea, and package-owned widgets, sections and blocks follow the same pattern: give a model a reusable named configuration that can be discovered, edited, and rendered consistently.
 
 Use [How Capell works](how-capell-works.md#extension-points) for the high-level map, and [Extending Capell](../../packages/core/docs/extending-capell.md#2-page-types-and-component-registration) for developer registration details. That lower-level guide still uses `PageTypeData` because the public extension API names the page subject contract rather than an individual blueprint record.
 

@@ -5,7 +5,7 @@
 
 ## Scope
 
-How to create Capell content — pages, URLs, translations, element types, element instances, layouts — from seeders or migrations, without going through the admin UI. Primary audience: deployers who want reproducible installs and app authors replacing the default demo data.
+How to create Capell content — pages, URLs, translations, layouts, widgets — from seeders or migrations, without going through the admin UI. Primary audience: deployers who want reproducible installs and app authors replacing the default demo data.
 
 ## When to seed vs. migrate vs. use the admin UI
 
@@ -36,7 +36,7 @@ How to create Capell content — pages, URLs, translations, element types, eleme
 ### Recipe: create a layout with two sections
 
 - `Layout::create(...)`, then define one entry per section in the layout's `containers` array (a JSON column on `Capell\Core\Models\Layout`; there is no separate container model).
-- Attach elements in each container entry's `widgets` array.
+- Attach widgets in each container entry's `widgets` array.
 
 ### Recipe: seed a navigation tree
 
