@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Install\Cli;
 use Capell\Core\Data\Install\InstallHandoffData;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\View\Components\Factory;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Throwable;
 
 final class InstallCommandPresenter
@@ -66,6 +67,8 @@ final class InstallCommandPresenter
         $components->twoColumnDetail('First page', $handoff->firstPage['status']);
         $components->twoColumnDetail('Warnings', (string) count($handoff->warnings));
 
+        $this->outputTips($handoff, $output);
+
         $output->writeln('Next: ' . $handoff->nextAction['label'] . ' — ' . $handoff->nextAction['url']);
         $output->writeln($handoff->publicImpact['summary']);
         $output->writeln('No Capell account connection or telemetry identity submission is required for this handoff.');
@@ -87,5 +90,28 @@ final class InstallCommandPresenter
         }
 
         $output->writeln('Set CAPELL_INSTALL_DEBUG=1 for step-level diagnostics. Review the failed step before continuing.');
+    }
+
+    private function outputTips(InstallHandoffData $handoff, OutputStyle $output): void
+    {
+        if ($handoff->tips === []) {
+            return;
+        }
+
+        $output->newLine();
+        $output->writeln('<options=bold>' . __('capell-core::install.handoff.title') . '</>');
+
+        $width = max(array_map(fn (array $tip): int => mb_strlen($tip['label']), $handoff->tips));
+
+        foreach ($handoff->tips as $index => $tip) {
+            $output->writeln(sprintf(
+                '  %d. %s  %s',
+                $index + 1,
+                OutputFormatter::escape(mb_str_pad($tip['label'], $width)),
+                OutputFormatter::escape($tip['detail']),
+            ));
+        }
+
+        $output->newLine();
     }
 }

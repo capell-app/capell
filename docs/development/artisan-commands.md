@@ -74,7 +74,7 @@ Install profiles can live in `config/capell-install-profiles.php`,
 `config('capell.install_profiles')`, or `capell-install-profiles.json`. Explicit
 CLI options always win over profile defaults.
 
-Every successful install prints a `Capell Install Handoff` after the health summary. It records the selected packages, migration/setup/doctor outcomes, safe Admin and public URLs, the first-page state, warnings, and one next action. Pass `--handoff-json=storage/app/capell-install-handoff.json` when CI or a clean-consumer release check needs the same redacted contract as JSON. The artifact never requires an account connection or telemetry identity submission.
+Every successful install prints a `Capell Install Handoff` after the health summary. It records the selected packages, migration/setup/doctor outcomes, safe Admin and public URLs, the first-page state, warnings, a short `What next` list of install-shaped tips (also exported as `tips` in the JSON), and one next action. Pass `--handoff-json=storage/app/capell-install-handoff.json` when CI or a clean-consumer release check needs the same redacted contract as JSON. The artifact never requires an account connection or telemetry identity submission.
 
 ```php
 return [

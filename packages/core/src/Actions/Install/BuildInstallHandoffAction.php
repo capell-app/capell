@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Data\Install\InstallHandoffData;
 use Capell\Core\Data\Install\InstallRunResultData;
 use Capell\Core\Data\InstallInputData;
+use Capell\Core\Support\Install\InstallHandoffTips;
 use Capell\Core\Support\Install\InstallPlan;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -20,6 +21,8 @@ final class BuildInstallHandoffAction
 
     private const string INSTALL_DOCS_URL = 'https://docs.capell.app/getting-started/install/';
 
+    public function __construct(private readonly InstallHandoffTips $tips) {}
+
     /**
      * @param  list<string>  $warnings
      */
@@ -29,6 +32,7 @@ final class BuildInstallHandoffAction
         ?string $adminUrl,
         string $firstPageStatus,
         array $warnings,
+        ?string $adminEmail = null,
     ): InstallHandoffData {
         $doctorStatus = in_array($result->doctorStatus, ['passed', 'qualified_warning'], true)
             ? $result->doctorStatus
@@ -44,29 +48,32 @@ final class BuildInstallHandoffAction
             $warnings[] = 'This install did not record a frontend asset build. Run the application package manager install and production build before opening Admin or the public page.';
         }
 
+        $selectedPackages = array_values(collect($result->selectedPackages)
+            ->filter(fn (mixed $package): bool => is_string($package) && $package !== '')
+            ->unique()
+            ->sort()
+            ->values()
+            ->all());
+        $safeAdminUrl = $this->safeHttpUrl($adminUrl);
+        $safePublicUrl = $this->safeHttpUrl($inputData->siteUrl) ?? '';
+        $safeFirstPageStatus = in_array($firstPageStatus, ['editable', 'present_unverified', 'missing'], true)
+            ? $firstPageStatus
+            : 'unavailable';
+
         return new InstallHandoffData(
             schemaVersion: 1,
             status: $completed ? 'completed' : 'incomplete',
-            selectedPackages: array_values(collect($result->selectedPackages)
-                ->filter(fn (mixed $package): bool => is_string($package) && $package !== '')
-                ->unique()
-                ->sort()
-                ->values()
-                ->all()),
+            selectedPackages: $selectedPackages,
             outcomes: [
                 'migrations' => $migrationsCompleted ? 'completed' : 'incomplete',
                 'setup' => $setupCompleted ? 'completed' : 'incomplete',
                 'doctor' => $doctorStatus,
             ],
             urls: [
-                'admin' => $this->safeHttpUrl($adminUrl),
-                'public' => $this->safeHttpUrl($inputData->siteUrl) ?? '',
+                'admin' => $safeAdminUrl,
+                'public' => $safePublicUrl,
             ],
-            firstPage: [
-                'status' => in_array($firstPageStatus, ['editable', 'present_unverified', 'missing'], true)
-                    ? $firstPageStatus
-                    : 'unavailable',
-            ],
+            firstPage: ['status' => $safeFirstPageStatus],
             warnings: array_values(collect($warnings)
                 ->filter(fn (mixed $warning): bool => is_string($warning) && trim($warning) !== '')
                 ->map(fn (string $warning): string => $this->sanitizeWarning($warning))
@@ -93,6 +100,16 @@ final class BuildInstallHandoffAction
                 'accountConnection' => 'not_required',
                 'telemetrySubmission' => 'not_performed',
             ],
+            tips: $this->tips->build(
+                inputData: $inputData,
+                selectedPackages: $selectedPackages,
+                completed: $completed,
+                needsFrontendBuild: $needsFrontendBuild,
+                adminUrl: $safeAdminUrl,
+                adminEmail: $adminEmail,
+                publicUrl: $safePublicUrl,
+                firstPageStatus: $safeFirstPageStatus,
+            ),
         );
     }
 
