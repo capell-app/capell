@@ -146,7 +146,7 @@ final class InstallPostInstallOptionResolver
 
             $welcomeRouteInstaller->disableFrontendHomeRoute();
         } catch (Throwable $throwable) {
-            $manualChange = $removeExistingHomeRoute
+            $manualChange = $removeExistingHomeRoute && ! $welcomeRouteInstaller->hasRootRoute()
                 ? 'Set CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true in .env.'
                 : 'Set CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false in .env.';
 
