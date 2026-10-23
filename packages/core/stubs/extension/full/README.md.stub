@@ -31,13 +31,22 @@ php artisan vendor:publish --tag={{ slug }}-assets
 php artisan capell:frontend-tailwind-assets
 ```
 
-Composer presence alone does not enable an extension. The lifecycle command runs
-its declared settings migration and enables its manifest providers. Restart
-long-running workers after changing providers. In Extensions, open this package's
-settings, save `public_label`, close the modal and reopen it to check persistence.
-Add its example widget to a published page and check the anonymous response for
-escaped content and absence of authoring state. An installed theme or frontend
-runtime may also need selecting for the site; installation alone does not select it.
+Composer presence alone does not enable an extension. Composer discovery boots
+`PackageServiceProvider`, but its widget, editor block and widget assets register
+only from `bootInstalledRuntime()` once Capell has installed and enabled the
+package. The admin provider and its settings form load only while the package is
+enabled. Disabling the package removes the widget from the editor and from public
+output without deleting page content that uses it; re-enabling restores it.
+The `install` bucket's example command stays available so lifecycle work can run
+before enablement.
+
+The lifecycle command runs the declared settings migration and enables the
+package. Restart long-running workers after changing providers. In Extensions,
+open this package's settings, save `public_label`, close the form and reopen it to
+check persistence. Add the example widget to a published page and check the
+anonymous response for escaped content and absence of authoring state. An
+installed theme or frontend runtime may also need selecting for the site;
+installation alone does not select it.
 
 ## Verification
 
@@ -47,6 +56,11 @@ From the package directory:
 composer install
 composer test
 ```
+
+`composer install` runs `testbench package:discover`, so the tests boot the
+declared Capell packages as a host would. They check the manifest, save and
+reload `public_label`, and prove the widget stays unavailable until the package
+is enabled and then renders escaped public output.
 
 From the host app:
 

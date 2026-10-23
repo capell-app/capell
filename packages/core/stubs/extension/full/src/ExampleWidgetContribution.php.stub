@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use Override;
-
 use Capell\Core\Contracts\Extensions\RegistersExtensionContentWidget;
+use Override;
 
 final class ExampleWidgetContribution implements RegistersExtensionContentWidget
 {

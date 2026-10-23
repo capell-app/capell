@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace {{ namespace }}\Providers;
 
-use Override;
-
 use Illuminate\Support\ServiceProvider;
+use Override;
 
 final class MetadataServiceProvider extends ServiceProvider
 {

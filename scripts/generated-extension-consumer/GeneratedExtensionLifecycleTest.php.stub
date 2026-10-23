@@ -1,0 +1,56 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Core\Actions\DisablePackageAction;
+use Capell\Core\Actions\EnablePackageAction;
+use Capell\Core\Facades\CapellCore;
+use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
+use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
+use Capell\LayoutBuilder\Actions\WidgetExtensions\RenderPublicWidgetExtensionAction;
+use Capell\LayoutBuilder\Data\WidgetExtensions\WidgetExtensionDefinitionData;
+use Capell\LayoutBuilder\Support\WidgetExtensions\WidgetExtensionRegistry;
+use Tests\TestCase;
+
+/**
+ * Copied into the disposable host by verify-generated-extension-consumer.sh and
+ * run once per lifecycle step, so every observation uses a freshly booted host.
+ * It uses the host's installed database rather than a refreshed schema.
+ */
+final class GeneratedExtensionLifecycleTest extends TestCase
+{
+    public function test_generated_widget_follows_the_extension_lifecycle_step(): void
+    {
+        $packageName = (string) getenv('CAPELL_GENERATED_PACKAGE');
+        $namespace = (string) getenv('CAPELL_GENERATED_NAMESPACE');
+        $widgetKey = (string) getenv('CAPELL_GENERATED_WIDGET_KEY');
+        $step = (string) getenv('CAPELL_GENERATED_LIFECYCLE_STEP');
+        $this->assertContains($step, ['enabled', 'disabled', 'disable', 'enable']);
+
+        if ($step === 'disable' || $step === 'enable') {
+            ($step === 'disable' ? DisablePackageAction::class : EnablePackageAction::class)::run(CapellCore::getPackage($packageName));
+            $this->assertSame($step === 'enable', CapellCore::isPackageEnabled($packageName));
+
+            return;
+        }
+
+        $renderDataClass = $namespace . '\\Data\\ExampleWidgetRenderData';
+        $html = resolve(RenderPublicWidgetExtensionAction::class)->render(
+            ['type' => $widgetKey, 'data' => ['__capell' => ['instance_id' => 'consumer-probe']]],
+            ['consumer-probe' => new $renderDataClass(heading: '<script>alert(1)</script>Consumer heading', body: 'Consumer body')],
+        );
+        $enabled = $step === 'enabled';
+
+        $this->assertSame($enabled, CapellCore::isPackageEnabled($packageName));
+        $this->assertSame($enabled, app()->getProvider($namespace . '\\Providers\\AdminServiceProvider') !== null, 'Admin provider');
+        $this->assertSame($enabled, resolve(WidgetExtensionRegistry::class)->definition($widgetKey) instanceof WidgetExtensionDefinitionData, 'Widget definition');
+        $this->assertSame($enabled, in_array($namespace . '\\Filament\\ExampleWidget', resolve(WidgetDiscovery::class)->registeredWidgets(), true), 'Editor block');
+        $this->assertSame($enabled, resolve(FrontendResourceRegistry::class)->has($widgetKey), 'Widget assets');
+        $this->assertSame($enabled, str_contains($html, '&lt;script&gt;alert(1)&lt;/script&gt;Consumer heading'), 'Escaped public heading');
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
+        $this->assertFalse(resolve(PublicHtmlSafetyInspector::class)->containsAuthoringSurface($html));
+    }
+}

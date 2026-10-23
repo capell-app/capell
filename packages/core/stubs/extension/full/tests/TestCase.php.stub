@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace {{ namespace }}\Tests;
 
+use Capell\Core\Facades\CapellCore;
 use Capell\Core\Providers\CapellServiceProvider;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Override;
+use ReflectionClass;
 use Spatie\LaravelData\LaravelDataServiceProvider;
 use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\Permission\PermissionServiceProvider;
@@ -14,10 +17,21 @@ use {{ namespace }}\Providers\PackageServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
+    use LazilyRefreshDatabase;
+
+    public const string PACKAGE = '{{ packageName }}';
+
+    /**
+     * Boot the required Capell packages as a host application discovers them.
+     * Composer's post-autoload-dump script runs `testbench package:discover`.
+     */
+    protected $enablesPackageDiscoveries = true;
+
     /** @return list<class-string> */
     #[Override]
     protected function getPackageProviders(mixed $app): array
     {
+        // Data and permissions boot before Capell; Spatie settings read Capell's settings configuration.
         return [
             LaravelDataServiceProvider::class,
             PermissionServiceProvider::class,
@@ -25,5 +39,40 @@ abstract class TestCase extends Orchestra
             LaravelSettingsServiceProvider::class,
             PackageServiceProvider::class,
         ];
+    }
+
+    #[Override]
+    protected function defineEnvironment(mixed $app): void
+    {
+        // A host has already installed this package's Capell dependencies; this package starts uninstalled.
+        $app->booted(static function (): void {
+            foreach (CapellCore::getPackages()->keys() as $packageName) {
+                if ($packageName !== self::PACKAGE) {
+                    CapellCore::forcePackageInstalled($packageName);
+                }
+            }
+        });
+    }
+
+    #[Override]
+    protected function defineDatabaseMigrations(): void
+    {
+        $this->loadLaravelMigrations();
+        $coreMigrationPath = dirname((string) new ReflectionClass(CapellServiceProvider::class)->getFileName(), 3) . '/database/migrations';
+
+        foreach (CapellCore::getMigrations() as $migrationName) {
+            $this->loadMigrationsFrom(sprintf('%s/%s.php', $coreMigrationPath, $migrationName));
+        }
+    }
+
+    /** Create Spatie's settings table, then apply this package's settings migrations. */
+    protected function migratePackageSettings(): void
+    {
+        $settingsTable = dirname((string) new ReflectionClass(LaravelSettingsServiceProvider::class)->getFileName(), 2) . '/database/migrations/create_settings_table.php.stub';
+        (require $settingsTable)->up();
+
+        foreach (glob(dirname(__DIR__) . '/database/settings/*.php') ?: [] as $settingsMigration) {
+            (require $settingsMigration)->up();
+        }
     }
 }

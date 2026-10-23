@@ -11,6 +11,11 @@ return [
         'label' => {{ phpDisplayName }},
         'message' => 'This is safe public package output.',
     ],
+    'widget' => [
+        'label' => {{ phpDisplayName }} . ' example',
+        'heading' => 'Heading',
+        'body' => 'Body',
+    ],
     'settings' => [
         'label' => {{ phpDisplayName }},
         'description' => 'Configure ' . {{ phpDisplayName }} . '.',

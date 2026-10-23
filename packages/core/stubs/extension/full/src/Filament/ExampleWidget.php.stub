@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace {{ namespace }}\Filament;
 
-use Override;
-
 use Capell\Admin\Contracts\Widgets\FilamentWidget;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\TextInput;
+use Override;
 
 final class ExampleWidget implements FilamentWidget
 {
@@ -22,10 +21,10 @@ final class ExampleWidget implements FilamentWidget
     public static function make(): Block
     {
         return Block::make(self::getWidgetName())
-            ->label({{ phpDisplayName }} . ' example')
+            ->label(__('{{ slug }}::package.widget.label'))
             ->schema([
-                TextInput::make('heading')->required()->maxLength(120),
-                TextInput::make('body')->required()->maxLength(280),
+                TextInput::make('heading')->label(__('{{ slug }}::package.widget.heading'))->required()->maxLength(120),
+                TextInput::make('body')->label(__('{{ slug }}::package.widget.body'))->required()->maxLength(280),
             ]);
     }
 }

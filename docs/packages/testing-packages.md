@@ -10,7 +10,7 @@ Capell packages are tested with [Orchestra Testbench](https://packages.tools/tes
 
 Use this section when your package lives in its own repository. The examples elsewhere on this page assume the harness below already exists.
 
-`php artisan capell:make-extension` includes the Core, Data, permission and settings providers in its generated `TestCase`. Packages using additional surfaces still need those surface providers and their migration fixtures, as described below. The minimal profile can run its manifest suite directly; full-profile widget and settings tests also need the declared Admin, Frontend and Layout Builder dependencies.
+`php artisan capell:make-extension` includes the Core, Data, permission and settings providers in its generated `TestCase`. The minimal profile runs its manifest suite with those alone. The full profile's `TestCase` also enables Testbench package discovery, so its declared Admin, Frontend and Layout Builder dependencies boot as they would in a host. Its `post-autoload-dump` script runs `vendor/bin/testbench package:discover` to build that list. The generated `TestCase` treats every other discovered Capell package as installed and leaves your package uninstalled, loads Core's migrations, and offers `migratePackageSettings()` for settings tests. Packages using other surfaces still need those surface providers and their migration fixtures, as described below.
 
 ### 1. Development dependencies
 
@@ -218,6 +218,18 @@ vendor/bin/pest
 Capell's internal test helpers live under the `Capell\Tests\` namespace, which is mapped in this repository's `autoload-dev` only. `CreatesAdminUser`, `TestingFrontend`, `IsolatedTestbenchSkeleton`, `PackageTestDatabaseGuard`, and the `Capell\Tests\Support\Fakes\*` doubles are **not** shipped to third-party packages. Do not reference them; write the equivalent fixture in your own package.
 
 `CapellCore::registerManifestPackage()`, `CapellCore::getMigrations()`, and `CapellCore::getSettingMigrations()` are shipped API and safe to use. `CapellCore::forcePackageInstalled()` is marked `@internal` but is the supported test mechanism, as noted above.
+
+<a id="generated-extension-consumer-check"></a>
+
+### Checking the scaffold in a real consumer
+
+Changes to the `capell:make-extension` stubs are checked against real consumers, not only file shape. From this repository, with a Capell Packages checkout that provides Layout Builder and the default theme:
+
+```bash
+CAPELL_PACKAGES_CHECKOUT=/path/to/capell-packages bash scripts/verify-generated-extension-consumer.sh
+```
+
+The script generates both profiles and runs each generated suite with `composer install` and `composer test -- --fail-on-risky`. It then creates a fresh Laravel application, installs Capell unattended and follows the full profile's generated README. It also requires clean `capell:package:lint` and `capell:extension-audit` results, and saves and reloads `public_label` through Extensions management. Finally, it checks the widget's editor block, assets and escaped public output while the package is enabled, disabled and enabled again. Set `CAPELL_GENERATED_CONSUMER_ROOT` to keep the consumer for inspection. Composer needs network access.
 
 ## Test Case
 

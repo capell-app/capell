@@ -4,22 +4,31 @@ declare(strict_types=1);
 
 namespace {{ namespace }}\Providers;
 
-use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
-use Capell\Core\Support\Settings\SettingsGroupMetadata;
+use Capell\Admin\Data\Extensions\ExtensionManagementSurfaceData;
+use Capell\Admin\Facades\CapellAdmin;
+use Capell\Core\Support\Packages\RegistersInstalledRuntime;
 use Illuminate\Support\ServiceProvider;
+use Override;
 use {{ namespace }}\Settings\PackageSettings;
 
 final class AdminServiceProvider extends ServiceProvider
 {
-    public function boot(PackageSurfaceRegistrar $settings): void
+    use RegistersInstalledRuntime;
+
+    #[Override]
+    public function register(): void
     {
-        $settings->settingsClass(PackageSettings::group(), PackageSettings::class);
-        $settings->settingsMetadata(new SettingsGroupMetadata(
-            group: PackageSettings::group(),
-            label: __('{{ slug }}::package.settings.label'),
-            icon: 'heroicon-o-puzzle-piece',
-            navigationGroup: __('{{ slug }}::package.settings.navigation_group'),
+        $this->registerInstalledRuntime('{{ packageName }}', 'admin');
+    }
+
+    protected function bootInstalledRuntime(): void
+    {
+        // Extensions management opens the settings form from this package's card.
+        CapellAdmin::registerExtensionManagementSurface(ExtensionManagementSurfaceData::settings(
             packageName: '{{ packageName }}',
+            label: __('{{ slug }}::package.settings.label'),
+            settingsGroup: PackageSettings::group(),
+            icon: 'heroicon-o-puzzle-piece',
         ));
     }
 }
