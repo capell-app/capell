@@ -7,7 +7,7 @@ namespace Capell\Core\Support\Patching;
 use PhpToken;
 
 /**
- * Only standalone, file-level route statements are candidates. Token positions
+ * Only standalone, file-level route statements are removable. Token positions
  * let removal preserve every byte outside a stock welcome statement.
  */
 final class RootRouteEditor
@@ -15,14 +15,17 @@ final class RootRouteEditor
     /** @var list<non-empty-list<PhpToken>> */
     private readonly array $routes;
 
+    private readonly RouteSourceTokens $source;
+
     public function __construct(private readonly string $content)
     {
+        $this->source = new RouteSourceTokens($content);
         $this->routes = $this->rootRoutes();
     }
 
     public function hasRootRoute(): bool
     {
-        return $this->routes !== [];
+        return new RootRouteDetector($this->source->tokens)->hasRootRoute();
     }
 
     public function hasStockWelcomeRoute(): bool
@@ -56,9 +59,29 @@ final class RootRouteEditor
         $alternativeDepth = 0;
         $controlHeader = false;
         $awaitingControlBody = false;
+        $namespaceHeader = false;
 
-        foreach (PhpToken::tokenize($this->content, TOKEN_PARSE) as $token) {
+        foreach ($this->source->tokens as $token) {
             if ($token->is([T_WHITESPACE, T_COMMENT, T_DOC_COMMENT, T_OPEN_TAG])) {
+                continue;
+            }
+
+            if ($depth === 0 && $token->id === T_NAMESPACE) {
+                $namespaceHeader = true;
+                $statement = [];
+            }
+
+            if ($namespaceHeader) {
+                if ($token->is([ord(';'), ord('{')])) {
+                    $namespaceHeader = false;
+                }
+
+                continue;
+            }
+
+            if ($depth === 0 && $token->id === ord('}')) {
+                $statement = [];
+
                 continue;
             }
 
@@ -67,7 +90,7 @@ final class RootRouteEditor
             if ($awaitingControlBody) {
                 $awaitingControlBody = false;
                 $controlHeader = false;
-                if ($token->is(':')) {
+                if ($token->is(ord(':'))) {
                     $alternativeDepth++;
                     $statement = [];
 
@@ -87,7 +110,7 @@ final class RootRouteEditor
                 $depth--;
             }
 
-            if ($depth === 0 && $token->is(')') && $controlHeader) {
+            if ($depth === 0 && $token->is(ord(')')) && $controlHeader) {
                 $awaitingControlBody = true;
             }
 
@@ -103,7 +126,7 @@ final class RootRouteEditor
                 continue;
             }
 
-            if ($alternativeDepth === 0 && $token->is(';') && $this->isRootRoute($statement)) {
+            if ($alternativeDepth === 0 && $token->is(ord(';')) && $this->isRootRoute($statement)) {
                 $routes[] = $statement;
             }
 
@@ -132,7 +155,7 @@ final class RootRouteEditor
             $depth = 0;
             for ($index = 4; isset($tokens[$index]); $index++) {
                 $token = $tokens[$index];
-                if ($token->is(',') && $depth === 0) {
+                if ($token->is(ord(',')) && $depth === 0) {
                     $uriIndex = $index + 1;
                     break;
                 }

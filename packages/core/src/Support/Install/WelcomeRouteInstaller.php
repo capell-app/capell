@@ -66,10 +66,10 @@ final class WelcomeRouteInstaller
             return false;
         }
 
-        $this->configureFrontendHomeRoute(register: true);
         $content = $routes->removeStockWelcomeRoutes();
 
         throw_if(file_put_contents($routesWebPath, $content) === false, RuntimeException::class, 'Unable to write routes/web.php.');
+        $this->enableFrontendHomeRoute();
 
         return true;
     }
@@ -81,7 +81,9 @@ final class WelcomeRouteInstaller
 
     public function enableFrontendHomeRoute(): void
     {
-        $this->configureFrontendHomeRoute(register: true);
+        // Configuration runs before removal in the CLI. Keep the frontend root
+        // disabled until the application root has actually been removed.
+        $this->configureFrontendHomeRoute(register: ! $this->hasRootRoute());
     }
 
     private function configureFrontendHomeRoute(bool $register): void

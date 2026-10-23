@@ -334,6 +334,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
             adminUrl: $this->installAdminUrl(),
             firstPageStatus: $this->installFirstPageStatus(),
             warnings: array_values(array_unique($this->manualInstallChanges)),
+            adminEmail: $inputData->newUser?->email,
         );
         $handoffJson = $this->option('handoff-json');
 
