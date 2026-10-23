@@ -78,6 +78,7 @@ it('delegates status reporting without adding a second cache write', function (s
     config(['cache.default' => 'array']);
     $sessions = new InstallerSessionRepository;
     $run = new InstallerRun($sessions, 'reported-install');
+    $ownershipLock = Cache::lock('capell.install.ownership', 30);
     $reporter = new FileLogProgressReporter($run->installId, new CacheProgressReporter($run->installId));
     Cache::shouldReceive('put')
         ->with($sessions->key($run->installId, 'status'), $target->value, InstallerSessionRepository::LOCK_TTL)
@@ -85,6 +86,7 @@ it('delegates status reporting without adding a second cache write', function (s
         ->andReturn(true);
 
     if ($target === InstallerRunStatus::Failed) {
+        Cache::shouldReceive('lock')->with('capell.install.ownership', 30)->once()->andReturn($ownershipLock);
         Cache::shouldReceive('get')->with(InstallerSessionRepository::LOCK_KEY, null)->once()->andReturn(null);
     }
 

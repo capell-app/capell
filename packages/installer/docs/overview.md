@@ -75,6 +75,19 @@ and retries once, then returns the user to the form. Step requests send the
 current token and accept replacement `csrfToken` values from responses, but a
 `419` is a hard expired-session failure with no automatic retry.
 
+Browser step requests acquire an owner-aware execution lease. If a disconnected
+request is still running, a duplicate response has `inProgress: true`; the browser
+polls the same step without marking it complete. A repeated request after commit
+returns the next persisted step. Cancellation or replacement prevents an old
+request from committing resolved-user, completion or failure state when it returns;
+it does not undo work the executing command has already performed.
+
+Queued failures keep their active lock and `queued` status during retry backoff.
+Exhaustion marks the run failed and releases only that run's lock. A superseded
+attempt cannot clear its replacement's lock or overwrite cancellation. The latest
+run identity remains cached for the same window, so a failed browser run cannot
+resume after its replacement has completed and released the active lock.
+
 ## Data Model
 
 Installer owns no data tables.
@@ -93,6 +106,12 @@ Migration impact:
 
 Deletion and retention:
 
+- Cancellation purges executable input and the active plan. The download retains
+  a separate redacted snapshot of the original plan, completed steps, preflight,
+  diagnostics and output for the existing two-hour cache window. It cannot resume
+  the cancelled install, and access still requires the originating browser session.
+- Snapshot collections are capped at 500 entries and strings at 8 KiB. Passwords
+  from install input and credential fields are removed from the retained download.
 - Cache entries expire after the configured install window.
 - Removing the package deletes the installer code path, not the installed site content.
 

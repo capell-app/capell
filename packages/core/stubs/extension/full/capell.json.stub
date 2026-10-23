@@ -48,7 +48,7 @@
     "commands": {
         "doctor": null
     },
-    "settings": ["{{ settingsGroup }}"],
+    "settings": ["{{ escapedNamespace }}\\Settings\\PackageSettings"],
     "permissions": [],
     "capabilities": ["frontend-assets", "frontend-rendering"],
     "performance": {

@@ -6,6 +6,7 @@ namespace Capell\Installer\Support;
 
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\FileLogProgressReporter;
+use Capell\Installer\Actions\RetainInstallerRunReportAction;
 use Capell\Installer\Enums\InstallerRunStatus;
 
 final readonly class InstallerRun
@@ -88,13 +89,16 @@ final readonly class InstallerRun
 
     public function cancel(bool $releaseLock = true): void
     {
-        $this->sessions->clearInstallSession($this->installId);
-        $this->persistStatus(InstallerRunStatus::Cancelled);
+        $this->sessions->duringRunUpdate($this->installId, function () use ($releaseLock): void {
+            RetainInstallerRunReportAction::run($this->installId);
+            $this->sessions->clearInstallSession($this->installId);
+            $this->persistStatus(InstallerRunStatus::Cancelled);
 
-        // Replacement keeps the old lock until the incoming run overwrites it.
-        if ($releaseLock) {
-            $this->releaseLock();
-        }
+            // Replacement keeps the old lock until the incoming run overwrites it.
+            if ($releaseLock) {
+                $this->releaseLock();
+            }
+        });
     }
 
     public function releaseLock(): void

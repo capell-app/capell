@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace {{ namespace }}\Providers;
 
+use Capell\Core\Support\Packages\PackageSurfaceRegistrar;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
-use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Illuminate\Support\ServiceProvider;
 use {{ namespace }}\Settings\PackageSettings;
 
 final class AdminServiceProvider extends ServiceProvider
 {
-    public function boot(SettingsSchemaRegistry $settings): void
+    public function boot(PackageSurfaceRegistrar $settings): void
     {
-        $settings->registerSettingsClass(PackageSettings::group(), PackageSettings::class);
-        $settings->registerMetadata(new SettingsGroupMetadata(
+        $settings->settingsClass(PackageSettings::group(), PackageSettings::class);
+        $settings->settingsMetadata(new SettingsGroupMetadata(
             group: PackageSettings::group(),
             label: __('{{ slug }}::package.settings.label'),
             icon: 'heroicon-o-puzzle-piece',

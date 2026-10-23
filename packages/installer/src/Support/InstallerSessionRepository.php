@@ -16,6 +16,8 @@ final class InstallerSessionRepository
 {
     public const string LOCK_KEY = 'capell.install.lock';
 
+    public const string LATEST_RUN_KEY = 'capell.install.latest';
+
     public const int LOCK_TTL = 7200;
 
     private const array INSTALL_SESSION_CACHE_SUFFIXES = [
@@ -32,6 +34,19 @@ final class InstallerSessionRepository
         'diagnostics',
         'recommendation',
     ];
+
+    /**
+     * Serialise short state commits and cancellation, never the executing command.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function duringRunUpdate(string $installId, callable $callback): mixed
+    {
+        return Cache::lock($this->key($installId, 'state-lock'), 30)->block(5, $callback);
+    }
 
     public function run(string $installId): InstallerRun
     {
@@ -192,22 +207,48 @@ final class InstallerSessionRepository
             $payload['queued'] = true;
         }
 
-        $this->put(self::LOCK_KEY, $payload);
+        Cache::lock('capell.install.ownership', 30)->block(5, function () use ($installId, $payload): void {
+            $this->put(self::LOCK_KEY, $payload);
+            $this->put(self::LATEST_RUN_KEY, $installId);
+        });
+    }
+
+    public function claimActiveLock(string $installId): bool
+    {
+        return Cache::lock('capell.install.ownership', 30)->block(5, function () use ($installId): bool {
+            $latestRun = $this->get(self::LATEST_RUN_KEY);
+            if (is_string($latestRun) && $latestRun !== $installId) {
+                return false;
+            }
+
+            $lock = $this->get(self::LOCK_KEY);
+            if (is_array($lock) && ($lock['installId'] ?? null) !== $installId) {
+                return false;
+            }
+
+            InstallRunState::usePanelScaffoldRun($installId);
+            $this->put(self::LOCK_KEY, ['installId' => $installId]);
+            $this->put(self::LATEST_RUN_KEY, $installId);
+
+            return true;
+        });
     }
 
     public function clearActiveLock(?string $installId = null): void
     {
-        if ($installId === null) {
-            $this->forget(self::LOCK_KEY);
+        Cache::lock('capell.install.ownership', 30)->block(5, function () use ($installId): void {
+            if ($installId === null) {
+                $this->forget(self::LOCK_KEY);
 
-            return;
-        }
+                return;
+            }
 
-        $lock = $this->get(self::LOCK_KEY);
+            $lock = $this->get(self::LOCK_KEY);
 
-        if (is_array($lock) && ($lock['installId'] ?? null) === $installId) {
-            $this->forget(self::LOCK_KEY);
-        }
+            if (is_array($lock) && ($lock['installId'] ?? null) === $installId) {
+                $this->forget(self::LOCK_KEY);
+            }
+        });
     }
 
     public function status(string $installId, string $default = InstallerRunStatus::Unknown->value): string

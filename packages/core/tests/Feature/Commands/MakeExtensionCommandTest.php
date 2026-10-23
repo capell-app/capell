@@ -289,3 +289,19 @@ it('renders escaped public content from the full scaffold render data', function
         ->toContain('assertNoUnsafePublicCache');
     // Manifest validity is covered by "creates a minimal package scaffold without modifying root composer dependencies".
 });
+
+it('runs the generated minimal suite in an independent Testbench consumer', function (): void {
+    $packagesDirectory = makeExtensionWorkbenchDirectory();
+    artisanCommand('capell:make-extension', [
+        'package' => 'vendor/standalone-example', '--profile' => 'minimal', '--path' => $packagesDirectory, '--no-interaction' => true,
+    ])->assertExitCode(Command::SUCCESS);
+    $directory = $packagesDirectory . '/standalone-example';
+    // Reuse installed dependencies offline; this does not claim Composer resolution proof.
+    File::ensureDirectoryExists($directory . '/vendor/pestphp/pest/bin');
+    File::copy(dirname(__DIR__, 5) . '/vendor/pestphp/pest/bin/pest', $directory . '/vendor/pestphp/pest/bin/pest');
+    File::put($directory . '/vendor/autoload.php', '<?php $loader = require ' . var_export(dirname(__DIR__, 5) . '/vendor/autoload.php', true) . '; $loader->addPsr4("Vendor\\\\StandaloneExample\\\\", ' . var_export($directory . '/src/', true) . '); $loader->addPsr4("Vendor\\\\StandaloneExample\\\\Tests\\\\", ' . var_export($directory . '/tests/', true) . '); return $loader;');
+    $process = new Process([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--configuration=phpunit.xml.dist'], $directory, timeout: 60);
+    $process->run();
+
+    expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput());
+});

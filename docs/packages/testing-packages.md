@@ -10,7 +10,7 @@ Capell packages are tested with [Orchestra Testbench](https://packages.tools/tes
 
 Use this section when your package lives in its own repository. The examples elsewhere on this page assume the harness below already exists.
 
-`php artisan capell:make-extension` scaffolds most of it, but the generated `TestCase` registers **only your own provider** — it does not boot Capell. Anything that touches Capell registries, settings, or migrations needs `CapellServiceProvider` added, as shown below.
+`php artisan capell:make-extension` includes the Core, Data, permission and settings providers in its generated `TestCase`. Packages using additional surfaces still need those surface providers and their migration fixtures, as described below. The minimal profile can run its manifest suite directly; full-profile widget and settings tests also need the declared Admin, Frontend and Layout Builder dependencies.
 
 ### 1. Development dependencies
 

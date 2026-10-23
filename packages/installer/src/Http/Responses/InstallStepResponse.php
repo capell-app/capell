@@ -39,6 +39,7 @@ final class InstallStepResponse
             $payload['preflight'] = $result->preflight;
         }
 
+        $payload['inProgress'] = $result->code === InstallerRunStepResultCode::InProgress;
         $payload['installId'] = $result->installId;
         $payload['currentStep'] = $result->currentStep;
         $payload['nextStep'] = $result->nextStep;
@@ -79,7 +80,7 @@ final class InstallStepResponse
     {
         return match ($code) {
             InstallerRunStepResultCode::Complete => InstallerRunStatus::Complete->value,
-            InstallerRunStepResultCode::Running => InstallerRunStatus::Running->value,
+            InstallerRunStepResultCode::Running, InstallerRunStepResultCode::InProgress => InstallerRunStatus::Running->value,
             default => InstallerRunStatus::Failed->value,
         };
     }

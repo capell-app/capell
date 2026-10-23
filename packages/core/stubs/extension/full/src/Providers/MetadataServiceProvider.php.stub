@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace {{ namespace }}\Providers;
 
+use Override;
+
 use Illuminate\Support\ServiceProvider;
 
 final class MetadataServiceProvider extends ServiceProvider
 {
+    #[Override]
     public function register(): void
     {
     }

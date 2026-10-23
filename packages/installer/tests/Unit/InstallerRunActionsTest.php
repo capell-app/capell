@@ -214,7 +214,7 @@ it('advances a passing preflight step and records its report', function (): void
         ->and($sessions->preflightReport($installId))->toBe(installerPreflightReport());
 });
 
-it('returns a typed preflight failure without clearing a foreign lock', function (): void {
+it('rejects a superseded preflight request without executing it or clearing its replacement lock', function (): void {
     config(['cache.default' => 'array']);
 
     $installId = '35353535-3535-4535-a535-353535353535';
@@ -230,26 +230,29 @@ it('returns a typed preflight failure without clearing a foreign lock', function
     $sessions->run($installId)->releaseLock();
     $sessions->run($foreignInstallId)->startSynchronous();
 
-    $failedPreflight = installerPreflightReport();
-    $failedPreflight['status'] = 'fail';
-    $failedPreflight['checks'] = [[
-        'key' => 'cache',
-        'label' => 'Cache',
-        'status' => 'fail',
-        'severity' => 'blocking',
-        'message' => 'Cache unavailable',
-        'remediation' => 'Configure a shared cache.',
-    ]];
-    bindInstallerRunPreflight($failedPreflight);
+    $preflight = new class
+    {
+        public int $calls = 0;
+
+        /** @return array<string, mixed> */
+        public function run(?InstallInputData $inputData = null): array
+        {
+            $this->calls++;
+
+            return installerPreflightReport();
+        }
+    };
+    app()->instance(InstallerPreflight::class, $preflight);
 
     $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREFLIGHT_CHECKS,
     );
 
-    expect($result->code)->toBe(InstallerRunStepResultCode::PreflightFailed)
-        ->and($result->preflight)->toBe($failedPreflight)
-        ->and($result->remediation)->toBe('Configure a shared cache.')
+    expect($result->code)->toBe(InstallerRunStepResultCode::SessionNotFound)
+        ->and($preflight->calls)->toBe(0)
+        ->and($sessions->input($installId))->toBeNull()
+        ->and($sessions->status($installId))->toBe('cancelled')
         ->and($sessions->activeInstallId())->toBe($foreignInstallId);
 });
 
@@ -344,7 +347,7 @@ it('resets the package metadata refresh flag when a new installer run starts', f
     expect($sessions->packageMetadataRefreshed($installId))->toBeFalse();
 });
 
-it('returns a typed execution failure without clearing a foreign lock', function (): void {
+it('rejects a superseded step without executing it or clearing its replacement lock', function (): void {
     config(['cache.default' => 'array']);
 
     $installId = '38383838-3838-4838-a838-383838383838';
@@ -360,19 +363,16 @@ it('returns a typed execution failure without clearing a foreign lock', function
     $sessions->run($installId)->markRunning();
     $sessions->run($installId)->releaseLock();
     $sessions->run($foreignInstallId)->startSynchronous();
-    RunInstallStepAction::mock()
-        ->shouldReceive('handle')
-        ->once()
-        ->andThrow(new RuntimeException('Step exploded'));
+    RunInstallStepAction::mock()->shouldNotReceive('handle');
 
     $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
     );
 
-    expect($result->code)->toBe(InstallerRunStepResultCode::ExecutionFailed)
-        ->and($result->exceptionClass)->toBe(RuntimeException::class)
-        ->and($result->exceptionMessage)->toBe('Step exploded')
+    expect($result->code)->toBe(InstallerRunStepResultCode::SessionNotFound)
+        ->and($sessions->completedSteps($installId))->toBe([])
+        ->and($sessions->status($installId))->toBe('cancelled')
         ->and($sessions->activeInstallId())->toBe($foreignInstallId);
 });
 
@@ -403,7 +403,7 @@ it('clears its owned lock when an installer step fails', function (): void {
         ->and(Cache::get(InstallerSessionRepository::LOCK_KEY))->toBeNull();
 });
 
-it('completes the final step and preserves a foreign lock', function (): void {
+it('rejects a superseded final step without recording success or releasing its replacement lock', function (): void {
     config(['cache.default' => 'array']);
 
     $installId = '41414141-4141-4141-a141-414141414141';
@@ -419,19 +419,18 @@ it('completes the final step and preserves a foreign lock', function (): void {
     $sessions->run($installId)->markRunning();
     $sessions->run($installId)->releaseLock();
     $sessions->run($foreignInstallId)->startSynchronous();
-    RunInstallStepAction::mock()
-        ->shouldReceive('handle')
-        ->once()
-        ->andReturn(new RunInstallStepResultData(resolvedUserId: null, packageMetadataRefreshed: false));
+    RunInstallStepAction::mock()->shouldNotReceive('handle');
 
     $result = AdvanceInstallerRunAction::run(
         $installId,
         InstallPlan::STEP_PREPARE_ENVIRONMENT,
     );
 
-    expect($result->code)->toBe(InstallerRunStepResultCode::Complete)
+    expect($result->code)->toBe(InstallerRunStepResultCode::SessionNotFound)
         ->and($result->nextStep)->toBeNull()
-        ->and($sessions->hasSuccessSummary($installId))->toBeTrue()
+        ->and($sessions->hasSuccessSummary($installId))->toBeFalse()
+        ->and($sessions->completedSteps($installId))->toBe([])
+        ->and($sessions->status($installId))->toBe('cancelled')
         ->and($sessions->activeInstallId())->toBe($foreignInstallId);
 });
 
@@ -600,7 +599,7 @@ it('blocks conflicting package selections before requiring packages in synchrono
         expect($result->completed)->toBeFalse()->and($result->status)->toBe('failed');
     }
 
-    expect(Cache::get('capell.install.' . $installId . '.status'))->toBe('failed');
+    expect(Cache::get('capell.install.' . $installId . '.status'))->toBe($queued ? 'queued' : 'failed');
     expect($factory->commands())->toHaveCount(1);
     expect($factory->commands()[0])->toContain('require', '--dry-run', '--no-scripts', 'capell-app/admin:*', 'capell-app/frontend:*');
 

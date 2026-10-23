@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace {{ namespace }}\Filament;
 
+use Override;
+
 use Capell\Admin\Contracts\Widgets\FilamentWidget;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\TextInput;
 
 final class ExampleWidget implements FilamentWidget
 {
+    #[Override]
     public static function getWidgetName(): string
     {
         return '{{ widgetKey }}';
     }
 
+    #[Override]
     public static function make(): Block
     {
         return Block::make(self::getWidgetName())

@@ -4,14 +4,26 @@ declare(strict_types=1);
 
 namespace {{ namespace }}\Tests;
 
-use {{ namespace }}\Providers\PackageServiceProvider;
+use Capell\Core\Providers\CapellServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
+use Override;
+use Spatie\LaravelData\LaravelDataServiceProvider;
+use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
+use Spatie\Permission\PermissionServiceProvider;
+use {{ namespace }}\Providers\PackageServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
     /** @return list<class-string> */
+    #[Override]
     protected function getPackageProviders(mixed $app): array
     {
-        return [PackageServiceProvider::class];
+        return [
+            LaravelDataServiceProvider::class,
+            PermissionServiceProvider::class,
+            CapellServiceProvider::class,
+            LaravelSettingsServiceProvider::class,
+            PackageServiceProvider::class,
+        ];
     }
 }

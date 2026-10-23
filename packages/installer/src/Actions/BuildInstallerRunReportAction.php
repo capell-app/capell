@@ -12,6 +12,7 @@ use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 final class BuildInstallerRunReportAction
 {
@@ -25,8 +26,20 @@ final class BuildInstallerRunReportAction
 
     public function handle(string $installId): InstallerRunReportData
     {
+        $terminalReport = $this->sessions->get($this->sessions->key($installId, 'terminal_report'));
+        if (is_array($terminalReport)) {
+            return InstallerRunReportData::from($terminalReport);
+        }
+
         $inputArray = $this->sessions->input($installId);
-        $inputData = is_array($inputArray) ? InstallInputData::from($inputArray) : null;
+        try {
+            $inputData = is_array($inputArray) ? InstallInputData::from($inputArray) : null;
+        } catch (Throwable) {
+            // Reports must remain available for partial or older cached input.
+            // The raw payload is never included in the diagnostic download.
+            $inputData = null;
+        }
+
         $preflight = $this->sessions->preflightReport($installId);
 
         if (! is_array($preflight)) {

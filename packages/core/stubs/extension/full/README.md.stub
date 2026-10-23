@@ -19,14 +19,25 @@ Use a standard Composer path repository in the host app while developing:
 }
 ```
 
-Then install the package, clear Capell's cached package manifests, and generate frontend assets:
+Make the package available to Composer, refresh discovery, then install and enable it through Capell's lifecycle:
 
 ```bash
 composer update {{ packageName }} --with-dependencies
 php artisan capell:package-cache:clear
 php artisan config:clear
+php artisan capell:extension-install {{ packageName }} --dry-run
+php artisan capell:extension-install {{ packageName }}
+php artisan vendor:publish --tag={{ slug }}-assets
 php artisan capell:frontend-tailwind-assets
 ```
+
+Composer presence alone does not enable an extension. The lifecycle command runs
+its declared settings migration and enables its manifest providers. Restart
+long-running workers after changing providers. In Extensions, open this package's
+settings, save `public_label`, close the modal and reopen it to check persistence.
+Add its example widget to a published page and check the anonymous response for
+escaped content and absence of authoring state. An installed theme or frontend
+runtime may also need selecting for the site; installation alone does not select it.
 
 ## Verification
 

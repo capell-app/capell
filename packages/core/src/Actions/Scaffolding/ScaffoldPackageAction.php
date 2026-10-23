@@ -99,6 +99,7 @@ final class ScaffoldPackageAction
             }
 
             $relativePath = substr($file->getPathname(), strlen($stubDirectory) + 1);
+            $relativePath = str_replace(array_keys($input->stubReplacements()), array_values($input->stubReplacements()), $relativePath);
             $targetPath = $input->targetPath . '/' . preg_replace('/\.stub$/', '', $relativePath);
 
             File::ensureDirectoryExists(dirname((string) $targetPath));
