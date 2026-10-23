@@ -27,11 +27,11 @@ How to create Capell content — pages, URLs, translations, element types, eleme
 - Walk `Site::all()`.
 - For each site, `Page::firstOrCreate(...)` + attach `Translation` + `PageUrl`.
 
-### Recipe: register an element type + instance
+### Recipe: seed a layout widget
 
-- `Blueprint::firstOrCreate` with `type=element`.
-- `Element::firstOrCreate` pointing at the type.
-- See the ContentSections package docs for the full element flow.
+- Core blueprints cover pages, sites and themes only. Widgets belong to the optional Layout Builder package.
+- Register the widget definition, then create the `Widget` record through Layout Builder's own models.
+- See the [Layout Builder package docs](../packages/layout-builder.md) for the full widget flow.
 
 ### Recipe: create a layout with two sections
 

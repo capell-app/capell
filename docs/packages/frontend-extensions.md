@@ -339,10 +339,10 @@ An optional chrome or Layout Builder package can register `header` and render it
 <x-capell::layout.area area="header" />
 ```
 
-A package can register another area through `Capell\ContentSections\Support\LayoutAreas\LayoutAreaRegistry`. A package that registers areas must require `capell-app/content-sections` in `capell.json`:
+A package can register another area through `Capell\LayoutBuilder\Support\LayoutAreas\LayoutAreaRegistry`. A package that registers areas must require `capell-app/layout-builder` in `capell.json`:
 
 ```php
-use Capell\ContentSections\Support\LayoutAreas\LayoutAreaRegistry;
+use Capell\LayoutBuilder\Support\LayoutAreas\LayoutAreaRegistry;
 
 $this->app->afterResolving(
     LayoutAreaRegistry::class,
@@ -356,7 +356,7 @@ $this->app->afterResolving(
 );
 ```
 
-Use areas for header, footer, announcement, campaign, or product chrome slots that should contain normal Content Sections elements. Do not fake this with hidden containers in the main loop. Public area Blade must not query the database, lazy-load relationships, or emit editor markers, model IDs, field paths, package metadata, signed admin URLs, or other authoring state.
+Use areas for header, footer, announcement, campaign, or product chrome slots that should contain normal Layout Builder widgets. Do not fake this with hidden containers in the main loop. Public area Blade must not query the database, lazy-load relationships, or emit editor markers, model IDs, field paths, package metadata, signed admin URLs, or other authoring state.
 
 ## Themes
 

@@ -8,7 +8,7 @@ Think of them as the cards in the Capell Library. A card has a name, a short des
 
 ## Better Names
 
-The database stores reusable behaviour in `blueprints` and related layout, widget, section, and package records. Some compatibility APIs still use type terminology, but in the product and current docs clearer names help people choose the right thing:
+The database stores reusable behaviour in `blueprints` and related layout and package records. Some compatibility APIs still use type terminology, but in the product and current docs clearer names help people choose the right thing:
 
 | Product name    | Developer/API term           | What it means                                                                     |
 | --------------- | ---------------------------- | --------------------------------------------------------------------------------- |
@@ -16,9 +16,9 @@ The database stores reusable behaviour in `blueprints` and related layout, widge
 | Page template   | Page blueprint               | The rules for a page URL: editor fields, rendering, listing, sitemap, cache.      |
 | Visual theme    | Theme blueprint              | The visual system: typography, colour, spacing, components, and artwork style.    |
 | Layout recipe   | Layout                       | The page composition shell used by one or many pages.                             |
-| Page section    | Section blueprint            | A large content band, such as a hero, feature row, gallery, or CTA.               |
-| Widget          | Element blueprint            | A reusable component placed inside a layout, such as breadcrumbs or latest pages. |
-| Content block   | ContentSections content type | Editable content used by sections and widgets.                                    |
+| Page section    | Content Sections section     | A ready-made content band, such as a hero, FAQ or pricing table. Needs the optional Content Sections package. |
+| Widget          | Layout Builder layout widget | A reusable component placed in a layout area, such as breadcrumbs or latest pages. Needs the optional Layout Builder package. |
+| Content block   | Block Library block          | A typed, reorderable unit in a page body. Block types come from the optional Block Library package. |
 | Starter example | Demo package content         | Seeded pages, layouts, widgets, images, and copy for learning or previews.        |
 | Visual style    | Artwork or demo variation    | A design treatment applied to the same content model.                             |
 
@@ -42,7 +42,7 @@ Core blueprints are quiet by design. They define structure and behaviour, not a 
 | Results        | Layout          | A listing layout for search results, indexes, and grouped content.           |
 | System page    | Layout          | A locked layout for fixed system pages that should not use the page builder. |
 
-The important difference: a page blueprint controls what a page is allowed to do. A layout controls where page content appears. A theme blueprint controls how the finished page looks. (Here "layout" means the core [`Layout`](../reference/glossary.md#developer-terms) template a page renders into, not the ContentSections Layout Builder blocks.)
+The important difference: a page blueprint controls what a page is allowed to do. A layout controls where page content appears. A theme blueprint controls how the finished page looks. (Here "layout" means the core [`Layout`](../reference/glossary.md#developer-terms) template a page renders into, not the optional Layout Builder package's widgets.)
 
 ## Demo And Artwork Variations
 
