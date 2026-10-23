@@ -17,6 +17,7 @@ final class InstallHandoffData extends Data
      * @param  list<string>  $warnings
      * @param  array{label: string, url: string}  $nextAction
      * @param  array{summary: string, accountConnection: string, telemetrySubmission: string}  $publicImpact
+     * @param  list<array{key: string, label: string, detail: string}>  $tips
      */
     public function __construct(
         public readonly int $schemaVersion,
@@ -28,6 +29,7 @@ final class InstallHandoffData extends Data
         public readonly array $warnings,
         public readonly array $nextAction,
         public readonly array $publicImpact,
+        public readonly array $tips = [],
     ) {}
 
     /**
@@ -40,7 +42,8 @@ final class InstallHandoffData extends Data
      *     firstPage: array{status: string},
      *     warnings: list<string>,
      *     nextAction: array{label: string, url: string},
-     *     publicImpact: array{summary: string, accountConnection: string, telemetrySubmission: string}
+     *     publicImpact: array{summary: string, accountConnection: string, telemetrySubmission: string},
+     *     tips: list<array{key: string, label: string, detail: string}>
      * }
      */
     #[Override]
@@ -56,6 +59,7 @@ final class InstallHandoffData extends Data
             'warnings' => $this->warnings,
             'nextAction' => $this->nextAction,
             'publicImpact' => $this->publicImpact,
+            'tips' => $this->tips,
         ];
     }
 }

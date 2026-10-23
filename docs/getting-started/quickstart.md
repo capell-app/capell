@@ -75,7 +75,7 @@ Capell Install Handoff
 
 If a required package lifecycle, asset build, permission sync, or health check fails, the command exits non-zero and withholds the success message. Follow the printed `Fix:` instruction, then rerun the installer; do not treat a partial run as production-ready.
 
-The handoff lists the installed packages, Admin and public URLs, first-page state, warnings and next action. Use those URLs to check your installation.
+The handoff lists the installed packages, Admin and public URLs, first-page state, warnings, a short **What next** list (sign-in, first page, theme, content packages) and the next action. Use those URLs to check your installation.
 
 ## 3. Start the application
 
