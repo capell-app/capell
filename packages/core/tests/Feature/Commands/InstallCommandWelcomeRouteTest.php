@@ -380,7 +380,7 @@ PHP);
     expect(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true');
 });
 
-it('removes the capell home route when requested by the install step', function (): void {
+it('preserves the capell controller home route when requested by the install step', function (): void {
     $routesPath = welcomeRouteTestRoutesPath();
     if (! is_dir(dirname($routesPath))) {
         mkdir(dirname($routesPath), 0755, true);
@@ -397,9 +397,12 @@ PHP);
 
     $installer = resolve(WelcomeRouteInstaller::class);
 
-    expect($installer->install())->toBeTrue();
+    $original = file_get_contents($routesPath);
 
-    assertWelcomeRouteAbsent($routesPath);
+    expect($installer->hasRootRoute())->toBeTrue()
+        ->and($installer->hasStockWelcomeRoute())->toBeFalse()
+        ->and($installer->install())->toBeFalse()
+        ->and(file_get_contents($routesPath))->toBe($original);
 });
 
 it('preserves existing route file headers when no removable home route exists', function (): void {
@@ -482,4 +485,91 @@ function assertWelcomeRouteAbsent(string $path): void
     require $path;
     expect(fn () => Route::getRoutes()->match(Request::create('/')))
         ->toThrow(NotFoundHttpException::class);
+}
+
+it('removes only the top level stock welcome statement and preserves grouped routes byte for byte', function (string $welcome): void {
+    $routesPath = welcomeRouteTestRoutesPath();
+    if (! is_dir(dirname($routesPath))) {
+        mkdir(dirname($routesPath), 0755, true);
+    }
+
+    $group = <<<'PHP'
+Route::prefix('_local/email-previews')->name('local.email-previews.')->group(function (): void {
+    Route::get('/', [EmailPreviewController::class, 'index'])->name('index');
+
+
+    Route::prefix('stock')->group(function (): void {
+        Route::view('/', 'welcome');
+    });
+});
+PHP;
+    $before = "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n\n" . $group . "\n\n";
+    $after = "\n\nRoute::get('/health', fn () => 'ok');\n";
+    file_put_contents($routesPath, $before . $welcome . $after);
+
+    $installer = resolve(WelcomeRouteInstaller::class);
+
+    expect($installer->hasRootRoute())->toBeTrue()
+        ->and($installer->hasStockWelcomeRoute())->toBeTrue()
+        ->and($installer->install())->toBeTrue()
+        ->and(file_get_contents($routesPath))->toBe($before . $after);
+
+    $routes = patchedCoreWelcomeRoutes($routesPath);
+    expect($routes->match(Request::create('/_local/email-previews/stock'))->defaults['view'])->toBe('welcome')
+        ->and($routes->match(Request::create('/health'))->run())->toBe('ok')
+        ->and($routes->match(Request::create('/_local/email-previews'))->getAction('controller'))->toBe('EmailPreviewController@index');
+    expect(fn () => $routes->match(Request::create('/')))->toThrow(NotFoundHttpException::class);
+
+    expect($installer->hasRootRoute())->toBeFalse()
+        ->and($installer->hasStockWelcomeRoute())->toBeFalse()
+        ->and($installer->install())->toBeFalse()
+        ->and(file_get_contents($routesPath))->toBe($before . $after);
+})->with([
+    'closure' => "Route::get('/', function () { return view('welcome'); });",
+    'static closure' => "Route::get('/', static function () { return view('welcome'); });",
+    'arrow' => "Route::get('/', fn () => view('welcome'));",
+    'static arrow' => 'Route::get("/", static fn () => view("welcome"));',
+    'view' => "Route::view('/', 'welcome');",
+    'named view' => "Route::view('/', 'welcome')->name('home');",
+]);
+
+it('ignores group relative root routes and leaves the file unchanged', function (): void {
+    $routesPath = welcomeRouteTestRoutesPath();
+    if (! is_dir(dirname($routesPath))) {
+        mkdir(dirname($routesPath), 0755, true);
+    }
+
+    $content = <<<'PHP'
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('_local/email-previews')->group(function (): void {
+    Route::get('/', [EmailPreviewController::class, 'index'])->name('index');
+    Route::view('/', 'welcome');
+});
+PHP;
+    file_put_contents($routesPath, $content);
+    $installer = resolve(WelcomeRouteInstaller::class);
+
+    expect($installer->hasRootRoute())->toBeFalse()
+        ->and($installer->canInstall())->toBeFalse()
+        ->and($installer->hasStockWelcomeRoute())->toBeFalse()
+        ->and($installer->install())->toBeFalse()
+        ->and(file_get_contents($routesPath))->toBe($content);
+});
+
+function patchedCoreWelcomeRoutes(string $path): RouteCollection
+{
+    $router = Route::getFacadeRoot();
+    $original = $router->getRoutes();
+    $routes = new RouteCollection;
+    $router->setRoutes($routes);
+    try {
+        require $path;
+
+        return $routes;
+    } finally {
+        $router->setRoutes($original);
+    }
 }

@@ -83,7 +83,7 @@ PHP;
     expect($status)->toBe(PatchStatus::Applicable);
 });
 
-it('probe_returns_customised_when_named_welcome_route_present', function (): void {
+it('probe_returns_applicable_when_home_named_stock_view_route_present', function (): void {
     $routesPath = $this->testDir . '/routes/web.php';
     mkdir(dirname($routesPath), 0755, true);
 
@@ -105,7 +105,7 @@ PHP;
 
     $patch = new RemoveWelcomeRoutePatch;
 
-    expect($patch->probe())->toBe(PatchStatus::Customised);
+    expect($patch->probe())->toBe(PatchStatus::Applicable);
 });
 
 it('probe_returns_applicable_when_unnamed_view_welcome_route_present', function (): void {
@@ -277,35 +277,6 @@ PHP;
         ->and(file_get_contents($routesPath))->toBe($content);
 });
 
-it('apply_is_idempotent', function (): void {
-    // Test that applying the regex twice doesn't change the content further
-    $originalContent = <<<'PHP'
-<?php
-
-use Illuminate\Support\Facades\Route;
-
-Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/api/health', function () {
-    return response()->json(['status' => 'ok']);
-});
-PHP;
-
-    $pattern = '/Route::get\s*\(\s*[\'"][\/]["\']\s*,\s*function\s*\(\s*\)\s*\{[^}]*return\s+view\s*\(\s*[\'"]welcome["\']\s*\)\s*;[^}]*\}\s*\)\s*;/';
-
-    // First application
-    $firstApply = preg_replace($pattern, '', $originalContent);
-    $firstApply = preg_replace('/\n\n\n+/', "\n\n", (string) $firstApply);
-
-    // Second application - should be no-op
-    $secondApply = preg_replace($pattern, '', (string) $firstApply);
-    $secondApply = preg_replace('/\n\n\n+/', "\n\n", (string) $secondApply);
-
-    expect($secondApply)->toBe($firstApply);
-});
-
 it('patch_has_correct_metadata', function (): void {
     $patch = new RemoveWelcomeRoutePatch;
 
@@ -331,3 +302,65 @@ function patchedWelcomeRoutes(string $path): RouteCollection
         $router->setRoutes($original);
     }
 }
+
+it('preserves grouped routes while removing only the top level stock statement', function (string $welcome): void {
+    $routesPath = $this->testDir . '/routes/web.php';
+    mkdir(dirname($routesPath), 0755, true);
+    $this->app->setBasePath($this->testDir);
+
+    $group = <<<'PHP'
+Route::prefix('_local/email-previews')->name('local.email-previews.')->group(function (): void {
+    Route::get('/', [EmailPreviewController::class, 'index'])->name('index');
+
+
+    Route::prefix('stock')->group(function (): void {
+        Route::view('/', 'welcome');
+    });
+});
+PHP;
+    $before = "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n\n" . $group . "\n\n";
+    $after = "\n\nRoute::get('/health', fn () => 'ok');\n";
+    file_put_contents($routesPath, $before . $welcome . $after);
+    $patch = new RemoveWelcomeRoutePatch;
+
+    expect($patch->probe())->toBe(PatchStatus::Applicable);
+    $patch->apply();
+
+    expect(file_get_contents($routesPath))->toBe($before . $after)
+        ->and($patch->probe())->toBe(PatchStatus::AlreadyApplied);
+    $routes = patchedWelcomeRoutes($routesPath);
+    expect($routes->match(Request::create('/_local/email-previews/stock'))->defaults['view'])->toBe('welcome')
+        ->and($routes->match(Request::create('/health'))->run())->toBe('ok')
+        ->and($routes->match(Request::create('/_local/email-previews'))->getAction('controller'))->toBe('EmailPreviewController@index');
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class, 'Cannot apply patch when status is: already_applied');
+    expect(file_get_contents($routesPath))->toBe($before . $after);
+})->with([
+    'closure' => "Route::get('/', function () { return view('welcome'); });",
+    'static closure' => "Route::get('/', static function () { return view('welcome'); });",
+    'arrow' => "Route::get('/', fn () => view('welcome'));",
+    'static arrow' => 'Route::get("/", static fn () => view("welcome"));',
+    'view' => "Route::view('/', 'welcome');",
+]);
+
+it('does not classify grouped welcome routes as an application root route', function (): void {
+    $routesPath = $this->testDir . '/routes/web.php';
+    mkdir(dirname($routesPath), 0755, true);
+    $this->app->setBasePath($this->testDir);
+    $content = <<<'PHP'
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('preview')->group(function (): void {
+    Route::get('/', fn () => view('welcome'));
+    Route::get('/', function () { return view('welcome'); });
+    Route::view('/', 'welcome');
+});
+PHP;
+    file_put_contents($routesPath, $content);
+    $patch = new RemoveWelcomeRoutePatch;
+
+    expect($patch->probe())->toBe(PatchStatus::AlreadyApplied);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class);
+    expect(file_get_contents($routesPath))->toBe($content);
+});

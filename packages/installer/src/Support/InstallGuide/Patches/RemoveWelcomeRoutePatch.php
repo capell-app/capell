@@ -6,6 +6,8 @@ namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Patching\RootRouteEditor;
+use Override;
 use RuntimeException;
 use Throwable;
 
@@ -13,36 +15,43 @@ class RemoveWelcomeRoutePatch implements Patch
 {
     private const string ROUTES_WEB_PATH = 'routes/web.php';
 
+    #[Override]
     public function id(): string
     {
         return 'remove-welcome-route-patch';
     }
 
+    #[Override]
     public function group(): string
     {
         return 'routes';
     }
 
+    #[Override]
     public function label(): string
     {
         return __('capell-installer::install-guide.remove_welcome_route_patch_label');
     }
 
+    #[Override]
     public function description(): string
     {
         return __('capell-installer::install-guide.remove_welcome_route_patch_description');
     }
 
+    #[Override]
     public function docUrl(): ?string
     {
         return null;
     }
 
+    #[Override]
     public function defaultEnabled(): bool
     {
         return true;
     }
 
+    #[Override]
     public function probe(): PatchStatus
     {
         $routesWebPath = base_path(self::ROUTES_WEB_PATH);
@@ -57,13 +66,12 @@ class RemoveWelcomeRoutePatch implements Patch
                 return PatchStatus::Unsupported;
             }
 
-            // Check if the stock welcome block is present
-            if ($this->hasStockWelcomeBlock($content)) {
+            $routes = new RootRouteEditor($content);
+            if ($routes->hasStockWelcomeRoute()) {
                 return PatchStatus::Applicable;
             }
 
-            // Check if there's any other route bound to '/'
-            if ($this->hasRootRoute($content)) {
+            if ($routes->hasRootRoute()) {
                 return PatchStatus::Customised;
             }
 
@@ -74,11 +82,13 @@ class RemoveWelcomeRoutePatch implements Patch
         }
     }
 
+    #[Override]
     public function reason(): ?string
     {
         return null;
     }
 
+    #[Override]
     public function apply(): void
     {
         $routesWebPath = base_path(self::ROUTES_WEB_PATH);
@@ -100,22 +110,7 @@ class RemoveWelcomeRoutePatch implements Patch
             $content = file_get_contents($routesWebPath);
             throw_unless($content !== false, RuntimeException::class, 'Could not read routes/web.php');
 
-            $modifiedContent = preg_replace($this->stockWelcomeRoutePatterns(), '', $content);
-
-            throw_unless(
-                $modifiedContent !== null,
-                RuntimeException::class,
-                'Regex replacement failed for welcome route',
-            );
-
-            // Collapse multiple consecutive newlines to maximum of 2
-            $modifiedContent = preg_replace('/\n\n\n+/', "\n\n", $modifiedContent);
-
-            throw_unless(
-                $modifiedContent !== null,
-                RuntimeException::class,
-                'Failed to collapse newlines',
-            );
+            $modifiedContent = new RootRouteEditor($content)->removeStockWelcomeRoutes();
 
             // Write the file back
             $written = file_put_contents($routesWebPath, $modifiedContent);
@@ -131,35 +126,5 @@ class RemoveWelcomeRoutePatch implements Patch
                 $throwable,
             );
         }
-    }
-
-    /**
-     * Check if the stock welcome route block is present in the file.
-     */
-    private function hasStockWelcomeBlock(string $content): bool
-    {
-        return array_any($this->stockWelcomeRoutePatterns(), fn (string $pattern): bool => preg_match($pattern, $content) === 1);
-    }
-
-    /**
-     * Check if there's any route (other than the stock welcome) bound to '/'.
-     * Matches Route::get('/', ...), Route::post('/', ...), etc with flexible whitespace.
-     */
-    private function hasRootRoute(string $content): bool
-    {
-        $pattern = '/Route::\w+\s*\(\s*[\'"][\/]["\']\s*[,\]]/';
-
-        return preg_match($pattern, $content) === 1;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function stockWelcomeRoutePatterns(): array
-    {
-        return [
-            '/Route::get\s*\(\s*[\'"][\/]["\']\s*,\s*function\s*\(\s*\)\s*\{[^}]*return\s+view\s*\(\s*[\'"]welcome["\']\s*\)\s*;[^}]*\}\s*\)\s*;/',
-            '/Route::view\s*\(\s*[\'"][\/]["\']\s*,\s*[\'"]welcome[\'"]\s*\)\s*;/',
-        ];
     }
 }
