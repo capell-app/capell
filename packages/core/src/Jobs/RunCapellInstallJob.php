@@ -7,6 +7,7 @@ namespace Capell\Core\Jobs;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\CacheProgressReporter;
+use Capell\Core\Support\Install\InstallReportRedactor;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -45,9 +46,9 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(): void
     {
-        $reporter = new CacheProgressReporter($this->installId);
+        $reporter = new CacheProgressReporter($this->installId, redactionSecrets: InstallReportRedactor::secrets($this->inputData->toArray()));
 
-        $admitted = Cache::lock($this->stateLockKey(), 30)->block(5, function () use ($reporter): bool {
+        $admitted = $this->duringUpdate(function () use ($reporter): bool {
             if ($this->hasBeenSuperseded()) {
                 Cache::put($this->statusKey(), 'cancelled', self::CACHE_TTL);
                 $reporter->error('Install cancelled because another install was started.');
@@ -65,7 +66,7 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 
         try {
             RunInstallAction::run($this->inputData, $reporter);
-            Cache::lock($this->stateLockKey(), 30)->block(5, function () use ($reporter): void {
+            $this->duringUpdate(function () use ($reporter): void {
                 if ($this->hasBeenSuperseded()) {
                     Cache::put($this->statusKey(), 'cancelled', self::CACHE_TTL);
 
@@ -76,7 +77,7 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
                 $this->clearActiveLock();
             });
         } catch (Throwable $throwable) {
-            Cache::lock($this->stateLockKey(), 30)->block(5, function () use ($reporter, $throwable): void {
+            $this->duringUpdate(function () use ($reporter, $throwable): void {
                 $reporter->error('✗ ' . $throwable->getMessage());
                 if ($this->hasBeenSuperseded()) {
                     Cache::put($this->statusKey(), 'cancelled', self::CACHE_TTL);
@@ -95,12 +96,17 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        Cache::lock($this->stateLockKey(), 30)->block(5, function (): void {
+        $this->duringUpdate(function () use ($exception): void {
+            $reporter = new CacheProgressReporter($this->installId, redactionSecrets: InstallReportRedactor::secrets($this->inputData->toArray()));
+            if ($exception instanceof Throwable) {
+                $reporter->error('✗ ' . $exception->getMessage());
+            }
+
             if ($this->hasBeenSuperseded()) {
                 return;
             }
 
-            new CacheProgressReporter($this->installId)->markFailed();
+            $reporter->markFailed();
             $this->clearActiveLock();
         });
     }
@@ -125,15 +131,19 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 
     private function clearActiveLock(): void
     {
-        Cache::lock('capell.install.ownership', 30)->block(5, function (): void {
-            $lock = Cache::get(self::LOCK_KEY);
-
-            if (! is_array($lock) || ($lock['installId'] ?? null) !== $this->installId) {
-                return;
-            }
-
+        $lock = Cache::get(self::LOCK_KEY);
+        if (is_array($lock) && ($lock['installId'] ?? null) === $this->installId) {
             Cache::forget(self::LOCK_KEY);
-        });
+        }
+    }
+
+    /** @template T
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    private function duringUpdate(callable $callback): mixed
+    {
+        return Cache::lock('capell.install.ownership', 30)->block(5, fn (): mixed => Cache::lock($this->stateLockKey(), 30)->block(5, $callback));
     }
 
     private function stateLockKey(): string

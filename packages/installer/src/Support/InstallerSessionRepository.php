@@ -35,6 +35,8 @@ final class InstallerSessionRepository
         'recommendation',
     ];
 
+    private bool $updatingOwnership = false;
+
     /**
      * Serialise short state commits and cancellation, never the executing command.
      *
@@ -45,7 +47,21 @@ final class InstallerSessionRepository
      */
     public function duringRunUpdate(string $installId, callable $callback): mixed
     {
-        return Cache::lock($this->key($installId, 'state-lock'), 30)->block(5, $callback);
+        // Lock order is always ownership -> state -> output. Nested synchronous
+        // operations on this repository already hold ownership; never execute
+        // commands or yield from a state callback.
+        if ($this->updatingOwnership) {
+            return $callback();
+        }
+
+        return Cache::lock('capell.install.ownership', 30)->block(5, function () use ($installId, $callback): mixed {
+            $this->updatingOwnership = true;
+            try {
+                return Cache::lock($this->key($installId, 'state-lock'), 30)->block(5, $callback);
+            } finally {
+                $this->updatingOwnership = false;
+            }
+        });
     }
 
     public function run(string $installId): InstallerRun
@@ -175,18 +191,20 @@ final class InstallerSessionRepository
 
     public function cancelActiveInstallBeforeStarting(string $installId): void
     {
-        $lock = $this->get(self::LOCK_KEY);
+        $this->duringRunUpdate($installId, function () use ($installId): void {
+            $lock = $this->get(self::LOCK_KEY);
 
-        if (! is_array($lock)) {
-            return;
-        }
+            if (! is_array($lock)) {
+                return;
+            }
 
-        $activeInstallId = $lock['installId'] ?? null;
-        if (! is_string($activeInstallId) || $activeInstallId === $installId) {
-            return;
-        }
+            $activeInstallId = $lock['installId'] ?? null;
+            if (! is_string($activeInstallId) || $activeInstallId === $installId) {
+                return;
+            }
 
-        $this->run($activeInstallId)->cancel(releaseLock: false);
+            $this->run($activeInstallId)->cancel(releaseLock: false);
+        });
     }
 
     public function clearInstallSession(string $installId): void
@@ -200,22 +218,32 @@ final class InstallerSessionRepository
 
     public function lock(string $installId, bool $queued = false): void
     {
-        InstallRunState::usePanelScaffoldRun($installId);
         $payload = ['installId' => $installId];
 
         if ($queued) {
             $payload['queued'] = true;
         }
 
-        Cache::lock('capell.install.ownership', 30)->block(5, function () use ($installId, $payload): void {
+        $this->duringRunUpdate($installId, function () use ($installId, $payload): void {
+            $this->cancelActiveInstallBeforeStarting($installId);
+            InstallRunState::usePanelScaffoldRun($installId);
             $this->put(self::LOCK_KEY, $payload);
             $this->put(self::LATEST_RUN_KEY, $installId);
         });
     }
 
+    public function ownsRun(string $installId): bool
+    {
+        $latest = $this->get(self::LATEST_RUN_KEY);
+        $lock = $this->get(self::LOCK_KEY);
+
+        return (! is_string($latest) || $latest === $installId)
+            && (! is_array($lock) || ($lock['installId'] ?? null) === $installId);
+    }
+
     public function claimActiveLock(string $installId): bool
     {
-        return Cache::lock('capell.install.ownership', 30)->block(5, function () use ($installId): bool {
+        return $this->duringRunUpdate($installId, function () use ($installId): bool {
             $latestRun = $this->get(self::LATEST_RUN_KEY);
             if (is_string($latestRun) && $latestRun !== $installId) {
                 return false;
@@ -236,7 +264,7 @@ final class InstallerSessionRepository
 
     public function clearActiveLock(?string $installId = null): void
     {
-        Cache::lock('capell.install.ownership', 30)->block(5, function () use ($installId): void {
+        $this->duringRunUpdate($installId ?? 'ownership', function () use ($installId): void {
             if ($installId === null) {
                 $this->forget(self::LOCK_KEY);
 
@@ -335,23 +363,25 @@ final class InstallerSessionRepository
         ?string $firstStepKey,
         array $preflight,
     ): void {
-        $this->lock($installId);
-        $this->put($this->key($installId, 'input'), $inputData->toArray());
-        $this->put($this->key($installId, 'plan'), $plan);
-        $this->putStatus($installId, $installStatus);
-        $this->put($this->key($installId, 'completed_steps'), []);
-        $this->put($this->key($installId, 'diagnostics'), []);
+        $this->duringRunUpdate($installId, function () use ($installId, $inputData, $plan, $installStatus, $firstStepKey, $preflight): void {
+            $this->lock($installId);
+            $this->put($this->key($installId, 'input'), $inputData->toArray());
+            $this->put($this->key($installId, 'plan'), $plan);
+            $this->putStatus($installId, $installStatus);
+            $this->put($this->key($installId, 'completed_steps'), []);
+            $this->put($this->key($installId, 'diagnostics'), []);
 
-        if (is_string($firstStepKey)) {
-            $this->put($this->key($installId, 'current_step'), $firstStepKey);
-        } else {
-            $this->forget($this->key($installId, 'current_step'));
-        }
+            if (is_string($firstStepKey)) {
+                $this->put($this->key($installId, 'current_step'), $firstStepKey);
+            } else {
+                $this->forget($this->key($installId, 'current_step'));
+            }
 
-        $this->putPreflightReport($installId, $preflight);
-        $this->forget($this->key($installId, 'output'));
-        $this->forget($this->key($installId, 'user_id'));
-        $this->forget($this->key($installId, 'package_metadata_refreshed'));
+            $this->putPreflightReport($installId, $preflight);
+            $this->forget($this->key($installId, 'output'));
+            $this->forget($this->key($installId, 'user_id'));
+            $this->forget($this->key($installId, 'package_metadata_refreshed'));
+        });
     }
 
     /**
@@ -371,8 +401,6 @@ final class InstallerSessionRepository
         if (! is_string($firstStepKey)) {
             return null;
         }
-
-        $this->put($this->key($installId, 'current_step'), $firstStepKey);
 
         return $firstStepKey;
     }
@@ -518,9 +546,25 @@ final class InstallerSessionRepository
 
         $status = $this->status($lock['installId']);
         if (InstallerRunStatus::tryFrom($status)?->isActive() !== true) {
-            $this->forget(self::LOCK_KEY);
+            $observedInstallId = $lock['installId'];
+            $lock = $this->duringRunUpdate($observedInstallId, function () use ($observedInstallId): ?array {
+                $current = $this->get(self::LOCK_KEY);
+                if (! is_array($current) || ($current['installId'] ?? null) !== $observedInstallId) {
+                    return null;
+                }
 
-            return null;
+                // A start may have published its status since the unlocked read.
+                if (InstallerRunStatus::tryFrom($this->status($observedInstallId))?->isActive() === true) {
+                    return $current;
+                }
+
+                $this->forget(self::LOCK_KEY);
+
+                return null;
+            });
+            if ($lock === null) {
+                return null;
+            }
         }
 
         $activeLock = ['installId' => $lock['installId']];

@@ -88,6 +88,28 @@ attempt cannot clear its replacement's lock or overwrite cancellation. The lates
 run identity remains cached for the same window, so a failed browser run cannot
 resume after its replacement has completed and released the active lock.
 
+## Deploying Changes To Installer Execution
+
+Drain installer execution before switching releases that change admission or state
+commit guards. An HTTP request or queue job already executing old code retains its
+old behaviour, even after its run is cancelled by new code.
+
+1. Block new installer starts and step requests on every serving node at the
+   ingress, and pause queue consumers that can admit installer jobs. Keep that
+   admission block in place throughout the release switch.
+2. Wait for every in-flight installer HTTP request and queue job to finish. Check
+   the serving process manager and queue worker state on all nodes; a cancelled
+   cache status or an empty active lock does not prove execution has drained.
+   If execution cannot be confirmed idle, keep installer admission closed and
+   postpone the switch. Do not clear locks or terminate work to bypass this gate.
+3. Switch the release, restart retained PHP/Octane and queue processes, and confirm
+   every node runs the new code before restoring queue consumption and installer
+   admission. Refresh open installer pages before continuing setup.
+
+A queue restart signal permits the current job to finish. A page refresh does not
+stop an already executing HTTP request. Neither replaces the drain gate above.
+The installer cache protocol cannot fence an old binary that lacks these guards.
+
 ## Data Model
 
 Installer owns no data tables.
@@ -110,8 +132,13 @@ Deletion and retention:
   a separate redacted snapshot of the original plan, completed steps, preflight,
   diagnostics and output for the existing two-hour cache window. It cannot resume
   the cancelled install, and access still requires the originating browser session.
-- Snapshot collections are capped at 500 entries and strings at 8 KiB. Passwords
-  from install input and credential fields are removed from the retained download.
+- Reports retain the existing bounded diagnostic output, including terminal errors
+  beyond 500 progress entries. Late diagnostics and exceptions append to the
+  cancelled report while the executor unwinds, without restoring executable input.
+  The combined output keeps the most recent complete lines within 256 KiB and
+  reports omitted line counts when late additions exceed that bound. Each new
+  output line is limited to 8 KiB. Input secrets and labelled credentials are
+  redacted; only an encrypted redaction dictionary survives input cleanup.
 - Cache entries expire after the configured install window.
 - Removing the package deletes the installer code path, not the installed site content.
 

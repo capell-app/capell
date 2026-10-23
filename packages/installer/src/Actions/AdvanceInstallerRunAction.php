@@ -9,6 +9,7 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\InstallReportRedactor;
 use Capell\Installer\Data\InstallerRunStepData;
 use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Enums\InstallerRunStepResultCode;
@@ -36,7 +37,7 @@ final class AdvanceInstallerRunAction
     public function handle(string $installId, string $stepKey): InstallerRunStepData
     {
         // Cancelled/expired runs must not look active while another request unwinds.
-        if ($this->wasCancelled($installId)) {
+        if ($this->sessions->status($installId) === InstallerRunStatus::Cancelled->value || $this->sessions->input($installId) === null) {
             return new InstallerRunStepData(installId: $installId, currentStep: $stepKey, code: InstallerRunStepResultCode::SessionNotFound);
         }
 
@@ -176,12 +177,12 @@ final class AdvanceInstallerRunAction
             });
         } catch (Throwable $throwable) {
             return $this->sessions->duringRunUpdate($installId, function () use ($installId, $stepKey, $reporter, $throwable): InstallerRunStepData {
+                $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());
+                $reporter->error(sprintf('  at %s:%d', $throwable->getFile(), $throwable->getLine()));
                 if ($this->wasCancelled($installId)) {
                     return $this->result($installId, $stepKey, InstallerRunStepResultCode::SessionNotFound, $reporter);
                 }
 
-                $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());
-                $reporter->error(sprintf('  at %s:%d', $throwable->getFile(), $throwable->getLine()));
                 $this->sessions->run($installId)->markFailed($reporter);
 
                 return $this->result(
@@ -326,7 +327,7 @@ final class AdvanceInstallerRunAction
 
     private function wasCancelled(string $installId): bool
     {
-        if ($this->sessions->status($installId) === InstallerRunStatus::Cancelled->value) {
+        if (! $this->sessions->ownsRun($installId) || $this->sessions->status($installId) === InstallerRunStatus::Cancelled->value) {
             return true;
         }
 
@@ -335,6 +336,6 @@ final class AdvanceInstallerRunAction
 
     private function reporter(string $installId): FileLogProgressReporter
     {
-        return new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
+        return new FileLogProgressReporter($installId, new CacheProgressReporter($installId, redactionSecrets: InstallReportRedactor::secrets($this->sessions->input($installId) ?? [])));
     }
 }

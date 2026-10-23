@@ -8,6 +8,8 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Cache;
@@ -196,5 +198,50 @@ it('marks the final executing attempt failed and keeps later callbacks truthful'
     expect(fn () => $job->handle())->toThrow(RuntimeException::class);
     $job->failed(new RuntimeException('Worker callback'));
     expect(Cache::get('capell.install.' . $id . '.status'))->toBe('failed')
+        ->and(Cache::get('capell.install.lock'))->toBeNull();
+});
+
+it('fences a queued completion against replacement under the ownership boundary', function (): void {
+    $id = 'paused-queued-completion';
+    $store = new class extends ArrayStore
+    {
+        public ?Closure $onRead = null;
+
+        #[Override]
+        public function get($key): mixed
+        {
+            $observed = parent::get($key);
+            if ($this->onRead instanceof Closure) {
+                ($this->onRead)($key);
+            }
+
+            return $observed;
+        }
+    };
+    Cache::extend('ownership-probe', fn (): Repository => new Repository($store));
+    config(['cache.default' => 'ownership-probe', 'cache.stores.ownership-probe' => ['driver' => 'ownership-probe']]);
+    Cache::put('capell.install.lock', ['installId' => $id]);
+    $probe = false;
+    $interleaved = false;
+    RunInstallAction::mock()->shouldReceive('handle')->once()->andReturnUsing(function () use (&$probe): void {
+        $probe = true;
+    });
+    $store->onRead = function (string $key) use ($store, &$probe, &$interleaved): void {
+        if ($probe && $key === 'capell.install.lock') {
+            $probe = false;
+            $contender = Cache::lock('capell.install.ownership', 30);
+            if ($contender->get()) {
+                $contender->release();
+                $interleaved = true;
+                $store->put('capell.install.lock', ['installId' => 'replacement'], 7200);
+            }
+        }
+
+    };
+
+    new RunCapellInstallJob(new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false), $id)->handle();
+
+    expect($interleaved)->toBeFalse()
+        ->and(Cache::get('capell.install.' . $id . '.status'))->toBe('complete')
         ->and(Cache::get('capell.install.lock'))->toBeNull();
 });

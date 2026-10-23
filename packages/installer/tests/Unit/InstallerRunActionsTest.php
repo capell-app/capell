@@ -151,7 +151,10 @@ it('does not clear a foreign lock when a synchronous start fails', function (): 
     );
 
     expect($result->completed)->toBeFalse()
-        ->and($result->status)->toBe('failed')
+        ->and($result->status)->toBe('cancelled')
+        ->and($sessions->status($installId))->toBe('cancelled')
+        ->and($sessions->hasSuccessSummary($installId))->toBeFalse()
+        ->and($sessions->input($installId))->toBeNull()
         ->and($sessions->activeInstallId())->toBe($foreignInstallId);
 });
 
