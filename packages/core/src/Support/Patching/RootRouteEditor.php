@@ -72,14 +72,14 @@ final class RootRouteEditor
             }
 
             if ($namespaceHeader) {
-                if ($token->is([';', '{'])) {
+                if ($token->is([ord(';'), ord('{')])) {
                     $namespaceHeader = false;
                 }
 
                 continue;
             }
 
-            if ($depth === 0 && $token->text === '}') {
+            if ($depth === 0 && $token->id === ord('}')) {
                 $statement = [];
 
                 continue;
@@ -90,7 +90,7 @@ final class RootRouteEditor
             if ($awaitingControlBody) {
                 $awaitingControlBody = false;
                 $controlHeader = false;
-                if ($token->is(':')) {
+                if ($token->is(ord(':'))) {
                     $alternativeDepth++;
                     $statement = [];
 
@@ -110,7 +110,7 @@ final class RootRouteEditor
                 $depth--;
             }
 
-            if ($depth === 0 && $token->is(')') && $controlHeader) {
+            if ($depth === 0 && $token->is(ord(')')) && $controlHeader) {
                 $awaitingControlBody = true;
             }
 
@@ -126,7 +126,7 @@ final class RootRouteEditor
                 continue;
             }
 
-            if ($alternativeDepth === 0 && $token->is(';') && $this->isRootRoute($statement)) {
+            if ($alternativeDepth === 0 && $token->is(ord(';')) && $this->isRootRoute($statement)) {
                 $routes[] = $statement;
             }
 
@@ -155,7 +155,7 @@ final class RootRouteEditor
             $depth = 0;
             for ($index = 4; isset($tokens[$index]); $index++) {
                 $token = $tokens[$index];
-                if ($token->is(',') && $depth === 0) {
+                if ($token->is(ord(',')) && $depth === 0) {
                     $uriIndex = $index + 1;
                     break;
                 }

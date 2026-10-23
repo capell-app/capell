@@ -603,6 +603,10 @@ it('keeps frontend root registration disabled when an accepted CLI choice leaves
     'view' => "Route::view('/', 'homepage');",
     'redirect' => "Route::redirect('/', '/health');",
     'middleware group' => "Route::middleware('auth')->group(function () { Route::get('/', [HomeController::class, 'index']); });",
+    'resource index' => "Route::resource('/', HomeController::class)->only('index');",
+    'group router' => "Route::group([], function (\\Illuminate\\Routing\\Router \$router) { \$router->get('/', fn () => 'custom'); });",
+    'invoked closure' => "(function () { Route::get('/', fn () => 'custom'); })();",
+    'set root URI' => "Route::get('/health', fn () => 'custom')->setUri('/');",
     'stock plus custom root' => "Route::get('/', fn () => view('welcome'));\nRoute::redirect('/', '/health');",
 ]);
 
@@ -627,3 +631,28 @@ it('enables the frontend root only after the stock route has been removed', func
         ->and(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true')
         ->and($messages)->toBe([]);
 });
+
+it('enables the frontend root when fluent mutations move the application route away from root', function (string $route): void {
+    $path = welcomeRouteTestRoutesPath();
+    if (! is_dir(dirname($path))) {
+        mkdir(dirname($path), 0755, true);
+    }
+
+    $content = "<?php\nuse Illuminate\\Support\\Facades\\Route;\n" . $route;
+    file_put_contents($path, $content);
+    file_put_contents(welcomeRouteTestEnvPath(), "CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false\n");
+    $installer = resolve(WelcomeRouteInstaller::class);
+    $record = static function (string $message): void {};
+    (new InstallPostInstallOptionResolver)->configureWelcomeRoute($installer, true, $record, $record);
+
+    expect($installer->install())->toBeFalse()
+        ->and($installer->hasRootRoute())->toBeFalse()
+        ->and(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true')
+        ->and(file_get_contents($path))->toBe($content);
+    $routes = patchedCoreWelcomeRoutes($path);
+    expect($routes->match(Request::create('/admin'))->run())->toBe('custom');
+    expect(fn () => $routes->match(Request::create('/')))->toThrow(NotFoundHttpException::class);
+})->with([
+    'prefix' => "Route::get('/', fn () => 'custom')->prefix('admin');",
+    'setUri' => "Route::get('/', fn () => 'custom')->setUri('/admin');",
+]);

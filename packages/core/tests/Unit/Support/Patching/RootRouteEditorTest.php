@@ -103,6 +103,39 @@ it('detects executable roots separately from safe removal candidates', function 
     $registered = array_any(Route::getRoutes()->getRoutes(), static fn (Illuminate\Routing\Route $route): bool => $route->uri() === '/');
     expect($registered)->toBe($root);
 })->with([
+    'resource index' => ["R::resource('/', HomeController::class)->only('index');", true],
+    'api resource store' => ["R::apiResource('/', HomeController::class)->only('store');", true],
+    'resource without root actions' => ["R::resource('/', HomeController::class)->only('show');", false],
+    'resource except root actions' => ["R::resource('/', HomeController::class)->except(['index', 'store']);", false],
+    'dynamic resource only' => ["\$methods = ['index']; R::resource('/', HomeController::class)->only(\$methods);", true],
+    'dynamic resource option override' => ["\$methods = ['index']; R::resource('/', HomeController::class, ['only' => ['show']])->only(\$methods);", true],
+    'nested resource options' => ["R::resource('/', HomeController::class, ['names' => ['only' => 'show']]);", true],
+    'creatable singleton options' => ["R::singleton('/', HomeController::class, ['creatable' => true, 'only' => ['store']]);", true],
+    'replaced resource options' => ["R::resource('/', HomeController::class, ['only' => ['show']])->only('index');", true],
+    'replaced resource except' => ["R::resource('/', HomeController::class)->except(['index', 'store'])->except('show');", true],
+    'api resources map' => ["R::apiResources(['/' => HomeController::class]);", true],
+    'non-root resources map' => ["R::resources(['admin' => HomeController::class]);", false],
+    'singleton without destroy' => ["R::singleton('/', HomeController::class)->only('destroy');", false],
+    'destroyable singleton' => ["R::singleton('/', HomeController::class)->destroyable()->only('destroy');", true],
+    'creatable singleton' => ["R::singleton('/', HomeController::class)->creatable()->only('store');", true],
+    'group arrow router' => ["R::group([], fn (\$router) => \$router->get('/', fn () => 'custom'));", true],
+    'deferred nested closure' => ["(function () { \$later = function () { R::get('/', fn () => 'custom'); }; })();", false],
+    'literal closing brace in group' => ['R::group([], function () { $a = ""; $x = "}$a"; R::get("/", fn () => "custom"); });', true],
+    'resource options' => ["R::resource('/', HomeController::class, ['only' => ['show']]);", false],
+    'resources map' => ["R::resources(['/' => HomeController::class]);", true],
+    'singleton show' => ["R::singleton('/', HomeController::class)->only('show');", true],
+    'group router' => ["R::group([], function (\\Illuminate\\Routing\\Router \$router) { \$router->get('/', fn () => 'custom'); });", true],
+    'prefixed group router' => ["R::prefix('admin')->group(function (\$router) { \$router->get('/', fn () => 'custom'); });", false],
+    'nested router group' => ["R::group([], function (\$router) { \$router->middleware('auth')->group(function (\$nested) { \$nested->get('/', fn () => 'custom'); }); });", true],
+    'invoked closure' => ["(function () { R::get('/', fn () => 'custom'); })();", true],
+    'invoked static closure' => ["(static function () { R::get('/', fn () => 'custom'); })();", true],
+    'invoked arrow' => ["(fn () => R::get('/', fn () => 'custom'))();", true],
+    'set root URI' => ["R::get('/health', fn () => 'custom')->setUri('/');", true],
+    'replace root URI' => ["R::get('/', fn () => 'custom')->setUri('/health');", false],
+    'prefix after registration' => ["R::get('/', fn () => 'custom')->prefix('admin');", false],
+    'replace fluent prefix' => ["R::get('/', fn () => 'custom')->prefix('admin')->prefix('');", false],
+    'reset prefixed URI' => ["R::prefix('admin')->get('/health', fn () => 'custom')->setUri('/');", true],
+    'interpolation in group' => ['R::prefix("admin")->group(function () { $a = ""; $x = "{$a}{"; R::get("/", fn () => "custom"); });', false],
     'middleware chain' => ["R::middleware('auth')->get('/', fn () => 'custom');", true],
     'name chain' => ["R::name('home')->get('/', fn () => 'custom');", true],
     'middleware group' => ["R::middleware('auth')->group(function () { R::get('/', fn () => 'custom'); });", true],
@@ -149,3 +182,40 @@ PHP_SOURCE;
         expect(Route::getRoutes()->match(Request::create('/'))->run())->toBe('WELCOME');
     }
 });
+
+it('preserves imported custom calls after interpolated string braces', function (string $imports, string $call, bool $root): void {
+    $source = "<?php\n" . $imports . <<<'PHP_SOURCE'
+
+$a = '';
+$x = "}$a";
+PHP_SOURCE;
+    $source .= "\n" . $call;
+    $editor = new RootRouteEditor($source);
+    expect($editor->hasRootRoute())->toBe($root)
+        ->and($editor->hasStockWelcomeRoute())->toBeFalse()
+        ->and($editor->removeStockWelcomeRoutes())->toBe($source);
+
+    foreach ([$source, $editor->removeStockWelcomeRoutes()] as $content) {
+        RootRouteEditorCustomRouter::$calls = 0;
+        Route::setRoutes(new RouteCollection);
+        eval(substr($content, 5));
+        if ($root) {
+            expect(Route::getRoutes()->match(Request::create('/'))->run())->toBe('WELCOME');
+        } else {
+            expect(RootRouteEditorCustomRouter::$calls)->toBe(1);
+        }
+    }
+})->with([
+    'custom class' => ['use RootRouteEditorCustomRouter as Route;', "Route::get('/', fn () => view('welcome'));", false],
+    'custom helper' => ['use Illuminate\\Support\\Facades\\Route; use function strtoupper as view;', "Route::get('/', fn () => view('welcome'));", true],
+]);
+
+final class RootRouteEditorCustomRouter
+{
+    public static int $calls = 0;
+
+    public static function get(): void
+    {
+        self::$calls++;
+    }
+}

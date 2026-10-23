@@ -364,3 +364,24 @@ PHP;
     expect(fn () => $patch->apply())->toThrow(RuntimeException::class);
     expect(file_get_contents($routesPath))->toBe($content);
 });
+
+it('preserves a customised root using an imported helper after interpolation', function (): void {
+    $routesPath = $this->testDir . '/routes/web.php';
+    mkdir(dirname($routesPath), 0755, true);
+    $this->app->setBasePath($this->testDir);
+    $content = <<<'PHP_SOURCE'
+<?php
+use Illuminate\Support\Facades\Route;
+use function strtoupper as view;
+$a = '';
+$x = "}$a";
+Route::get('/', fn () => view('welcome'));
+PHP_SOURCE;
+    file_put_contents($routesPath, $content);
+    $patch = new RemoveWelcomeRoutePatch;
+
+    expect($patch->probe())->toBe(PatchStatus::Customised);
+    expect(fn () => $patch->apply())->toThrow(RuntimeException::class);
+    expect(file_get_contents($routesPath))->toBe($content)
+        ->and(patchedWelcomeRoutes($routesPath)->match(Request::create('/'))->run())->toBe('WELCOME');
+});
