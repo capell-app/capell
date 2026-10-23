@@ -32,7 +32,7 @@ The main concepts map to one idea each:
 | Site      | A public web property. It can have one domain or several, one language or several, and its own pages, settings, and theme choices.                                                                    |
 | Page      | A structured record in a hierarchy. It owns translated URLs, type-specific fields, publishing state, media, and layout relationships.                                                                 |
 | Page URL  | A site-scoped, language-aware path and slug. Each page can have several, including automatic [redirects](../../packages/core/docs/page-management.md) when slugs or parents change.                   |
-| Layout    | Connects content to frontend rendering. This is the core [`Layout`](../reference/glossary.md#developer-terms) template model, not the ContentSections Layout Builder blocks editors drag onto a page. |
+| Layout    | Connects content to frontend rendering. This is the core [`Layout`](../reference/glossary.md#developer-terms) template model. The optional Layout Builder package composes widgets into it. |
 | Blueprint | Reusable editing, rendering, and behaviour rules shared across pages, widgets, layouts, and package-owned content models.                                                                             |
 | Theme     | The active theme path and identity a site renders through.                                                                                                                                            |
 
