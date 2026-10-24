@@ -29,6 +29,15 @@ final class WithSiteDomainClaimLockAction
             // UPDATE also acquires a write lock on SQLite, where FOR UPDATE is ignored.
             $lock = $connection->table('site_domain_claim_locks')->where('id', 1);
             $lock->update(['id' => 1]);
+
+            if (! $lock->exists()) {
+                // A schema dump restores the table without the migration's seed row.
+                // Seed it only on this cold path so the hot path never takes a shared lock
+                // that would deadlock concurrent claims on MySQL, then lock it as usual.
+                $connection->table('site_domain_claim_locks')->insertOrIgnore(['id' => 1]);
+                $lock->update(['id' => 1]);
+            }
+
             throw_unless($lock->exists(), RuntimeException::class, 'Site domain claim lock is missing; run Core migrations.');
 
             return $operation();
