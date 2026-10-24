@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+namespace Capell\Tests\Unit;
+
 use Capell\Tests\Support\CommandFixture;
+use Iterator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
