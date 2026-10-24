@@ -91,10 +91,20 @@ class LayoutPolicy
             && $this->canUseLayoutSite($user, $layout);
     }
 
+    public function restoreAny(User $user): bool
+    {
+        return $user->checkPermissionTo(self::permission('restore_any', $this->subject()));
+    }
+
     public function forceDelete(User $user, Layout $layout): bool
     {
         return $user->checkPermissionTo(self::permission('force_delete', $this->subject()))
             && $this->canUseLayoutSite($user, $layout);
+    }
+
+    public function forceDeleteAny(User $user): bool
+    {
+        return $user->checkPermissionTo(self::permission('force_delete_any', $this->subject()));
     }
 
     public function replicate(User $user, Layout $layout): bool

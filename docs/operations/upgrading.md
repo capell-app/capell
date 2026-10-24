@@ -1,5 +1,41 @@
 # Upgrading Capell
 
+## Admin authorisation and domain claims
+
+Review custom roles when deploying the authorisation update. Inline creation of
+Blueprints, Themes and Languages now requires the corresponding `Create:Blueprint`,
+`Create:Theme` or `Create:Language` permission; page editing alone does not grant it.
+Inline edits require their resource's update permission. Site and Layout bulk
+restoration and permanent deletion require `RestoreAny:Site`, `ForceDeleteAny:Site`,
+`RestoreAny:Layout` and `ForceDeleteAny:Layout` respectively. Site replication also
+requires `Replicate:Site`, site access and permission to create sites. Individual
+record checks continue to apply to bulk actions. Preserve deliberate restrictions
+when updating custom roles; do not grant every permission to restore old UI access.
+Explicit host policies for a model or its ancestors take precedence over Capell's
+default policies.
+
+Run the Core migrations before accepting domain writes or site restorations. The
+`site_domain_claim_locks` table contains a seeded mutex row used by domain saves,
+individual restores and site cascade restores in the same database transaction.
+Do not delete that row. All origins share this lock because a wildcard scheme or
+host can overlap a more specific claim. An inaccessible site's origin cannot be
+claimed by choosing another path; refused cascade restores leave the entire
+batch deleted. Trusted integrations that write domains must use model saves or
+the restore action, rather than bulk SQL updates that bypass model guards.
+
+Marketplace install, update and licence mutations now enforce the extension
+management permission at their web entry points. These guards do **not** cancel
+operations already queued before deployment or before a role was revoked. Review
+and explicitly cancel pending operations through the owning queue/operation
+workflow if they must not run, and restart workers onto the deployed code.
+
+Browser removal of the installer requires the explicit
+`CAPELL_SERVER_SIDE_TOOLING=true` opt-in as well as the existing post-install
+session grant or global administrator access. Keep this disabled on immutable
+releases and remove the installer during the build instead. A refused or failed
+browser removal retains the session grant so the operator can correct the host
+configuration and retry; successful removal consumes it.
+
 ## Installer account collisions and Marketplace update safety
 
 Creating a primary installer account now rejects an email address that already

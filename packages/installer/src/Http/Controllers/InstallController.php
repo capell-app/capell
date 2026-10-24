@@ -283,9 +283,10 @@ final class InstallController
     {
         abort_unless($this->canRemoveInstaller($request), 404);
 
+        $redirectUrl = RemoveSetupPackageAction::run(requiresServerSideTooling: true);
         $request->session()->forget(self::REMOVE_INSTALLER_SESSION_KEY);
 
-        return redirect()->to(RemoveSetupPackageAction::run());
+        return redirect()->to($redirectUrl);
     }
 
     public function report(Request $request, string $installId): Response

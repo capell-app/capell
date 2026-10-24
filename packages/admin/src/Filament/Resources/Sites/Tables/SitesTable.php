@@ -147,9 +147,11 @@ class SitesTable implements TableConfigurator
             ->toolbarActions([
                 ExportSitesBulkAction::make(),
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->modalDescription(fn (EloquentCollection|Collection|LazyCollection $records): string => static::bulkDeletionImpactDescription($records))
                     ->using(static::deleteBulk(...)),
                 RestoreBulkAction::make()
+                    ->authorizeIndividualRecords('restore')
                     ->missingBulkProcessingFailureNotificationMessage(__('capell-admin::message.restore_cascade_failed_selection'))
                     ->using(static::restoreBulk(...)),
                 ForceDeleteBulkAction::make(),

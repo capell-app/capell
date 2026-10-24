@@ -1074,6 +1074,7 @@ it('rejects installer package removal without post-install session access', func
 });
 
 it('removes the installer composer package and redirects to admin when admin is installed', function (): void {
+    config(['capell.server_side_tooling' => true]);
     bindSetupRemoveProcessFactory();
 
     CapellCore::forcePackageInstalled('capell-app/admin');
@@ -1084,6 +1085,7 @@ it('removes the installer composer package and redirects to admin when admin is 
 });
 
 it('removes the installer composer package and redirects to the frontend when admin is not installed', function (): void {
+    config(['capell.server_side_tooling' => true]);
     bindSetupRemoveProcessFactory();
     CapellCore::clearPackages();
 
@@ -2950,4 +2952,19 @@ it('admits one step executor across overlapping HTTP requests and a replayed res
     withSession(installerAccessSessionData($id))->postJson(route('capell-installer.run-step'), $payload)
         ->assertOk()->assertJsonPath('nextStep', InstallPlan::STEP_RESOLVE_USER);
     expect($calls)->toBe(1);
+});
+
+it('retains the removal session grant after tooling refusal and permits retry', function (): void {
+    config(['capell.server_side_tooling' => false]);
+    withSession(['capell.installer.can_remove_setup_package' => true])
+        ->post(route('capell-installer.destroy'))
+        ->assertStatus(500)
+        ->assertSessionHas('capell.installer.can_remove_setup_package', true);
+
+    config(['capell.server_side_tooling' => true]);
+    bindSetupRemoveProcessFactory();
+    CapellCore::forcePackageInstalled('capell-app/admin');
+    post(route('capell-installer.destroy'))
+        ->assertRedirect(url('/admin'))
+        ->assertSessionMissing('capell.installer.can_remove_setup_package');
 });

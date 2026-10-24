@@ -156,6 +156,7 @@ class PagesTable implements TableConfigurator
                 BulkMovePagesBulkAction::make(),
                 ...static::getExtenderBulkActions(),
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records): Factory|View => view('capell-admin::components.record-deletion-impact', [
                         'impact' => resolve(BuildPageDeletionImpactAction::class)->handleMany($records),
                     ]))

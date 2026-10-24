@@ -6,6 +6,7 @@ namespace Capell\Installer\Actions;
 
 use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Illuminate\Support\Facades\Artisan;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -17,13 +18,19 @@ final class RemoveSetupPackageAction
     use AsFake;
     use AsObject;
 
-    public function handle(): string
+    public function handle(bool $requiresServerSideTooling = false): string
     {
+        new ReleaseRootWriteGuard()->assertWritable(
+            'remove-installer',
+            ['composer.json', 'composer.lock', 'vendor', 'bootstrap/cache'],
+            requiresServerSideTooling: $requiresServerSideTooling,
+        );
+
         $redirectUrl = $this->redirectUrl();
 
         $this->clearFilamentComponentCache();
 
-        RemovePackageAction::run(InstallerServiceProvider::$packageName);
+        RemovePackageAction::run(InstallerServiceProvider::$packageName, requiresServerSideTooling: $requiresServerSideTooling);
 
         return $redirectUrl;
     }
