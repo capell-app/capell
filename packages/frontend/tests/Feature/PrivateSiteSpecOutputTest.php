@@ -19,9 +19,12 @@ use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Frontend\Jobs\FlushCdnPurgeBatchJob;
+use Capell\Frontend\Support\Cache\FragmentCache;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
+use Capell\Frontend\Tests\Fixtures\FragmentCacheTestStore;
 use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Client\RequestException;
@@ -255,6 +258,85 @@ it('discovers legacy confidential files omitted from the latest real export rece
     expect(File::exists($store->root() . '/' . $private['artifacts'][0]['file']))->toBeFalse()
         ->and(File::get($store->root() . '/' . $current['artifacts'][0]['file']))->toBe('<html>Current public export</html>')
         ->and($site->fresh()->meta['site_spec_privacy_version'])->toBe(2);
+});
+
+it('makes confidential fragments unreachable despite failed deletion or surrogate locks', function (string $failure): void {
+    $spec = confidentialPrivateSiteSpec();
+    $site = BuildCapellSiteFromSpecAction::run($spec);
+    $meta = $site->meta;
+    unset($meta['site_spec_privacy_version']);
+    $site->update(['meta' => $meta]);
+    $store = new FragmentCacheTestStore;
+    $repository = new Repository($store);
+    $repository->put('fragment:namespace', 'legacy', 3600);
+
+    $fragments = new FragmentCache($repository);
+    app()->instance(FragmentCache::class, $fragments);
+    $fragments->remember('private', static fn (): string => 'CONFIDENTIAL fragment', surrogateKeys: ['site-' . $site->id]);
+    $fragments->remember('untagged', static fn (): string => 'CONFIDENTIAL untagged');
+
+    $legacyKeys = $repository->get('fragment:legacy:surrogate:map')['site-' . $site->id];
+
+    expect($fragments->remember('private', static fn (): string => 'unexpected'))->toBe('CONFIDENTIAL fragment');
+    $store->fragmentDeletionFailure = $failure === 'lock' ? null : $failure;
+    $store->failLocks = $failure === 'lock';
+
+    BuildCapellSiteFromSpecAction::run($spec, true);
+
+    expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2)
+        // The retained bytes are deliberately inaccessible through every reader,
+        // including fragments without surrogate membership.
+        ->and($repository->get($legacyKeys[0]))->toBe('CONFIDENTIAL fragment')
+        ->and($fragments->remember('private', static fn (): string => 'safe'))->toBe('safe')
+        ->and($fragments->remember('untagged', static fn (): string => 'safe untagged'))->toBe('safe untagged');
+})->with(['return-false', 'throw', 'lock']);
+
+it('does not certify repair until fragment namespace rotation is acknowledged and can retry', function (string $failure): void {
+    $spec = confidentialPrivateSiteSpec();
+    $site = BuildCapellSiteFromSpecAction::run($spec);
+    $meta = $site->meta;
+    unset($meta['site_spec_privacy_version']);
+    $site->update(['meta' => $meta]);
+    $store = new FragmentCacheTestStore;
+    $repository = new Repository($store);
+    $repository->put('fragment:namespace', 'legacy', 3600);
+
+    $fragments = new FragmentCache($repository);
+    app()->instance(FragmentCache::class, $fragments);
+    $fragments->remember('private', static fn (): string => 'CONFIDENTIAL fragment', surrogateKeys: ['site-' . $site->id]);
+    $store->namespaceWriteFailure = $failure;
+
+    expect(fn (): Site => BuildCapellSiteFromSpecAction::run($spec, true))->toThrow(RuntimeException::class)
+        ->and($site->fresh()->meta['site_spec_privacy_version'] ?? null)->toBeNull()
+        ->and($repository->get('fragment:namespace'))->toBe('legacy');
+
+    $store->namespaceWriteFailure = null;
+    BuildCapellSiteFromSpecAction::run($spec, true);
+
+    expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2)
+        ->and($fragments->remember('private', static fn (): string => 'safe'))->toBe('safe');
+})->with(['return-false', 'throw', 'unacknowledged']);
+
+it('cannot republish a pre-repair fragment into the active namespace after repair completes', function (): void {
+    $spec = confidentialPrivateSiteSpec();
+    $site = BuildCapellSiteFromSpecAction::run($spec);
+    $meta = $site->meta;
+    unset($meta['site_spec_privacy_version']);
+    $site->update(['meta' => $meta]);
+    $store = new FragmentCacheTestStore;
+    $repository = new Repository($store);
+    $repository->put('fragment:namespace', 'legacy', 3600);
+
+    $fragments = new FragmentCache($repository);
+    app()->instance(FragmentCache::class, $fragments);
+    $store->beforeMapWrite = static function () use ($spec): void {
+        BuildCapellSiteFromSpecAction::run($spec, true);
+    };
+
+    $fragments->remember('in-flight', static fn (): string => 'CONFIDENTIAL in flight', surrogateKeys: ['site-' . $site->id]);
+
+    expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2)
+        ->and($fragments->remember('in-flight', static fn (): string => 'safe'))->toBe('safe');
 });
 
 /** @return array<string, mixed> */

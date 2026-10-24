@@ -244,6 +244,8 @@ unaudited legacy private import instead of reporting success.
 
 Repair saves through normal cache invalidation, purges the site's frontend caches
 and configured CDN surrogate keys, and deletes its locally managed static exports.
+It also rotates and verifies the shared fragment-cache namespace, invalidating all
+sites' fragments so retained values and late pre-repair writes cannot be reused.
 Repair waits for the configured CDN's purge acknowledgement without depending on
 a queue worker; Fastly repairs use a hard purge so stale responses cannot remain
 available. The completion marker is recorded only after remediation succeeds;
@@ -252,6 +254,14 @@ deployed exports and purge external caches before reopening, then regenerate aut
 `php artisan capell:generate-html --site=SITE_ID`. New private imports keep authored
 source metadata in `storage/app/capell-private/site-spec` with private permissions;
 never expose this directory through a web alias or include it in public exports.
+
+If HTML Cache is installed, deploy its matching synchronous privacy-repair listener
+before running repair. It must clear response files through its publication guard
+and await its own configured edge purge before returning. Queued model invalidation
+(including `instant` mode) is insufficient while workers are stopped; a Core repair
+completion marker alone does not establish that an older HTML Cache release has
+removed its confidential responses. Keep maintenance in place until that companion
+release and its failure/retry integration checks are verified.
 
 Active legacy maintenance manifests are converted to version 2 using current site
 domains and regenerated HTML before route matching. Database, render or write
