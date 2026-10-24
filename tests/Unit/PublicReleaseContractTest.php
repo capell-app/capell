@@ -118,12 +118,19 @@ it('gates publication on the approved plan and runs the reusable smoke after pub
     /** @var array<string, mixed> $workflow */
     $workflow = Yaml::parseFile($root . '/.github/workflows/split-monorepo.yml');
     expect(array_keys($workflow['on']))->toBe(['workflow_dispatch'])
-        ->and($workflow['permissions'])->toMatchArray(['actions' => 'read', 'contents' => 'write'])
+        ->and($workflow['permissions'])->toBe(['contents' => 'read'])
+        ->and($workflow['jobs']['publish']['permissions'])->toBe(['actions' => 'read', 'contents' => 'write'])
         ->and($workflow['jobs']['publish']['needs'])->toBe('prepare-plan')
         ->and($workflow['jobs']['public-release-smoke'])->toMatchArray([
             'needs' => 'publish', 'uses' => './.github/workflows/public-release-smoke.yml',
             'with' => ['plan_path' => 'release-plan.json', 'plan_artifact' => 'approved-release-plan'],
         ]);
+    foreach ($workflow['jobs'] as $name => $job) {
+        if ($name !== 'publish') {
+            expect($job['permissions'] ?? $workflow['permissions'])->toBe(['contents' => 'read']);
+        }
+    }
+
     $steps = array_column($workflow['jobs']['publish']['steps'], null, 'name');
     expect($steps['Create split repository token']['with'])->toMatchArray([
         'permission-contents' => 'write', 'permission-workflows' => 'write',
@@ -138,22 +145,37 @@ it('gates publication on the approved plan and runs the reusable smoke after pub
 
 it('accepts only workspace-relative release plans before staging them for approval', function (string $path, bool $accepted): void {
     $fixture = new CommandFixture;
-    $fixture->files->write('release-plan.json', '{"approved":true}');
+    $source = str_repeat('a', 40);
+    $workflowSha = str_repeat('b', 40);
+    $plan = ['approved' => true, 'source' => ['commit' => $source]];
+    $fixture->files->write('release-plan.json', json_encode($plan, JSON_THROW_ON_ERROR));
     $fixture->files->write('staged/.keep', '');
     $fixture->fake('php');
+    $fixture->files->write('bin/git', <<<'SH'
+        #!/bin/sh
+        printf '{"command":"git","cwd":"%s","arguments":["%s","%s","%s","%s"]}\n' "$PWD" "$1" "$2" "$3" "$4" >> "$COMMAND_FIXTURE_LOG"
+        [ "$*" = "merge-base --is-ancestor aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ] || exit 99
+        exit 0
+        SH);
+    chmod($fixture->files->root . '/bin/git', 0755);
     /** @var array<string, mixed> $workflow */
     $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/split-monorepo.yml');
     $steps = array_column($workflow['jobs']['prepare-plan']['steps'], null, 'name');
     try {
         $process = $fixture->run(['bash', '-e', '-c', $steps['Validate committed release plan']['run']], [
             'PLAN_PATH' => $path, 'GITHUB_WORKSPACE' => $fixture->files->root, 'RUNNER_TEMP' => $fixture->files->root . '/staged',
+            'RELEASE_WORKFLOW_SHA' => $workflowSha,
         ]);
-        expect($process->getExitCode() === 0)->toBe($accepted);
+        expect($process->getExitCode() === 0)->toBe($accepted, $process->getErrorOutput());
         if ($accepted) {
-            expect(json_decode((string) file_get_contents($fixture->files->root . '/staged/release-plan.json'), true, flags: JSON_THROW_ON_ERROR))->toBe(['approved' => true]);
+            expect(json_decode((string) file_get_contents($fixture->files->root . '/staged/release-plan.json'), true, flags: JSON_THROW_ON_ERROR))->toBe($plan)
+                ->and(array_column($fixture->calls('git'), 'arguments'))->toBe([
+                    ['merge-base', '--is-ancestor', $source, $workflowSha],
+                ]);
         } else {
             expect($fixture->files->root . '/staged/release-plan.json')->not->toBeFile()
-                ->and($fixture->calls('php'))->toBe([]);
+                ->and($fixture->calls('php'))->toBe([])
+                ->and($fixture->calls('git'))->toBe([]);
         }
     } finally {
         $fixture->close();
