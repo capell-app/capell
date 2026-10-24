@@ -37,7 +37,7 @@ beforeEach(function (): void {
 
 function strictActionRecord(string $subject, Site $site): Model
 {
-    return match ($subject) {
+    $record = match ($subject) {
         'User' => strictActionActor($site),
         'Role' => Role::findOrCreate('action-target', 'web'),
         'Site' => $site,
@@ -45,6 +45,13 @@ function strictActionRecord(string $subject, Site $site): Model
         'Page' => Page::factory()->site($site)->withTranslations()->createOne(),
         default => throw new InvalidArgumentException($subject),
     };
+
+    if ($record instanceof SiteScopedFormTestUser) {
+        // User table scoping resolves site membership through role assignments.
+        $record->roles()->attach(Role::findOrCreate('action-site-member', 'web'), ['team_id' => $site->id]);
+    }
+
+    return $record;
 }
 
 function strictActionActor(Site $site): SiteScopedFormTestUser
@@ -84,6 +91,7 @@ it('renders record edit actions using the existing update policy under strict mo
 
     Livewire::test($list)
         ->assertSuccessful()
+        ->assertCanSeeTableRecords([$record])
         ->assertTableActionHidden('edit', $record);
 
     $updatePermission = $subject === 'Role' ? 'update_role' : 'Update:' . $subject;
@@ -91,6 +99,7 @@ it('renders record edit actions using the existing update policy under strict mo
 
     Livewire::test($list)
         ->assertSuccessful()
+        ->assertCanSeeTableRecords([$record])
         ->assertTableActionVisible('edit', $record);
 })->with([
     ['User', ListUsers::class],
