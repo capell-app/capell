@@ -28,24 +28,31 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: repositories/capell
+          persist-credentials: false
       - name: Checkout screenshot tools
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: capell-app/capell-screenshot-tools
           token: ${{ secrets.ACCESS_TOKEN }}
           path: repositories/capell-screenshot-tools
+          persist-credentials: false
       - name: Checkout shared screenshot runner
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: capell-app/capell-screenshot-runner
           token: ${{ secrets.ACCESS_TOKEN }}
           path: repositories/capell-screenshot-runner
+          persist-credentials: false
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: '8.4'
           tools: composer:v2
           coverage: none
-      - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: >-
+          composer install --no-interaction --no-progress --prefer-dist
+          --no-scripts --no-plugins
+      - name: Prepare PHP autoload environment without credentials
+        run: composer dump-autoload --no-interaction
       - run: npm ci --ignore-scripts
       - name: Required non-mutating product gates
         run: |
@@ -61,6 +68,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ inputs.plan_artifact }}
@@ -167,6 +176,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ inputs.plan_artifact }}
