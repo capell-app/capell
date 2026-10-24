@@ -9,6 +9,8 @@ use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Capell\Marketplace\Support\MarketplaceComposerCommand;
+use Capell\Marketplace\Support\MarketplaceComposerCoordinates;
 use Capell\Marketplace\Support\MarketplaceInstallAuthorizationPolicy;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -38,14 +40,16 @@ final class CreateExtensionUpdateAcquisitionAction
     public function handle(ExtensionListingData $listing, string $currentVersion): ExtensionAcquisitionData
     {
         $this->assertUpdateAllowed($listing);
+        MarketplaceComposerCoordinates::assertValid($listing->composerName, $this->latestVersionConstraint($listing));
 
         if (! $this->authorizationPolicy->requiresAuthorization($listing)) {
             $versionConstraint = $this->latestVersionConstraint($listing);
+            MarketplaceComposerCoordinates::assertUpgrade($listing->composerName, $versionConstraint, $currentVersion);
 
             return new ExtensionAcquisitionData(
                 composerName: $listing->composerName,
                 versionConstraint: $versionConstraint,
-                composerCommand: sprintf('composer require %s:%s', $listing->composerName, $versionConstraint),
+                composerCommand: MarketplaceComposerCommand::require($listing->composerName, $versionConstraint),
                 repositoryUrl: null,
                 purchaseUrl: $listing->purchaseUrl,
                 requiresDeployment: false,
@@ -82,10 +86,12 @@ final class CreateExtensionUpdateAcquisitionAction
             ? $authorization->versionConstraint
             : $this->latestVersionConstraint($listing);
 
+        MarketplaceComposerCoordinates::assertUpgrade($composerName, $versionConstraint, $currentVersion);
+
         return new ExtensionAcquisitionData(
             composerName: $composerName,
             versionConstraint: $versionConstraint,
-            composerCommand: sprintf('composer require %s:%s', $composerName, $versionConstraint),
+            composerCommand: MarketplaceComposerCommand::require($composerName, $versionConstraint),
             repositoryUrl: $authorization->repositoryUrl,
             purchaseUrl: $listing->purchaseUrl,
             requiresDeployment: $authorization->repositoryUrl !== null,

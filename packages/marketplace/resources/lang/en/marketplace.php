@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 return [
     'errors' => [
+        'invalid_composer_coordinates' => 'Marketplace returned invalid Composer package coordinates.',
+        'unsafe_update_constraint' => 'Marketplace returned an update constraint that permits the current version or a downgrade.',
+        'reviewed_selection_changed' => 'Marketplace extension does not match the reviewed selection. Review the selection again before installing.',
         'operator_action_failed' => 'The action could not be completed. Review Package Operations for redacted diagnostics and a safe next step.',
         'view_details' => 'View details',
     ],

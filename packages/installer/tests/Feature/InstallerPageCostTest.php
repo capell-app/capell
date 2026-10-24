@@ -29,6 +29,12 @@ function installerPageProbe(TestResponse $response, string $key): array
 }
 
 beforeEach(function (): void {
+    config([
+        'capell-installer.bootstrap.secret' => str_repeat('a', 64),
+        'capell-installer.bootstrap.expires_at' => now()->addMinutes(30)->timestamp,
+    ]);
+    $this->post(route('capell-installer.unlock'), ['bootstrap_secret' => str_repeat('a', 64)])
+        ->assertRedirect(route('capell-installer.show'));
     config(['capell.plugins_source_url' => 'https://catalogue.capell.test/extensions']);
     Http::preventStrayRequests();
 });

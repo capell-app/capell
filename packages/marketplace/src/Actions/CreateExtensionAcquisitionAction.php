@@ -11,6 +11,8 @@ use Capell\Marketplace\Data\MarketplaceInstallEligibilityData;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Capell\Marketplace\Support\MarketplaceComposerCommand;
+use Capell\Marketplace\Support\MarketplaceComposerCoordinates;
 use Capell\Marketplace\Support\MarketplaceInstallAuthorizationPolicy;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Marketplace\Support\MarketplacePayloadSigner;
@@ -41,6 +43,8 @@ final class CreateExtensionAcquisitionAction
         array $installOptions = [],
         bool $hostedFlowAuthorized = false,
     ): ExtensionAcquisitionData {
+        MarketplaceComposerCoordinates::assertValid($listing->composerName, $listing->latestVersion !== null ? '^' . $listing->latestVersion : '*');
+
         $resolvedEmail = $email ?? auth()->user()?->email ?? 'unknown@local';
         unset($domain);
 
@@ -52,7 +56,7 @@ final class CreateExtensionAcquisitionAction
             return new ExtensionAcquisitionData(
                 composerName: $listing->composerName,
                 versionConstraint: $versionConstraint,
-                composerCommand: sprintf('composer require %s:%s', $listing->composerName, $versionConstraint),
+                composerCommand: MarketplaceComposerCommand::require($listing->composerName, $versionConstraint),
                 repositoryUrl: null,
                 purchaseUrl: $listing->purchaseUrl,
                 requiresDeployment: false,
@@ -93,12 +97,13 @@ final class CreateExtensionAcquisitionAction
 
         $composerName = $authorization->composerName !== '' ? $authorization->composerName : $listing->composerName;
         $versionConstraint = $authorization->versionConstraint !== '' ? $authorization->versionConstraint : ($listing->latestVersion !== null ? '^' . $listing->latestVersion : '*');
+        MarketplaceComposerCoordinates::assertValid($composerName, $versionConstraint);
         $repositoryUrl = $authorization->repositoryUrl;
 
         $acquisition = new ExtensionAcquisitionData(
             composerName: $composerName,
             versionConstraint: $versionConstraint,
-            composerCommand: sprintf('composer require %s:%s', $composerName, $versionConstraint),
+            composerCommand: MarketplaceComposerCommand::require($composerName, $versionConstraint),
             repositoryUrl: $repositoryUrl,
             purchaseUrl: $listing->purchaseUrl,
             requiresDeployment: $repositoryUrl !== null,

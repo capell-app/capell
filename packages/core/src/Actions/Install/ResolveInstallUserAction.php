@@ -9,6 +9,7 @@ use Capell\Core\Data\NewUserData;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
@@ -40,24 +41,22 @@ final class ResolveInstallUserAction
                 ->first();
 
             if ($existingUser instanceof Authenticatable) {
-                $existingUser->forceFill([
-                    'name' => $newUser->name,
-                    'password' => Hash::make($newUser->password),
-                ])->save();
-                MarkInstallUserEmailVerifiedAction::run($existingUser);
-
-                $reporter->report('✓ Updated existing user: ' . $newUser->email);
-
-                return $existingUser;
+                throw ValidationException::withMessages([
+                    'new_user_email' => __('validation.unique', ['attribute' => 'email']),
+                ]);
             }
 
-            /** @var Model&Authenticatable $user */
-            $user = $userModel::query()->create([
-                'name' => $newUser->name,
-                'email' => $newUser->email,
-                'password' => Hash::make($newUser->password),
-            ]);
-            MarkInstallUserEmailVerifiedAction::run($user);
+            $user = new $userModel()->getConnection()->transaction(function () use ($userModel, $newUser): Authenticatable {
+                /** @var Model&Authenticatable $user */
+                $user = $userModel::query()->create([
+                    'name' => $newUser->name,
+                    'email' => $newUser->email,
+                    'password' => Hash::make($newUser->password),
+                ]);
+                MarkInstallUserEmailVerifiedAction::run($user);
+
+                return $user;
+            });
             $reporter->report('✓ Created new user: ' . $newUser->email);
 
             return $user;

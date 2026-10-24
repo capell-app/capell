@@ -6,7 +6,9 @@ namespace Capell\Marketplace\Models;
 
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
+use Capell\Marketplace\Support\MarketplaceComposerCommand;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -137,6 +139,18 @@ final class MarketplaceInstallAttempt extends Model
     public function retries(): HasMany
     {
         return $this->hasMany(self::class, 'retry_of_id');
+    }
+
+    /** @return Attribute<string|null, string|null> */
+    protected function composerCommand(): Attribute
+    {
+        // Rebuild historical commands for UI, telemetry and retry readers.
+        // Execution continues to use the separate validated coordinates.
+        return Attribute::get(fn (?string $value): ?string => $value === null || $value === '' ? $value : (
+            $this->operation === MarketplaceOperationType::Uninstall
+                ? MarketplaceComposerCommand::remove($this->composer_name)
+                : MarketplaceComposerCommand::storedRequire($this->composer_name, $this->version_constraint, $value)
+        ));
     }
 
     #[Override]
