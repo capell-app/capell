@@ -8,6 +8,7 @@ use Capell\Core\Actions\CaptureLayoutContentSnapshotAction;
 use Capell\Core\Actions\ContentGraph\PruneContentGraphEdgesAction;
 use Capell\Core\Actions\ContentGraph\RebuildContentGraphForModelAction;
 use Capell\Core\Actions\GenerateUniqueKeyAction;
+use Capell\Core\Actions\ValidateStoredViewSelectorsAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Layout;
@@ -18,6 +19,8 @@ class LayoutObserver
 {
     public function saving(Layout $layout): void
     {
+        ValidateStoredViewSelectorsAction::run($layout);
+
         $key = $layout->getAttribute('key');
 
         if (! is_string($key) || $key === '') {

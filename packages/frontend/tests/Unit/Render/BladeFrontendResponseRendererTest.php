@@ -11,6 +11,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
@@ -43,6 +44,18 @@ use Illuminate\View\Component;
 use Livewire\Blaze\Blaze;
 use Livewire\Blaze\BlazeServiceProvider;
 
+beforeEach(function (): void {
+    registerTrustedRendererFixtureViews('capell-renderer-test');
+});
+
+function registerTrustedRendererFixtureViews(string $namespace): void
+{
+    $registry = resolve(LayoutViewRegistry::class);
+    $registry->registerMaster($namespace . '::master', 'Fixture master');
+    $registry->registerLayout($namespace . '::layout', 'Fixture layout');
+    $registry->registerLayout($namespace . '::shell', 'Fixture shell');
+}
+
 it('declares the blade runtime', function (): void {
     $renderer = new BladeFrontendResponseRenderer;
 
@@ -56,6 +69,7 @@ it('preserves legacy anonymous component attribute output for unhydrated layouts
     config()->set('view.compiled', $path . '/compiled');
     Component::flushCache();
     View::addNamespace($namespace, $path);
+    registerTrustedRendererFixtureViews($namespace);
     File::put($path . '/shell.blade.php', '<html><body>{!! $slot !!}</body></html>');
     File::put($path . '/legacy.blade.php', '@props(["layout" => null, "page" => null, "theme" => null, "pageSlot" => null, "containerClass" => null, "mainClass" => null, "mainContainerClass" => null])<main ' . $attributes . '>Legacy theme layout</main>');
     if ($component === 'layout') {
@@ -97,6 +111,7 @@ it('restores render data across recursive blade renders and exceptions', functio
     config()->set('view.compiled', $path . '/compiled');
     Component::flushCache();
     View::addNamespace($namespace, $path);
+    registerTrustedRendererFixtureViews($namespace);
     File::put($path . '/shell.blade.php', '<html><body>{!! $slot !!}{{ $scopeLabel }}</body></html>');
     Blade::component($namespace . '::legacy', 'capell::layout');
     File::put($path . '/legacy.blade.php', '<main>Scoped theme</main>');
@@ -267,6 +282,7 @@ it('uses the capell layout path for pages with layout builder containers', funct
 
     $viewPath = sys_get_temp_dir() . '/capell-renderer-test-' . bin2hex(random_bytes(6));
     View::addNamespace('capell-renderer-test', $viewPath);
+    registerTrustedRendererFixtureViews('capell-renderer-test');
     Blade::anonymousComponentPath($viewPath . '/components', 'capell-renderer-test');
     File::ensureDirectoryExists($viewPath . '/components');
     File::put($viewPath . '/layout.blade.php', '<html><body>{!! $slot !!}</body></html>');
@@ -347,6 +363,7 @@ it('renders custom master and layout files from layout metadata', function (): v
     bindBladeRendererContext($page, $site, $language, $layout, $theme);
 
     View::addNamespace($viewNamespace, $viewPath);
+    registerTrustedRendererFixtureViews($viewNamespace);
     File::ensureDirectoryExists($viewPath);
     File::put($viewPath . '/master.blade.php', '<main data-custom-master>{{ $componentName }}</main>');
     File::put($viewPath . '/layout.blade.php', '<html><body data-custom-shell>{{ $pageRecord->translation->title }}{!! $slot !!}</body></html>');
@@ -463,6 +480,7 @@ it('honours authored masters for prepared graphs while retaining graph and conta
         surrogateKeys: [],
     );
     View::addNamespace($viewNamespace, $viewPath);
+    registerTrustedRendererFixtureViews($viewNamespace);
     File::ensureDirectoryExists($viewPath);
     File::put($viewPath . '/master.blade.php', '<main>Authored master content</main>');
     File::put($viewPath . '/layout.blade.php', '<html><body>{!! $slot !!}</body></html>');
@@ -610,6 +628,7 @@ it('renders every widget and container presentation unless the entire graph can 
         ),
     );
     View::addNamespace($viewNamespace, $viewPath);
+    registerTrustedRendererFixtureViews($viewNamespace);
     File::ensureDirectoryExists($viewPath);
     File::put($viewPath . '/layout.blade.php', '<html><body>{!! $slot !!}</body></html>');
     // This is a provider contract fixture, not the companion Packages renderer.
@@ -959,6 +978,7 @@ it('rejects authoring markers from the primary blade render path', function (): 
     });
 
     View::addNamespace('capell-renderer-test', resource_path('views/capell-renderer-test'));
+    registerTrustedRendererFixtureViews('capell-renderer-test');
     File::ensureDirectoryExists(resource_path('views/capell-renderer-test'));
     File::put(resource_path('views/capell-renderer-test/master.blade.php'), '<div>Master</div>');
     File::put(resource_path('views/capell-renderer-test/layout.blade.php'), '<html><body data-model-id="42">{!! $slot !!}</body></html>');
@@ -1068,6 +1088,7 @@ it('prepares provider fragment contexts before guarding a partial layout', funct
         target: 'capell::layout.main',
     );
     View::addNamespace($viewNamespace, $viewPath);
+    registerTrustedRendererFixtureViews($viewNamespace);
     File::ensureDirectoryExists($viewPath);
     File::put($viewPath . '/layout.blade.php', '<html><body>{!! $slot !!}</body></html>');
     $context = new FrontendRenderContextData($page, $site, $language, $layout, $theme, runtimeManifest: $runtime, publicRenderData: $publicRenderData);

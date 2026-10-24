@@ -109,6 +109,16 @@ class SitePolicy
         return $user->checkPermissionTo(self::permission('delete_any', self::SUBJECT));
     }
 
+    public function restoreAny(User $user): bool
+    {
+        return $user->checkPermissionTo(self::permission('restore_any', self::SUBJECT));
+    }
+
+    public function forceDeleteAny(User $user): bool
+    {
+        return $user->checkPermissionTo(self::permission('force_delete_any', self::SUBJECT));
+    }
+
     public function restore(User $user, Site $site): bool
     {
         if (config('permission.teams') && ! SiteAccess::forActor($user)->can($site)) {

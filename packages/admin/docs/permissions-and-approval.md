@@ -28,6 +28,8 @@ See [PublishingStudio & Versions — Approval lifecycle](https://docs.capell.app
 
 ## Policies
 
+The default admin panel enables Filament strict authorisation. A resource with no policy, or a policy missing the requested method, raises an error instead of granting access. Custom host panels should also enable `->strictAuthorization()` when integrating Capell resources.
+
 Gate-based access control throughout the admin:
 
 | Policy           | Model (Shield subject) | Covers                                                                |
@@ -38,10 +40,15 @@ Gate-based access control throughout the admin:
 | `MediaPolicy`    | `Media`                | media access                                                          |
 | `RedirectPolicy` | `PageUrl`              | redirect CRUD + import/export gates (redirects are stored in PageUrl) |
 | `UserPolicy`     | user model             | user access and user management                                       |
+| `ActivityPolicy` | `Activity`             | activity resource permissions                                         |
+| `BlockTemplatePolicy` | `BlockTemplate`    | block-template resource permissions                                   |
+| `RolePolicy`     | configured role model  | role resource permissions                                             |
 
 Navigation policies are package-owned by `capell-app/navigation`. Workspace policies and approval gates are package-owned by `capell-app/publishing-studio`.
 
 All Filament resources resolve their actions through these policies — there are no inline `Gate::allows()` checks in Blade or resource classes.
+
+Activity, BlockTemplate and Role deny access until the corresponding Shield permissions are granted. Layout and Site bulk restore/force-delete require their `RestoreAny`/`ForceDeleteAny` permissions.
 
 ### Policy registration (do NOT rely on Filament-only discovery)
 

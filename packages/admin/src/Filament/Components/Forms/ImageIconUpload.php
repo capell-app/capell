@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms;
 
-use Filament\Forms\Components\FileUpload;
 use Override;
 
 class ImageIconUpload extends FileUpload

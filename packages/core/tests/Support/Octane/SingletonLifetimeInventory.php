@@ -69,6 +69,7 @@ use Capell\Core\Support\Security\LockdownStore;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
+use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Capell\Core\ThemeStudio\Assets\ThemeTokenStore;
@@ -143,6 +144,7 @@ final class SingletonLifetimeInventory
             MediaCompositionGuidanceRegistry::class => self::boot('Composition guidance definitions are package boot registrations.'),
             HealthCheckRegistry::class => self::boot('Operational health checks are package boot registrations; each execution is isolated in a child process.'),
             ThemeChromeRegistry::class => self::boot('Theme chrome definitions are package boot registrations.'),
+            LayoutViewRegistry::class => self::boot('Trusted layout view selectors are package boot registrations.'),
             ThemeInstallDefaultsRegistry::class => self::boot('Theme install defaults are package boot registrations.'),
             InstallPatchRegistry::class => self::boot('Install patches are package boot registrations.'),
             ExtensionContributionReceiptRegistry::class => self::boot('Contribution receipts and boot contexts are package boot registrations.'),

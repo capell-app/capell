@@ -28,6 +28,10 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
+beforeEach(function (): void {
+    config()->set('capell-frontend.fallback_public_views.view_names', ['safe-fallback', 'fallback-guard', 'named.fallback.guard']);
+});
+
 it('renders public pages through the active theme runtime renderer', function (): void {
     $page = Page::factory()->make(['id' => 123]);
     $site = Site::factory()->make(['id' => 456]);

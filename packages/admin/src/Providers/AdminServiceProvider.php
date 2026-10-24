@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Providers;
 
+use BezhanSalleh\FilamentShield\Support\Utils as ShieldUtils;
 use Capell\Admin\Actions\CreateDefaultPagesAction;
 use Capell\Admin\Actions\Notifications\ResolveDefaultPackageOperationRecipientsAction;
 use Capell\Admin\Console\Commands\CacheConfiguratorsCommand;
@@ -124,12 +125,15 @@ use Capell\Admin\Macros\Filament\TestableMacro;
 use Capell\Admin\Macros\Filament\TextInputMacro;
 use Capell\Admin\Observers\LayoutObserver as AdminLayoutObserver;
 use Capell\Admin\Observers\PageObserver as AdminPageObserver;
+use Capell\Admin\Policies\ActivityPolicy;
+use Capell\Admin\Policies\BlockTemplatePolicy;
 use Capell\Admin\Policies\BlueprintPolicy;
 use Capell\Admin\Policies\LanguagePolicy;
 use Capell\Admin\Policies\LayoutPolicy;
 use Capell\Admin\Policies\MediaPolicy;
 use Capell\Admin\Policies\PagePolicy;
 use Capell\Admin\Policies\RedirectPolicy;
+use Capell\Admin\Policies\RolePolicy;
 use Capell\Admin\Policies\SiteDomainPolicy;
 use Capell\Admin\Policies\SitePolicy;
 use Capell\Admin\Policies\ThemePolicy;
@@ -225,6 +229,7 @@ use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -251,6 +256,7 @@ use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Repeater;
@@ -281,6 +287,7 @@ use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
 use Override;
 use RuntimeException;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\LaravelPackageTools\Package;
 use Throwable;
 
@@ -550,6 +557,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootPackage(): self
     {
+        BaseFileUpload::configureUsing(
+            static function (BaseFileUpload $upload): void {
+                $upload->preventFilePathTampering();
+            },
+            isImportant: true,
+        );
+
         $publishDirectory = realpath(__DIR__ . '/../../publishes');
 
         throw_if($publishDirectory === false, RuntimeException::class, 'Publish directory not found.');
@@ -1107,6 +1121,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // them. Register explicitly so that Gate::inspect/allows/denies
         // invoked outside Filament's resource-scoped policy lookup (e.g.
         // from Actions, CLI, queued jobs) still resolves the right policy.
+        Gate::policy(Activity::class, ActivityPolicy::class);
+        Gate::policy(BlockTemplate::class, BlockTemplatePolicy::class);
+        Gate::policy(ShieldUtils::getRoleModel(), RolePolicy::class);
         Gate::policy(Page::class, PagePolicy::class);
         Gate::policy(PageUrl::class, RedirectPolicy::class);
         Gate::policy(Layout::class, LayoutPolicy::class);

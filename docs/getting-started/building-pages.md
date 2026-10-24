@@ -51,6 +51,23 @@ Layout Builder is a companion package, so its implementation details and screens
 
 Use a custom Blade layout when a page is genuinely bespoke: a design cannot be expressed safely by the approved containers and widgets, or it needs a dedicated public shell. This remains inside Capell's normal public response path, including its prepared render context and caching rules; do not add a parallel public controller or route just to render one page.
 
+Register trusted views in a service provider before saving a layout or serving public requests:
+
+```php
+use Capell\Core\Support\Themes\LayoutViewRegistry;
+use Capell\Core\Support\Themes\ThemeChromeRegistry;
+
+$layouts = resolve(LayoutViewRegistry::class);
+$layouts->registerMaster('host::pages.bespoke', 'Bespoke page');
+$layouts->registerLayout('host::layouts.public', 'Public shell');
+
+$chrome = resolve(ThemeChromeRegistry::class);
+$chrome->registerHeader('host::header', 'Public header');
+$chrome->registerFooter('host::footer', 'Public footer');
+```
+
+Register only public-safe views or components. Registration is required for existing custom selectors too: no stored metadata is rewritten, but unregistered selectors are rejected on model saves and return a generic 404 before public rendering. Empty selectors retain the standard defaults; Frontend registers the built-in master `capell::livewire.page.page` and shell `capell::app` automatically. CLI, jobs and imports must load the same registrations as HTTP requests.
+
 Create a dedicated layout in the admin and assign it only to that page. Set its developer-facing layout metadata in the layout's **Files** section:
 
 - `master_file` selects the Blade view for the page body.

@@ -359,6 +359,7 @@ Capell\Installer\Support\InstallerInstallationState::capellIsInstalled();
 **Fix:** Use the admin panel for a normal installed app. For a controlled local reinstall only, set:
 
 ```env
+APP_DEBUG=true
 CAPELL_SETUP_ALLOW_REINSTALL=true
 ```
 

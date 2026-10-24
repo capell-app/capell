@@ -25,11 +25,13 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Override;
 use Pboivin\FilamentPeek\FilamentPeekPlugin;
 use Pboivin\FilamentPeek\FilamentPeekServiceProvider as BaseFilamentPeekServiceProvider;
 
 class AdminPanelProvider extends PanelProvider
 {
+    #[Override]
     public function panel(Panel $panel): Panel
     {
         $foundationMiddlewareNamespace = implode('\\', ['Illuminate', 'Foundation', 'Http', 'Middleware']);
@@ -57,6 +59,7 @@ class AdminPanelProvider extends PanelProvider
             ->path(AdminPanelEntrypoint::path())
             ->login()
             ->unsavedChangesAlerts()
+            ->strictAuthorization()
             ->colors(FilamentColorEnum::colors())
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')

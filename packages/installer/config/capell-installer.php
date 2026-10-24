@@ -25,10 +25,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Keep disabled in normal installs so revisiting /install shows an
-    | installed notice instead of exposing the installer form again.
+    | installed notice instead of exposing the installer form again. Debug mode
+    | is always required, even when the reinstall setting is explicitly enabled.
     |
     */
-    'allow_reinstall' => env('CAPELL_SETUP_ALLOW_REINSTALL', env('APP_DEBUG', false)),
+    'allow_reinstall' => env('APP_DEBUG', false) && env('CAPELL_SETUP_ALLOW_REINSTALL', true),
 
     /*
     |--------------------------------------------------------------------------

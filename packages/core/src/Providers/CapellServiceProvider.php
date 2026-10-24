@@ -199,6 +199,7 @@ use Capell\Core\Support\SiteAccess\SiteAccessPolicyRegistry;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Capell\Core\Support\Subscriber\SubscriberManager;
 use Capell\Core\Support\Subscriber\SubscriberRegistry;
+use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
 use Capell\Core\Support\Themes\ThemeInstallDefaultsRegistry;
 use Capell\Core\Support\Url\PageUrlRewriteContext;
@@ -581,6 +582,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         $this->app->singleton(LinkableContentRegistry::class);
         $this->app->singleton(ContentGraphRegistry::class, fn (): ContentGraphRegistry => new ContentGraphRegistry($this->app));
         $this->app->singleton(ThemeChromeRegistry::class);
+        $this->app->singleton(LayoutViewRegistry::class);
         $this->app->singleton(ThemeInstallDefaultsRegistry::class);
         $this->app->singleton(InstallPatchRegistry::class, fn ($app): InstallPatchRegistry => new InstallPatchRegistry(
             $app->bound(RecordsExtensionContributionReceipt::class)

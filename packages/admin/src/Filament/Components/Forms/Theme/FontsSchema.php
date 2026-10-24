@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Theme;
 
+use Capell\Admin\Filament\Components\Forms\FileUpload;
 use Capell\Admin\Filament\Components\Forms\FontStyleSelect;
 use Capell\Admin\Filament\Components\Forms\FontWeightSelect;
 use Capell\Admin\Support\Themes\ThemeFontUploadPolicy;
 use Capell\Core\Enums\FontStyleEnum;
 use Capell\Core\Enums\FontTypeEnum;
 use Capell\Core\Enums\FontWeightEnum;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;

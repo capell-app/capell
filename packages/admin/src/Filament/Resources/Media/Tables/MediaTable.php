@@ -10,6 +10,7 @@ use Capell\Admin\Actions\Media\BuildMediaHealthStateAction;
 use Capell\Admin\Actions\ReplaceMediaFileAction;
 use Capell\Admin\Enums\MediaHealthIssueEnum;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Filament\Components\Forms\FileUpload;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\NameColumn;
@@ -36,7 +37,6 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -146,6 +146,7 @@ class MediaTable implements TableConfigurator
                     ->authorize(fn (Media $record): bool => Gate::allows('update', $record))
                     ->schema([
                         FileUpload::make('replacement')
+                            ->disk('local')
                             ->label(__('capell-admin::media.replacement_file'))
                             ->required(),
                     ])

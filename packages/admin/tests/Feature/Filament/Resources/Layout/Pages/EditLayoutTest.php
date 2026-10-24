@@ -11,6 +11,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\LayoutCreator;
+use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Livewire\Livewire;
 
@@ -22,6 +23,8 @@ uses(CreatesAdminUser::class)
 
 beforeEach(function (): void {
     test()->actingAsAdmin();
+    resolve(LayoutViewRegistry::class)->registerMaster('page.updated', 'Updated page');
+    resolve(LayoutViewRegistry::class)->registerLayout('layout.updated', 'Updated layout');
 });
 
 it('can retrieve data', function (): void {

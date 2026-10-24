@@ -32,8 +32,8 @@ it('uses clearer copy for the built-in select all permissions toggle', function 
 
 it('uses Capell empty state copy for missing roles', function (): void {
     Role::query()->delete();
-    Permission::findOrCreate('view_any_role');
-    test()->actingAs(test()->createUserWithPermission('view_any_role'));
+    Permission::findOrCreate('ViewAny:Role');
+    test()->actingAs(test()->createUserWithPermission('ViewAny:Role'));
 
     Livewire::test(ListRoles::class)
         ->assertSuccessful()
@@ -42,10 +42,10 @@ it('uses Capell empty state copy for missing roles', function (): void {
 });
 
 it('hides the update permissions action from users who cannot update roles', function (): void {
-    Permission::findOrCreate('view_any_role');
+    Permission::findOrCreate('ViewAny:Role');
     $role = Role::findOrCreate('content_manager', 'web');
 
-    test()->actingAs(test()->createUserWithPermission('view_any_role'));
+    test()->actingAs(test()->createUserWithPermission('ViewAny:Role'));
 
     Livewire::test(ListRoles::class)
         ->assertSuccessful()
