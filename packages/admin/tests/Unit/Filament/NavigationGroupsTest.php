@@ -56,11 +56,48 @@ it('uses clearer admin navigation groups without conflicting group icons', funct
         $navigationTranslations['group_workflow'] => null,
         $navigationTranslations['group_layouts'] => null,
         $navigationTranslations['group_marketing'] => null,
+        $navigationTranslations['group_customers'] => null,
         $navigationTranslations['group_reports'] => null,
+        $navigationTranslations['group_operations'] => null,
         $navigationTranslations['group_monitoring'] => null,
+        $navigationTranslations['group_security'] => null,
         $navigationTranslations['group_settings'] => null,
         $navigationTranslations['group_system'] => null,
     ]);
+});
+
+it('keeps permitted package job destinations in sidebar order before system', function (): void {
+    test()->actingAsAdmin();
+    $panel = Filament::getPanel('admin');
+    $panel->navigationItems([
+        NavigationItem::make('Access rules')->group(__('capell-admin::navigation.group_security'))->url('/admin/access-rules'),
+        NavigationItem::make('Cache')->group(__('capell-admin::navigation.group_operations'))->url('/admin/html-cache')->badge('3'),
+        NavigationItem::make('Bookings')->group(__('capell-admin::navigation.group_customers'))->url('/admin/bookings'),
+        NavigationItem::make('Restricted operation')->group(__('capell-admin::navigation.group_operations'))->url('/admin/restricted-operation')->visible(false),
+    ]);
+    Filament::setCurrentPanel($panel);
+    Filament::bootCurrentPanel();
+    Filament::setServingStatus();
+
+    $groups = collect(Filament::getNavigation());
+    $labels = $groups->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all();
+    $jobLabels = [
+        (string) __('capell-admin::navigation.group_customers'),
+        (string) __('capell-admin::navigation.group_operations'),
+        (string) __('capell-admin::navigation.group_security'),
+        (string) __('capell-admin::navigation.group_system'),
+    ];
+
+    expect(array_values(array_intersect($labels, $jobLabels)))->toBe($jobLabels);
+
+    $operations = $groups->first(fn (NavigationGroup $group): bool => $group->getLabel() === __('capell-admin::navigation.group_operations'));
+    expect($operations)->toBeInstanceOf(NavigationGroup::class);
+    assert($operations instanceof NavigationGroup);
+
+    expect($operations->isCollapsed())->toBeTrue()
+        ->and($operations->getIcon())->toBeNull()
+        ->and(collect($operations->getItems())->map(fn (NavigationItem $item): ?string => $item->getUrl())->all())->toBe(['/admin/html-cache'])
+        ->and(collect($operations->getItems())->first()?->getBadge())->toBe('3');
 });
 
 it('promotes workspace activity into the workspace navigation group', function (): void {

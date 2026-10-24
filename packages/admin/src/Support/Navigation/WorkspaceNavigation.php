@@ -53,8 +53,11 @@ final class WorkspaceNavigation
             'design' => $this->designRoots(),
             'publishing' => $this->sections['publishing'] ?? [],
             'marketing' => $this->sections['marketing'] ?? [],
+            'customers' => $this->sections['customers'] ?? [],
             'reports' => $this->sections['reports'] ?? [],
+            'operations' => $this->sections['operations'] ?? [],
             'health' => $this->sections['health'] ?? [],
+            'security' => $this->sections['security'] ?? [],
             'system' => $this->sections['system'] ?? [],
         ] as $section => $items) {
             if ($items === []) {
@@ -67,8 +70,11 @@ final class WorkspaceNavigation
                 'design' => __('capell-admin::navigation.workspace_design'),
                 'publishing' => __('capell-admin::navigation.workspace_publishing'),
                 'marketing' => __('capell-admin::navigation.workspace_marketing'),
+                'customers' => __('capell-admin::navigation.group_customers'),
                 'reports' => __('capell-admin::navigation.workspace_reports'),
+                'operations' => __('capell-admin::navigation.group_operations'),
                 'health' => __('capell-admin::navigation.workspace_health'),
+                'security' => __('capell-admin::navigation.group_security'),
                 'system' => __('capell-admin::navigation.workspace_system'),
             };
             $result[] = NavigationGroup::make($label)->items($items)
@@ -162,6 +168,17 @@ final class WorkspaceNavigation
 
     private function sectionFor(NavigationItem $item, NavigationGroup $group): ?string
     {
+        // Explicit job groups take precedence over legacy URL-based placement.
+        foreach ([
+            'customers' => __('capell-admin::navigation.group_customers'),
+            'operations' => __('capell-admin::navigation.group_operations'),
+            'security' => __('capell-admin::navigation.group_security'),
+        ] as $section => $label) {
+            if ($group->getLabel() === $label) {
+                return $section;
+            }
+        }
+
         $path = parse_url($item->getUrl() ?? '', PHP_URL_PATH);
         $path = is_string($path) ? trim($path, '/') : '';
         foreach ([

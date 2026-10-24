@@ -62,8 +62,19 @@ The simplest way to add optional product capability is to install a package that
 
 ```bash
 composer require capell-app/<package>
-php artisan capell:<package>-install
+php artisan capell:package-cache:clear
+php artisan capell:extension-install capell-app/<package> --dry-run
+php artisan capell:extension-install capell-app/<package>
 ```
+
+Composer presence, Capell installation/enabled state, and the selected runtime or
+theme are separate states. Use the generic lifecycle command for packages both
+with and without a custom install command: it invokes the package's declared
+lifecycle when present. A package-specific setup command is an additional step
+only when its README documents one. For example, the
+[Inertia runtime guide](../../../docs/getting-started/inertia-runtime.md) installs
+the bridge and an adapter before configuring the selected adapter; installing a
+theme likewise does not apply it to a site.
 
 For current package inventory and per-package descriptions, use generated extension pages and package-owned READMEs. The host [packages and extensions](../../../docs/packages/catalog.md) page only documents core package boundaries and authoring entry points. The remainder of this guide covers extension points you reach for when you're writing your own code.
 

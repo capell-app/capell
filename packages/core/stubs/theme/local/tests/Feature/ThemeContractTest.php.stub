@@ -5,10 +5,11 @@ declare(strict_types=1);
 use Capell\Core\Testing\ExtensionTestHarness;
 
 it('has a valid Capell theme manifest', function (): void {
-    ExtensionTestHarness::forPath(dirname(__DIR__, 2))
+    // The harness throws on the first contract failure; record the passing contract as an assertion.
+    expect(fn (): ExtensionTestHarness => ExtensionTestHarness::forPath(dirname(__DIR__, 2))
         ->assertManifestValid()
         ->assertThemeManifest('{{ themeKey }}')
-        ->assertThemeUsesSafeAssetUrls();
+        ->assertThemeUsesSafeAssetUrls())->not->toThrow(Throwable::class);
 });
 
 it('renders the generated theme page', function (): void {

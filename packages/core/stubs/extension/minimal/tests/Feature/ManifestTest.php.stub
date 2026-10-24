@@ -5,7 +5,8 @@ declare(strict_types=1);
 use Capell\Core\Testing\ExtensionTestHarness;
 
 it('has a valid Capell package manifest', function (): void {
-    ExtensionTestHarness::forPath(dirname(__DIR__, 2))
+    // The harness throws on the first contract failure; record the passing contract as an assertion.
+    expect(fn (): ExtensionTestHarness => ExtensionTestHarness::forPath(dirname(__DIR__, 2))
         ->assertManifestValid()
-        ->assertNoUnsafePublicCache();
+        ->assertNoUnsafePublicCache())->not->toThrow(Throwable::class);
 });

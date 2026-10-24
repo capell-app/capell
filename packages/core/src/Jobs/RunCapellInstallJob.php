@@ -7,6 +7,7 @@ namespace Capell\Core\Jobs;
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\CacheProgressReporter;
+use Capell\Core\Support\Install\InstallReportRedactor;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -45,29 +46,72 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(): void
     {
-        $reporter = new CacheProgressReporter($this->installId);
+        $reporter = new CacheProgressReporter($this->installId, redactionSecrets: InstallReportRedactor::secrets($this->inputData->toArray()));
 
-        if ($this->hasBeenSuperseded()) {
-            Cache::put($this->statusKey(), 'cancelled', self::CACHE_TTL);
-            $reporter->error('Install cancelled because another install was started.');
+        $admitted = $this->duringUpdate(function () use ($reporter): bool {
+            if ($this->hasBeenSuperseded()) {
+                Cache::put($this->statusKey(), 'cancelled', self::CACHE_TTL);
+                $reporter->error('Install cancelled because another install was started.');
 
+                return false;
+            }
+
+            $reporter->markRunning();
+
+            return true;
+        });
+        if (! $admitted) {
             return;
         }
 
-        $reporter->markRunning();
-
         try {
             RunInstallAction::run($this->inputData, $reporter);
-            $reporter->markComplete();
-            $this->clearActiveLock();
+            $this->duringUpdate(function () use ($reporter): void {
+                if ($this->hasBeenSuperseded()) {
+                    Cache::put($this->statusKey(), 'cancelled', self::CACHE_TTL);
+
+                    return;
+                }
+
+                $reporter->markComplete();
+                $this->clearActiveLock();
+            });
         } catch (Throwable $throwable) {
-            $reporter->error('✗ ' . $throwable->getMessage());
-            $reporter->markFailed();
-            Cache::forget(self::LOCK_KEY);
+            $this->duringUpdate(function () use ($reporter, $throwable): void {
+                $reporter->error('✗ ' . $throwable->getMessage());
+                if ($this->hasBeenSuperseded()) {
+                    Cache::put($this->statusKey(), 'cancelled', self::CACHE_TTL);
+                } elseif ($this->attempts() >= $this->tries) {
+                    $reporter->markFailed();
+                    $this->clearActiveLock();
+                } else {
+                    // Keep ownership and an active status throughout the queue backoff.
+                    Cache::put($this->statusKey(), 'queued', self::CACHE_TTL);
+                }
+            });
+
             throw $throwable;
         }
     }
 
+    public function failed(?Throwable $exception): void
+    {
+        $this->duringUpdate(function () use ($exception): void {
+            $reporter = new CacheProgressReporter($this->installId, redactionSecrets: InstallReportRedactor::secrets($this->inputData->toArray()));
+            if ($exception instanceof Throwable) {
+                $reporter->error('✗ ' . $exception->getMessage());
+            }
+
+            if ($this->hasBeenSuperseded()) {
+                return;
+            }
+
+            $reporter->markFailed();
+            $this->clearActiveLock();
+        });
+    }
+
+    /** @phpstan-impure Reads ownership that another request or worker may change. */
     private function hasBeenSuperseded(): bool
     {
         if (Cache::get($this->statusKey()) === 'cancelled') {
@@ -88,12 +132,24 @@ final class RunCapellInstallJob implements ShouldBeUnique, ShouldQueue
     private function clearActiveLock(): void
     {
         $lock = Cache::get(self::LOCK_KEY);
-
-        if (! is_array($lock) || ($lock['installId'] ?? null) !== $this->installId) {
-            return;
+        if (is_array($lock) && ($lock['installId'] ?? null) === $this->installId) {
+            Cache::forget(self::LOCK_KEY);
         }
+    }
 
-        Cache::forget(self::LOCK_KEY);
+    /** @template T
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    private function duringUpdate(callable $callback): mixed
+    {
+        return Cache::lock('capell.install.ownership', 30)->block(5, fn (): mixed => Cache::lock($this->stateLockKey(), 30)->block(5, $callback));
+    }
+
+    private function stateLockKey(): string
+    {
+        // Shared with Installer cancellation without coupling Core to Installer.
+        return sprintf('capell.install.%s.state-lock', $this->installId);
     }
 
     private function statusKey(): string

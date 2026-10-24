@@ -1,6 +1,6 @@
 # Marketing dashboard contributions
 
-Marketing actions and widgets appear on the main Dashboard. Packages retain their existing contribution APIs; the sidebar uses Content Library and Design for reusable content and page-building tools.
+Marketing actions and widgets appear on the main Dashboard. Packages retain their existing contribution APIs; the sidebar uses Content library and Design for reusable content and page-building tools.
 
 ## Registering Actions
 

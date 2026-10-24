@@ -83,12 +83,22 @@ Then install it by Composer name:
 composer require acme/notice-board:@dev
 php artisan capell:package-cache:clear
 php artisan config:clear
+php artisan capell:extension-install acme/notice-board --dry-run
+php artisan capell:extension-install acme/notice-board
+php artisan vendor:publish --tag=notice-board-assets
+php artisan capell:frontend-tailwind-assets
 ```
 
 The package manifest is cached. Run both cache-clearing commands whenever you
 change `capell.json`, especially after renaming a contribution or settings
 class. Otherwise a warm app can keep using a deleted class or omit a newly added
 widget even though the package files are correct.
+
+Composer makes the package discoverable; `capell:extension-install` runs the
+declared lifecycle and enables it. Verify the settings form by saving and reopening
+`public_label`, then add the example widget to a published page and inspect the
+anonymous response. Installation does not select a site's theme or frontend runtime.
+Follow the selected package's own guide for those choices.
 
 For a published package, replace `@dev` with a tagged normal Composer
 constraint such as `^1.0`.

@@ -83,7 +83,20 @@ curl -s https://example.test/ > /tmp/capell-public.html
 rg "filament|signed|field_path|data-capell|model_id|permission|authoring" /tmp/capell-public.html
 ```
 
-Then check cache behavior:
+This broad search is triage: a match is a prompt to inspect the rendered HTML,
+not proof of a leak. For example, `data-capell-widget-assets="example"` is an
+allowed runtime attribute used to load public widget assets. Keep that wiring.
+By contrast, `data-capell-authoring="page:1"` exposes authoring state and must
+not appear in public output, even on a hidden element.
+
+Use the [PublicHtmlSafetyInspector](../../packages/frontend/src/Support/Security/PublicHtmlSafetyInspector.php)
+for the executable policy. Its [behaviour tests](../../packages/frontend/tests/Unit/Security/PublicHtmlSafetyInspectorTest.php)
+cover allowed runtime attributes and forbidden authoring markers. The
+[route-backed safety tests](../../packages/frontend/tests/Feature/StaticBladeRenderingTest.php) exercise real
+public responses; keep their presence and absence assertions when changing a
+render path. A successful broad search alone does not replace those checks.
+
+Then check cache behaviour:
 
 ```bash
 curl -I https://example.test/
