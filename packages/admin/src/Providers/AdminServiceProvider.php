@@ -6,6 +6,7 @@ namespace Capell\Admin\Providers;
 
 use BezhanSalleh\FilamentShield\Support\Utils as ShieldUtils;
 use Capell\Admin\Actions\CreateDefaultPagesAction;
+use Capell\Admin\Actions\Media\ValidateAdminUploadStateAction;
 use Capell\Admin\Actions\Notifications\ResolveDefaultPackageOperationRecipientsAction;
 use Capell\Admin\Console\Commands\CacheConfiguratorsCommand;
 use Capell\Admin\Console\Commands\CacheWidgetsCommand;
@@ -279,6 +280,7 @@ use Filament\Tables\Columns\Column;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
@@ -290,6 +292,7 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
 use Override;
+use ReflectionClass;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\LaravelPackageTools\Package;
@@ -569,6 +572,19 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         BaseFileUpload::configureUsing(
             static function (BaseFileUpload $upload): void {
+                if (! $upload instanceof AdminFileUpload && ! $upload instanceof AdminSpatieMediaLibraryFileUpload) {
+                    // Keep native subclass methods intact. The native guard's
+                    // condition runs before validation, previews and removal;
+                    // authorise there before bypassing its top-level-only lookup.
+                    $upload->preventFilePathTampering(static function (BaseFileUpload $component): bool {
+                        ValidateAdminUploadStateAction::run($component);
+
+                        return false;
+                    });
+
+                    return;
+                }
+
                 $upload->preventFilePathTampering();
             },
             isImportant: true,
@@ -1159,6 +1175,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 array_keys(Gate::policies()),
                 static fn (string $registeredModel): bool => is_a($model, $registeredModel, true),
             );
+
+            if (class_exists($model)) {
+                $reflection = new ReflectionClass($model);
+                do {
+                    $hasExplicitPolicy = $hasExplicitPolicy || $reflection->getAttributes(UsePolicy::class) !== [];
+                } while ($reflection = $reflection->getParentClass());
+            }
 
             if (! $hasExplicitPolicy) {
                 Gate::policy($model, $policy);

@@ -95,3 +95,22 @@ it('validates inherited logos when saving a site with lazy loading prevented', f
     expect(fn () => $site->update(['name' => 'Rejected site']))->toThrow(ValidationException::class);
     expect($site->fresh()->name)->toBe('Updated site');
 });
+
+it('reloads inherited logo metadata after blueprint reassignment with lazy loading prevented', function (): void {
+    $original = Blueprint::factory()->site()->create(['meta' => ['logo_blade_view' => 'brand.capell-logo']]);
+    $replacement = Blueprint::factory()->site()->create(['meta' => ['logo_blade_view' => false]]);
+    $private = Blueprint::factory()->site()->create();
+    $private->forceFill(['meta' => ['logo_blade_view' => 'private.report']])->saveQuietly();
+    $site = Site::factory()->create(['blueprint_id' => $original->id, 'meta' => []])->fresh();
+    $site->load('blueprint');
+    $site->preventsLazyLoading = true;
+
+    expect($site->update(['blueprint_id' => $replacement->id]))->toBeTrue()
+        ->and($site->getMeta('logo_blade_view'))->toBeFalse();
+    expect(fn () => $site->update(['blueprint_id' => $private->id]))->toThrow(ValidationException::class);
+    expect($site->fresh()->blueprint_id)->toBe($replacement->id);
+
+    // A rejected attempt must not poison a later valid save on the same model.
+    expect($site->update(['blueprint_id' => $original->id]))->toBeTrue()
+        ->and($site->getMeta('logo_blade_view'))->toBe('brand.capell-logo');
+});

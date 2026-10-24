@@ -19,6 +19,9 @@ use Capell\Admin\Policies\SiteDomainPolicy;
 use Capell\Admin\Policies\SitePolicy;
 use Capell\Admin\Policies\ThemePolicy;
 use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Admin\Tests\Fixtures\Models\AttributedRole;
+use Capell\Admin\Tests\Fixtures\Models\InheritedAttributedRole;
+use Capell\Admin\Tests\Fixtures\Policies\DenyRolePolicy;
 use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -33,6 +36,7 @@ use Illuminate\Support\Facades\Gate;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Admin policies live in `Capell\Admin\Policies\*` but they gate models in
@@ -184,3 +188,19 @@ it('registers defaults despite convention based policy discovery', function (): 
     expect(Gate::getPolicyFor($model))->toBeInstanceOf(RolePolicy::class)
         ->and(Gate::allows('viewAny', $model))->toBeTrue();
 });
+
+it('preserves attributed denying host policies on configured models and their ancestors', function (bool $inherited): void {
+    $modelClass = $inherited ? InheritedAttributedRole::class : AttributedRole::class;
+    resolve(PermissionRegistrar::class)->setRoleClass($modelClass);
+    $actor = User::factory()->createOne();
+    $actor->givePermissionTo(Permission::findOrCreate('ViewAny:Role', 'web'));
+
+    $gate = new Illuminate\Auth\Access\Gate(app(), fn (): User => $actor);
+    Gate::swap($gate);
+
+    expect(Gate::getPolicyFor($modelClass))->toBeInstanceOf(DenyRolePolicy::class)
+        ->and(Gate::denies('viewAny', $modelClass))->toBeTrue();
+    expectPresent(app()->getProvider(AdminServiceProvider::class))->callBootedCallbacks();
+    expect(Gate::getPolicyFor($modelClass))->toBeInstanceOf(DenyRolePolicy::class)
+        ->and(Gate::denies('viewAny', $modelClass))->toBeTrue();
+})->with([false, true]);

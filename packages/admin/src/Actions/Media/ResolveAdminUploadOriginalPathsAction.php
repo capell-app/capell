@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Media;
 
 use Filament\Forms\Components\BaseFileUpload;
+use Filament\Forms\Components\Builder;
+use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Schemas\Components\Component;
@@ -56,33 +58,81 @@ final class ResolveAdminUploadOriginalPathsAction
 
             $segments = explode('.', $fieldPath);
             $container = $upload->getContainer();
+            $builderTypes = [];
+            $blockType = null;
 
             while ($container !== $root && ($parent = $container->getParentComponent()) instanceof Component) {
-                if ($parent instanceof Repeater) {
+                if ($parent instanceof Block) {
+                    $blockType = $parent->getName();
+                }
+
+                if ($parent instanceof Repeater || $parent instanceof Builder) {
                     // Filament's UUID item keys are transient and reorderable.
                     // Authorise only this field's persisted paths across the
-                    // repeater snapshot, never constantState/current item data.
-                    $repeaterPath = $parent->getStatePath();
-                    if (! is_string($repeaterPath) || $repeaterPath === '') {
+                    // persisted item snapshot, never constantState/current item data.
+                    $itemsPath = $parent->getStatePath();
+                    if (! is_string($itemsPath) || $itemsPath === '') {
                         return [];
                     }
 
-                    $segments[count(explode('.', $repeaterPath))] = '*';
+                    $index = count(explode('.', $itemsPath));
+                    $segments[$index] = '*';
+                    if ($parent instanceof Builder) {
+                        if ($blockType === null) {
+                            return [];
+                        }
+
+                        $builderTypes[$index] = $blockType;
+                        $blockType = null;
+                    }
                 }
 
                 $container = $parent->getContainer();
             }
 
             $rootPath = $root->getStatePath();
-            $path = implode('.', array_slice($segments, filled($rootPath) ? count(explode('.', $rootPath)) : 0));
+            $rootDepth = filled($rootPath) ? count(explode('.', $rootPath)) : 0;
+            $path = array_slice($segments, $rootDepth);
 
-            if ($path === '') {
+            if ($path === []) {
                 return [];
             }
 
-            $paths = Arr::flatten(Arr::wrap(data_get($record->getOriginal(), $path)));
+            $paths = $this->resolvePaths($record->getOriginal(), $path, $builderTypes, $rootDepth);
         }
 
         return array_values(array_filter($paths, static fn (mixed $path): bool => is_string($path) && $path !== ''));
+    }
+
+    /**
+     * @param  list<string>  $segments
+     * @param  array<int, string>  $builderTypes
+     * @return list<mixed>
+     */
+    private function resolvePaths(mixed $data, array $segments, array $builderTypes, int $depth): array
+    {
+        if ($segments === []) {
+            return array_values(Arr::flatten(Arr::wrap($data)));
+        }
+
+        $segment = array_shift($segments);
+        if ($segment !== '*') {
+            return $this->resolvePaths(data_get($data, $segment), $segments, $builderTypes, $depth + 1);
+        }
+
+        if (! is_iterable($data)) {
+            return [];
+        }
+
+        $paths = [];
+        foreach ($data as $item) {
+            if (isset($builderTypes[$depth]) && data_get($item, 'type') !== $builderTypes[$depth]) {
+                continue;
+            }
+
+            array_push($paths, ...$this->resolvePaths($item, $segments, $builderTypes, $depth + 1));
+        }
+
+        return $paths;
     }
 }
