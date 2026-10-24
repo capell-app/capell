@@ -15,6 +15,7 @@ use Capell\Admin\Console\Commands\ClearCacheCommand;
 use Capell\Admin\Console\Commands\ClearConfiguratorsCacheCommand;
 use Capell\Admin\Console\Commands\ClearWidgetsCacheCommand;
 use Capell\Admin\Console\Commands\InstallCommand;
+use Capell\Admin\Console\Commands\PruneAdminUploadGrantsCommand;
 use Capell\Admin\Console\Commands\PublishResourcesCommand;
 use Capell\Admin\Console\Commands\RepairComposerDriftCommand;
 use Capell\Admin\Console\Commands\SendUpgradeSummaryNotificationCommand;
@@ -110,6 +111,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFil
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
+use Capell\Admin\Listeners\AdminUploadGrantTransactionListener;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
@@ -199,6 +201,8 @@ use Capell\Admin\Support\Makers\AdminBladeComponentMaker;
 use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
+use Capell\Admin\Support\Media\AdminUploadDeletion;
+use Capell\Admin\Support\Media\AdminUploadGrantRepository;
 use Capell\Admin\Support\Media\LegacyAwareAdminMediaFieldFactory;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
@@ -284,6 +288,9 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Events\TransactionCommitted;
+use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
@@ -320,6 +327,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 ClearConfiguratorsCacheCommand::class,
                 InstallCommand::class,
                 PublishResourcesCommand::class,
+                PruneAdminUploadGrantsCommand::class,
                 RepairComposerDriftCommand::class,
                 SendUpgradeSummaryNotificationCommand::class,
                 SetupCommand::class,
@@ -329,6 +337,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ])
             ->hasConfigFile(['capell-admin'])
             ->hasTranslations()
+            ->hasMigrations(CapellAdmin::getMigrations())
             ->hasRoute('web');
 
         $this->optimizes(
@@ -367,6 +376,14 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         $this->app->bindIf(SpatieMediaLibraryFileUpload::class, AdminSpatieMediaLibraryFileUpload::class);
 
         $this->registerAdminEventSystem();
+
+        $this->app->scoped(AdminUploadGrantRepository::class);
+        $this->app->scoped(AdminUploadDeletion::class);
+
+        $events = $this->app->make(Dispatcher::class);
+        $events->listen(TransactionBeginning::class, [AdminUploadGrantTransactionListener::class, 'beginning']);
+        $events->listen(TransactionCommitted::class, [AdminUploadGrantTransactionListener::class, 'committed']);
+        $events->listen(TransactionRolledBack::class, [AdminUploadGrantTransactionListener::class, 'rolledBack']);
 
         $this->app->singleton(AgentAdminAuthorization::class);
         $this->app->singleton(AgentAdminConfirmationStore::class);
@@ -566,6 +583,20 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 },
             ),
         );
+    }
+
+    #[Override]
+    protected function bootPackageMigrations(): self
+    {
+        // Keep the same ledger/rollback identity as Capell's package publisher.
+        // Spatie's default publisher replaces even an existing timestamp.
+        foreach (CapellAdmin::getMigrations() as $migration) {
+            $this->publishes([
+                __DIR__ . '/../../database/migrations/' . $migration . '.php' => database_path('migrations/' . $migration . '.php'),
+            ], 'capell-admin-migrations');
+        }
+
+        return $this;
     }
 
     #[Override]
@@ -1363,6 +1394,11 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     private function registerContentRetentionSchedule(): self
     {
         $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->command('capell:admin-prune-upload-grants')
+                ->hourly()
+                ->withoutOverlapping()
+                ->onOneServer();
+
             $schedule->command('capell:purge-soft-deleted-media')
                 ->dailyAt('03:00')
                 ->withoutOverlapping()

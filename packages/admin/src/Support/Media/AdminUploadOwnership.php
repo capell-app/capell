@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Media;
 
+use Capell\Admin\Actions\Media\PruneAdminUploadGrantsAction;
+use Closure;
 use Filament\Forms\Components\BaseFileUpload;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Cache;
 
 final class AdminUploadOwnership
 {
@@ -29,10 +31,10 @@ final class AdminUploadOwnership
             return;
         }
 
+        PruneAdminUploadGrantsAction::run(100);
+        $registry = resolve(AdminUploadGrantRepository::class);
         foreach ($paths as $path) {
-            // One atomic insert per grant: no session snapshot or shared index
-            // can erase another request's uploads. add() never renews a grant.
-            Cache::add($this->key($scope, $path), true, now()->addMinutes((int) config('session.lifetime', 120)));
+            $registry->grant($scope, $path);
         }
     }
 
@@ -47,8 +49,8 @@ final class AdminUploadOwnership
         // Submitted strings are candidates only, never authority to mint grants.
         // No enumerable index, session write, cleanup or TTL refresh on reads.
         return array_values(array_filter(
-            $this->candidates($upload),
-            fn (string $path): bool => Cache::get($this->key($scope, $path)) === true && $upload->getDisk()->exists($path),
+            resolve(AdminUploadGrantRepository::class)->paths($scope, $this->candidates($upload)),
+            fn (string $path): bool => $upload->getDisk()->exists($path),
         ));
     }
 
@@ -59,12 +61,24 @@ final class AdminUploadOwnership
             return;
         }
 
-        foreach ($this->candidates($upload) as $path) {
-            $key = $this->key($scope, $path);
-            if (Cache::get($key) === true && ! $upload->getDisk()->exists($path)) {
-                Cache::forget($key);
+        $registry = resolve(AdminUploadGrantRepository::class);
+        foreach ($registry->paths($scope, $this->candidates($upload)) as $path) {
+            if (! $upload->getDisk()->exists($path)) {
+                $registry->forget($scope, $path);
             }
         }
+    }
+
+    /** @return Closure(): void */
+    public function captureRevocation(BaseFileUpload $upload, string $path): Closure
+    {
+        $scope = $this->scope($upload);
+
+        return static function () use ($scope, $path): void {
+            if ($scope !== null) {
+                resolve(AdminUploadGrantRepository::class)->forget($scope, $path);
+            }
+        };
     }
 
     private function scope(BaseFileUpload $upload): ?string
@@ -74,7 +88,23 @@ final class AdminUploadOwnership
             return null;
         }
 
+        $records = [];
         $record = $upload->getRecord();
+        $records[] = $record instanceof Model ? [$record->getMorphClass(), $record->getKey()] : $record;
+        $container = $upload->getContainer();
+        // Walk actual ancestry, never getModelRootContainer(): local model([])
+        // and relationship models must not hide the enclosing form's record.
+        while (true) {
+            $record = $container->getRecord();
+            $records[] = $record instanceof Model ? [$record->getMorphClass(), $record->getKey()] : $record;
+            $parent = $container->getParentComponent();
+            if (! $parent instanceof Component) {
+                break;
+            }
+
+            $container = $parent->getContainer();
+        }
+
         $livewire = $upload->getLivewire();
 
         // Session regeneration and actor changes invalidate old grants. Include
@@ -85,17 +115,12 @@ final class AdminUploadOwnership
             auth()->id(),
             $livewire::class,
             $livewire->getId() ?? spl_object_id($livewire),
-            $record instanceof Model ? [$record->getMorphClass(), $record->getKey()] : $record,
+            $records,
             $upload->getStatePath(),
             $builderTypes,
             $upload->getDiskName(),
             $upload->getDirectory(),
         ]));
-    }
-
-    private function key(string $scope, string $path): string
-    {
-        return 'capell:admin-upload:' . $scope . ':' . hash('sha256', $path);
     }
 
     /** @return list<string> */

@@ -11,7 +11,9 @@ trait HasMigrations
      */
     public static function getMigrations(): array
     {
-        return [];
+        return [
+            '2026_10_24_000001_create_admin_upload_grants_table',
+        ];
     }
 
     /**

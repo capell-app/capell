@@ -14,12 +14,13 @@ final class AdminUploadBuilderTypes
     /** @return array<int, string>|null */
     public function forUpload(BaseFileUpload $upload): ?array
     {
-        $root = $upload->getModelRootContainer();
         $container = $upload->getContainer();
         $types = [];
         $blockType = null;
 
-        while ($container !== $root && ($parent = $container->getParentComponent()) instanceof Component) {
+        // Ownership follows the entire schema ancestry, independently of the
+        // model root used to resolve already-persisted record values.
+        while (($parent = $container->getParentComponent()) instanceof Component) {
             if ($parent instanceof Block) {
                 $blockType = $parent->getName();
             }

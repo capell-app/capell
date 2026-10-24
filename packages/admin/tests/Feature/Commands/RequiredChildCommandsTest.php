@@ -32,10 +32,10 @@ it('stops admin lifecycle commands at the first failed required stage', function
         default => throw new InvalidArgumentException('Unsupported lifecycle command fixture.'),
     };
     $calls = [];
-    $command->shouldReceive('call', 'callSilent')->andReturnUsing(function (string $child, array $arguments = []) use (&$calls, $failedStage): int {
+    $command->shouldReceive('call', 'callSilent')->andReturnUsing(function (string $child, array $arguments = []) use (&$calls, $failedStage, $expectedCalls): int {
         $calls[] = $child;
 
-        return $child === $failedStage ? 7 : 0;
+        return $child === $failedStage && count($calls) === count($expectedCalls) ? 7 : 0;
     });
     $command->setLaravel(app());
     $options = [];
@@ -64,20 +64,20 @@ it('stops admin lifecycle commands at the first failed required stage', function
     expect($calls)->toBe($expectedCalls);
 })->with(function (): iterable {
     $commands = [
-        InstallCommand::class => ['capell:publish-migrations', 'migrate', 'filament:clear-cached-components', 'filament:cache-components', 'filament:assets'],
-        UpgradeCommand::class => ['vendor:publish', 'database migrations', 'shield:generate', 'filament:clear-cached-components', 'filament:cache-components', 'filament:assets'],
+        InstallCommand::class => ['capell:publish-migrations', 'migrate', 'capell:publish-migrations', 'migrate', 'filament:clear-cached-components', 'filament:cache-components', 'filament:assets'],
+        UpgradeCommand::class => ['vendor:publish', 'database migrations', 'capell:publish-migrations', 'migrate', 'shield:generate', 'filament:clear-cached-components', 'filament:cache-components', 'filament:assets'],
         SetupCommand::class => ['capell:publish-migrations', 'migrate', 'shield:super-admin', 'shield:generate'],
     ];
 
     foreach ($commands as $commandClass => $stages) {
         $expectedCalls = [];
 
-        foreach ($stages as $failedStage) {
+        foreach ($stages as $index => $failedStage) {
             if ($failedStage !== 'database migrations') {
                 $expectedCalls[] = $failedStage;
             }
 
-            yield $commandClass . ' / ' . $failedStage => [$commandClass, $expectedCalls, $failedStage];
+            yield $commandClass . ' / ' . $index . ' / ' . $failedStage => [$commandClass, $expectedCalls, $failedStage];
         }
     }
 });

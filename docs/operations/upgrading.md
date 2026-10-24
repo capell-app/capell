@@ -1,5 +1,30 @@
 # Upgrading Capell
 
+## Admin upload ownership registry
+
+This Admin update adds `admin_upload_grants`; it does not alter existing content
+or media tables. Apply the additive migration **before enabling upload edits on
+any node running the new code**, and before enabling its scheduled prune command.
+All application nodes must share the registry's default database connection. The
+registry honours the configured database table prefix and works with transient
+cache stores, including `array`.
+
+Use the normal Capell upgrade flow to publish and run package migrations.
+Direct `capell:admin-install` and `capell:admin-upgrade` also publish and run the
+Admin schema. Vendor publication with `--tag=capell-admin-migrations` keeps the
+same canonical migration filename as the package publisher; migrate it before
+serving requests if publishing manually. For a
+staged deployment, run `php artisan capell:upgrade --force` against the new release
+while upload editing is paused, then switch application nodes to the new release and resume editing. Existing cache-backed
+retry grants are not migrated: complete or re-upload pending unsaved uploads
+before the switch. Persisted content paths remain valid.
+
+Keep Laravel's scheduler running: `capell:admin-prune-upload-grants` removes a
+bounded batch of abandoned expired grants hourly, with additional bounded pruning
+when grants are issued. See [upload ownership](../../packages/admin/docs/upload-ownership.md)
+for isolation, expiry and cleanup behaviour. Rolling code back can leave this
+additive table in place; dropping it discards all pending retry grants.
+
 ## Admin authorisation and domain claims
 
 Review custom roles when deploying the authorisation update. Inline creation of
