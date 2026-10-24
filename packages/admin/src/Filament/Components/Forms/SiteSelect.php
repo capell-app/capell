@@ -15,6 +15,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection as SupportCollection;
+use Override;
 
 class SiteSelect extends Select
 {
@@ -24,12 +25,12 @@ class SiteSelect extends Select
 
     private ?Closure $modifyQueryUsing = null;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->label(__('capell-admin::form.site'))
-            ->allowHtml()
             ->preload()
             ->searchable()
             ->rules([

@@ -28,7 +28,7 @@ trait ThemeValidation
                 ->warning()
                 ->title(__(
                     'capell-admin::message.theme_not_deletable',
-                    ['name' => $record->name],
+                    ['name' => e($record->name)],
                 ))
                 ->body(__(
                     'capell-admin::message.theme_not_deletable_info',

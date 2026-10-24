@@ -30,7 +30,7 @@ trait LayoutValidation
                 ->warning()
                 ->title(__(
                     'capell-admin::message.layout_not_deletable',
-                    ['name' => $record->name],
+                    ['name' => e($record->name)],
                 ))
                 ->body(__(
                     'capell-admin::message.layout_not_deletable_info',

@@ -145,7 +145,7 @@ class PageSelect extends Select
 
                 Notification::make()
                     ->title(__('capell-admin::message.asset_created_successfully', ['name' => $asset->name]))
-                    ->body($page->name)
+                    ->body(e($page->name))
                     ->send();
 
                 return $page->getKey();
@@ -182,7 +182,7 @@ class PageSelect extends Select
 
                         $title = Str::title($blueprint->name);
 
-                        return new HtmlString(__('capell-admin::heading.edit_page_record', ['name' => $title]));
+                        return new HtmlString(__('capell-admin::heading.edit_page_record', ['name' => e($title)]));
                     })
                     ->modalWidth(Width::ScreenLarge)
                     ->visible(fn (?int $state): bool => (bool) $state)
