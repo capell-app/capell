@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Patching;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use PhpToken;
+use ReflectionClass;
 
 /** @internal Detects possible application roots without executing application code. */
 final class RootRouteDetector
@@ -220,7 +221,7 @@ final class RootRouteDetector
 
                     $registered = true;
                     $root = ! $routePrefixed;
-                } elseif (! $registered && ! in_array($method, ['as', 'can', 'metadata', 'missing', 'middleware', 'withoutmiddleware', 'name', 'domain', 'controller', 'where', 'wherenumber', 'wherealpha', 'wherealphanumeric', 'whereuuid', 'whereulid', 'wherein', 'scopebindings', 'withoutscopedbindings', 'namespace'], true) && ! method_exists(Router::class, $method) && ! method_exists(Route::class, $method)) {
+                } elseif (! $registered && ! in_array($method, ['as', 'can', 'metadata', 'missing', 'middleware', 'withoutmiddleware', 'name', 'domain', 'controller', 'where', 'wherenumber', 'wherealpha', 'wherealphanumeric', 'whereuuid', 'whereulid', 'wherein', 'scopebindings', 'withoutscopedbindings', 'namespace'], true) && ! $this->isFrameworkRouteMethod($method)) {
                     // Unknown macros have no guaranteed URI argument or return
                     // type, and may replace a prefix internally. Fail closed.
                     return true;
@@ -681,5 +682,17 @@ final class RootRouteDetector
         $value = substr($token->text, 1, -1);
 
         return str_starts_with($token->text, '"') ? stripcslashes($value) : str_replace(['\\\\', "\\'"], ['\\', "'"], $value);
+    }
+
+    /**
+     * Router and Route declare their fluent API; anything else called on them can only come from a macro.
+     */
+    private function isFrameworkRouteMethod(string $method): bool
+    {
+        if (new ReflectionClass(Router::class)->hasMethod($method)) {
+            return true;
+        }
+
+        return new ReflectionClass(Route::class)->hasMethod($method);
     }
 }
