@@ -26,6 +26,7 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
@@ -99,6 +100,13 @@ it('escapes blueprint and page edit modal headings', function (string $kind): vo
     $schema = Schema::make(Livewire::make())->statePath('data')->operation('edit')->components([$component]);
     $schema->fill(['selected' => 1]);
     new ReflectionProperty($component, 'cachedSelectedRecord')->setValue($component, $record);
+    // Newer Filament only trusts the cached record while its state and path still match.
+    foreach (['cachedSelectedRecordState' => 1, 'cachedSelectedRecordStatePath' => $component->getStatePath()] as $property => $value) {
+        if (new ReflectionClass(Select::class)->hasProperty($property)) {
+            new ReflectionProperty($component, $property)->setValue($component, $value);
+        }
+    }
+
     $component->withEditForm();
     $configure = new ReflectionProperty($component, 'modifyEditOptionActionUsing')->getValue($component);
     $action = $component->evaluate($configure, ['action' => Action::make('editOption')->schemaComponent($component)]);
