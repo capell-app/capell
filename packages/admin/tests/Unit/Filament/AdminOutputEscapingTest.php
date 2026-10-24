@@ -34,16 +34,25 @@ use Illuminate\Support\Str;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\View\ComponentAttributeBag;
 
+function seedAdminHeadingLines(): void
+{
+    // The user, panel or an earlier test can switch the active locale; seed every locale __() may read.
+    $locales = array_unique(['en', app()->getLocale(), app()->getFallbackLocale()]);
+
+    foreach ($locales as $locale) {
+        Lang::addLines([
+            'heading.edit_type_record' => 'Edit blueprint: :type',
+            'heading.edit_page_record' => 'Edit page: :name',
+            'heading.edit_layout_record' => 'Edit layout: :name',
+            'heading.edit_site_record' => 'Edit site: :name',
+        ], $locale, 'capell-admin');
+    }
+}
+
 beforeEach(function (): void {
     test()->actingAsAdmin();
     app()->setLocale('en');
-    // Seed the translator used by __(), even when concrete translator bindings differ.
-    Lang::addLines([
-        'heading.edit_type_record' => 'Edit blueprint: :type',
-        'heading.edit_page_record' => 'Edit page: :name',
-        'heading.edit_layout_record' => 'Edit layout: :name',
-        'heading.edit_site_record' => 'Edit site: :name',
-    ], 'en', 'capell-admin');
+    seedAdminHeadingLines();
 });
 
 it('escapes ancestor names and link attributes', function (): void {
@@ -94,6 +103,7 @@ it('escapes blueprint and page edit modal headings', function (string $kind): vo
     $configure = new ReflectionProperty($component, 'modifyEditOptionActionUsing')->getValue($component);
     $action = $component->evaluate($configure, ['action' => Action::make('editOption')->schemaComponent($component)]);
     $heading = new ReflectionProperty($action, 'modalHeading')->getValue($action);
+    seedAdminHeadingLines();
     $html = (string) $action->evaluate($heading, ['context' => 'edit', 'component' => $component, 'state' => 1]);
     $expectedName = $kind === 'page' ? Str::title($name) : $name;
 
