@@ -12,7 +12,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
- * @method static ?string run(string $scheme, string $host, string $pathInfo, string $status)
+ * @method static ?string run(string $scheme, string $host, string $pathInfo, string $status, ?int $port = null)
  */
 final class ResolveStaticErrorPageAction
 {
@@ -23,8 +23,11 @@ final class ResolveStaticErrorPageAction
         private readonly StaticErrorPageMatcher $matcher,
     ) {}
 
-    public function handle(string $scheme, string $host, string $pathInfo, string $status): ?string
+    public function handle(string $scheme, string $host, string $pathInfo, string $status, ?int $port = null): ?string
     {
+        // Older callers pass the host separately from the request port.
+        $port ??= request()->getHost() === strtolower($host) && request()->getScheme() === strtolower($scheme) ? request()->getPort() : null;
+
         if (! app()->bound(StaticErrorPageStore::class)) {
             return $this->fail(StaticErrorPageResolutionReason::StoreUnbound, $scheme, $host, $pathInfo, $status, 0);
         }
@@ -40,7 +43,7 @@ final class ResolveStaticErrorPageAction
         $closestRejection = null;
 
         foreach ($entries as $entry) {
-            $rejection = $this->matcher->reject($entry, $scheme, $host, $pathInfo, $status);
+            $rejection = $this->matcher->reject($entry, $scheme, $host, $pathInfo, $status, $port);
 
             if ($rejection instanceof StaticErrorPageResolutionReason) {
                 if (! $closestRejection instanceof StaticErrorPageResolutionReason || $rejection->specificity() > $closestRejection->specificity()) {
@@ -50,7 +53,7 @@ final class ResolveStaticErrorPageAction
                 continue;
             }
 
-            $matchLength = $this->matcher->matchLength($this->matcher->entryPath($entry));
+            $matchLength = $this->matcher->matchScore($entry);
 
             if ($matchLength > $bestMatchLength) {
                 $bestEntry = $entry;

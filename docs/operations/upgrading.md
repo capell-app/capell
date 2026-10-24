@@ -236,3 +236,87 @@ do not delete a lock while an upgrade could still be active.
 **A step failed mid-run** — find it with `SELECT * FROM capell_upgrade_log WHERE type='step' AND status='failed';`. Re-running `capell:upgrade` retries it — failures are not considered "applied".
 
 **"Downgrade detected"** — Composer has an older version than the log. Usually a deployment mistake. Restore the newer version, or pass `--force-downgrade` if truly intentional.
+
+## Private SiteSpec imports and static route manifests
+
+Before reopening an upgraded installation, drain workers from the previous release
+and keep the application and exported site behind maintenance while auditing private
+imports. Retain each original private SiteSpec outside the web root. Its canonical
+hash identifies the existing import; a different spec cannot repair that import.
+
+```bash
+php artisan capell:site-spec-import /private/original-spec.json --audit-private
+php artisan capell:site-spec-import /private/original-spec.json --repair-private --keep-published=deliberately-published-slug
+```
+
+The audit lists current page IDs, slugs and publication dates without changing
+anything. Review null dates against publication history: the old importer used null
+for private secondary pages, but an author may also have deliberately chosen null.
+Repeat `--keep-published` for those deliberate publications, including an edited
+homepage that should remain public. Omit it when none should remain public. Repair
+drafts the remaining null-dated secondary pages, preserves explicit publication and
+schedule dates, and replaces the unchanged Coming soon placeholder's metadata with
+safe values. An edited homepage must be reviewed and explicitly kept. Unknown or
+ambiguous original page identities stop the repair; do not substitute another spec
+or blindly draft every imported page. An identical ordinary reimport refuses an
+unaudited legacy private import instead of reporting success.
+
+Repair saves through normal cache invalidation, purges the site's frontend caches
+and configured CDN surrogate keys, and deletes its locally managed static exports.
+It also rotates and verifies the shared fragment-cache namespace, invalidating all
+sites' fragments so retained values and late pre-repair writes cannot be reused.
+Repair waits for the configured CDN's purge acknowledgement without depending on
+a queue worker; Fastly repairs use a hard purge so stale responses cannot remain
+available. The completion marker is recorded only after remediation succeeds;
+retry the same repair after a filesystem or CDN failure. Remove any separately
+deployed exports and purge external caches before reopening, then regenerate authorised output with
+`php artisan capell:generate-html --site=SITE_ID`. New private imports keep authored
+source metadata in `storage/app/capell-private/site-spec` with private permissions;
+never expose this directory through a web alias or include it in public exports.
+
+If HTML Cache is installed, a Core release carrying `SiteSpecPrivacyRepaired` must
+ship alongside the matching HTML Cache package release. Deploy both before running
+repair. HTML Cache must clear response files through its publication guard
+and await its own configured edge purge before returning. Queued model invalidation
+(including `instant` mode) is insufficient while workers are stopped; a Core repair
+completion marker alone does not establish that an older HTML Cache release has
+removed its confidential responses. Keep maintenance in place until that companion
+release and its failure/retry integration checks are verified.
+
+The public event is `Capell\Core\Events\SiteSpecPrivacyRepaired`. Its readonly
+`data` property is a `Capell\Core\Data\SiteSpec\SiteSpecPrivacyRepairData` DTO
+with `siteIds` (`list<int>`) and `domains` (`list<string>` hostnames, without scheme,
+port or mount path). Use site IDs to cover every cached route and variant for the
+affected sites; domains also identify their configured hosts. No authored spec
+content or mutable models are included. Core dispatches it synchronously from
+`RemediatePrivateSiteSpecOutput` after frontend model caches, managed exports,
+fragment namespace rotation and the configured frontend CDN purge have succeeded,
+and before writing `site_spec_privacy_version`.
+
+Register an ordinary synchronous listener: do not implement `ShouldQueue`, defer
+work until after the response, or merely schedule invalidation. Each listener must
+complete its local invalidation and await configured edge-purge acknowledgement
+before returning. Throw on any failure; exceptions propagate to the repair caller,
+leaving the completion marker absent. Listeners must be idempotent because retrying
+the same repair repeats Core cleanup and all listeners, including those that
+previously succeeded. The internal `SiteSpecPrivacyRepairing` event starts Core's
+cleanup and is not the companion-package completion hook.
+
+Active legacy maintenance manifests are converted to version 2 using current site
+domains and regenerated HTML before route matching. Database, render or write
+failure returns a generic 503, without legacy branding or application fall-through.
+Every request validates the version and routing fields, so a previous worker's
+legacy rewrite triggers conversion again. Stop those workers rather than relying
+on a once-only deployment marker. Version 2 manifests keep normal request matching
+free of content-table queries.
+
+Legacy error fallback `hosts` and `default` fields are ignored, even when a previous
+worker preserves a version 1 or 2 marker while rewriting them. Explicit overrides
+written through the current store API live under `explicit_overrides`; only that
+namespace establishes override provenance. Generated version 2 branding is scoped
+by scheme, host, port and mount, and route transfers remove previous ownership.
+Host-only fallback calls use the matching current request's routing context.
+Static error entries without a recorded port or mount cannot establish ownership
+and return the generic fallback until regeneration. Run
+`php artisan capell:generate-error-pages` to rebuild both route-scoped manifests on
+deployment, and stop previous workers to prevent further legacy rewrites.

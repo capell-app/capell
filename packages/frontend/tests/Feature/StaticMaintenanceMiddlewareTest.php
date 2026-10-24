@@ -60,11 +60,13 @@ afterEach(function (): void {
 
 it('serves host specific static maintenance html without querying content tables', function (): void {
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'sites' => [
             '10' => [
                 'active' => true,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -102,11 +104,13 @@ it('serves path mounted site maintenance html for the exact mounted path', funct
     $store->put('maintenance/https.example.test/docs/index.html', '<h1>Docs maintenance</h1>');
 
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'sites' => [
             '10' => [
                 'active' => true,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/docs',
                     'site_id' => 10,
@@ -127,12 +131,14 @@ it('serves path mounted site maintenance html for the exact mounted path', funct
 
 it('uses Laravel maintenance response headers for static maintenance html', function (): void {
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'global_active' => true,
         'sites' => [
             '10' => [
                 'active' => false,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -165,11 +171,13 @@ it('uses Laravel maintenance response headers for static maintenance html', func
 
 it('allows requests through when no global or site maintenance mode is active', function (): void {
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'sites' => [
             '10' => [
                 'active' => false,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -196,11 +204,13 @@ it('allows requests through when no global or site maintenance mode is active', 
 
 it('serves static maintenance html when lockdown is active', function (): void {
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'sites' => [
             '10' => [
                 'active' => false,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -257,11 +267,13 @@ it('does not honor Laravel maintenance bypass secrets during lockdown', function
 
 it('does not honor existing Laravel maintenance bypass cookies during lockdown', function (): void {
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'sites' => [
             '10' => [
                 'active' => false,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -315,11 +327,13 @@ it('bypasses Capell static maintenance pages when custom maintenance pages are d
     $settings->save();
 
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'sites' => [
             '10' => [
                 'active' => true,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -359,12 +373,14 @@ it('preserves Laravel rendered maintenance template fallback when static html is
 
 it('redirects to the Laravel maintenance redirect target before serving static html', function (): void {
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'global_active' => true,
         'sites' => [
             '10' => [
                 'active' => true,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -414,6 +430,7 @@ it('ignores malformed manifest entries and uses the longest matching mounted dom
     $store->put('maintenance/https.example.test/docs/index.html', '<h1>Docs mounted maintenance</h1>');
 
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'global_active' => true,
         'sites' => [
             'invalid',
@@ -423,6 +440,7 @@ it('ignores malformed manifest entries and uses the longest matching mounted dom
                     'invalid-domain-entry',
                     [
                         'scheme' => 'http',
+                        'port' => null,
                         'domain' => 'example.test',
                         'path' => '/',
                         'site_id' => 10,
@@ -430,6 +448,7 @@ it('ignores malformed manifest entries and uses the longest matching mounted dom
                     ],
                     [
                         'scheme' => 'https',
+                        'port' => null,
                         'domain' => 'example.test',
                         'path' => '/',
                         'site_id' => 10,
@@ -437,6 +456,7 @@ it('ignores malformed manifest entries and uses the longest matching mounted dom
                     ],
                     [
                         'scheme' => 'https',
+                        'port' => null,
                         'domain' => 'example.test',
                         'path' => '/docs',
                         'site_id' => 10,
@@ -456,17 +476,19 @@ it('ignores malformed manifest entries and uses the longest matching mounted dom
         ->and($response->getContent())->toBe('<h1>Docs mounted maintenance</h1>');
 });
 
-it('falls through when matching static maintenance storage is unavailable or incomplete', function (): void {
+it('keeps maintenance denial when matching static storage is unavailable', function (): void {
     app()->forgetInstance(StaticMaintenancePageStore::class);
     app()->offsetUnset(StaticMaintenancePageStore::class);
 
     resolve(MaintenanceManifestStore::class)->write([
+        'version' => 2,
         'global_active' => true,
         'sites' => [
             '10' => [
                 'active' => false,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -481,19 +503,22 @@ it('falls through when matching static maintenance storage is unavailable or inc
         fn (): Response => response('fresh html'),
     );
 
-    expect($response->getStatusCode())->toBe(200)
-        ->and($response->getContent())->toBe('fresh html');
+    expect($response->getStatusCode())->toBe(503)
+        ->and($response->getContent())->not->toContain('fresh html')
+        ->and($response->getContent())->toContain('temporarily unavailable');
 });
 
 it('removes stale matching domain entries from other sites when replacing manifest domains', function (): void {
     $manifestStore = resolve(MaintenanceManifestStore::class);
 
     $manifestStore->write([
+        'version' => 2,
         'sites' => [
             '10' => [
                 'active' => true,
                 'domains' => [[
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'site_id' => 10,
@@ -505,6 +530,7 @@ it('removes stale matching domain entries from other sites when replacing manife
 
     $manifestStore->replaceSiteDomains(20, [[
         'scheme' => 'https',
+        'port' => null,
         'domain' => 'example.test',
         'path' => '/',
         'site_id' => 20,

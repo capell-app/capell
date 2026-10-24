@@ -16,6 +16,7 @@ use Capell\Frontend\Tests\Support\ParentPageUpdateObserver;
 use Capell\Frontend\Tests\Support\ThirdPartyErrorPage;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Decorators\JobDecorator;
 
 /**
@@ -89,6 +90,36 @@ it('dispatches for a site domain update', function (): void {
 
     $siteDomain->domain = 'changed.test';
     $siteDomain->save();
+});
+
+it('invalidates both owners when a domain is transferred', function (bool $transaction): void {
+    ['site' => $oldSite, 'siteDomain' => $domain] = makeErrorPageSite();
+    $newSite = Site::factory()->create();
+    RegenerateSiteErrorPagesAction::shouldRun()->once()->with($oldSite->id, false);
+    RegenerateSiteErrorPagesAction::shouldRun()->once()->with($newSite->id, false);
+
+    $transfer = function () use ($domain, $newSite): void {
+        $domain->site_id = $newSite->id;
+        $domain->save();
+    };
+    if ($transaction) {
+        DB::transaction($transfer);
+    } else {
+        $transfer();
+    }
+})->with([false, true]);
+
+it('does not regenerate either owner for a rolled back transfer', function (): void {
+    ['siteDomain' => $domain] = makeErrorPageSite();
+    $newSite = Site::factory()->create();
+    RegenerateSiteErrorPagesAction::shouldNotRun();
+    DB::beginTransaction();
+    try {
+        $domain->site_id = $newSite->id;
+        $domain->save();
+    } finally {
+        DB::rollBack();
+    }
 });
 
 it('dispatches for an error page update', function (): void {

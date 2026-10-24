@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Error;
 
 use Capell\Frontend\Enums\StaticErrorPageResolutionReason;
+use Capell\Frontend\Support\Static\StaticPageDomainMatcher;
 
 /**
  * The single owner of the static error page matching predicates.
@@ -52,9 +53,9 @@ final class StaticErrorPageMatcher
      *
      * @param  array<string, mixed>  $entry
      */
-    public function reject(array $entry, string $scheme, string $host, string $pathInfo, string $status): ?StaticErrorPageResolutionReason
+    public function reject(array $entry, string $scheme, string $host, string $pathInfo, string $status, ?int $port = null): ?StaticErrorPageResolutionReason
     {
-        if ($this->entryScheme($entry) !== strtolower($scheme)) {
+        if (! StaticPageDomainMatcher::schemeMatches($entry, $scheme)) {
             return StaticErrorPageResolutionReason::SchemeMismatch;
         }
 
@@ -62,11 +63,16 @@ final class StaticErrorPageMatcher
             return StaticErrorPageResolutionReason::DomainMismatch;
         }
 
+        if (! StaticPageDomainMatcher::portMatches($entry, $scheme, $port)) {
+            return StaticErrorPageResolutionReason::PortMismatch;
+        }
+
         if ($this->entryStatus($entry) !== $status) {
             return StaticErrorPageResolutionReason::StatusMismatch;
         }
 
-        if (! $this->pathCovers($this->entryPath($entry), $this->normalizePath($pathInfo))) {
+        if (! is_string($entry['path'] ?? null) || $entry['path'] === ''
+            || ! $this->pathCovers($this->entryPath($entry), $this->normalizePath($pathInfo))) {
             return StaticErrorPageResolutionReason::PathMismatch;
         }
 
@@ -109,6 +115,12 @@ final class StaticErrorPageMatcher
     public function matchLength(string $entryPath): int
     {
         return strlen($entryPath);
+    }
+
+    /** @param array<string, mixed> $entry */
+    public function matchScore(array $entry): int
+    {
+        return StaticPageDomainMatcher::score($entry);
     }
 
     public function pathCovers(string $entryPath, string $requestPath): bool

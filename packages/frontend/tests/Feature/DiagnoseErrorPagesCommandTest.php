@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
+use Capell\Frontend\Actions\BuildErrorPageCopyDiagnosticsAction;
+use Capell\Frontend\Actions\BuildStaticErrorPageDiagnosticsAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Tests\Support\DiagnoseErrorPagesTestStore;
+use Capell\Frontend\Tests\Support\LegacyErrorPageFallbackManifestStore;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 
@@ -20,6 +23,7 @@ function diagnoseEntry(array $overrides = []): array
 {
     return array_replace([
         'scheme' => 'https',
+        'port' => null,
         'domain' => 'example.test',
         'path' => '/',
         'status' => '404',
@@ -200,4 +204,43 @@ it('warns in table output that a live 404 rewrites the fallback manifest', funct
     ]))->toBe(0);
 
     expect(Artisan::output())->toContain('regenerates the error pages');
+});
+
+it('reports the effective port predicate for a mismatched request origin', function (): void {
+    $this->store = new DiagnoseErrorPagesTestStore;
+    app()->instance(StaticErrorPageStore::class, $this->store);
+    resolve(ErrorPageManifestStore::class)->replaceSite(10, [[
+        'scheme' => 'https', 'domain' => 'example.test', 'port' => null,
+        'path' => '/', 'status' => '404', 'file' => 'error/default/404/index.html',
+    ]]);
+
+    $report = BuildStaticErrorPageDiagnosticsAction::run('https', 'example.test', '/', '404', 8443);
+    expect($report->resolved)->toBeFalse()
+        ->and($report->reason?->value)->toBe('port_mismatch')
+        ->and($report->candidates[0]->expected)->toBe('443')
+        ->and($report->candidates[0]->actual)->toBe('8443');
+});
+
+it('diagnoses the same explicit and generated branding precedence as the fallback reader', function (): void {
+    $store = resolve(ErrorPageFallbackManifestStore::class);
+    $store->replaceSite(1, [[
+        'scheme' => 'https', 'domain' => 'generated.test', 'port' => null, 'path' => '/docs',
+        'logo_url' => '/generated.svg', 'copy' => [500 => ['headline' => 'Generated', 'description' => 'Generated description']],
+    ], [
+        'scheme' => 'https', 'domain' => 'explicit.test', 'port' => null, 'path' => '/',
+        'logo_url' => '/generated.svg', 'copy' => [500 => ['headline' => 'Generated', 'description' => 'Generated description']],
+    ]]);
+    $store->setHost('explicit.test', '/explicit.svg', [500 => ['headline' => 'Explicit', 'description' => 'Explicit description']]);
+    $store->setDefault('/default.svg', [500 => ['headline' => 'Default', 'description' => 'Default description']]);
+    // Old workers keep both the v2 marker and the new explicit namespace when
+    // rewriting legacy host/default fields. Diagnostics must agree with serve.
+    $oldWriter = new LegacyErrorPageFallbackManifestStore;
+    $oldWriter->setHost('generated.test', '/wrong.svg', [500 => ['headline' => 'WRONG OWNER']]);
+    $oldWriter->setDefault('/wrong.svg', [500 => ['headline' => 'WRONG DEFAULT']]);
+
+    foreach ([['explicit.test', '/', 'Explicit'], ['generated.test', '/docs/missing', 'Generated'], ['generated.test', '/outside', 'Default'], ['unknown.test', '/', 'Default']] as [$host, $path, $headline]) {
+        $diagnostic = BuildErrorPageCopyDiagnosticsAction::run($host, '500', 'https', null, $path);
+        expect($diagnostic->winners['headline'])->toBe($headline)
+            ->and($diagnostic->winners['description'])->toBe($headline . ' description');
+    }
 });

@@ -5,24 +5,31 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Error;
 
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use InvalidArgumentException;
 
 final class ErrorPagePathResolver
 {
     public function pathForDomainAndStatus(SiteDomain $siteDomain, string $status): string
     {
-        $this->assertSafeSegment('scheme', $siteDomain->scheme);
+        $scheme = $siteDomain->getAttributes()['scheme'] ?? null;
+        if ($scheme !== null) {
+            $this->assertSafeSegment('scheme', $scheme);
+        }
+
         $this->assertSafeSegment('domain', $siteDomain->domain);
         $this->assertSafePath('site domain path', $siteDomain->path ?? '/');
         $this->assertStatus($status);
 
-        $path = sprintf('error/%s.%s', $siteDomain->scheme, $siteDomain->domain);
+        $path = sprintf('error/%s.%s', $scheme ?? 'any', $siteDomain->domain);
 
         if ($siteDomain->path !== null && $siteDomain->path !== '') {
             $path .= $siteDomain->path;
         }
 
-        return rtrim($path, '/') . '/' . $status . '/index.html';
+        $identity = SiteDomainAddressing::routingIdentity($scheme, $siteDomain->domain, $siteDomain->port, $siteDomain->path);
+
+        return rtrim($path, '/') . '/' . $identity . '/' . $status . '/index.html';
     }
 
     private function assertStatus(string $status): void

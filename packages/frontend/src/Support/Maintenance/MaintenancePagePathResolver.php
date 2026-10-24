@@ -5,23 +5,30 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Maintenance;
 
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use InvalidArgumentException;
 
 final class MaintenancePagePathResolver
 {
     public function pathForDomain(SiteDomain $siteDomain): string
     {
-        $this->assertSafeSegment('scheme', $siteDomain->scheme);
+        $scheme = $siteDomain->getAttributes()['scheme'] ?? null;
+        if ($scheme !== null) {
+            $this->assertSafeSegment('scheme', $scheme);
+        }
+
         $this->assertSafeSegment('domain', $siteDomain->domain);
         $this->assertSafePath('site domain path', $siteDomain->path ?? '/');
 
-        $path = sprintf('maintenance/%s.%s', $siteDomain->scheme, $siteDomain->domain);
+        $path = sprintf('maintenance/%s.%s', $scheme ?? 'any', $siteDomain->domain);
 
         if ($siteDomain->path !== null && $siteDomain->path !== '') {
             $path .= $siteDomain->path;
         }
 
-        return rtrim($path, '/') . '/index.html';
+        $identity = SiteDomainAddressing::routingIdentity($scheme, $siteDomain->domain, $siteDomain->port, $siteDomain->path);
+
+        return rtrim($path, '/') . '/' . $identity . '/index.html';
     }
 
     private function assertSafeSegment(string $label, ?string $value): void

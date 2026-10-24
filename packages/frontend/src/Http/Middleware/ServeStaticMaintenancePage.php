@@ -6,9 +6,11 @@ namespace Capell\Frontend\Http\Middleware;
 
 use Capell\Core\Support\Locale\HtmlLanguageAttribute;
 use Capell\Core\Support\Security\LockdownStore;
+use Capell\Frontend\Actions\UpgradeMaintenanceManifestRoutingAction;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
+use Capell\Frontend\Support\Static\StaticPageDomainMatcher;
 use Closure;
 use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Http\Request;
@@ -30,10 +32,26 @@ final class ServeStaticMaintenancePage extends PreventRequestsDuringMaintenance
 
         $maintenanceData = null;
         $laravelMaintenanceActive = $this->app->maintenanceMode()->active();
-        $manifest = resolve(MaintenanceManifestStore::class)->read();
+        try {
+            $manifest = resolve(MaintenanceManifestStore::class)->read();
+        } catch (Throwable) {
+            // Previous workers wrote in place; a partial write must not turn
+            // unknown maintenance state into an inactive default manifest.
+            return $this->lockdownFallbackResponse();
+        }
 
         if (! $lockdownActive && ! $laravelMaintenanceActive && ! $this->manifestHasActiveMaintenance($manifest)) {
             return $next($request);
+        }
+
+        if (resolve(MaintenanceManifestStore::class)->needsRoutingUpgrade($manifest)) {
+            try {
+                $manifest = UpgradeMaintenanceManifestRoutingAction::run();
+            } catch (Throwable) {
+                // Legacy HTML has ambiguous ownership. Keep denial even when
+                // the database, renderer or manifest publication is unavailable.
+                return $this->lockdownFallbackResponse();
+            }
         }
 
         if (! $lockdownActive && ! $this->customMaintenancePagesEnabled()) {
@@ -78,6 +96,10 @@ final class ServeStaticMaintenancePage extends PreventRequestsDuringMaintenance
             return $this->lockdownFallbackResponse();
         }
 
+        if (($manifest['global_active'] ?? false) === true || ($entry['active'] ?? false) === true) {
+            return $this->lockdownFallbackResponse();
+        }
+
         if ($laravelMaintenanceActive) {
             return $this->maintenanceFallbackResponse($maintenanceData);
         }
@@ -106,23 +128,14 @@ final class ServeStaticMaintenancePage extends PreventRequestsDuringMaintenance
                     continue;
                 }
 
-                $domainPath = $this->normalizePath($domain['path'] ?? '/');
-                if (($domain['scheme'] ?? null) !== $scheme) {
-                    continue;
-                }
-
-                if (strtolower((string) ($domain['domain'] ?? '')) !== $host) {
-                    continue;
-                }
-
-                if ($domainPath !== '/' && $path !== $domainPath && ! str_starts_with($path, rtrim($domainPath, '/') . '/')) {
+                if (! StaticPageDomainMatcher::matches($domain, $scheme, $host, $path, $request->getPort())) {
                     continue;
                 }
 
                 $matches[] = [
                     ...$domain,
                     'active' => $globalActive || $siteActive,
-                    'match_length' => strlen($domainPath),
+                    'match_length' => StaticPageDomainMatcher::score($domain),
                 ];
             }
         }

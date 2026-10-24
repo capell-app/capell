@@ -6,6 +6,7 @@ namespace Capell\Frontend\Actions;
 
 use Capell\Frontend\Data\ErrorPageCopyDiagnosticsData;
 use Capell\Frontend\Data\ErrorPageCopySourceData;
+use Capell\Frontend\Support\Error\ErrorPageFallbackManifest;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\File;
@@ -28,7 +29,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * it is safe against production and cannot itself trigger the regeneration it
  * reports on.
  *
- * @method static ErrorPageCopyDiagnosticsData run(string $host, string $status)
+ * @method static ErrorPageCopyDiagnosticsData run(string $host, string $status, string $scheme = 'https', ?int $port = null, string $path = '/')
  */
 final class BuildErrorPageCopyDiagnosticsAction
 {
@@ -42,7 +43,7 @@ final class BuildErrorPageCopyDiagnosticsAction
         private readonly ErrorPageFallbackManifestStore $fallbackManifestStore,
     ) {}
 
-    public function handle(string $host, string $status): ErrorPageCopyDiagnosticsData
+    public function handle(string $host, string $status, string $scheme = 'https', ?int $port = null, string $path = '/'): ErrorPageCopyDiagnosticsData
     {
         $normalizedHost = strtolower($host);
         $manifestPath = $this->fallbackManifestStore->path();
@@ -54,7 +55,7 @@ final class BuildErrorPageCopyDiagnosticsAction
         $winners = [];
 
         foreach (self::FIELDS as $field) {
-            $sources = $this->sources($manifest, $normalizedHost, $status, $field, $viewPath);
+            $sources = $this->sources($manifest, $normalizedHost, $status, $field, $viewPath, $scheme, $port, $path);
             $fields[$field] = $this->applyPrecedence($sources);
             $winners[$field] = $this->winningValue($fields[$field]);
         }
@@ -77,10 +78,17 @@ final class BuildErrorPageCopyDiagnosticsAction
      * @param  array<string, mixed>  $manifest
      * @return list<ErrorPageCopySourceData>
      */
-    private function sources(array $manifest, string $host, string $status, string $field, ?string $viewPath): array
+    private function sources(array $manifest, string $host, string $status, string $field, ?string $viewPath, string $scheme, ?int $port, string $path): array
     {
-        $hostValue = $this->manifestValue($manifest, ['hosts', $host, 'copy', $status, $field]);
-        $defaultValue = $this->manifestValue($manifest, ['default', 'copy', $status, $field]);
+        $routeScoped = ($manifest['version'] ?? null) === 2;
+        $entry = ErrorPageFallbackManifest::entry($manifest, $host, $scheme, $port, $path);
+        $hostCopy = data_get($manifest, ['explicit_overrides', 'hosts', $host, 'copy', $status]);
+        $routeCopy = data_get($entry, ['copy', $status]);
+        $selectedCopy = is_array($hostCopy) ? $hostCopy : (is_array($routeCopy) ? $routeCopy : null);
+        $hostValue = $selectedCopy !== null ? $this->manifestValue($selectedCopy, [$field]) : null;
+        // The reader selects whole copy entries per status, without filling a
+        // partial host/route entry from the explicit default.
+        $defaultValue = $selectedCopy === null ? $this->manifestValue($manifest, ['explicit_overrides', 'default', 'copy', $status, $field]) : null;
         $sectionKey = $viewPath === null ? null : $this->sectionTranslationKey($viewPath, $field);
         $sectionValue = $sectionKey === null ? null : $this->translation($sectionKey);
         $packageDefaultKey = sprintf('capell-frontend::errors.default_%s', $field);
@@ -89,13 +97,15 @@ final class BuildErrorPageCopyDiagnosticsAction
         $sources = [
             new ErrorPageCopySourceData(
                 order: 1,
-                source: sprintf('fallback manifest: hosts.%s.copy.%s.%s', $host, $status, $field),
+                source: $routeScoped && ! is_array($hostCopy)
+                    ? sprintf('fallback manifest: matched route %s://%s:%s%s copy.%s.%s', $scheme, $host, $port ?? 'default', $path, $status, $field)
+                    : sprintf('fallback manifest: explicit_overrides.hosts.%s.copy.%s.%s', $host, $status, $field),
                 present: $hostValue !== null,
                 value: $hostValue,
             ),
             new ErrorPageCopySourceData(
                 order: 2,
-                source: sprintf('fallback manifest: default.copy.%s.%s', $status, $field),
+                source: sprintf('fallback manifest: explicit_overrides.default.copy.%s.%s', $status, $field),
                 present: $defaultValue !== null,
                 value: $defaultValue,
             ),

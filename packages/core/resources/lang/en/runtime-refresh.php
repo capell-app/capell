@@ -10,6 +10,7 @@ return [
     'cache_refresh_required' => 'Package activation is incomplete: clear the Laravel route, configuration and component caches, then reload retained workers before using the new surfaces.',
     'cache_removal_failed' => 'Failed to remove persisted cache [:path]. Check filesystem permissions and retry.',
     'cache_key_removal_failed' => 'Failed to remove cached value [:key]. Check the cache backend and retry.',
+    'cache_namespace_rotation_failed' => 'The cache backend did not acknowledge namespace invalidation. Repair is incomplete; check the cache backend and retry.',
     'diagnostic_label' => 'Installed runtime failures',
     'diagnostic_ok' => 'No installed runtime failures in this application.',
     'diagnostic_failed' => 'Installed runtime registration failed for: :packages.',

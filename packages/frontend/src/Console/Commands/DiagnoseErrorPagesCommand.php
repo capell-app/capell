@@ -45,9 +45,10 @@ final class DiagnoseErrorPagesCommand extends Command
             $request->getHost(),
             $request->getPathInfo(),
             $status,
+            $request->getPort(),
         );
 
-        $copy = BuildErrorPageCopyDiagnosticsAction::run($request->getHost(), $status);
+        $copy = BuildErrorPageCopyDiagnosticsAction::run($request->getHost(), $status, $request->getScheme(), $request->getPort(), $request->getPathInfo());
 
         if ($this->option('json') === true) {
             $this->line(json_encode([

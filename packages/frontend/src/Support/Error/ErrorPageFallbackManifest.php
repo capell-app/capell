@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Error;
 
+use Capell\Frontend\Support\Static\StaticPageDomainMatcher;
+use Illuminate\Container\Container;
+use Illuminate\Http\Request;
+
 /**
  * DB-free reader for the pre-rendered error-page fallback manifest.
  *
@@ -24,37 +28,13 @@ final class ErrorPageFallbackManifest
 
     public static function logoUrl(string $host): ?string
     {
-        $manifest = self::manifest();
-
-        $hostLogo = self::nestedString($manifest, ['hosts', strtolower($host), 'logo_url']);
-
-        if ($hostLogo !== null) {
-            return $hostLogo;
-        }
-
-        return self::nestedString($manifest, ['default', 'logo_url']);
+        return self::forHost($host, '500')['logo_url'];
     }
 
-    /**
-     * @return array{headline: ?string, description: ?string}|null
-     */
+    /** @return array{headline: ?string, description: ?string}|null */
     public static function copy(string $host, string $status): ?array
     {
-        $manifest = self::manifest();
-
-        $hostCopy = self::nestedArray($manifest, ['hosts', strtolower($host), 'copy', $status]);
-
-        if ($hostCopy !== null) {
-            return self::normalizeCopy($hostCopy);
-        }
-
-        $defaultCopy = self::nestedArray($manifest, ['default', 'copy', $status]);
-
-        if ($defaultCopy !== null) {
-            return self::normalizeCopy($defaultCopy);
-        }
-
-        return null;
+        return self::forHost($host, $status)['copy'];
     }
 
     /**
@@ -62,20 +42,64 @@ final class ErrorPageFallbackManifest
      *
      * @return array{logo_url: ?string, copy: array{headline: ?string, description: ?string}|null}
      */
-    public static function forHost(string $host, string $status): array
+    public static function forHost(string $host, string $status, ?string $scheme = null, ?int $port = null, ?string $path = null): array
     {
-        $manifest = self::manifest();
-        $normalizedHost = strtolower($host);
+        // Published error views still use the host-only API. Resolve their
+        // missing routing context without loading any site or frontend state.
+        $container = Container::getInstance();
+        $request = $container->bound('request') ? $container->make('request') : null;
+        if ($request instanceof Request && strtolower($host) === strtolower($request->getHost())) {
+            $port ??= func_num_args() < 4 && ($scheme === null || strtolower($scheme) === $request->getScheme())
+                ? $request->getPort() : null;
+            $scheme ??= $request->getScheme();
+            $path ??= $request->getPathInfo();
+        }
 
-        $logoUrl = self::nestedString($manifest, ['hosts', $normalizedHost, 'logo_url'])
-            ?? self::nestedString($manifest, ['default', 'logo_url']);
-        $copy = self::nestedArray($manifest, ['hosts', $normalizedHost, 'copy', $status])
-            ?? self::nestedArray($manifest, ['default', 'copy', $status]);
+        $manifest = self::manifest();
+        $entry = self::entry($manifest, $host, $scheme ?? 'https', $port, $path ?? '/');
+        $copy = self::nestedArray($entry, ['copy', $status]);
+        $logo = self::nestedString($entry, ['logo_url']);
+        // Old workers preserve the version during read-modify-write. Only the
+        // new API writes this override namespace; legacy hosts/default are unsafe.
+        $copy = self::nestedArray($manifest, ['explicit_overrides', 'hosts', strtolower($host), 'copy', $status])
+            ?? $copy
+            ?? self::nestedArray($manifest, ['explicit_overrides', 'default', 'copy', $status]);
+        $logo = self::nestedString($manifest, ['explicit_overrides', 'hosts', strtolower($host), 'logo_url'])
+            ?? $logo
+            ?? self::nestedString($manifest, ['explicit_overrides', 'default', 'logo_url']);
 
         return [
-            'logo_url' => $logoUrl,
+            'logo_url' => $logo,
             'copy' => $copy !== null ? self::normalizeCopy($copy) : null,
         ];
+    }
+
+    /**
+     * @param  array<mixed>  $manifest
+     * @return array<mixed>
+     */
+    public static function entry(array $manifest, string $host, string $scheme = 'https', ?int $port = null, string $path = '/'): array
+    {
+        if (($manifest['version'] ?? null) === 2) {
+            $entries = [];
+            $sites = $manifest['sites'] ?? [];
+            foreach (is_array($sites) ? $sites : [] as $site) {
+                if (! is_array($site)) {
+                    continue;
+                }
+
+                $domains = $site['domains'] ?? [];
+                foreach (is_array($domains) ? $domains : [] as $domain) {
+                    if (is_array($domain)) {
+                        $entries[] = $domain;
+                    }
+                }
+            }
+
+            return StaticPageDomainMatcher::best($entries, $scheme, $host, $path, $port) ?? [];
+        }
+
+        return [];
     }
 
     /**

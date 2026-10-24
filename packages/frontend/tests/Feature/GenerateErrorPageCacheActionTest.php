@@ -95,10 +95,11 @@ it('generates static error html per status and updates the manifests', function 
     $entries = GenerateErrorPageCacheAction::run($siteDomain->site);
 
     $statuses = ErrorPageStatusEnum::statusValues();
+    $prefix = 'error/https.example.test/docs/' . $siteDomain->routing_identity;
 
     // A file per status, with the /{status}/index.html shape.
     foreach ($statuses as $status) {
-        expect($store->files)->toHaveKey('error/https.example.test/docs/' . $status . '/index.html');
+        expect($store->files)->toHaveKey($prefix . '/' . $status . '/index.html');
     }
 
     // One manifest entry per (domain, locale, status).
@@ -124,15 +125,20 @@ it('generates static error html per status and updates the manifests', function 
     // Site manifest entry recorded with status + file.
     $manifest = resolve(ErrorPageManifestStore::class)->read();
     $firstEntry = data_get($manifest, 'sites.' . $siteDomain->site_id . '.entries.0');
-    expect($firstEntry['file'])->toBe('error/https.example.test/docs/' . $statuses[0] . '/index.html')
+    expect($firstEntry['file'])->toBe($prefix . '/' . $statuses[0] . '/index.html')
         ->and($firstEntry['status'])->toBe($statuses[0]);
 
-    // Fallback manifest written with host -> logo + copy, plus default.
+    // Generated branding belongs to the full route and never becomes global.
     $fallback = resolve(ErrorPageFallbackManifestStore::class)->read();
-    expect($fallback['hosts'])->toHaveKey('example.test')
-        ->and($fallback['hosts']['example.test']['logo_url'])->toBeString()
-        ->and($fallback['hosts']['example.test']['copy'])->toHaveKey('500')
-        ->and($fallback['default']['copy'])->toHaveKey('500');
+    $branding = $fallback['sites'][(string) $siteDomain->site_id]['domains'][0];
+    expect($branding['domain'])->toBe('example.test')
+        ->and($branding['scheme'])->toBe('https')
+        ->and($branding['port'])->toBeNull()
+        ->and($branding['path'])->toBe('/docs')
+        ->and($branding['logo_url'])->toBeString()
+        ->and($branding['copy'])->toHaveKey('500')
+        ->and($fallback['hosts'])->toBeEmpty()
+        ->and($fallback['default']['copy'])->toBeEmpty();
 });
 
 it('rejects and does not store error page html that fails the public render contract', function (): void {
