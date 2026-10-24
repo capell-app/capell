@@ -19,7 +19,7 @@ final class InvalidateFrontendSurrogateKeysAction
     /**
      * @param  array<int, string>  $surrogateKeys
      */
-    public function handle(array $surrogateKeys): void
+    public function handle(array $surrogateKeys, bool $awaitCdn = false): void
     {
         if ($surrogateKeys === []) {
             return;
@@ -32,6 +32,14 @@ final class InvalidateFrontendSurrogateKeysAction
         }
 
         if (! PurgeCdnCacheJob::hasConfiguredProvider()) {
+            return;
+        }
+
+        if ($awaitCdn) {
+            // Privacy remediation must observe delivery, including failure,
+            // before its caller can certify completion. Soft purges retain stale bytes.
+            new PurgeCdnCacheJob($surrogateKeys)->purgeImmediately();
+
             return;
         }
 

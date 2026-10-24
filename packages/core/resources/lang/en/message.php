@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'site_spec_private_audit_required' => 'Private import :id predates the privacy repair. Review the original spec and current publication decisions, then reimport with --repair-private and --keep-published for deliberate publications.',
     'site_domain_claim_conflict' => 'This origin is already assigned to another site. Ask a global administrator to configure shared domains.',
     'component_directory_failed' => 'Could not create component directory [:path]. Check directory permissions and retry.',
     'component_publication_summary' => 'Components: :published published, :skipped skipped, :failed failed.',

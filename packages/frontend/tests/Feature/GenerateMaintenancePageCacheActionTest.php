@@ -82,10 +82,11 @@ it('generates static maintenance html and updates the manifest for each site dom
 
     GenerateMaintenancePageCacheAction::run($siteDomain->site);
 
-    expect($store->files)->toHaveKey('maintenance/https.example.test/docs/index.html')
-        ->and($store->files['maintenance/https.example.test/docs/index.html'])->toBe('<h1>Maintenance</h1>')
+    $expectedPath = 'maintenance/https.example.test/docs/' . $siteDomain->routing_identity . '/index.html';
+    expect($store->files)->toHaveKey($expectedPath)
+        ->and($store->files[$expectedPath])->toBe('<h1>Maintenance</h1>')
         ->and(data_get(resolve(MaintenanceManifestStore::class)->read(), 'sites.' . $siteDomain->site_id . '.domains.0.file'))
-        ->toBe('maintenance/https.example.test/docs/index.html')
+        ->toBe($expectedPath)
         ->and($renderer->calls[0]['language_id'])->toBe($language->id)
         ->and($renderer->calls[0]['site_domain_id'])->toBe($siteDomain->id)
         ->and($renderer->calls[0]['site_domain_path'])->toBe('/docs');

@@ -29,6 +29,9 @@ enum StaticErrorPageResolutionReason: string
      */
     case DomainMismatch = 'domain_mismatch';
 
+    /** The entry is for a different effective origin port. */
+    case PortMismatch = 'port_mismatch';
+
     /** The entry is for a different HTTP status. */
     case StatusMismatch = 'status_mismatch';
 
@@ -57,11 +60,12 @@ enum StaticErrorPageResolutionReason: string
             self::ManifestEmpty => 1,
             self::SchemeMismatch => 2,
             self::DomainMismatch => 3,
-            self::StatusMismatch => 4,
-            self::PathMismatch => 5,
-            self::FileUnresolved => 6,
-            self::FileMissing => 7,
-            self::FileUnreadable => 8,
+            self::PortMismatch => 4,
+            self::StatusMismatch => 5,
+            self::PathMismatch => 6,
+            self::FileUnresolved => 7,
+            self::FileMissing => 8,
+            self::FileUnreadable => 9,
         };
     }
 }

@@ -4,7 +4,7 @@
     $host = strtolower(request()->getHost());
     $status = trim($__env->yieldContent('code'));
     $status = $status !== '' ? $status : '500';
-    $fallbackManifest = ErrorPageFallbackManifest::forHost($host, $status);
+    $fallbackManifest = ErrorPageFallbackManifest::forHost($host, $status, request()->getScheme(), request()->getPort(), request()->getPathInfo());
     $manifestLogo = $fallbackManifest['logo_url'];
     $manifestCopy = $fallbackManifest['copy'];
     $showHomepageLink = request()->getPathInfo() !== '/';

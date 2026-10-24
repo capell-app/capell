@@ -17,7 +17,8 @@ final class BuildSiteFromSpecFileAction
     use AsFake;
     use AsObject;
 
-    public function handle(string $path): Site
+    /** @param list<string> $keepPublished */
+    public function handle(string $path, bool $repairPrivate = false, array $keepPublished = [], bool $auditPrivate = false): Site
     {
         $contents = is_file($path) ? file_get_contents($path) : false;
 
@@ -37,6 +38,6 @@ final class BuildSiteFromSpecFileAction
             throw ValidationException::withMessages($validation['errors']);
         }
 
-        return BuildCapellSiteFromSpecAction::run(CapellSiteSpecData::from($validation['normalized']));
+        return BuildCapellSiteFromSpecAction::run(CapellSiteSpecData::from($validation['normalized']), $repairPrivate, $keepPublished, $auditPrivate);
     }
 }

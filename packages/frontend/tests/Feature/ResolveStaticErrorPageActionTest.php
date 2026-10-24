@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Frontend\Actions\BuildStaticErrorPageDiagnosticsAction;
 use Capell\Frontend\Actions\ResolveStaticErrorPageAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
@@ -38,6 +39,7 @@ it('returns the static html for a matching manifest entry', function (): void {
         'sites' => [
             '1' => ['entries' => [[
                 'scheme' => 'https',
+                'port' => null,
                 'domain' => 'example.test',
                 'path' => '/',
                 'status' => '404',
@@ -63,6 +65,7 @@ it('chooses the longest matching path prefix', function (): void {
             '1' => ['entries' => [
                 [
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/',
                     'status' => '404',
@@ -70,6 +73,7 @@ it('chooses the longest matching path prefix', function (): void {
                 ],
                 [
                     'scheme' => 'https',
+                    'port' => null,
                     'domain' => 'example.test',
                     'path' => '/shop',
                     'status' => '404',
@@ -94,6 +98,7 @@ it('returns null for a wrong status', function (): void {
         'sites' => [
             '1' => ['entries' => [[
                 'scheme' => 'https',
+                'port' => null,
                 'domain' => 'example.test',
                 'path' => '/',
                 'status' => '404',
@@ -115,6 +120,7 @@ it('returns null for a wrong host', function (): void {
         'sites' => [
             '1' => ['entries' => [[
                 'scheme' => 'https',
+                'port' => null,
                 'domain' => 'example.test',
                 'path' => '/',
                 'status' => '404',
@@ -135,6 +141,7 @@ it('returns null when the store is unbound', function (): void {
         'sites' => [
             '1' => ['entries' => [[
                 'scheme' => 'https',
+                'port' => null,
                 'domain' => 'example.test',
                 'path' => '/',
                 'status' => '404',
@@ -154,6 +161,7 @@ it('returns null when the manifest entry file is missing on disk', function (): 
         'sites' => [
             '1' => ['entries' => [[
                 'scheme' => 'https',
+                'port' => null,
                 'domain' => 'example.test',
                 'path' => '/',
                 'status' => '404',
@@ -175,6 +183,7 @@ it('records the rejecting predicate at debug level when the host does not match'
         'sites' => [
             '1' => ['entries' => [[
                 'scheme' => 'https',
+                'port' => null,
                 'domain' => 'example.test',
                 'path' => '/',
                 'status' => '404',
@@ -214,6 +223,7 @@ it('records file_missing when the matched entry has no file on disk', function (
         'sites' => [
             '1' => ['entries' => [[
                 'scheme' => 'https',
+                'port' => null,
                 'domain' => 'example.test',
                 'path' => '/',
                 'status' => '404',
@@ -239,6 +249,7 @@ it('logs nothing on the happy path', function (): void {
         'sites' => [
             '1' => ['entries' => [[
                 'scheme' => 'https',
+                'port' => null,
                 'domain' => 'example.test',
                 'path' => '/',
                 'status' => '404',
@@ -251,3 +262,53 @@ it('logs nothing on the happy path', function (): void {
 
     expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/', '404'))->toBe('<h1>Not found</h1>');
 });
+
+it('rejects deployment leftovers and the original static writer replacing a regenerated route without port ownership', function (): void {
+    $this->store = makeStaticErrorPageStore();
+    $this->store->put('legacy.html', '<h1>WRONG OWNER from port 8443</h1>');
+    $this->store->put('current.html', '<h1>Current owner</h1>');
+
+    app()->instance(StaticErrorPageStore::class, $this->store);
+    $store = resolve(ErrorPageManifestStore::class);
+    $legacy = [
+        'scheme' => 'https', 'domain' => 'example.test', 'path' => '/',
+        'status' => '404', 'file' => 'legacy.html',
+    ];
+    $current = [...$legacy, 'port' => null, 'file' => 'current.html'];
+    // The original replaceSite performs this same read-modify-write sequence.
+    $store->replaceSite(1, [$legacy]);
+    foreach ([false, true] as $oldWorker) {
+        if ($oldWorker) {
+            $store->replaceSite(1, [$current]);
+            expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/', '404', 443))->toBe('<h1>Current owner</h1>');
+            $inFlight = $store->read();
+            $inFlight['sites']['1'] = ['entries' => [$legacy]];
+            $store->write($inFlight);
+        }
+
+        foreach ([443, 8443] as $port) {
+            expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/', '404', $port))->toBeNull();
+            $report = BuildStaticErrorPageDiagnosticsAction::run('https', 'example.test', '/', '404', $port);
+            expect($report->resolved)->toBeFalse()
+                ->and($report->reason?->value)->toBe('port_mismatch')
+                ->and($report->candidates[0]->expected)->toBe('unknown (regenerate)')
+                ->and($report->resolvedFilePath)->toBeNull();
+        }
+    }
+
+    $store->replaceSite(1, [$current]);
+    expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/', '404', 443))->toBe('<h1>Current owner</h1>');
+});
+
+it('rejects static entries without a recorded mount', function (mixed $path): void {
+    $this->store = makeStaticErrorPageStore();
+    $this->store->put('unsafe.html', 'WRONG MOUNT');
+
+    app()->instance(StaticErrorPageStore::class, $this->store);
+    resolve(ErrorPageManifestStore::class)->replaceSite(1, [[
+        'scheme' => 'https', 'port' => null, 'domain' => 'example.test',
+        'path' => $path, 'status' => '404', 'file' => 'unsafe.html',
+    ]]);
+
+    expect(ResolveStaticErrorPageAction::run('https', 'example.test', '/outside', '404', 443))->toBeNull();
+})->with([null, '', false]);

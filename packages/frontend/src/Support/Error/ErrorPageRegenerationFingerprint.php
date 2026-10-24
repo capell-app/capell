@@ -46,6 +46,7 @@ final readonly class ErrorPageRegenerationFingerprint
         $siteId = (int) $site->getKey();
 
         return hash('sha256', (string) json_encode([
+            'artifact_version' => 2,
             'site' => Site::query()
                 ->whereKey($siteId)
                 ->toBase()
@@ -56,7 +57,7 @@ final readonly class ErrorPageRegenerationFingerprint
                 ->where('site_id', $siteId)
                 ->orderBy('id')
                 ->toBase()
-                ->get(['id', 'domain', 'scheme', 'path', 'language_id', 'status'])
+                ->get(['id', 'domain', 'scheme', 'port', 'path', 'language_id', 'status'])
                 ->map($this->row(...))
                 ->all(),
             'site_translations' => $this->translationValues(resolve(Site::class)->getMorphClass(), [$siteId]),

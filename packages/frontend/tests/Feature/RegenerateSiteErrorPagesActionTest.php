@@ -334,3 +334,21 @@ it('keeps the fingerprint beside the artefacts so a cache flush cannot disable t
 
     expect($store->writes)->toBe($writesAfterFirst);
 });
+
+it('regenerates when only the domain port changes', function (): void {
+    $store = recordingStaticErrorPageStore();
+    bindRecordingRenderer();
+    $language = Language::factory()->english()->create();
+    $domain = SiteDomain::factory()->create(['scheme' => 'https', 'port' => null, 'language_id' => $language->id]);
+    RegenerateSiteErrorPagesAction::run($domain->site_id, false);
+    $writesBefore = $store->writes;
+    $fingerprint = resolve(ErrorPageRegenerationFingerprint::class);
+    $before = $fingerprint->current($domain->site);
+
+    $domain->updateQuietly(['port' => 8443]);
+
+    expect($fingerprint->current($domain->site))->not->toBe($before);
+    RegenerateSiteErrorPagesAction::run($domain->site_id, false);
+    expect($store->writes)->toBeGreaterThan($writesBefore)
+        ->and(data_get(resolve(ErrorPageManifestStore::class)->read(), 'sites.' . $domain->site_id . '.entries.0.port'))->toBe(8443);
+});

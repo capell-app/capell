@@ -286,6 +286,51 @@ final class CapellCacheManager
         $this->bumpCacheNamespaceGeneration();
     }
 
+    /** Privacy repair must fence every old entry before recording completion. */
+    public function flushCacheOrFail(): void
+    {
+        $key = $this->cacheNamespaceGenerationKey();
+        $rotate = function () use ($key): int {
+            $cache = Cache::store();
+            $previous = (int) $cache->get($key, 0);
+            throw_unless(
+                $previous >= 0 && $previous < PHP_INT_MAX,
+                RuntimeException::class,
+                __('capell-core::runtime-refresh.cache_namespace_rotation_failed'),
+            );
+            $generation = $cache->increment($key);
+
+            if (! is_int($generation)) {
+                $generation = $previous + 1;
+                throw_unless(
+                    $cache->forever($key, $generation),
+                    RuntimeException::class,
+                    __('capell-core::runtime-refresh.cache_namespace_rotation_failed'),
+                );
+            }
+
+            throw_unless(
+                $generation > $previous && (int) $cache->get($key, 0) === $generation,
+                RuntimeException::class,
+                __('capell-core::runtime-refresh.cache_namespace_rotation_failed'),
+            );
+
+            return $generation;
+        };
+
+        // Unlike ordinary invalidation, lock failures must not fall back to an
+        // unlocked write, nor retry a callback whose backend operation failed.
+        $generation = $this->cacheStoreHasAtomicIncrement()
+            ? $rotate()
+            : Cache::lock('capell.cache.increment.' . hash('sha256', 'raw:' . $key), 10)->block(5, $rotate);
+
+        $this->flushLocalCache();
+        $request = app()->bound('request') ? resolve('request') : null;
+        if ($request instanceof Request) {
+            $request->attributes->set($key, $generation);
+        }
+    }
+
     /** @internal */
     public function flushLocalCache(): void
     {
@@ -572,6 +617,10 @@ final class CapellCacheManager
 
     private function cacheInvalidationPatternGeneration(string $pattern): int
     {
+        if (! $this->configuredCacheStoreIsAvailable()) {
+            return 0;
+        }
+
         if (array_key_exists($pattern, $this->cacheInvalidationPatternGenerations)) {
             return $this->cacheInvalidationPatternGenerations[$pattern];
         }
@@ -581,7 +630,8 @@ final class CapellCacheManager
         } catch (Throwable $throwable) {
             $this->rethrowProgrammingFailure($throwable);
             $this->cacheBackendFailureCount++;
-            $generation = 0;
+            // Generation zero can still contain entries retained by invalidation.
+            throw $throwable;
         }
 
         $this->cacheInvalidationPatternGenerations[$pattern] = $generation;
@@ -602,10 +652,6 @@ final class CapellCacheManager
             return 0;
         }
 
-        if (Cache::supportsTags()) {
-            return 0;
-        }
-
         $request = app()->bound('request') ? resolve('request') : null;
         $requestCacheKey = 'capell.cache.generation.' . config('capell.cache_tag', 'capell-app');
 
@@ -618,7 +664,8 @@ final class CapellCacheManager
         } catch (Throwable $throwable) {
             $this->rethrowProgrammingFailure($throwable);
             $this->cacheBackendFailureCount++;
-            $generation = 0;
+            // Privacy repair retains old entries; an unknown namespace must fail closed.
+            throw $throwable;
         }
 
         if ($request instanceof Request) {

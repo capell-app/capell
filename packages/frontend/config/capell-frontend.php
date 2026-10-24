@@ -31,6 +31,7 @@ return [
     'public_render_data_cache' => env('CAPELL_PUBLIC_RENDER_DATA_CACHE', true),
     'minify_html' => env('CAPELL_MINIFY_HTML', true),
     'cache_skip_authenticated' => true,
+    // Dedicated managed export directory: privacy repair removes untracked legacy HTML here.
     'static_artifacts_path' => env('CAPELL_FRONTEND_STATIC_ARTIFACTS_PATH'),
     'public_html_authoring_markers' => [],
     /*

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Actions;
 
+use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Data\StaticErrorPageCandidateData;
 use Capell\Frontend\Data\StaticErrorPageDiagnosticsData;
@@ -22,7 +23,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  * and stats files. It never writes, generates or purges, so it is safe to run
  * against production.
  *
- * @method static StaticErrorPageDiagnosticsData run(string $scheme, string $host, string $pathInfo, string $status)
+ * @method static StaticErrorPageDiagnosticsData run(string $scheme, string $host, string $pathInfo, string $status, ?int $port = null)
  */
 final class BuildStaticErrorPageDiagnosticsAction
 {
@@ -34,8 +35,9 @@ final class BuildStaticErrorPageDiagnosticsAction
         private readonly ErrorPageManifestStore $manifestStore,
     ) {}
 
-    public function handle(string $scheme, string $host, string $pathInfo, string $status): StaticErrorPageDiagnosticsData
+    public function handle(string $scheme, string $host, string $pathInfo, string $status, ?int $port = null): StaticErrorPageDiagnosticsData
     {
+        $port ??= request()->getHost() === strtolower($host) && request()->getScheme() === strtolower($scheme) ? request()->getPort() : null;
         $storeBound = app()->bound(StaticErrorPageStore::class);
         $manifestPath = $this->manifestStore->path();
         $requestPath = $this->matcher->normalizePath($pathInfo);
@@ -47,7 +49,7 @@ final class BuildStaticErrorPageDiagnosticsAction
         $closestRejection = null;
 
         foreach ($entries as $index => $entry) {
-            $rejection = $this->matcher->reject($entry, $scheme, $host, $pathInfo, $status);
+            $rejection = $this->matcher->reject($entry, $scheme, $host, $pathInfo, $status, $port);
 
             $candidates[$index] = new StaticErrorPageCandidateData(
                 index: $index,
@@ -58,7 +60,7 @@ final class BuildStaticErrorPageDiagnosticsAction
                 file: $this->matcher->entryFile($entry),
                 rejectedBy: $rejection,
                 expected: $rejection instanceof StaticErrorPageResolutionReason ? $this->expected($rejection, $entry) : null,
-                actual: $rejection instanceof StaticErrorPageResolutionReason ? $this->actual($rejection, $scheme, $host, $requestPath, $status) : null,
+                actual: $rejection instanceof StaticErrorPageResolutionReason ? $this->actual($rejection, $scheme, $host, $requestPath, $status, $port) : null,
             );
 
             if ($rejection instanceof StaticErrorPageResolutionReason) {
@@ -69,7 +71,7 @@ final class BuildStaticErrorPageDiagnosticsAction
                 continue;
             }
 
-            $matchLength = $this->matcher->matchLength($this->matcher->entryPath($entry));
+            $matchLength = $this->matcher->matchScore($entry);
 
             if ($matchLength > $bestMatchLength) {
                 $bestIndex = $index;
@@ -161,17 +163,21 @@ final class BuildStaticErrorPageDiagnosticsAction
         return match ($reason) {
             StaticErrorPageResolutionReason::SchemeMismatch => $this->matcher->entryScheme($entry),
             StaticErrorPageResolutionReason::DomainMismatch => $this->matcher->entryDomain($entry),
+            StaticErrorPageResolutionReason::PortMismatch => array_key_exists('port', $entry)
+                ? (string) ($entry['port'] ?? SiteDomainAddressing::defaultPort($this->matcher->entryScheme($entry)))
+                : 'unknown (regenerate)',
             StaticErrorPageResolutionReason::StatusMismatch => $this->matcher->entryStatus($entry),
             StaticErrorPageResolutionReason::PathMismatch => $this->matcher->entryPath($entry),
             default => null,
         };
     }
 
-    private function actual(StaticErrorPageResolutionReason $reason, string $scheme, string $host, string $requestPath, string $status): ?string
+    private function actual(StaticErrorPageResolutionReason $reason, string $scheme, string $host, string $requestPath, string $status, ?int $port): ?string
     {
         return match ($reason) {
             StaticErrorPageResolutionReason::SchemeMismatch => strtolower($scheme),
             StaticErrorPageResolutionReason::DomainMismatch => strtolower($host),
+            StaticErrorPageResolutionReason::PortMismatch => (string) ($port ?? SiteDomainAddressing::defaultPort($scheme)),
             StaticErrorPageResolutionReason::StatusMismatch => $status,
             StaticErrorPageResolutionReason::PathMismatch => $requestPath,
             default => null,

@@ -104,7 +104,13 @@ final class FragmentCache
     {
         $namespace = $this->namespace();
         // No lock is needed because the new namespace makes late old-namespace writes unreachable.
-        $this->cache->put(self::NAMESPACE_KEY, bin2hex(random_bytes(16)), self::METADATA_TTL);
+        $replacement = bin2hex(random_bytes(16));
+        throw_unless(
+            $this->cache->put(self::NAMESPACE_KEY, $replacement, self::METADATA_TTL)
+            && $this->cache->get(self::NAMESPACE_KEY) === $replacement,
+            RuntimeException::class,
+            'Unable to rotate the fragment cache namespace.',
+        );
         $this->cache->forget($this->mapKey($namespace));
     }
 
