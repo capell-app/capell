@@ -6,7 +6,6 @@ use Capell\Admin\Actions\Media\PruneAdminUploadGrantsAction;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Support\Media\AdminUploadGrantRepository;
-use Closure;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
