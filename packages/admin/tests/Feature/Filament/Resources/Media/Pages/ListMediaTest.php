@@ -27,6 +27,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -58,10 +59,10 @@ it('lists each media owner type once using its canonical alias', function (): vo
 it('reports a rejected replacement without a success notification or broken media reference', function (): void {
     $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->image('original.png'))->toMediaCollection('images');
     $url = $original->getUrl();
-    Storage::disk('local')->put('replacement.txt', 'different media type');
+    $replacement = UploadedFile::fake()->createWithContent('replacement.txt', 'different media type');
 
     Livewire::test(ListMedia::class)
-        ->callTableAction('replace-file', $original, data: ['replacement' => ['replacement.txt']])
+        ->callTableAction('replace-file', $original, data: ['replacement' => [$replacement]])
         ->assertHasNoTableActionErrors()
         ->assertNotified(__('capell-admin::media.replace_file_failed'))
         ->assertNotNotified(__('capell-admin::media.replace_file_success'));
@@ -75,7 +76,6 @@ it('reports committed replacement cleanup as a warning without inviting a failed
     $replacement = UploadedFile::fake()->image('replacement.png', 48, 48);
     $bytes = file_get_contents($replacement->getPathname());
     throw_unless(is_string($bytes), RuntimeException::class, 'Replacement fixture is missing.');
-    Storage::disk('local')->put('replacement.png', $bytes);
     $public = Storage::disk('public');
     $failingPublic = Mockery::mock($public);
     $failingPublic->shouldReceive('deleteDirectory')->andReturnFalse();
@@ -88,7 +88,7 @@ it('reports committed replacement cleanup as a warning without inviting a failed
 
     try {
         Livewire::test(ListMedia::class)
-            ->callTableAction('replace-file', $original, data: ['replacement' => ['replacement.png']])
+            ->callTableAction('replace-file', $original, data: ['replacement' => [$replacement]])
             ->assertHasNoTableActionErrors()
             ->assertNotified(Notification::make()
                 ->title(__('capell-admin::media.replace_file_success'))
@@ -294,16 +294,13 @@ it('finds renamed media by its editor name and storage filename', function (): v
 it('bulk uploads files to a site uploads collection', function (): void {
     $site = Site::factory()->createOne(['name' => 'Capell']);
 
-    Storage::disk('local')->put('media-uploads/hero-a.jpg', UploadedFile::fake()->image('hero-a.jpg')->getContent());
-    Storage::disk('local')->put('media-uploads/hero-b.jpg', UploadedFile::fake()->image('hero-b.jpg')->getContent());
-
     Livewire::test(ListMedia::class)
         ->assertSuccessful()
         ->callAction('upload-files', [
             'site_id' => $site->getKey(),
             'files' => [
-                'media-uploads/hero-a.jpg',
-                'media-uploads/hero-b.jpg',
+                UploadedFile::fake()->image('hero-a.jpg'),
+                UploadedFile::fake()->image('hero-b.jpg'),
             ],
         ])
         ->assertHasNoActionErrors()
@@ -574,4 +571,42 @@ it('limits tracked media usage to accessible related records', function (): void
         ->and(collect($usageItems)->pluck('title')->all())
         ->toContain($visiblePage->name)
         ->not->toContain($hiddenPage->name);
+});
+
+it('rejects a forged local path in bulk media uploads without reading or deleting it', function (string $path): void {
+    $site = Site::factory()->createOne();
+    Storage::disk('local')->put($path, 'private sentinel');
+
+    Livewire::test(ListMedia::class)
+        ->callAction('upload-files', ['site_id' => $site->getKey(), 'files' => [$path]])
+        ->assertHasActionErrors(['files']);
+
+    expect(Storage::disk('local')->get($path))->toBe('private sentinel')
+        ->and(CapellMedia::query()->count())->toBe(0);
+})->with(['private/secret.txt', 'media-uploads/another-session.txt']);
+
+it('rejects a forged replacement path and preserves the original media bytes', function (): void {
+    $site = Site::factory()->createOne();
+    $original = $site->addMedia(UploadedFile::fake()->createWithContent('original.txt', 'original bytes'))->toMediaCollection('uploads');
+    Storage::disk('local')->put('private/secret.txt', 'private sentinel');
+
+    Livewire::test(ListMedia::class)
+        ->callTableAction('replace-file', $original, data: ['replacement' => ['private/secret.txt']])
+        ->assertHasTableActionErrors(['replacement']);
+
+    expect(Storage::disk('public')->get($original->getPathRelativeToRoot()))->toBe('original bytes')
+        ->and(Storage::disk('local')->get('private/secret.txt'))->toBe('private sentinel');
+});
+
+it('requires media creation permission for bulk uploads', function (): void {
+    $site = Site::factory()->createOne();
+    Permission::findOrCreate('ViewAny:Media');
+    Permission::findOrCreate('Create:Media');
+    $user = test()->createUserWithPermission('ViewAny:Media');
+    $user->assignedSiteIds = collect([$site->getKey()]);
+
+    test()->actingAs($user);
+    expect(Gate::allows('create', CapellMedia::class))->toBeFalse();
+
+    Livewire::test(ListMedia::class)->mountAction('upload-files')->assertActionNotMounted();
 });

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'unlock' => 'Continue to installer',
     'review_loading' => 'Preparing installation review…',
     'review_changed' => 'Settings changed while the review was loading. Review the installation again.',
     'review_mode' => 'Execution mode',

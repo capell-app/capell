@@ -616,3 +616,31 @@ it('resumes a returned flow using the listing composer name when authorization o
 
     expect($session->status)->toBe(MarketplaceInstallFlowSessionStatus::Completed);
 });
+
+it('refuses a refreshed listing that changes the reviewed package identity', function (): void {
+    Bus::fake();
+    $session = MarketplaceInstallFlowSession::query()->create([
+        'remote_flow_id' => 'mif_changed_identity',
+        'status' => MarketplaceInstallFlowSessionStatus::Returned,
+        'selected_extensions' => [['slug' => 'reviewed', 'composer_name' => 'publisher/reviewed']],
+        'state_hash' => hash('sha256', 'state'),
+        'code_verifier_hash' => hash('sha256', 'verifier'),
+        'code_verifier_encrypted' => 'verifier',
+        'return_url' => 'http://capell-ruby.test/admin/marketplace/install-flow/callback',
+        'expires_at' => now()->addMinutes(20),
+        'returned_at' => now(),
+    ]);
+    Http::fake([
+        'https://marketplace.test/api/v1/extensions/reviewed' => Http::response(['data' => [
+            'slug' => 'reviewed', 'name' => 'Changed identity', 'composer_name' => 'publisher/unreviewed',
+            'kind' => 'tool', 'price_cents' => 0, 'is_paid' => false, 'latest_version' => '1.2.3',
+        ]]),
+    ]);
+
+    expect(fn (): mixed => ResumeMarketplaceInstallFlowAction::run($session))
+        ->toThrow(RuntimeException::class, 'does not match the reviewed selection');
+
+    expect(MarketplaceInstallAttempt::query()->count())->toBe(0)
+        ->and($session->refresh()->status)->toBe(MarketplaceInstallFlowSessionStatus::Failed);
+    Bus::assertNothingDispatched();
+});

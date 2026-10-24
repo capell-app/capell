@@ -20,6 +20,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Override;
 
@@ -45,8 +46,10 @@ class ListMedia extends ListRecords
             Action::make('upload-files')
                 ->label(__('capell-admin::media.upload_files'))
                 ->icon('heroicon-o-arrow-up-tray')
+                ->authorize(fn (): bool => Gate::allows('create', static::getResource()::getModel()))
                 ->schema([
                     FileUpload::make('files')
+                        ->preventFilePathTampering()
                         ->label(__('capell-admin::media.upload_files'))
                         ->multiple()
                         ->storeFileNamesIn('original_file_names')

@@ -36,19 +36,17 @@ final class CreateAdditionalInstallUsersAction
         $userModel = config('auth.providers.users.model');
 
         foreach ($users as $userData) {
-            $user = $userModel::query()->where('email', $userData->email)->first();
+            // firstOrCreate also handles a concurrent insert via the unique email key.
+            // Starter accounts must never claim an account that already exists.
+            $user = $userModel::query()->firstOrCreate(
+                ['email' => $userData->email],
+                ['name' => $userData->name, 'password' => Hash::make($userData->password)],
+            );
 
-            if (! $user instanceof Authenticatable) {
-                $user = $userModel::query()->create([
-                    'name' => $userData->name,
-                    'email' => $userData->email,
-                    'password' => Hash::make($userData->password),
-                ]);
-            } else {
-                $user->forceFill([
-                    'name' => $userData->name,
-                    'password' => Hash::make($userData->password),
-                ])->save();
+            if (! $user->wasRecentlyCreated) {
+                $reporter->report(__('capell::install.starter_user_exists', ['email' => $userData->email]));
+
+                continue;
             }
 
             if (! $user instanceof Authenticatable) {

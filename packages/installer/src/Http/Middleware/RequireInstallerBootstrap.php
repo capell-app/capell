@@ -12,15 +12,18 @@ final class RequireInstallerBootstrap
 {
     private const string SESSION_KEY = 'capell.installer.bootstrap_digest';
 
+    public function hasValidSession(Request $request): bool
+    {
+        $secret = $this->validSecret();
+        $digest = $request->session()->get(self::SESSION_KEY);
+
+        return $secret !== null && is_string($digest) && hash_equals(hash('sha256', $secret), $digest);
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
-        $secret = config('capell-installer.bootstrap.secret');
-        $expiresAt = config('capell-installer.bootstrap.expires_at');
-        $timestamp = now()->getTimestamp();
-
-        abort_unless(is_string($secret) && strlen($secret) >= 32
-            && is_numeric($expiresAt) && (int) $expiresAt > $timestamp
-            && (int) $expiresAt <= $timestamp + 1800, 403, __('capell-installer::installer.bootstrap_required'));
+        $secret = $this->validSecret();
+        abort_if($secret === null, 403, __('capell-installer::installer.bootstrap_required'));
 
         $digest = hash('sha256', (string) $secret);
         $supplied = $request->input('bootstrap_secret', $request->header('X-Capell-Installer-Secret'));
@@ -34,10 +37,22 @@ final class RequireInstallerBootstrap
         $request->session()->put(self::SESSION_KEY, $digest);
         // Do not persist the bootstrap secret in flashed validation input or install plans.
         $request->request->remove('bootstrap_secret');
+        $request->query->remove('bootstrap_secret');
         if ($request->isJson()) {
             $request->json()->remove('bootstrap_secret');
         }
 
         return $next($request);
+    }
+
+    private function validSecret(): ?string
+    {
+        $secret = config('capell-installer.bootstrap.secret');
+        $expiresAt = config('capell-installer.bootstrap.expires_at');
+        $timestamp = now()->getTimestamp();
+
+        return is_string($secret) && strlen($secret) >= 32
+            && is_numeric($expiresAt) && (int) $expiresAt > $timestamp
+            && (int) $expiresAt <= $timestamp + 1800 ? $secret : null;
     }
 }

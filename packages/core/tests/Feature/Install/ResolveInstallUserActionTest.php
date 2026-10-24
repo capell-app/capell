@@ -11,6 +11,7 @@ use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
 
 it('returns existing user by id', function (): void {
@@ -136,4 +137,39 @@ it('throws when userId given but user does not exist', function (): void {
         newUser: null,
         reporter: $reporter,
     ))->toThrow(RuntimeException::class);
+});
+
+it('preserves existing accounts when preparing starter role users including retries', function (): void {
+    $user = User::factory()->createOne([
+        'name' => 'Existing owner',
+        'email' => 'super-admin@example.test',
+        'password' => Hash::make('original-password'),
+        'email_verified_at' => null,
+    ]);
+    $attributes = $user->refresh()->getAttributes();
+    $roles = $user->roles()->pluck('roles.id')->all();
+
+    for ($attempt = 0; $attempt < 2; $attempt++) {
+        CreateAdditionalInstallUsersAction::run([
+            new NewUserData('Starter admin', $user->email, 'replacement-password', 'super_admin'),
+            new NewUserData('New editor', 'new-editor@example.test', 'editor-password'),
+        ], new NullProgressReporter);
+    }
+
+    expect($user->fresh()->getAttributes())->toBe($attributes)
+        ->and($user->fresh()->roles()->pluck('roles.id')->all())->toBe($roles)
+        ->and(User::query()->where('email', 'new-editor@example.test')->count())->toBe(1);
+});
+
+it('rejects a new primary install user that collides with an existing account', function (): void {
+    $user = User::factory()->createOne(['email_verified_at' => null]);
+    $attributes = $user->refresh()->getAttributes();
+
+    expect(fn (): mixed => ResolveInstallUserAction::run(
+        null,
+        new NewUserData('Replacement', $user->email, 'replacement-password'),
+        new NullProgressReporter,
+    ))->toThrow(ValidationException::class);
+
+    expect($user->fresh()->getAttributes())->toBe($attributes);
 });

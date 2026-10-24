@@ -123,6 +123,12 @@ final class ResumeMarketplaceInstallFlowAction
 
             throw_unless($listing instanceof ExtensionListingData, RuntimeException::class, sprintf('Marketplace extension [%s] was not found.', $slug));
 
+            throw_unless(
+                $listing->composerName === $composerName && $listing->slug === $slug,
+                RuntimeException::class,
+                __('capell-marketplace::marketplace.errors.reviewed_selection_changed'),
+            );
+
             $installOptions = $this->installOptionsFor($session, $listing);
             $acquisition = CreateExtensionAcquisitionAction::run(
                 listing: $listing,
