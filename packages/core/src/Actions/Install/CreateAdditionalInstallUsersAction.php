@@ -58,7 +58,7 @@ final class CreateAdditionalInstallUsersAction
             });
 
             if (! $created) {
-                $reporter->report(__('capell::install.starter_user_exists', ['email' => $userData->email]));
+                $reporter->report(__('capell-core::install.starter_user_exists', ['email' => $userData->email]));
 
                 continue;
             }
