@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Extensions\EnrichExtensionTableRecordsAction;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallPolicyEvidenceAction;
@@ -46,12 +47,14 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\ComponentAttributeBag;
+use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
 
 beforeEach(function (): void {
     Cache::flush();
     test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web'));
 
     config([
         'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
