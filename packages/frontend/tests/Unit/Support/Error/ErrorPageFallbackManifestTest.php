@@ -6,6 +6,7 @@ use Capell\Frontend\Support\Error\ErrorPageFallbackManifest;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestLocation;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function (): void {
@@ -118,4 +119,39 @@ it('reads and writes both manifests in the configured directory', function (): v
     } finally {
         File::deleteDirectory($directory);
     }
+});
+
+it('preserves per-status legacy fallback without merging partial branded copy', function (): void {
+    $store = resolve(ErrorPageFallbackManifestStore::class);
+    $store->setDefault('/default.svg', [
+        404 => ['headline' => 'Default missing', 'description' => 'Default description'],
+        500 => ['headline' => 'Default error', 'description' => 'Default description'],
+    ]);
+    $store->setHost('alpha.test', '', [500 => ['headline' => 'Alpha error']]);
+
+    expect(ErrorPageFallbackManifest::forHost('alpha.test', '404'))->toBe([
+        'logo_url' => '/default.svg',
+        'copy' => ['headline' => 'Default missing', 'description' => 'Default description'],
+    ])->and(ErrorPageFallbackManifest::forHost('alpha.test', '500'))->toBe([
+        'logo_url' => '/default.svg',
+        'copy' => ['headline' => 'Alpha error', 'description' => null],
+    ]);
+});
+
+it('fails closed on malformed route branding without querying the database', function (): void {
+    resolve(ErrorPageFallbackManifestStore::class)->write([
+        'version' => 2,
+        'sites' => [
+            'bad-site' => 'invalid',
+            'bad-domains' => ['domains' => 'invalid'],
+            'bad-entry' => ['domains' => [false, ['scheme' => [], 'domain' => []]]],
+        ],
+    ]);
+    $queries = 0;
+    DB::listen(function () use (&$queries): void {
+        $queries++;
+    });
+
+    expect(ErrorPageFallbackManifest::forHost('example.test', '404'))->toBe(['logo_url' => null, 'copy' => null])
+        ->and($queries)->toBe(0);
 });

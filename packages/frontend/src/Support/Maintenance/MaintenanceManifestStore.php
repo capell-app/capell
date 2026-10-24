@@ -101,6 +101,7 @@ final class MaintenanceManifestStore
         return implode('|', [
             (string) ($domain['scheme'] ?? ''),
             strtolower((string) ($domain['domain'] ?? '')),
+            (string) ($domain['port'] ?? 'default'),
             $this->normalizePath($domain['path'] ?? '/'),
         ]);
     }

@@ -66,7 +66,8 @@ final class GenerateMaintenancePageCacheAction
             $store->put($path, $html);
 
             $domains[] = [
-                'scheme' => $siteDomain->scheme,
+                'scheme' => $siteDomain->getAttributes()['scheme'] ?? null,
+                'port' => $siteDomain->port,
                 'domain' => $siteDomain->domain,
                 'path' => $siteDomain->path ?? '/',
                 'site_id' => $site->id,

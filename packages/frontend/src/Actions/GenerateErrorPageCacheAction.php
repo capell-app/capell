@@ -59,9 +59,10 @@ final class GenerateErrorPageCacheAction
             fn (): Page => resolve(PageCreator::class)->createErrorPage($site, $site->getAllLanguages()),
         );
         $entries = [];
+        $fallbackEntries = [];
         $logoUrl = $this->logoUrl($site);
 
-        $site->siteDomains->each(function (SiteDomain $siteDomain) use ($page, $site, $store, $logoUrl, &$entries): void {
+        $site->siteDomains->each(function (SiteDomain $siteDomain) use ($page, $site, $store, $logoUrl, &$entries, &$fallbackEntries): void {
             $language = $siteDomain->language ?? $site->language;
 
             if (! $language instanceof Language) {
@@ -79,7 +80,8 @@ final class GenerateErrorPageCacheAction
                 $store->put($path, $html);
 
                 $entries[] = [
-                    'scheme' => $siteDomain->scheme,
+                    'scheme' => $siteDomain->getAttributes()['scheme'] ?? null,
+                    'port' => $siteDomain->port,
                     'domain' => $siteDomain->domain,
                     'path' => $siteDomain->path ?? '/',
                     'site_id' => $site->id,
@@ -91,18 +93,19 @@ final class GenerateErrorPageCacheAction
                 ];
             }
 
-            $this->fallbackManifestStore->setHost(
-                strtolower($siteDomain->domain),
-                $logoUrl,
-                $statusCopy,
-            );
+            $fallbackEntries[] = [
+                'scheme' => $siteDomain->getAttributes()['scheme'] ?? null,
+                'port' => $siteDomain->port,
+                'domain' => $siteDomain->domain,
+                'path' => $siteDomain->path ?? '/',
+                'site_domain_id' => $siteDomain->id,
+                'logo_url' => $logoUrl,
+                'copy' => $statusCopy,
+            ];
         });
 
         $this->manifestStore->replaceSite($site->id, $entries);
-
-        $defaultLanguage = $site->language;
-        $defaultCopy = $defaultLanguage instanceof Language ? $this->statusCopy($page, $defaultLanguage) : [];
-        $this->fallbackManifestStore->setDefault($logoUrl, $defaultCopy);
+        $this->fallbackManifestStore->replaceSite($site->id, $fallbackEntries);
 
         return $entries;
     }

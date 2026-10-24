@@ -57,6 +57,19 @@ final class ErrorPageFallbackManifestStore
         $this->write($manifest);
     }
 
+    /** @param array<int, array<string, mixed>> $domains */
+    public function replaceSite(int $siteId, array $domains): void
+    {
+        $manifest = $this->read();
+        // Generated branding is route-scoped. Never let the last regenerated
+        // site become the fallback for unrelated hosts or mounted sites.
+        $manifest['version'] = 2;
+        $manifest['hosts'] = [];
+        $manifest['default'] = ['logo_url' => null, 'copy' => []];
+        $manifest['sites'][(string) $siteId] = ['domains' => $domains];
+        $this->write($manifest);
+    }
+
     /** @return array<string, mixed> */
     private function defaults(): array
     {

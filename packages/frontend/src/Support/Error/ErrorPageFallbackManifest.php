@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Error;
 
+use Capell\Frontend\Support\Static\StaticPageDomainMatcher;
+
 /**
  * DB-free reader for the pre-rendered error-page fallback manifest.
  *
@@ -24,37 +26,13 @@ final class ErrorPageFallbackManifest
 
     public static function logoUrl(string $host): ?string
     {
-        $manifest = self::manifest();
-
-        $hostLogo = self::nestedString($manifest, ['hosts', strtolower($host), 'logo_url']);
-
-        if ($hostLogo !== null) {
-            return $hostLogo;
-        }
-
-        return self::nestedString($manifest, ['default', 'logo_url']);
+        return self::forHost($host, '500')['logo_url'];
     }
 
-    /**
-     * @return array{headline: ?string, description: ?string}|null
-     */
+    /** @return array{headline: ?string, description: ?string}|null */
     public static function copy(string $host, string $status): ?array
     {
-        $manifest = self::manifest();
-
-        $hostCopy = self::nestedArray($manifest, ['hosts', strtolower($host), 'copy', $status]);
-
-        if ($hostCopy !== null) {
-            return self::normalizeCopy($hostCopy);
-        }
-
-        $defaultCopy = self::nestedArray($manifest, ['default', 'copy', $status]);
-
-        if ($defaultCopy !== null) {
-            return self::normalizeCopy($defaultCopy);
-        }
-
-        return null;
+        return self::forHost($host, $status)['copy'];
     }
 
     /**
@@ -62,20 +40,51 @@ final class ErrorPageFallbackManifest
      *
      * @return array{logo_url: ?string, copy: array{headline: ?string, description: ?string}|null}
      */
-    public static function forHost(string $host, string $status): array
+    public static function forHost(string $host, string $status, string $scheme = 'https', ?int $port = null, string $path = '/'): array
     {
         $manifest = self::manifest();
-        $normalizedHost = strtolower($host);
-
-        $logoUrl = self::nestedString($manifest, ['hosts', $normalizedHost, 'logo_url'])
-            ?? self::nestedString($manifest, ['default', 'logo_url']);
-        $copy = self::nestedArray($manifest, ['hosts', $normalizedHost, 'copy', $status])
-            ?? self::nestedArray($manifest, ['default', 'copy', $status]);
+        $entry = self::entry($manifest, $host, $scheme, $port, $path);
+        $copy = self::nestedArray($entry, ['copy', $status]);
+        $logo = self::nestedString($entry, ['logo_url']);
+        if (($manifest['version'] ?? null) !== 2) {
+            $copy = self::nestedArray($manifest, ['hosts', strtolower($host), 'copy', $status])
+                ?? self::nestedArray($manifest, ['default', 'copy', $status]);
+            $logo = self::nestedString($manifest, ['hosts', strtolower($host), 'logo_url'])
+                ?? self::nestedString($manifest, ['default', 'logo_url']);
+        }
 
         return [
-            'logo_url' => $logoUrl,
+            'logo_url' => $logo,
             'copy' => $copy !== null ? self::normalizeCopy($copy) : null,
         ];
+    }
+
+    /**
+     * @param  array<mixed>  $manifest
+     * @return array<mixed>
+     */
+    public static function entry(array $manifest, string $host, string $scheme = 'https', ?int $port = null, string $path = '/'): array
+    {
+        if (($manifest['version'] ?? null) === 2) {
+            $entries = [];
+            $sites = $manifest['sites'] ?? [];
+            foreach (is_array($sites) ? $sites : [] as $site) {
+                if (! is_array($site)) {
+                    continue;
+                }
+
+                $domains = $site['domains'] ?? [];
+                foreach (is_array($domains) ? $domains : [] as $domain) {
+                    if (is_array($domain)) {
+                        $entries[] = $domain;
+                    }
+                }
+            }
+
+            return StaticPageDomainMatcher::best($entries, $scheme, $host, $path, $port) ?? [];
+        }
+
+        return [];
     }
 
     /**

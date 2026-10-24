@@ -9,6 +9,7 @@ use Capell\Core\Support\Security\LockdownStore;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
+use Capell\Frontend\Support\Static\StaticPageDomainMatcher;
 use Closure;
 use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Http\Request;
@@ -106,23 +107,14 @@ final class ServeStaticMaintenancePage extends PreventRequestsDuringMaintenance
                     continue;
                 }
 
-                $domainPath = $this->normalizePath($domain['path'] ?? '/');
-                if (($domain['scheme'] ?? null) !== $scheme) {
-                    continue;
-                }
-
-                if (strtolower((string) ($domain['domain'] ?? '')) !== $host) {
-                    continue;
-                }
-
-                if ($domainPath !== '/' && $path !== $domainPath && ! str_starts_with($path, rtrim($domainPath, '/') . '/')) {
+                if (! StaticPageDomainMatcher::matches($domain, $scheme, $host, $path, $request->getPort())) {
                     continue;
                 }
 
                 $matches[] = [
                     ...$domain,
                     'active' => $globalActive || $siteActive,
-                    'match_length' => strlen($domainPath),
+                    'match_length' => StaticPageDomainMatcher::score($domain),
                 ];
             }
         }

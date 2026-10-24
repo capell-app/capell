@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Frontend\Actions\BuildStaticErrorPageDiagnosticsAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
@@ -200,4 +201,19 @@ it('warns in table output that a live 404 rewrites the fallback manifest', funct
     ]))->toBe(0);
 
     expect(Artisan::output())->toContain('regenerates the error pages');
+});
+
+it('reports the effective port predicate for a mismatched request origin', function (): void {
+    $this->store = new DiagnoseErrorPagesTestStore;
+    app()->instance(StaticErrorPageStore::class, $this->store);
+    resolve(ErrorPageManifestStore::class)->replaceSite(10, [[
+        'scheme' => 'https', 'domain' => 'example.test', 'port' => null,
+        'path' => '/', 'status' => '404', 'file' => 'error/default/404/index.html',
+    ]]);
+
+    $report = BuildStaticErrorPageDiagnosticsAction::run('https', 'example.test', '/', '404', 8443);
+    expect($report->resolved)->toBeFalse()
+        ->and($report->reason?->value)->toBe('port_mismatch')
+        ->and($report->candidates[0]->expected)->toBe('443')
+        ->and($report->candidates[0]->actual)->toBe('8443');
 });

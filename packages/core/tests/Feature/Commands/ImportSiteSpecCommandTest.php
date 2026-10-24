@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
+use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecNavigationData;
@@ -10,6 +11,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -184,3 +186,40 @@ it('requires a package-owned navigation applier before fetching media', function
     expect(Site::query()->count())->toBe(0);
     Http::assertNothingSent();
 });
+
+it('only exposes the coming soon homepage for a private import', function (bool $public): void {
+    Http::preventStrayRequests();
+    $payload = importSiteSpecPayload();
+    $payload['initialVisibility'] = $public ? 'public' : 'private';
+    $payload['acknowledgePublic'] = $public;
+    $payload['media'] = ['images' => []];
+    $payload['extensions'] = [];
+    $payload['navigations'] = [];
+    // The first published page follows spec ordering, not array position.
+    $payload['pages'] = array_reverse($payload['pages']);
+    $path = writeSiteSpec($payload);
+
+    try {
+        artisanCommand('capell:site-spec-import', ['spec' => $path])->assertSuccessful();
+        artisanCommand('capell:site-spec-import', ['spec' => $path])->assertSuccessful();
+    } finally {
+        unlink($path);
+    }
+
+    $site = Site::query()->where('name', 'Harbour Books')->firstOrFail();
+    $home = Page::query()->whereBelongsTo($site)->where('name', 'Home')->firstOrFail();
+    $about = Page::query()->whereBelongsTo($site)->where('name', 'About')->firstOrFail();
+    $homeUrl = $home->pageUrls()->firstOrFail()->url;
+    $aboutUrl = $about->pageUrls()->firstOrFail()->url;
+    $homeResolution = ResolvePublicPageByUrlAction::run($site, $site->language, $homeUrl);
+    $aboutResolution = ResolvePublicPageByUrlAction::run($site, $site->language, $aboutUrl);
+
+    expect(Page::query()->whereBelongsTo($site)->count())->toBe(2)
+        ->and($homeResolution->page?->getKey())->toBe($home->getKey())
+        ->and($homeResolution->fields->content)->toBe($public ? '<p>Hello.</p>' : '<h1>Coming soon</h1><p>This site is being prepared.</p>')
+        ->and($about->translation?->content)->toBe('<p>Independent booksellers.</p>')
+        ->and(PublishSentinel::isDraftValue($about->visible_from))->toBe(! $public)
+        ->and($aboutResolution->page?->getKey())->toBe($public ? $about->getKey() : null)
+        ->and(Page::query()->whereBelongsTo($site)->publishedDate()->count())->toBe($public ? 2 : 1);
+    Http::assertNothingSent();
+})->with(['private' => false, 'acknowledged public' => true]);
