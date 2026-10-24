@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Support;
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Composer\InstalledVersions;
 use Override;
+use ReflectionClass;
 
 final class ComposerInstalledPackageVersionResolver implements MarketplaceInstalledPackageVersionResolver
 {
@@ -26,7 +27,7 @@ final class ComposerInstalledPackageVersionResolver implements MarketplaceInstal
         // A queue worker's InstalledVersions snapshot can predate another operation.
         // Read the installed release on every check, under the caller's operation lock.
         // JSON also avoids a stale installed.php entry in the opcode cache.
-        $path = ($this->vendorPath ?? base_path('vendor')) . '/composer/installed.json';
+        $path = ($this->vendorPath !== null ? $this->vendorPath . '/composer' : dirname((string) new ReflectionClass(InstalledVersions::class)->getFileName())) . '/installed.json';
 
         if (! is_file($path)) {
             return null;
