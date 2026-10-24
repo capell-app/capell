@@ -24,8 +24,8 @@ trait SiteDomainValidation
         if ($matchSite !== null) {
             Notification::make('site_domain_unique')
                 ->warning()
-                ->title(__('capell-admin::message.site_domain_not_unique', ['name' => SiteAccess::current()->can($matchSite->site) ? $matchSite->site->name : __('capell-admin::generic.site')]))
-                ->body($matchSite->full_url)
+                ->title(__('capell-admin::message.site_domain_not_unique', ['name' => e(SiteAccess::current()->can($matchSite->site) ? $matchSite->site->name : __('capell-admin::generic.site'))]))
+                ->body(e($matchSite->full_url))
                 ->actions(SiteAccess::current()->can($matchSite->site) ? [
                     Action::make('editSite')
                         ->label(__('capell-admin::button.edit_site'))

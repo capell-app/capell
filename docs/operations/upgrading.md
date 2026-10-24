@@ -19,6 +19,25 @@ authorisation for the current installation; retrying the same unsafe constraint
 does not bypass the check. These changes require no schema or stored payload
 migration.
 
+## Admin view escaping fixes
+
+If your application overrides Capell Admin Blade views under
+`resources/views/vendor/capell-admin`, port the escaping changes from these
+package views into your overrides when upgrading:
+
+- `components/forms/site/site_domain_item_label.blade.php`
+- `components/forms/slug-input.blade.php`
+- `components/tables/columns/language-flags.blade.php`
+- `components/tables/columns/locale-flags.blade.php`
+
+Use escaped Blade attributes for the slug input's `placeholder` and `autocomplete`.
+For flag tooltips, pass `e($language->name)` (or the equivalent related language
+name) to `x-tooltip.raw` and retain the flag renderer's attribute escaping. Both
+layers are required: the browser decodes the attribute before the tooltip renders
+its value as HTML. Keep names unchanged in storage and escape them at rendering
+boundaries. Package updates do not replace application view overrides; compare
+each override with the updated package view rather than overwriting customisations.
+
 ## Frontend resource graph breaking change
 
 The legacy asset manifest, Mix adapter, build-asset/npm vendor subtypes, loose resource builders, contributor contract, and renderer contract have been removed. Follow the [Frontend Resources upgrade guide](../../packages/frontend/docs/frontend-resources.md), add `capellViteInputs()` to the application Vite input array, run `php artisan capell:frontend-after-install`, and apply the reviewed plan explicitly.

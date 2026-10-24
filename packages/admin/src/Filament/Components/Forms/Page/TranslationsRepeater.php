@@ -163,7 +163,7 @@ class TranslationsRepeater extends BaseTranslationsRepeater
 
                         Notification::make('page_language_parent')
                             ->warning()
-                            ->title(__('capell-admin::message.page_language_parent', ['name' => $language->name ?? '']))
+                            ->title(__('capell-admin::message.page_language_parent', ['name' => e($language->name ?? '')]))
                             ->body(__('capell-admin::message.page_language_parent_info'))
                             ->actions([
                                 Action::make('edit')

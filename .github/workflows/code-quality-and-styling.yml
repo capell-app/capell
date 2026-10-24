@@ -58,13 +58,12 @@ jobs:
     # so the gate also runs whenever the scope could not be decided.
     if: ${{ github.actor != 'dependabot[bot]' && (!cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.relevant == 'true')) }}
     runs-on: ubuntu-latest
-    env:
-      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
@@ -79,7 +78,7 @@ jobs:
           cache: npm
 
       - name: Install npm dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Check Composer public files
         run: php scripts/check-composer-local-paths.php
@@ -120,7 +119,12 @@ jobs:
 
       - name: Install Composer dependencies
         if: steps.composer-cache.outputs.cache-hit != 'true'
-        run: composer install --no-interaction --no-progress --ansi --optimize-autoloader
+        run: >-
+          composer install --no-interaction --no-progress --ansi
+          --optimize-autoloader --no-scripts --no-plugins
+
+      - name: Prepare PHP autoload environment without credentials
+        run: composer dump-autoload --no-interaction
 
       - name: Check locked dependency versions and audited holds
         run: php scripts/check-composer-major-constraints.php
