@@ -19,6 +19,12 @@ final class StaticPageDomainMatcher
     /** @param array<string, mixed> $entry */
     public static function portMatches(array $entry, string $scheme, ?int $port): bool
     {
+        // Legacy generation never recorded ports: absence cannot establish
+        // ownership, whereas an explicit null denotes the scheme's default.
+        if (! array_key_exists('port', $entry)) {
+            return false;
+        }
+
         $default = SiteDomainAddressing::defaultPort(strtolower($scheme));
 
         $entryPort = $entry['port'] ?? $default;
@@ -36,6 +42,7 @@ final class StaticPageDomainMatcher
             && is_string($entry['domain'] ?? null)
             && strtolower($entry['domain']) === strtolower($host)
             && self::portMatches($entry, $scheme, $port)
+            && is_string($entry['path'] ?? null) && $entry['path'] !== ''
             && ($mount === '/' || $path === $mount || str_starts_with($path, $mount . '/'));
     }
 

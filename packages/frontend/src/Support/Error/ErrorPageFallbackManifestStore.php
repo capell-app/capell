@@ -37,8 +37,8 @@ final class ErrorPageFallbackManifestStore
     /** @param array<int, array<string, string>> $copy */
     public function setHost(string $host, string $logoUrl, array $copy): void
     {
-        $manifest = $this->explicitBrandingManifest();
-        $manifest['hosts'][strtolower($host)] = [
+        $manifest = $this->read();
+        $manifest['explicit_overrides']['hosts'][strtolower($host)] = [
             'logo_url' => $logoUrl,
             'copy' => $copy,
         ];
@@ -49,8 +49,8 @@ final class ErrorPageFallbackManifestStore
     /** @param array<int, array<string, string>> $copy */
     public function setDefault(string $logoUrl, array $copy): void
     {
-        $manifest = $this->explicitBrandingManifest();
-        $manifest['default'] = [
+        $manifest = $this->read();
+        $manifest['explicit_overrides']['default'] = [
             'logo_url' => $logoUrl,
             'copy' => $copy,
         ];
@@ -120,17 +120,5 @@ final class ErrorPageFallbackManifestStore
             'default' => ['logo_url' => null, 'copy' => []],
             'hosts' => [],
         ];
-    }
-
-    /** @return array<string, mixed> */
-    private function explicitBrandingManifest(): array
-    {
-        $manifest = $this->read();
-        if (! isset($manifest['version'])) {
-            // Unversioned generated branding cannot establish route ownership.
-            return array_merge($this->defaults(), ['version' => 1]);
-        }
-
-        return $manifest;
     }
 }

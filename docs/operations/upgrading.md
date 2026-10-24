@@ -244,9 +244,11 @@ unaudited legacy private import instead of reporting success.
 
 Repair saves through normal cache invalidation, purges the site's frontend caches
 and configured CDN surrogate keys, and deletes its locally managed static exports.
-The completion marker is recorded only after remediation succeeds; retry the same
-repair after a failure. Remove any separately deployed exports and purge external
-caches before reopening, then regenerate authorised output with
+Repair waits for the configured CDN's purge acknowledgement without depending on
+a queue worker; Fastly repairs use a hard purge so stale responses cannot remain
+available. The completion marker is recorded only after remediation succeeds;
+retry the same repair after a filesystem or CDN failure. Remove any separately
+deployed exports and purge external caches before reopening, then regenerate authorised output with
 `php artisan capell:generate-html --site=SITE_ID`. New private imports keep authored
 source metadata in `storage/app/capell-private/site-spec` with private permissions;
 never expose this directory through a web alias or include it in public exports.
@@ -259,8 +261,13 @@ legacy rewrite triggers conversion again. Stop those workers rather than relying
 on a once-only deployment marker. Version 2 manifests keep normal request matching
 free of content-table queries.
 
-Unversioned error fallback branding is ignored until regeneration, including legacy
-rewrites after conversion. Run `php artisan capell:generate-error-pages` to rebuild
-route-scoped fallback branding on deployment. Explicit host/default branding written
-through the current store API uses version 1; generated version 2 branding is scoped
+Legacy error fallback `hosts` and `default` fields are ignored, even when a previous
+worker preserves a version 1 or 2 marker while rewriting them. Explicit overrides
+written through the current store API live under `explicit_overrides`; only that
+namespace establishes override provenance. Generated version 2 branding is scoped
 by scheme, host, port and mount, and route transfers remove previous ownership.
+Host-only fallback calls use the matching current request's routing context.
+Static error entries without a recorded port or mount cannot establish ownership
+and return the generic fallback until regeneration. Run
+`php artisan capell:generate-error-pages` to rebuild both route-scoped manifests on
+deployment, and stop previous workers to prevent further legacy rewrites.

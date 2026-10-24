@@ -8,6 +8,7 @@ use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
 use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Tests\Support\DiagnoseErrorPagesTestStore;
+use Capell\Frontend\Tests\Support\LegacyErrorPageFallbackManifestStore;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 
@@ -22,6 +23,7 @@ function diagnoseEntry(array $overrides = []): array
 {
     return array_replace([
         'scheme' => 'https',
+        'port' => null,
         'domain' => 'example.test',
         'path' => '/',
         'status' => '404',
@@ -230,6 +232,11 @@ it('diagnoses the same explicit and generated branding precedence as the fallbac
     ]]);
     $store->setHost('explicit.test', '/explicit.svg', [500 => ['headline' => 'Explicit', 'description' => 'Explicit description']]);
     $store->setDefault('/default.svg', [500 => ['headline' => 'Default', 'description' => 'Default description']]);
+    // Old workers keep both the v2 marker and the new explicit namespace when
+    // rewriting legacy host/default fields. Diagnostics must agree with serve.
+    $oldWriter = new LegacyErrorPageFallbackManifestStore;
+    $oldWriter->setHost('generated.test', '/wrong.svg', [500 => ['headline' => 'WRONG OWNER']]);
+    $oldWriter->setDefault('/wrong.svg', [500 => ['headline' => 'WRONG DEFAULT']]);
 
     foreach ([['explicit.test', '/', 'Explicit'], ['generated.test', '/docs/missing', 'Generated'], ['generated.test', '/outside', 'Default'], ['unknown.test', '/', 'Default']] as [$host, $path, $headline]) {
         $diagnostic = BuildErrorPageCopyDiagnosticsAction::run($host, '500', 'https', null, $path);

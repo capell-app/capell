@@ -163,7 +163,9 @@ final class BuildStaticErrorPageDiagnosticsAction
         return match ($reason) {
             StaticErrorPageResolutionReason::SchemeMismatch => $this->matcher->entryScheme($entry),
             StaticErrorPageResolutionReason::DomainMismatch => $this->matcher->entryDomain($entry),
-            StaticErrorPageResolutionReason::PortMismatch => (string) ($entry['port'] ?? SiteDomainAddressing::defaultPort($this->matcher->entryScheme($entry))),
+            StaticErrorPageResolutionReason::PortMismatch => array_key_exists('port', $entry)
+                ? (string) ($entry['port'] ?? SiteDomainAddressing::defaultPort($this->matcher->entryScheme($entry)))
+                : 'unknown (regenerate)',
             StaticErrorPageResolutionReason::StatusMismatch => $this->matcher->entryStatus($entry),
             StaticErrorPageResolutionReason::PathMismatch => $this->matcher->entryPath($entry),
             default => null,

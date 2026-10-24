@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Error;
 
 use Capell\Frontend\Support\Static\StaticPageDomainMatcher;
+use Illuminate\Container\Container;
+use Illuminate\Http\Request;
 
 /**
  * DB-free reader for the pre-rendered error-page fallback manifest.
@@ -40,21 +42,31 @@ final class ErrorPageFallbackManifest
      *
      * @return array{logo_url: ?string, copy: array{headline: ?string, description: ?string}|null}
      */
-    public static function forHost(string $host, string $status, string $scheme = 'https', ?int $port = null, string $path = '/'): array
+    public static function forHost(string $host, string $status, ?string $scheme = null, ?int $port = null, ?string $path = null): array
     {
+        // Published error views still use the host-only API. Resolve their
+        // missing routing context without loading any site or frontend state.
+        $container = Container::getInstance();
+        $request = $container->bound('request') ? $container->make('request') : null;
+        if ($request instanceof Request && strtolower($host) === strtolower($request->getHost())) {
+            $port ??= func_num_args() < 4 && ($scheme === null || strtolower($scheme) === $request->getScheme())
+                ? $request->getPort() : null;
+            $scheme ??= $request->getScheme();
+            $path ??= $request->getPathInfo();
+        }
+
         $manifest = self::manifest();
-        $entry = self::entry($manifest, $host, $scheme, $port, $path);
+        $entry = self::entry($manifest, $host, $scheme ?? 'https', $port, $path ?? '/');
         $copy = self::nestedArray($entry, ['copy', $status]);
         $logo = self::nestedString($entry, ['logo_url']);
-        // Explicit host overrides win, then route-scoped generation, then explicit defaults.
-        if (in_array($manifest['version'] ?? null, [1, 2], true)) {
-            $copy = self::nestedArray($manifest, ['hosts', strtolower($host), 'copy', $status])
-                ?? $copy
-                ?? self::nestedArray($manifest, ['default', 'copy', $status]);
-            $logo = self::nestedString($manifest, ['hosts', strtolower($host), 'logo_url'])
-                ?? $logo
-                ?? self::nestedString($manifest, ['default', 'logo_url']);
-        }
+        // Old workers preserve the version during read-modify-write. Only the
+        // new API writes this override namespace; legacy hosts/default are unsafe.
+        $copy = self::nestedArray($manifest, ['explicit_overrides', 'hosts', strtolower($host), 'copy', $status])
+            ?? $copy
+            ?? self::nestedArray($manifest, ['explicit_overrides', 'default', 'copy', $status]);
+        $logo = self::nestedString($manifest, ['explicit_overrides', 'hosts', strtolower($host), 'logo_url'])
+            ?? $logo
+            ?? self::nestedString($manifest, ['explicit_overrides', 'default', 'logo_url']);
 
         return [
             'logo_url' => $logo,

@@ -85,6 +85,25 @@ it('fails for an unrecognised cdn provider', function (): void {
     Http::assertNothingSent();
 });
 
+it('hard purges Fastly during privacy remediation instead of retaining stale content', function (?string $serviceId): void {
+    config()->set([
+        'capell-frontend.cdn_provider' => 'fastly',
+        'capell-frontend.fastly_api_key' => 'test-key',
+        'capell-frontend.fastly_service_id' => $serviceId,
+    ]);
+    Http::fake(['https://api.fastly.com/*' => Http::response('', 200)]);
+
+    new PurgeCdnCacheJob(['site-3'])->purgeImmediately();
+
+    Http::assertSentCount(1);
+    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Fastly-Key', 'test-key')
+        && ! $request->hasHeader('Fastly-Soft-Purge')
+        && ! $request->hasHeader('Soft-Purge')
+        && ($serviceId !== null
+            ? $request->url() === 'https://api.fastly.com/service/' . $serviceId . '/purge' && $request['surrogate_keys'] === ['site-3']
+            : $request->url() === 'https://api.fastly.com/purge/site-3' && $request->method() === 'PURGE'));
+})->with([null, 'test-service']);
+
 // ---------------------------------------------------------------------------
 // Cloudflare — happy path
 // ---------------------------------------------------------------------------

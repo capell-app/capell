@@ -71,7 +71,8 @@ final class StaticErrorPageMatcher
             return StaticErrorPageResolutionReason::StatusMismatch;
         }
 
-        if (! $this->pathCovers($this->entryPath($entry), $this->normalizePath($pathInfo))) {
+        if (! is_string($entry['path'] ?? null) || $entry['path'] === ''
+            || ! $this->pathCovers($this->entryPath($entry), $this->normalizePath($pathInfo))) {
             return StaticErrorPageResolutionReason::PathMismatch;
         }
 

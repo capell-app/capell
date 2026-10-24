@@ -70,6 +70,28 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
      */
     public function handle(): void
     {
+        $this->purge(softPurge: true);
+    }
+
+    /** Await a hard purge: privacy repairs must not leave stale responses available. */
+    public function purgeImmediately(): void
+    {
+        $this->purge(softPurge: false);
+    }
+
+    private static function configuredProvider(): ?string
+    {
+        $provider = config('capell-frontend.cdn_provider');
+
+        if (! is_string($provider) || trim($provider) === '') {
+            return null;
+        }
+
+        return $provider;
+    }
+
+    private function purge(bool $softPurge): void
+    {
         if ($this->surrogateKeys === []) {
             Log::info('CDN purge requested but no valid surrogate keys were provided');
 
@@ -88,21 +110,10 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
 
         match ($provider) {
             'cloudflare' => $this->purgeCloudflare(),
-            'fastly' => $this->purgeFastly(),
+            'fastly' => $this->purgeFastly($softPurge),
             'varnish' => $this->purgeVarnish(),
             default => throw new LogicException('Unknown CDN provider: ' . $provider),
         };
-    }
-
-    private static function configuredProvider(): ?string
-    {
-        $provider = config('capell-frontend.cdn_provider');
-
-        if (! is_string($provider) || trim($provider) === '') {
-            return null;
-        }
-
-        return $provider;
     }
 
     private function purgeCloudflare(): void
@@ -113,12 +124,14 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
         throw_if(! is_string($token) || $token === '' || ! is_string($zone) || $zone === '', LogicException::class, 'Cloudflare purge configured but missing credentials');
 
         try {
-            Http::withToken($token)
+            $response = Http::withToken($token)
                 ->timeout(10)
                 ->post(sprintf('https://api.cloudflare.com/client/v4/zones/%s/purge_cache', $zone), [
                     'tags' => $this->surrogateKeys,
                 ])
                 ->throw();
+
+            throw_unless($response->json('success') === true, LogicException::class, 'Cloudflare did not acknowledge the CDN purge');
 
             Log::info('Cloudflare CDN purge successful', ['keys' => $this->surrogateKeys]);
         } catch (Exception $exception) {
@@ -132,7 +145,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
-    private function purgeFastly(): void
+    private function purgeFastly(bool $softPurge): void
     {
         $key = config('capell-frontend.fastly_api_key');
         $serviceId = config('capell-frontend.fastly_service_id');
@@ -141,10 +154,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
 
         try {
             if (is_string($serviceId) && $serviceId !== '') {
-                Http::withHeaders([
-                    'Fastly-Key' => $key,
-                    'Fastly-Soft-Purge' => '1',
-                ])
+                Http::withHeaders(array_merge(['Fastly-Key' => $key], $softPurge ? ['Fastly-Soft-Purge' => '1'] : []))
                     ->timeout(10)
                     ->post('https://api.fastly.com/service/' . rawurlencode($serviceId) . '/purge', [
                         'surrogate_keys' => $this->surrogateKeys,
@@ -157,10 +167,7 @@ class PurgeCdnCacheJob implements ShouldBeUnique, ShouldQueue
             }
 
             foreach ($this->surrogateKeys as $surrogateKey) {
-                Http::withHeaders([
-                    'Fastly-Key' => $key,
-                    'Soft-Purge' => '1',
-                ])
+                Http::withHeaders(array_merge(['Fastly-Key' => $key], $softPurge ? ['Soft-Purge' => '1'] : []))
                     ->timeout(10)
                     ->send('PURGE', 'https://api.fastly.com/purge/' . $surrogateKey)
                     ->throw();

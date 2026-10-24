@@ -23,9 +23,9 @@ it('matches the complete route including default ports and path boundaries', fun
 
 it('prefers mounted routes then explicit constraints independent of manifest order', function (bool $reverse): void {
     $entries = [
-        ['scheme' => null, 'domain' => 'example.test', 'path' => '/', 'owner' => 'wildcard'],
-        ['scheme' => 'https', 'domain' => 'example.test', 'path' => '/', 'owner' => 'exact'],
-        ['scheme' => 'https', 'domain' => 'example.test', 'path' => '/docs', 'owner' => 'mounted'],
+        ['scheme' => null, 'domain' => 'example.test', 'port' => null, 'path' => '/', 'owner' => 'wildcard'],
+        ['scheme' => 'https', 'domain' => 'example.test', 'port' => null, 'path' => '/', 'owner' => 'exact'],
+        ['scheme' => 'https', 'domain' => 'example.test', 'port' => null, 'path' => '/docs', 'owner' => 'mounted'],
     ];
     if ($reverse) {
         $entries = array_reverse($entries);
@@ -36,3 +36,17 @@ it('prefers mounted routes then explicit constraints independent of manifest ord
         ->and(StaticPageDomainMatcher::best($entries, 'http', 'example.test', '/missing')['owner'] ?? null)->toBe('wildcard')
         ->and(StaticPageDomainMatcher::best($entries, 'https', 'other.test', '/'))->toBeNull();
 })->with([false, true]);
+
+it('rejects routes without a recorded port instead of guessing the original origin', function (): void {
+    $entry = ['scheme' => 'https', 'domain' => 'example.test', 'path' => '/'];
+
+    expect(StaticPageDomainMatcher::matches($entry, 'https', 'example.test', '/', 443))->toBeFalse()
+        ->and(StaticPageDomainMatcher::matches($entry, 'https', 'example.test', '/', 8443))->toBeFalse()
+        ->and(StaticPageDomainMatcher::matches([...$entry, 'port' => null], 'https', 'example.test', '/', 443))->toBeTrue();
+});
+
+it('rejects routes without a recorded mount instead of expanding them to the root', function (mixed $mount): void {
+    $entry = ['scheme' => 'https', 'domain' => 'example.test', 'port' => null, 'path' => $mount];
+
+    expect(StaticPageDomainMatcher::matches($entry, 'https', 'example.test', '/outside', 443))->toBeFalse();
+})->with([null, '', false]);

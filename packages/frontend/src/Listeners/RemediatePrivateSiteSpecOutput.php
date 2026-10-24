@@ -17,8 +17,7 @@ final class RemediatePrivateSiteSpecOutput
         $registry = resolve(CacheInvalidationRegistry::class);
         $registry->invalidateForModel(Page::class);
         $event->site->pages()->each(fn (Page $page) => $registry->invalidateChangedModel($page));
-        InvalidateFrontendSurrogateKeysAction::run(['site-' . $event->site->id]);
-
         resolve(StaticPageArtifactStore::class)->purgeSite($event->site->id);
+        InvalidateFrontendSurrogateKeysAction::run(['site-' . $event->site->id], awaitCdn: true);
     }
 }
