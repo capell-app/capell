@@ -16,6 +16,7 @@ use Capell\Admin\Policies\RedirectPolicy;
 use Capell\Admin\Policies\SiteDomainPolicy;
 use Capell\Admin\Policies\SitePolicy;
 use Capell\Admin\Policies\ThemePolicy;
+use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -25,6 +26,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -135,3 +137,25 @@ it('preserves default admin global resource parity and keeps editors without acc
             ->and(Gate::forUser($author)->allows($ability, $record))->toBeFalse();
     }
 })->with(['fresh install', 'install grant', 'upgrade grant'])->with([ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language]);
+
+it('preserves explicit denying host policies for a model or its ancestor during provider boot', function (bool $ancestor): void {
+    $actor = User::factory()->createOne();
+    $actor->givePermissionTo(Permission::findOrCreate('Create:Language', 'web'));
+
+    $gate = new Illuminate\Auth\Access\Gate(app(), fn () => $actor);
+    Gate::swap($gate);
+    $policy = new class
+    {
+        public function create(User $user): bool
+        {
+            return false;
+        }
+    };
+    $model = $ancestor ? Model::class : Language::class;
+    Gate::policy($model, $policy::class);
+    $provider = expectPresent(app()->getProvider(AdminServiceProvider::class));
+    $provider->callBootedCallbacks();
+
+    expect(Gate::getPolicyFor(Language::class))->toBeInstanceOf($policy::class)
+        ->and(Gate::forUser($actor)->allows('create', Language::class))->toBeFalse();
+})->with([false, true]);

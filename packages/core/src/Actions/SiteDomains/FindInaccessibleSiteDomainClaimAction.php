@@ -32,12 +32,14 @@ final class FindInaccessibleSiteDomainClaimAction
 
         $recordKey = $record?->exists === true ? $record->getKey() : null;
 
-        $candidates = SiteDomain::query()
+        $candidates = ($record?->newQuery() ?? SiteDomain::query())
             ->whereNotIn('site_id', $access->allowedSiteIds() ?? [])
             ->when($scheme !== null, fn (Builder $query): Builder => $query->where(fn (Builder $schemes): Builder => $schemes->whereNull('scheme')->orWhere('scheme', $scheme)))
             ->when($host !== null, fn (Builder $query): Builder => $query->where(fn (Builder $hosts): Builder => $hosts->whereNull('domain')->orWhere('domain', $host)))
             ->when($recordKey !== null, fn (Builder $query): Builder => $query->whereKeyNot($recordKey))
             ->withWhereHas('site')
+            // A locking read sees claims committed while waiting, including under MySQL REPEATABLE READ.
+            ->lockForUpdate()
             ->get();
 
         foreach ($candidates as $candidate) {

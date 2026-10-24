@@ -1107,20 +1107,35 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // them. Register explicitly so that Gate::inspect/allows/denies
         // invoked outside Filament's resource-scoped policy lookup (e.g.
         // from Actions, CLI, queued jobs) still resolves the right policy.
-        Gate::policy(Page::class, PagePolicy::class);
-        Gate::policy(PageUrl::class, RedirectPolicy::class);
-        Gate::policy(Layout::class, LayoutPolicy::class);
-        Gate::policy(Media::class, MediaPolicy::class);
-        Gate::policy(Site::class, SitePolicy::class);
-        Gate::policy(Blueprint::class, BlueprintPolicy::class);
-        Gate::policy(Language::class, LanguagePolicy::class);
-        Gate::policy(Theme::class, ThemePolicy::class);
-        Gate::policy(SiteDomain::class, SiteDomainPolicy::class);
+        $policies = [
+            Page::class => PagePolicy::class,
+            PageUrl::class => RedirectPolicy::class,
+            Layout::class => LayoutPolicy::class,
+            Media::class => MediaPolicy::class,
+            Site::class => SitePolicy::class,
+            Blueprint::class => BlueprintPolicy::class,
+            Language::class => LanguagePolicy::class,
+            Theme::class => ThemePolicy::class,
+            SiteDomain::class => SiteDomainPolicy::class,
+        ];
 
         $userModel = config('auth.providers.users.model');
 
         if (is_string($userModel) && is_a($userModel, Model::class, true)) {
-            Gate::policy($userModel, UserPolicy::class);
+            $policies[$userModel] = UserPolicy::class;
+        }
+
+        foreach ($policies as $model => $policy) {
+            // Auto-discovery is not an explicit host choice. Preserve explicit
+            // registrations for this model and its ancestors.
+            $hasExplicitPolicy = array_any(
+                array_keys(Gate::policies()),
+                static fn (string $registeredModel): bool => is_a($model, $registeredModel, true),
+            );
+
+            if (! $hasExplicitPolicy) {
+                Gate::policy($model, $policy);
+            }
         }
 
         return $this;

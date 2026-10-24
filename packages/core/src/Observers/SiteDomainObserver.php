@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
-use Capell\Core\Actions\SiteDomains\FindInaccessibleSiteDomainClaimAction;
+use Capell\Core\Actions\SiteDomains\AssertSiteDomainClaimAllowedAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Support\CapellCoreHelper;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Validation\ValidationException;
 
 class SiteDomainObserver
 {
@@ -28,7 +26,7 @@ class SiteDomainObserver
         $siteDomain->setAttribute('port', $port);
 
         if (! $siteDomain->exists || $siteDomain->isDirty(['scheme', 'domain', 'port', 'path', 'site_id'])) {
-            $this->assertClaimAllowed($siteDomain);
+            AssertSiteDomainClaimAllowedAction::run($siteDomain);
         }
 
         if ($siteDomain->path !== null && ! str_starts_with($siteDomain->path, '/')) {
@@ -51,7 +49,7 @@ class SiteDomainObserver
 
     public function restoring(SiteDomain $siteDomain): void
     {
-        $this->assertClaimAllowed($siteDomain);
+        AssertSiteDomainClaimAllowedAction::run($siteDomain);
     }
 
     public function deleting(SiteDomain $siteDomain): void
@@ -86,26 +84,6 @@ class SiteDomainObserver
     public function restored(SiteDomain $siteDomain): void
     {
         $this->flushSiteCaches($siteDomain);
-    }
-
-    private function assertClaimAllowed(SiteDomain $siteDomain): void
-    {
-        $actor = auth()->user();
-        if (! $actor instanceof Authenticatable) {
-            return;
-        }
-
-        $conflict = FindInaccessibleSiteDomainClaimAction::run($actor, [
-            'scheme' => $siteDomain->getAttribute('scheme'),
-            'host' => $siteDomain->getAttribute('domain'),
-            'port' => $siteDomain->getAttribute('port'),
-        ], $siteDomain);
-
-        if ($conflict instanceof SiteDomain) {
-            throw ValidationException::withMessages([
-                'domain' => __('capell-core::message.site_domain_claim_conflict'),
-            ]);
-        }
     }
 
     private function flushSiteCaches(SiteDomain $siteDomain): void

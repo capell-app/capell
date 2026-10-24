@@ -2952,3 +2952,18 @@ it('admits one step executor across overlapping HTTP requests and a replayed res
         ->assertOk()->assertJsonPath('nextStep', InstallPlan::STEP_RESOLVE_USER);
     expect($calls)->toBe(1);
 });
+
+it('retains the removal session grant after tooling refusal and permits retry', function (): void {
+    config(['capell.server_side_tooling' => false]);
+    withSession(['capell.installer.can_remove_setup_package' => true])
+        ->post(route('capell-installer.destroy'))
+        ->assertStatus(500)
+        ->assertSessionHas('capell.installer.can_remove_setup_package', true);
+
+    config(['capell.server_side_tooling' => true]);
+    bindSetupRemoveProcessFactory();
+    CapellCore::forcePackageInstalled('capell-app/admin');
+    post(route('capell-installer.destroy'))
+        ->assertRedirect(url('/admin'))
+        ->assertSessionMissing('capell.installer.can_remove_setup_package');
+});
