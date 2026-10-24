@@ -626,7 +626,8 @@ final class CapellCacheManager
         } catch (Throwable $throwable) {
             $this->rethrowProgrammingFailure($throwable);
             $this->cacheBackendFailureCount++;
-            $generation = 0;
+            // Generation zero can still contain entries retained by invalidation.
+            throw $throwable;
         }
 
         $this->cacheInvalidationPatternGenerations[$pattern] = $generation;
@@ -659,7 +660,8 @@ final class CapellCacheManager
         } catch (Throwable $throwable) {
             $this->rethrowProgrammingFailure($throwable);
             $this->cacheBackendFailureCount++;
-            $generation = 0;
+            // Privacy repair retains old entries; an unknown namespace must fail closed.
+            throw $throwable;
         }
 
         if ($request instanceof Request) {
