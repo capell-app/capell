@@ -12,7 +12,6 @@ use Capell\Core\Support\Media\ImageSourcePresets;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Closure;
 use Filament\Forms\Components\Field;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;

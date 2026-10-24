@@ -10,6 +10,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Support\Media\ImageUrlPolicy;
 use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Frontend\Actions\AssertPublicRenderContractAction;
+use Capell\Frontend\Actions\AssertStoredPublicViewSelectorsAction;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
@@ -41,6 +42,12 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
     #[Override]
     public function render(FrontendRenderContextData $context): Response|Responsable
     {
+        foreach ([$context->layout, $context->theme] as $record) {
+            if ($record !== null) {
+                AssertStoredPublicViewSelectorsAction::run($record);
+            }
+        }
+
         if (App::bound('capell.frontend.page-markdown-response')) {
             $markdownResponse = App::make('capell.frontend.page-markdown-response')();
 
@@ -110,12 +117,16 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
 
     private function layoutFile(?Layout $layout): string
     {
-        return $layout?->meta['layout_file'] ?? config('capell-frontend.layout_file', 'capell::app');
+        $view = $layout?->meta['layout_file'] ?? null;
+
+        return is_string($view) && $view !== '' ? $view : config('capell-frontend.layout_file', 'capell::app');
     }
 
     private function masterFile(?Layout $layout): string
     {
-        return $layout?->meta['master_file'] ?? 'capell::livewire.page.page';
+        $view = $layout?->meta['master_file'] ?? null;
+
+        return is_string($view) && $view !== '' ? $view : 'capell::livewire.page.page';
     }
 
     private function hasAuthoredMasterForPreparedGraph(FrontendRenderContextData $context): bool

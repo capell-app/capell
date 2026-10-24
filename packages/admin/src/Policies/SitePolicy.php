@@ -139,7 +139,7 @@ class SitePolicy
 
     public function replicate(User $user, Site $site): bool
     {
-        return (! config('permission.teams') || SiteAccess::forActor($user)->can($site))
+        return SiteAccess::forActor($user)->can($site)
             && $this->create($user)
             && $this->hasPermissionOnSite($user, $site, self::permission('replicate', self::SUBJECT));
     }

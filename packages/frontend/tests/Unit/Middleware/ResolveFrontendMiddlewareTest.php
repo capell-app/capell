@@ -13,6 +13,10 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
 
+beforeEach(function (): void {
+    config()->set('capell-frontend.fallback_public_views.view_names', ['middleware-fallback-guard', 'named.middleware.guard']);
+});
+
 it('guards path fallback blade views before returning from frontend resolution middleware', function (): void {
     $viewDirectory = resource_path('views');
     $viewPath = $viewDirectory . '/middleware-fallback-guard.blade.php';

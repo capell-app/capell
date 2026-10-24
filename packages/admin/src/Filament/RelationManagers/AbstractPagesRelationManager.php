@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\RelationManagers;
 
 use BackedEnum;
+use Capell\Admin\Filament\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\IdentifierColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\MediaLibraryImageColumn;
@@ -22,7 +23,6 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
-use Filament\Actions\EditAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;

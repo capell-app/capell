@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Frontend\Actions\RenderFallbackPublicViewAction;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -30,7 +31,8 @@ it('does not render a nested non-allowlisted app view via the path fallback', fu
     expect($response)->toBeNull();
 });
 
-it('still renders a legitimate single-segment public fallback view', function (): void {
+it('renders an explicitly allowlisted single-segment public fallback view', function (): void {
+    config()->set('capell-frontend.fallback_public_views.view_names', ['about']);
     $viewDirectory = resource_path('views');
     $viewPath = $viewDirectory . '/about.blade.php';
 
@@ -76,4 +78,38 @@ it('renders a nested view only when its leading segment is an allowlisted prefix
 
     expect($response)->toBeInstanceOf(Response::class)
         ->and($content)->toContain('Contact page');
+});
+
+it('refuses an unregistered top-level view and a route-name fallback', function (bool $namedRoute): void {
+    config()->set('capell-frontend.fallback_public_views', ['view_names' => [], 'prefixes' => []]);
+    $viewPath = resource_path('views/private-report.blade.php');
+    File::ensureDirectoryExists(dirname($viewPath));
+    File::put($viewPath, '<h1>Private report</h1>');
+    $request = Request::create($namedRoute ? '/missing-view' : '/private-report');
+    if ($namedRoute) {
+        $request->setRouteResolver(fn () => new Route('GET', '/missing-view', fn (): null => null)->name('private-report'));
+    }
+
+    try {
+        expect(RenderFallbackPublicViewAction::run($request))->toBeNull();
+    } finally {
+        File::delete($viewPath);
+    }
+})->with([false, true]);
+
+it('renders an allowlisted route-name fallback without authoring output', function (): void {
+    config()->set('capell-frontend.fallback_public_views', ['view_names' => ['public-report'], 'prefixes' => []]);
+    $viewPath = resource_path('views/public-report.blade.php');
+    File::ensureDirectoryExists(dirname($viewPath));
+    File::put($viewPath, '<h1>Public report</h1>');
+    $request = Request::create('/missing-view');
+    $request->setRouteResolver(fn () => new Route('GET', '/missing-view', fn (): null => null)->name('public-report'));
+
+    try {
+        $response = RenderFallbackPublicViewAction::run($request);
+        expect($response)->toBeInstanceOf(Response::class)
+            ->and($response->getContent())->toContain('Public report')->not->toContain('data-capell-edit', 'wire:id');
+    } finally {
+        File::delete($viewPath);
+    }
 });

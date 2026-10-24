@@ -796,7 +796,7 @@ it('hides downloadable packages composer cannot resolve', function (): void {
 });
 
 it('selects default core and default extension packages in the web installer', function (): void {
-    config(['capell-installer.allow_reinstall' => true]);
+    config(['app.debug' => true, 'capell-installer.allow_reinstall' => true]);
 
     $spoofedCorePackagePath = storage_path('framework/testing/installer-spoofed-core-package-' . uniqid());
     mkdir($spoofedCorePackagePath, 0755, true);
@@ -1095,7 +1095,7 @@ it('removes the installer composer package and redirects to the frontend when ad
 });
 
 it('shows the installer after installation when reinstall access is enabled', function (): void {
-    config(['capell-installer.allow_reinstall' => true]);
+    config(['app.debug' => true, 'capell-installer.allow_reinstall' => true]);
     Site::factory()->createOne();
 
     get(route('capell-installer.show'))
@@ -1106,7 +1106,7 @@ it('shows the installer after installation when reinstall access is enabled', fu
 });
 
 it('refuses destructive reinstall input even when reinstall access is enabled', function (): void {
-    config(['capell-installer.allow_reinstall' => true]);
+    config(['app.debug' => true, 'capell-installer.allow_reinstall' => true]);
     Site::factory()->createOne();
     $spy = RunInstallAction::spy();
 

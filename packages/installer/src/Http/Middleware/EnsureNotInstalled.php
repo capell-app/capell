@@ -25,7 +25,7 @@ final class EnsureNotInstalled
 
         $request->attributes->set('capellAlreadyInstalled', true);
 
-        if (config('capell-installer.allow_reinstall', false)) {
+        if (config('app.debug', false) && config('capell-installer.allow_reinstall', false)) {
             $request->attributes->set('capellCanReinstall', true);
 
             return $next($request);

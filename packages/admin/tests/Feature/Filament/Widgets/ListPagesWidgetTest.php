@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Widgets\Dashboard\ListPagesFilamentWidget;
+use Capell\Admin\Tests\Fixtures\Models\SiteScopedFormTestUser;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -10,11 +11,6 @@ use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
@@ -30,41 +26,16 @@ afterEach(function (): void {
 /**
  * @param  SupportCollection<int, int>  $assignedSiteIds
  */
-function createScopedUserForListPagesFilamentWidgetTest(SupportCollection $assignedSiteIds): Authenticatable
+function createScopedUserForListPagesFilamentWidgetTest(SupportCollection $assignedSiteIds): SiteScopedFormTestUser
 {
-    $user = new class extends Authenticatable implements FilamentUser
-    {
-        /** @use HasFactory<Factory<static>> */
-        use HasFactory;
-
-        /** @var SupportCollection<int, int> */
-        public SupportCollection $assignedSiteIds;
-
-        protected $table = 'users';
-
-        public function canAccessPanel(Panel $panel): bool
-        {
-            return true;
-        }
-
-        /** @return SupportCollection<int, int> */
-        public function getAssignedSiteIds(): SupportCollection
-        {
-            return $this->assignedSiteIds;
-        }
-
-        public function isGlobalAdmin(): bool
-        {
-            return false;
-        }
-    };
-
+    $user = new SiteScopedFormTestUser;
     $user->forceFill([
         'name' => 'Scoped Widget User',
         'email' => fake()->unique()->safeEmail(),
         'password' => bcrypt('password'),
     ]);
-    $user->assignedSiteIds = $assignedSiteIds;
+    $user->save();
+    SiteScopedFormTestUser::rememberAssignedSiteIds((int) $user->getKey(), $assignedSiteIds);
 
     return $user;
 }

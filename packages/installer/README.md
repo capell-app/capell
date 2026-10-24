@@ -44,15 +44,15 @@ Open `/install` in the host app to run the browser flow. The route is guarded by
 
 The package config supports these setup env values:
 
-| Env var                         | Purpose                                                                                         |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `CAPELL_SETUP_ALLOW_REINSTALL`  | Allow the browser installer to run on an already installed app. Defaults to `APP_DEBUG`.        |
-| `CAPELL_SETUP_COMPOSER_BINARY`  | Composer binary used by installer checks and commands.                                          |
-| `CAPELL_SETUP_PHP_BINARY`       | PHP CLI binary used by installer checks and commands.                                           |
-| `CAPELL_SETUP_DEFAULT_PACKAGES` | Comma-separated package list selected by default.                                               |
-| `CAPELL_SETUP_ADMIN_NAME`       | Prefill the first admin name.                                                                   |
-| `CAPELL_SETUP_ADMIN_EMAIL`      | Prefill the first admin email.                                                                  |
-| `CAPELL_SETUP_ADMIN_PASSWORD`   | Prefill the first admin password as plaintext input; Capell hashes it when the user is created. |
+| Env var                         | Purpose                                                                                                               |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `CAPELL_SETUP_ALLOW_REINSTALL`  | Allow reinstall only with `APP_DEBUG=true`. Defaults to `APP_DEBUG`; this switch cannot override disabled debug mode. |
+| `CAPELL_SETUP_COMPOSER_BINARY`  | Composer binary used by installer checks and commands.                                                                |
+| `CAPELL_SETUP_PHP_BINARY`       | PHP CLI binary used by installer checks and commands.                                                                 |
+| `CAPELL_SETUP_DEFAULT_PACKAGES` | Comma-separated package list selected by default.                                                                     |
+| `CAPELL_SETUP_ADMIN_NAME`       | Prefill the first admin name.                                                                                         |
+| `CAPELL_SETUP_ADMIN_EMAIL`      | Prefill the first admin email.                                                                                        |
+| `CAPELL_SETUP_ADMIN_PASSWORD`   | Prefill the first admin password as plaintext input; Capell hashes it when the user is created.                       |
 
 Treat `CAPELL_SETUP_ADMIN_PASSWORD`, installer progress URLs, and installer reports as bootstrap secrets. Do not commit real setup credentials, and remove or restrict installer access once the app is installed.
 
@@ -120,16 +120,16 @@ Support covers the dependency ranges above. When an upstream release reaches its
 
 ## Troubleshooting
 
-| Symptom                                             | Check                                                                                                                | Fix                                                                                                    |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `/install` is unavailable on a fresh app            | `php artisan route:list --name=capell-installer`                                                                     | Confirm the provider was discovered and run `php artisan optimize:clear`.                              |
-| `/install` says Capell is already installed         | `InstallerInstallationState::capellIsInstalled()`                                                                    | Use the admin panel, or set `CAPELL_SETUP_ALLOW_REINSTALL=true` only for a controlled local reinstall. |
-| Preflight reports the wrong PHP or Composer binary  | `php artisan config:show capell-installer.php_binary` and `php artisan config:show capell-installer.composer_binary` | Set `CAPELL_SETUP_PHP_BINARY` or `CAPELL_SETUP_COMPOSER_BINARY`, then clear config cache.              |
-| Optional packages do not appear                     | `composer show vendor/package --available` from the same app                                                         | Fix Composer repositories/auth so the web process can resolve the package.                             |
-| Default admin fields are blank                      | `php artisan config:show capell-installer.admin_user`                                                                | Set the `CAPELL_SETUP_ADMIN_*` env values or override the config.                                      |
-| Progress says the session expired                   | Check the cache driver and `capell.install.{installId}.*` keys                                                       | Restart the installer with a persistent cache store or use the CLI installer.                          |
-| A guide patch fails                                 | Read the patch `reason()` and matching patch test                                                                    | Fix the host file or update the patch probe/apply logic with regression coverage.                      |
-| Reports/progress pages remain reachable after setup | `composer show capell-app/installer`                                                                                 | Remove the package or restrict access immediately.                                                     |
+| Symptom                                             | Check                                                                                                                | Fix                                                                                                                          |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `/install` is unavailable on a fresh app            | `php artisan route:list --name=capell-installer`                                                                     | Confirm the provider was discovered and run `php artisan optimize:clear`.                                                    |
+| `/install` says Capell is already installed         | `InstallerInstallationState::capellIsInstalled()`                                                                    | Use the admin panel, or use `APP_DEBUG=true` with `CAPELL_SETUP_ALLOW_REINSTALL=true` only for a controlled local reinstall. |
+| Preflight reports the wrong PHP or Composer binary  | `php artisan config:show capell-installer.php_binary` and `php artisan config:show capell-installer.composer_binary` | Set `CAPELL_SETUP_PHP_BINARY` or `CAPELL_SETUP_COMPOSER_BINARY`, then clear config cache.                                    |
+| Optional packages do not appear                     | `composer show vendor/package --available` from the same app                                                         | Fix Composer repositories/auth so the web process can resolve the package.                                                   |
+| Default admin fields are blank                      | `php artisan config:show capell-installer.admin_user`                                                                | Set the `CAPELL_SETUP_ADMIN_*` env values or override the config.                                                            |
+| Progress says the session expired                   | Check the cache driver and `capell.install.{installId}.*` keys                                                       | Restart the installer with a persistent cache store or use the CLI installer.                                                |
+| A guide patch fails                                 | Read the patch `reason()` and matching patch test                                                                    | Fix the host file or update the patch probe/apply logic with regression coverage.                                            |
+| Reports/progress pages remain reachable after setup | `composer show capell-app/installer`                                                                                 | Remove the package or restrict access immediately.                                                                           |
 
 ## Development
 

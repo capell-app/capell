@@ -24,7 +24,7 @@ class GrantCapellDefaultRolePermissionsAction
         $guard = config('auth.defaults.guard', 'web');
 
         AssignPermissionsToRole::run(
-            resources: [ResourceEnum::PageUrl, ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language],
+            resources: [ResourceEnum::PageUrl, ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language, ResourceEnum::Activity, ResourceEnum::BlockTemplate],
             guardName: $guard,
         );
 

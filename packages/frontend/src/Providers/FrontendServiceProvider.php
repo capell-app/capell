@@ -23,6 +23,7 @@ use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Core\Support\Registries\TaggedProviderRegistry;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
+use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Frontend\Actions\ApplyFrontendRouteReservationsAction;
 use Capell\Frontend\Actions\BuildFrontendResourceDebugOverlayPayloadAction;
 use Capell\Frontend\Actions\BuildPageFrontendResourceDiagnosticsAction;
@@ -690,6 +691,11 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
 
     private function registerThemeRuntime(): self
     {
+        $this->callAfterResolving(LayoutViewRegistry::class, static function (LayoutViewRegistry $registry): void {
+            $registry->registerMaster('capell::livewire.page.page', 'capell::livewire.page.page');
+            $registry->registerLayout('capell::app', 'capell::app');
+        });
+
         $this->callAfterResolving(
             RenderHookRegistry::class,
             function (): void {

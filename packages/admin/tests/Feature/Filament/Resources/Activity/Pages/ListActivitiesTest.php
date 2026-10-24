@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Contracts\Activity\ActivityChangeSetBuilder;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Resources\Activities\ActivityResource;
 use Capell\Admin\Filament\Resources\Activities\Pages\ListActivities;
 use Capell\Admin\Filament\Resources\Languages\LanguageResource;
@@ -25,9 +26,20 @@ beforeEach(function (): void {
     Role::findOrCreate(config('capell.roles.editor', 'editor'));
     $user = $this->createUser();
     $user->assignRole(config('capell.roles.editor', 'editor'));
+    $user->givePermissionTo([
+        Permission::findOrCreate(ResourceEnum::Activity->permission('view_any')),
+        Permission::findOrCreate(ResourceEnum::Activity->permission('view')),
+    ]);
     // Global audit ownership is independent of the revert/delete permissions below.
 
     $this->actingAs(GlobalAuditUser::fromUser($user));
+});
+
+it('requires activity read permission even for a global audit owner', function (): void {
+    $user = $this->createUserWithRole(config('capell.roles.editor', 'editor'));
+    $this->actingAs(GlobalAuditUser::fromUser($user));
+
+    Livewire::test(ListActivities::class)->assertForbidden();
 });
 
 it('lists decorated activity rows', function (): void {

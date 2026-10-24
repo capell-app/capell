@@ -57,6 +57,7 @@ it('can retrieve data', function (): void {
 it('can retrieve data for host user models without media support', function (): void {
     config()->set('auth.providers.users.model', UserWithoutMedia::class);
     Relation::morphMap(['user_without_media' => UserWithoutMedia::class]);
+    Gate::policy(UserWithoutMedia::class, UserPolicy::class);
 
     $user = UserWithoutMedia::query()->create([
         'name' => 'Plain Host User',
