@@ -22,8 +22,13 @@ final class ResolveDefaultGlobalResourcePermissionsAction
     public function handle(?ResourceEnum $resource = null): array
     {
         $permissions = [];
-        foreach ($resource instanceof ResourceEnum ? [$resource] : [ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language] as $globalResource) {
-            foreach (['view_any', 'view', 'create', 'update', 'delete', 'delete_any', 'restore', 'restore_any', 'force_delete', 'force_delete_any', 'replicate', 'reorder'] as $affix) {
+        foreach ($resource instanceof ResourceEnum ? [$resource] : [ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language, ResourceEnum::Activity, ResourceEnum::BlockTemplate] as $globalResource) {
+            // Activity mutation is granted separately through the custom log permissions.
+            $affixes = $globalResource === ResourceEnum::Activity
+                ? ['view_any', 'view']
+                : ['view_any', 'view', 'create', 'update', 'delete', 'delete_any', 'restore', 'restore_any', 'force_delete', 'force_delete_any', 'replicate', 'reorder'];
+
+            foreach ($affixes as $affix) {
                 $permissions[] = $globalResource->permission($affix);
             }
         }

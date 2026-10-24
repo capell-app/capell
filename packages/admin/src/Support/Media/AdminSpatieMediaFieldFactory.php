@@ -6,9 +6,9 @@ namespace Capell\Admin\Support\Media;
 
 use Capell\Admin\Actions\GetMaxUploadSizeInBytes;
 use Capell\Admin\Contracts\Media\AdminMediaFieldFactory;
+use Capell\Admin\Filament\Components\Forms\SpatieMediaLibraryFileUpload;
 use Capell\Core\Contracts\Media\MediaUploadConfigurationFactory;
 use Capell\Core\Contracts\Media\MediaUploadMetadataResolver;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 /**

@@ -8,6 +8,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Livewire\Page\Page as LivewirePage;
 use Capell\Frontend\Support\State\FrontendState;
@@ -82,6 +83,9 @@ function renderedPageRequiresLivewire(Page $page): bool
 <div data-assets="{{ $livewireEnabled ? 'livewire' : 'blade' }}">{{ $slot }}</div>
 BLADE);
     view()->addNamespace('strategy-test', $fixture->root);
+    resolve(LayoutViewRegistry::class)->registerMaster('strategy-test::page', 'Fixture page');
+    resolve(LayoutViewRegistry::class)->registerLayout('strategy-test::layout', 'Fixture layout');
+
     $page->setRelation('translation', null);
     resolve(FrontendState::class)->withPage($page)
         ->withSite(new Site)->withTheme(new Theme)->withLanguage(new Language(['code' => 'en']))

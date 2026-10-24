@@ -58,10 +58,9 @@ it('lists each media owner type once using its canonical alias', function (): vo
 it('reports a rejected replacement without a success notification or broken media reference', function (): void {
     $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->image('original.png'))->toMediaCollection('images');
     $url = $original->getUrl();
-    Storage::disk('local')->put('replacement.txt', 'different media type');
 
     Livewire::test(ListMedia::class)
-        ->callTableAction('replace-file', $original, data: ['replacement' => ['replacement.txt']])
+        ->callTableAction('replace-file', $original, data: ['replacement' => [UploadedFile::fake()->createWithContent('replacement.txt', 'different media type')]])
         ->assertHasNoTableActionErrors()
         ->assertNotified(__('capell-admin::media.replace_file_failed'))
         ->assertNotNotified(__('capell-admin::media.replace_file_success'));
@@ -75,7 +74,6 @@ it('reports committed replacement cleanup as a warning without inviting a failed
     $replacement = UploadedFile::fake()->image('replacement.png', 48, 48);
     $bytes = file_get_contents($replacement->getPathname());
     throw_unless(is_string($bytes), RuntimeException::class, 'Replacement fixture is missing.');
-    Storage::disk('local')->put('replacement.png', $bytes);
     $public = Storage::disk('public');
     $failingPublic = Mockery::mock($public);
     $failingPublic->shouldReceive('deleteDirectory')->andReturnFalse();
@@ -88,7 +86,7 @@ it('reports committed replacement cleanup as a warning without inviting a failed
 
     try {
         Livewire::test(ListMedia::class)
-            ->callTableAction('replace-file', $original, data: ['replacement' => ['replacement.png']])
+            ->callTableAction('replace-file', $original, data: ['replacement' => [$replacement]])
             ->assertHasNoTableActionErrors()
             ->assertNotified(Notification::make()
                 ->title(__('capell-admin::media.replace_file_success'))
@@ -294,16 +292,13 @@ it('finds renamed media by its editor name and storage filename', function (): v
 it('bulk uploads files to a site uploads collection', function (): void {
     $site = Site::factory()->createOne(['name' => 'Capell']);
 
-    Storage::disk('local')->put('media-uploads/hero-a.jpg', UploadedFile::fake()->image('hero-a.jpg')->getContent());
-    Storage::disk('local')->put('media-uploads/hero-b.jpg', UploadedFile::fake()->image('hero-b.jpg')->getContent());
-
     Livewire::test(ListMedia::class)
         ->assertSuccessful()
         ->callAction('upload-files', [
             'site_id' => $site->getKey(),
             'files' => [
-                'media-uploads/hero-a.jpg',
-                'media-uploads/hero-b.jpg',
+                UploadedFile::fake()->image('hero-a.jpg'),
+                UploadedFile::fake()->image('hero-b.jpg'),
             ],
         ])
         ->assertHasNoActionErrors()
@@ -313,7 +308,7 @@ it('bulk uploads files to a site uploads collection', function (): void {
         ->where('model_type', $site->getMorphClass())
         ->where('model_id', $site->getKey())
         ->where('collection_name', 'uploads')
-        ->orderBy('file_name')
+        ->orderBy('name')
         ->get();
 
     expect($uploads)->toHaveCount(2)

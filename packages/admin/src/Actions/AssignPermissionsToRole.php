@@ -139,7 +139,7 @@ class AssignPermissionsToRole
 
             $resourcePermissions = array_values(FilamentShield::getResourcePermissions($resourceClass) ?? []);
             $globalResource = ResourceEnum::tryFrom($resourceClass);
-            if (in_array($globalResource, [ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language], true)) {
+            if (in_array($globalResource, [ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language, ResourceEnum::Activity, ResourceEnum::BlockTemplate], true)) {
                 // Explicit policies also need DeleteAny, omitted by Shield's default methods.
                 $resourcePermissions = [...$resourcePermissions, ...ResolveDefaultGlobalResourcePermissionsAction::run($globalResource)];
             }

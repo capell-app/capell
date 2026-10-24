@@ -246,3 +246,22 @@ function installerStateQueryCount(Closure $callback): array
 
     return ['result' => $result, 'queries' => $queries];
 }
+
+it('permits reinstall only when debug and the reinstall setting are enabled', function (bool $debug, bool $allow): void {
+    config(['app.debug' => $debug, 'capell-installer.allow_reinstall' => $allow]);
+    Cache::forget('capell.install.lock');
+    CapellCore::forcePackageInstalled(AdminServiceProvider::$packageName);
+    Site::factory()->createOne();
+    $request = Request::create('/install/progress/installed');
+    $request->setRouteResolver(fn (): Route => new Route('GET', '/install/progress/{installId}', fn (): string => 'ok')->name('capell-installer.progress'));
+
+    $run = fn (): Response => (new EnsureNotInstalled)->handle($request, fn (): Response => new Response('next'));
+
+    if ($debug && $allow) {
+        expect($run()->getContent())->toBe('next')
+            ->and($request->attributes->get('capellCanReinstall'))->toBeTrue();
+    } else {
+        expect($run)->toThrow(NotFoundHttpException::class);
+        expect($request->attributes->get('capellCanReinstall', false))->toBeFalse();
+    }
+})->with([[false, false], [false, true], [true, false], [true, true]]);

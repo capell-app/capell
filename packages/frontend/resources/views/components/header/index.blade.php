@@ -1,4 +1,5 @@
 @php
+    use Capell\Core\Support\Themes\ThemeChromeRegistry;
     use Capell\Frontend\Enums\RenderHookLocation;
     use Capell\Frontend\Facades\Frontend;
     use Capell\Frontend\Support\Render\RenderHookRegistry;
@@ -6,7 +7,9 @@
     $site = Frontend::site();
     $siteDomain = $site->relationLoaded('siteDomain') ? $site->siteDomain : null;
     $logoBladeView = $site->getMeta('logo_blade_view', 'brand.capell-logo');
-    $logoBladeView = is_string($logoBladeView) && view()->exists($logoBladeView)
+    $logoBladeView = is_string($logoBladeView)
+        && array_key_exists($logoBladeView, resolve(ThemeChromeRegistry::class)->logoOptions())
+        && view()->exists($logoBladeView)
         ? $logoBladeView
         : null;
     $logo = $site->relationLoaded('logo') ? $site->logo : null;

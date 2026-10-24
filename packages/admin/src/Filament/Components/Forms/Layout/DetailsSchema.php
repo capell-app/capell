@@ -16,6 +16,7 @@ use Capell\Admin\Filament\Resources\Themes\ThemeResource;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Group;
@@ -23,6 +24,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 
 class DetailsSchema
@@ -105,10 +107,12 @@ class DetailsSchema
                 ->hiddenOn(['create', 'createOption', 'replicate'])
                 ->schema([
                     TextInput::make('master_file')
+                        ->rule(fn () => Rule::in(array_keys(resolve(LayoutViewRegistry::class)->masterOptions())))
                         ->label(__('capell-admin::form.master_file'))
                         ->helperText(__('capell-admin::generic.layout_master_file_info'))
                         ->placeholder('page.page'),
                     TextInput::make('layout_file')
+                        ->rule(fn () => Rule::in(array_keys(resolve(LayoutViewRegistry::class)->layoutOptions())))
                         ->label(__('capell-admin::form.layout_file'))
                         ->helperText(__('capell-admin::generic.layout_layout_file_info'))
                         ->placeholder('layout.base'),

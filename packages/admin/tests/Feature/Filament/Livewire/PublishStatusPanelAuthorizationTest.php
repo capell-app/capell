@@ -16,6 +16,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use function Filament\get_authorization_response;
 
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -85,7 +86,7 @@ it('denies a foreign-site record through the registered view policy', function (
     expect($record->fresh()?->isEnabled())->toBeTrue();
 });
 
-it('denies a record with no policy even when Filament would allow it', function (bool $global): void {
+it('denies a record with no policy under strict Filament authorisation', function (bool $global): void {
     if ($global) {
         test()->actingAsAdmin();
     } else {
@@ -95,8 +96,10 @@ it('denies a record with no policy even when Filament would allow it', function 
     $record = StatusOnlyRecord::query()->create(['site_id' => null, 'status' => true]);
 
     expect(Gate::getPolicyFor($record))->toBeNull()
-        ->and(Gate::allows('view', $record))->toBe($global)
-        ->and(get_authorization_response('view', $record)->allowed())->toBeTrue();
+        ->and(Gate::allows('view', $record))->toBe($global);
+
+    expect(fn (): Response => get_authorization_response('view', $record))
+        ->toThrow(LogicException::class, 'Strict authorization mode is enabled, but no policy was found');
 
     Livewire::test(PublishStatusPanel::class, ['recordClass' => StatusOnlyRecord::class, 'recordId' => $record->getKey()])
         ->assertForbidden();

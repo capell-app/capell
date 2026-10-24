@@ -12,6 +12,8 @@ use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Themes\ThemeChromeRegistry;
+use Capell\Frontend\Actions\AssertStoredPublicViewSelectorsAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
@@ -43,6 +45,12 @@ final class Layout extends Component
         $this->page = $frontend->page();
         $this->layout = $frontend->layout();
         $this->site = $frontend->site();
+
+        foreach ([$this->theme, $this->layout] as $record) {
+            if ($record !== null) {
+                AssertStoredPublicViewSelectorsAction::run($record);
+            }
+        }
     }
 
     public function isSystemPageLayout(): bool
@@ -79,7 +87,9 @@ final class Layout extends Component
 
         $bladeView = $this->site->getMeta('logo_blade_view', 'brand.capell-logo');
 
-        return is_string($bladeView) && $this->view->exists($bladeView)
+        return is_string($bladeView)
+            && array_key_exists($bladeView, resolve(ThemeChromeRegistry::class)->logoOptions())
+            && $this->view->exists($bladeView)
             ? $bladeView
             : null;
     }

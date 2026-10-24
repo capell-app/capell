@@ -6,6 +6,7 @@ namespace Capell\Core\Observers;
 
 use Capell\Core\Actions\CaptureBlueprintSchemaSnapshotAction;
 use Capell\Core\Actions\GenerateUniqueKeyAction;
+use Capell\Core\Actions\ValidateStoredViewSelectorsAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Support\CapellCoreHelper;
@@ -13,6 +14,11 @@ use Illuminate\Support\Arr;
 
 class BlueprintObserver
 {
+    public function saving(Blueprint $blueprint): void
+    {
+        ValidateStoredViewSelectorsAction::run($blueprint);
+    }
+
     public function creating(Blueprint $blueprint): void
     {
         $key = $blueprint->getAttribute('key');

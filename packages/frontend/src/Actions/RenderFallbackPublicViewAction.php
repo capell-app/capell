@@ -27,7 +27,7 @@ final class RenderFallbackPublicViewAction
 
         $fallbackView = $request->route()?->getName();
 
-        if (is_string($fallbackView) && View::exists($fallbackView)) {
+        if (is_string($fallbackView) && $this->isAllowedFallbackViewName($fallbackView) && View::exists($fallbackView)) {
             return $this->guardPublicHtmlResponse(response()->view($fallbackView));
         }
 
@@ -71,14 +71,9 @@ final class RenderFallbackPublicViewAction
             return true;
         }
 
-        // Single-segment, author-authored top-level views remain permitted.
-        if (count($segments) === 1) {
-            return true;
-        }
-
         // Multi-segment names are only permitted when their leading segment is an
         // allowlisted prefix reserved for publicly renderable templates.
-        return in_array($segments[0], $allowlist['prefixes'], true);
+        return count($segments) > 1 && in_array($segments[0], $allowlist['prefixes'], true);
     }
 
     /**
@@ -94,7 +89,7 @@ final class RenderFallbackPublicViewAction
 
         $prefixes = is_array($configured) && isset($configured['prefixes']) && is_array($configured['prefixes'])
             ? array_values(array_filter($configured['prefixes'], is_string(...)))
-            : ['pages'];
+            : [];
 
         return [
             'view_names' => $viewNames,

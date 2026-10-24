@@ -104,9 +104,25 @@ class SitePolicy
         return $this->hasPermissionOnSite($user, $site, self::permission('delete', self::SUBJECT));
     }
 
+    public function replicate(User $user, Site $site): bool
+    {
+        return SiteAccess::forActor($user)->can($site)
+            && $this->hasPermissionOnSite($user, $site, self::permission('replicate', self::SUBJECT));
+    }
+
     public function deleteAny(User $user): bool
     {
         return $user->checkPermissionTo(self::permission('delete_any', self::SUBJECT));
+    }
+
+    public function restoreAny(User $user): bool
+    {
+        return $user->checkPermissionTo(self::permission('restore_any', self::SUBJECT));
+    }
+
+    public function forceDeleteAny(User $user): bool
+    {
+        return $user->checkPermissionTo(self::permission('force_delete_any', self::SUBJECT));
     }
 
     public function restore(User $user, Site $site): bool
