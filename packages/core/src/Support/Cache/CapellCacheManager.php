@@ -617,6 +617,10 @@ final class CapellCacheManager
 
     private function cacheInvalidationPatternGeneration(string $pattern): int
     {
+        if (! $this->configuredCacheStoreIsAvailable()) {
+            return 0;
+        }
+
         if (array_key_exists($pattern, $this->cacheInvalidationPatternGenerations)) {
             return $this->cacheInvalidationPatternGenerations[$pattern];
         }
