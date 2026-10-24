@@ -11,9 +11,11 @@ repos:
       - id: check-json
       - id: check-yaml
       - id: end-of-file-fixer
-        exclude: ^tests/\.pest/snapshots/
+        # Generated bundles are byte-compared against a fresh build in CI.
+        exclude: ^(tests/\.pest/snapshots/|packages/[^/]+/publishes/(build|dist)/)
         stages: [pre-commit]
       - id: trailing-whitespace
+        exclude: ^packages/[^/]+/publishes/(build|dist)/
         stages: [pre-commit]
       - id: mixed-line-ending
       - id: check-added-large-files

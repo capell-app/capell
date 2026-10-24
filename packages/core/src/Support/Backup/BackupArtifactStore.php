@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Backup;
 
+use Capell\Core\Actions\Backup\VerifyBackupManifestSignatureAction;
 use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Filesystem\Filesystem;
@@ -120,6 +121,8 @@ final readonly class BackupArtifactStore
         $manifest = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
 
         throw_unless(is_array($manifest), UnexpectedValueException::class, 'Backup manifest is invalid.');
+
+        VerifyBackupManifestSignatureAction::run($manifest);
 
         return $manifest;
     }

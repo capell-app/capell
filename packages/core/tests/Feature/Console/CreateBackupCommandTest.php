@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Tests\Support\BackupSigningTestKeys;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
+    BackupSigningTestKeys::configure();
     Storage::fake('backups');
     $this->databasePath = sys_get_temp_dir() . '/capell-create-backup-command-' . bin2hex(random_bytes(6)) . '.sqlite';
     new PDO('sqlite:' . $this->databasePath)->exec('CREATE TABLE examples (value TEXT NOT NULL)');

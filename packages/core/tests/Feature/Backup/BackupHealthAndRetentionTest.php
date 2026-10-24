@@ -6,10 +6,12 @@ use Capell\Core\Actions\Backup\CreateBackupAction;
 use Capell\Core\Actions\Backup\InspectBackupHealthAction;
 use Capell\Core\Actions\Backup\PruneBackupsAction;
 use Capell\Core\Support\Backup\BackupArtifactStore;
+use Capell\Core\Tests\Support\BackupSigningTestKeys;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
+    BackupSigningTestKeys::configure();
     Storage::fake('backups');
     $this->databasePath = sys_get_temp_dir() . '/capell-health-backup-' . bin2hex(random_bytes(6)) . '.sqlite';
     new PDO('sqlite:' . $this->databasePath)->exec('CREATE TABLE examples (value TEXT NOT NULL)');
@@ -123,6 +125,22 @@ it('exposes health JSON and dry-run pruning through commands', function (): void
     artisanCommand('capell:backup:prune')
         ->expectsOutputToContain('Dry run')
         ->assertSuccessful();
+});
+
+it('reports unsigned legacy snapshots as invalid and never prunes them automatically', function (): void {
+    $manifest = CreateBackupAction::run(databaseOnly: true);
+    $path = 'capell-backups/' . $manifest->snapshotId . '/manifest.json';
+    $payload = Storage::disk('backups')->json($path);
+    unset($payload['signature']);
+    Storage::disk('backups')->put($path, json_encode($payload, JSON_THROW_ON_ERROR));
+    CreateBackupAction::run(databaseOnly: true);
+    config(['backup.retain' => 1]);
+
+    $report = InspectBackupHealthAction::run();
+
+    expect(backupHealthCheck($report->checks, 'integrity')['passed'])->toBeFalse()
+        ->and(PruneBackupsAction::run(force: true))->toBeEmpty()
+        ->and(Storage::disk('backups')->exists($path))->toBeTrue();
 });
 
 /**

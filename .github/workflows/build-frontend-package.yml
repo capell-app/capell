@@ -6,6 +6,8 @@ on:
       - main
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - 'scripts/check-package-build.mjs'
+      - 'tests/JavaScript/package-build-check.test.mjs'
       - 'packages/frontend/**'
       - 'scripts/verify-nested-frontend-consumer.sh'
       - '.github/workflows/build-frontend-package.yml'
@@ -19,7 +21,6 @@ concurrency:
 
 jobs:
   build-frontend-package:
-    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -36,10 +37,16 @@ jobs:
           node-version: '20.x'
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Build frontend
-        run: npm run build
+      - name: Test the build drift guard
+        run: node --test ../../tests/JavaScript/package-build-check.test.mjs
+
+      - name: Verify published frontend assets match their source
+        run: node ../../scripts/check-package-build.mjs .
+
+      - name: Test the published widget runtime
+        run: node --experimental-vm-modules --test tests/JavaScript/published-widget-runtime.test.mjs
 
   nested-checkout-resolution:
     if: github.actor != 'dependabot[bot]'
