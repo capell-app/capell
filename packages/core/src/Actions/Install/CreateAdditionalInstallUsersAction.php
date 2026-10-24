@@ -36,25 +36,33 @@ final class CreateAdditionalInstallUsersAction
         $userModel = config('auth.providers.users.model');
 
         foreach ($users as $userData) {
-            // firstOrCreate also handles a concurrent insert via the unique email key.
-            // Starter accounts must never claim an account that already exists.
-            $user = $userModel::query()->firstOrCreate(
-                ['email' => $userData->email],
-                ['name' => $userData->name, 'password' => Hash::make($userData->password)],
-            );
+            $created = new $userModel()->getConnection()->transaction(function () use ($userModel, $userData, $reporter, $site): bool {
+                // firstOrCreate also handles a concurrent insert via the unique email key.
+                // Starter accounts must never claim an account that already exists.
+                $user = $userModel::query()->firstOrCreate(
+                    ['email' => $userData->email],
+                    ['name' => $userData->name, 'password' => Hash::make($userData->password)],
+                );
 
-            if (! $user->wasRecentlyCreated) {
+                if (! $user->wasRecentlyCreated) {
+                    return false;
+                }
+
+                if (! $user instanceof Authenticatable) {
+                    throw new RuntimeException(sprintf('Install user model [%s] must implement Authenticatable.', $userModel));
+                }
+
+                MarkInstallUserEmailVerifiedAction::run($user);
+                $this->assignRole($user, $userData, $reporter, $site);
+
+                return true;
+            });
+
+            if (! $created) {
                 $reporter->report(__('capell::install.starter_user_exists', ['email' => $userData->email]));
 
                 continue;
             }
-
-            if (! $user instanceof Authenticatable) {
-                throw new RuntimeException(sprintf('Install user model [%s] must implement Authenticatable.', $userModel));
-            }
-
-            MarkInstallUserEmailVerifiedAction::run($user);
-            $this->assignRole($user, $userData, $reporter, $site);
 
             $reporter->report(sprintf(
                 '✓ Prepared install user %s with role %s.',

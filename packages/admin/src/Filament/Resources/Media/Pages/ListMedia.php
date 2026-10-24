@@ -20,7 +20,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Override;
 
@@ -46,7 +45,7 @@ class ListMedia extends ListRecords
             Action::make('upload-files')
                 ->label(__('capell-admin::media.upload_files'))
                 ->icon('heroicon-o-arrow-up-tray')
-                ->authorize(fn (): bool => Gate::allows('create', static::getResource()::getModel()))
+                ->authorize(fn (): bool => static::getResource()::canCreate())
                 ->schema([
                     FileUpload::make('files')
                         ->preventFilePathTampering()
@@ -69,6 +68,7 @@ class ListMedia extends ListRecords
             Action::make('add-youtube-video')
                 ->label(__('capell-admin::media.external_video_create'))
                 ->icon('heroicon-o-play-circle')
+                ->authorize(fn (): bool => static::getResource()::canCreate())
                 ->schema([
                     TextInput::make('name')
                         ->label(__('capell-admin::media.external_video_name'))

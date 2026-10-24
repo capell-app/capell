@@ -46,13 +46,17 @@ final class ResolveInstallUserAction
                 ]);
             }
 
-            /** @var Model&Authenticatable $user */
-            $user = $userModel::query()->create([
-                'name' => $newUser->name,
-                'email' => $newUser->email,
-                'password' => Hash::make($newUser->password),
-            ]);
-            MarkInstallUserEmailVerifiedAction::run($user);
+            $user = new $userModel()->getConnection()->transaction(function () use ($userModel, $newUser): Authenticatable {
+                /** @var Model&Authenticatable $user */
+                $user = $userModel::query()->create([
+                    'name' => $newUser->name,
+                    'email' => $newUser->email,
+                    'password' => Hash::make($newUser->password),
+                ]);
+                MarkInstallUserEmailVerifiedAction::run($user);
+
+                return $user;
+            });
             $reporter->report('✓ Created new user: ' . $newUser->email);
 
             return $user;

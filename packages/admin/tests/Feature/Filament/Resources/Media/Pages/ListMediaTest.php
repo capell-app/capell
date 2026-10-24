@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Media\BuildMediaUsageItemsAction;
 use Capell\Admin\Actions\Media\CreateExternalVideoMediaAction;
+use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
 use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
@@ -598,7 +600,7 @@ it('rejects a forged replacement path and preserves the original media bytes', f
         ->and(Storage::disk('local')->get('private/secret.txt'))->toBe('private sentinel');
 });
 
-it('requires media creation permission for bulk uploads', function (): void {
+it('requires media creation permission for both creation actions', function (string $action): void {
     $site = Site::factory()->createOne();
     Permission::findOrCreate('ViewAny:Media');
     Permission::findOrCreate('Create:Media');
@@ -608,5 +610,48 @@ it('requires media creation permission for bulk uploads', function (): void {
     test()->actingAs($user);
     expect(Gate::allows('create', CapellMedia::class))->toBeFalse();
 
-    Livewire::test(ListMedia::class)->mountAction('upload-files')->assertActionNotMounted();
-});
+    Livewire::test(ListMedia::class)->mountAction($action)->assertActionNotMounted();
+    Livewire::test(ListMedia::class)->call('mountAction', $action)->call('callMountedAction', [
+        'name' => 'Forbidden video',
+        'youtube_url' => 'https://youtu.be/FgalLC99jzY',
+        'site_id' => $site->getKey(),
+        'files' => [UploadedFile::fake()->image('forbidden.png')],
+    ])->assertActionNotMounted();
+
+    expect(CapellMedia::query()->count())->toBe(0);
+})->with(['upload-files', 'add-youtube-video']);
+
+class CreationDeniedMediaResource extends MediaResource
+{
+    protected static ?string $slug = 'media';
+
+    #[Override]
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+}
+
+it('honours a registered media resource that denies creation when the model policy allows it', function (string $action): void {
+    $site = Site::factory()->createOne();
+    expect(Gate::allows('create', CapellMedia::class))->toBeTrue();
+    CapellAdmin::getAdminSurfaceRegistry()->replace(AdminSurfaceContributionData::resource(
+        CreationDeniedMediaResource::class,
+        'Media',
+    ));
+
+    try {
+        expect(ListMedia::getResource())->toBe(CreationDeniedMediaResource::class);
+        Livewire::test(ListMedia::class)->mountAction($action)->assertActionNotMounted();
+        Livewire::test(ListMedia::class)->call('mountAction', $action)->call('callMountedAction', [
+            'name' => 'Forbidden video',
+            'youtube_url' => 'https://youtu.be/FgalLC99jzY',
+            'site_id' => $site->getKey(),
+            'files' => [UploadedFile::fake()->image('forbidden.png')],
+        ])->assertActionNotMounted();
+
+        expect(CapellMedia::query()->count())->toBe(0);
+    } finally {
+        CapellAdmin::getAdminSurfaceRegistry()->replace(AdminSurfaceContributionData::resource(MediaResource::class, 'Media'));
+    }
+})->with(['upload-files', 'add-youtube-video']);

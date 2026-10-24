@@ -1,5 +1,24 @@
 # Upgrading Capell
 
+## Installer account collisions and Marketplace update safety
+
+Creating a primary installer account now rejects an email address that already
+belongs to an account. To use that account, select the existing user by ID instead
+of submitting it as a new user. Starter users whose email addresses already exist
+are skipped; installation does not change those accounts' passwords, email
+verification or roles. Failed creation and initial email verification roll back
+together on the configured user model's database connection, so creation can be
+retried without leaving an unfinished account that collides with the retry.
+
+Marketplace updates must use constraints that allow only versions newer than the
+installed version. This is checked again under the Composer operation lock before
+execution or deployment publication, including for attempts persisted before this
+upgrade and retries. An attempt that was safe when acquired can therefore fail if
+another operation has since advanced the installed version. Request a fresh update
+authorisation for the current installation; retrying the same unsafe constraint
+does not bypass the check. These changes require no schema or stored payload
+migration.
+
 ## Frontend resource graph breaking change
 
 The legacy asset manifest, Mix adapter, build-asset/npm vendor subtypes, loose resource builders, contributor contract, and renderer contract have been removed. Follow the [Frontend Resources upgrade guide](../../packages/frontend/docs/frontend-resources.md), add `capellViteInputs()` to the application Vite input array, run `php artisan capell:frontend-after-install`, and apply the reviewed plan explicitly.

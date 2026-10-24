@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 /**
  * Put an update on the queue, with the same guarantees an install gets.
@@ -164,10 +165,20 @@ final class QueueMarketplaceUpdateAttemptAction
                 return $attempt->refresh();
             }
 
+            try {
+                $publication = PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $claimedAttempt);
+            } catch (Throwable $throwable) {
+                return TransitionMarketplaceInstallAttemptAction::run($claimedAttempt, new MarketplaceInstallAttemptTransitionData(
+                    toStatus: MarketplaceInstallIntentStatus::Failed,
+                    failureReason: $throwable->getMessage(),
+                    failureStage: MarketplaceInstallFailureStage::DeploymentHandoff,
+                ));
+            }
+
             $attempt = RecordMarketplaceInstallDeploymentAction::run(
                 $claimedAttempt,
                 new MarketplaceInstallDeploymentData(
-                    PublishMarketplaceComposerChangeAction::run($acquisition, $listing, $claimedAttempt),
+                    $publication,
                 ),
             );
         }

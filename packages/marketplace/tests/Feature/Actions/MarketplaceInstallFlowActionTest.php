@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Marketplace\Actions\CompleteMarketplaceInstallFlowAction;
+use Capell\Marketplace\Actions\PublishMarketplaceComposerChangeAction;
 use Capell\Marketplace\Actions\ResumeMarketplaceInstallFlowAction;
 use Capell\Marketplace\Actions\StartMarketplaceInstallFlowAction;
 use Capell\Marketplace\Data\CreateMarketplaceInstallFlowSessionData;
@@ -617,12 +618,37 @@ it('resumes a returned flow using the listing composer name when authorization o
     expect($session->status)->toBe(MarketplaceInstallFlowSessionStatus::Completed);
 });
 
-it('refuses a refreshed listing that changes the reviewed package identity', function (): void {
+it('validates the whole basket before queueing when a later selection is invalid', function (array $invalid, string $exception, string $message): void {
     Bus::fake();
+    Http::preventStrayRequests();
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000123',
+        'connection_mode' => MarketplaceConnectionMode::AccountLinked,
+        'account_id' => 'user_123',
+        'account_email' => 'ben@example.com',
+        'account_email_verified_at' => now(),
+        'signing_secret_encrypted' => 'instance-secret',
+        'last_heartbeat_at' => now(),
+    ]);
+    $publication = new class
+    {
+        public int $calls = 0;
+
+        public function handle(mixed ...$arguments): array
+        {
+            $this->calls++;
+
+            return ['status' => 'unavailable'];
+        }
+    };
+    app()->instance(PublishMarketplaceComposerChangeAction::class, $publication);
     $session = MarketplaceInstallFlowSession::query()->create([
         'remote_flow_id' => 'mif_changed_identity',
         'status' => MarketplaceInstallFlowSessionStatus::Returned,
-        'selected_extensions' => [['slug' => 'reviewed', 'composer_name' => 'publisher/reviewed']],
+        'selected_extensions' => [
+            ['slug' => 'valid', 'composer_name' => 'publisher/valid'],
+            ['slug' => 'reviewed', 'composer_name' => 'publisher/reviewed'],
+        ],
         'state_hash' => hash('sha256', 'state'),
         'code_verifier_hash' => hash('sha256', 'verifier'),
         'code_verifier_encrypted' => 'verifier',
@@ -631,16 +657,36 @@ it('refuses a refreshed listing that changes the reviewed package identity', fun
         'returned_at' => now(),
     ]);
     Http::fake([
-        'https://marketplace.test/api/v1/extensions/reviewed' => Http::response(['data' => [
-            'slug' => 'reviewed', 'name' => 'Changed identity', 'composer_name' => 'publisher/unreviewed',
+        'https://marketplace.test/api/v1/extensions/valid' => Http::response(['data' => [
+            'slug' => 'valid', 'name' => 'Valid selection', 'composer_name' => 'publisher/valid',
             'kind' => 'tool', 'price_cents' => 0, 'is_paid' => false, 'latest_version' => '1.2.3',
+        ]]),
+        'https://marketplace.test/api/v1/extensions/reviewed' => Http::response(['data' => [
+            'slug' => 'reviewed', 'name' => 'Reviewed selection', 'composer_name' => 'publisher/reviewed',
+            'kind' => 'tool', 'price_cents' => 0, 'is_paid' => false, 'latest_version' => '1.2.3',
+            ...$invalid,
+        ]]),
+        'https://marketplace.test/api/v1/extensions/reviewed/install-authorization' => Http::response(['data' => [
+            'composer_name' => 'publisher/reviewed',
+            'version_constraint' => '^1.2.3',
+            'eligibility' => [
+                'state' => 'blocked', 'can_install' => false, 'can_update' => false, 'can_run_existing' => false,
+                'block_reason' => 'blocked',
+            ],
         ]]),
     ]);
 
     expect(fn (): mixed => ResumeMarketplaceInstallFlowAction::run($session))
-        ->toThrow(RuntimeException::class, 'does not match the reviewed selection');
+        ->toThrow($exception, $message);
 
     expect(MarketplaceInstallAttempt::query()->count())->toBe(0)
+        ->and($publication->calls)->toBe(0)
         ->and($session->refresh()->status)->toBe(MarketplaceInstallFlowSessionStatus::Failed);
     Bus::assertNothingDispatched();
-});
+})->with([
+    'changed identity' => [['composer_name' => 'publisher/unreviewed'], RuntimeException::class, 'does not match the reviewed selection'],
+    'invalid coordinates' => [['latest_version' => 'invalid version'], UnexpectedValueException::class, 'invalid'],
+    'denied authorisation' => [['eligibility' => [
+        'state' => 'blocked', 'can_install' => false, 'can_update' => false, 'can_run_existing' => false,
+    ]], RuntimeException::class, 'blocked'],
+]);

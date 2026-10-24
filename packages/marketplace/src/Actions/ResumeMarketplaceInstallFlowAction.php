@@ -109,7 +109,7 @@ final class ResumeMarketplaceInstallFlowAction
         MarketplaceInstallFlowSession $session,
         ?MarketplaceInstallActorData $actor,
     ): array {
-        $attempts = [];
+        $prepared = [];
 
         foreach ($this->selectedExtensions($session) as $selection) {
             $slug = $this->requiredString($selection, 'slug');
@@ -139,7 +139,14 @@ final class ResumeMarketplaceInstallFlowAction
             );
 
             $this->assertAuthorizationAllowed($acquisition);
+            $prepared[] = [$listing, $acquisition, $installOptions];
+        }
 
+        // No local attempts, deployment publications or jobs until every selection is valid.
+        $attempts = [];
+
+        foreach ($prepared as [$listing, $acquisition, $installOptions]) {
+            $composerName = $listing->composerName;
             $attempts[] = QueueMarketplaceInstallAttemptAction::run(
                 listing: $listing,
                 acquisition: $acquisition,

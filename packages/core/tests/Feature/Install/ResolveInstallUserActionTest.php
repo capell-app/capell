@@ -9,10 +9,86 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
+
+class RetriableInstallUser extends User implements Illuminate\Contracts\Auth\MustVerifyEmail
+{
+    use MustVerifyEmail;
+
+    public static ?string $testConnection = 'installer_atomicity';
+
+    protected $table = 'users';
+
+    #[Override]
+    public function getConnectionName(): ?string
+    {
+        return self::$testConnection;
+    }
+
+    #[Override]
+    public function getMorphClass(): string
+    {
+        return 'user';
+    }
+}
+
+it('rolls back failed verification on the user connection and can retry account creation', function (bool $additional, bool $separateConnection): void {
+    RetriableInstallUser::$testConnection = $separateConnection ? 'installer_atomicity' : null;
+    config([
+        'auth.providers.users.model' => RetriableInstallUser::class,
+        'database.connections.installer_atomicity' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => ''],
+    ]);
+    $connection = DB::connection('installer_atomicity');
+    $connection->getSchemaBuilder()->create('users', function (Blueprint $table): void {
+        $table->id();
+        $table->string('name');
+        $table->string('email')->unique();
+        $table->string('password');
+        $table->timestamp('email_verified_at')->nullable();
+        $table->timestamps();
+    });
+    $failVerification = true;
+    RetriableInstallUser::updating(function (RetriableInstallUser $user) use (&$failVerification): void {
+        if ($user->isDirty('email_verified_at') && $failVerification) {
+            $failVerification = false;
+
+            throw new RuntimeException('Verification write failed');
+        }
+    });
+    $data = new NewUserData('Retry user', 'retry@example.test', 'retry-password', $separateConnection ? null : 'super_admin');
+    $create = fn (): mixed => $additional
+        ? CreateAdditionalInstallUsersAction::run([$data], new NullProgressReporter)
+        : ResolveInstallUserAction::run(null, $data, new NullProgressReporter);
+
+    try {
+        expect($create)->toThrow(RuntimeException::class, 'Verification write failed');
+        expect(RetriableInstallUser::query()->count())->toBe(0);
+
+        $create();
+
+        $user = RetriableInstallUser::query()->sole();
+        expect($user->hasVerifiedEmail())->toBeTrue()
+            ->and(Hash::check('retry-password', $user->password))->toBeTrue();
+
+        if (! $separateConnection) {
+            expect($user->hasRole('super_admin'))->toBeTrue();
+        }
+    } finally {
+        RetriableInstallUser::flushEventListeners();
+        RetriableInstallUser::$testConnection = 'installer_atomicity';
+        DB::purge('installer_atomicity');
+    }
+})->with([
+    'primary on user connection' => [false, true],
+    'starter on user connection' => [true, true],
+    'starter role initialisation' => [true, false],
+]);
 
 it('returns existing user by id', function (): void {
     $user = User::factory()->createOne();
