@@ -275,6 +275,27 @@ it('can update page url', function (): void {
         ->status->toBeFalse();
 });
 
+it('can edit an existing dotted page URL without changing its path', function (string $path): void {
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->recycle($language)->withTranslations()->createOne();
+    $page = Page::factory()->recycle($site)->recycle($language)->withTranslations()->createOne();
+    $pageUrl = $page->pageUrl;
+    $pageUrl->update(['url' => $path, 'type' => UrlTypeEnum::Alias, 'status' => true]);
+
+    Livewire::test(ManagePageUrls::class)
+        ->assertSuccessful()
+        ->mountAction(TestAction::make(EditAction::class)->table($pageUrl))
+        ->assertSchemaStateSet(['url' => $path])
+        ->fillForm(['status' => '0'])
+        ->callMountedAction()
+        ->assertHasNoFormErrors();
+
+    expect($pageUrl->refresh())
+        ->url->toBe($path)
+        ->type->toBe(UrlTypeEnum::Alias)
+        ->status->toBeFalse();
+})->with(['/.well-known/security.txt', '/release..notes']);
+
 it('can not update page url', function (): void {
     $pageUrl = PageUrl::factory()->createOne();
 

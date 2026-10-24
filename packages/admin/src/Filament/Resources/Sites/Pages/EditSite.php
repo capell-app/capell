@@ -80,7 +80,7 @@ class EditSite extends EditRecord
             __(
                 'capell-admin::heading.edit_site_record',
                 [
-                    'name' => Str::limit($this->recordTitleText(), 40),
+                    'name' => e(Str::limit($this->recordTitleText(), 40)),
                 ],
             ),
         );

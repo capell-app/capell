@@ -7,6 +7,7 @@ namespace Capell\Admin\Support\Icons;
 use Capell\Admin\Contracts\Support\FlagIconRenderer as FlagIconRendererContract;
 use Illuminate\Support\HtmlString;
 use Illuminate\View\ComponentAttributeBag;
+use Override;
 
 class FlagIconRenderer implements FlagIconRendererContract
 {
@@ -22,10 +23,11 @@ class FlagIconRenderer implements FlagIconRendererContract
     /**
      * @param  array<string, mixed>  $attributes
      */
+    #[Override]
     public function render(?string $flag, ?string $label = null, string $style = '4x3', array $attributes = []): HtmlString
     {
         $flagLabel = $this->flagLabel($flag);
-        $attributeBag = new ComponentAttributeBag($attributes);
+        $attributeBag = (new ComponentAttributeBag)->merge($attributes);
 
         if ($flagLabel === '') {
             return new HtmlString('');

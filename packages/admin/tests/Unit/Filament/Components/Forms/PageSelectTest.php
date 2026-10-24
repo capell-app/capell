@@ -12,6 +12,7 @@ use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Actions\Action;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
@@ -303,3 +304,22 @@ function configuredSelectAction(PageSelect $component, string $callbackProperty,
 
     return $configuredAction;
 }
+
+it('escapes the created page name in its rendered notification', function (): void {
+    $name = '<b>"x\'</b>';
+    $site = Site::factory()->withTranslations()->createOne();
+    $blueprint = Blueprint::factory()->page()->createOne();
+    $layout = Layout::factory()->createOne();
+    $pageSelect = PageSelect::make('page_id');
+    $pageSelect->withCreateForm();
+
+    $component = mountedPageSelect($pageSelect);
+    $component->evaluate($component->getCreateOptionUsing(), [
+        'component' => $component,
+        'data' => ['name' => $name, 'site_id' => $site->getKey(), 'blueprint_id' => $blueprint->getKey(), 'layout_id' => $layout->getKey()],
+    ]);
+    $notification = FilamentNotificationSnapshots::pull()->reverse()->firstOrFail();
+
+    expect($notification->getBody())->toContain(e($name))->not->toContain($name);
+    expect($notification->toHtml())->toContain('&lt;b&gt;', '&lt;/b&gt;')->not->toContain($name);
+});
