@@ -25,7 +25,7 @@ final class MarketplaceInstallFlowCallbackController
         $code = $request->query('code');
         $state = $request->query('state');
 
-        if (! is_string($flowId) || ! is_string($code) || ! is_string($state)) {
+        if (! is_string($flowId) || preg_match('/\Amif_[a-zA-Z0-9_-]{1,128}\z/', $flowId) !== 1 || ! is_string($code) || ! is_string($state)) {
             $this->failedNotification($this->supportReference(is_string($flowId) ? $flowId : null));
 
             return $this->redirectToMarketplace();
@@ -58,7 +58,7 @@ final class MarketplaceInstallFlowCallbackController
             ->title((string) __('capell-marketplace::marketplace.install_flow.completed_title'))
             ->body((string) __('capell-marketplace::marketplace.install_flow.queued_body', [
                 'count' => count($composerNames),
-                'reference' => $supportReference,
+                'reference' => e($supportReference),
             ]))
             ->success()
             ->persistent()
@@ -77,7 +77,7 @@ final class MarketplaceInstallFlowCallbackController
         Notification::make()
             ->title((string) __('capell-marketplace::marketplace.install_flow.failed_title'))
             ->body((string) __('capell-marketplace::marketplace.install_flow.failed_body', [
-                'reference' => $supportReference,
+                'reference' => e($supportReference),
             ]))
             ->danger()
             ->persistent()

@@ -154,7 +154,8 @@ class PageUrlForm implements FormConfigurator
 
                                         break;
                                     default:
-                                        if (in_array(preg_match('/^\/[a-z0-9\-_\/.]*$/', $value ?? ''), [0, false], true)) {
+                                        // Dots belong in paths; only complete dot segments are traversal.
+                                        if (in_array(preg_match('~\A/(?:(?!\.{1,2}(?:/|\z))[a-z0-9_.-]+(?:/|\z))*\z~', $value ?? ''), [0, false], true)) {
                                             $fail(__('capell-admin::message.page_url_invalid'));
                                         }
                                 }
@@ -200,10 +201,10 @@ class PageUrlForm implements FormConfigurator
                                     return __('capell-admin::generic.page_url_path_info');
                                 }
 
-                                return new HtmlString($page->getParentUrl(
+                                return new HtmlString(e($page->getParentUrl(
                                     language: $language,
                                     fullUrl: true,
-                                ) . '<strong>' . $state . '</strong>');
+                                )) . '<strong>' . e($state ?? '') . '</strong>');
                             },
                         ),
                 ]),

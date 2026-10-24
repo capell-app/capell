@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
+use Capell\Core\Actions\SiteDomains\AssertSiteDomainClaimAllowedAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\SiteDomain;
@@ -24,6 +25,10 @@ class SiteDomainObserver
         $siteDomain->setAttribute('domain', $host);
         $siteDomain->setAttribute('port', $port);
 
+        if (! $siteDomain->exists || $siteDomain->isDirty(['scheme', 'domain', 'port', 'path', 'site_id'])) {
+            AssertSiteDomainClaimAllowedAction::run($siteDomain);
+        }
+
         if ($siteDomain->path !== null && ! str_starts_with($siteDomain->path, '/')) {
             $siteDomain->path = '/' . $siteDomain->path;
         }
@@ -40,6 +45,11 @@ class SiteDomainObserver
         if ($siteDomain->getAttribute('default') === null) {
             $siteDomain->default = ! $siteDomain->site->hasDefaultDomain();
         }
+    }
+
+    public function restoring(SiteDomain $siteDomain): void
+    {
+        AssertSiteDomainClaimAllowedAction::run($siteDomain);
     }
 
     public function deleting(SiteDomain $siteDomain): void
@@ -85,6 +95,11 @@ class SiteDomainObserver
             CacheEnum::RelationExists,
         ]);
 
-        event(new FrontendSurrogateKeysInvalidated(['site-' . $siteDomain->site_id]));
+        $event = new FrontendSurrogateKeysInvalidated(['site-' . $siteDomain->site_id]);
+
+        // Shared fragments must be invalidated after committed domain data becomes visible.
+        $siteDomain->getConnection()->afterCommit(static function () use ($event): void {
+            event($event);
+        });
     }
 }

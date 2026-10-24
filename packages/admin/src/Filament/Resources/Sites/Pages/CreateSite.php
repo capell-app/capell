@@ -95,6 +95,7 @@ class CreateSite extends CreateRecord
             $urlParts = [
                 'scheme' => $urlParts['scheme'] ?? null,
                 'host' => $urlParts['host'] ?? null,
+                'port' => $urlParts['port'] ?? null,
                 'path' => $urlParts['path'] ?? null,
             ];
 

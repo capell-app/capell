@@ -10,7 +10,7 @@
             $flagIconRenderer->render(
                 $language->flag,
                 $language->name,
-                attributes: ['x-tooltip.raw' => $language->name],
+                attributes: ['x-tooltip.raw' => e($language->name)],
             )
         !!}
     @else

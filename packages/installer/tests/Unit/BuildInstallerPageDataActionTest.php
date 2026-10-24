@@ -319,6 +319,12 @@ it('reuses one bounded catalogue result throughout each uncached installer page'
         };
     });
 
+    config([
+        'capell-installer.bootstrap.secret' => str_repeat('a', 64),
+        'capell-installer.bootstrap.expires_at' => now()->addMinutes(30)->timestamp,
+    ]);
+    $this->post(route('capell-installer.unlock'), ['bootstrap_secret' => str_repeat('a', 64)])
+        ->assertRedirect(route('capell-installer.show'));
     $page = $this->get('/install')->assertOk();
     expect($timeouts)->not->toBeEmpty()
         ->and(max($timeouts))->toBeLessThanOrEqual(2);

@@ -6,9 +6,12 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\QueueMarketplaceBulkUpdateAction;
 use Capell\Marketplace\Actions\QueueMarketplaceUpdateAttemptAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
+use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
+use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
@@ -16,6 +19,7 @@ use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -69,6 +73,7 @@ function bindMarketplaceUpdateVersion(string $version): void
     {
         public function __construct(private string $version) {}
 
+        #[Override]
         public function prettyVersion(string $composerName): ?string
         {
             return $composerName === 'capell-app/seo-suite' ? $this->version : null;
@@ -91,6 +96,61 @@ it('records the operation as an update and dispatches the update job', function 
         fn (RunMarketplaceUpdateAttemptJob $job): bool => $job->uniqueId() === (string) $attempt->getKey(),
     );
 });
+
+it('refuses unsafe deployment updates before publication or dispatch and releases the operation lock', function (string $installed): void {
+    Queue::fake();
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.1.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new readonly class($installed) implements MarketplaceInstalledPackageVersionResolver
+    {
+        public function __construct(private string $version) {}
+
+        #[Override]
+        public function prettyVersion(string $composerName): string
+        {
+            expect(Cache::lock('capell-marketplace:composer-install', 1)->get())->toBeFalse();
+
+            return $this->version;
+        }
+    });
+    $publisher = new class implements MarketplaceComposerChangePublisher
+    {
+        public int $calls = 0;
+
+        #[Override]
+        public function publish(MarketplaceComposerPublicationRequestData $request): MarketplaceComposerPublicationResultData
+        {
+            $this->calls++;
+
+            return new MarketplaceComposerPublicationResultData;
+        }
+    };
+    app()->instance('test.update.publisher', $publisher);
+    app()->tag(['test.update.publisher'], MarketplaceComposerChangePublisher::TAG);
+
+    $attempt = QueueMarketplaceUpdateAttemptAction::run(
+        listing: updateListing(),
+        acquisition: new ExtensionAcquisitionData(
+            composerName: 'capell-app/seo-suite',
+            versionConstraint: '2.4.0',
+            composerCommand: 'composer require capell-app/seo-suite:2.4.0',
+            repositoryUrl: 'https://packages.test',
+            purchaseUrl: null,
+            requiresDeployment: true,
+        ),
+        actor: MarketplaceInstallActorData::system('unsafe-update-test'),
+        source: MarketplaceInstallSource::TableHelper,
+        currentVersion: '2.1.0',
+    );
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+        ->and($attempt->failure_reason)->toBe(__('capell-marketplace::marketplace.errors.unsafe_update_constraint'))
+        ->and($publisher->calls)->toBe(0);
+    Queue::assertNothingPushed();
+    $lock = Cache::lock('capell-marketplace:composer-install', 1);
+    expect($lock->get())->toBeTrue();
+    $lock->release();
+})->with(['current version' => '2.4.0', 'version advanced before publication' => '2.5.0']);
 
 it('refuses to queue a second operation for a package that is already busy', function (): void {
     Queue::fake();

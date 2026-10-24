@@ -285,3 +285,139 @@ PHP_SOURCE;
         ->and($editor->removeStockWelcomeRoutes())->toBe($content)
         ->and(Route::getRoutes()->match(Request::create('/'))->run())->toBe('custom');
 });
+
+it('conservatively detects extension routes and required route files without removing them', function (string $source, bool $root): void {
+    $content = "<?php\n" . $source;
+    $editor = new RootRouteEditor($content);
+
+    expect($editor->hasRootRoute())->toBe($root)
+        ->and($editor->hasStockWelcomeRoute())->toBeFalse()
+        ->and($editor->removeStockWelcomeRoutes())->toBe($content);
+})->with([
+    'inertia root' => ["Route::inertia('/', 'Home');", true],
+    'livewire root' => ["Route::livewire('/', Home::class);", true],
+    'custom root macro' => ["Route::landing('/', Home::class);", true],
+    'named macro URI' => ["Route::landing(component: Home::class, uri: '/');", true],
+    'non-root macro' => ["Route::inertia('/dashboard', 'Dashboard');", false],
+    'prefixed macro' => ["Route::prefix('admin')->livewire('/', Home::class);", false],
+    'deferred macro' => ["\$later = fn () => Route::inertia('/', 'Home');", false],
+    'first class macro' => ['Route::inertia(...);', false],
+    'Volt root' => ["use Livewire\\Volt\\Volt; Volt::route('/', 'home');", true],
+    'Volt alias' => ["use Livewire\\Volt\\Volt as V; V::route('/', 'home');", true],
+    'Volt non-root' => ["use Livewire\\Volt\\Volt; Volt::route('/dashboard', 'dashboard');", false],
+    'unrelated Volt' => ["use App\\Volt; Volt::route('/', 'home');", false],
+    'required routes' => ['require __DIR__ . "/home.php";', true],
+    'required once routes' => ['require_once __DIR__ . "/home.php";', true],
+    'included routes' => ['include __DIR__ . "/home.php";', true],
+    'dynamic required routes' => ['require $routes;', true],
+    'deferred required routes' => ['function later() { require __DIR__ . "/home.php"; }', false],
+    'Breeze auth routes' => ["require __DIR__.'/auth.php';", false],
+    'parenthesised Breeze auth routes' => ["require (__DIR__ . '/auth.php');", false],
+    'unknown auth file' => ["require '/custom/auth.php';", true],
+    'dynamic auth path' => ["require \$directory . '/auth.php';", true],
+    'middleware attribute' => ["Route::middleware('/')->group(fn () => Route::get('/health', fn () => 'ok'));", false],
+]);
+
+it('tracks extension roots after removing only the stock welcome route', function (string $source, bool $root): void {
+    $content = "<?php\n" . $source;
+    $editor = new RootRouteEditor($content . ('
+\\' . Route::class . "::view('/', 'welcome');"));
+    $edited = $editor->removeStockWelcomeRoutes();
+
+    expect($editor->hasStockWelcomeRoute())->toBeTrue()
+        ->and($edited)->toBe($content . "\n")
+        ->and(new RootRouteEditor($edited)->hasStockWelcomeRoute())->toBeFalse()
+        ->and(new RootRouteEditor($edited)->hasRootRoute())->toBe($root);
+})->with([
+    'Volt fully qualified' => ["\\Livewire\\Volt\\Volt::route('/', 'home');", true],
+    'Volt grouped alias' => ["use Livewire\\Volt\\{Volt as V}; V::route('/', 'home');", true],
+    'Volt named URI' => ["use Livewire\\Volt\\Volt; Volt::route(componentName: 'home', uri: '/');", true],
+    'Volt dynamic URI' => ["use Livewire\\Volt\\Volt; Volt::route(\$uri, 'home');", true],
+    'Volt prefixed route' => ["use Livewire\\Volt\\Volt; Volt::route('/', 'home')->prefix('admin');", false],
+    'Volt reset URI' => ["use Livewire\\Volt\\Volt; Volt::route('/dashboard', 'home')->name('home')->setUri('/');", true],
+    'Volt reset inside group' => ["use Livewire\\Volt\\Volt; Route::prefix('admin')->group(fn () => Volt::route('/dashboard', 'home')->setUri('/'));", true],
+    'Volt group prefix' => ["use Livewire\\Volt\\Volt; Route::prefix('admin')->group(fn () => Volt::route('/', 'home'));", false],
+    'Volt deferred' => ["use Livewire\\Volt\\Volt; \$later = fn () => Volt::route('/', 'home');", false],
+    'Volt first class callable' => ['use Livewire\\Volt\\Volt; $later = Volt::route(...);', false],
+    'Volt configuration' => ["use Livewire\\Volt\\Volt; Volt::mount(['/']);", false],
+    'Volt local shadow' => ["namespace Livewire\\Volt; class Volt { public static function route(\$uri, \$name) {} } Volt::route('/', 'home');", false],
+    'macro no arguments' => ['Route::homepage();', true],
+    'macro non-URI first argument' => ["Route::homepage('HomeController');", true],
+    'macro other named argument' => ['Route::homepage(component: Home::class);', true],
+    'macro second URI argument' => ["Route::landing('home', '/');", true],
+    'macro under prefix remains opaque' => ["Route::prefix('admin')->homepage();", true],
+    'macro non-root-looking argument' => ["Route::landing('/dashboard');", true],
+    'macro registration is deferred' => ["Route::macro('homepage', fn () => Route::view('/', 'home'));", false],
+    'macro query' => ["Route::hasMacro('/');", false],
+    'route name query' => ["Route::has('/');", false],
+    'permission attribute' => ["Route::can('view')->get('/health', fn () => 'ok');", false],
+    'missing attribute' => ["Route::missing(fn () => require __DIR__.'/home.php')->get('/health', fn () => 'ok');", false],
+    'as attribute' => ["Route::as('/')->get('/health', fn () => 'ok');", false],
+    'metadata attribute' => ["Route::metadata(['key' => '/'])->get('/health', fn () => 'ok');", false],
+    'include in route arguments' => ["Route::get('/health', require __DIR__.'/home.php');", true],
+    'include in prefixed route arguments' => ["Route::prefix('admin')->get('/health', require __DIR__.'/home.php');", true],
+    'include in registrar arguments' => ["Route::middleware(require __DIR__.'/home.php')->get('/health', fn () => 'ok');", true],
+    'auth include in route arguments' => ["Route::get('/health', require __DIR__.'/auth.php');", false],
+    'deferred include in route action' => ["Route::get('/health', fn () => require __DIR__.'/home.php');", false],
+    'route binding' => ["Route::bind('home', fn () => require __DIR__.'/home.php');", false],
+    'router query with dynamic argument' => ['Route::getRoutes($options);', false],
+    'local router macro' => ["\$router = app('router'); \$router->homepage();", true],
+    'router replacement' => ['Route::setRoutes($routes);', true],
+    'compiled router replacement' => ['Route::setCompiledRoutes($routes);', true],
+    'fallback' => ["Route::fallback(fn () => 'home');", true],
+    'include once opaque' => ["include_once __DIR__.'/home.php';", true],
+    'include opaque in invoked arrow' => ["(fn () => include __DIR__.'/home.php')();", true],
+    'include opaque deferred' => ["\$later = fn () => include __DIR__.'/home.php';", false],
+    'include opaque in class method' => ["class Routes { public function load() { require __DIR__.'/home.php'; } }", false],
+    'include opaque condition' => ["if (require __DIR__.'/home.php') {}", true],
+    'auth include once' => ["include_once __DIR__.'/auth.php';", false],
+    'auth require once' => ["require_once __DIR__.'/auth.php';", false],
+    'auth nested parentheses' => ["require ((__DIR__.'/auth.php'));", false],
+    'auth include in invoked arrow' => ["(fn () => require __DIR__.'/auth.php')();", false],
+    'auth include condition' => ["if (require __DIR__.'/auth.php') {}", false],
+    'auth include within array' => ["\$loaded = [require __DIR__.'/auth.php', true];", false],
+    'auth followed by opaque include' => ["require __DIR__.'/auth.php'; include __DIR__.'/home.php';", true],
+    'auth different basename' => ["require __DIR__.'/other-auth.php';", true],
+    'auth concatenated suffix' => ["require __DIR__.'/auth.php'.\$suffix;", true],
+    'auth separately parenthesised operands' => ["require (__DIR__) . ('/auth.php');", true],
+    'auth file still opaque through group' => ["Route::group([], __DIR__.'/auth.php');", true],
+    'macro name middleware attribute' => ["Route::name('/')->middleware('web')->get('/health', fn () => 'ok');", false],
+    'inertia non-root registration' => ["Route::inertia('/dashboard', 'Dashboard');", false],
+    'livewire non-root registration' => ["Route::livewire('/dashboard', Home::class);", false],
+]);
+
+it('preserves executable macro homepages after stock removal', function (string $registration, string $invocation): void {
+    $macros = new ReflectionProperty(Router::class, 'macros');
+    $originalMacros = $macros->getValue();
+    $content = "<?php\nuse Illuminate\\Support\\Facades\\Route;\n" . $registration . "\n" . $invocation;
+
+    try {
+        $editor = new RootRouteEditor($content . "\nRoute::view('/', 'welcome');");
+        $edited = $editor->removeStockWelcomeRoutes();
+        Route::setRoutes(new RouteCollection);
+        eval(substr($edited, 5));
+
+        expect($edited)->toBe($content . "\n")
+            ->and(new RootRouteEditor($edited)->hasRootRoute())->toBeTrue()
+            ->and(Route::getRoutes()->match(Request::create('/'))->run())->toBe('custom');
+    } finally {
+        $macros->setValue(null, $originalMacros);
+    }
+})->with([
+    'no arguments' => [
+        "Route::macro('rootRouteEditorHome', fn () => Route::get('/', fn () => 'custom'));",
+        'Route::rootRouteEditorHome();',
+    ],
+    'non-URI argument' => [
+        "Route::macro('rootRouteEditorHome', fn (\$component) => Route::get('/', fn () => \$component));",
+        "Route::rootRouteEditorHome('custom');",
+    ],
+    'second URI argument' => [
+        "Route::macro('rootRouteEditorHome', fn (\$component, \$uri) => Route::get(\$uri, fn () => \$component));",
+        "Route::rootRouteEditorHome('custom', '/');",
+    ],
+    'prefix replaced internally' => [
+        "Route::macro('rootRouteEditorHome', fn () => Route::get('/dashboard', fn () => 'custom')->setUri('/'));",
+        "Route::prefix('admin')->group(fn () => Route::rootRouteEditorHome());",
+    ],
+]);

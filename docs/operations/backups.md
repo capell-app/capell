@@ -20,6 +20,9 @@ CAPELL_BACKUP_DISK=backups
 CAPELL_BACKUP_PREFIX=capell-backups
 CAPELL_BACKUP_DB_CONNECTION=mysql
 CAPELL_BACKUP_MEDIA_DISKS=public,media
+CAPELL_BACKUP_SIGNING_KEY_ID=primary
+CAPELL_BACKUP_SIGNING_SECRET_KEY=<base64-ed25519-secret-key>
+CAPELL_BACKUP_SIGNING_PUBLIC_KEY=<base64-ed25519-public-key>
 CAPELL_BACKUP_MAX_AGE_HOURS=26
 CAPELL_BACKUP_MINIMUM_RETAINED=7
 CAPELL_BACKUP_RETAIN=30
@@ -44,9 +47,43 @@ SHA-256 checksums, but no database password, file content, or absolute source
 path. A prefix without `manifest.json` is incomplete and cannot be restored or
 automatically pruned.
 
-Checksums detect corruption; they are not signatures. Restrict write access to
-the backup disk, enable provider-side versioning where available, and monitor
-storage audit logs so an attacker cannot replace both a manifest and artifacts.
+Every new manifest carries an Ed25519 signature covering its identity, database
+connection and driver, timestamp, and all database/media paths, sizes and SHA-256
+digests. The compressed dump is authenticated through its signed digest and is
+checked again after download, before decompression or execution. Signing uses the
+same canonical JSON and Ed25519 verification as project-build manifests.
+
+Generate a dedicated keypair once on a trusted host with PHP Sodium:
+
+```php
+$keypair = sodium_crypto_sign_keypair();
+$secretKey = base64_encode(sodium_crypto_sign_secretkey($keypair));
+$publicKey = base64_encode(sodium_crypto_sign_publickey($keypair));
+```
+
+Store these values in your secret manager and supply the environment variables
+above. Keep the secret key outside the backup disk and retain it securely with
+your infrastructure recovery material. Creation refuses missing, malformed, or
+mismatched signing keys and removes the incomplete snapshot. Never log the secret
+key or commit it. A restore-only host needs only trusted public keys.
+
+`backup.signing.public_keys` maps key IDs to trusted base64 public keys. When
+rotating, add the new public key to that map, select its ID and matching secret
+for creation, and retain old public keys for as long as their snapshots must
+restore. Restore selects a key from this configured map, never from backup
+storage. Removing a key revokes restoration of its snapshots.
+
+The format-version-1 data shape is retained with an added `signature` object
+(`algorithm`, `keyId`, `value`). Unsigned legacy snapshots and snapshots with
+unknown keys or altered contents are refused for restore. Health reports them
+as invalid, and automatic pruning leaves them untouched. There is no unsigned
+restore bypass or automatic signing of old storage contents: create fresh signed
+snapshots from trusted live data before relying on the new restore path. Keep
+legacy recovery isolated and independently authenticated outside this command.
+
+Restrict write access to the backup disk, enable provider-side versioning where
+available, and monitor storage audit logs. Signatures authenticate content;
+retention, freshness monitoring and infrastructure backups remain necessary.
 
 ## Create and monitor snapshots
 
@@ -98,8 +135,9 @@ php artisan capell:backup:restore \
   --media-prefix=drills/20260710
 ```
 
-Before mutation, restore validates the manifest identity and every artifact's
-path, size, and checksum. It then restores the database and media into scratch
+Before mutation, restore verifies the manifest signature against configured
+trusted keys, then validates its identity and every artifact's path, size, and
+checksum. It then restores the database and media into scratch
 targets and runs `capell:doctor --json` in a child process against that scratch
 database. Passwords remain in process environments for database tools and are
 never included in command arguments or output.

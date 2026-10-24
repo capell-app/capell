@@ -105,7 +105,7 @@ class UsersTable implements TableConfigurator
             ])
             ->toolbarActions([
                 ...self::extenderToolbarActions(),
-                DeleteBulkAction::make(),
+                DeleteBulkAction::make()->authorizeIndividualRecords('delete'),
             ])
             ->emptyStateHeading(__('capell-admin::generic.no_users'))
             ->emptyStateDescription(__('capell-admin::generic.no_users_description'))

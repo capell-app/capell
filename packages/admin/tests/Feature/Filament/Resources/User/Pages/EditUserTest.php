@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Resources\Users\Pages\EditUser;
 use Capell\Admin\Models\AdminNotificationSubscription;
+use Capell\Admin\Tests\Fixtures\Models\RealSiteScopedAdminResourceUser;
+use Capell\Admin\Tests\Support\SiteScopedUserFactory;
 use Capell\Core\Database\Factories\UserFactory;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Site;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Fixtures\Models\UserWithoutMedia;
 use Capell\Tests\Fixtures\Policies\UserPolicy;
@@ -18,11 +21,19 @@ use function Pest\Laravel\assertDatabaseHas;
 
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 uses(CreatesAdminUser::class)->group('user');
 
 beforeEach(function (): void {
     test()->actingAsAdmin();
+});
+
+afterEach(function (): void {
+    auth()->logout();
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId(null);
+    resolve(PermissionRegistrar::class)->teams = false;
+    resolve(PermissionRegistrar::class)->forgetCachedPermissions();
 });
 
 it('can retrieve data', function (): void {
@@ -176,11 +187,14 @@ it('does not let non super admins assign roles through the user form', function 
         Permission::findOrCreate($permissionName);
     }
 
-    $actor = test()->createUser();
-    $actor->givePermissionTo(['view_user', 'view_any_user', 'update_user']);
+    config(['permission.teams' => true, 'auth.providers.users.model' => RealSiteScopedAdminResourceUser::class]);
+    resolve(PermissionRegistrar::class)->teams = true;
+    $site = Site::factory()->createOne();
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId($site->getKey());
+    $actor = SiteScopedUserFactory::create($site, ['view_user', 'view_any_user', 'update_user']);
 
     $superAdminRole = Role::findOrCreate('super_admin');
-    $targetUser = UserFactory::new()->createOne(['name' => 'Target User']);
+    $targetUser = SiteScopedUserFactory::create($site);
 
     test()->actingAs($actor);
 
@@ -193,5 +207,21 @@ it('does not let non super admins assign roles through the user form', function 
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect(expectPresent($targetUser->fresh())->hasRole('super_admin'))->toBeFalse();
+    expect(expectPresent($targetUser->fresh())->hasRole('super_admin'))->toBeFalse()
+        ->and($targetUser->fresh()?->name)->toBe('Updated Target User');
+});
+
+it('does not resolve a foreign site user for editing despite host policy update permission', function (): void {
+    Gate::policy(User::class, UserPolicy::class);
+    config(['permission.teams' => true, 'auth.providers.users.model' => RealSiteScopedAdminResourceUser::class]);
+    resolve(PermissionRegistrar::class)->teams = true;
+    $site = Site::factory()->createOne();
+    resolve(PermissionRegistrar::class)->setPermissionsTeamId($site->getKey());
+    $actor = SiteScopedUserFactory::create($site, ['view_user', 'view_any_user', 'update_user']);
+    $foreign = SiteScopedUserFactory::create(Site::factory()->createOne());
+    test()->actingAs($actor);
+
+    expect(Gate::allows('update', $foreign))->toBeTrue();
+
+    Livewire::test(EditUser::class, ['record' => $foreign->getKey()])->assertNotFound();
 });

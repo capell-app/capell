@@ -69,9 +69,11 @@ class LayoutsTable implements TableConfigurator
             })
             ->recordActions(static::getTableActions())
             ->toolbarActions([
-                RestoreBulkAction::make(),
+                RestoreBulkAction::make()
+                    ->authorizeIndividualRecords('restore'),
                 ForceDeleteBulkAction::make(),
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->modalContent(fn (EloquentCollection|Collection|LazyCollection $records): Factory|\Illuminate\Contracts\View\View => view('capell-admin::components.record-deletion-impact', [
                         'impact' => resolve(BuildLayoutDeletionImpactAction::class)->handleMany($records),
                     ]))

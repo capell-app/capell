@@ -1,5 +1,79 @@
 # Upgrading Capell
 
+## Admin authorisation and domain claims
+
+Review custom roles when deploying the authorisation update. Inline creation of
+Blueprints, Themes and Languages now requires the corresponding `Create:Blueprint`,
+`Create:Theme` or `Create:Language` permission; page editing alone does not grant it.
+Inline edits require their resource's update permission. Site and Layout bulk
+restoration and permanent deletion require `RestoreAny:Site`, `ForceDeleteAny:Site`,
+`RestoreAny:Layout` and `ForceDeleteAny:Layout` respectively. Site replication also
+requires `Replicate:Site`, site access and permission to create sites. Individual
+record checks continue to apply to bulk actions. Preserve deliberate restrictions
+when updating custom roles; do not grant every permission to restore old UI access.
+Explicit host policies for a model or its ancestors take precedence over Capell's
+default policies.
+
+Run the Core migrations before accepting domain writes or site restorations. The
+`site_domain_claim_locks` table contains a seeded mutex row used by domain saves,
+individual restores and site cascade restores in the same database transaction.
+Do not delete that row. All origins share this lock because a wildcard scheme or
+host can overlap a more specific claim. An inaccessible site's origin cannot be
+claimed by choosing another path; refused cascade restores leave the entire
+batch deleted. Trusted integrations that write domains must use model saves or
+the restore action, rather than bulk SQL updates that bypass model guards.
+
+Marketplace install, update and licence mutations now enforce the extension
+management permission at their web entry points. These guards do **not** cancel
+operations already queued before deployment or before a role was revoked. Review
+and explicitly cancel pending operations through the owning queue/operation
+workflow if they must not run, and restart workers onto the deployed code.
+
+Browser removal of the installer requires the explicit
+`CAPELL_SERVER_SIDE_TOOLING=true` opt-in as well as the existing post-install
+session grant or global administrator access. Keep this disabled on immutable
+releases and remove the installer during the build instead. A refused or failed
+browser removal retains the session grant so the operator can correct the host
+configuration and retry; successful removal consumes it.
+
+## Installer account collisions and Marketplace update safety
+
+Creating a primary installer account now rejects an email address that already
+belongs to an account. To use that account, select the existing user by ID instead
+of submitting it as a new user. Starter users whose email addresses already exist
+are skipped; installation does not change those accounts' passwords, email
+verification or roles. Failed creation and initial email verification roll back
+together on the configured user model's database connection, so creation can be
+retried without leaving an unfinished account that collides with the retry.
+
+Marketplace updates must use constraints that allow only versions newer than the
+installed version. This is checked again under the Composer operation lock before
+execution or deployment publication, including for attempts persisted before this
+upgrade and retries. An attempt that was safe when acquired can therefore fail if
+another operation has since advanced the installed version. Request a fresh update
+authorisation for the current installation; retrying the same unsafe constraint
+does not bypass the check. These changes require no schema or stored payload
+migration.
+
+## Admin view escaping fixes
+
+If your application overrides Capell Admin Blade views under
+`resources/views/vendor/capell-admin`, port the escaping changes from these
+package views into your overrides when upgrading:
+
+- `components/forms/site/site_domain_item_label.blade.php`
+- `components/forms/slug-input.blade.php`
+- `components/tables/columns/language-flags.blade.php`
+- `components/tables/columns/locale-flags.blade.php`
+
+Use escaped Blade attributes for the slug input's `placeholder` and `autocomplete`.
+For flag tooltips, pass `e($language->name)` (or the equivalent related language
+name) to `x-tooltip.raw` and retain the flag renderer's attribute escaping. Both
+layers are required: the browser decodes the attribute before the tooltip renders
+its value as HTML. Keep names unchanged in storage and escape them at rendering
+boundaries. Package updates do not replace application view overrides; compare
+each override with the updated package view rather than overwriting customisations.
+
 ## Frontend resource graph breaking change
 
 The legacy asset manifest, Mix adapter, build-asset/npm vendor subtypes, loose resource builders, contributor contract, and renderer contract have been removed. Follow the [Frontend Resources upgrade guide](../../packages/frontend/docs/frontend-resources.md), add `capellViteInputs()` to the application Vite input array, run `php artisan capell:frontend-after-install`, and apply the reviewed plan explicitly.

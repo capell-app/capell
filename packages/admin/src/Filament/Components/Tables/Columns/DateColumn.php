@@ -11,9 +11,11 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Contracts\HasTable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Override;
 
 class DateColumn extends TextColumn
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -53,7 +55,7 @@ class DateColumn extends TextColumn
                 $creatorName = $creatorModel instanceof Model ? (string) $creatorModel->getAttribute('name') : '';
 
                 $tooltip = e((string) __('capell-admin::generic.created_by_at', [
-                    'name' => $creatorName,
+                    'name' => e($creatorName),
                     'date' => $createdAt->translatedFormat($this->getTable()->getDefaultDateTimeDisplayFormat()),
                 ]));
 
@@ -86,7 +88,7 @@ class DateColumn extends TextColumn
                 }
 
                 $tooltip = e((string) __('capell-admin::generic.deleted_by_at', [
-                    'name' => (string) $name,
+                    'name' => e((string) $name),
                     'date' => $deletedAt->translatedFormat($this->getTable()->getDefaultDateTimeDisplayFormat()),
                 ]));
 
@@ -120,7 +122,7 @@ class DateColumn extends TextColumn
                 $editorName = (string) $editorModel->getAttribute('name');
 
                 $tooltip = e((string) __('capell-admin::generic.updated_by_at', [
-                    'name' => $editorName,
+                    'name' => e($editorName),
                     'date' => $updatedAt->translatedFormat($this->getTable()->getDefaultDateTimeDisplayFormat()),
                 ]));
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Livewire;
 
+use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Installer\Actions\GetActiveInstallAction;
 use Capell\Installer\Actions\RemoveSetupPackageAction;
 use Capell\Installer\Filament\Pages\InstallGuidePage;
@@ -14,6 +15,7 @@ use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Livewire\Attributes\Lazy;
 use Livewire\Component;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
@@ -37,6 +39,7 @@ final class InstallerWarning extends Component implements HasActions, HasForms
     public function deleteInstallerAction(): Action
     {
         return Action::make('deleteInstaller')
+            ->authorize(fn (): bool => $this->canDeleteInstaller())
             ->label(__('capell-installer::widgets.delete_installer_action'))
             ->color('danger')
             ->outlined()
@@ -47,7 +50,11 @@ final class InstallerWarning extends Component implements HasActions, HasForms
             ->modalContent(view('capell-installer::components.delete-installer-modal', [
                 'installUrl' => route('capell-installer.show'),
             ]))
-            ->action(fn () => redirect()->to(RemoveSetupPackageAction::run()));
+            ->action(function (): RedirectResponse {
+                abort_unless($this->canDeleteInstaller(), 403);
+
+                return redirect()->to(RemoveSetupPackageAction::run(requiresServerSideTooling: true));
+            });
     }
 
     public function render(): View
@@ -66,5 +73,11 @@ final class InstallerWarning extends Component implements HasActions, HasForms
             'installerPackageIsInstalled' => $this->installerPackageIsInstalled,
             'shouldShowWarning' => $this->installerPackageIsInstalled,
         ]);
+    }
+
+    private function canDeleteInstaller(): bool
+    {
+        return SiteAccess::current()->isGlobal()
+            && config('capell.server_side_tooling', false) === true;
     }
 }

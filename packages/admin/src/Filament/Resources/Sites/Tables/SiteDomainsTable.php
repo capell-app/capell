@@ -55,6 +55,7 @@ class SiteDomainsTable implements TableConfigurator
                         if (! $livewire::validateExists([
                             'scheme' => $data['scheme'],
                             'host' => $data['domain'],
+                            'port' => $data['port'] ?? null,
                             'path' => $data['path'],
                         ])) {
                             $action->halt();
@@ -66,8 +67,10 @@ class SiteDomainsTable implements TableConfigurator
                 TrashedFilter::make(),
             ])
             ->toolbarActions([
-                DeleteBulkAction::make(),
-                RestoreBulkAction::make(),
+                DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete'),
+                RestoreBulkAction::make()
+                    ->authorizeIndividualRecords('restore'),
                 ForceDeleteBulkAction::make(),
             ])
             ->emptyStateHeading(__('capell-admin::generic.no_site_domains'))
@@ -84,6 +87,7 @@ class SiteDomainsTable implements TableConfigurator
                             $urlParts = [
                                 'scheme' => $data['scheme'],
                                 'host' => $data['domain'],
+                                'port' => $data['port'] ?? null,
                                 'path' => $data['path'],
                             ];
 

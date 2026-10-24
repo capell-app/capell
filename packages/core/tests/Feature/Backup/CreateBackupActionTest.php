@@ -3,14 +3,18 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\Backup\CreateBackupAction;
+use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
 use Capell\Core\Data\Backup\BackupManifestData;
 use Capell\Core\Support\Backup\BackupTemporaryFiles;
+use Capell\Core\Tests\Support\BackupSigningTestKeys;
 use Capell\Core\Tests\Support\Stubs\RecordingBackupFilesystem;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\UnableToCreateDirectory;
 
 beforeEach(function (): void {
+    BackupSigningTestKeys::configure();
     Storage::fake('backups');
     Storage::fake('media');
     $this->temporaryFilesDirectory = sys_get_temp_dir() . '/capell-create-scratch-' . bin2hex(random_bytes(8));
@@ -66,6 +70,45 @@ it('creates a database and media snapshot and writes its manifest last', functio
 
     unlink($temporaryDatabase);
 });
+
+it('signs every manifest field and its database and media digests', function (): void {
+    Storage::disk('media')->put('example.txt', 'media');
+    $manifest = CreateBackupAction::run();
+    $payload = $manifest->toArray();
+    $metadata = $payload['signature'] ?? null;
+    assert(is_array($metadata));
+    $signature = base64_decode($metadata['value'], true);
+    $publicKey = base64_decode((string) config('backup.signing.public_keys.test-key'), true);
+
+    expect($metadata['algorithm'])->toBe('ed25519')
+        ->and($metadata['keyId'])->toBe('test-key')
+        ->and(sodium_crypto_sign_verify_detached(
+            $signature,
+            CanonicalizeProjectBuildManifestSigningInputAction::run($payload),
+            $publicKey,
+        ))->toBeTrue();
+
+    $payload['media'][0]['sha256'] = str_repeat('0', 64);
+    expect(sodium_crypto_sign_verify_detached(
+        $signature,
+        CanonicalizeProjectBuildManifestSigningInputAction::run($payload),
+        $publicKey,
+    ))->toBeFalse();
+});
+
+it('publishes no snapshot when signing configuration is missing invalid or mismatched', function (string $failure): void {
+    match ($failure) {
+        'missing secret' => config(['backup.signing.secret_key' => null]),
+        'invalid secret' => config(['backup.signing.secret_key' => 'invalid']),
+        'missing public key' => config(['backup.signing.public_keys' => []]),
+        'mismatched keypair' => config(['backup.signing.public_keys.test-key' => base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_keypair()))]),
+        default => throw new LogicException('Unknown signing failure case.'),
+    };
+
+    expect(fn () => CreateBackupAction::run(databaseOnly: true))->toThrow(RuntimeException::class)
+        ->and(Storage::disk('backups')->allFiles())->toBeEmpty()
+        ->and(glob($this->temporaryFilesDirectory . '/*'))->toBe([]);
+})->with(['missing secret', 'invalid secret', 'missing public key', 'mismatched keypair']);
 
 it('supports database-only snapshots', function (): void {
     Storage::disk('media')->put('images/example.txt', 'media-content');
@@ -172,3 +215,21 @@ function backupCreatedValue(string $databasePath): string
 
     return is_string($value) ? $value : throw new RuntimeException('Created backup fixture value is missing.');
 }
+
+it('refuses an unusable signing configuration before taking a dump or uploading anything', function (): void {
+    config(['backup.signing.secret_key' => null]);
+    $disk = Mockery::mock(FilesystemAdapter::class)->shouldIgnoreMissing();
+    $disk->shouldNotReceive('put', 'putFile', 'putFileAs', 'writeStream', 'deleteDirectory', 'delete');
+    Storage::set('backups', $disk);
+
+    expect(fn () => CreateBackupAction::run(databaseOnly: true))->toThrow(RuntimeException::class);
+});
+
+it('refuses a signed manifest whose media entries are not a list', function (): void {
+    Storage::disk('media')->put('first.txt', 'one');
+    Storage::disk('media')->put('second.txt', 'two');
+    $payload = CreateBackupAction::run()->toArray();
+    $payload['media'] = [1 => $payload['media'][1], 0 => $payload['media'][0]];
+
+    expect(fn (): BackupManifestData => BackupManifestData::fromManifestArray($payload))->toThrow(UnexpectedValueException::class);
+});
