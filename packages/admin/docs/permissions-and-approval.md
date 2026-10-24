@@ -32,17 +32,17 @@ The default admin panel enables Filament strict authorisation. A resource with n
 
 Gate-based access control throughout the admin:
 
-| Policy           | Model (Shield subject) | Covers                                                                |
-| ---------------- | ---------------------- | --------------------------------------------------------------------- |
-| `PagePolicy`     | `Page`                 | view/create/update/delete/publish + page-type role restriction check  |
-| `SitePolicy`     | `Site`                 | view/manage sites and the Permissions relation manager                |
-| `LayoutPolicy`   | `Layout`               | layout access                                                         |
-| `MediaPolicy`    | `Media`                | media access                                                          |
-| `RedirectPolicy` | `PageUrl`              | redirect CRUD + import/export gates (redirects are stored in PageUrl) |
-| `UserPolicy`     | user model             | user access and user management                                       |
-| `ActivityPolicy` | `Activity`             | activity resource permissions                                         |
-| `BlockTemplatePolicy` | `BlockTemplate`    | block-template resource permissions                                   |
-| `RolePolicy`     | configured role model  | role resource permissions                                             |
+| Policy                | Model (Shield subject) | Covers                                                                |
+| --------------------- | ---------------------- | --------------------------------------------------------------------- |
+| `PagePolicy`          | `Page`                 | view/create/update/delete/publish + page-type role restriction check  |
+| `SitePolicy`          | `Site`                 | view/manage sites and the Permissions relation manager                |
+| `LayoutPolicy`        | `Layout`               | layout access                                                         |
+| `MediaPolicy`         | `Media`                | media access                                                          |
+| `RedirectPolicy`      | `PageUrl`              | redirect CRUD + import/export gates (redirects are stored in PageUrl) |
+| `UserPolicy`          | user model             | user access and user management                                       |
+| `ActivityPolicy`      | `Activity`             | activity resource permissions                                         |
+| `BlockTemplatePolicy` | `BlockTemplate`        | block-template resource permissions                                   |
+| `RolePolicy`          | configured role model  | role resource permissions                                             |
 
 Navigation policies are package-owned by `capell-app/navigation`. Workspace policies and approval gates are package-owned by `capell-app/publishing-studio`.
 
