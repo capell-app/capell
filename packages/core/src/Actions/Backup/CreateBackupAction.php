@@ -63,6 +63,8 @@ final class CreateBackupAction
                 media: $mediaArtifacts,
             );
 
+            $manifest = BackupManifestData::fromManifestArray(SignBackupManifestAction::run($manifest->toArray()));
+
             $this->store->putManifest($snapshotId, $manifest->toArray());
 
             return $manifest;

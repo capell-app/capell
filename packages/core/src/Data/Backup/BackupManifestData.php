@@ -22,6 +22,7 @@ final class BackupManifestData extends Data
         public string $connectionName,
         public BackupArtifactData $database,
         public array $media,
+        public ?BackupManifestSignatureData $signature = null,
     ) {}
 
     /**
@@ -67,6 +68,15 @@ final class BackupManifestData extends Data
 
         throw_if(($manifest['media_file_count'] ?? null) !== count($media) || ($manifest['media_bytes'] ?? null) !== $mediaBytes, UnexpectedValueException::class, 'Backup manifest media totals are invalid.');
 
+        $signature = null;
+
+        if (isset($manifest['signature'])) {
+            $metadata = $manifest['signature'];
+            throw_unless(is_array($metadata) && is_string($metadata['algorithm'] ?? null)
+                && is_string($metadata['keyId'] ?? null) && is_string($metadata['value'] ?? null), UnexpectedValueException::class, __('capell-core::backup.untrusted_signature'));
+            $signature = new BackupManifestSignatureData($metadata['algorithm'], $metadata['keyId'], $metadata['value']);
+        }
+
         return new self(
             formatVersion: 1,
             snapshotId: $manifest['snapshot_id'],
@@ -75,6 +85,7 @@ final class BackupManifestData extends Data
             connectionName: $manifest['connection_name'],
             database: $database,
             media: $media,
+            signature: $signature,
         );
     }
 
@@ -88,6 +99,7 @@ final class BackupManifestData extends Data
      *     database: array{kind: string, path: string, bytes: int, sha256: string, source_disk: string|null, source_path: string|null},
      *     media: list<array{kind: string, path: string, bytes: int, sha256: string, source_disk: string|null, source_path: string|null}>,
      *     media_file_count: int,
+     *     signature?: array{algorithm: string, keyId: string, value: string},
      *     media_bytes: int
      * }
      */
@@ -106,6 +118,11 @@ final class BackupManifestData extends Data
                 $this->media,
             ),
             'media_file_count' => count($this->media),
+            ...($this->signature instanceof BackupManifestSignatureData ? ['signature' => [
+                'algorithm' => $this->signature->algorithm,
+                'keyId' => $this->signature->keyId,
+                'value' => $this->signature->value,
+            ]] : []),
             'media_bytes' => array_sum(array_map(
                 static fn (BackupArtifactData $artifact): int => $artifact->bytes,
                 $this->media,

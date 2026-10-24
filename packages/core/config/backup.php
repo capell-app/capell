@@ -19,6 +19,13 @@ return [
     'prune_schedule_enabled' => (bool) env('CAPELL_BACKUP_PRUNE_SCHEDULE_ENABLED', false),
     'prune_schedule_cron' => env('CAPELL_BACKUP_PRUNE_SCHEDULE_CRON', '0 3 * * 1'),
     'process_timeout_seconds' => (int) env('CAPELL_BACKUP_PROCESS_TIMEOUT_SECONDS', 3600),
+    'signing' => [
+        'key_id' => env('CAPELL_BACKUP_SIGNING_KEY_ID', 'primary'),
+        'secret_key' => env('CAPELL_BACKUP_SIGNING_SECRET_KEY'),
+        'public_keys' => [
+            env('CAPELL_BACKUP_SIGNING_KEY_ID', 'primary') => env('CAPELL_BACKUP_SIGNING_PUBLIC_KEY'),
+        ],
+    ],
     'scratch' => [
         'database_prefix' => env('CAPELL_BACKUP_SCRATCH_DATABASE_PREFIX', 'capell_restore_'),
         'sqlite_directory' => env('CAPELL_BACKUP_SCRATCH_SQLITE_DIRECTORY', storage_path('app/capell-restore')),
