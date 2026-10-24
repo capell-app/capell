@@ -104,6 +104,10 @@ class AdminTestCase extends AbstractTestCase
     {
         return [
             ...parent::resolveMigrationPaths(),
+            ...array_map(
+                static fn (string $migration): string => __DIR__ . '/../database/migrations/' . $migration . '.php',
+                CapellAdmin::getMigrations(),
+            ),
         ];
     }
 

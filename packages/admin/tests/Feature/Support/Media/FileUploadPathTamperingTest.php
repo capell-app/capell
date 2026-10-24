@@ -430,7 +430,7 @@ it('retains numeric stored filenames across a failed save', function (bool $nati
     expect($schema->getState()['icon'])->toBe('123');
 })->with([false, true]);
 
-it('binds failed-save uploads to every enclosing builder block type', function (bool $native, string $changed): void {
+it('binds failed-save uploads to every enclosing builder block type', function (bool $native, string $changed, string $boundary): void {
     Storage::fake('local');
     config()->set('livewire.temporary_file_upload.disk', 'local');
     Storage::disk('local')->put('livewire-tmp/document.txt', 'A document, not an image');
@@ -442,14 +442,26 @@ it('binds failed-save uploads to every enclosing builder block type', function (
     ]]]);
     $livewire->setId('builder-retry-form');
 
-    $makeSchema = function () use (&$livewire, $native): Schema {
-        $makeChildren = function () use ($native): Builder {
-            $makeFile = fn (): BaseFileUpload => ($native ? NativeWidgetFileUpload::make('file') : Capell\Admin\Filament\Components\Forms\FileUpload::make('file'))
-                ->disk('local')->directory('docs');
+    $makeSchema = function () use (&$livewire, $native, $boundary): Schema {
+        $makeChildren = function () use ($native, $boundary): Builder {
+            $makeFile = function (bool $image = false) use ($native, $boundary): BaseFileUpload|Group {
+                $file = ($native ? NativeWidgetFileUpload::make('file') : Capell\Admin\Filament\Components\Forms\FileUpload::make('file'))
+                    ->disk('local')->directory('docs');
+                if ($image) {
+                    $file->image();
+                }
+
+                return match ($boundary) {
+                    'upload-array' => $file->model([]),
+                    'group-array' => Group::make([$file])->model([]),
+                    'group-record' => Group::make([$file])->model(new Site),
+                    default => $file,
+                };
+            };
 
             return Builder::make('children')->blocks([
                 Block::make('document')->schema([$makeFile()]),
-                Block::make('image')->schema([$makeFile()->image()]),
+                Block::make('image')->schema([$makeFile(true)]),
             ]);
         };
 
@@ -481,4 +493,4 @@ it('binds failed-save uploads to every enclosing builder block type', function (
     }
 
     expect(fn (): array => $makeSchema()->getState())->toThrow(ValidationException::class);
-})->with([false, true])->with(['inner', 'outer']);
+})->with([false, true])->with(['inner', 'outer'])->with(['none', 'upload-array', 'group-array', 'group-record']);

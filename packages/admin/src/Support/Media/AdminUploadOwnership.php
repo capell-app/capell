@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Support\Media;
 
+use Capell\Admin\Actions\Media\PruneAdminUploadGrantsAction;
 use Filament\Forms\Components\BaseFileUpload;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Cache;
 
 final class AdminUploadOwnership
 {
@@ -29,10 +29,10 @@ final class AdminUploadOwnership
             return;
         }
 
+        PruneAdminUploadGrantsAction::run(100);
+        $registry = resolve(AdminUploadGrantRepository::class);
         foreach ($paths as $path) {
-            // One atomic insert per grant: no session snapshot or shared index
-            // can erase another request's uploads. add() never renews a grant.
-            Cache::add($this->key($scope, $path), true, now()->addMinutes((int) config('session.lifetime', 120)));
+            $registry->grant($scope, $path);
         }
     }
 
@@ -47,8 +47,8 @@ final class AdminUploadOwnership
         // Submitted strings are candidates only, never authority to mint grants.
         // No enumerable index, session write, cleanup or TTL refresh on reads.
         return array_values(array_filter(
-            $this->candidates($upload),
-            fn (string $path): bool => Cache::get($this->key($scope, $path)) === true && $upload->getDisk()->exists($path),
+            resolve(AdminUploadGrantRepository::class)->paths($scope, $this->candidates($upload)),
+            fn (string $path): bool => $upload->getDisk()->exists($path),
         ));
     }
 
@@ -59,10 +59,10 @@ final class AdminUploadOwnership
             return;
         }
 
-        foreach ($this->candidates($upload) as $path) {
-            $key = $this->key($scope, $path);
-            if (Cache::get($key) === true && ! $upload->getDisk()->exists($path)) {
-                Cache::forget($key);
+        $registry = resolve(AdminUploadGrantRepository::class);
+        foreach ($registry->paths($scope, $this->candidates($upload)) as $path) {
+            if (! $upload->getDisk()->exists($path)) {
+                $registry->forget($scope, $path);
             }
         }
     }
@@ -91,11 +91,6 @@ final class AdminUploadOwnership
             $upload->getDiskName(),
             $upload->getDirectory(),
         ]));
-    }
-
-    private function key(string $scope, string $path): string
-    {
-        return 'capell:admin-upload:' . $scope . ':' . hash('sha256', $path);
     }
 
     /** @return list<string> */

@@ -28,7 +28,7 @@
     },
     "contributes": [],
     "database": {
-        "migrations": false,
+        "migrations": true,
         "settings": true,
         "requiredTables": []
     },

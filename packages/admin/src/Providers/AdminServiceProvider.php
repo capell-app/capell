@@ -15,6 +15,7 @@ use Capell\Admin\Console\Commands\ClearCacheCommand;
 use Capell\Admin\Console\Commands\ClearConfiguratorsCacheCommand;
 use Capell\Admin\Console\Commands\ClearWidgetsCacheCommand;
 use Capell\Admin\Console\Commands\InstallCommand;
+use Capell\Admin\Console\Commands\PruneAdminUploadGrantsCommand;
 use Capell\Admin\Console\Commands\PublishResourcesCommand;
 use Capell\Admin\Console\Commands\RepairComposerDriftCommand;
 use Capell\Admin\Console\Commands\SendUpgradeSummaryNotificationCommand;
@@ -320,6 +321,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 ClearConfiguratorsCacheCommand::class,
                 InstallCommand::class,
                 PublishResourcesCommand::class,
+                PruneAdminUploadGrantsCommand::class,
                 RepairComposerDriftCommand::class,
                 SendUpgradeSummaryNotificationCommand::class,
                 SetupCommand::class,
@@ -329,6 +331,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             ])
             ->hasConfigFile(['capell-admin'])
             ->hasTranslations()
+            ->hasMigrations(CapellAdmin::getMigrations())
             ->hasRoute('web');
 
         $this->optimizes(
@@ -1363,6 +1366,11 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     private function registerContentRetentionSchedule(): self
     {
         $this->registerSchedule(function (Schedule $schedule): void {
+            $schedule->command('capell:admin-prune-upload-grants')
+                ->hourly()
+                ->withoutOverlapping()
+                ->onOneServer();
+
             $schedule->command('capell:purge-soft-deleted-media')
                 ->dailyAt('03:00')
                 ->withoutOverlapping()
