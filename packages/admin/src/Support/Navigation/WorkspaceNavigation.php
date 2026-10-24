@@ -169,8 +169,12 @@ final class WorkspaceNavigation
     private function sectionFor(NavigationItem $item, NavigationGroup $group): ?string
     {
         // Explicit job groups take precedence over legacy URL-based placement.
-        foreach (['customers', 'operations', 'security'] as $section) {
-            if ($group->getLabel() === __('capell-admin::navigation.group_' . $section)) {
+        foreach ([
+            'customers' => __('capell-admin::navigation.group_customers'),
+            'operations' => __('capell-admin::navigation.group_operations'),
+            'security' => __('capell-admin::navigation.group_security'),
+        ] as $section => $label) {
+            if ($group->getLabel() === $label) {
                 return $section;
             }
         }

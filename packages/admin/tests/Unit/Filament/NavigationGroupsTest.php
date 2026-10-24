@@ -81,9 +81,12 @@ it('keeps permitted package job destinations in sidebar order before system', fu
 
     $groups = collect(Filament::getNavigation());
     $labels = $groups->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all();
-    $jobLabels = array_map(fn (string $key): string => (string) __('capell-admin::navigation.group_' . $key), [
-        'customers', 'operations', 'security', 'system',
-    ]);
+    $jobLabels = [
+        (string) __('capell-admin::navigation.group_customers'),
+        (string) __('capell-admin::navigation.group_operations'),
+        (string) __('capell-admin::navigation.group_security'),
+        (string) __('capell-admin::navigation.group_system'),
+    ];
 
     expect(array_values(array_intersect($labels, $jobLabels)))->toBe($jobLabels);
 
