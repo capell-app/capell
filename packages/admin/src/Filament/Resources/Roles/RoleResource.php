@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Roles;
 
 use BezhanSalleh\FilamentShield\Resources\Roles\RoleResource as ShieldRoleResource;
+use Capell\Admin\Filament\Actions\EditAction;
 use Capell\Admin\Filament\Resources\Roles\Pages\CreateRole;
 use Capell\Admin\Filament\Resources\Roles\Pages\EditRole;
 use Capell\Admin\Filament\Resources\Roles\Pages\ListRoles;
@@ -13,7 +14,6 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Forms\Components\Toggle;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;

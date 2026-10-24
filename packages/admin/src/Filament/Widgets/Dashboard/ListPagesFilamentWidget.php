@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Dashboard;
 
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
+use Capell\Admin\Filament\Actions\EditAction;
 use Capell\Admin\Filament\Components\Tables\Columns\DateColumn;
 use Capell\Admin\Filament\Components\Tables\Columns\Page\PageNameColumn;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
@@ -19,7 +20,6 @@ use Capell\Core\Models\Scopes\LanguagesOrderScope;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
-use Filament\Actions\EditAction;
 use Filament\Support\Enums\Alignment;
 use Filament\Tables\Columns\Layout\Split;
 use Filament\Tables\Columns\Layout\Stack;
