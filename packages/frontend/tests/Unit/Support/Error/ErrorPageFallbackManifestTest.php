@@ -203,3 +203,37 @@ it('ignores unversioned generated branding until routes are regenerated includin
             ->and(ErrorPageFallbackManifest::forHost('unknown.test', '500'))->toBe(['logo_url' => null, 'copy' => null]);
     }
 });
+
+it('round trips explicit branding before and after generation and subsequent regeneration', function (bool $explicitFirst): void {
+    $store = resolve(ErrorPageFallbackManifestStore::class);
+    $generate = fn () => $store->replaceSite(1, [[
+        'scheme' => 'https', 'port' => 8443, 'domain' => 'shared.test', 'path' => '/docs',
+        ...fallbackBranding('GENERATED'),
+    ], [
+        'scheme' => 'https', 'port' => 443, 'domain' => 'route.test', 'path' => '/docs',
+        ...fallbackBranding('ROUTE'),
+    ]]);
+    $configure = function () use ($store): void {
+        $host = fallbackBranding('HOST');
+        $default = fallbackBranding('DEFAULT');
+        $store->setHost('SHARED.test', $host['logo_url'], $host['copy']);
+        $store->setDefault($default['logo_url'], $default['copy']);
+    };
+    if ($explicitFirst) {
+        $configure();
+        $generate();
+    } else {
+        $generate();
+        $configure();
+    }
+
+    for ($round = 0; $round < 2; $round++) {
+        expect(ErrorPageFallbackManifest::forHost('shared.test', '500', 'https', 8443, '/docs/missing')['copy']['headline'] ?? null)->toBe('HOST headline')
+            ->and(ErrorPageFallbackManifest::forHost('shared.test', '500')['logo_url'])->toBe('https://cdn.test/HOST.svg')
+            ->and(ErrorPageFallbackManifest::forHost('route.test', '500', 'https', 443, '/docs/missing')['copy']['headline'] ?? null)->toBe('ROUTE headline')
+            ->and(ErrorPageFallbackManifest::forHost('route.test', '500', 'https', 8443, '/docs')['copy']['headline'] ?? null)->toBe('DEFAULT headline')
+            ->and(ErrorPageFallbackManifest::forHost('route.test', '500', 'https', 443, '/outside')['logo_url'])->toBe('https://cdn.test/DEFAULT.svg')
+            ->and(ErrorPageFallbackManifest::forHost('unrelated.test', '500')['copy']['headline'] ?? null)->toBe('DEFAULT headline');
+        $generate();
+    }
+})->with([true, false]);

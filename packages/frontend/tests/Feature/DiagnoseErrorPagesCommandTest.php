@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Frontend\Actions\BuildErrorPageCopyDiagnosticsAction;
 use Capell\Frontend\Actions\BuildStaticErrorPageDiagnosticsAction;
 use Capell\Frontend\Contracts\StaticErrorPageStore;
 use Capell\Frontend\Support\Error\ErrorPageFallbackManifestStore;
@@ -216,4 +217,23 @@ it('reports the effective port predicate for a mismatched request origin', funct
         ->and($report->reason?->value)->toBe('port_mismatch')
         ->and($report->candidates[0]->expected)->toBe('443')
         ->and($report->candidates[0]->actual)->toBe('8443');
+});
+
+it('diagnoses the same explicit and generated branding precedence as the fallback reader', function (): void {
+    $store = resolve(ErrorPageFallbackManifestStore::class);
+    $store->replaceSite(1, [[
+        'scheme' => 'https', 'domain' => 'generated.test', 'port' => null, 'path' => '/docs',
+        'logo_url' => '/generated.svg', 'copy' => [500 => ['headline' => 'Generated', 'description' => 'Generated description']],
+    ], [
+        'scheme' => 'https', 'domain' => 'explicit.test', 'port' => null, 'path' => '/',
+        'logo_url' => '/generated.svg', 'copy' => [500 => ['headline' => 'Generated', 'description' => 'Generated description']],
+    ]]);
+    $store->setHost('explicit.test', '/explicit.svg', [500 => ['headline' => 'Explicit', 'description' => 'Explicit description']]);
+    $store->setDefault('/default.svg', [500 => ['headline' => 'Default', 'description' => 'Default description']]);
+
+    foreach ([['explicit.test', '/', 'Explicit'], ['generated.test', '/docs/missing', 'Generated'], ['generated.test', '/outside', 'Default'], ['unknown.test', '/', 'Default']] as [$host, $path, $headline]) {
+        $diagnostic = BuildErrorPageCopyDiagnosticsAction::run($host, '500', 'https', null, $path);
+        expect($diagnostic->winners['headline'])->toBe($headline)
+            ->and($diagnostic->winners['description'])->toBe($headline . ' description');
+    }
 });

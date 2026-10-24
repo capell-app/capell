@@ -46,10 +46,13 @@ final class ErrorPageFallbackManifest
         $entry = self::entry($manifest, $host, $scheme, $port, $path);
         $copy = self::nestedArray($entry, ['copy', $status]);
         $logo = self::nestedString($entry, ['logo_url']);
-        if (($manifest['version'] ?? null) === 1) {
+        // Explicit host overrides win, then route-scoped generation, then explicit defaults.
+        if (in_array($manifest['version'] ?? null, [1, 2], true)) {
             $copy = self::nestedArray($manifest, ['hosts', strtolower($host), 'copy', $status])
+                ?? $copy
                 ?? self::nestedArray($manifest, ['default', 'copy', $status]);
             $logo = self::nestedString($manifest, ['hosts', strtolower($host), 'logo_url'])
+                ?? $logo
                 ?? self::nestedString($manifest, ['default', 'logo_url']);
         }
 

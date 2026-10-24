@@ -82,11 +82,14 @@ final class BuildErrorPageCopyDiagnosticsAction
     {
         $routeScoped = ($manifest['version'] ?? null) === 2;
         $entry = ErrorPageFallbackManifest::entry($manifest, $host, $scheme, $port, $path);
-        $explicitLegacy = ($manifest['version'] ?? null) === 1;
-        $hostValue = $routeScoped
-            ? $this->manifestValue($entry, ['copy', $status, $field])
-            : ($explicitLegacy ? $this->manifestValue($manifest, ['hosts', $host, 'copy', $status, $field]) : null);
-        $defaultValue = $explicitLegacy ? $this->manifestValue($manifest, ['default', 'copy', $status, $field]) : null;
+        $explicit = in_array($manifest['version'] ?? null, [1, 2], true);
+        $hostCopy = $explicit ? data_get($manifest, ['hosts', $host, 'copy', $status]) : null;
+        $routeCopy = data_get($entry, ['copy', $status]);
+        $selectedCopy = is_array($hostCopy) ? $hostCopy : (is_array($routeCopy) ? $routeCopy : null);
+        $hostValue = $selectedCopy !== null ? $this->manifestValue($selectedCopy, [$field]) : null;
+        // The reader selects whole copy entries per status, without filling a
+        // partial host/route entry from the explicit default.
+        $defaultValue = $explicit && $selectedCopy === null ? $this->manifestValue($manifest, ['default', 'copy', $status, $field]) : null;
         $sectionKey = $viewPath === null ? null : $this->sectionTranslationKey($viewPath, $field);
         $sectionValue = $sectionKey === null ? null : $this->translation($sectionKey);
         $packageDefaultKey = sprintf('capell-frontend::errors.default_%s', $field);
@@ -95,7 +98,7 @@ final class BuildErrorPageCopyDiagnosticsAction
         $sources = [
             new ErrorPageCopySourceData(
                 order: 1,
-                source: $routeScoped
+                source: $routeScoped && ! is_array($hostCopy)
                     ? sprintf('fallback manifest: matched route %s://%s:%s%s copy.%s.%s', $scheme, $host, $port ?? 'default', $path, $status, $field)
                     : sprintf('fallback manifest: hosts.%s.copy.%s.%s', $host, $status, $field),
                 present: $hostValue !== null,

@@ -98,8 +98,8 @@ class GenerateStaticPageArtifactsAction
                 $renderData->extensionCacheDependencies,
                 $file,
                 $renderData->extensionSurrogateKeys,
-                function () use ($file, $response): void {
-                    $this->store->putHtml($file, (string) $response->getContent());
+                function () use ($file, $response, $pageUrl): void {
+                    $this->store->putOwnedHtml($file, (string) $response->getContent(), $pageUrl->site_id);
                 },
             );
 

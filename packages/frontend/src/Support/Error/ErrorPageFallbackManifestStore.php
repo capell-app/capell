@@ -38,7 +38,7 @@ final class ErrorPageFallbackManifestStore
     public function setHost(string $host, string $logoUrl, array $copy): void
     {
         $manifest = $this->explicitBrandingManifest();
-        $manifest['hosts'][$host] = [
+        $manifest['hosts'][strtolower($host)] = [
             'logo_url' => $logoUrl,
             'copy' => $copy,
         ];
@@ -64,9 +64,13 @@ final class ErrorPageFallbackManifestStore
         $manifest = $this->read();
         // Generated branding is route-scoped. Never let the last regenerated
         // site become the fallback for unrelated hosts or mounted sites.
+        if (! isset($manifest['version'])) {
+            // Unversioned host/default values came from the old generation pipeline.
+            $manifest['hosts'] = [];
+            $manifest['default'] = ['logo_url' => null, 'copy' => []];
+        }
+
         $manifest['version'] = 2;
-        $manifest['hosts'] = [];
-        $manifest['default'] = ['logo_url' => null, 'copy' => []];
         foreach (($manifest['sites'] ?? []) as $key => $site) {
             if (! is_array($site)) {
                 continue;
