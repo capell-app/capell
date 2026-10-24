@@ -42,5 +42,6 @@
 /docs/schemas export-ignore
 /docs/screenshots.json export-ignore
 /docs/settings-schema-registry.md export-ignore
+/docs/upload-ownership.md export-ignore
 /docs/user-menu-registry.md export-ignore
 /docs/user-resource-customization.md export-ignore
