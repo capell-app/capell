@@ -405,7 +405,7 @@ class CapellAdminPlugin implements Plugin
                 ->label(fn (): string => (string) data_get(auth()->user(), 'name', __('capell-admin::generic.profile')))
                 ->url(function (): ?string {
                     $user = auth()->user();
-                    if ($user === null || ! UserResource::can('edit', $user)) {
+                    if ($user === null || ! UserResource::can('update', $user)) {
                         return null;
                     }
 
