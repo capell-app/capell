@@ -49,13 +49,13 @@ class RunMakerFilamentAction
 
                     Notification::make()
                         ->title($result->successful ? __('capell-admin::generic.maker_completed') : __('capell-admin::generic.maker_failed'))
-                        ->body($result->files->pluck('path')->implode(PHP_EOL))
+                        ->body(e($result->files->pluck('path')->implode(PHP_EOL)))
                         ->status($result->successful ? 'success' : 'danger')
                         ->send();
                 } catch (Throwable $throwable) {
                     Notification::make()
                         ->title(__('capell-admin::generic.maker_failed'))
-                        ->body($throwable->getMessage())
+                        ->body(e($throwable->getMessage()))
                         ->danger()
                         ->send();
 

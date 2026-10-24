@@ -154,7 +154,8 @@ class PageUrlForm implements FormConfigurator
 
                                         break;
                                     default:
-                                        if (in_array(preg_match('~\A/(?:[a-z0-9_-]+(?:\.[a-z0-9_-]+)*(?:/[a-z0-9_-]+(?:\.[a-z0-9_-]+)*)*/?)?\z~', $value ?? ''), [0, false], true)) {
+                                        // Dots belong in paths; only complete dot segments are traversal.
+                                        if (in_array(preg_match('~\A/(?:(?!\.{1,2}(?:/|\z))[a-z0-9_.-]+(?:/|\z))*\z~', $value ?? ''), [0, false], true)) {
                                             $fail(__('capell-admin::message.page_url_invalid'));
                                         }
                                 }

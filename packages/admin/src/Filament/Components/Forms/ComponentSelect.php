@@ -201,13 +201,13 @@ class ComponentSelect extends SelectField
 
                         Notification::make()
                             ->title(__('capell-admin::generic.maker_completed'))
-                            ->body($result->files->pluck('path')->implode(PHP_EOL))
+                            ->body(e($result->files->pluck('path')->implode(PHP_EOL)))
                             ->success()
                             ->send();
                     } catch (Throwable $throwable) {
                         Notification::make()
                             ->title(__('capell-admin::generic.maker_failed'))
-                            ->body($throwable->getMessage())
+                            ->body(e($throwable->getMessage()))
                             ->danger()
                             ->send();
 

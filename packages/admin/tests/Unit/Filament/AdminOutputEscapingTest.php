@@ -203,7 +203,11 @@ it('rejects malformed slug paths while keeping normal page URL paths', function 
     expect(validator(['url' => $path], ['url' => $rules])->passes())->toBe($valid);
 })->with([
     ['/', true], ['/ordinary-page_2/file.html', true], ['/trailing/', true],
-    ['/<b>"x\'</b>', false], ["/page\n", false], ['/../page', false], ['/double//slash', false],
+    ['/.well-known/security.txt', true], ['/release..notes', true], ['/file.', true], ['/.../page', true],
+    ['/<b>"x\'</b>', false], ["/page\n", false], ["/page\r\n", false],
+    ['/.', false], ['/..', false], ['/./page', false], ['/../page', false],
+    ['/page/.', false], ['/page/..', false], ['/page/./child', false], ['/page/../child', false],
+    ['//page', false], ['/double//slash', false], ['/page//', false], ['/page\\child', false],
 ]);
 
 it('escapes arbitrary flag renderer attributes without breaking the attribute boundary', function (): void {
