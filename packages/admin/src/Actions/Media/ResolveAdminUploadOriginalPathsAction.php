@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Media;
 
+use Capell\Admin\Support\Media\AdminUploadOwnership;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
@@ -25,10 +26,13 @@ final class ResolveAdminUploadOriginalPathsAction
     /** @return list<string> */
     public function handle(BaseFileUpload $upload): array
     {
+        $storedPaths = $upload instanceof SpatieMediaLibraryFileUpload
+            ? []
+            : resolve(AdminUploadOwnership::class)->paths($upload);
         $record = $upload->getRecord();
 
         if (! $record instanceof Model) {
-            return [];
+            return $storedPaths;
         }
 
         if ($upload instanceof SpatieMediaLibraryFileUpload) {
@@ -101,7 +105,7 @@ final class ResolveAdminUploadOriginalPathsAction
             $paths = $this->resolvePaths($record->getOriginal(), $path, $builderTypes, $rootDepth);
         }
 
-        return array_values(array_filter($paths, static fn (mixed $path): bool => is_string($path) && $path !== ''));
+        return array_values(array_filter([...$paths, ...$storedPaths], static fn (mixed $path): bool => is_string($path) && $path !== ''));
     }
 
     /**

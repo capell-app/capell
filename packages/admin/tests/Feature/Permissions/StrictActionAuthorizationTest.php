@@ -23,6 +23,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Filament\Resources\RelationManagers\RelationManager;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
@@ -230,3 +231,23 @@ it('preserves read-only relation manager denial even when update is allowed', fu
 
     expect(EditAction::make()->record($actor)->livewire($manager)->isAuthorized())->toBeFalse();
 });
+
+it('preserves the owning components edit authorisation response', function (bool $relationManager): void {
+    $actor = User::factory()->createOne();
+    test()->actingAs($actor);
+    expect(EditAction::make()->record($actor)->isAuthorized())->toBeTrue();
+
+    $owner = $relationManager
+        ? Mockery::mock(RelationManager::class)->makePartial()
+        : Mockery::mock(ListUsers::class)->makePartial();
+    if ($owner instanceof RelationManager) {
+        $owner->shouldReceive('isReadOnly')->andReturnFalse();
+    }
+
+    $denial = Response::deny('Editing is disabled by the owner.');
+    $owner->shouldReceive('getDefaultActionAuthorizationResponse')->andReturn($denial);
+    $action = EditAction::make()->record($actor)->livewire($owner);
+
+    expect($action->isAuthorized())->toBeFalse()
+        ->and($action->getAuthorizationResponse())->toBe($denial);
+})->with([false, true]);

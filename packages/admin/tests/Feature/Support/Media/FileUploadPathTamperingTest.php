@@ -9,6 +9,7 @@ use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Media\SpatieMediaFieldFactory;
+use Capell\Tests\Fixtures\Models\User;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
@@ -17,6 +18,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -302,3 +304,128 @@ it('accepts temporary uploads through a native subclass guard', function (): voi
     expect(Validator::make(['file' => [$temporary]], ['file' => $field->getValidationRules()])->passes())->toBeTrue();
     expect($field->getUploadedFiles())->toBe(['temporary' => null]);
 });
+
+it('retries stored uploads after a later validation failure without trusting forged state', function (bool $native, bool $halt): void {
+    Storage::fake('local');
+    config()->set('livewire.temporary_file_upload.disk', 'local');
+    Storage::disk('local')->put('livewire-tmp/retry-upload.txt', 'Uploaded content');
+    $temporary = new TemporaryUploadedFile('retry-upload.txt', 'local');
+    $record = Site::factory()->createOne(['meta' => ['icon' => 'site/existing.txt']])->fresh();
+    $livewire = Livewire::make()->data(['meta' => ['icon' => ['temporary' => $temporary]]]);
+    $livewire->setId('upload-retry-form');
+
+    $makeSchema = function () use ($native, $record, &$livewire): Schema {
+        $field = ($native ? NativeWidgetFileUpload::make('icon') : Capell\Admin\Filament\Components\Forms\FileUpload::make('icon'))
+            ->disk('local')->directory('site');
+
+        return Schema::make($livewire)->statePath('data')->record($record)->components([
+            Group::make([$field])->statePath('meta'),
+        ]);
+    };
+    $schema = $makeSchema();
+    expect(fn (): array => $schema->getState(afterValidate: function () use ($halt): void {
+        throw_if($halt, Halt::class);
+
+        throw ValidationException::withMessages(['title' => 'Correct the title.']);
+    }))->toThrow($halt ? Halt::class : ValidationException::class);
+    $stored = array_values($livewire->data['meta']['icon'])[0];
+    expect($stored)->toBeString()
+        ->and($temporary->exists())->toBeFalse()
+        ->and(Storage::disk('local')->exists($stored))->toBeTrue()
+        ->and($record->fresh()->meta['icon'])->toBe('site/existing.txt');
+
+    // Recreate the component and field as on the corrected Livewire request.
+    $livewire = Livewire::make()->data($livewire->data);
+    $livewire->setId('upload-retry-form');
+
+    $state = $makeSchema()->getState();
+    $record->update($state);
+    expect($record->fresh()->meta['icon'])->toBe($stored);
+
+    $livewire->data['meta']['icon'] = ['forged' => 'site/foreign.txt'];
+    expect(fn (): array => $makeSchema()->getState())->toThrow(ValidationException::class);
+})->with([false, true])->with([false, true]);
+
+it('limits failed-save upload ownership to its form scope and existing unexpired files', function (string $boundary, bool $native): void {
+    Storage::fake('local');
+    Storage::fake('other');
+    config()->set('livewire.temporary_file_upload.disk', 'local');
+    Storage::disk('local')->put('livewire-tmp/scoped-upload.txt', 'Uploaded content');
+    $record = Site::factory()->createOne()->fresh();
+    $livewire = Livewire::make()->data(['icon' => ['temporary' => new TemporaryUploadedFile('scoped-upload.txt', 'local')]]);
+    $livewire->setId('scoped-upload-form');
+
+    $field = ($native ? NativeWidgetFileUpload::make('icon') : Capell\Admin\Filament\Components\Forms\FileUpload::make('icon'))->disk('local');
+    $schema = Schema::make($livewire)->statePath('data')->record($record)->components([$field]);
+    expect(fn (): array => $schema->getState(afterValidate: function (): void {
+        throw ValidationException::withMessages(['title' => 'Correct the title.']);
+    }))->toThrow(ValidationException::class);
+    $stored = array_values($livewire->data['icon'])[0];
+    expect($stored)->toBeString();
+    $disk = 'local';
+    $name = 'icon';
+    switch ($boundary) {
+        case 'form':
+            $livewire->setId('other-form');
+            break;
+        case 'record':
+            $record = Site::factory()->createOne()->fresh();
+            break;
+        case 'field':
+            $name = 'other';
+            $livewire->data[$name] = $livewire->data['icon'];
+            break;
+        case 'disk':
+            $disk = 'other';
+            Storage::disk($disk)->put($stored, 'Foreign content');
+            break;
+        case 'actor':
+            test()->actingAs(User::factory()->createOne());
+            break;
+        case 'session':
+            session()->flush();
+            break;
+        case 'expired':
+            $this->travel((int) config('session.lifetime') + 1)->minutes();
+            break;
+        case 'deleted':
+            Storage::disk('local')->delete($stored);
+            break;
+    }
+
+    $field = ($native ? NativeWidgetFileUpload::make($name) : Capell\Admin\Filament\Components\Forms\FileUpload::make($name))->disk($disk);
+    $schema = Schema::make($livewire)->statePath('data')->record($record)->components([$field]);
+    expect(fn (): array => $schema->getState())->toThrow(ValidationException::class);
+})->with(['form', 'record', 'field', 'disk', 'actor', 'session', 'expired', 'deleted'])->with([false, true]);
+
+it('retains upload ownership when a state-update hook fails after storage', function (bool $native): void {
+    Storage::fake('local');
+    config()->set('livewire.temporary_file_upload.disk', 'local');
+    Storage::disk('local')->put('livewire-tmp/hook-upload.txt', 'Uploaded content');
+    $record = Site::factory()->createOne()->fresh();
+    $livewire = Livewire::make()->data(['icon' => ['temporary' => new TemporaryUploadedFile('hook-upload.txt', 'local')]]);
+    $field = ($native ? NativeWidgetFileUpload::make('icon') : Capell\Admin\Filament\Components\Forms\FileUpload::make('icon'))->disk('local');
+    $field->afterStateUpdated(function (): void {
+        throw ValidationException::withMessages(['title' => 'Correct the title.']);
+    });
+    $schema = Schema::make($livewire)->statePath('data')->record($record)->components([$field]);
+    expect(fn (): array => $schema->getState())->toThrow(ValidationException::class);
+    $stored = array_values($livewire->data['icon'])[0];
+    expect($stored)->toBeString();
+    $field->clearAfterStateUpdatedHooks();
+    expect($schema->getState()['icon'])->toBe($stored);
+})->with([false, true]);
+
+it('retains numeric stored filenames across a failed save', function (bool $native): void {
+    Storage::fake('local');
+    config()->set('livewire.temporary_file_upload.disk', 'local');
+    Storage::disk('local')->put('livewire-tmp/numeric-upload.txt', 'Uploaded content');
+    $livewire = Livewire::make()->data(['icon' => ['temporary' => new TemporaryUploadedFile('numeric-upload.txt', 'local')]]);
+    $field = ($native ? NativeWidgetFileUpload::make('icon') : Capell\Admin\Filament\Components\Forms\FileUpload::make('icon'))
+        ->disk('local')->getUploadedFileNameForStorageUsing(fn (): string => '123');
+    $schema = Schema::make($livewire)->statePath('data')->components([$field]);
+    expect(fn (): array => $schema->getState(afterValidate: function (): void {
+        throw ValidationException::withMessages(['title' => 'Correct the title.']);
+    }))->toThrow(ValidationException::class);
+    expect($schema->getState()['icon'])->toBe('123');
+})->with([false, true]);

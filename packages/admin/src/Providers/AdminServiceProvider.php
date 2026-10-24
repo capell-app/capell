@@ -6,6 +6,7 @@ namespace Capell\Admin\Providers;
 
 use BezhanSalleh\FilamentShield\Support\Utils as ShieldUtils;
 use Capell\Admin\Actions\CreateDefaultPagesAction;
+use Capell\Admin\Actions\Media\StoreAdminUploadedFilesAction;
 use Capell\Admin\Actions\Media\ValidateAdminUploadStateAction;
 use Capell\Admin\Actions\Notifications\ResolveDefaultPackageOperationRecipientsAction;
 use Capell\Admin\Console\Commands\CacheConfiguratorsCommand;
@@ -572,6 +573,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     {
         BaseFileUpload::configureUsing(
             static function (BaseFileUpload $upload): void {
+                if (! $upload instanceof SpatieMediaLibraryFileUpload) {
+                    $upload->beforeStateDehydrated(static function (BaseFileUpload $component): void {
+                        StoreAdminUploadedFilesAction::run($component);
+                    }, shouldUpdateValidatedStateAfter: true);
+                }
+
                 if (! $upload instanceof AdminFileUpload && ! $upload instanceof AdminSpatieMediaLibraryFileUpload) {
                     // Keep native subclass methods intact. The native guard's
                     // condition runs before validation, previews and removal;
