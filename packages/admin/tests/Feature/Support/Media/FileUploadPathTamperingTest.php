@@ -234,7 +234,8 @@ it('retains builder widget paths through transient item keys and rejects forged 
 
     $state = $schema->getState();
     $record->update($state);
-    expect($record->fresh()->meta['widgets'])->toBe(array_reverse($blocks));
+    // MySQL JSON columns reorder object keys, so compare structure rather than key order.
+    expect($record->fresh()->meta['widgets'])->toEqual(array_reverse($blocks));
 
     // Filament dehydrates Builder item UUIDs into a list when saving.
     $livewire->data['meta']['widgets'] = ['first-uuid' => $blocks[0]];
