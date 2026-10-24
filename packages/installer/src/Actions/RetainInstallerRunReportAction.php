@@ -8,10 +8,12 @@ use Capell\Core\Support\Install\InstallReportRedactor;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RetainInstallerRunReportAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly InstallerSessionRepository $sessions) {}
