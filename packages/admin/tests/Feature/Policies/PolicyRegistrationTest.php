@@ -6,6 +6,8 @@ use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Actions\AssignPermissionsToRole;
 use Capell\Admin\Actions\EnsureCapellPermissionsAction;
 use Capell\Admin\Actions\GrantCapellDefaultRolePermissionsAction;
+use Capell\Admin\Actions\SeedDefaultRolesAction;
+use Capell\Admin\Actions\Shield\ResolveDefaultGlobalResourcePermissionsAction;
 use Capell\Admin\Actions\Shield\ResolveDefaultRolePermissionsAction;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
@@ -32,6 +34,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -126,6 +129,8 @@ it('preserves default admin global resource parity and keeps editors without acc
     if ($defaults === 'fresh install') {
         $admin->givePermissionTo(ResolveDefaultRolePermissionsAction::run('admin', 'web'));
         $editor->givePermissionTo(ResolveDefaultRolePermissionsAction::run('editor', 'web'));
+    } elseif ($defaults === 'seeder') {
+        SeedDefaultRolesAction::run();
     } else {
         GrantCapellDefaultRolePermissionsAction::run($defaults === 'install grant' ? PermissionSyncMode::Install : PermissionSyncMode::Upgrade);
     }
@@ -143,7 +148,39 @@ it('preserves default admin global resource parity and keeps editors without acc
         expect(Gate::forUser($administrator)->allows($ability, $record))->toBeTrue()
             ->and(Gate::forUser($author)->allows($ability, $record))->toBeFalse();
     }
-})->with(['fresh install', 'install grant', 'upgrade grant'])->with([ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language]);
+
+    $author->givePermissionTo(ResolveDefaultGlobalResourcePermissionsAction::run($resource));
+
+    foreach (['viewAny', 'create', 'deleteAny', 'restoreAny', 'forceDeleteAny', 'reorder'] as $ability) {
+        expect(Gate::forUser($author)->allows($ability, $model))->toBeTrue();
+    }
+
+    foreach (['view', 'update', 'delete', 'restore', 'forceDelete', 'replicate'] as $ability) {
+        expect(Gate::forUser($author)->allows($ability, $record))->toBeTrue();
+    }
+})->with(['fresh install', 'seeder', 'install grant', 'upgrade grant'])->with([ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language]);
+
+it('preserves explicit denying host policies for a model or its ancestor during provider boot', function (bool $ancestor): void {
+    $actor = User::factory()->createOne();
+    $actor->givePermissionTo(Permission::findOrCreate('Create:Language', 'web'));
+
+    $gate = new Illuminate\Auth\Access\Gate(app(), fn () => $actor);
+    Gate::swap($gate);
+    $policy = new class
+    {
+        public function create(User $user): bool
+        {
+            return false;
+        }
+    };
+    $model = $ancestor ? Model::class : Language::class;
+    Gate::policy($model, $policy::class);
+    $provider = expectPresent(app()->getProvider(AdminServiceProvider::class));
+    $provider->callBootedCallbacks();
+
+    expect(Gate::getPolicyFor(Language::class))->toBeInstanceOf($policy::class)
+        ->and(Gate::forUser($actor)->allows('create', Language::class))->toBeFalse();
+})->with([false, true]);
 
 it('preserves explicit denying host policies when the admin provider boots', function (string $model, string $subject): void {
     $model = $model === 'configured-role' ? Utils::getRoleModel() : $model;

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
@@ -66,14 +67,14 @@ it('renders marketplace extension details with health alerts and accessible feed
         ->assertSee(__('capell-marketplace::marketplace.detail.download_available'))
         ->assertSee(__('capell-marketplace::marketplace.detail.install_available'))
         ->assertSee(__('capell-marketplace::marketplace.detail.manual_install_checkbox_label'))
-        ->assertDontSee('composer require capell-app/seo-suite:^2.1.0')
+        ->assertDontSee("composer require 'capell-app/seo-suite:^2.1.0'")
         ->assertDontSee('php artisan capell:extension-install capell-app/seo-suite')
         ->assertSee('https://marketplace.test/extensions/seo-suite')
         ->assertSee('target="_blank"', false)
         ->assertSee('rel="noopener noreferrer"', false)
         ->set('showManualInstallCommands', true)
         ->assertSee('data-capell-marketplace-manual-install-commands', false)
-        ->assertSee('composer require capell-app/seo-suite:^2.1.0')
+        ->assertSee("composer require 'capell-app/seo-suite:^2.1.0'")
         ->assertSee('php artisan capell:extension-install capell-app/seo-suite')
         ->set('feedbackStatus', 'pending')
         ->assertSee('aria-live="polite"', false)
@@ -95,6 +96,7 @@ it('renders marketplace extension details with health alerts and accessible feed
 it('renders activation-required licence input and keeps server failures as field validation', function (): void {
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web'));
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
     MarketplaceInstance::query()->create([
         'instance_id' => '00000000-0000-4000-8000-000000000123',
@@ -270,6 +272,7 @@ it('uses the marketplace page permission for detail page access', function (): v
 it('derives detail decisions from licence and installation state', function (): void {
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web'));
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
 
     config([
@@ -416,10 +419,10 @@ it('promotes the install instructions to the primary action on a manual-only hos
         ->assertSuccessful()
         ->assertSeeHtml('data-capell-marketplace-manual-install-cta')
         ->assertSee(__('capell-marketplace::marketplace.readiness.manual_install_cta_button'))
-        ->assertDontSee('composer require capell-app/seo-suite:^2.1.0')
+        ->assertDontSee("composer require 'capell-app/seo-suite:^2.1.0'")
         ->call('showManualInstallInstructions')
         ->assertSet('showManualInstallCommands', true)
-        ->assertSee('composer require capell-app/seo-suite:^2.1.0');
+        ->assertSee("composer require 'capell-app/seo-suite:^2.1.0'");
 });
 
 it('keeps the install instructions a disclosure on a host that installs automatically', function (): void {
@@ -447,6 +450,7 @@ it('keeps the install instructions a disclosure on a host that installs automati
 it('offers no update while the extension already has an operation in flight', function (): void {
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web'));
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
 
     config([
@@ -484,6 +488,7 @@ it('offers no update while the extension already has an operation in flight', fu
 it('queues a permitted update from the detail page and exposes the operation side effect', function (): void {
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web'));
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
 
     config([

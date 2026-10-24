@@ -84,6 +84,7 @@ class PageUrlsTable implements TableConfigurator
             ])
             ->toolbarActions([
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->after(static::afterAction(...)),
             ])
             ->recordActions([

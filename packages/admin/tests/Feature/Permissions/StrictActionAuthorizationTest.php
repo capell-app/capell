@@ -115,6 +115,10 @@ it('renders replicate headers and invokes restore actions with separate permissi
         ->assertActionHidden('replicate');
 
     $actor->givePermissionTo(Permission::findOrCreate('Replicate:' . $subject, 'web'));
+    // Replicating a site creates one, so the Site policy also requires its create permission.
+    if ($subject === 'Site') {
+        $actor->givePermissionTo(Permission::findOrCreate('Create:Site', 'web'));
+    }
 
     Livewire::test($edit, ['record' => $record->getRouteKey()])
         ->assertSuccessful()
@@ -174,6 +178,11 @@ it('uses a dedicated scoped permission for every exposed replication ability', f
     $actor->givePermissionTo(Permission::findOrCreate('Update:' . $subject, 'web'));
     expect($resource::canReplicate($record))->toBeFalse();
     $actor->givePermissionTo(Permission::findOrCreate('Replicate:' . $subject, 'web'));
+    // Replicating a site creates one, so the Site policy also requires its create permission.
+    if ($subject === 'Site') {
+        $actor->givePermissionTo(Permission::findOrCreate('Create:Site', 'web'));
+    }
+
     expect($resource::canReplicate($record))->toBeTrue()
         ->and($resource::canReplicate($foreignRecord))->toBeFalse();
 })->with([

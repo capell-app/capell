@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Marketplace\Filament\Support;
 
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
@@ -158,6 +159,8 @@ final class MarketplaceCatalogueTable
      */
     public function installExtension(array $arguments, array $data = [], bool $redirectAccountActions = false): ?string
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         $user = auth()->user();
 
         return InstallMarketplaceExtensionAction::run(MarketplaceInstallRequestData::make(
@@ -194,6 +197,8 @@ final class MarketplaceCatalogueTable
      */
     public function updateExtension(array $record): MarketplaceInstallAttempt
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         $user = auth()->user();
 
         return UpdateMarketplaceExtensionAction::run(
@@ -255,7 +260,7 @@ final class MarketplaceCatalogueTable
             ->color(fn (array $record): string => $this->installActionPresenter->color($record))
             ->tooltip(fn (array $record): string => $this->installActionPresenter->tooltip($record))
             ->icon(Heroicon::OutlinedArrowPath)
-            ->visible(fn (array $record): bool => $this->installActionPresenter->canUpdate($record))
+            ->visible(fn (array $record): bool => ExtensionsPage::canManageExtensions() && $this->installActionPresenter->canUpdate($record))
             ->requiresConfirmation()
             ->modalHeading(fn (array $record): string => (string) __('capell-marketplace::marketplace.updates.confirm_heading', [
                 'name' => (string) ($record['name'] ?? $record['composer_name'] ?? ''),

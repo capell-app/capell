@@ -22,6 +22,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Override;
 use RuntimeException;
 use Throwable;
 
@@ -31,6 +32,7 @@ class ComponentSelect extends SelectField
 
     protected Closure|BackedEnum|string|null $componentType = null;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -77,7 +79,7 @@ class ComponentSelect extends SelectField
                     continue;
                 }
 
-                $mappedOptions[$key] = $label . '<span class="block font-light text-xs">' . $key . '</span>';
+                $mappedOptions[$key] = e($label) . '<span class="block font-light text-xs">' . e($key) . '</span>';
             }
 
             $options = $mappedOptions;
@@ -85,7 +87,7 @@ class ComponentSelect extends SelectField
             asort($options);
 
             if (is_string($state) && $state !== '' && ! isset($options[$state])) {
-                return array_merge([$state => $state], $options);
+                return array_merge([$state => e($state)], $options);
             }
 
             return $options;
@@ -199,13 +201,13 @@ class ComponentSelect extends SelectField
 
                         Notification::make()
                             ->title(__('capell-admin::generic.maker_completed'))
-                            ->body($result->files->pluck('path')->implode(PHP_EOL))
+                            ->body(e($result->files->pluck('path')->implode(PHP_EOL)))
                             ->success()
                             ->send();
                     } catch (Throwable $throwable) {
                         Notification::make()
                             ->title(__('capell-admin::generic.maker_failed'))
-                            ->body($throwable->getMessage())
+                            ->body(e($throwable->getMessage()))
                             ->danger()
                             ->send();
 

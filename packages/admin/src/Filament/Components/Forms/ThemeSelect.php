@@ -12,6 +12,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Override;
@@ -50,7 +51,7 @@ class ThemeSelect extends Select
                 }
 
                 return new HtmlString(
-                    '<img src="' . Storage::disk('public')->url($image) . '" alt="' . e($theme->name) . '" class="w-full h-auto max-h-32 aspect-square object-cover rounded-lg shadow-md" />',
+                    '<img src="' . e(Storage::disk('public')->url($image)) . '" alt="' . e($theme->name) . '" class="w-full h-auto max-h-32 aspect-square object-cover rounded-lg shadow-md" />',
                 );
             })
             ->autoDefault();
@@ -61,6 +62,8 @@ class ThemeSelect extends Select
         return $this->createOptionForm(fn (Schema $schema): Schema => ThemeForm::configure($schema->model(Theme::class)))
             ->createOptionAction(
                 fn (Action $action): Action => $action
+                    ->authorize(fn (): bool => Gate::allows('create', Theme::class))
+                    ->before(fn () => Gate::authorize('create', Theme::class))
                     ->modalHeading(__('capell-admin::form.theme'))
                     ->modalWidth(Width::ScreenLarge)
                     ->successNotificationTitle(
@@ -83,6 +86,8 @@ class ThemeSelect extends Select
             ->editOptionForm(fn (Schema $schema): Schema => ThemeForm::configure($schema->model($this->getSelectedRecord() ?? Theme::class)))
             ->editOptionAction(
                 fn (Action $action): Action => $action
+                    ->authorize(fn (): bool => ($theme = $this->getSelectedRecord()) instanceof Theme && Gate::allows('update', $theme))
+                    ->before(fn () => Gate::authorize('update', $this->getSelectedRecord() ?? Theme::class))
                     ->modalHeading(__('capell-admin::form.theme'))
                     ->modalWidth(Width::ScreenLarge)
                     ->successNotificationTitle(

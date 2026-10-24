@@ -171,6 +171,7 @@ class ThemesTable implements TableConfigurator
             ])
             ->toolbarActions([
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->before(function (ManageThemes $livewire, DeleteBulkAction $action, EloquentCollection|Collection|LazyCollection $records): void {
                         $records->each(function (Theme $record) use ($livewire, $action): void {
                             if (! $livewire->validateDelete($record)) {
@@ -178,7 +179,8 @@ class ThemesTable implements TableConfigurator
                             }
                         });
                     }),
-                RestoreBulkAction::make(),
+                RestoreBulkAction::make()
+                    ->authorizeIndividualRecords('restore'),
                 ForceDeleteBulkAction::make(),
             ]);
     }

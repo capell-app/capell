@@ -26,7 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.ACCESS_TOKEN }}"} }'
       CAPELL_CORE_REPO_PATH: ${{ github.workspace }}/repositories/capell
       CAPELL_REPO: ${{ github.workspace }}/repositories/capell
 
@@ -39,6 +38,7 @@ jobs:
           token: ${{ secrets.ACCESS_TOKEN }}
           fetch-depth: 0
           path: repositories/capell
+          persist-credentials: false
 
       - name: Use Node.js 22.x
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -48,11 +48,29 @@ jobs:
       - name: Determine manifests to capture
         id: packages
         working-directory: repositories/capell
+        env:
+          SCREENSHOT_PACKAGE: ${{ inputs.package }}
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
-          if [ -n "${{ inputs.package }}" ]; then
-            printf '%s\n' "${{ inputs.package }}" > /tmp/capell-core-screenshot-packages.txt
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" \
+          if [ -n "${SCREENSHOT_PACKAGE}" ]; then
+            if [[ ! "${SCREENSHOT_PACKAGE}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+              echo 'Invalid screenshot package name.' >&2
+              exit 1
+            fi
+            if [ "${SCREENSHOT_PACKAGE}" = documentation ]; then
+              manifest=docs/screenshots.json
+            else
+              manifest="packages/${SCREENSHOT_PACKAGE}/docs/screenshots.json"
+            fi
+            if [ ! -f "${manifest}" ]; then
+              echo 'Unknown screenshot manifest package.' >&2
+              exit 1
+            fi
+            printf '%s\n' "${SCREENSHOT_PACKAGE}" > /tmp/capell-core-screenshot-packages.txt
+          elif [ "${EVENT_NAME}" = "push" ]; then
+            git diff --name-only "${BEFORE_SHA}" "${HEAD_SHA}" \
               | node scripts/changed-screenshot-packages.js > /tmp/capell-core-screenshot-packages.txt
           else
             find docs packages -path '*/screenshots.json' -print \
@@ -76,6 +94,7 @@ jobs:
           repository: capell-app/capell-screenshot-tools
           token: ${{ secrets.ACCESS_TOKEN }}
           path: repositories/capell-screenshot-tools
+          persist-credentials: false
 
       - name: Setup PHP
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
@@ -89,17 +108,24 @@ jobs:
       - name: Install core Node dependencies
         if: steps.packages.outputs.has_packages == 'true'
         working-directory: repositories/capell
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Install core PHP dependencies
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
         working-directory: repositories/capell
-        run: composer install --no-interaction --no-progress --ansi
+        run: >-
+          composer install --no-interaction --no-progress --ansi
+          --no-scripts --no-plugins
+
+      - name: Prepare core PHP autoload environment without credentials
+        if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true
+        working-directory: repositories/capell
+        run: composer dump-autoload --no-interaction
 
       - name: Install screenshot tools dependencies
         if: steps.packages.outputs.has_packages == 'true'
         working-directory: repositories/capell-screenshot-tools
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Install Playwright browser
         if: steps.packages.outputs.has_packages == 'true' && inputs.dry_run != true

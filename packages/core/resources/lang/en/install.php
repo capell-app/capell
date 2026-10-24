@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'starter_user_exists' => 'Skipped starter user :email because the account already exists.',
     'recovery' => [
         'failed' => 'Installation stopped at :step.',
         'completed' => ':count steps completed: :steps',

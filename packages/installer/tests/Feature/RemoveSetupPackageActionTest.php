@@ -101,3 +101,29 @@ it('falls back to the public homepage when the admin package lookup is unavailab
 
     expect(RemoveSetupPackageAction::run())->toBe(url('/'));
 });
+
+it('refuses browser removal before clearing caches when server tooling is disabled', function (): void {
+    config(['capell.server_side_tooling' => false]);
+    $originalArtisan = Artisan::getFacadeRoot();
+    $artisan = new class
+    {
+        /** @var list<string> */
+        public array $commands = [];
+
+        public function call(string $command): int
+        {
+            $this->commands[] = $command;
+
+            return 0;
+        }
+    };
+    Artisan::swap($artisan);
+
+    try {
+        expect(fn (): string => RemoveSetupPackageAction::run(requiresServerSideTooling: true))
+            ->toThrow(RuntimeException::class, 'CAPELL_SERVER_SIDE_TOOLING is disabled');
+        expect($artisan->commands)->toBe([]);
+    } finally {
+        Artisan::swap($originalArtisan);
+    }
+});

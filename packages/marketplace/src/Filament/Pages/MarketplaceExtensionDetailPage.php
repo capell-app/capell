@@ -174,6 +174,10 @@ final class MarketplaceExtensionDetailPage extends Page
 
     public function requiresLicenceKey(): bool
     {
+        if (! ExtensionsPage::canManageExtensions()) {
+            return false;
+        }
+
         $detail = $this->detail();
 
         if (! $detail instanceof ExtensionDetailData) {
@@ -186,6 +190,8 @@ final class MarketplaceExtensionDetailPage extends Page
 
     public function activateLicence(): void
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         abort_unless(self::canAccess(), 403);
 
         $validated = Validator::make([
@@ -268,6 +274,10 @@ final class MarketplaceExtensionDetailPage extends Page
      */
     public function canUpdate(): bool
     {
+        if (! ExtensionsPage::canManageExtensions()) {
+            return false;
+        }
+
         return resolve(MarketplaceInstallActionPresenter::class)
             ->canUpdate($this->updateEligibilityRecord());
     }
@@ -292,6 +302,8 @@ final class MarketplaceExtensionDetailPage extends Page
 
     public function updateExtension(): void
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         // Page-level canAccess() gates the render; this gates the call. A
         // Livewire method is reachable on its own, so the mutating entry point
         // authorizes itself the way the card's does rather than trusting that

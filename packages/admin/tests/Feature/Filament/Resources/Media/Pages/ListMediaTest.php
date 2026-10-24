@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Media\BuildMediaUsageItemsAction;
 use Capell\Admin\Actions\Media\CreateExternalVideoMediaAction;
+use Capell\Admin\Data\AdminSurfaceContributionData;
+use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
 use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
+use Capell\Admin\Tests\Fixtures\CreationDeniedMediaResource;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Enums\MediaCollectionEnum;
@@ -27,6 +30,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -58,9 +62,10 @@ it('lists each media owner type once using its canonical alias', function (): vo
 it('reports a rejected replacement without a success notification or broken media reference', function (): void {
     $original = Page::factory()->createOne()->addMedia(UploadedFile::fake()->image('original.png'))->toMediaCollection('images');
     $url = $original->getUrl();
+    $replacement = UploadedFile::fake()->createWithContent('replacement.txt', 'different media type');
 
     Livewire::test(ListMedia::class)
-        ->callTableAction('replace-file', $original, data: ['replacement' => [UploadedFile::fake()->createWithContent('replacement.txt', 'different media type')]])
+        ->callTableAction('replace-file', $original, data: ['replacement' => [$replacement]])
         ->assertHasNoTableActionErrors()
         ->assertNotified(__('capell-admin::media.replace_file_failed'))
         ->assertNotNotified(__('capell-admin::media.replace_file_success'));
@@ -570,3 +575,73 @@ it('limits tracked media usage to accessible related records', function (): void
         ->toContain($visiblePage->name)
         ->not->toContain($hiddenPage->name);
 });
+
+it('rejects a forged local path in bulk media uploads without reading or deleting it', function (string $path): void {
+    $site = Site::factory()->createOne();
+    Storage::disk('local')->put($path, 'private sentinel');
+
+    Livewire::test(ListMedia::class)
+        ->callAction('upload-files', ['site_id' => $site->getKey(), 'files' => [$path]])
+        ->assertHasActionErrors(['files']);
+
+    expect(Storage::disk('local')->get($path))->toBe('private sentinel')
+        ->and(CapellMedia::query()->count())->toBe(0);
+})->with(['private/secret.txt', 'media-uploads/another-session.txt']);
+
+it('rejects a forged replacement path and preserves the original media bytes', function (): void {
+    $site = Site::factory()->createOne();
+    $original = $site->addMedia(UploadedFile::fake()->createWithContent('original.txt', 'original bytes'))->toMediaCollection('uploads');
+    Storage::disk('local')->put('private/secret.txt', 'private sentinel');
+
+    Livewire::test(ListMedia::class)
+        ->callTableAction('replace-file', $original, data: ['replacement' => ['private/secret.txt']])
+        ->assertHasTableActionErrors(['replacement']);
+
+    expect(Storage::disk('public')->get($original->getPathRelativeToRoot()))->toBe('original bytes')
+        ->and(Storage::disk('local')->get('private/secret.txt'))->toBe('private sentinel');
+});
+
+it('requires media creation permission for both creation actions', function (string $action): void {
+    $site = Site::factory()->createOne();
+    Permission::findOrCreate('ViewAny:Media');
+    Permission::findOrCreate('Create:Media');
+    $user = test()->createUserWithPermission('ViewAny:Media');
+    $user->assignedSiteIds = collect([$site->getKey()]);
+
+    test()->actingAs($user);
+    expect(Gate::allows('create', CapellMedia::class))->toBeFalse();
+
+    Livewire::test(ListMedia::class)->mountAction($action)->assertActionNotMounted();
+    Livewire::test(ListMedia::class)->call('mountAction', $action)->call('callMountedAction', [
+        'name' => 'Forbidden video',
+        'youtube_url' => 'https://youtu.be/FgalLC99jzY',
+        'site_id' => $site->getKey(),
+        'files' => [UploadedFile::fake()->image('forbidden.png')],
+    ])->assertActionNotMounted();
+
+    expect(CapellMedia::query()->count())->toBe(0);
+})->with(['upload-files', 'add-youtube-video']);
+
+it('honours a registered media resource that denies creation when the model policy allows it', function (string $action): void {
+    $site = Site::factory()->createOne();
+    expect(Gate::allows('create', CapellMedia::class))->toBeTrue();
+    CapellAdmin::getAdminSurfaceRegistry()->replace(AdminSurfaceContributionData::resource(
+        CreationDeniedMediaResource::class,
+        'Media',
+    ));
+
+    try {
+        expect(ListMedia::getResource())->toBe(CreationDeniedMediaResource::class);
+        Livewire::test(ListMedia::class)->mountAction($action)->assertActionNotMounted();
+        Livewire::test(ListMedia::class)->call('mountAction', $action)->call('callMountedAction', [
+            'name' => 'Forbidden video',
+            'youtube_url' => 'https://youtu.be/FgalLC99jzY',
+            'site_id' => $site->getKey(),
+            'files' => [UploadedFile::fake()->image('forbidden.png')],
+        ])->assertActionNotMounted();
+
+        expect(CapellMedia::query()->count())->toBe(0);
+    } finally {
+        CapellAdmin::getAdminSurfaceRegistry()->replace(AdminSurfaceContributionData::resource(MediaResource::class, 'Media'));
+    }
+})->with(['upload-files', 'add-youtube-video']);

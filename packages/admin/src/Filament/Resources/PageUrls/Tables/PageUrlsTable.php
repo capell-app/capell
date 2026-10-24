@@ -139,8 +139,10 @@ class PageUrlsTable implements TableConfigurator
                     ->color('gray'),
             ])
             ->toolbarActions([
-                DeleteBulkAction::make(),
-                RestoreBulkAction::make(),
+                DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete'),
+                RestoreBulkAction::make()
+                    ->authorizeIndividualRecords('restore'),
                 ForceDeleteBulkAction::make(),
             ])
             ->emptyStateHeading(__('capell-admin::generic.no_page_urls'))

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'site_domain_claim_conflict' => 'This origin is already assigned to another site. Ask a global administrator to configure shared domains.',
     'component_directory_failed' => 'Could not create component directory [:path]. Check directory permissions and retry.',
     'component_publication_summary' => 'Components: :published published, :skipped skipped, :failed failed.',
     'component_publication_failed' => 'Component publication failed. Resolve the errors above and rerun this command.',

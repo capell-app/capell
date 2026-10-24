@@ -45,8 +45,10 @@ class ListMedia extends ListRecords
             Action::make('upload-files')
                 ->label(__('capell-admin::media.upload_files'))
                 ->icon('heroicon-o-arrow-up-tray')
+                ->authorize(fn (): bool => static::getResource()::canCreate())
                 ->schema([
                     FileUpload::make('files')
+                        ->preventFilePathTampering()
                         ->label(__('capell-admin::media.upload_files'))
                         ->multiple()
                         ->storeFileNamesIn('original_file_names')
@@ -66,6 +68,7 @@ class ListMedia extends ListRecords
             Action::make('add-youtube-video')
                 ->label(__('capell-admin::media.external_video_create'))
                 ->icon('heroicon-o-play-circle')
+                ->authorize(fn (): bool => static::getResource()::canCreate())
                 ->schema([
                     TextInput::make('name')
                         ->label(__('capell-admin::media.external_video_name'))

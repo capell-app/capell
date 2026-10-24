@@ -87,3 +87,24 @@ function formattedDateColumnState(string $name, Model $record, ?DateColumn $colu
 
     return (string) $column->formatState($column->getState());
 }
+
+it('keeps user names as plain text when date tooltip HTML is interpreted', function (string $date, string $relation): void {
+    $name = '<b>"x\'</b>';
+    $user = User::factory()->createOne(['name' => $name]);
+    $site = Site::factory()->createOne([$date => now()])->setRelation($relation, $user);
+    $html = formattedDateColumnState($date, $site);
+    if ($html === '') {
+        $this->fail('Expected non-empty date column HTML.');
+    }
+
+    $dom = new DOMDocument;
+    $this->assertTrue(@$dom->loadHTML($html));
+    $span = $dom->getElementsByTagName('span')->item(0);
+    $this->assertInstanceOf(DOMElement::class, $span);
+    $tooltip = $span->getAttribute('x-tooltip.raw');
+
+    expect($tooltip)->toContain(e($name))->not->toContain($name);
+    expect($html)->not->toContain($name);
+})->with([
+    ['created_at', 'creator'], ['updated_at', 'editor'], ['deleted_at', 'destroyer'],
+]);

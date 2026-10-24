@@ -146,7 +146,11 @@ class MediaTable implements TableConfigurator
                     ->authorize(fn (Media $record): bool => Gate::allows('update', $record))
                     ->schema([
                         FileUpload::make('replacement')
+                            // This upload-only field has no existing paths on the Media record.
+                            ->model([])
                             ->disk('local')
+                            ->directory('media-replacements')
+                            ->preventFilePathTampering()
                             ->label(__('capell-admin::media.replacement_file'))
                             ->required(),
                     ])

@@ -21,6 +21,7 @@ use Capell\Installer\Actions\StartInstallerRunAction;
 use Capell\Installer\Data\InstallerRunStartData;
 use Capell\Installer\Enums\InstallerRunMode;
 use Capell\Installer\Enums\InstallerRunStatus;
+use Capell\Installer\Http\Middleware\RequireInstallerBootstrap;
 use Capell\Installer\Http\Requests\RunInstallStepRequest;
 use Capell\Installer\Http\Requests\StoreInstallRequest;
 use Capell\Installer\Http\Responses\InstallStepResponse;
@@ -46,8 +47,18 @@ final class InstallController
         private readonly MultiNodeTopologyGuard $topologyGuard,
     ) {}
 
+    public function unlock(): Response
+    {
+        return to_route('capell-installer.show')->withHeaders($this->installerSessionHeaders());
+    }
+
     public function show(Request $request): Response
     {
+        if (! resolve(RequireInstallerBootstrap::class)->hasValidSession($request)) {
+            return response()->view('capell-installer::bootstrap')
+                ->withHeaders($this->installerSessionHeaders());
+        }
+
         $hasActiveInstallLock = $this->sessions->hasActiveInstallLock();
         $capellAlreadyInstalled = $request->attributes->get('capellAlreadyInstalled') === true
             || (! $hasActiveInstallLock && $this->capellIsInstalled());
@@ -272,9 +283,10 @@ final class InstallController
     {
         abort_unless($this->canRemoveInstaller($request), 404);
 
+        $redirectUrl = RemoveSetupPackageAction::run(requiresServerSideTooling: true);
         $request->session()->forget(self::REMOVE_INSTALLER_SESSION_KEY);
 
-        return redirect()->to(RemoveSetupPackageAction::run());
+        return redirect()->to($redirectUrl);
     }
 
     public function report(Request $request, string $installId): Response

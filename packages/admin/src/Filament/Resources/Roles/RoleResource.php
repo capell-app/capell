@@ -86,7 +86,8 @@ class RoleResource extends ShieldRoleResource
                 DeleteAction::make(),
             ])
             ->toolbarActions([
-                DeleteBulkAction::make(),
+                DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete'),
             ])
             ->emptyStateHeading(__('capell-admin::generic.no_roles'))
             ->emptyStateDescription(__('capell-admin::generic.no_roles_description'))

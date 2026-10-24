@@ -17,11 +17,13 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Str;
+use Override;
 use RuntimeException;
 use Throwable;
 
 class ConfiguratorSelect extends SelectField
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -121,13 +123,13 @@ class ConfiguratorSelect extends SelectField
 
                         Notification::make()
                             ->title(__('capell-admin::generic.maker_completed'))
-                            ->body($result->files->pluck('path')->implode(PHP_EOL))
+                            ->body(e($result->files->pluck('path')->implode(PHP_EOL)))
                             ->success()
                             ->send();
                     } catch (Throwable $throwable) {
                         Notification::make()
                             ->title(__('capell-admin::generic.maker_failed'))
-                            ->body($throwable->getMessage())
+                            ->body(e($throwable->getMessage()))
                             ->danger()
                             ->send();
 
@@ -181,11 +183,11 @@ class ConfiguratorSelect extends SelectField
                 foreach ($configurators as $configuratorClass) {
                     $key = $configuratorClass::getKey();
                     $baseClassName = class_basename($configuratorClass);
-                    $options[$key] = $key . '<br /><span class="block break-words font-light text-gray-500 text-xs">' . $baseClassName . '</span>';
+                    $options[$key] = e($key) . '<br /><span class="block break-words font-light text-gray-500 text-xs">' . e($baseClassName) . '</span>';
                 }
 
                 if ($state !== null && $state !== '' && ! isset($options[$state])) {
-                    return array_merge([$state => $state], $options);
+                    return array_merge([$state => e($state)], $options);
                 }
 
                 return $options;

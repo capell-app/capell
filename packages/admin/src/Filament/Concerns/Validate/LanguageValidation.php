@@ -28,7 +28,7 @@ trait LanguageValidation
                 ->warning()
                 ->title(__(
                     'capell-admin::message.language_not_deletable',
-                    ['name' => $record->name],
+                    ['name' => e($record->name)],
                 ))
                 ->body(__(
                     'capell-admin::message.language_not_deletable_info',

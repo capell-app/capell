@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Backup\CreateBackupAction;
 use Capell\Core\Actions\Backup\RestoreBackupAction;
+use Capell\Core\Actions\Backup\SignBackupManifestAction;
 use Capell\Core\Contracts\Backup\DatabaseBackupDriver;
 use Capell\Core\Data\Backup\BackupRestoreResultData;
 use Capell\Core\Support\Backup\BackupArtifactStore;
 use Capell\Core\Support\Backup\BackupTemporaryFiles;
 use Capell\Core\Support\Backup\DatabaseBackupDriverRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Tests\Support\BackupSigningTestKeys;
 use Capell\Core\Tests\Support\Stubs\RecordingBackupFilesystem;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +22,7 @@ use function Orchestra\Testbench\package_path;
 use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
+    BackupSigningTestKeys::configure();
     Storage::fake('backups');
     Storage::fake('media');
     Storage::fake('scratch-media');
@@ -75,6 +78,69 @@ afterEach(function (): void {
     if (is_dir($this->scratchDirectory)) {
         rmdir($this->scratchDirectory);
     }
+});
+
+it('refuses unsigned snapshots before creating scratch data', function (): void {
+    $manifest = CreateBackupAction::run(databaseOnly: true);
+    $path = 'capell-backups/' . $manifest->snapshotId . '/manifest.json';
+    $payload = Storage::disk('backups')->json($path);
+    unset($payload['signature']);
+    Storage::disk('backups')->put($path, json_encode($payload, JSON_THROW_ON_ERROR));
+
+    expect(fn () => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test'))
+        ->toThrow(RuntimeException::class)
+        ->and(is_dir($this->scratchDirectory))->toBeFalse()
+        ->and($this->doctorProcesses->commands)->toBeEmpty();
+});
+
+it('refuses a replaced dump even when its manifest checksum and size are updated', function (): void {
+    $manifest = CreateBackupAction::run(databaseOnly: true);
+    $path = 'capell-backups/' . $manifest->snapshotId . '/manifest.json';
+    $payload = Storage::disk('backups')->json($path);
+    new PDO('sqlite:' . $this->databasePath)->exec("UPDATE examples SET value = 'forged'");
+    $dump = gzencode(file_get_contents($this->databasePath));
+    Storage::disk('backups')->put($manifest->database->path, $dump);
+    $payload['database']['bytes'] = strlen($dump);
+    $payload['database']['sha256'] = hash('sha256', $dump);
+    Storage::disk('backups')->put($path, json_encode($payload, JSON_THROW_ON_ERROR));
+
+    expect(fn () => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test'))
+        ->toThrow(RuntimeException::class)
+        ->and(is_dir($this->scratchDirectory))->toBeFalse()
+        ->and($this->doctorProcesses->commands)->toBeEmpty();
+});
+
+it('rejects untrusted signature metadata and altered signed fields before restore', function (string $change): void {
+    $manifest = CreateBackupAction::run(databaseOnly: true);
+    $path = 'capell-backups/' . $manifest->snapshotId . '/manifest.json';
+    $payload = Storage::disk('backups')->json($path);
+
+    match ($change) {
+        'algorithm' => $payload['signature']['algorithm'] = 'none',
+        'key' => $payload['signature']['keyId'] = 'unknown',
+        'signature' => $payload['signature']['value'] = base64_encode(str_repeat('x', 64)),
+        'encoding' => $payload['signature']['value'] = 'not base64!',
+        'connection' => $payload['connection_name'] = 'another_connection',
+        'driver' => $payload['database_driver'] = 'mysql',
+        'timestamp' => $payload['created_at'] = '2020-01-01T00:00:00+00:00',
+        'public key' => config(['backup.signing.public_keys.test-key' => base64_encode(sodium_crypto_sign_publickey(sodium_crypto_sign_keypair()))]),
+        default => throw new LogicException('Unknown restore alteration case.'),
+    };
+    Storage::disk('backups')->put($path, json_encode($payload, JSON_THROW_ON_ERROR));
+
+    expect(fn () => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test'))
+        ->toThrow(RuntimeException::class, __('capell-core::backup.untrusted_signature'))
+        ->and(is_dir($this->scratchDirectory))->toBeFalse()
+        ->and($this->doctorProcesses->commands)->toBeEmpty();
+})->with(['algorithm', 'key', 'signature', 'encoding', 'connection', 'driver', 'timestamp', 'public key']);
+
+it('restores with a retained verification key after rotating and removing the signing secret', function (): void {
+    $manifest = CreateBackupAction::run(databaseOnly: true);
+    config(['backup.signing.key_id' => 'next-key', 'backup.signing.secret_key' => null]);
+
+    $result = RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test');
+
+    expect(backupRestoredValue($result->database))->toBe('original');
 });
 
 it('restores a verified snapshot only into scratch database and media targets', function (): void {
@@ -172,7 +238,7 @@ it('rejects colliding or unsafe media mappings before creating scratch data', fu
     $duplicate = clone $manifest->media[0];
     $duplicate->sourcePath = $sourcePath;
     $manifest->media[] = $duplicate;
-    resolve(BackupArtifactStore::class)->putManifest($manifest->snapshotId, $manifest->toArray());
+    resolve(BackupArtifactStore::class)->putManifest($manifest->snapshotId, SignBackupManifestAction::run($manifest->toArray()));
 
     expect(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'restored'))
         ->toThrow(RuntimeException::class)
@@ -186,7 +252,7 @@ it('rejects unicode-equivalent media destinations before creating scratch data',
     $duplicate = clone $manifest->media[0];
     $duplicate->sourcePath = $sourcePath;
     $manifest->media[] = $duplicate;
-    resolve(BackupArtifactStore::class)->putManifest($manifest->snapshotId, $manifest->toArray());
+    resolve(BackupArtifactStore::class)->putManifest($manifest->snapshotId, SignBackupManifestAction::run($manifest->toArray()));
 
     expect(fn (): BackupRestoreResultData => RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'restored'))
         ->toThrow(RuntimeException::class, __('capell-core::backup.destinations_collide'))
@@ -289,7 +355,7 @@ it('restores ordinary colons while rejecting drive stream and traversal source p
     Storage::disk('media')->put($safe ? $sourcePath : 'original.txt', 'preserved report');
     $manifest = CreateBackupAction::run();
     $manifest->media[0]->sourcePath = $sourcePath;
-    resolve(BackupArtifactStore::class)->putManifest($manifest->snapshotId, $manifest->toArray());
+    resolve(BackupArtifactStore::class)->putManifest($manifest->snapshotId, SignBackupManifestAction::run($manifest->toArray()));
 
     if ($safe) {
         $result = RestoreBackupAction::run($manifest->snapshotId, 'capell_restore_test', 'scratch-media', 'restored');

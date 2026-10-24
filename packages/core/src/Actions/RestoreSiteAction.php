@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\SiteDomains\AssertSiteDomainClaimAllowedAction;
+use Capell\Core\Actions\SiteDomains\WithSiteDomainClaimLockAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Exceptions\PageRestoreCancelledException;
@@ -31,7 +33,7 @@ final class RestoreSiteAction
     public function handle(Site $site): bool
     {
         try {
-            return $site->getConnection()->transaction(function () use ($site): bool {
+            return WithSiteDomainClaimLockAction::run($site->getConnection(), function () use ($site): bool {
                 $current = $site->newQuery()->onlyTrashed()->whereKey($site->getKey())->lockForUpdate()->first();
                 if (! $current instanceof Site) {
                     return false;
@@ -46,8 +48,20 @@ final class RestoreSiteAction
                     ->latest()
                     ->lockForUpdate()->first();
 
+                // Legacy deletions can leave active domain rows behind. Re-enabling
+                // the site re-enables those claims, even without a deletion batch.
+                foreach (SiteDomain::on($site->getConnectionName())->where('site_id', $site->getKey())->lockForUpdate()->get() as $domain) {
+                    AssertSiteDomainClaimAllowedAction::run($domain);
+                }
+
                 if (! $batch instanceof DeletionBatch) {
                     return (bool) $site->restore();
+                }
+
+                $domainIds = $batch->records->where('model_type', SiteDomain::class)->pluck('model_id');
+                $domains = SiteDomain::on($site->getConnectionName())->onlyTrashed()->whereKey($domainIds)->lockForUpdate()->get();
+                foreach ($domains as $domain) {
+                    AssertSiteDomainClaimAllowedAction::run($domain);
                 }
 
                 $ids = $batch->records->where('model_type', Page::class)->pluck('model_id')->map(intval(...))->all();
@@ -77,7 +91,10 @@ final class RestoreSiteAction
                 $currentPages = Page::on($site->getConnectionName())->withTrashed()->whereKey($ids)->lockForUpdate()->get();
                 throw_unless($currentPages->count() === count($ids) && CanRestorePageMembersAction::run($currentPages), PageRestoreCancelledException::class);
 
-                $this->restoreBatchRecords($batch, SiteDomain::class);
+                foreach ($domains as $domain) {
+                    throw_unless($domain->restore(), PageRestoreCancelledException::class);
+                }
+
                 $this->restoreBatchRecords($batch, PageUrl::class);
                 $site->getConnection()->afterCommit(fn () => $this->flushRestoredBatchSideEffects($site));
 
@@ -120,7 +137,6 @@ final class RestoreSiteAction
             Layout::class => Layout::withTrashed()->whereKey($modelIds->all())->restore(),
             PageUrl::class => PageUrl::withTrashed()->whereKey($modelIds->all())->restore(),
             Site::class => Site::withTrashed()->whereKey($modelIds->all())->restore(),
-            SiteDomain::class => SiteDomain::withTrashed()->whereKey($modelIds->all())->restore(),
             default => null,
         };
     }

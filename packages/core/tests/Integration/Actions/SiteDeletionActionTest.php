@@ -7,13 +7,16 @@ use Capell\Core\Actions\PreviewSiteDeletionImpactAction;
 use Capell\Core\Actions\RestoreSiteAction;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\PageSaved;
+use Capell\Core\Models\DeletionBatch;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
+use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Validation\ValidationException;
 
 use function Pest\Laravel\assertDatabaseMissing;
 use function Pest\Laravel\assertModelExists;
@@ -151,4 +154,43 @@ it('cleans site-owned records on force delete', function (): void {
     assertDatabaseMissing((new SiteDomain)->getTable(), ['id' => $siteDomain->getKey()]);
     assertDatabaseMissing((new Translation)->getTable(), ['id' => $siteTranslation->getKey()]);
     assertDatabaseMissing((new Translation)->getTable(), ['id' => $pageTranslation->getKey()]);
+});
+
+it('refuses the whole site restore batch when any deleted domain claims an inaccessible origin', function (): void {
+    $site = Site::factory()->withTranslations()->create();
+    $layout = Layout::factory()->createOne(['site_id' => $site->id]);
+    $page = Page::factory()->site($site)->layout($layout)->withTranslations()->create();
+    $domain = SiteDomain::factory()->site($site)->create(['scheme' => null, 'domain' => 'owned.test', 'path' => '/claimed']);
+    $safeDomain = SiteDomain::factory()->site($site)->create(['domain' => 'safe.test']);
+    DeleteSiteAction::run($site);
+    $foreign = Site::factory()->createOne();
+    SiteDomain::factory()->site($foreign)->create(['scheme' => 'http', 'domain' => 'owned.test', 'path' => '/']);
+    config(['capell-frontend.default_scheme' => 'https']);
+    $actor = User::factory()->createOne();
+    $actor->assignedSiteIds = collect([$site->id]);
+
+    test()->actingAs($actor);
+
+    expect(fn () => RestoreSiteAction::run($site->refresh()))->toThrow(ValidationException::class);
+    foreach ([$site, $layout, $page, $domain, $safeDomain] as $record) {
+        expect($record->refresh()->trashed())->toBeTrue();
+    }
+
+    expect(DeletionBatch::query()->where('root_id', $site->id)->firstOrFail()->restored_at)->toBeNull();
+    expect(PageUrl::withTrashed()->where('site_id', $site->id)->whereNull('deleted_at')->exists())->toBeFalse();
+});
+
+it('checks active domain claims when restoring a legacy site without a deletion batch', function (): void {
+    $site = Site::factory()->createOne();
+    $domain = SiteDomain::factory()->site($site)->create(['scheme' => null, 'domain' => 'legacy.test', 'path' => '/claimed']);
+    $site->delete();
+    $foreign = Site::factory()->createOne();
+    SiteDomain::factory()->site($foreign)->create(['scheme' => 'http', 'domain' => 'legacy.test', 'path' => '/']);
+    $actor = User::factory()->createOne();
+    $actor->assignedSiteIds = collect([$site->id]);
+
+    test()->actingAs($actor);
+
+    expect(fn () => RestoreSiteAction::run($site->refresh()))->toThrow(ValidationException::class);
+    expect($site->refresh()->trashed())->toBeTrue()->and($domain->fresh()->trashed())->toBeFalse();
 });

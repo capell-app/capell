@@ -19,6 +19,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Override;
 
 class LanguageSelect extends Select
@@ -124,6 +125,8 @@ class LanguageSelect extends Select
         return $this->createOptionForm(fn (Schema $schema): Schema => LanguageForm::configure($schema->model(Language::class)))
             ->createOptionAction(
                 fn (Action $action): Action => $action
+                    ->authorize(fn (): bool => Gate::allows('create', Language::class))
+                    ->before(fn () => Gate::authorize('create', Language::class))
                     ->modalHeading(__('capell-admin::generic.language'))
                     ->successNotificationTitle(
                         fn (Action $action): string => __(
@@ -161,6 +164,8 @@ class LanguageSelect extends Select
             ->editOptionForm(fn (Schema $schema): Schema => LanguageForm::configure($schema->model($this->getSelectedRecord() ?? Language::class)))
             ->editOptionAction(
                 fn (Action $action): Action => $action
+                    ->authorize(fn (): bool => ($language = $this->getSelectedRecord()) instanceof Language && Gate::allows('update', $language))
+                    ->before(fn () => Gate::authorize('update', $this->getSelectedRecord() ?? Language::class))
                     ->modalHeading(__('capell-admin::generic.language'))
                     ->modalWidth(Width::ScreenMedium)
                     ->successNotificationTitle(

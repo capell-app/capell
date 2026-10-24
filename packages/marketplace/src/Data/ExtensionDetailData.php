@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Data;
 use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
+use Capell\Marketplace\Support\MarketplaceComposerCommand;
 use Spatie\LaravelData\Data;
 
 final class ExtensionDetailData extends Data
@@ -142,11 +143,7 @@ final class ExtensionDetailData extends Data
 
     public function manualComposerRequireCommand(): string
     {
-        $requirement = $this->latestVersion === null
-            ? $this->composerName
-            : $this->composerName . ':^' . $this->latestVersion;
-
-        return 'composer require ' . $this->shellToken($requirement);
+        return MarketplaceComposerCommand::require($this->composerName, $this->latestVersion === null ? null : '^' . $this->latestVersion);
     }
 
     public function manualExtensionInstallCommand(): string

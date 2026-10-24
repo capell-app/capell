@@ -9,8 +9,7 @@ on:
         type: string
 
 permissions:
-  actions: read
-  contents: write
+  contents: read
 
 concurrency:
   group: capell-public-release
@@ -18,6 +17,7 @@ concurrency:
 
 jobs:
   prepare-plan:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
@@ -27,9 +27,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Validate committed release plan
         env:
           PLAN_PATH: ${{ inputs.plan_path }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
         run: |
           test -n "${PLAN_PATH}"
           case "/${PLAN_PATH}/" in
@@ -46,6 +48,14 @@ jobs:
             *) echo 'Plan path escapes the checked-out workspace.' >&2; exit 1 ;;
           esac
           php scripts/release.php validate "${resolved}"
+          source_commit="$(jq -er '.source.commit' "${resolved}")"
+          if [[ ! "${source_commit}" =~ ^[a-f0-9]{40}$ ]]; then
+            echo 'Release source must be an exact commit SHA.' >&2
+            exit 1
+          fi
+          # Bind the source to the main commit that supplied this workflow,
+          # rather than a moving ref while an approval is pending.
+          git merge-base --is-ancestor "${source_commit}" "${RELEASE_WORKFLOW_SHA}"
           cp "${resolved}" "${RUNNER_TEMP}/release-plan.json"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -56,7 +66,12 @@ jobs:
 
   publish:
     needs: prepare-plan
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      actions: read
+      contents: write
     steps:
       - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:

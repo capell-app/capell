@@ -26,7 +26,7 @@
                 $flagIconRenderer->render(
                     $record->language->flag,
                     $record->language->name,
-                    attributes: ['x-tooltip.raw' => $record->language->name],
+                    attributes: ['x-tooltip.raw' => e($record->language->name)],
                 )
             !!}
         @else
@@ -40,7 +40,7 @@
                     $flagIconRenderer->render(
                         $language->flag,
                         $language->name,
-                        attributes: ['x-tooltip.raw' => $language->name],
+                        attributes: ['x-tooltip.raw' => e($language->name)],
                     )
                 !!}
             @else

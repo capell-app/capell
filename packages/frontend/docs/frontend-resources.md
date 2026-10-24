@@ -126,3 +126,21 @@ Recovery is the last safety net, not the release strategy. Content-hashed assets
 ## Breaking upgrade
 
 Mix, loose `css()`/`js()` builders, `FrontendAssetRequirementData`, `FrontendAssetManifestData`, `FrontendAssetContributor`, `FrontendAssetManifestRenderer`, `VendorAssetData::buildAsset()`, and `VendorAssetData::npmDependency()` were removed. Use typed source/factory declarations, `FrontendResourceContributor`, `FrontendResourcePlanRenderer`, and `FrontendPackageDependencyRegistry`.
+
+## Verify published package assets
+
+The package build workflows use `npm ci` and compare every rebuilt file under
+`publishes/build` with the checked-in output, including added and removed files.
+From `packages/frontend`, run:
+
+```bash
+npm ci --no-audit --no-fund
+node ../../scripts/check-package-build.mjs .
+node --experimental-vm-modules --test tests/JavaScript/published-widget-runtime.test.mjs
+```
+
+A drift failure leaves the rebuilt assets available for review and commit.
+Regenerate with the package's pinned dependencies; do not hand-edit minified
+bundles. The same build check runs for `packages/admin`. The runtime regression
+compares source and published behaviour so a stale bundle cannot silently retain
+an older deferred-fragment implementation.

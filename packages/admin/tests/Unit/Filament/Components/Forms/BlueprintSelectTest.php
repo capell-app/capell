@@ -15,12 +15,14 @@ use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
+use Capell\Tests\Fixtures\Models\User;
 use Filament\Actions\Action;
 use Filament\Schemas\Components\Icon;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function (): void {
     test()->actingAsAdmin();
@@ -336,3 +338,26 @@ function blueprintSelectLabelHelpers(BaseBlueprintSelect $component): array
 
     return $helpers;
 }
+
+it('authorises inline blueprint creation and editing independently of page permissions', function (): void {
+    $blueprint = Blueprint::factory()->page()->create();
+    $actor = User::factory()->create();
+    foreach (['Create:Page', 'Update:Page'] as $permission) {
+        $actor->givePermissionTo(Permission::findOrCreate($permission, 'web'));
+    }
+
+    test()->actingAs($actor);
+    $component = mountedBlueprintSelect(
+        PageBlueprintSelect::make('blueprint_id')->withRelation()->withCreateForm()->withEditForm(),
+        ['blueprint_id' => $blueprint->id],
+        Page::class,
+    );
+
+    expect(expectPresent($component->getCreateOptionAction())->isAuthorized())->toBeFalse()
+        ->and(expectPresent($component->getEditOptionAction())->isAuthorized())->toBeFalse();
+
+    $actor->givePermissionTo(Permission::findOrCreate('Create:Blueprint', 'web'));
+    $actor->givePermissionTo(Permission::findOrCreate('Update:Blueprint', 'web'));
+    expect(expectPresent($component->getCreateOptionAction())->isAuthorized())->toBeTrue()
+        ->and(expectPresent($component->getEditOptionAction())->isAuthorized())->toBeTrue();
+});

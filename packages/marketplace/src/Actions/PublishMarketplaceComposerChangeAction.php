@@ -8,9 +8,12 @@ use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
+use Capell\Marketplace\Jobs\AbstractMarketplaceOperationJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceComposerChangePublisherRegistry;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -29,6 +32,21 @@ final class PublishMarketplaceComposerChangeAction
      * @return array{status: string, reference?: string, type?: string, failure_reason?: string, fallback?: string}
      */
     public function handle(ExtensionAcquisitionData $acquisition, ExtensionListingData $listing, MarketplaceInstallAttempt $attempt): array
+    {
+        if ($attempt->operation === MarketplaceOperationType::Update) {
+            return Cache::lock('capell-marketplace:composer-install', AbstractMarketplaceOperationJob::jobTimeoutSeconds())
+                ->block(5, function () use ($acquisition, $listing, $attempt): array {
+                    AssertMarketplaceUpdateConstraintAction::run($acquisition->composerName, $acquisition->versionConstraint);
+
+                    return $this->publish($acquisition, $listing, $attempt);
+                });
+        }
+
+        return $this->publish($acquisition, $listing, $attempt);
+    }
+
+    /** @return array{status: string, reference?: string, type?: string, failure_reason?: string, fallback?: string} */
+    private function publish(ExtensionAcquisitionData $acquisition, ExtensionListingData $listing, MarketplaceInstallAttempt $attempt): array
     {
         $publisher = $this->publishers->first();
 
