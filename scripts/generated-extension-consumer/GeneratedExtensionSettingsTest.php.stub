@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use Capell\Admin\Filament\Widgets\Extensions\InstalledExtensionsFilamentWidget;
+use Capell\Core\Facades\CapellCore;
+use Filament\Facades\Filament;
+use Illuminate\Foundation\Auth\User;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+/**
+ * Copied into the disposable host by verify-generated-extension-consumer.sh.
+ * It uses the host's installed database rather than a refreshed schema.
+ */
+final class GeneratedExtensionSettingsTest extends TestCase
+{
+    public function test_generated_settings_save_and_reload_through_extension_management(): void
+    {
+        $packageName = (string) getenv('CAPELL_GENERATED_PACKAGE');
+        $settingsClass = (string) getenv('CAPELL_GENERATED_SETTINGS_CLASS');
+        $userModel = config('auth.providers.users.model');
+        $this->assertIsString($userModel);
+        $this->assertTrue(is_a($userModel, User::class, true));
+        $this->assertTrue(CapellCore::isPackageEnabled($packageName));
+
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        $this->actingAs($userModel::query()->where('email', getenv('CAPELL_GENERATED_ADMIN_EMAIL'))->firstOrFail());
+
+        Livewire::test(InstalledExtensionsFilamentWidget::class)
+            ->assertTableActionVisible('manageExtension', $packageName)
+            ->mountTableAction('manageExtension', $packageName)
+            ->assertSchemaStateSet(['public_label' => ''])
+            ->fillForm(['public_label' => 'Consumer label'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        app()->forgetInstance($settingsClass);
+        $this->assertSame('Consumer label', resolve($settingsClass)->public_label);
+
+        Livewire::test(InstalledExtensionsFilamentWidget::class)
+            ->mountTableAction('manageExtension', $packageName)
+            ->assertSchemaStateSet(['public_label' => 'Consumer label']);
+    }
+}

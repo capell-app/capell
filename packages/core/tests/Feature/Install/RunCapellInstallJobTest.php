@@ -8,6 +8,9 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeRunInstallAction;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Queue\Job;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -96,7 +99,7 @@ it('does not run when another install owns the lock', function (): void {
         ->and(Cache::get(sprintf('capell.install.%s.status', $installId)))->toBe('cancelled');
 });
 
-it('sets failed status in cache when an exception is thrown', function (): void {
+it('sets queued status in cache while a failed attempt awaits retry', function (): void {
     $installId = 'test-failed-uuid';
     Cache::put('capell.install.lock', ['installId' => $installId]);
 
@@ -124,5 +127,121 @@ it('sets failed status in cache when an exception is thrown', function (): void 
     expect(fn () => new RunCapellInstallJob($inputData, $installId)->handle())
         ->toThrow(RuntimeException::class);
 
-    expect(Cache::get(sprintf('capell.install.%s.status', $installId)))->toBe('failed');
+    expect(Cache::get(sprintf('capell.install.%s.status', $installId)))->toBe('queued');
+});
+
+it('retries a transient failure and completes under the original ownership', function (): void {
+    $installId = 'retry-install';
+    Cache::put('capell.install.lock', ['installId' => $installId]);
+    $action = new class
+    {
+        public int $calls = 0;
+
+        public function handle(InstallInputData $input, ProgressReporter $reporter): void
+        {
+            throw_if(++$this->calls === 1, RuntimeException::class, 'Transient failure');
+        }
+    };
+    app()->instance(RunInstallAction::class, $action);
+    $job = new RunCapellInstallJob(new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false), $installId);
+    expect(fn () => $job->handle())->toThrow(RuntimeException::class);
+    expect(Cache::get('capell.install.' . $installId . '.status'))->toBe('queued');
+
+    $job->handle();
+    expect($action->calls)->toBe(2)
+        ->and(Cache::get('capell.install.' . $installId . '.status'))->toBe('complete')
+        ->and(Cache::get('capell.install.lock'))->toBeNull();
+});
+
+it('preserves replacement ownership and cancellation when an old attempt fails', function (): void {
+    Cache::put('capell.install.lock', ['installId' => 'old-install']);
+    app()->instance(RunInstallAction::class, new class
+    {
+        public function handle(InstallInputData $input, ProgressReporter $reporter): never
+        {
+            Cache::put('capell.install.lock', ['installId' => 'replacement']);
+            Cache::put('capell.install.old-install.status', 'cancelled');
+            throw new RuntimeException('Late failure');
+        }
+    });
+    $job = new RunCapellInstallJob(new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false), 'old-install');
+    expect(fn () => $job->handle())->toThrow(RuntimeException::class);
+    expect(Cache::get('capell.install.lock'))->toBe(['installId' => 'replacement'])
+        ->and(Cache::get('capell.install.old-install.status'))->toBe('cancelled');
+});
+
+it('releases only its own lock after exhausting retries', function (): void {
+    Cache::put('capell.install.lock', ['installId' => 'exhausted']);
+    $job = new RunCapellInstallJob(new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false), 'exhausted');
+    $job->failed(new RuntimeException('Exhausted'));
+    expect(Cache::get('capell.install.exhausted.status'))->toBe('failed')
+        ->and(Cache::get('capell.install.lock'))->toBeNull();
+});
+
+it('never executes an explicitly cancelled queued run', function (): void {
+    Cache::put('capell.install.lock', ['installId' => 'cancelled']);
+    Cache::put('capell.install.cancelled.status', 'cancelled');
+    RunInstallAction::mock()->shouldNotReceive('handle');
+    new RunCapellInstallJob(new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false), 'cancelled')->handle();
+    expect(Cache::get('capell.install.cancelled.status'))->toBe('cancelled');
+});
+
+it('marks the final executing attempt failed and keeps later callbacks truthful', function (): void {
+    $id = 'final-attempt';
+    Cache::put('capell.install.lock', ['installId' => $id]);
+    RunInstallAction::mock()->shouldReceive('handle')->once()->andThrow(new RuntimeException('Final failure'));
+    $queuedJob = Mockery::mock(Job::class);
+    $queuedJob->shouldReceive('attempts')->andReturn(3);
+    $job = new RunCapellInstallJob(new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false), $id);
+    $job->setJob($queuedJob);
+
+    expect(fn () => $job->handle())->toThrow(RuntimeException::class);
+    $job->failed(new RuntimeException('Worker callback'));
+    expect(Cache::get('capell.install.' . $id . '.status'))->toBe('failed')
+        ->and(Cache::get('capell.install.lock'))->toBeNull();
+});
+
+it('fences a queued completion against replacement under the ownership boundary', function (): void {
+    $id = 'paused-queued-completion';
+    $store = new class extends ArrayStore
+    {
+        public ?Closure $onRead = null;
+
+        #[Override]
+        public function get($key): mixed
+        {
+            $observed = parent::get($key);
+            if ($this->onRead instanceof Closure) {
+                ($this->onRead)($key);
+            }
+
+            return $observed;
+        }
+    };
+    Cache::extend('ownership-probe', fn (): Repository => new Repository($store));
+    config(['cache.default' => 'ownership-probe', 'cache.stores.ownership-probe' => ['driver' => 'ownership-probe']]);
+    Cache::put('capell.install.lock', ['installId' => $id]);
+    $probe = false;
+    $interleaved = false;
+    RunInstallAction::mock()->shouldReceive('handle')->once()->andReturnUsing(function () use (&$probe): void {
+        $probe = true;
+    });
+    $store->onRead = function (string $key) use ($store, &$probe, &$interleaved): void {
+        if ($probe && $key === 'capell.install.lock') {
+            $probe = false;
+            $contender = Cache::lock('capell.install.ownership', 30);
+            if ($contender->get()) {
+                $contender->release();
+                $interleaved = true;
+                $store->put('capell.install.lock', ['installId' => 'replacement'], 7200);
+            }
+        }
+
+    };
+
+    new RunCapellInstallJob(new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false), $id)->handle();
+
+    expect($interleaved)->toBeFalse()
+        ->and(Cache::get('capell.install.' . $id . '.status'))->toBe('complete')
+        ->and(Cache::get('capell.install.lock'))->toBeNull();
 });

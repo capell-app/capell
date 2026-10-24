@@ -23,7 +23,7 @@
     "providers": {
         "metadata": ["{{ escapedMetadataProvider }}"],
         "install": ["{{ escapedInstallProvider }}"],
-        "runtime": ["{{ escapedRuntimeProvider }}"],
+        "runtime": [],
         "admin": ["{{ escapedAdminProvider }}"],
         "frontend": []
     },
@@ -32,6 +32,18 @@
             "type": "content-widget",
             "key": "{{ widgetKey }}",
             "class": "{{ escapedNamespace }}\\ExampleWidgetContribution"
+        },
+        {
+            "type": "setting",
+            "class": "{{ escapedNamespace }}\\PackageSettingsContribution",
+            "settingsClass": "{{ escapedNamespace }}\\Settings\\PackageSettings",
+            "settingsGroup": "{{ settingsGroup }}",
+            "keys": ["settings-class:{{ settingsGroup }}", "settings-metadata:{{ settingsGroup }}"]
+        },
+        {
+            "type": "admin-page",
+            "class": "{{ escapedNamespace }}\\SettingsManagementContribution",
+            "keys": ["extension-management-surface:{{ packageName }}:settings:{{ settingsGroup }}"]
         }
     ],
     "database": {
@@ -48,7 +60,7 @@
     "commands": {
         "doctor": null
     },
-    "settings": ["{{ settingsGroup }}"],
+    "settings": ["{{ escapedNamespace }}\\Settings\\PackageSettings"],
     "permissions": [],
     "capabilities": ["frontend-assets", "frontend-rendering"],
     "performance": {

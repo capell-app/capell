@@ -56,7 +56,7 @@ it('creates a minimal package scaffold without modifying root composer dependenc
         ->and($manifest['displayName'])->toBe('Example')
         ->and($manifest['product']['tier'])->toBe('premium')
         ->and($manifest['surfaces'])->toBe(['shared'])
-        ->and($manifest['providers']['runtime'])->toBe(['Vendor\\Example\\Providers\\PackageServiceProvider'])
+        ->and($manifest['providers']['runtime'])->toBe([])
         ->and($manifest['performance']['cacheSafety']['cacheable'])->toBeFalse()
         ->and($composer['require'])->toHaveKeys(['capell-app/core', 'spatie/laravel-package-tools'])
         ->and($composer['require-dev'])->toHaveKeys(['orchestra/testbench', 'pestphp/pest', 'pestphp/pest-plugin-laravel'])
@@ -103,6 +103,8 @@ it('creates a full package scaffold with live safe examples', function (): void 
         ->and($extensionDirectory . '/src/Providers/AdminServiceProvider.php')->toBeFile()
         ->and($extensionDirectory . '/src/Console/Commands/ExamplePackageCommand.php')->toBeFile()
         ->and($extensionDirectory . '/src/ExampleWidgetContribution.php')->toBeFile()
+        ->and($extensionDirectory . '/src/PackageSettingsContribution.php')->toBeFile()
+        ->and($extensionDirectory . '/src/SettingsManagementContribution.php')->toBeFile()
         ->and($extensionDirectory . '/src/Filament/ExampleWidget.php')->toBeFile()
         ->and($extensionDirectory . '/src/Data/ExampleWidgetInputData.php')->toBeFile()
         ->and($extensionDirectory . '/src/Data/ExampleWidgetRenderData.php')->toBeFile()
@@ -110,7 +112,8 @@ it('creates a full package scaffold with live safe examples', function (): void 
         ->and($extensionDirectory . '/resources/views/widget.blade.php')->toBeFile()
         ->and($extensionDirectory . '/resources/dist/widget.css')->toBeFile()
         ->and($extensionDirectory . '/resources/dist/widget.js')->toBeFile()
-        ->and($extensionDirectory . '/tests/Feature/ProviderDiscoveryTest.php')->toBeFile()
+        ->and($extensionDirectory . '/tests/Feature/WidgetLifecycleTest.php')->toBeFile()
+        ->and($extensionDirectory . '/tests/Feature/SettingsTest.php')->toBeFile()
         ->and($extensionDirectory . '/tests/Pest.php')->toBeFile()
         ->and($extensionDirectory . '/tests/TestCase.php')->toBeFile()
         ->and($manifest['manifest-version'])->toBe(3)
@@ -118,18 +121,36 @@ it('creates a full package scaffold with live safe examples', function (): void 
         ->and($manifest['providers'])->toHaveKeys(['metadata', 'install', 'runtime', 'admin', 'frontend'])
         ->and($manifest['providers']['metadata'])->toBe(['Vendor\\ExampleTools\\Providers\\MetadataServiceProvider'])
         ->and($manifest['providers']['install'])->toBe(['Vendor\\ExampleTools\\Providers\\InstallServiceProvider'])
-        ->and($manifest['providers']['runtime'])->toBe(['Vendor\\ExampleTools\\Providers\\PackageServiceProvider'])
+        ->and($manifest['providers']['runtime'])->toBe([])
         ->and($manifest['providers']['admin'])->toBe(['Vendor\\ExampleTools\\Providers\\AdminServiceProvider'])
         ->and($manifest['providers']['frontend'])->toBe([])
         ->and($manifest['dependencies']['requires'])->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/layout-builder'])
-        ->and($manifest['contributes'])->toBe([[
-            'type' => 'content-widget',
-            'key' => 'vendor.example-tools',
-            'class' => 'Vendor\\ExampleTools\\ExampleWidgetContribution',
-        ]])
+        ->and($manifest['contributes'])->toBe([
+            [
+                'type' => 'content-widget',
+                'key' => 'vendor.example-tools',
+                'class' => 'Vendor\\ExampleTools\\ExampleWidgetContribution',
+            ],
+            [
+                'type' => 'setting',
+                'class' => 'Vendor\\ExampleTools\\PackageSettingsContribution',
+                'settingsClass' => 'Vendor\\ExampleTools\\Settings\\PackageSettings',
+                'settingsGroup' => 'example_tools',
+                'keys' => ['settings-class:example_tools', 'settings-metadata:example_tools'],
+            ],
+            [
+                'type' => 'admin-page',
+                'class' => 'Vendor\\ExampleTools\\SettingsManagementContribution',
+                'keys' => ['extension-management-surface:vendor/example-tools:settings:example_tools'],
+            ],
+        ])
         ->and($manifest['performance']['cacheSafety']['cacheable'])->toBeFalse()
         ->and($composer['require'])->toHaveKeys(['capell-app/core', 'capell-app/admin', 'capell-app/frontend', 'capell-app/layout-builder', 'spatie/laravel-data', 'spatie/laravel-package-tools'])
-        ->and($composer['extra']['laravel']['providers'])->toBe(['Vendor\\ExampleTools\\Providers\\PackageServiceProvider']);
+        ->and($composer['extra']['laravel']['providers'])->toBe(['Vendor\\ExampleTools\\Providers\\PackageServiceProvider'])
+        ->and($composer['scripts'])->toBe([
+            'post-autoload-dump' => ['@php vendor/bin/testbench package:discover --ansi'],
+            'test' => 'pest',
+        ]);
 
 });
 
@@ -288,4 +309,21 @@ it('renders escaped public content from the full scaffold render data', function
     expect((string) file_get_contents($extensionDirectory . '/tests/Feature/ManifestTest.php'))
         ->toContain('assertNoUnsafePublicCache');
     // Manifest validity is covered by "creates a minimal package scaffold without modifying root composer dependencies".
+});
+
+it('runs the generated minimal suite in an independent Testbench consumer', function (): void {
+    $packagesDirectory = makeExtensionWorkbenchDirectory();
+    artisanCommand('capell:make-extension', [
+        'package' => 'vendor/standalone-example', '--profile' => 'minimal', '--path' => $packagesDirectory, '--no-interaction' => true,
+    ])->assertExitCode(Command::SUCCESS);
+    $directory = $packagesDirectory . '/standalone-example';
+    // Reuse installed dependencies offline; this does not claim Composer resolution proof.
+    File::ensureDirectoryExists($directory . '/vendor/pestphp/pest/bin');
+    File::copy(dirname(__DIR__, 5) . '/vendor/pestphp/pest/bin/pest', $directory . '/vendor/pestphp/pest/bin/pest');
+    File::put($directory . '/vendor/autoload.php', '<?php $loader = require ' . var_export(dirname(__DIR__, 5) . '/vendor/autoload.php', true) . '; $loader->addPsr4("Vendor\\\\StandaloneExample\\\\", ' . var_export($directory . '/src/', true) . '); $loader->addPsr4("Vendor\\\\StandaloneExample\\\\Tests\\\\", ' . var_export($directory . '/tests/', true) . '); return $loader;');
+    // A risky manifest test performs no assertion, so it must fail the generated suite.
+    $process = new Process([PHP_BINARY, 'vendor/pestphp/pest/bin/pest', '--configuration=phpunit.xml.dist', '--fail-on-risky'], $directory, timeout: 60);
+    $process->run();
+
+    expect($process->getExitCode())->toBe(0, $process->getOutput() . $process->getErrorOutput());
 });

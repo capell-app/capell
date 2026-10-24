@@ -52,6 +52,13 @@ final class ScaffoldPackageAction
             $requires['spatie/laravel-data'] = '^4.0';
         }
 
+        $scripts = ['test' => 'pest'];
+
+        if ($input->profile === PackageScaffoldProfile::Full) {
+            // Full-profile tests boot the required Capell packages through Testbench discovery.
+            $scripts = ['post-autoload-dump' => ['@php vendor/bin/testbench package:discover --ansi'], ...$scripts];
+        }
+
         return [
             'name' => $input->packageName,
             'description' => $input->displayName . ' for Capell.',
@@ -72,9 +79,7 @@ final class ScaffoldPackageAction
                 'pestphp/pest' => '^5.0',
                 'pestphp/pest-plugin-laravel' => '^5.0',
             ],
-            'scripts' => [
-                'test' => 'pest',
-            ],
+            'scripts' => $scripts,
             'extra' => [
                 'laravel' => [
                     'providers' => [
@@ -99,6 +104,7 @@ final class ScaffoldPackageAction
             }
 
             $relativePath = substr($file->getPathname(), strlen($stubDirectory) + 1);
+            $relativePath = str_replace(array_keys($input->stubReplacements()), array_values($input->stubReplacements()), $relativePath);
             $targetPath = $input->targetPath . '/' . preg_replace('/\.stub$/', '', $relativePath);
 
             File::ensureDirectoryExists(dirname((string) $targetPath));

@@ -9,14 +9,20 @@ use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Contracts\SettingsSchemaContract;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Override;
+use Spatie\LaravelSettings\Settings;
 
-final class PackageSettings implements HasSchema, SettingsContract, SettingsSchemaContract
+final class PackageSettings extends Settings implements HasSchema, SettingsContract, SettingsSchemaContract
 {
+    public string $public_label = '';
+
+    #[Override]
     public static function group(): string
     {
         return '{{ settingsGroup }}';
     }
 
+    #[Override]
     public static function schema(): string
     {
         return self::class;
@@ -25,6 +31,7 @@ final class PackageSettings implements HasSchema, SettingsContract, SettingsSche
     /**
      * @return array<int, mixed>
      */
+    #[Override]
     public static function make(Schema $schema): array
     {
         return [

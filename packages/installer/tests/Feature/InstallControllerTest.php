@@ -13,6 +13,7 @@ use Capell\Core\Enums\PackageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
@@ -29,6 +30,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Testing\TestResponse;
 
 use function Pest\Laravel\get;
 use function Pest\Laravel\post;
@@ -2895,3 +2897,56 @@ function installerPatchedUserOutcome(string $path): array
         })()
         PHP, 'require $argv[1] . "/packages/core/tests/fixtures/activitylog-bootstrap.php"; bootActivityLogFixture($argv[1]); config()->set("permission", require $argv[1] . "/vendor/spatie/laravel-permission/config/permission.php");');
 }
+
+it('downloads original redacted evidence after cancelling a partial browser install', function (): void {
+    $id = 'acacacac-acac-4cac-acac-acacacacacac';
+    $sessions = resolve(InstallerSessionRepository::class);
+    $input = new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false, newUser: new NewUserData('Admin', 'admin@example.com', 'private-password'));
+    $sessions->run($id)->startBrowserSteps($input, [
+        ['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare'],
+        ['key' => InstallPlan::STEP_RESOLVE_USER, 'label' => 'User'],
+    ], InstallPlan::STEP_RESOLVE_USER, ['environment' => ['original' => true], 'checks' => []]);
+    $sessions->recordCompletedStep($id, InstallPlan::STEP_PREPARE_ENVIRONMENT, InstallPlan::STEP_RESOLVE_USER);
+    new CacheProgressReporter($id)->error('private-password original failure');
+
+    withSession(installerAccessSessionData($id))->post(route('capell-installer.cancel', ['installId' => $id]))->assertRedirect();
+    withSession(installerAccessSessionData($id))->get(route('capell-installer.progress.download', ['installId' => $id]))
+        ->assertOk()
+        ->assertJsonPath('status', 'cancelled')
+        ->assertJsonCount(2, 'plan')
+        ->assertJsonPath('environment.original', true)
+        ->assertJsonPath('diagnostics.completedSteps', [InstallPlan::STEP_PREPARE_ENVIRONMENT])
+        ->assertSee('original failure')->assertDontSee('private-password');
+    withSession(installerAccessSessionData($id))->postJson(route('capell-installer.run-step'), [
+        'install_id' => $id, 'step' => InstallPlan::STEP_RESOLVE_USER,
+    ])->assertStatus(410);
+});
+
+it('admits one step executor across overlapping HTTP requests and a replayed response', function (): void {
+    $id = 'abababab-abab-4bab-abab-abababababab';
+    $sessions = resolve(InstallerSessionRepository::class);
+    $input = new InstallInputData(siteUrl: 'https://example.com', packages: [], languages: ['en'], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $sessions->run($id)->startBrowserSteps($input, [
+        ['key' => InstallPlan::STEP_PREPARE_ENVIRONMENT, 'label' => 'Prepare'],
+        ['key' => InstallPlan::STEP_RESOLVE_USER, 'label' => 'User'],
+    ], InstallPlan::STEP_PREPARE_ENVIRONMENT, ['checks' => []]);
+    $calls = 0;
+    $overlap = null;
+    $payload = ['install_id' => $id, 'step' => InstallPlan::STEP_PREPARE_ENVIRONMENT];
+    RunInstallStepAction::mock()->shouldReceive('handle')->andReturnUsing(function () use ($id, $payload, &$calls, &$overlap): RunInstallStepResultData {
+        if (++$calls === 1) {
+            $overlap = withSession(installerAccessSessionData($id))->postJson(route('capell-installer.run-step'), $payload);
+        }
+
+        return new RunInstallStepResultData(null, false);
+    });
+
+    withSession(installerAccessSessionData($id))->postJson(route('capell-installer.run-step'), $payload)
+        ->assertOk()->assertJsonPath('nextStep', InstallPlan::STEP_RESOLVE_USER);
+    throw_unless($overlap instanceof TestResponse, RuntimeException::class, 'The overlapping request did not return a response.');
+    $overlap->assertOk()->assertJsonPath('inProgress', true);
+    expect($calls)->toBe(1);
+    withSession(installerAccessSessionData($id))->postJson(route('capell-installer.run-step'), $payload)
+        ->assertOk()->assertJsonPath('nextStep', InstallPlan::STEP_RESOLVE_USER);
+    expect($calls)->toBe(1);
+});

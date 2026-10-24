@@ -23,7 +23,7 @@
     "providers": {
         "metadata": [],
         "install": [],
-        "runtime": ["{{ escapedRuntimeProvider }}"],
+        "runtime": [],
         "admin": [],
         "frontend": []
     },

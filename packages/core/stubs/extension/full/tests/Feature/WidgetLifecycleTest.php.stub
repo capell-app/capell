@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Admin\Support\Widgets\WidgetDiscovery;
+use Capell\Core\Actions\RuntimeRefresh\RefreshInstalledPackageRuntimeAction;
+use Capell\Core\Facades\CapellCore;
+use Capell\Frontend\Support\Assets\FrontendResourceRegistry;
+use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
+use Capell\LayoutBuilder\Actions\WidgetExtensions\RenderPublicWidgetExtensionAction;
+use Capell\LayoutBuilder\Support\WidgetExtensions\WidgetExtensionRegistry;
+use {{ namespace }}\Data\ExampleWidgetRenderData;
+use {{ namespace }}\Filament\ExampleWidget;
+use {{ namespace }}\Tests\TestCase;
+
+function renderExampleWidget(string $heading): string
+{
+    return resolve(RenderPublicWidgetExtensionAction::class)->render(
+        ['type' => '{{ widgetKey }}', 'data' => ['__capell' => ['instance_id' => 'example']]],
+        ['example' => new ExampleWidgetRenderData(heading: $heading, body: 'Example body')],
+    );
+}
+
+it('keeps the widget out of the editor, assets and public output until Capell enables the package', function (): void {
+    expect(CapellCore::isPackageInstalled(TestCase::PACKAGE))->toBeFalse()
+        ->and(resolve(WidgetExtensionRegistry::class)->definition('{{ widgetKey }}'))->toBeNull()
+        ->and(resolve(WidgetDiscovery::class)->registeredWidgets())->not->toContain(ExampleWidget::class)
+        ->and(resolve(FrontendResourceRegistry::class)->has('{{ widgetKey }}'))->toBeFalse()
+        ->and(renderExampleWidget('Hidden heading'))->not->toContain('Hidden heading');
+});
+
+it('registers the widget and renders escaped public output once enabled', function (): void {
+    CapellCore::forcePackageInstalled(TestCase::PACKAGE);
+    RefreshInstalledPackageRuntimeAction::run(CapellCore::getPackage(TestCase::PACKAGE));
+
+    $html = renderExampleWidget('<script>alert(1)</script>Launch');
+
+    expect(resolve(WidgetExtensionRegistry::class)->definition('{{ widgetKey }}')?->packageName)->toBe(TestCase::PACKAGE)
+        ->and(resolve(WidgetDiscovery::class)->registeredWidgets())->toContain(ExampleWidget::class)
+        ->and(resolve(FrontendResourceRegistry::class)->has('{{ widgetKey }}'))->toBeTrue()
+        ->and($html)->toContain('&lt;script&gt;alert(1)&lt;/script&gt;Launch')
+        ->not->toContain('<script>alert(1)</script>')
+        ->and(resolve(PublicHtmlSafetyInspector::class)->containsAuthoringSurface($html))->toBeFalse();
+});

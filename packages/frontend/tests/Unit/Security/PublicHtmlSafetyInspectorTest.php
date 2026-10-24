@@ -530,3 +530,9 @@ it('allows semantic agent islands but rejects authoring payloads and undeclared 
         ->and($inspector->containsAuthoringSurface('<script type="application/ld+json" data-capell-agent-schema>{"field_path":"secret"}</script>'))->toBeTrue()
         ->and($inspector->containsAuthoringSurface('<script data-capell-agent-admin>{}</script>'))->toBeTrue();
 });
+
+it('distinguishes runtime asset wiring from authoring state in diagnostic search matches', function (): void {
+    $inspector = new PublicHtmlSafetyInspector;
+    expect($inspector->containsAuthoringSurface('<div data-capell-widget-assets="example">Public widget</div>'))->toBeFalse()
+        ->and($inspector->containsAuthoringSurface('<div data-capell-authoring="page:1" hidden>Editor</div>'))->toBeTrue();
+});
