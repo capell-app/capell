@@ -36,6 +36,7 @@
         "michaloravec/laravel-paginateroute": "^1.0",
         "spatie/laravel-permission": "^5.0|^6.0|^8.0",
         "spatie/laravel-translatable": "^6.0",
+        "symfony/finder": "^7.4|^8.0",
         "symfony/html-sanitizer": "^7.0|^8.0",
         "voku/html-min": "^5.0"
     },
