@@ -50,6 +50,8 @@ All Filament resources resolve their actions through these policies — there ar
 
 Activity, BlockTemplate and Role deny access until the corresponding Shield permissions are granted. Layout and Site bulk restore/force-delete require their `RestoreAny`/`ForceDeleteAny` permissions.
 
+Install, upgrade and role seeding defaults grant `admin` Activity read access and BlockTemplate management permissions. Editors need explicit grants for these resources; Role management and the separate activity-log revert/delete permissions retain their existing restricted defaults.
+
 ### Policy registration (do NOT rely on Filament-only discovery)
 
 Policies must be **globally registered** via `Gate::policy()` in `AdminServiceProvider::registerPolicies()`. Capell's policies live in `Capell\Admin\Policies\*` and gate models in `Capell\Core\Models\*`; Laravel's convention-based resolver looks for `App\Policies\{Model}Policy` and will **not** find them. Filament's resource system wires them up for requests going through a panel — but anything invoked outside that context (Actions dispatched from CLI, bulk actions, queued jobs, tests) goes through the raw `Gate` facade, which returns "denied by default" for every ability when the policy isn't globally registered.

@@ -23,6 +23,11 @@ final class ValidateStoredViewSelectorsAction
     public function handle(Layout|Theme|Site|Blueprint $record): void
     {
         if ($record instanceof Site || $record instanceof Blueprint) {
+            if ($record instanceof Site) {
+                // Effective metadata may inherit the selector from the blueprint.
+                $record->loadMissing('blueprint');
+            }
+
             $selector = $record instanceof Site
                 ? $record->getMeta('logo_blade_view', 'brand.capell-logo')
                 : data_get($record->meta, 'logo_blade_view');

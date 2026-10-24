@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\AssignPermissionsToRole;
 use Capell\Admin\Actions\EnsureCapellPermissionsAction;
 use Capell\Admin\Actions\GrantCapellDefaultRolePermissionsAction;
+use Capell\Admin\Actions\SeedDefaultRolesAction;
 use Capell\Admin\Actions\Shield\ResolveDefaultGlobalResourcePermissionsAction;
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Filament\Resources\Activities\ActivityResource;
+use Capell\Admin\Filament\Resources\BlockTemplates\BlockTemplateResource;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
@@ -36,6 +40,39 @@ it('grants install defaults to built-in roles', function (): void {
         ->and($editorRole->hasPermissionTo(ResourceEnum::PageUrl->permission('update'), 'web'))->toBeTrue()
         ->and($editorRole->hasPermissionTo(CapellPermission::ManageSitePermissions->name(), 'web'))->toBeFalse();
 });
+
+it('preserves admin access to newly protected global resources through role defaults', function (?PermissionSyncMode $mode): void {
+    if ($mode instanceof PermissionSyncMode) {
+        GrantCapellDefaultRolePermissionsAction::run($mode);
+    } else {
+        AssignPermissionsToRole::run(resources: [ResourceEnum::Activity, ResourceEnum::BlockTemplate]);
+        SeedDefaultRolesAction::run();
+    }
+
+    $admin = Role::findByName('admin');
+    $editor = Role::findByName('editor');
+    foreach ([ResourceEnum::Activity, ResourceEnum::BlockTemplate] as $resource) {
+        foreach (['view_any', 'view'] as $affix) {
+            expect($admin->checkPermissionTo($resource->permission($affix)))->toBeTrue()
+                ->and($editor->checkPermissionTo($resource->permission($affix)))->toBeFalse();
+        }
+    }
+
+    test()->actingAsRole('admin');
+    expect(ActivityResource::canViewAny())->toBeTrue()
+        ->and(BlockTemplateResource::canViewAny())->toBeTrue()
+        ->and(BlockTemplateResource::canCreate())->toBeTrue()
+        ->and($admin->checkPermissionTo(CapellPermission::RevertActivityLog->name()))->toBeFalse()
+        ->and($admin->checkPermissionTo(CapellPermission::DeleteActivityLog->name()))->toBeFalse();
+
+    test()->actingAsRole('editor');
+    expect(ActivityResource::canViewAny())->toBeFalse()
+        ->and(BlockTemplateResource::canViewAny())->toBeFalse();
+})->with([
+    'install' => [PermissionSyncMode::Install],
+    'upgrade' => [PermissionSyncMode::Upgrade],
+    'seed' => [null],
+]);
 
 it('adds upgrade defaults without removing existing role permissions', function (): void {
     $customPermission = Permission::findOrCreate('custom.client.permission');
@@ -118,15 +155,15 @@ it('grants upgrade defaults under the role guard independently of the panel guar
 
     GrantCapellDefaultRolePermissionsAction::run(PermissionSyncMode::Upgrade);
 
-    expect($globalPermissions)->toHaveCount(36)
-        ->and(Permission::query()->where('guard_name', 'web')->whereIn('name', $globalPermissions)->count())->toBe(36)
+    expect($globalPermissions)->toHaveCount(50)
+        ->and(Permission::query()->where('guard_name', 'web')->whereIn('name', $globalPermissions)->count())->toBe(50)
         ->and($admin->refresh()->permissions()->pluck('name')->all())->toContain(...$globalPermissions)
         ->toContain($custom->name)
         ->and(Role::findByName('editor', 'web')->permissions()->whereIn('name', $globalPermissions)->count())->toBe(0)
         ->and(Permission::query()->where('guard_name', 'panel')->whereIn('name', $globalPermissions)->count())->toBe(0)
         ->and($otherGuardAdmin->refresh()->permissions()->pluck('name')->all())->toBe([$otherGuardCustom->name]);
     if (! $superAdminViaGate) {
-        expect(Role::findByName('super_admin', 'web')->permissions()->whereIn('name', $globalPermissions)->count())->toBe(36);
+        expect(Role::findByName('super_admin', 'web')->permissions()->whereIn('name', $globalPermissions)->count())->toBe(50);
     }
 
     $permissionCount = Permission::query()->count();
@@ -136,7 +173,7 @@ it('grants upgrade defaults under the role guard independently of the panel guar
 
     expect(Permission::query()->count())->toBe($permissionCount)
         ->and(DB::table(config('permission.table_names.role_has_permissions'))->count())->toBe($pivotCount)
-        ->and($admin->refresh()->permissions()->whereIn('name', $globalPermissions)->count())->toBe(36);
+        ->and($admin->refresh()->permissions()->whereIn('name', $globalPermissions)->count())->toBe(50);
 })->with([
     'matching guards' => ['web', true],
     'different panel guard' => ['panel', true],

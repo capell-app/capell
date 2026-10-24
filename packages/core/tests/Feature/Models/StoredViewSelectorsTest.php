@@ -78,3 +78,20 @@ it('rejects inherited private logos when the default blueprint is assigned durin
     $site = Site::factory()->make(['blueprint_id' => null, 'meta' => []]);
     expect(fn () => $site->save())->toThrow(ValidationException::class);
 });
+
+it('validates inherited logos when saving a site with lazy loading prevented', function (): void {
+    $blueprint = Blueprint::factory()->site()->create(['meta' => ['logo_blade_view' => 'brand.capell-logo']]);
+    $site = Site::factory()->create(['blueprint_id' => $blueprint->id, 'meta' => []])->fresh();
+    $site->preventsLazyLoading = true;
+
+    expect($site->relationLoaded('blueprint'))->toBeFalse();
+    expect($site->update(['name' => 'Updated site']))->toBeTrue();
+    expect($site->fresh()->name)->toBe('Updated site');
+
+    $blueprint->forceFill(['meta' => ['logo_blade_view' => 'private.report']])->saveQuietly();
+    $site = $site->fresh();
+    $site->preventsLazyLoading = true;
+
+    expect(fn () => $site->update(['name' => 'Rejected site']))->toThrow(ValidationException::class);
+    expect($site->fresh()->name)->toBe('Updated site');
+});
