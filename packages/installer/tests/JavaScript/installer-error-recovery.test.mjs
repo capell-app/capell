@@ -206,3 +206,44 @@ test('field errors reveal matched steps and present unmatched messages', () => {
         ['The configured cache store is unavailable.'],
     )
 })
+
+test('an overlapping step response polls without completing or advancing the step', async () => {
+    const events = []
+    const timers = []
+    const context = loadInstallerScript('runner.js', {
+        CapellInstaller: { support: {} },
+        document: { getElementById: () => ({}) },
+        fetch: async () =>
+            new Response(
+                JSON.stringify({
+                    status: 'running',
+                    inProgress: true,
+                    nextStep: 'database',
+                    lines: [],
+                }),
+            ),
+        setTimeout: (callback, delay) => timers.push({ callback, delay }),
+    })
+    const runner = context.CapellInstaller.createInstallRunner({
+        form: { querySelector: () => null, addEventListener: () => {} },
+        wizard: {},
+        packages: {},
+        csrf: { token: () => 'token' },
+        progress: {
+            setStatus: () => {},
+            startStepTimer: () => {},
+            markStepStatus: () => {},
+            renderLines: () => {},
+            completeStep: () => events.push('complete'),
+        },
+    })
+    runner.runNextStep('install-id', '/run-step', 'database')
+    await new Promise(setImmediate)
+    assert.deepEqual(events, [])
+    assert.equal(timers.length, 1)
+    assert.equal(timers[0].delay, 2000)
+    timers[0].callback()
+    await new Promise(setImmediate)
+    assert.equal(timers.length, 2)
+    assert.deepEqual(events, [])
+})

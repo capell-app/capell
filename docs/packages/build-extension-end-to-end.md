@@ -100,6 +100,8 @@ Installer and Marketplace do declare buckets, and both name a class that also ap
 
 Use the manifest buckets only for _additional_ providers that must be gated — an install-only provider in `install`, or a second admin provider in `admin`. The bucket a provider sits in controls whether it loads at all; it does not filter by request context, so an `admin` provider still loads on frontend requests once the package is enabled. Keep admin-only work out of constructors and guard it inside the provider.
 
+Because the Composer-declared provider always boots, put work that must stop while the extension is uninstalled or disabled in its [`bootInstalledRuntime()`](../development/installed-runtime-lifecycle.md) hook. A Layout Builder widget provider leaves `packageBooted()` empty and calls `registerWidget()` from that hook. Then an uninstalled or disabled extension adds no editor block, widget assets or public output, and installation or enablement activates the widget without a restart. The `full` profile of `capell:make-extension` uses this shape, and its generated tests prove both states.
+
 ## Config And Translations
 
 `->hasConfigFile('announcement-bar')` merges this file at boot, so it must exist even if it is nearly empty:

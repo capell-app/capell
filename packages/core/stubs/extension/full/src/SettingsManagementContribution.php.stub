@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Capell\Core\Contracts\Extensions\ExtensionContribution;
+use Override;
+
+/** Declares the Extensions management form registered by the admin provider. */
+final class SettingsManagementContribution implements ExtensionContribution
+{
+    #[Override]
+    public static function compatibleCapellApiVersion(): string
+    {
+        return '^1.0';
+    }
+}

@@ -5,7 +5,7 @@
 
 ## Scope
 
-How to create Capell content — pages, URLs, translations, element types, element instances, layouts — from seeders or migrations, without going through the admin UI. Primary audience: deployers who want reproducible installs and app authors replacing the default demo data.
+How to create Capell content — pages, URLs, translations, layouts, widgets — from seeders or migrations, without going through the admin UI. Primary audience: deployers who want reproducible installs and app authors replacing the default demo data.
 
 ## When to seed vs. migrate vs. use the admin UI
 
@@ -27,16 +27,16 @@ How to create Capell content — pages, URLs, translations, element types, eleme
 - Walk `Site::all()`.
 - For each site, `Page::firstOrCreate(...)` + attach `Translation` + `PageUrl`.
 
-### Recipe: register an element type + instance
+### Recipe: seed a layout widget
 
-- `Blueprint::firstOrCreate` with `type=element`.
-- `Element::firstOrCreate` pointing at the type.
-- See the ContentSections package docs for the full element flow.
+- Core blueprints cover pages, sites and themes only. Widgets belong to the optional Layout Builder package.
+- Register the widget definition, then create the `Widget` record through Layout Builder's own models.
+- See the [Layout Builder package docs](../packages/layout-builder.md) for the full widget flow.
 
 ### Recipe: create a layout with two sections
 
 - `Layout::create(...)`, then define one entry per section in the layout's `containers` array (a JSON column on `Capell\Core\Models\Layout`; there is no separate container model).
-- Attach elements in each container entry's `widgets` array.
+- Attach widgets in each container entry's `widgets` array.
 
 ### Recipe: seed a navigation tree
 

@@ -27,19 +27,19 @@ Interactive mode asks for the package name, scaffold profile, target directory, 
 
 - Composer metadata and PSR-4 autoloading.
 - Manifest v3 with all provider buckets present.
-- A runtime provider extending `AbstractPackageServiceProvider`.
+- A Composer-discovered package provider extending `AbstractPackageServiceProvider`, with an empty `runtime` bucket.
 - Translations, README, a `phpunit.xml.dist`, a Testbench `TestCase`, and a manifest test.
 
 `full` creates live, harmless examples:
 
-- Metadata, install, runtime, and admin providers.
-- A package-owned console command.
-- Settings registration with translated labels.
-- A working Layout Builder content widget with typed input and render Data objects.
+- Metadata, install and admin providers in their manifest buckets, plus the Composer-discovered package provider.
+- A package-owned console command, available before enablement from the install bucket.
+- A persistent settings class, its settings migration, and an Extensions management form.
+- A working Layout Builder content widget with typed input and render Data objects, registered only while the package is installed and enabled.
 - Package-owned widget CSS and JavaScript assets.
-- Tests for manifest validity and provider bucket shape.
+- Tests for manifest validity, settings save and reload, and the widget's disabled and enabled behaviour, including escaped public output.
 
-Neither profile generates public-output safety tests, render hooks, or Actions, and the generated `TestCase` registers only your own provider — add `CapellServiceProvider` before testing anything that touches Capell. See [Standalone package harness](../packages/testing-packages.md#standalone-package-harness).
+Neither profile generates render hooks or Actions. See [Standalone package harness](../packages/testing-packages.md#standalone-package-harness) for the generated `TestCase`.
 
 ## Safety Rules
 

@@ -6,6 +6,7 @@ namespace Capell\Installer\Enums;
 
 enum InstallerRunStepResultCode: string
 {
+    case InProgress = 'in-progress';
     case Complete = 'complete';
     case ExecutionFailed = 'execution-failed';
     case OutOfSequence = 'out-of-sequence';

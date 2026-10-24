@@ -64,9 +64,11 @@ php artisan capell:make-extension vendor/example --profile=minimal --path=packag
 php artisan capell:make-extension vendor/example-tools --profile=full --path=packages --premium
 ```
 
-Use `minimal` for a lean installable package: Composer metadata, `capell.json`, one runtime provider, translations, README, a `phpunit.xml.dist`, a Testbench `TestCase`, and a manifest test. Use `full` when you want live examples of the metadata/install/admin provider buckets, a package-owned command, a settings class, a Layout Builder content widget with typed Data objects, and package-owned widget assets; it adds a provider-discovery test.
+Use `minimal` for a lean installable package: Composer metadata, `capell.json`, a Composer-discovered package provider, translations, README, a `phpunit.xml.dist`, a Testbench `TestCase`, and a manifest test. Use `full` when you want live examples of the metadata/install/admin provider buckets, a package-owned command, a persistent settings class with its migration, a Layout Builder content widget with typed Data objects, and package-owned widget assets. Its tests save and reload the settings, and prove that the widget stays out of the editor, assets and public output until Capell enables the package, then renders escaped output.
 
-Neither profile scaffolds public-output safety tests, render hooks, or Actions — write those yourself. The generated `TestCase` also registers only your own provider, so add `CapellServiceProvider` before testing anything that touches Capell; see [Standalone package harness](testing-packages.md#standalone-package-harness).
+Both profiles declare the package provider only in Composer's `extra.laravel.providers` and leave the `runtime` bucket empty, following [provider placement](build-extension-end-to-end.md#provider-placement). The full profile's widget registration runs from `bootInstalledRuntime()`, so it waits for installation and stops when the package is disabled.
+
+Neither profile scaffolds render hooks or Actions — write those yourself. The generated `TestCase` boots Core, Data, permissions and settings; the full profile's `TestCase` also discovers its required Capell packages. See [Standalone package harness](testing-packages.md#standalone-package-harness).
 
 ## Install A Package In An App
 

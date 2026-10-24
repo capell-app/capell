@@ -9,6 +9,7 @@ use Capell\Core\Data\InstallInputData;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\InstallReportRedactor;
 use Capell\Installer\Data\InstallerRunStepData;
 use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Enums\InstallerRunStepResultCode;
@@ -16,6 +17,7 @@ use Capell\Installer\Support\AdminUserModelGuard;
 use Capell\Installer\Support\InstallerRemediation;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -33,6 +35,38 @@ final class AdvanceInstallerRunAction
     ) {}
 
     public function handle(string $installId, string $stepKey): InstallerRunStepData
+    {
+        // Cancelled/expired runs must not look active while another request unwinds.
+        if ($this->sessions->status($installId) === InstallerRunStatus::Cancelled->value || $this->sessions->input($installId) === null) {
+            return new InstallerRunStepData(installId: $installId, currentStep: $stepKey, code: InstallerRunStepResultCode::SessionNotFound);
+        }
+
+        if ($this->sessions->status($installId) === InstallerRunStatus::Complete->value) {
+            return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $this->reporter($installId));
+        }
+
+        $latestRun = $this->sessions->get(InstallerSessionRepository::LATEST_RUN_KEY);
+        if (is_string($latestRun) && $latestRun !== $installId) {
+            $this->sessions->run($installId)->cancel(releaseLock: false);
+
+            return new InstallerRunStepData(installId: $installId, currentStep: $stepKey, code: InstallerRunStepResultCode::SessionNotFound);
+        }
+
+        // A shared execution lease also keeps a replacement from overlapping a
+        // still-unwinding cancelled request. Releasing is owner-aware.
+        $lease = Cache::lock('capell.install.browser-execution', InstallerSessionRepository::LOCK_TTL);
+        if (! $lease->get()) {
+            return $this->result($installId, $stepKey, InstallerRunStepResultCode::InProgress, $this->reporter($installId), nextStep: $stepKey);
+        }
+
+        try {
+            return $this->advance($installId, $stepKey);
+        } finally {
+            $lease->release();
+        }
+    }
+
+    private function advance(string $installId, string $stepKey): InstallerRunStepData
     {
         $inputArray = $this->sessions->input($installId);
         if (! is_array($inputArray)) {
@@ -69,13 +103,28 @@ final class AdvanceInstallerRunAction
             return $this->outOfSequenceResult($installId, $stepKey, $expectedStepKey, $reporter, $plan);
         }
 
-        $this->sessions->run($installId)->markRunning($reporter);
+        $admitted = $this->sessions->duringRunUpdate($installId, function () use ($installId, $reporter): bool {
+            if ($this->wasCancelled($installId)) {
+                return false;
+            }
+
+            if (! $this->sessions->claimActiveLock($installId)) {
+                return false;
+            }
+
+            $this->sessions->run($installId)->markRunning($reporter);
+
+            return true;
+        });
+        if (! $admitted) {
+            $this->sessions->run($installId)->cancel(releaseLock: false);
+
+            return $this->result($installId, $stepKey, InstallerRunStepResultCode::SessionNotFound, $reporter);
+        }
 
         if (function_exists('memory_reset_peak_usage')) {
             memory_reset_peak_usage();
         }
-
-        $refreshedPlan = null;
 
         try {
             $reporter->step(InstallPlan::labelForStep($plan, $stepKey) . '…');
@@ -90,52 +139,70 @@ final class AdvanceInstallerRunAction
             $packageMetadataRefreshed = $this->sessions->packageMetadataRefreshed($installId);
             $stepResult = RunInstallStepAction::run($stepKey, $inputData, $reporter, $resolvedUserId, $packageMetadataRefreshed);
 
-            if (is_int($stepResult->resolvedUserId) && $stepResult->resolvedUserId !== $resolvedUserId) {
-                $this->sessions->putResolvedUserId($installId, $stepResult->resolvedUserId);
-            }
-
-            if ($stepResult->packageMetadataRefreshed && ! $packageMetadataRefreshed) {
-                $this->sessions->putPackageMetadataRefreshed($installId, true);
-            }
-
-            if (InstallPlan::isPackageRequireStep($stepKey) || $stepKey === InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING) {
-                $updatedPlan = InstallPlan::refreshPackageSteps($inputData, $plan, [...$this->sessions->completedSteps($installId), $stepKey]);
-                if ($updatedPlan !== $plan) {
-                    $plan = $updatedPlan;
-                    $refreshedPlan = $plan;
-                    $this->sessions->putPlan($installId, $plan);
+            return $this->sessions->duringRunUpdate($installId, function () use ($installId, $stepKey, $stepResult, $resolvedUserId, $packageMetadataRefreshed, $inputData, $plan, $reporter): InstallerRunStepData {
+                $refreshedPlan = null;
+                if ($this->wasCancelled($installId)) {
+                    return $this->result($installId, $stepKey, InstallerRunStepResultCode::SessionNotFound, $reporter);
                 }
-            }
+
+                if (is_int($stepResult->resolvedUserId) && $stepResult->resolvedUserId !== $resolvedUserId) {
+                    $this->sessions->putResolvedUserId($installId, $stepResult->resolvedUserId);
+                }
+
+                if ($stepResult->packageMetadataRefreshed && ! $packageMetadataRefreshed) {
+                    $this->sessions->putPackageMetadataRefreshed($installId, true);
+                }
+
+                if (InstallPlan::isPackageRequireStep($stepKey) || $stepKey === InstallPlan::STEP_INSTALL_DEVELOPER_TOOLING) {
+                    $updatedPlan = InstallPlan::refreshPackageSteps($inputData, $plan, [...$this->sessions->completedSteps($installId), $stepKey]);
+                    if ($updatedPlan !== $plan) {
+                        $plan = $updatedPlan;
+                        $refreshedPlan = $plan;
+                        $this->sessions->putPlan($installId, $plan);
+                    }
+                }
+
+                $nextStep = InstallPlan::findNextStep($plan, $stepKey);
+                $this->sessions->recordCompletedStep($installId, $stepKey, $nextStep);
+
+                if ($nextStep === null) {
+                    $this->sessions->run($installId)->markComplete($reporter);
+                    CacheInstallerSuccessSummaryAction::run($installId, $inputData);
+                    $this->sessions->run($installId)->releaseLock();
+
+                    return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);
+                }
+
+                return $this->result($installId, $stepKey, InstallerRunStepResultCode::Running, $reporter, nextStep: $nextStep, plan: $refreshedPlan);
+            });
         } catch (Throwable $throwable) {
-            $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());
-            $reporter->error(sprintf('  at %s:%d', $throwable->getFile(), $throwable->getLine()));
-            $this->sessions->run($installId)->markFailed($reporter);
+            return $this->sessions->duringRunUpdate($installId, function () use ($installId, $stepKey, $reporter, $throwable): InstallerRunStepData {
+                $reporter->error('✗ ' . $throwable::class . ': ' . $throwable->getMessage());
+                $reporter->error(sprintf('  at %s:%d', $throwable->getFile(), $throwable->getLine()));
+                if ($this->wasCancelled($installId)) {
+                    return $this->result($installId, $stepKey, InstallerRunStepResultCode::SessionNotFound, $reporter);
+                }
 
-            return $this->result(
-                installId: $installId,
-                stepKey: $stepKey,
-                code: InstallerRunStepResultCode::ExecutionFailed,
-                reporter: $reporter,
-                exceptionClass: $throwable::class,
-                exceptionMessage: $throwable->getMessage(),
-                remediation: $this->remediation->remediationFor($throwable->getMessage()),
-            );
+                $this->sessions->run($installId)->markFailed($reporter);
+
+                return $this->result(
+                    installId: $installId,
+                    stepKey: $stepKey,
+                    code: InstallerRunStepResultCode::ExecutionFailed,
+                    reporter: $reporter,
+                    exceptionClass: $throwable::class,
+                    exceptionMessage: $throwable->getMessage(),
+                    remediation: $this->remediation->remediationFor($throwable->getMessage()),
+                );
+            });
         } finally {
-            $this->sessions->recordStepPeakMemory($installId, $stepKey, memory_get_peak_usage(true));
+            $this->sessions->duringRunUpdate($installId, function () use ($installId, $stepKey): void {
+                if (! $this->wasCancelled($installId)) {
+                    $this->sessions->recordStepPeakMemory($installId, $stepKey, memory_get_peak_usage(true));
+                }
+            });
         }
 
-        $nextStep = InstallPlan::findNextStep($plan, $stepKey);
-        $this->sessions->recordCompletedStep($installId, $stepKey, $nextStep);
-
-        if ($nextStep === null) {
-            $this->sessions->run($installId)->markComplete($reporter);
-            CacheInstallerSuccessSummaryAction::run($installId, $inputData);
-            $this->sessions->run($installId)->releaseLock();
-
-            return $this->result($installId, $stepKey, InstallerRunStepResultCode::Complete, $reporter);
-        }
-
-        return $this->result($installId, $stepKey, InstallerRunStepResultCode::Running, $reporter, nextStep: $nextStep, plan: $refreshedPlan);
     }
 
     /**
@@ -149,33 +216,40 @@ final class AdvanceInstallerRunAction
         FileLogProgressReporter $reporter,
     ): InstallerRunStepData {
         $preflight = resolve(InstallerPreflight::class)->run($inputData);
-        $this->sessions->putPreflightReport($installId, $preflight);
-        $this->remediation->reportPreflight($preflight, $reporter);
 
-        if (InstallerPreflight::hasBlockingFailures($preflight['checks'])) {
-            $this->sessions->run($installId)->markFailed($reporter);
+        return $this->sessions->duringRunUpdate($installId, function () use ($installId, $stepKey, $preflight, $plan, $reporter): InstallerRunStepData {
+            if ($this->wasCancelled($installId)) {
+                return $this->result($installId, $stepKey, InstallerRunStepResultCode::SessionNotFound, $reporter);
+            }
+
+            $this->sessions->putPreflightReport($installId, $preflight);
+            $this->remediation->reportPreflight($preflight, $reporter);
+
+            if (InstallerPreflight::hasBlockingFailures($preflight['checks'])) {
+                $this->sessions->run($installId)->markFailed($reporter);
+
+                return $this->result(
+                    installId: $installId,
+                    stepKey: $stepKey,
+                    code: InstallerRunStepResultCode::PreflightFailed,
+                    reporter: $reporter,
+                    remediation: $this->remediation->preflightRemediation($preflight),
+                    preflight: $preflight,
+                );
+            }
+
+            $nextStep = InstallPlan::findNextStep($plan, $stepKey);
+            $this->sessions->recordCompletedStep($installId, $stepKey, $nextStep);
 
             return $this->result(
                 installId: $installId,
                 stepKey: $stepKey,
-                code: InstallerRunStepResultCode::PreflightFailed,
+                code: InstallerRunStepResultCode::Running,
                 reporter: $reporter,
-                remediation: $this->remediation->preflightRemediation($preflight),
+                nextStep: $nextStep,
                 preflight: $preflight,
             );
-        }
-
-        $nextStep = InstallPlan::findNextStep($plan, $stepKey);
-        $this->sessions->recordCompletedStep($installId, $stepKey, $nextStep);
-
-        return $this->result(
-            installId: $installId,
-            stepKey: $stepKey,
-            code: InstallerRunStepResultCode::Running,
-            reporter: $reporter,
-            nextStep: $nextStep,
-            preflight: $preflight,
-        );
+        });
     }
 
     /** @param array<int, array{key: string, label: string}> $plan */
@@ -251,8 +325,17 @@ final class AdvanceInstallerRunAction
         }
     }
 
+    private function wasCancelled(string $installId): bool
+    {
+        if (! $this->sessions->ownsRun($installId) || $this->sessions->status($installId) === InstallerRunStatus::Cancelled->value) {
+            return true;
+        }
+
+        return $this->sessions->input($installId) === null;
+    }
+
     private function reporter(string $installId): FileLogProgressReporter
     {
-        return new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
+        return new FileLogProgressReporter($installId, new CacheProgressReporter($installId, redactionSecrets: InstallReportRedactor::secrets($this->sessions->input($installId) ?? [])));
     }
 }

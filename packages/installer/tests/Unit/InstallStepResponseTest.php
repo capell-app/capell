@@ -104,3 +104,14 @@ it('returns a refreshed plan only when the step result includes one', function (
         }
     }
 });
+
+it('returns an active polling response for a duplicate executing step', function (): void {
+    $response = resolve(InstallStepResponse::class)->fromResult(new InstallerRunStepData(
+        installId: 'overlapping-run',
+        currentStep: 'database',
+        code: InstallerRunStepResultCode::InProgress,
+        nextStep: 'database',
+    ));
+    expect($response->getStatusCode())->toBe(200)
+        ->and($response->getData(true))->toMatchArray(['status' => 'running', 'inProgress' => true, 'nextStep' => 'database']);
+});

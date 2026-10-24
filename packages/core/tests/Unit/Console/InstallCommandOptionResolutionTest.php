@@ -171,6 +171,10 @@ it('renders the install handoff details in their established order', function ()
                 'accountConnection' => 'not_required',
                 'telemetrySubmission' => 'not_performed',
             ],
+            tips: [
+                ['key' => 'sign_in', 'label' => 'Sign in', 'detail' => 'https://example.test/admin as ben@example.test'],
+                ['key' => 'first_page', 'label' => 'Your site', 'detail' => 'Edit it under Admin → Pages.'],
+            ],
         ),
         true,
         $output,
@@ -181,6 +185,9 @@ it('renders the install handoff details in their established order', function ()
     $headerPosition = strpos($renderedHandoff, 'Capell Install Handoff');
     $packagesPosition = strpos($renderedHandoff, 'Selected packages');
     $migrationsPosition = strpos($renderedHandoff, 'Migrations');
+    $tipsPosition = strpos($renderedHandoff, 'What next');
+    $signInPosition = strpos($renderedHandoff, '1. Sign in');
+    $nextPosition = strpos($renderedHandoff, 'Next: Open the admin panel');
     $privacyPosition = strpos($renderedHandoff, 'No Capell account connection or telemetry identity submission is required for this handoff.');
     $writtenPosition = strpos($renderedHandoff, 'Machine-readable install handoff written.');
 
@@ -191,8 +198,39 @@ it('renders the install handoff details in their established order', function ()
         ->and($writtenPosition)->toBeInt()
         ->and($headerPosition)->toBeLessThan($packagesPosition)
         ->and($packagesPosition)->toBeLessThan($migrationsPosition)
-        ->and($migrationsPosition)->toBeLessThan($privacyPosition)
+        ->and($tipsPosition)->toBeInt()
+        ->and($signInPosition)->toBeInt()
+        ->and($nextPosition)->toBeInt()
+        ->and($renderedHandoff)->toContain('ben@example.test')->toContain('2. Your site')
+        ->and($migrationsPosition)->toBeLessThan($tipsPosition)
+        ->and($tipsPosition)->toBeLessThan($signInPosition)
+        ->and($signInPosition)->toBeLessThan($nextPosition)
+        ->and($nextPosition)->toBeLessThan($privacyPosition)
         ->and($privacyPosition)->toBeLessThan($writtenPosition);
+});
+
+it('omits the what-next block when the handoff carries no tips', function (): void {
+    $buffer = new BufferedOutput;
+    $output = new OutputStyle(new ArrayInput([]), $buffer);
+
+    (new InstallCommandPresenter)->outputHandoff(
+        new InstallHandoffData(
+            schemaVersion: 1,
+            status: 'incomplete',
+            selectedPackages: [],
+            outcomes: ['migrations' => 'incomplete', 'setup' => 'incomplete', 'doctor' => 'unknown'],
+            urls: ['admin' => null, 'public' => 'https://example.test'],
+            firstPage: ['status' => 'unavailable'],
+            warnings: [],
+            nextAction: ['label' => 'Review installation', 'url' => 'https://example.test/docs'],
+            publicImpact: ['summary' => 'Incomplete.', 'accountConnection' => 'not_required', 'telemetrySubmission' => 'not_performed'],
+        ),
+        false,
+        $output,
+        new Factory($output),
+    );
+
+    expect($buffer->fetch())->not->toContain('What next');
 });
 
 it('uses cache defaults that exist for the current application', function (): void {

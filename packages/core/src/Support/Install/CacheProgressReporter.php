@@ -6,7 +6,10 @@ namespace Capell\Core\Support\Install;
 
 use Capell\Core\Contracts\ProgressReporter;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Date;
+use RuntimeException;
+use Throwable;
 
 final class CacheProgressReporter implements ProgressReporter
 {
@@ -16,9 +19,11 @@ final class CacheProgressReporter implements ProgressReporter
 
     private const int MAX_OUTPUT_BYTES = 262144;
 
+    /** @param list<string> $redactionSecrets */
     public function __construct(
         private readonly string $installId,
         private readonly ?FileCacheStoreDirectory $fileCacheStoreDirectory = null,
+        private readonly array $redactionSecrets = [],
     ) {}
 
     public function step(string $label): void
@@ -57,21 +62,51 @@ final class CacheProgressReporter implements ProgressReporter
 
     private function append(string $type, string $line): void
     {
-        $line = mb_strcut($line, 0, self::MAX_LINE_BYTES, 'UTF-8');
-        $entry = json_encode(['type' => $type, 'line' => $line, 'ts' => Date::now()->getTimestamp()]) . "\n";
-        $existing = Cache::get($this->outputKey(), '');
-        $output = $existing . $entry;
+        Cache::lock(sprintf('capell.install.%s.output-lock', $this->installId), 30)->block(5, function () use ($type, $line): void {
+            $line = (string) InstallReportRedactor::redact($line, $this->redactionSecrets);
+            $entry = ['type' => $type, 'ts' => Date::now()->getTimestamp()];
+            $reportKey = sprintf('capell.install.%s.terminal_report', $this->installId);
+            $report = Cache::get($reportKey);
+            if (is_array($report)) {
+                try {
+                    $encrypted = Cache::get(sprintf('capell.install.%s.report_redaction', $this->installId));
+                    throw_unless(is_string($encrypted), RuntimeException::class, 'Redaction context unavailable');
+                    $secrets = json_decode(Crypt::decryptString($encrypted), true, flags: JSON_THROW_ON_ERROR);
+                    throw_unless(is_array($secrets) && array_is_list($secrets) && array_all($secrets, fn (mixed $secret): bool => is_string($secret)), RuntimeException::class, 'Invalid redaction context');
+                    $entry['line'] = mb_strcut((string) InstallReportRedactor::redact($line, [...$secrets, ...$this->redactionSecrets]), 0, self::MAX_LINE_BYTES, 'UTF-8');
+                } catch (Throwable) {
+                    // Historical snapshots have no dictionary. Never publish raw late output.
+                    $entry['line'] = '[Late diagnostic omitted: redaction context unavailable]';
+                }
 
-        if (strlen($output) > self::MAX_OUTPUT_BYTES) {
-            $output = substr($output, -self::MAX_OUTPUT_BYTES);
-            $firstNewlinePosition = strpos($output, "\n");
+                $lines = [...($report['lines'] ?? []), $entry];
+                $bytes = array_sum(array_map(fn (mixed $item): int => strlen(json_encode($item, JSON_THROW_ON_ERROR)) + 1, $lines));
+                while ($bytes > self::MAX_OUTPUT_BYTES && count($lines) > 1) {
+                    $bytes -= strlen(json_encode(array_shift($lines), JSON_THROW_ON_ERROR)) + 1;
+                    $report['diagnostics']['omittedOutputLines'] = ($report['diagnostics']['omittedOutputLines'] ?? 0) + 1;
+                }
 
-            if ($firstNewlinePosition !== false) {
-                $output = substr($output, $firstNewlinePosition + 1);
+                $report['lines'] = $lines;
+                $this->put($reportKey, $report);
+
+                return;
             }
-        }
 
-        $this->put($this->outputKey(), $output);
+            $entry['line'] = mb_strcut($line, 0, self::MAX_LINE_BYTES, 'UTF-8');
+            $existing = Cache::get($this->outputKey(), '');
+            $output = $existing . json_encode($entry) . "\n";
+
+            if (strlen($output) > self::MAX_OUTPUT_BYTES) {
+                $output = substr($output, -self::MAX_OUTPUT_BYTES);
+                $firstNewlinePosition = strpos($output, "\n");
+
+                if ($firstNewlinePosition !== false) {
+                    $output = substr($output, $firstNewlinePosition + 1);
+                }
+            }
+
+            $this->put($this->outputKey(), $output);
+        });
     }
 
     private function hasOutput(): bool

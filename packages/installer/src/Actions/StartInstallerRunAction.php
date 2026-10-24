@@ -11,6 +11,7 @@ use Capell\Core\Jobs\RunCapellInstallJob;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\FileLogProgressReporter;
 use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\InstallReportRedactor;
 use Capell\Installer\Data\InstallerRunStartData;
 use Capell\Installer\Enums\InstallerRunMode;
 use Capell\Installer\Enums\InstallerRunStatus;
@@ -52,12 +53,16 @@ final class StartInstallerRunAction
     {
         AssertQueueConnectionReadyAction::run();
 
-        $reporter = $this->reporter($installId);
+        $reporter = $this->reporter($installId, $inputData);
         $this->ensureAdminUserModelIsReady($inputData, $reporter);
 
         $this->sessions->run($installId)->startQueued();
 
-        CacheInstallerSuccessSummaryAction::run($installId, $inputData);
+        $this->sessions->duringRunUpdate($installId, function () use ($installId, $inputData): void {
+            if ($this->sessions->ownsRun($installId) && $this->sessions->status($installId) !== InstallerRunStatus::Cancelled->value) {
+                CacheInstallerSuccessSummaryAction::run($installId, $inputData);
+            }
+        });
 
         dispatch(new RunCapellInstallJob($inputData, $installId));
 
@@ -77,7 +82,7 @@ final class StartInstallerRunAction
         $plan = InstallPlan::build($inputData);
         $firstStepKey = $plan[0]['key'] ?? null;
         $installStatus = is_string($firstStepKey) ? InstallerRunStatus::Pending : InstallerRunStatus::Complete;
-        $reporter = $this->reporter($installId);
+        $reporter = $this->reporter($installId, $inputData);
         $preflight = resolve(InstallerPreflight::class)->run($inputData);
 
         $this->ensureAdminUserModelIsReady($inputData, $reporter);
@@ -105,26 +110,63 @@ final class StartInstallerRunAction
         $run = $this->sessions->run($installId);
         $run->startSynchronous();
 
-        $reporter = $this->reporter($installId);
-        $run->markRunning($reporter);
+        $reporter = $this->reporter($installId, $inputData);
 
         $completed = false;
 
         try {
+            $admitted = $this->sessions->duringRunUpdate($installId, function () use ($installId, $run, $reporter): bool {
+                if (! $this->sessions->ownsRun($installId)) {
+                    $run->cancel(releaseLock: false);
+
+                    return false;
+                }
+
+                if ($run->status() !== InstallerRunStatus::Running) {
+                    return false;
+                }
+
+                $run->markRunning($reporter);
+
+                return true;
+            });
+            if (! $admitted) {
+                return new InstallerRunStartData(installId: $installId, mode: InstallerRunMode::Synchronous, status: InstallerRunStatus::Cancelled->value, plan: [], nextStep: null, logPath: $reporter->logPath(), completed: false);
+            }
+
             $this->ensureAdminUserModelIsReady($inputData, $reporter);
             RunInstallAction::run($inputData, $reporter);
-            $run->markComplete($reporter);
-            CacheInstallerSuccessSummaryAction::run($installId, $inputData);
-            $completed = true;
+            $completed = $this->sessions->duringRunUpdate($installId, function () use ($installId, $inputData, $run, $reporter): bool {
+                if (! $this->sessions->ownsRun($installId)) {
+                    $run->cancel(releaseLock: false);
+
+                    return false;
+                }
+
+                if ($run->status() === InstallerRunStatus::Cancelled) {
+                    return false;
+                }
+
+                $run->markComplete($reporter);
+                CacheInstallerSuccessSummaryAction::run($installId, $inputData);
+
+                return true;
+            });
         } catch (Throwable $throwable) {
-            $reporter->error('✗ ' . $throwable->getMessage());
-            $run->markFailed($reporter);
+            $this->sessions->duringRunUpdate($installId, function () use ($installId, $run, $reporter, $throwable): void {
+                $reporter->error('✗ ' . $throwable->getMessage());
+                if (! $this->sessions->ownsRun($installId)) {
+                    $run->cancel(releaseLock: false);
+                } elseif ($run->status() !== InstallerRunStatus::Cancelled) {
+                    $run->markFailed($reporter);
+                }
+            });
         }
 
         return new InstallerRunStartData(
             installId: $installId,
             mode: InstallerRunMode::Synchronous,
-            status: ($completed ? InstallerRunStatus::Complete : InstallerRunStatus::Failed)->value,
+            status: $run->status()->value,
             plan: [],
             nextStep: null,
             logPath: $reporter->logPath(),
@@ -141,8 +183,8 @@ final class StartInstallerRunAction
         }
     }
 
-    private function reporter(string $installId): FileLogProgressReporter
+    private function reporter(string $installId, InstallInputData $inputData): FileLogProgressReporter
     {
-        return new FileLogProgressReporter($installId, new CacheProgressReporter($installId));
+        return new FileLogProgressReporter($installId, new CacheProgressReporter($installId, redactionSecrets: InstallReportRedactor::secrets($inputData->toArray())));
     }
 }

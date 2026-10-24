@@ -9,6 +9,8 @@ use Capell\Installer\Enums\InstallerRunMode;
 use Capell\Installer\Enums\InstallerRunStatus;
 use Capell\Installer\Support\InstallerRun;
 use Capell\Installer\Support\InstallerSessionRepository;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 
 function installerAggregateInput(): InstallInputData
@@ -35,7 +37,7 @@ it('keeps the existing persisted status vocabulary and classifications', functio
     }
 });
 
-it('permits every previously unrestricted status transition', function (InstallerRunStatus $source, string $method, InstallerRunStatus $target): void {
+it('preserves owned status transitions while keeping cancellation terminal', function (InstallerRunStatus $source, string $method, InstallerRunStatus $target): void {
     config(['cache.default' => 'array']);
     $sessions = new InstallerSessionRepository;
     $run = new InstallerRun($sessions, 'transition-install');
@@ -45,11 +47,12 @@ it('permits every previously unrestricted status transition', function (Installe
     Cache::put(InstallerSessionRepository::LOCK_KEY, ['installId' => $run->installId]);
     $run->{$method}();
 
-    expect($run->status())->toBe($target)
-        ->and($sessions->status($run->installId))->toBe($target->value)
-        ->and(Cache::get($sessions->key($run->installId, 'status')))->toBe($target->value)
+    $expected = $source === InstallerRunStatus::Cancelled ? InstallerRunStatus::Cancelled : $target;
+    expect($run->status())->toBe($expected)
+        ->and($sessions->status($run->installId))->toBe($expected->value)
+        ->and(Cache::get($sessions->key($run->installId, 'status')))->toBe($expected->value)
         ->and(Cache::get(InstallerSessionRepository::LOCK_KEY))->toBe(
-            in_array($method, ['markFailed', 'cancel'], true) ? null : ['installId' => $run->installId],
+            ($method === 'cancel' || ($method === 'markFailed' && $source !== InstallerRunStatus::Cancelled)) ? null : ['installId' => $run->installId],
         );
 })->with(InstallerRunStatus::cases())->with([
     'running' => ['markRunning', InstallerRunStatus::Running],
@@ -78,19 +81,29 @@ it('delegates status reporting without adding a second cache write', function (s
     config(['cache.default' => 'array']);
     $sessions = new InstallerSessionRepository;
     $run = new InstallerRun($sessions, 'reported-install');
-    $reporter = new FileLogProgressReporter($run->installId, new CacheProgressReporter($run->installId));
-    Cache::shouldReceive('put')
-        ->with($sessions->key($run->installId, 'status'), $target->value, InstallerSessionRepository::LOCK_TTL)
-        ->once()
-        ->andReturn(true);
+    $store = new class extends ArrayStore
+    {
+        public int $statusWrites = 0;
 
-    if ($target === InstallerRunStatus::Failed) {
-        Cache::shouldReceive('get')->with(InstallerSessionRepository::LOCK_KEY, null)->once()->andReturn(null);
-    }
+        #[Override]
+        public function put($key, $value, $seconds = 0): bool
+        {
+            if ($key === 'capell.install.reported-install.status') {
+                $this->statusWrites++;
+            }
+
+            return parent::put($key, $value, $seconds);
+        }
+    };
+    Cache::extend('status-write-probe', fn (): Repository => new Repository($store));
+    config(['cache.default' => 'status-write-probe', 'cache.stores.status-write-probe' => ['driver' => 'status-write-probe']]);
+    $reporter = new FileLogProgressReporter($run->installId, new CacheProgressReporter($run->installId));
 
     $run->{$method}($reporter);
 
-    expect(file_get_contents($reporter->logPath()))->toContain('[STATUS] ' . $target->value);
+    expect($store->statusWrites)->toBe(1)
+        ->and($sessions->status($run->installId))->toBe($target->value)
+        ->and(file_get_contents($reporter->logPath()))->toContain('[STATUS] ' . $target->value);
 })->with([
     ['markRunning', InstallerRunStatus::Running],
     ['markComplete', InstallerRunStatus::Complete],

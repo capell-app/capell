@@ -77,18 +77,25 @@ Navigation is multi-language. Each item stores a label per locale, so if you're 
 Before you build more pages, it's worth spending two minutes on how Capell organizes everything:
 
 ```
-Site → Page → Section → Widget
+Site → Page (page type / blueprint, layout) → body content
 ```
 
 Your **site** is a domain or path prefix. All pages belong to a site.
 
 **Pages** live in a tree. A page's URL is built by joining its ancestors' slugs — so a page with slug `team` nested under a page with slug `about` gets the URL `/about/team`. Move a page under a different parent and its URL changes automatically; Capell creates a redirect from the old URL.
 
-**Sections** (with ContentSections) split a page into horizontal rows. Each row has a column layout and holds widgets.
+A **page type** (its blueprint) decides which fields you see when you edit a page. A **layout** is the theme's template the page renders into, and several pages can share one. Changing a blueprint or a layout affects every page that uses it; editing a page's content affects only that page.
 
-**Elements** are the content blocks: text, images, calls to action, and any custom types your developer has registered. An element can be reused across multiple pages or kept exclusive to one. Element types can change which fields appear in the element editor and which frontend component renders the result.
+The **body** of a page starts as HTML. If the page type, or the page's own `content_structure_override`, selects blocks, the body becomes typed, reorderable **body blocks** (block types come from the optional Block Library package).
 
-You don't need to use sections and widgets immediately. Start with flat pages, get comfortable with the basic editing flow, and add the content sections layer when you need it.
+Two optional packages add more structure when a page needs it:
+
+- **Layout widgets** (optional [Layout Builder](../packages/layout-builder.md)) are reusable rendered units placed in named areas of a layout, composed as `page -> layout -> containers -> widgets -> widget assets`.
+- **Content sections** (optional [Content Sections](../packages/content-sections.md), which builds on Layout Builder) are ready-made, reusable sections such as a hero or FAQ.
+
+A draft is simply a page whose publishing state is draft. A **workspace** (optional Publishing Studio) is a separate sandbox for staging many edits together; you do not need one to save a draft.
+
+You don't need any of this immediately. Start with flat pages, get comfortable with the basic editing flow, and add Layout Builder or Content Sections when you need them. [Build a page](building-pages.md) helps you choose.
 
 ---
 
@@ -117,7 +124,7 @@ From here, the path depends on what you're building.
 
 **Building a simple site?** Create your main pages, link them in Navigation, and work through the SEO fields once the content is settled. The [Admin interface guide](../admin/interface.md) covers every section of the admin in more detail.
 
-**Need the visual content sections?** Install the [ContentSections approved package](../packages/catalog.md#capell-foundation). It adds the row-and-widget layer to the page editor.
+**Need reusable layout widgets or ready-made sections?** Install the [Layout Builder](../packages/layout-builder.md) and [ContentSections](../packages/content-sections.md) approved packages from the [catalogue](../packages/catalog.md#capell-foundation). Layout Builder adds the container-and-widget layer to the page editor; Content Sections adds the section library on top.
 
 **Setting up for a team?** Configure roles under **Settings → Permissions**, then invite users from **Users** in the sidebar. The [Permissions & approval guide](https://docs.capell.app/packages/admin/permissions-and-approval/) covers how site-scoped roles work.
 

@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+use {{ namespace }}\Settings\PackageSettings;
+
+it('saves and reloads the public label after its settings migration', function (): void {
+    $this->migratePackageSettings();
+
+    $settings = resolve(PackageSettings::class);
+    expect($settings->public_label)->toBe('');
+
+    $settings->public_label = 'Persisted label';
+    $settings->save();
+    app()->forgetInstance(PackageSettings::class);
+
+    expect(resolve(PackageSettings::class)->public_label)->toBe('Persisted label');
+});

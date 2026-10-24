@@ -119,6 +119,12 @@
                         failStep(stepKey, true)
                         return
                     }
+                    if (result.payload.inProgress) {
+                        setTimeout(function () {
+                            runNextStep(installId, runStepUrl, stepKey)
+                        }, 2000)
+                        return
+                    }
                     progress.completeStep(stepKey)
                     if (
                         result.payload.status === 'complete' ||
