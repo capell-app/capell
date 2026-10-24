@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\BuildCapellSiteFromSpecAction;
 use Capell\Core\Concerns\HasCache;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Events\SiteSpecPrivacyRepaired;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
@@ -31,6 +32,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpFoundation\Response;
@@ -236,6 +238,67 @@ it('requires acknowledged CDN delivery before certifying a repair and retries fa
 
     BuildCapellSiteFromSpecAction::run($spec, true);
     Http::assertSentCount(3);
+});
+
+it('awaits synchronous package privacy listeners after frontend cleanup and retries before recording completion', function (): void {
+    config()->set('app.url', 'https://original.private.test');
+    $spec = confidentialPrivateSiteSpec();
+    $site = BuildCapellSiteFromSpecAction::run($spec);
+    $meta = $site->meta;
+    unset($meta['site_spec_privacy_version']);
+    $site->update(['meta' => $meta]);
+    $manifest = exportPrivateRepairFixture($site, 'private.test', 'CONFIDENTIAL export');
+    SiteDomain::factory()->create(['site_id' => $site->id, 'language_id' => $site->language_id, 'domain' => 'alias.private.test']);
+    $privateFile = resolve(StaticPageArtifactStore::class)->root() . '/' . $manifest['artifacts'][0]['file'];
+    $fragments = resolve(FragmentCache::class);
+    $fragments->remember('package-repair', static fn (): string => 'CONFIDENTIAL fragment');
+
+    config()->set([
+        'queue.default' => 'database',
+        'capell-frontend.cdn_provider' => 'cloudflare',
+        'capell-frontend.cloudflare_purge_token' => 'test-token',
+        'capell-frontend.cloudflare_zone_id' => 'test-zone',
+    ]);
+    Bus::fake([FlushCdnPurgeBatchJob::class]);
+    Http::fake(['*' => Http::response(['success' => true])]);
+    $listener = new class
+    {
+        public bool $fail = true;
+
+        public int $successfulCalls = 0;
+
+        public int $attempts = 0;
+    };
+    Event::listen(SiteSpecPrivacyRepaired::class, function (SiteSpecPrivacyRepaired $event) use ($site, $privateFile, $fragments, $listener): void {
+        $listener->successfulCalls++;
+        expect($event->data->siteIds)->toBe([$site->id])
+            ->and($event->data->domains)->toEqualCanonicalizing(['original.private.test', 'private.test', 'alias.private.test'])
+            ->and($site->fresh()->meta['site_spec_privacy_version'] ?? null)->toBeNull()
+            ->and(File::exists($privateFile))->toBeFalse()
+            ->and($fragments->remember('package-repair', static fn (): string => 'safe'))->toBe('safe');
+        Http::assertSentCount($listener->successfulCalls);
+    });
+    Event::listen(SiteSpecPrivacyRepaired::class, function () use ($listener): void {
+        $listener->attempts++;
+        throw_if($listener->fail, RuntimeException::class, 'Package privacy purge failed.');
+    });
+
+    expect(fn (): Site => BuildCapellSiteFromSpecAction::run($spec, true))->toThrow(RuntimeException::class, 'Package privacy purge failed.')
+        ->and($site->fresh()->meta['site_spec_privacy_version'] ?? null)->toBeNull()
+        ->and($listener->successfulCalls)->toBe(1)
+        ->and($listener->attempts)->toBe(1);
+
+    $listener->fail = false;
+    BuildCapellSiteFromSpecAction::run($spec, true);
+
+    expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2)
+        ->and($listener->successfulCalls)->toBe(2)
+        ->and($listener->attempts)->toBe(2);
+
+    BuildCapellSiteFromSpecAction::run($spec, true);
+    expect($listener->successfulCalls)->toBe(2)
+        ->and($listener->attempts)->toBe(2);
+    Http::assertSentCount(2);
 });
 
 it('discovers legacy confidential files omitted from the latest real export receipt', function (): void {

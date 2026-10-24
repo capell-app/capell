@@ -8,7 +8,7 @@ use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\PageDeleted;
 use Capell\Core\Events\PageSaved;
 use Capell\Core\Events\PageUrlChanged;
-use Capell\Core\Events\SiteSpecPrivacyRepaired;
+use Capell\Core\Events\SiteSpecPrivacyRepairing;
 use Capell\Core\Models\BlueprintPropertySet;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -54,7 +54,7 @@ final class FrontendEventBootstrapper
 
         Event::listen(FrontendContextResolved::class, [OnFrontendContextResolved::class, 'handle']);
         Event::listen(PageSaved::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleSaved']);
-        Event::listen(SiteSpecPrivacyRepaired::class, [RemediatePrivateSiteSpecOutput::class, 'handle']);
+        Event::listen(SiteSpecPrivacyRepairing::class, [RemediatePrivateSiteSpecOutput::class, 'handle']);
         Event::listen(PageDeleted::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleDeleted']);
         Event::listen(PageUrlChanged::class, [PurgeCdnCacheOnPageChangeListener::class, 'handlePageUrlChanged']);
         Event::listen(FrontendSurrogateKeysInvalidated::class, [PurgeCdnCacheOnPageChangeListener::class, 'handleSurrogateKeys']);

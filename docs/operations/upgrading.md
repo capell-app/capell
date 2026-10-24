@@ -255,13 +255,33 @@ deployed exports and purge external caches before reopening, then regenerate aut
 source metadata in `storage/app/capell-private/site-spec` with private permissions;
 never expose this directory through a web alias or include it in public exports.
 
-If HTML Cache is installed, deploy its matching synchronous privacy-repair listener
-before running repair. It must clear response files through its publication guard
+If HTML Cache is installed, a Core release carrying `SiteSpecPrivacyRepaired` must
+ship alongside the matching HTML Cache package release. Deploy both before running
+repair. HTML Cache must clear response files through its publication guard
 and await its own configured edge purge before returning. Queued model invalidation
 (including `instant` mode) is insufficient while workers are stopped; a Core repair
 completion marker alone does not establish that an older HTML Cache release has
 removed its confidential responses. Keep maintenance in place until that companion
 release and its failure/retry integration checks are verified.
+
+The public event is `Capell\Core\Events\SiteSpecPrivacyRepaired`. Its readonly
+`data` property is a `Capell\Core\Data\SiteSpec\SiteSpecPrivacyRepairData` DTO
+with `siteIds` (`list<int>`) and `domains` (`list<string>` hostnames, without scheme,
+port or mount path). Use site IDs to cover every cached route and variant for the
+affected sites; domains also identify their configured hosts. No authored spec
+content or mutable models are included. Core dispatches it synchronously from
+`RemediatePrivateSiteSpecOutput` after frontend model caches, managed exports,
+fragment namespace rotation and the configured frontend CDN purge have succeeded,
+and before writing `site_spec_privacy_version`.
+
+Register an ordinary synchronous listener: do not implement `ShouldQueue`, defer
+work until after the response, or merely schedule invalidation. Each listener must
+complete its local invalidation and await configured edge-purge acknowledgement
+before returning. Throw on any failure; exceptions propagate to the repair caller,
+leaving the completion marker absent. Listeners must be idempotent because retrying
+the same repair repeats Core cleanup and all listeners, including those that
+previously succeeded. The internal `SiteSpecPrivacyRepairing` event starts Core's
+cleanup and is not the companion-package completion hook.
 
 Active legacy maintenance manifests are converted to version 2 using current site
 domains and regenerated HTML before route matching. Database, render or write

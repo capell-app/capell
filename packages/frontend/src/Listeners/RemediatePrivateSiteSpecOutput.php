@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Listeners;
 
+use Capell\Core\Data\SiteSpec\SiteSpecPrivacyRepairData;
 use Capell\Core\Events\SiteSpecPrivacyRepaired;
+use Capell\Core\Events\SiteSpecPrivacyRepairing;
 use Capell\Core\Models\Page;
+use Capell\Core\Models\SiteDomain;
 use Capell\Frontend\Actions\InvalidateFrontendSurrogateKeysAction;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCache;
@@ -13,7 +16,7 @@ use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 
 final class RemediatePrivateSiteSpecOutput
 {
-    public function handle(SiteSpecPrivacyRepaired $event): void
+    public function handle(SiteSpecPrivacyRepairing $event): void
     {
         $registry = resolve(CacheInvalidationRegistry::class);
         $registry->invalidateForModel(Page::class);
@@ -24,5 +27,15 @@ final class RemediatePrivateSiteSpecOutput
         // unreachable before repair completion, even when deletion/locks fail.
         resolve(FragmentCache::class)->flush();
         InvalidateFrontendSurrogateKeysAction::run(['site-' . $event->site->id], awaitCdn: true);
+
+        // Dispatch inline: a package failure must propagate to the importer
+        // before it records completion, regardless of queue configuration.
+        event(new SiteSpecPrivacyRepaired(new SiteSpecPrivacyRepairData(
+            siteIds: [$event->site->id],
+            domains: $event->site->siteDomains()->get()
+                ->map(static fn (SiteDomain $domain): ?string => $domain->domain)
+                ->filter(static fn (?string $domain): bool => $domain !== null && $domain !== '')
+                ->unique()->values()->all(),
+        )));
     }
 }

@@ -6,7 +6,7 @@ namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
-use Capell\Core\Events\SiteSpecPrivacyRepaired;
+use Capell\Core\Events\SiteSpecPrivacyRepairing;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -283,7 +283,7 @@ final class BuildCapellSiteFromSpecAction
         // the public cache from the pre-repair database state. Failed purges
         // leave safe database state and no completion marker, allowing retries.
         $site->getConnection()->afterCommit(function () use ($site): void {
-            event(new SiteSpecPrivacyRepaired($site));
+            event(new SiteSpecPrivacyRepairing($site));
             $site->refresh()->update(['meta' => array_merge($site->meta ?? [], ['site_spec_privacy_version' => 2])]);
         });
 
