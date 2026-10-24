@@ -186,6 +186,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     public function installMarketplaceRecordFromCard(string $composerName): void
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         $this->authorizeMarketplaceAccess();
 
         $composerName = trim($composerName);
@@ -227,6 +229,10 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      */
     public function marketplaceRecordCanUpdate(array $record): bool
     {
+        if (! ExtensionsPage::canManageExtensions()) {
+            return false;
+        }
+
         return resolve(MarketplaceInstallActionPresenter::class)->canUpdate($record);
     }
 
@@ -239,6 +245,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      */
     public function updateMarketplaceRecordFromCard(string $composerName): void
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         $this->authorizeMarketplaceAccess();
 
         $composerName = trim($composerName);
@@ -284,6 +292,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      */
     public function updateSelectedMarketplaceRecords(): void
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         $this->authorizeMarketplaceAccess();
 
         $composerNames = $this->normalizedSelectedMarketplaceComposerNames();
@@ -358,6 +368,8 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     public function installReviewedMarketplaceExtensions(): void
     {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+
         $this->authorizeMarketplaceAccess();
 
         $outcome = StartReviewedMarketplaceSelectionAction::run(new MarketplaceReviewedSelectionInputData(

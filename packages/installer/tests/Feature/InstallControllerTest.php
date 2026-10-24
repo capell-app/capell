@@ -1073,6 +1073,7 @@ it('rejects installer package removal without post-install session access', func
 });
 
 it('removes the installer composer package and redirects to admin when admin is installed', function (): void {
+    config(['capell.server_side_tooling' => true]);
     bindSetupRemoveProcessFactory();
 
     CapellCore::forcePackageInstalled('capell-app/admin');
@@ -1083,6 +1084,7 @@ it('removes the installer composer package and redirects to admin when admin is 
 });
 
 it('removes the installer composer package and redirects to the frontend when admin is not installed', function (): void {
+    config(['capell.server_side_tooling' => true]);
     bindSetupRemoveProcessFactory();
     CapellCore::clearPackages();
 

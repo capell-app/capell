@@ -55,6 +55,7 @@ class SiteDomainsTable implements TableConfigurator
                         if (! $livewire::validateExists([
                             'scheme' => $data['scheme'],
                             'host' => $data['domain'],
+                            'port' => $data['port'] ?? null,
                             'path' => $data['path'],
                         ])) {
                             $action->halt();
@@ -84,6 +85,7 @@ class SiteDomainsTable implements TableConfigurator
                             $urlParts = [
                                 'scheme' => $data['scheme'],
                                 'host' => $data['domain'],
+                                'port' => $data['port'] ?? null,
                                 'path' => $data['path'],
                             ];
 

@@ -274,7 +274,7 @@ final class InstallController
 
         $request->session()->forget(self::REMOVE_INSTALLER_SESSION_KEY);
 
-        return redirect()->to(RemoveSetupPackageAction::run());
+        return redirect()->to(RemoveSetupPackageAction::run(requiresServerSideTooling: true));
     }
 
     public function report(Request $request, string $installId): Response

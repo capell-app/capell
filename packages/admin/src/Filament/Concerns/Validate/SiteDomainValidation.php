@@ -15,7 +15,7 @@ use Filament\Notifications\Notification;
 trait SiteDomainValidation
 {
     /**
-     * @param  array<string, string|null>  $urlParts
+     * @param  array<string, int|string|null>  $urlParts
      */
     public static function validateExists(array $urlParts, ?SiteDomain $record = null): bool
     {
