@@ -8,35 +8,14 @@ use Capell\Core\Data\NewUserData;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
+use Capell\Core\Tests\Support\Models\RetriableInstallUser;
 use Capell\Tests\Fixtures\Models\User;
-use Illuminate\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
-
-class RetriableInstallUser extends User implements Illuminate\Contracts\Auth\MustVerifyEmail
-{
-    use MustVerifyEmail;
-
-    public static ?string $testConnection = 'installer_atomicity';
-
-    protected $table = 'users';
-
-    #[Override]
-    public function getConnectionName(): ?string
-    {
-        return self::$testConnection;
-    }
-
-    #[Override]
-    public function getMorphClass(): string
-    {
-        return 'user';
-    }
-}
 
 it('rolls back failed verification on the user connection and can retry account creation', function (bool $additional, bool $separateConnection, bool $verificationReturnsFalse): void {
     RetriableInstallUser::$testConnection = $separateConnection ? 'installer_atomicity' : null;
