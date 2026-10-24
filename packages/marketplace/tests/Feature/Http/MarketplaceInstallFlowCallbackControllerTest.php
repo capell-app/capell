@@ -7,9 +7,12 @@ use Capell\Marketplace\Actions\CompleteMarketplaceInstallFlowAction;
 use Capell\Marketplace\Enums\MarketplaceInstallFlowSessionStatus;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
+use Livewire\Component;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
@@ -176,12 +179,22 @@ it('shows a safe failed notification with a support reference when callback data
     );
 });
 
-it('escapes the support reference in rendered failed notifications', function (): void {
+it('escapes the support reference in rendered failed notifications', function (bool $livewireUpdate): void {
     $flowId = '<b>"x\'</b>';
     $this->get('/admin/marketplace/install-flow/callback?' . http_build_query(['flow_id' => $flowId]))
         ->assertRedirect('/admin/extensions');
 
-    $notification = Notification::fromArray(session('filament.notifications')[0]);
+    if ($livewireUpdate) {
+        Livewire::test(new class extends Component
+        {
+            public function render(): string
+            {
+                return '<div></div>';
+            }
+        })->call('$refresh');
+    }
+
+    $notification = FilamentNotificationSnapshots::pull()->sole();
     $html = $notification->toHtml();
 
     expect((string) $notification->getBody())->toContain(e($flowId))->not->toContain($flowId);
@@ -191,7 +204,7 @@ it('escapes the support reference in rendered failed notifications', function ()
     expect($dom->textContent)->toContain($flowId);
     expect($dom->getElementsByTagName('b')->length)->toBe(0);
     expect($notification->getDuration())->toBe('persistent');
-});
+})->with(['after redirect' => false, 'after Livewire update' => true]);
 
 it('rejects malformed flow identifiers before completing the flow', function (mixed $flowId): void {
     $spy = bindFakeAction(CompleteMarketplaceInstallFlowAction::class);

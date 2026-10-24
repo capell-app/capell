@@ -29,15 +29,17 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
 use Illuminate\Support\ViewErrorBag;
-use Illuminate\Translation\Translator;
 use Illuminate\View\ComponentAttributeBag;
 
 beforeEach(function (): void {
     test()->actingAsAdmin();
-    __('capell-admin::heading.edit_type_record');
-    resolve(Translator::class)->addLines([
+    app()->setLocale('en');
+    // Seed the translator used by __(), even when concrete translator bindings differ.
+    Lang::addLines([
+        'heading.edit_type_record' => 'Edit blueprint: :type',
         'heading.edit_page_record' => 'Edit page: :name',
         'heading.edit_layout_record' => 'Edit layout: :name',
         'heading.edit_site_record' => 'Edit site: :name',
