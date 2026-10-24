@@ -308,7 +308,7 @@ it('bulk uploads files to a site uploads collection', function (): void {
         ->where('model_type', $site->getMorphClass())
         ->where('model_id', $site->getKey())
         ->where('collection_name', 'uploads')
-        ->orderBy('file_name')
+        ->orderBy('name')
         ->get();
 
     expect($uploads)->toHaveCount(2)
