@@ -6,15 +6,22 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
+
+concurrency:
+  group: >-
+    split-pr-forward-${{ github.repository }}-${{
+    github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   forward:
     if: github.repository_owner == 'capell-app' && github.event.repository.name != 'capell'
     runs-on: ubuntu-latest
+    # Every new source SHA needs approval before becoming a same-repository PR.
+    # Configure required reviewers and environment-scoped forwarding secrets.
+    environment: split-pr-forwarding
+    timeout-minutes: 10
     env:
-      GH_TOKEN: ${{ secrets.SPLIT_PR_FORWARD_TOKEN || secrets.ACCESS_TOKEN }}
       PACKAGE_NAME: ${{ github.event.repository.name }}
       SOURCE_REPOSITORY: ${{ github.repository }}
       SOURCE_PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -27,6 +34,8 @@ jobs:
       MONOREPO_BASE: 1.x
     steps:
       - name: Validate forwarding token
+        env:
+          GH_TOKEN: ${{ secrets.SPLIT_PR_FORWARD_TOKEN || secrets.ACCESS_TOKEN }}
         run: |
           if [ -z "${GH_TOKEN}" ]; then
             echo "SPLIT_PR_FORWARD_TOKEN or ACCESS_TOKEN must be configured." >&2
@@ -35,6 +44,8 @@ jobs:
 
       - name: Close forwarded PR when source PR closes
         if: github.event.action == 'closed'
+        env:
+          GH_TOKEN: ${{ secrets.SPLIT_PR_FORWARD_TOKEN || secrets.ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           branch="split-pr/${PACKAGE_NAME}/${SOURCE_PR_NUMBER}"
@@ -62,9 +73,12 @@ jobs:
           ref: 1.x
           token: ${{ secrets.SPLIT_PR_FORWARD_TOKEN || secrets.ACCESS_TOKEN }}
           path: monorepo
+          persist-credentials: false
 
       - name: Create or update monorepo PR
         if: github.event.action != 'closed'
+        env:
+          GH_TOKEN: ${{ secrets.SPLIT_PR_FORWARD_TOKEN || secrets.ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           branch="split-pr/${PACKAGE_NAME}/${SOURCE_PR_NUMBER}"
@@ -82,7 +96,8 @@ jobs:
           fi
           git add "${package_path}"
           git commit -m "Forward ${PACKAGE_NAME} split PR #${SOURCE_PR_NUMBER}"
-          git push origin "${branch}" --force-with-lease
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
+            push origin "${branch}" --force-with-lease
           body_file="$(mktemp)"
           trap 'rm -f "${body_file}"' EXIT
           printf "Forwarded from %s#%s.\n\nSource PR: %s\nAuthor: @%s\nSource base: %s\nSource head: %s\n\nReview note: Merge this PR in \`capell\`; do not merge the split PR directly.\n" \

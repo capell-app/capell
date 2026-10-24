@@ -39,11 +39,11 @@ trait PageValidation
                 ->warning()
                 ->title(__(
                     'capell-admin::message.page_not_deletable',
-                    ['name' => $record->name],
+                    ['name' => e($record->name)],
                 ))
                 ->body(__(
                     'capell-admin::message.page_page_type_not_deletable',
-                    ['name' => $blueprint->name],
+                    ['name' => e($blueprint->name)],
                 ))
                 ->send();
 
@@ -55,7 +55,7 @@ trait PageValidation
                 ->warning()
                 ->title(__(
                     'capell-admin::message.page_not_deletable',
-                    ['name' => $record->name],
+                    ['name' => e($record->name)],
                 ))
                 ->body(__(
                     'capell-admin::message.canonical_page_not_deletable',

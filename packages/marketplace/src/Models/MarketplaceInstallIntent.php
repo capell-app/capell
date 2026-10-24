@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Models;
 
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Support\MarketplaceComposerCommand;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Override;
@@ -41,6 +43,14 @@ final class MarketplaceInstallIntent extends Model
     ];
 
     protected $table = 'marketplace_install_intents';
+
+    /** @return Attribute<string, string> */
+    protected function composerCommand(): Attribute
+    {
+        // Older intents stored unquoted commands. Render from the structured
+        // coordinates so pending themes remain safe without rewriting records.
+        return Attribute::get(fn (string $value): string => $value === '' ? '' : MarketplaceComposerCommand::storedRequire($this->composer_name, $this->version_constraint, $value));
+    }
 
     #[Override]
     protected function casts(): array

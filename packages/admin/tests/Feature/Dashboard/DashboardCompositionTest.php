@@ -57,7 +57,7 @@ it('expands the remaining lead panel when its neighbour is hidden', function ():
         ->and(compositionChild($regions[0], 0, Grid::class)->getColumns())->toMatchArray(['lg' => 1]);
 });
 
-it('retains legacy contributions in the specialist tools view rather than the overview', function (): void {
+it('retains additional contributions in the overview and specialist tools view', function (): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
     CapellAdmin::registerDashboardFilamentWidget(VisibleCompositionWidget::class, DashboardEnum::Main);
@@ -67,8 +67,12 @@ it('retains legacy contributions in the specialist tools view rather than the ov
     $dashboard = new CompositionDashboard;
     $dashboard->widgets = [VisibleCompositionWidget::class];
 
-    expect(compositionChild($dashboard->getWidgetsContentComponent(), 0, Section::class)->getHeading())
-        ->toBe(__('capell-admin::dashboard.empty_heading'));
+    $additional = compositionChild($dashboard->getWidgetsContentComponent(), 0, Section::class);
+    $grid = compositionChild($additional, 0, Grid::class);
+    expect($additional->getHeading())->toBe(__('capell-admin::dashboard.region_additional'))
+        ->and($grid->getColumns())->toMatchArray($dashboard->getColumns())
+        ->and(compositionChildren($grid))->toHaveCount(1)
+        ->and(compositionChild($grid, 0, Livewire::class)->getComponent())->toBe(VisibleCompositionWidget::class);
 });
 
 it('places the native welcome widgets before filters and overview content', function (): void {

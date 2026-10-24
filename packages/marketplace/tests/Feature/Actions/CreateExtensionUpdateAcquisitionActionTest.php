@@ -37,7 +37,7 @@ it('builds a free update acquisition from the latest version without calling the
 
     expect($acquisition->composerName)->toBe('capell-app/seo-suite')
         ->and($acquisition->versionConstraint)->toBe('^2.4.0')
-        ->and($acquisition->composerCommand)->toBe('composer require capell-app/seo-suite:^2.4.0')
+        ->and($acquisition->composerCommand)->toBe("composer require 'capell-app/seo-suite:^2.4.0'")
         ->and($acquisition->requiresDeployment)->toBeFalse()
         ->and($acquisition->metadata['authorization_source'] ?? null)->toBe('local_free_policy')
         ->and($acquisition->authorizationEligibilityPolicy?->canUpdate)->toBeTrue();

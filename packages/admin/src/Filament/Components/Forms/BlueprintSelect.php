@@ -61,6 +61,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
             ->reactive()
             ->required()
             ->allowHtml()
+            ->getOptionLabelFromRecordUsing(fn (Blueprint $record): string => e($record->name))
             ->selectablePlaceholder(false)
             ->default(
                 function (BlueprintSelect $component): ?int {
@@ -216,7 +217,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
                         $selectedRecord = $this->resolveBlueprintRecord($selectedRecord);
 
                         return new HtmlString(
-                            __('capell-admin::heading.edit_type_record', ['type' => $selectedRecord->name]),
+                            __('capell-admin::heading.edit_type_record', ['type' => e($selectedRecord->name)]),
                         );
                     })
                     ->modalDescription(fn (self $component): ?string => $this->editTypeModalDescription($component))

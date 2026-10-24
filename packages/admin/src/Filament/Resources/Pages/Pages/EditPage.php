@@ -277,7 +277,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
     {
         return new HtmlString(
             __('capell-admin::heading.edit_page_record', [
-                'name' => Str::limit($this->recordTitleText(), 40) . ' - ' . $this->record->site->name,
+                'name' => e(Str::limit($this->recordTitleText(), 40) . ' - ' . $this->record->site->name),
             ]),
         );
     }
@@ -1273,7 +1273,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
             Notification::make('page_language_parent')
                 ->warning()
-                ->title(__('capell-admin::message.page_language_parent', ['name' => $languageName]))
+                ->title(__('capell-admin::message.page_language_parent', ['name' => e($languageName)]))
                 ->body(__('capell-admin::message.page_language_parent_info'))
                 ->actions([
                     Action::make('edit')

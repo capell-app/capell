@@ -187,10 +187,10 @@
                                 x-on:input="updateAutoUpdateDisabled($event.target.value)"
                                 x-on:keydown.enter.prevent="submitModification()"
                                 x-on:keydown.escape="cancelModification()"
-                                {!! ($autocomplete = $getAutocomplete()) ? "autocomplete=\"{$autocomplete}\"" : null !!}
+                                @if ($autocomplete = $getAutocomplete()) autocomplete="{{ $autocomplete }}" @endif
                                 id="{{ $getId() }}"
                                 {{ $wireModelAttribute }}="{{ $statePath }}"
-                                {!! ($placeholder = $getPlaceholder()) ? "placeholder=\"{$placeholder}\"" : null !!}
+                                @if ($placeholder = $getPlaceholder()) placeholder="{{ $placeholder }}" @endif
                                 {!! $isRequired() ? 'required' : null !!}
                                 {{
                                     $getExtraInputAttributeBag()->class([

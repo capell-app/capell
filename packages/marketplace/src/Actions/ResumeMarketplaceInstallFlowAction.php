@@ -109,7 +109,7 @@ final class ResumeMarketplaceInstallFlowAction
         MarketplaceInstallFlowSession $session,
         ?MarketplaceInstallActorData $actor,
     ): array {
-        $attempts = [];
+        $prepared = [];
 
         foreach ($this->selectedExtensions($session) as $selection) {
             $slug = $this->requiredString($selection, 'slug');
@@ -123,6 +123,12 @@ final class ResumeMarketplaceInstallFlowAction
 
             throw_unless($listing instanceof ExtensionListingData, RuntimeException::class, sprintf('Marketplace extension [%s] was not found.', $slug));
 
+            throw_unless(
+                $listing->composerName === $composerName && $listing->slug === $slug,
+                RuntimeException::class,
+                __('capell-marketplace::marketplace.errors.reviewed_selection_changed'),
+            );
+
             $installOptions = $this->installOptionsFor($session, $listing);
             $acquisition = CreateExtensionAcquisitionAction::run(
                 listing: $listing,
@@ -133,7 +139,14 @@ final class ResumeMarketplaceInstallFlowAction
             );
 
             $this->assertAuthorizationAllowed($acquisition);
+            $prepared[] = [$listing, $acquisition, $installOptions];
+        }
 
+        // No local attempts, deployment publications or jobs until every selection is valid.
+        $attempts = [];
+
+        foreach ($prepared as [$listing, $acquisition, $installOptions]) {
+            $composerName = $listing->composerName;
             $attempts[] = QueueMarketplaceInstallAttemptAction::run(
                 listing: $listing,
                 acquisition: $acquisition,

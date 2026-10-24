@@ -22,6 +22,7 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
 
     public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
     {
+        MarketplaceComposerCoordinates::assertValid($composerName, $versionConstraint);
         $this->assertReleaseRootWritable();
         $this->authWorkspace->sweep();
 
@@ -40,6 +41,7 @@ final class ProcessMarketplaceComposerRunner implements MarketplaceAuthenticated
         int $timeoutSeconds,
         array $composerAuth,
     ): MarketplaceComposerResultData {
+        MarketplaceComposerCoordinates::assertValid($composerName, $versionConstraint);
         $this->assertReleaseRootWritable();
         $this->authWorkspace->sweep();
 

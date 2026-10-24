@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 Route::name('capell-installer.')
     ->middleware('web')
     ->group(function (): void {
+        Route::post('install/unlock', [InstallController::class, 'unlock'])->middleware(RequireInstallerBootstrap::class)->name('unlock');
         Route::middleware(EnsureNotInstalled::class)->group(function (): void {
             Route::get('install', [InstallController::class, 'show'])->name('show');
             Route::post('install', [InstallController::class, 'store'])->middleware(RequireInstallerBootstrap::class)->name('store');

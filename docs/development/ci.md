@@ -113,6 +113,48 @@ also run during release deployment. Existing release and dispatch entry points
 remain available. The Test All engineering-metrics job is still push-only and
 has no automatic trigger after the main push trigger is removed.
 
+## Approval environments and workflow credentials
+
+Configure a `release` environment in the monorepo with required reviewers,
+prevent self-review and bypass, and allow deployments only from `main`. Store
+`SPLIT_APP_ID` and `SPLIT_APP_PRIVATE_KEY` in that environment and remove any
+repository or organisation secret copies available to other jobs. Release
+dispatches must use `main`; the approved plan source must be an ancestor of the
+exact main commit supplying the workflow. Only the publication job receives
+write permissions and enters the approval environment.
+
+Each split repository needs a `split-pr-forwarding` environment with required
+reviewers, self-review and bypass disabled, and deployment branches restricted
+to its protected default branch. Store `SPLIT_PR_FORWARD_TOKEN` there (or the
+legacy `ACCESS_TOKEN` fallback) and remove broader copies. Approval is required
+for each run, including source updates, before fork-authored files are copied
+into a monorepo branch. Review the event's exact source SHA before approving;
+the checkout uses that immutable SHA. Per-PR concurrency cancels older pending
+runs when the source changes. The forwarder only copies package files and must
+never execute code from the source checkout.
+
+Environment names in YAML do not create reviewer or branch protection rules.
+Provision and verify these settings before enabling the workflows; an
+unprotected environment does not provide an approval boundary. The forwarding
+target remains `1.x`, so verify its workflow and secret policies separately.
+
+All read-only workflow checkouts discard credentials immediately after fetching,
+including Test All's reusable fast gate, asset formatting, package builds,
+coverage, extension audit, browser smoke, Windows verification, CodeQL and
+Workflow Lint. The credential contract discovers all monorepo workflows,
+split workflows and the forwarding template. Changelog's dedicated write-back
+job is the sole exception: its commit action uses persisted checkout credentials
+to update `CHANGELOG.md` on `main`, and it contains no repository run steps.
+
+Screenshot, release-smoke, Test All, PHP Quality and Rector repository run steps
+receive no PAT, including Test All's framework dependency preparation. Screenshot,
+release-smoke, PHP Quality and Rector dependency installation disables npm
+lifecycle hooks and Composer scripts/plugins; the root Composer autoload
+preparation is then invoked explicitly without credentials using
+`composer dump-autoload`, preserving Pest plugin registration, package discovery
+and Testbench preparation. PHP Quality refreshes autoload state on both Composer
+cache hits and misses.
+
 ## Dependabot updates
 
 Dependabot opens one monthly grouped PR per ecosystem. Dependabot PRs run no

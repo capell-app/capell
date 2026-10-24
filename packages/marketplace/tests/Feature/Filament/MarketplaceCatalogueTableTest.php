@@ -1743,7 +1743,7 @@ it('records a pending theme install intent and append-only attempt after theme i
         ->and($intent->composer_name)->toBe('capell-app/theme-agency')
         ->and($intent->kind)->toBe('theme')
         ->and($intent->status)->toBe(MarketplaceInstallIntentStatus::Pending)
-        ->and($intent->composer_command)->toBe('composer require capell-app/theme-agency:^1.2.0')
+        ->and($intent->composer_command)->toBe("composer require 'capell-app/theme-agency:^1.2.0'")
         ->and($intent->version_constraint)->toBe('^1.2.0')
         ->and($intent->metadata)->toMatchArray([
             'image_url' => 'https://marketplace.test/images/theme-agency.png',
@@ -1859,7 +1859,7 @@ it('records deployment published attempts when deployment publisher returns a pu
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
-        ->and($attempt->composer_command)->toBe('composer require capell-app/seo-suite:^1.0.0')
+        ->and($attempt->composer_command)->toBe("composer require 'capell-app/seo-suite:^1.0.0'")
         ->and($attempt->queued_at)->not->toBeNull()
         ->and($attempt->deployment)->toMatchArray([
             'status' => 'published',
@@ -1898,7 +1898,7 @@ it('can install filament peek through the admin marketplace catalogue', function
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
         ->and($attempt->extension_slug)->toBe('filament-peek')
         ->and($attempt->composer_name)->toBe('capell-app/filament-peek')
-        ->and($attempt->composer_command)->toBe('composer require capell-app/filament-peek:^4.1.2')
+        ->and($attempt->composer_command)->toBe("composer require 'capell-app/filament-peek:^4.1.2'")
         ->and($attempt->version_constraint)->toBe('^4.1.2')
         ->and($attempt->requested_options)->toBeNull()
         ->and($attempt->eligibility)->toMatchArray([
@@ -1955,7 +1955,7 @@ it('records deployment published attempts when deployment publisher returns a co
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
-        ->and($attempt->composer_command)->toBe('composer require capell-app/seo-suite:^1.0.0')
+        ->and($attempt->composer_command)->toBe("composer require 'capell-app/seo-suite:^1.0.0'")
         ->and($attempt->deployment)->toMatchArray([
             'status' => 'published',
             'type' => 'commit',
@@ -2001,7 +2001,7 @@ it('falls back to composer command when no active deployment connection exists',
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
-        ->and($attempt->composer_command)->toBe('composer require capell-app/seo-suite:^1.0.0')
+        ->and($attempt->composer_command)->toBe("composer require 'capell-app/seo-suite:^1.0.0'")
         ->and($attempt->failure_reason)->toBeNull()
         ->and($attempt->deployment)->toMatchArray([
             'status' => 'unavailable',
@@ -2053,7 +2053,7 @@ it('records deployment failures separately before showing composer fallback', fu
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
-        ->and($attempt->composer_command)->toBe('composer require capell-app/seo-suite:^1.0.0')
+        ->and($attempt->composer_command)->toBe("composer require 'capell-app/seo-suite:^1.0.0'")
         ->and($attempt->failure_reason)->toBe((string) __('capell-marketplace::marketplace.operations.deployment_failed_notification', [
             'reason' => $redactedReason,
         ]))

@@ -124,7 +124,7 @@ class ManageThemes extends ManageRecords implements ValidatesDelete
         $this->resetTable();
 
         Notification::make('theme-created')
-            ->title(__('capell-admin::theme-library.messages.created', ['theme' => $theme->name]))
+            ->title(__('capell-admin::theme-library.messages.created', ['theme' => e($theme->name)]))
             ->success()
             ->send();
     }
@@ -261,7 +261,7 @@ class ManageThemes extends ManageRecords implements ValidatesDelete
         $this->resetTable();
 
         Notification::make('theme-created')
-            ->title(__('capell-admin::theme-library.messages.created', ['theme' => $theme->name]))
+            ->title(__('capell-admin::theme-library.messages.created', ['theme' => e($theme->name)]))
             ->success()
             ->send();
     }

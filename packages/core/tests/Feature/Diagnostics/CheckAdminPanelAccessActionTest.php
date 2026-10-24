@@ -2,15 +2,18 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Diagnostics\CheckAdminPanelAccessAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 
 function runLegacyAdminPanelAccessCheckForTest(): DoctorCheckResultData
 {
-    $legacyActionClass = implode('\\', ['Capell', 'Core', 'Actions', 'Diagnostics', 'CheckAdminPanelAccessAction']);
-    $action = resolve($legacyActionClass);
-    throw_unless(is_callable($action->handle(...)), RuntimeException::class, 'Legacy diagnostics are not callable.');
+    // Deliberately exercise the deprecated 1.x adapter through reflection, as
+    // the frontend compatibility-step tests do, while checking its result type.
+    $action = resolve(CheckAdminPanelAccessAction::class);
+    $result = new ReflectionMethod($action, 'handle')->invoke($action);
+    throw_unless($result instanceof DoctorCheckResultData, RuntimeException::class, 'Legacy diagnostics did not return a check result.');
 
-    return $action->handle();
+    return $result;
 }
 
 it('keeps the legacy super-admin role fallback compatible', function (): void {

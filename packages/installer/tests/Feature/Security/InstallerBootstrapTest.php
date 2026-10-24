@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\InstallInputFactory;
+use Capell\Installer\Actions\BuildInstallerPageDataAction;
+use Capell\Installer\Support\InstallerInstallationState;
+use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Support\Str;
 
 beforeEach(function (): void {
@@ -71,4 +75,55 @@ it('does not expose the configured secret or flash it after validation failures'
     $this->post(route('capell-installer.store'), ['bootstrap_secret' => str_repeat('a', 64)])
         ->assertRedirect()->assertSessionMissing('_old_input.bootstrap_secret');
     expect(session('capell.installer.bootstrap_digest'))->toBe(hash('sha256', str_repeat('a', 64)));
+});
+
+it('does not disclose setup credentials or user records before bootstrap proof', function (): void {
+    config([
+        'capell-installer.admin_user.name' => 'Private operator',
+        'capell-installer.admin_user.email' => 'private-operator@example.test',
+        'capell-installer.admin_user.password' => 'private-setup-password',
+    ]);
+    User::factory()->createOne(['email' => 'existing-private@example.test']);
+
+    $html = $this->get(route('capell-installer.show'))->assertOk()->content();
+    foreach (['private-setup-password', 'private-operator@example.test', 'existing-private@example.test', 'id="install-form"'] as $privateValue) {
+        expect(str_contains((string) $html, $privateValue))->toBeFalse();
+    }
+});
+
+it('unlocks sensitive setup data only for a current bootstrap session', function (): void {
+    config(['capell-installer.admin_user.email' => 'private-operator@example.test']);
+    $this->post(route('capell-installer.unlock'), ['bootstrap_secret' => 'incorrect'])->assertForbidden();
+    $this->post(route('capell-installer.unlock'), ['bootstrap_secret' => str_repeat('a', 64)])
+        ->assertRedirect(route('capell-installer.show'));
+    $html = $this->get(route('capell-installer.show'))->assertOk()->content();
+    expect(str_contains((string) $html, 'private-operator@example.test'))->toBeTrue();
+
+    config(['capell-installer.bootstrap.secret' => str_repeat('b', 64)]);
+    $html = $this->get(route('capell-installer.show'))->assertOk()->content();
+    expect(str_contains((string) $html, 'private-operator@example.test'))->toBeFalse();
+
+    $this->post(route('capell-installer.unlock'), ['bootstrap_secret' => str_repeat('b', 64)])
+        ->assertRedirect(route('capell-installer.show'));
+    $this->travel(31)->minutes();
+    $html = $this->get(route('capell-installer.show'))->assertOk()->content();
+    expect(str_contains((string) $html, 'private-operator@example.test'))->toBeFalse();
+});
+
+it('does not build private page data for an unproved request', function (): void {
+    app()->bind(BuildInstallerPageDataAction::class, fn (): never => throw new LogicException('Private page data must not be built.'));
+    $this->get(route('capell-installer.show'))->assertOk();
+});
+
+it('allows bootstrap proof for installer removal after installation without permitting reinstallation', function (): void {
+    config(['capell-installer.allow_reinstall' => false]);
+    Site::factory()->createOne();
+    InstallerInstallationState::forget();
+    expect(InstallerInstallationState::capellIsInstalled())->toBeTrue();
+
+    $this->post(route('capell-installer.unlock'), ['bootstrap_secret' => str_repeat('a', 64)])
+        ->assertRedirect(route('capell-installer.show'));
+    $this->get(route('capell-installer.show'))->assertOk()
+        ->assertSee(__('capell-installer::installer.already_installed_heading'));
+    $this->postJson(route('capell-installer.store'))->assertNotFound();
 });

@@ -78,7 +78,7 @@ final class InstalledPanelRuntimeColdInstallTest extends AdminTestCase
             ->middleware($panel->getMiddleware())->name('filament.admin.cold-install-probe');
         $this->get('/admin/cold-install-probe')->assertStatus(503);
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('fresh application');
+        $this->expectExceptionMessageIsOrContains('fresh application');
         $runtime->extend($panel);
     }
 

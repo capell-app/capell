@@ -11,9 +11,11 @@ use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use Override;
 
 class AncestorsColumn extends TextColumn
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -31,8 +33,8 @@ class AncestorsColumn extends TextColumn
 
                 return new HtmlString(sprintf(
                     "<a href='%s' class='text-gray-500 dark:text-gray-400 hover:text-primary-600 focus:text-primary-600'>%s</a>",
-                    GetEditPageResourceUrlAction::run($state),
-                    $state->name,
+                    e(GetEditPageResourceUrlAction::run($state)),
+                    e($state->name),
                 ));
             });
     }

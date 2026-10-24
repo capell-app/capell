@@ -67,14 +67,14 @@ it('renders marketplace extension details with health alerts and accessible feed
         ->assertSee(__('capell-marketplace::marketplace.detail.download_available'))
         ->assertSee(__('capell-marketplace::marketplace.detail.install_available'))
         ->assertSee(__('capell-marketplace::marketplace.detail.manual_install_checkbox_label'))
-        ->assertDontSee('composer require capell-app/seo-suite:^2.1.0')
+        ->assertDontSee("composer require 'capell-app/seo-suite:^2.1.0'")
         ->assertDontSee('php artisan capell:extension-install capell-app/seo-suite')
         ->assertSee('https://marketplace.test/extensions/seo-suite')
         ->assertSee('target="_blank"', false)
         ->assertSee('rel="noopener noreferrer"', false)
         ->set('showManualInstallCommands', true)
         ->assertSee('data-capell-marketplace-manual-install-commands', false)
-        ->assertSee('composer require capell-app/seo-suite:^2.1.0')
+        ->assertSee("composer require 'capell-app/seo-suite:^2.1.0'")
         ->assertSee('php artisan capell:extension-install capell-app/seo-suite')
         ->set('feedbackStatus', 'pending')
         ->assertSee('aria-live="polite"', false)
@@ -419,10 +419,10 @@ it('promotes the install instructions to the primary action on a manual-only hos
         ->assertSuccessful()
         ->assertSeeHtml('data-capell-marketplace-manual-install-cta')
         ->assertSee(__('capell-marketplace::marketplace.readiness.manual_install_cta_button'))
-        ->assertDontSee('composer require capell-app/seo-suite:^2.1.0')
+        ->assertDontSee("composer require 'capell-app/seo-suite:^2.1.0'")
         ->call('showManualInstallInstructions')
         ->assertSet('showManualInstallCommands', true)
-        ->assertSee('composer require capell-app/seo-suite:^2.1.0');
+        ->assertSee("composer require 'capell-app/seo-suite:^2.1.0'");
 });
 
 it('keeps the install instructions a disclosure on a host that installs automatically', function (): void {

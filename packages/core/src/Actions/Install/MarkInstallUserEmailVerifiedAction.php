@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 
 final class MarkInstallUserEmailVerifiedAction
 {
@@ -17,7 +18,7 @@ final class MarkInstallUserEmailVerifiedAction
     public function handle(Authenticatable $user): void
     {
         if ($user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail()) {
-            $user->markEmailAsVerified();
+            throw_if($user->markEmailAsVerified() === false, RuntimeException::class, 'Install user email verification failed.');
         }
     }
 }

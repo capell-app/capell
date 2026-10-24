@@ -186,6 +186,17 @@ class CapellDashboard extends Dashboard
             $regions[] = Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($activity))->columnSpanFull();
         }
 
+        $additionalClasses = CapellAdmin::getDashboardFilamentWidgetsByRegion($this->dashboardEnum(), DashboardRegionEnum::Additional);
+        $additional = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => in_array($this->normalizeWidgetClass($widget), $additionalClasses, true)));
+        if ($additional !== []) {
+            $regions[] = Section::make(__('capell-admin::dashboard.region_additional'))
+                ->description(__('capell-admin::dashboard.additional_description'))
+                ->schema([
+                    Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($additional))->columnSpanFull(),
+                ])
+                ->columnSpanFull();
+        }
+
         if ($regions === []) {
             $regions[] = Section::make(__('capell-admin::dashboard.empty_heading'))
                 ->schema([Text::make(__('capell-admin::dashboard.overview_empty_description'))])

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Backup\CreateBackupAction;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Core\Tests\Support\BackupSigningTestKeys;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
+    BackupSigningTestKeys::configure();
     Storage::fake('backups');
     $this->databasePath = sys_get_temp_dir() . '/capell-restore-command-' . bin2hex(random_bytes(6)) . '.sqlite';
     $this->scratchDirectory = sys_get_temp_dir() . '/capell-restore-command-scratch-' . bin2hex(random_bytes(6));

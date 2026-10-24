@@ -64,7 +64,7 @@ trait BlueprintValidation
 
             Notification::make($type . '_type_not_deletable')
                 ->warning()
-                ->title($error)
+                ->title(e($error))
                 ->body(__(
                     sprintf('capell-admin::message.%s_type_not_deletable_info', $type),
                     ['count' => $relatedCount],

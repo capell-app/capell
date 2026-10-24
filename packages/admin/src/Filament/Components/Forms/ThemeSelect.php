@@ -51,7 +51,7 @@ class ThemeSelect extends Select
                 }
 
                 return new HtmlString(
-                    '<img src="' . Storage::disk('public')->url($image) . '" alt="' . e($theme->name) . '" class="w-full h-auto max-h-32 aspect-square object-cover rounded-lg shadow-md" />',
+                    '<img src="' . e(Storage::disk('public')->url($image)) . '" alt="' . e($theme->name) . '" class="w-full h-auto max-h-32 aspect-square object-cover rounded-lg shadow-md" />',
                 );
             })
             ->autoDefault();

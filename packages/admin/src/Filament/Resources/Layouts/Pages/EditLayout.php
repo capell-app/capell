@@ -78,7 +78,7 @@ class EditLayout extends EditRecord implements ValidatesDelete
         return new HtmlString(
             __(
                 'capell-admin::heading.edit_layout_record',
-                ['name' => Str::limit($this->recordTitleText(), 40)],
+                ['name' => e(Str::limit($this->recordTitleText(), 40))],
             ),
         );
     }

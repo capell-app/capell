@@ -17,6 +17,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Support\MarketplaceComposerCommand;
 use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Cache\Lock;
@@ -164,7 +165,7 @@ final class QueueMarketplaceUninstallAttemptAction
             uninstallOptions: $options->toArray(),
             actor: $actor,
             source: $source,
-            composerCommand: 'composer remove ' . $composerName,
+            composerCommand: MarketplaceComposerCommand::remove($composerName),
             context: $context,
             idempotencyKey: $idempotencyKey,
             timelineMessage: MarketplaceOperationVocabulary::translate(MarketplaceOperationType::Uninstall, 'timeline_created'),

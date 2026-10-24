@@ -17,6 +17,7 @@ use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Jobs\RunMarketplaceUninstallAttemptJob;
 use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Capell\Marketplace\Support\MarketplaceComposerCommand;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use DomainException;
 use Illuminate\Support\Facades\Log;
@@ -179,7 +180,7 @@ final class RunMarketplaceExtensionsLifecycleQaAction
         return new ExtensionAcquisitionData(
             composerName: $acquisition->composerName,
             versionConstraint: $updateFrom,
-            composerCommand: sprintf('composer require %s:%s', $acquisition->composerName, $updateFrom),
+            composerCommand: MarketplaceComposerCommand::require($acquisition->composerName, $updateFrom),
             repositoryUrl: $acquisition->repositoryUrl,
             purchaseUrl: $acquisition->purchaseUrl,
             requiresDeployment: $acquisition->requiresDeployment,

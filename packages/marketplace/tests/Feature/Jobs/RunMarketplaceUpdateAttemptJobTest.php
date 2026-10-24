@@ -12,8 +12,10 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerStateSnapshot;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
+use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
+use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
 use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
@@ -24,13 +26,77 @@ use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 
 uses(CreatesAdminUser::class);
 
 const UPDATE_PACKAGE_NAME = 'capell-app/marketplace-update-package';
+
+beforeEach(function (): void {
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new class implements MarketplaceInstalledPackageVersionResolver
+    {
+        #[Override]
+        public function prettyVersion(string $composerName): ?string
+        {
+            return in_array($composerName, [UPDATE_PACKAGE_NAME, 'capell-app/never-registered-update-package'], true) ? '2.1.0' : null;
+        }
+    });
+});
+
+it('rejects unsafe persisted updates and retries using the installed version under the operation lock', function (string $constraint, string $installed, bool $retry): void {
+    Queue::fake();
+    $packagePath = registerUpdatablePackage();
+    CapellCore::forcePackageInstalled(UPDATE_PACKAGE_NAME);
+    fakeMigrationPipeline();
+    fakeComposerRestore();
+    $composer = succeedingComposerRunner();
+    $attempt = updateAttempt([
+        'status' => $retry ? MarketplaceInstallIntentStatus::Failed : MarketplaceInstallIntentStatus::Queued,
+        'version_constraint' => $constraint,
+        'context' => ['update_from_version' => '2.1.0'],
+    ]);
+
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new readonly class($installed) implements MarketplaceInstalledPackageVersionResolver
+    {
+        public function __construct(private string $version) {}
+
+        #[Override]
+        public function prettyVersion(string $composerName): string
+        {
+            $competingLock = Cache::lock('capell-marketplace:composer-install', 1);
+            expect($competingLock->get())->toBeFalse();
+
+            return $this->version;
+        }
+    });
+
+    try {
+        if ($retry) {
+            $source = $attempt;
+            $attempt = RetryMarketplaceInstallAttemptAction::run($source);
+            expect($attempt->retry_of_id)->toBe($source->getKey())
+                ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued);
+            Queue::assertPushed(RunMarketplaceUpdateAttemptJob::class);
+        }
+
+        new RunMarketplaceUpdateAttemptJob((int) $attempt->getKey())->handle($composer);
+
+        expect($composer->ran())->toBeFalse()
+            ->and($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+            ->and($attempt->failure_reason)->toBe(__('capell-marketplace::marketplace.errors.unsafe_update_constraint'));
+    } finally {
+        File::deleteDirectory($packagePath);
+    }
+})->with([
+    'persisted downgrade' => ['1.9.0', '2.1.0', false],
+    'retry downgrade' => ['1.9.0', '2.1.0', true],
+    'installed version advanced since acquisition' => ['2.4.0', '2.5.0', false],
+    'retry after installed version advanced' => ['2.4.0', '2.5.0', true],
+]);
 
 /**
  * Register a real-enough package on disk so the job's discovery assertion is

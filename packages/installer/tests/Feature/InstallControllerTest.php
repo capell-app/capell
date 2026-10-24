@@ -158,6 +158,7 @@ beforeEach(function (): void {
         'capell-installer.bootstrap.expires_at' => now()->addMinutes(30)->timestamp,
     ]);
     $this->withHeader('X-Capell-Installer-Secret', str_repeat('a', 64));
+    $this->post(route('capell-installer.unlock'))->assertRedirect(route('capell-installer.show'));
     bindInstallerDeveloperToolingInstallationState(false);
     config(['queue.default' => 'database']);
 });
