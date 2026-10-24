@@ -6,12 +6,14 @@ namespace Capell\Core\Actions\Backup;
 
 use Capell\Core\Actions\ProjectBuild\VerifyProjectBuildManifestSignatureAction;
 use Illuminate\Contracts\Config\Repository;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 /** @method static void run(array<string, mixed> $manifest) */
 final class VerifyBackupManifestSignatureAction
 {
+    use AsFake;
     use AsObject;
 
     public function __construct(private readonly Repository $config) {}
