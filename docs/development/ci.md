@@ -138,9 +138,16 @@ Provision and verify these settings before enabling the workflows; an
 unprotected environment does not provide an approval boundary. The forwarding
 target remains `1.x`, so verify its workflow and secret policies separately.
 
-Screenshot, release-smoke, Test All, PHP Quality and Rector checkouts discard
-credentials immediately after fetching. Their repository run steps receive no
-PAT, including Test All's framework dependency preparation. Screenshot,
+All read-only workflow checkouts discard credentials immediately after fetching,
+including Test All's reusable fast gate, asset formatting, package builds,
+coverage, extension audit, browser smoke, Windows verification, CodeQL and
+Workflow Lint. The credential contract discovers all monorepo workflows,
+split workflows and the forwarding template. Changelog's dedicated write-back
+job is the sole exception: its commit action uses persisted checkout credentials
+to update `CHANGELOG.md` on `main`, and it contains no repository run steps.
+
+Screenshot, release-smoke, Test All, PHP Quality and Rector repository run steps
+receive no PAT, including Test All's framework dependency preparation. Screenshot,
 release-smoke, PHP Quality and Rector dependency installation disables npm
 lifecycle hooks and Composer scripts/plugins; the root Composer autoload
 preparation is then invoked explicitly without credentials using

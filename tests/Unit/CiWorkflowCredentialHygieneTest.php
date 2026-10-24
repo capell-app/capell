@@ -29,8 +29,18 @@ final class CiWorkflowCredentialHygieneTest extends TestCase
         yield 'screenshots' => ['.github/workflows/screenshots.yml'];
         yield 'release smoke' => ['.github/workflows/public-release-smoke.yml'];
         yield 'full tests' => ['.github/workflows/test-full.yml'];
+        yield 'reusable fast gate' => ['.github/workflows/test-fast-pr.yml'];
         yield 'PHP quality' => ['.github/workflows/code-quality-and-styling.yml'];
         yield 'Rector' => ['.github/workflows/rector-full-dry-run.yml'];
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function allWorkflows(): Iterator
+    {
+        $root = dirname(__DIR__, 2);
+        foreach (glob($root . '/{.github/workflows,.github/split-repository,packages/*/.github/workflows}/*.{yml,yaml}', GLOB_BRACE) ?: [] as $path) {
+            yield substr($path, strlen($root) + 1) => [$path];
+        }
     }
 
     /** @return Iterator<string, array{string, string, bool, bool}> */
@@ -222,6 +232,38 @@ final class CiWorkflowCredentialHygieneTest extends TestCase
                         $this->assertDoesNotMatchRegularExpression('/\bsecrets\./', (string) $value);
                     }
                 }
+            }
+        }
+    }
+
+    #[DataProvider('allWorkflows')]
+    public function test_every_checkout_has_an_explicit_credential_disposition(string $file): void
+    {
+        $workflow = Yaml::parseFile($file);
+        $this->assertNotEmpty($workflow['jobs']);
+        foreach ($workflow['jobs'] as $jobName => $job) {
+            foreach ($job['steps'] ?? [] as $step) {
+                if (! str_starts_with($step['uses'] ?? '', 'actions/checkout@')) {
+                    continue;
+                }
+
+                $context = $file . ':' . $jobName;
+                // Changelog's dedicated write-back action needs checkout authentication.
+                // It must never share that credential with repository run steps.
+                if ($file === dirname(__DIR__, 2) . '/.github/workflows/update-changelog.yml' && $jobName === 'update') {
+                    $this->assertTrue($step['with']['persist-credentials'] ?? null, $context);
+                    $this->assertSame(['contents' => 'write'], $workflow['permissions']);
+                    $this->assertSame('main', $step['with']['ref']);
+                    $this->assertSame([], array_filter($job['steps'], static fn (array $candidate): bool => isset($candidate['run'])));
+                    $writers = array_values(array_filter($job['steps'], static fn (array $candidate): bool => str_starts_with($candidate['uses'] ?? '', 'stefanzweifel/git-auto-commit-action@')));
+                    $this->assertCount(1, $writers);
+                    $this->assertSame('main', $writers[0]['with']['branch']);
+                    $this->assertSame('CHANGELOG.md', $writers[0]['with']['file_pattern']);
+
+                    continue;
+                }
+
+                $this->assertFalse($step['with']['persist-credentials'] ?? null, $context);
             }
         }
     }
