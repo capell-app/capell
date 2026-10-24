@@ -7,8 +7,8 @@ use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Filament\Resources\Activities\ActivityResource;
 use Capell\Admin\Filament\Resources\BlockTemplates\BlockTemplateResource;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
-use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
+use Capell\Admin\Policies\RolePolicy;
 use Capell\Core\Models\BlockTemplate;
 use Capell\Tests\Fixtures\Models\User;
 use Filament\Facades\Filament;
@@ -41,8 +41,18 @@ it('refuses resource access until its Shield permission is granted through a rol
 })->with([
     [ActivityResource::class, Activity::class],
     [BlockTemplateResource::class, BlockTemplate::class],
-    [RoleResource::class, Role::class],
 ]);
+
+it('grants Role access through the default RolePolicy only with the generated permission', function (): void {
+    $actor = User::factory()->createOne();
+    $policy = new RolePolicy;
+    expect($policy->viewAny($actor))->toBeFalse();
+
+    $actor->givePermissionTo(Permission::findOrCreate('ViewAny:Role', 'web'));
+    $actor->unsetRelation('permissions');
+
+    expect($policy->viewAny($actor))->toBeTrue();
+});
 
 it('throws for a future resource with no policy', function (): void {
     test()->actingAs(User::factory()->createOne());
