@@ -9,6 +9,7 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;
 use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
+use Capell\Admin\Tests\Fixtures\CreationDeniedMediaResource;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Data\Media\ExternalVideoData;
 use Capell\Core\Enums\MediaCollectionEnum;
@@ -620,17 +621,6 @@ it('requires media creation permission for both creation actions', function (str
 
     expect(CapellMedia::query()->count())->toBe(0);
 })->with(['upload-files', 'add-youtube-video']);
-
-class CreationDeniedMediaResource extends MediaResource
-{
-    protected static ?string $slug = 'media';
-
-    #[Override]
-    public static function canCreate(): bool
-    {
-        return false;
-    }
-}
 
 it('honours a registered media resource that denies creation when the model policy allows it', function (string $action): void {
     $site = Site::factory()->createOne();
