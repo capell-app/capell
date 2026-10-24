@@ -9,6 +9,7 @@ use Capell\Core\Events\SiteSpecPrivacyRepaired;
 use Capell\Core\Events\SiteSpecPrivacyRepairing;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Frontend\Actions\InvalidateFrontendSurrogateKeysAction;
 use Capell\Frontend\Support\Cache\CacheInvalidationRegistry;
 use Capell\Frontend\Support\Cache\FragmentCache;
@@ -21,6 +22,11 @@ final class RemediatePrivateSiteSpecOutput
         $registry = resolve(CacheInvalidationRegistry::class);
         $registry->invalidateForModel(Page::class);
         $event->site->pages()->each(fn (Page $page) => $registry->invalidateChangedModel($page));
+        // Ordinary model/listing/render-data invalidation is best effort. Fence
+        // all Core entries with a persisted, acknowledged generation instead;
+        // retain the registry's external artefact/dependency side effects above,
+        // but never trust its cache writes before recording the repair marker.
+        resolve(CapellCacheManager::class)->flushCacheOrFail();
         resolve(StaticPageArtifactStore::class)->purgeSite($event->site->id);
         // Per-key invalidation is best effort and cannot fence an in-flight
         // render. An acknowledged namespace rotation makes all old bytes

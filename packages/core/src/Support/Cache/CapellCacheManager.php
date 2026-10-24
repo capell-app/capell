@@ -286,6 +286,51 @@ final class CapellCacheManager
         $this->bumpCacheNamespaceGeneration();
     }
 
+    /** Privacy repair must fence every old entry before recording completion. */
+    public function flushCacheOrFail(): void
+    {
+        $key = $this->cacheNamespaceGenerationKey();
+        $rotate = function () use ($key): int {
+            $cache = Cache::store();
+            $previous = (int) $cache->get($key, 0);
+            throw_unless(
+                $previous >= 0 && $previous < PHP_INT_MAX,
+                RuntimeException::class,
+                __('capell-core::runtime-refresh.cache_namespace_rotation_failed'),
+            );
+            $generation = $cache->increment($key);
+
+            if (! is_int($generation)) {
+                $generation = $previous + 1;
+                throw_unless(
+                    $cache->forever($key, $generation),
+                    RuntimeException::class,
+                    __('capell-core::runtime-refresh.cache_namespace_rotation_failed'),
+                );
+            }
+
+            throw_unless(
+                $generation > $previous && (int) $cache->get($key, 0) === $generation,
+                RuntimeException::class,
+                __('capell-core::runtime-refresh.cache_namespace_rotation_failed'),
+            );
+
+            return $generation;
+        };
+
+        // Unlike ordinary invalidation, lock failures must not fall back to an
+        // unlocked write, nor retry a callback whose backend operation failed.
+        $generation = $this->cacheStoreHasAtomicIncrement()
+            ? $rotate()
+            : Cache::lock('capell.cache.increment.' . hash('sha256', 'raw:' . $key), 10)->block(5, $rotate);
+
+        $this->flushLocalCache();
+        $request = app()->bound('request') ? resolve('request') : null;
+        if ($request instanceof Request) {
+            $request->attributes->set($key, $generation);
+        }
+    }
+
     /** @internal */
     public function flushLocalCache(): void
     {
@@ -599,10 +644,6 @@ final class CapellCacheManager
     private function cacheNamespaceGeneration(): int
     {
         if (! $this->configuredCacheStoreIsAvailable()) {
-            return 0;
-        }
-
-        if (Cache::supportsTags()) {
             return 0;
         }
 

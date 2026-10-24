@@ -9,6 +9,7 @@ use Capell\Core\Events\SiteSpecPrivacyRepaired;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Cache\CapellCacheManager;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Core\Support\SiteSpec\PrivateSiteSpecSourceStore;
 use Capell\Frontend\Actions\BuildPublicPageRenderDataAction;
@@ -16,22 +17,29 @@ use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
 use Capell\Frontend\Data\FrontendContext;
 use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRuntimeManifestData;
+use Capell\Frontend\Data\PageListingSpec;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Frontend\Jobs\FlushCdnPurgeBatchJob;
+use Capell\Frontend\Support\Cache\CacheInvalidationDependencyRegistry;
 use Capell\Frontend\Support\Cache\FragmentCache;
+use Capell\Frontend\Support\Cache\PageListingCache;
+use Capell\Frontend\Support\Cache\PageModelCache;
 use Capell\Frontend\Support\Cache\PublicPageRenderDataCache;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Capell\Frontend\Tests\Fixtures\FragmentCacheTestStore;
+use Capell\Frontend\Tests\Fixtures\PrivacyRepairCacheStore;
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -155,6 +163,130 @@ it('purges legacy private import caches and exports while retaining other sites'
         ->and($translation->fresh()->meta_description)->not->toContain('CONFIDENTIAL')
         ->and($translation->fresh()->meta['robots'])->toBe('noindex,nofollow');
 });
+
+it('requires acknowledged Core cache invalidation before certifying repair and abandons retained private entries on retry', function (string $failure, bool $tags): void {
+    $spec = confidentialPrivateSiteSpec();
+    $site = BuildCapellSiteFromSpecAction::run($spec);
+    $meta = $site->meta;
+    unset($meta['site_spec_privacy_version']);
+    $site->update(['meta' => $meta]);
+    $home = $site->pages()->where('name', 'Home')->firstOrFail();
+    $about = $site->pages()->where('name', 'About')->firstOrFail();
+    $translation = $home->translations()->firstOrFail();
+    $translation->update(['meta' => array_merge($translation->meta, ['description' => 'CONFIDENTIAL legacy metadata'])]);
+
+    $about->update(['visible_from' => null]);
+
+    $store = new PrivacyRepairCacheStore(true);
+    $repository = new class($store) extends Repository
+    {
+        public bool $tags = true;
+
+        #[Override]
+        public function supportsTags(): bool
+        {
+            return $this->tags;
+        }
+    };
+    $repository->tags = $tags;
+    Cache::extend('privacy-repair', fn (): Repository => $repository);
+    config()->set('cache.stores.privacy-repair', ['driver' => 'privacy-repair']);
+    config()->set('cache.default', 'privacy-repair');
+    freshPrivacyRepairCacheManager();
+    $models = resolve(PageModelCache::class);
+    $listings = resolve(PageListingCache::class);
+    $listing = new PageListingSpec($site->language_id, $site->id, null, null, null, null, null, null, null, null, false, true, null, 'privacy-repair');
+    $loadIds = fn (): array => $site->pages()->publishedDate()->orderBy('id')->pluck('id')->all();
+    $legacyIds = $listings->getIds($listing, $loadIds);
+    expect($legacyIds)->toContain($about->id)
+        ->and($models->get(Page::class, $home->id, $site, $site->language)?->translation?->meta_description)->toContain('CONFIDENTIAL');
+
+    $home->load(['translation', 'translations', 'pageUrls.siteDomain', 'layout']);
+    $site->load(['translation', 'siteDomains', 'siteDomain', 'theme']);
+    $context = new FrontendRenderContextData(
+        page: $home,
+        site: $site,
+        language: $site->language,
+        layout: $home->layout,
+        theme: $site->theme,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    );
+    $renderData = resolve(PublicPageRenderDataCache::class);
+    expect(serialize($renderData->remember($context, fn (): PublicPageRenderData => BuildPublicPageRenderDataAction::run($context))))->toContain('CONFIDENTIAL');
+    $legacyEntries = array_filter($store->entries(), static fn (mixed $value): bool => $value instanceof Page
+        || $value instanceof PublicPageRenderData || $value === $legacyIds);
+    expect($legacyEntries)->toHaveCount(3);
+
+    $store->generationFailure = $failure;
+    expect(fn (): Site => BuildCapellSiteFromSpecAction::run($spec, true))->toThrow($failure === 'lock' ? LockTimeoutException::class : RuntimeException::class)
+        ->and($site->fresh()->meta['site_spec_privacy_version'] ?? null)->toBeNull()
+        ->and(PublishSentinel::isDraftValue($about->fresh()->visible_from))->toBeTrue();
+
+    $store->generationFailure = null;
+    BuildCapellSiteFromSpecAction::run($spec, true);
+    expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2);
+
+    // Retained backend entries must be unreachable to a fresh request/manager,
+    // including readers with exactly the same registered wildcard patterns.
+    foreach ($legacyEntries as $key => $value) {
+        expect(serialize($store->get($key)))->toBe(serialize($value));
+    }
+
+    freshPrivacyRepairCacheManager();
+    $repairedHome = $models->get(Page::class, $home->id, $site, $site->language);
+    expect($models->get(Page::class, $about->id, $site, $site->language))->toBeNull()
+        ->and($repairedHome)->toBeInstanceOf(Page::class)
+        ->and($repairedHome?->translation?->meta_description)->not->toContain('CONFIDENTIAL')
+        ->and($listings->getIds($listing, $loadIds))->not->toContain($about->id);
+
+    // Reuse the original context/key inputs: timestamp changes must not mask a
+    // retained render-data cache hit. A cache miss must execute this builder.
+    $rebuilt = false;
+    $safeData = $renderData->remember($context, function () use (&$rebuilt, $context, $home): PublicPageRenderData {
+        $rebuilt = true;
+
+        return BuildPublicPageRenderDataAction::run(new FrontendRenderContextData(
+            page: $home->fresh(['translation', 'translations', 'pageUrls.siteDomain', 'layout']),
+            site: $context->site,
+            language: $context->language,
+            layout: $context->layout,
+            theme: $context->theme,
+            runtimeManifest: $context->runtimeManifest,
+        ));
+    });
+    expect($rebuilt)->toBeTrue()
+        ->and(serialize($safeData))->not->toContain('CONFIDENTIAL');
+})->with(['return-false', 'throw', 'unacknowledged-increment', 'unacknowledged-write', 'throw-write', 'lock', 'read'])->with([true, false]);
+
+it('fences a Core cache fill that started before repair and writes after its completion', function (): void {
+    $spec = confidentialPrivateSiteSpec();
+    $site = BuildCapellSiteFromSpecAction::run($spec);
+    $meta = $site->meta;
+    unset($meta['site_spec_privacy_version']);
+    $site->update(['meta' => $meta]);
+    $manager = resolve(CapellCacheManager::class);
+
+    $manager->rememberCache('page-in-flight', function () use ($spec): string {
+        BuildCapellSiteFromSpecAction::run($spec, true);
+
+        return 'CONFIDENTIAL late cache fill';
+    });
+
+    expect($site->fresh()->meta['site_spec_privacy_version'])->toBe(2);
+    freshPrivacyRepairCacheManager();
+    expect(resolve(CapellCacheManager::class)->rememberCache('page-in-flight', static fn (): string => 'safe'))->toBe('safe');
+});
+
+function freshPrivacyRepairCacheManager(): void
+{
+    app()->instance('request', Request::create((string) config('app.url')));
+    $manager = new CapellCacheManager;
+    foreach (resolve(CacheInvalidationDependencyRegistry::class)->allPatterns() as $pattern) {
+        $manager->registerCacheInvalidationPattern($pattern);
+    }
+
+    app()->instance(CapellCacheManager::class, $manager);
+}
 
 it('leaves a failed export remediation retryable without certifying the legacy import', function (bool $legacy): void {
     $spec = confidentialPrivateSiteSpec();
