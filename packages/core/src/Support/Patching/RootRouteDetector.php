@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Patching;
 
+use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Route;
 use PhpToken;
 
 /** @internal Detects possible application roots without executing application code. */
@@ -123,10 +125,25 @@ final class RootRouteDetector
                 continue;
             }
 
+            if ($token->is([T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE])) {
+                $fileEnd = $this->expressionEnd($index, $end);
+                $file = array_slice($this->tokens, $index + 1, $fileEnd - $index);
+                while (($file[0]->id ?? null) === ord('(') && ($file[array_key_last($file)]->id ?? null) === ord(')')) {
+                    $file = array_slice($file, 1, -1);
+                }
+
+                // Breeze's standard auth include has no homepage. Every other
+                // file is opaque: do not execute host code or assume it is safe.
+                if (count($file) !== 3 || $file[0]->id !== T_DIR || $file[1]->text !== '.' || $this->literal($file[2]) !== '/auth.php') {
+                    return true;
+                }
+            }
+
+            $volt = strtolower($token->text) === 'livewire\\volt\\volt' && ($this->tokens[$index + 1]->id ?? null) === T_DOUBLE_COLON;
             $facade = $token->text === 'Route' && ($this->tokens[$index + 1]->id ?? null) === T_DOUBLE_COLON;
             $router = $token->id === T_VARIABLE && in_array($token->text, $routers, true)
                 && ($this->tokens[$index + 1]->id ?? null) === T_OBJECT_OPERATOR;
-            if (! $facade && ! $router) {
+            if (! $facade && ! $router && ! $volt) {
                 continue;
             }
 
@@ -144,6 +161,16 @@ final class RootRouteDetector
                 $method = strtolower($this->tokens[$cursor]->text);
                 $close = $this->ends[$cursor + 1];
                 $arguments = $this->arguments($cursor + 2, $close);
+                // Argument expressions run before registration; closure bodies
+                // remain deferred unless a group explicitly executes them.
+                if ($this->scan($cursor + 2, $close, $prefixed, $routers, $callbacks)) {
+                    return true;
+                }
+
+                if ($volt && ! $registered && $method !== 'route') {
+                    break;
+                }
+
                 if ($method === 'prefix') {
                     $prefix = $this->nonEmptyPrefix($this->argument($arguments, 'prefix', 0));
                     // Registrar attributes replace one another; Route::prefix()
@@ -161,7 +188,7 @@ final class RootRouteDetector
                     if ($this->executeCallback($callback, $routePrefixed || $this->groupHasPrefix($attributes), $routers, $callbacks, true)) {
                         return true;
                     }
-                } elseif (in_array($method, ['get', 'post', 'put', 'patch', 'delete', 'options', 'any', 'match', 'addroute', 'view', 'redirect', 'permanentredirect'], true)) {
+                } elseif (($volt && $method === 'route') || in_array($method, ['inertia', 'livewire', 'get', 'post', 'put', 'patch', 'delete', 'options', 'any', 'match', 'addroute', 'view', 'redirect', 'permanentredirect'], true)) {
                     $uri = $this->argument($arguments, 'uri', in_array($method, ['match', 'addroute'], true) ? 1 : 0);
                     $registered = true;
                     $root = ! $routePrefixed && $this->possibleRoot($uri);
@@ -186,6 +213,17 @@ final class RootRouteDetector
                     // These setters replace their respective options. Retain
                     // both until the end, just as PendingResourceRegistration does.
                     $resourceOptions[$method] = $this->stringValues(count($arguments) === 1 ? $this->argument($arguments, 'methods', 0) : array_merge(...$arguments));
+                } elseif (in_array($method, ['fallback', 'setroutes', 'setcompiledroutes'], true)) {
+                    if ($method !== 'fallback') {
+                        return true;
+                    }
+
+                    $registered = true;
+                    $root = ! $routePrefixed;
+                } elseif (! $registered && ! in_array($method, ['as', 'can', 'metadata', 'missing', 'middleware', 'withoutmiddleware', 'name', 'domain', 'controller', 'where', 'wherenumber', 'wherealpha', 'wherealphanumeric', 'whereuuid', 'whereulid', 'wherein', 'scopebindings', 'withoutscopedbindings', 'namespace'], true) && ! method_exists(Router::class, $method) && ! method_exists(Route::class, $method)) {
+                    // Unknown macros have no guaranteed URI argument or return
+                    // type, and may replace a prefix internally. Fail closed.
+                    return true;
                 }
 
                 $index = $close;
