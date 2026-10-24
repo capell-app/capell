@@ -9,8 +9,10 @@ use Capell\Core\Support\Backup\BackupTemporaryFiles;
 use Capell\Core\Tests\Support\BackupSigningTestKeys;
 use Capell\Core\Tests\Support\Stubs\RecordingBackupFilesystem;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\UnableToCreateDirectory;
+use Mockery;
 
 beforeEach(function (): void {
     BackupSigningTestKeys::configure();
@@ -214,3 +216,21 @@ function backupCreatedValue(string $databasePath): string
 
     return is_string($value) ? $value : throw new RuntimeException('Created backup fixture value is missing.');
 }
+
+it('refuses an unusable signing configuration before taking a dump or uploading anything', function (): void {
+    config(['backup.signing.secret_key' => null]);
+    $disk = Mockery::mock(FilesystemAdapter::class)->shouldIgnoreMissing();
+    $disk->shouldNotReceive('put', 'putFile', 'putFileAs', 'writeStream', 'deleteDirectory', 'delete');
+    Storage::set('backups', $disk);
+
+    expect(fn () => CreateBackupAction::run(databaseOnly: true))->toThrow(RuntimeException::class);
+});
+
+it('refuses a signed manifest whose media entries are not a list', function (): void {
+    Storage::disk('media')->put('first.txt', 'one');
+    Storage::disk('media')->put('second.txt', 'two');
+    $payload = CreateBackupAction::run()->toArray();
+    $payload['media'] = [1 => $payload['media'][1], 0 => $payload['media'][0]];
+
+    expect(fn (): BackupManifestData => BackupManifestData::fromManifestArray($payload))->toThrow(UnexpectedValueException::class);
+});

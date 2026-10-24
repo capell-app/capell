@@ -45,6 +45,9 @@ final class CreateBackupAction
         $snapshotId = $now->format('Ymd\THis\Z') . '-' . bin2hex(random_bytes(6));
         $temporaryFiles = resolve(BackupTemporaryFiles::class);
 
+        // Fail on unusable signing configuration before any dump is taken or artifact uploaded.
+        SignBackupManifestAction::run(['probe' => $snapshotId]);
+
         try {
             $databaseArtifact = $this->createDatabaseArtifact(
                 snapshotId: $snapshotId,

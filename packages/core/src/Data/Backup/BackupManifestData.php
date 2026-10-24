@@ -38,7 +38,7 @@ final class BackupManifestData extends Data
 
         throw_if(($manifest['format_version'] ?? null) !== 1, UnexpectedValueException::class, 'Backup manifest format version is unsupported.');
 
-        throw_if(! is_array($manifest['database'] ?? null) || ! is_array($manifest['media'] ?? null), UnexpectedValueException::class, 'Backup manifest artifacts are invalid.');
+        throw_if(! is_array($manifest['database'] ?? null) || ! is_array($manifest['media'] ?? null) || ! array_is_list($manifest['media']), UnexpectedValueException::class, 'Backup manifest artifacts are invalid.');
 
         throw_if(preg_match('/\A\d{8}T\d{6}Z-[a-f0-9]{12}\z/', $manifest['snapshot_id']) !== 1
             || ! in_array($manifest['database_driver'], ['sqlite', 'mysql', 'mariadb', 'pgsql'], true)
