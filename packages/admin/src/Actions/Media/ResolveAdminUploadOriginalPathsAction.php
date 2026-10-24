@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Media;
 
+use Capell\Admin\Support\Media\AdminUploadBuilderTypes;
 use Capell\Admin\Support\Media\AdminUploadOwnership;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\Builder;
-use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Schemas\Components\Component;
@@ -26,9 +26,13 @@ final class ResolveAdminUploadOriginalPathsAction
     /** @return list<string> */
     public function handle(BaseFileUpload $upload): array
     {
-        $storedPaths = $upload instanceof SpatieMediaLibraryFileUpload
-            ? []
-            : resolve(AdminUploadOwnership::class)->paths($upload);
+        $storedPaths = [];
+        if (! $upload instanceof SpatieMediaLibraryFileUpload) {
+            $ownership = resolve(AdminUploadOwnership::class);
+            $ownership->forgetMissingPaths($upload);
+            $storedPaths = $ownership->paths($upload);
+        }
+
         $record = $upload->getRecord();
 
         if (! $record instanceof Model) {
@@ -62,14 +66,12 @@ final class ResolveAdminUploadOriginalPathsAction
 
             $segments = explode('.', $fieldPath);
             $container = $upload->getContainer();
-            $builderTypes = [];
-            $blockType = null;
+            $builderTypes = resolve(AdminUploadBuilderTypes::class)->forUpload($upload);
+            if ($builderTypes === null) {
+                return [];
+            }
 
             while ($container !== $root && ($parent = $container->getParentComponent()) instanceof Component) {
-                if ($parent instanceof Block) {
-                    $blockType = $parent->getName();
-                }
-
                 if ($parent instanceof Repeater || $parent instanceof Builder) {
                     // Filament's UUID item keys are transient and reorderable.
                     // Authorise only this field's persisted paths across the
@@ -81,14 +83,6 @@ final class ResolveAdminUploadOriginalPathsAction
 
                     $index = count(explode('.', $itemsPath));
                     $segments[$index] = '*';
-                    if ($parent instanceof Builder) {
-                        if ($blockType === null) {
-                            return [];
-                        }
-
-                        $builderTypes[$index] = $blockType;
-                        $blockType = null;
-                    }
                 }
 
                 $container = $parent->getContainer();

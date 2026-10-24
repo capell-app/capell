@@ -429,3 +429,56 @@ it('retains numeric stored filenames across a failed save', function (bool $nati
     }))->toThrow(ValidationException::class);
     expect($schema->getState()['icon'])->toBe('123');
 })->with([false, true]);
+
+it('binds failed-save uploads to every enclosing builder block type', function (bool $native, string $changed): void {
+    Storage::fake('local');
+    config()->set('livewire.temporary_file_upload.disk', 'local');
+    Storage::disk('local')->put('livewire-tmp/document.txt', 'A document, not an image');
+    $temporary = new TemporaryUploadedFile('document.txt', 'local');
+    $livewire = Livewire::make()->data(['widgets' => ['outer-uuid' => [
+        'type' => 'section', 'data' => ['children' => ['same-uuid' => [
+            'type' => 'document', 'data' => ['file' => ['temporary' => $temporary]],
+        ]]],
+    ]]]);
+    $livewire->setId('builder-retry-form');
+
+    $makeSchema = function () use (&$livewire, $native): Schema {
+        $makeChildren = function () use ($native): Builder {
+            $makeFile = fn (): BaseFileUpload => ($native ? NativeWidgetFileUpload::make('file') : Capell\Admin\Filament\Components\Forms\FileUpload::make('file'))
+                ->disk('local')->directory('docs');
+
+            return Builder::make('children')->blocks([
+                Block::make('document')->schema([$makeFile()]),
+                Block::make('image')->schema([$makeFile()->image()]),
+            ]);
+        };
+
+        return Schema::make($livewire)->statePath('data')->components([
+            Builder::make('widgets')->blocks([
+                Block::make('section')->schema([$makeChildren()]),
+                Block::make('other')->schema([$makeChildren()]),
+            ]),
+        ]);
+    };
+    expect(fn (): array => $makeSchema()->getState(afterValidate: function (): void {
+        throw new Halt;
+    }))->toThrow(Halt::class);
+    $stored = array_values($livewire->data['widgets']['outer-uuid']['data']['children']['same-uuid']['data']['file'])[0];
+    expect($stored)->toBeString()
+        ->and($temporary->exists())->toBeFalse()
+        ->and(Storage::disk('local')->exists($stored))->toBeTrue();
+
+    $livewire = Livewire::make()->data($livewire->data);
+    $livewire->setId('builder-retry-form');
+    // An unchanged nested type chain can retry the stored upload.
+    expect($makeSchema()->getState()['widgets'][0]['data']['children'][0]['data']['file'])->toBe($stored);
+
+    // Keep both UUIDs and paths, changing only a submitted enclosing type.
+    if ($changed === 'inner') {
+        $livewire->data['widgets']['outer-uuid']['data']['children']['same-uuid']['type'] = 'image';
+    } else {
+        $livewire->data['widgets']['outer-uuid']['type'] = 'other';
+    }
+
+    expect(fn (): array => $makeSchema()->getState())->toThrow(ValidationException::class);
+})->with([false, true])->with(['inner', 'outer']);
