@@ -177,10 +177,11 @@ it('includes conflict details when the actor can access the owning site', functi
     'global administrator' => [true],
 ]);
 
-it('rejects a scoped claim over a foreign origin regardless of mount path', function (?string $host, ?string $path, string $claimHost, string $claimPath): void {
+it('rejects a scoped claim over a foreign origin regardless of mount path', function (?string $host, ?string $path, string $claimHost, string $claimPath, string $storedScheme): void {
     $assigned = Site::factory()->create();
     $foreign = Site::factory()->create();
-    SiteDomain::factory()->create(['site_id' => $foreign->id, 'domain' => $host, 'scheme' => 'https', 'path' => $path]);
+    $domain = SiteDomain::factory()->create(['site_id' => $foreign->id, 'domain' => $host, 'scheme' => 'https', 'path' => $path]);
+    SiteDomain::query()->whereKey($domain->id)->update(['domain' => $host, 'scheme' => $storedScheme]);
     $actor = User::factory()->create();
     $actor->assignedSiteIds = collect([$assigned->id]);
 
@@ -188,11 +189,14 @@ it('rejects a scoped claim over a foreign origin regardless of mount path', func
 
     expect(SiteDomainValidationHarness::validateExists(['scheme' => 'https', 'host' => $claimHost, 'path' => $claimPath]))->toBeFalse();
 })->with([
-    ['foreign.test', null, 'foreign.test', '/claimed'],
-    ['foreign.test', null, 'FOREIGN.TEST.', '/claimed'],
-    ['foreign.test', '/existing', 'foreign.test', '/other'],
-    [null, null, 'another.test', '/claimed'],
-    [null, '/existing', 'another.test', '/other'],
+    ['foreign.test', null, 'foreign.test', '/claimed', 'https'],
+    ['foreign.test', null, 'FOREIGN.TEST.', '/claimed', 'https'],
+    ['foreign.test', '/existing', 'foreign.test', '/other', 'https'],
+    [null, null, 'another.test', '/claimed', 'https'],
+    [null, '/existing', 'another.test', '/other', 'https'],
+    ['FOREIGN.TEST.', '/', 'foreign.test', '/claimed', 'https'],
+    ['foreign.test', '/', 'foreign.test', '/claimed', 'HTTPS'],
+    [' Foreign.Test. ', '/existing', 'foreign.test', '/other', ' HTTPS '],
 ]);
 
 it('retains global administrators ability to partition an origin across sites', function (): void {
@@ -222,10 +226,11 @@ it('enforces foreign origin ownership when saving directly and restoring a domai
     expect(SiteDomain::query()->where('site_id', $assigned->id)->where('path', '/injected')->exists())->toBeFalse();
 });
 
-it('allows different origins by scheme or non-default port and domains already owned by the actor', function (): void {
+it('allows different origins by scheme or non-default port and domains already owned by the actor despite legacy storage', function (): void {
     $assigned = Site::factory()->create();
     $foreign = Site::factory()->create();
-    SiteDomain::factory()->create(['site_id' => $foreign->id, 'domain' => 'owned.test', 'scheme' => 'https', 'path' => null]);
+    $domain = SiteDomain::factory()->create(['site_id' => $foreign->id, 'domain' => 'owned.test', 'scheme' => 'https', 'path' => null]);
+    SiteDomain::query()->whereKey($domain->id)->update(['domain' => 'OWNED.TEST.', 'scheme' => 'HTTPS']);
     SiteDomain::factory()->create(['site_id' => $assigned->id, 'domain' => 'local.test', 'scheme' => 'https', 'path' => null]);
     $actor = User::factory()->create();
     $actor->assignedSiteIds = collect([$assigned->id]);

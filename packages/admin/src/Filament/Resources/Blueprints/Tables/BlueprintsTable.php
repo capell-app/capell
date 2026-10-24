@@ -129,6 +129,7 @@ class BlueprintsTable implements TableConfigurator
             ])
             ->toolbarActions([
                 DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete')
                     ->before(function (ManageBlueprints $livewire, DeleteBulkAction $action, EloquentCollection|Collection|LazyCollection $records): void {
                         $records->each(function (Blueprint $record) use ($livewire, $action): void {
                             if (! $livewire->validateDelete($record)) {
@@ -137,7 +138,8 @@ class BlueprintsTable implements TableConfigurator
                         });
                     }),
                 ForceDeleteBulkAction::make(),
-                RestoreBulkAction::make(),
+                RestoreBulkAction::make()
+                    ->authorizeIndividualRecords('restore'),
             ])
             ->emptyStateHeading(__('capell-admin::generic.no_blueprints'))
             ->emptyStateDescription(__('capell-admin::generic.no_blueprints_description'))

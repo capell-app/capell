@@ -3,11 +3,17 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
+use Capell\Admin\Filament\Resources\Layouts\Pages\ListLayouts;
+use Capell\Admin\Filament\Resources\Sites\Pages\ListSites;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Filament\Resources\Users\Pages\ListUsers;
 use Capell\Admin\Filament\Resources\Users\UserResource;
 use Capell\Admin\Tests\Fixtures\Models\RealSiteScopedAdminResourceUser;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
+use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -89,6 +95,73 @@ it('requires bulk restore and force delete permissions for sites and layouts', f
     $actor->givePermissionTo(Permission::findOrCreate('ForceDeleteAny:' . $subject, 'web'));
     expect($resource::canForceDeleteAny())->toBeTrue();
 })->with([[SiteResource::class, 'Site'], [LayoutResource::class, 'Layout']]);
+
+it('authorises each record in a mixed bulk selection', function (string $subject, string $component, string $ability): void {
+    config(['permission.teams' => false, 'auth.providers.users.model' => User::class]);
+    resolve(PermissionRegistrar::class)->teams = false;
+    $site = Site::factory()->createOne();
+    $allowed = $subject === 'Site' ? $site : Layout::factory()->site($site)->createOne();
+    $denied = $subject === 'Site' ? Site::factory()->createOne() : Layout::factory()->site($site)->createOne();
+    if ($ability === 'restore') {
+        $allowed->delete();
+        $denied->delete();
+    }
+
+    $actor = User::factory()->createOne();
+    $actor->assignedSiteIds = collect($subject === 'Site' ? [$allowed->id, $denied->id] : [$site->id]);
+    foreach (['ViewAny:' . $subject, ucfirst($ability) . 'Any:' . $subject, ucfirst($ability) . ':' . $subject] as $permission) {
+        $actor->givePermissionTo(Permission::findOrCreate($permission, 'web'));
+    }
+
+    test()->actingAs($actor);
+    Gate::before(static function (User $user, string $requestedAbility, array $arguments) use ($actor, $ability, $denied): ?bool {
+        $record = $arguments[0] ?? null;
+
+        return $user->is($actor) && $requestedAbility === $ability && $record instanceof Model && $record->is($denied)
+            ? false
+            : null;
+    });
+
+    expect(Gate::allows($ability . 'Any', $allowed::class))->toBeTrue()
+        ->and(Gate::allows($ability, $allowed))->toBeTrue()
+        ->and(Gate::allows($ability, $denied))->toBeFalse();
+
+    $table = Livewire::test($component);
+    if ($ability === 'restore') {
+        $table->filterTable('trashed', true);
+    }
+
+    $table->assertCanSeeTableRecords([$allowed, $denied])
+        ->callTableBulkAction($ability, [$denied, $allowed]);
+
+    expect($allowed->fresh()->trashed())->toBe($ability === 'delete')
+        ->and($denied->fresh()->trashed())->toBe($ability === 'restore');
+})->with([
+    'sites' => ['Site', ListSites::class],
+    'layouts' => ['Layout', ListLayouts::class],
+])->with(['restore', 'delete']);
+
+it('leaves deleted records untouched when only bulk restore is permitted', function (string $subject, string $component): void {
+    $site = Site::factory()->createOne();
+    $record = $subject === 'Site' ? $site : Layout::factory()->site($site)->createOne();
+    $record->delete();
+
+    $actor = authorisationGapUser($site, ['ViewAny:' . $subject, 'RestoreAny:' . $subject]);
+    test()->actingAs($actor);
+
+    expect(Gate::allows('restoreAny', $record::class))->toBeTrue()
+        ->and(Gate::allows('restore', $record))->toBeFalse();
+
+    Livewire::test($component)
+        ->filterTable('trashed', true)
+        ->assertCanSeeTableRecords([$record])
+        ->callTableBulkAction('restore', [$record]);
+
+    expect($record->fresh()->trashed())->toBeTrue();
+})->with([
+    'sites' => ['Site', ListSites::class],
+    'layouts' => ['Layout', ListLayouts::class],
+]);
 
 it('preserves global user visibility and fails closed without an authenticated actor', function (): void {
     $site = Site::factory()->create();

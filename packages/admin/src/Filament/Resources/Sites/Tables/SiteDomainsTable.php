@@ -67,8 +67,10 @@ class SiteDomainsTable implements TableConfigurator
                 TrashedFilter::make(),
             ])
             ->toolbarActions([
-                DeleteBulkAction::make(),
-                RestoreBulkAction::make(),
+                DeleteBulkAction::make()
+                    ->authorizeIndividualRecords('delete'),
+                RestoreBulkAction::make()
+                    ->authorizeIndividualRecords('restore'),
                 ForceDeleteBulkAction::make(),
             ])
             ->emptyStateHeading(__('capell-admin::generic.no_site_domains'))

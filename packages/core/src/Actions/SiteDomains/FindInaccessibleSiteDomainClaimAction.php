@@ -34,8 +34,6 @@ final class FindInaccessibleSiteDomainClaimAction
 
         $candidates = ($record?->newQuery() ?? SiteDomain::query())
             ->whereNotIn('site_id', $access->allowedSiteIds() ?? [])
-            ->when($scheme !== null, fn (Builder $query): Builder => $query->where(fn (Builder $schemes): Builder => $schemes->whereNull('scheme')->orWhere('scheme', $scheme)))
-            ->when($host !== null, fn (Builder $query): Builder => $query->where(fn (Builder $hosts): Builder => $hosts->whereNull('domain')->orWhere('domain', $host)))
             ->when($recordKey !== null, fn (Builder $query): Builder => $query->whereKeyNot($recordKey))
             ->withWhereHas('site')
             // A locking read sees claims committed while waiting, including under MySQL REPEATABLE READ.
@@ -43,6 +41,13 @@ final class FindInaccessibleSiteDomainClaimAction
             ->get();
 
         foreach ($candidates as $candidate) {
+            // Public resolution normalises legacy stored values too; raw SQL equality
+            // would miss equivalent origins such as trailing-dot or mixed-case hosts.
+            $candidateHost = $candidate->getRawOriginal('domain');
+            if ($host !== null && $candidateHost !== null && SiteDomainAddressing::normalizeHost($candidateHost) !== $host) {
+                continue;
+            }
+
             $candidateScheme = SiteDomainAddressing::normalizeScheme($candidate->getRawOriginal('scheme'));
             foreach ($scheme === null ? ['http', 'https'] : [$scheme] as $possibleScheme) {
                 if ($candidateScheme !== null && $candidateScheme !== $possibleScheme) {
