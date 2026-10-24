@@ -44,7 +44,7 @@ final class BuildCapellSiteFromSpecAction
             }
 
             if ($spec->initialVisibility === 'private' && ($existing->meta['site_spec_privacy_version'] ?? null) !== 2) {
-                throw_unless($repairPrivate, RuntimeException::class, (string) __('capell::message.site_spec_private_audit_required', ['id' => $existing->id]));
+                throw_unless($repairPrivate, RuntimeException::class, (string) __('capell-core::message.site_spec_private_audit_required', ['id' => $existing->id]));
                 resolve(PrivateSiteSpecSourceStore::class)->put($hash, $spec);
 
                 return $this->repairPrivateImport($existing, $spec, $keepPublished);
