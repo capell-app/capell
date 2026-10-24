@@ -256,12 +256,12 @@ it('uses a responsive dashboard layout for content-heavy widgets', function (): 
         ]);
 });
 
-it('composes performance summaries without the legacy widget bucket', function (): void {
+it('composes performance summaries and additional dashboard panels', function (): void {
     test()->actingAsAdmin();
     Site::factory()->createOne();
     $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
     $components = $components instanceof Schema ? $components->getComponents() : $components;
-    expect($components)->toHaveCount(2)->and($components[0])->toBeInstanceOf(Section::class);
+    expect($components)->toHaveCount(3)->and($components[0])->toBeInstanceOf(Section::class);
     $performance = $components[0];
     throw_unless($performance instanceof Section, LogicException::class);
     expect($performance->getHeading())->toBe(__('capell-admin::dashboard.performance_heading'))
@@ -270,6 +270,11 @@ it('composes performance summaries without the legacy widget bucket', function (
             AnalyticsTrendFilamentWidget::class,
             AnalyticsInsightsFilamentWidget::class,
         ]);
+    $additional = $components[2];
+    throw_unless($additional instanceof Section, LogicException::class);
+    expect($additional->getHeading())->toBe(__('capell-admin::dashboard.region_additional'))
+        ->and(defaultDashboardRegionWidgets($additional))->toContain(ListPagesFilamentWidget::class)
+        ->not->toContain(AnalyticsOverviewFilamentWidget::class, AnalyticsTrendFilamentWidget::class, AnalyticsInsightsFilamentWidget::class);
     expect((new DashboardToolsPage)->getWidgets())->toContain(ListPagesFilamentWidget::class)
         ->not->toContain(CapellAccountFilamentWidget::class, CapellInfoFilamentWidget::class);
 });

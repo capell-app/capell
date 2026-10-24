@@ -27,6 +27,7 @@ return [
     'region_insights' => 'Insights',
     'region_activity' => 'Recent activity',
     'region_additional' => 'Additional dashboard panels',
+    'additional_description' => 'More tools and insights for your site.',
     'filter_all_sites' => 'All sites',
     'filter_all_languages' => 'All languages',
     'analytics_views' => 'Observed views',
