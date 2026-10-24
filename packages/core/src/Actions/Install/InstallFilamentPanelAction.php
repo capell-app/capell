@@ -33,6 +33,7 @@ use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitorAbstract;
 use RuntimeException;
 use Throwable;
@@ -337,7 +338,7 @@ CSS);
             {
                 // Deferred callbacks and nested declarations do not configure this panel.
                 if ($node instanceof FunctionLike || $node instanceof ClassLike) {
-                    return NodeTraverser::DONT_TRAVERSE_CHILDREN;
+                    return NodeVisitor::DONT_TRAVERSE_CHILDREN;
                 }
 
                 $call = $node instanceof Return_ ? $node->expr : $node;
