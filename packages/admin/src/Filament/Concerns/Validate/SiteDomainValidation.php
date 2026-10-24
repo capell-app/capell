@@ -22,11 +22,13 @@ trait SiteDomainValidation
         $matchSite = FindSiteDomainConflictAction::run($urlParts, $record);
 
         if ($matchSite !== null) {
+            $canAccessSite = SiteAccess::current()->can($matchSite->site);
+
             Notification::make('site_domain_unique')
                 ->warning()
-                ->title(__('capell-admin::message.site_domain_not_unique', ['name' => SiteAccess::current()->can($matchSite->site) ? $matchSite->site->name : __('capell-admin::generic.site')]))
-                ->body($matchSite->full_url)
-                ->actions(SiteAccess::current()->can($matchSite->site) ? [
+                ->title(__('capell-admin::message.site_domain_not_unique', ['name' => $canAccessSite ? $matchSite->site->name : __('capell-admin::generic.site')]))
+                ->body($canAccessSite ? $matchSite->full_url : null)
+                ->actions($canAccessSite ? [
                     Action::make('editSite')
                         ->label(__('capell-admin::button.edit_site'))
                         ->button()
