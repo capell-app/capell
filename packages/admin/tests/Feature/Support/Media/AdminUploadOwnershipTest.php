@@ -26,11 +26,11 @@ it('preserves grants across overlapping session snapshots and read-only requests
     $cachePath = sys_get_temp_dir() . '/capell-upload-' . bin2hex(random_bytes(8));
     config()->set('cache.stores.upload-test', match ($driver) {
         'file' => ['driver' => 'file', 'path' => $cachePath],
-        'database' => ['driver' => 'database', 'connection' => 'sqlite', 'table' => 'upload_grants_test'],
+        'database' => ['driver' => 'database', 'connection' => config('database.default'), 'table' => 'upload_grants_test'],
         default => ['driver' => 'array'],
     });
     if ($driver === 'database') {
-        DatabaseSchema::connection('sqlite')->create('upload_grants_test', function (Blueprint $table): void {
+        DatabaseSchema::connection(config('database.default'))->create('upload_grants_test', function (Blueprint $table): void {
             $table->string('key')->primary();
             $table->text('value');
             $table->integer('expiration');
@@ -107,7 +107,7 @@ it('preserves grants across overlapping session snapshots and read-only requests
         }
 
         if ($driver === 'database') {
-            DatabaseSchema::connection('sqlite')->drop('upload_grants_test');
+            DatabaseSchema::connection(config('database.default'))->drop('upload_grants_test');
         }
     }
 })->with(['array', 'file', 'database'])->with([false, true]);
