@@ -13,6 +13,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Frontend\Actions\AssertStoredPublicViewSelectorsAction;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Enums\RenderingStrategyEnum;
@@ -170,6 +171,9 @@ abstract class AbstractPage extends Component
 
     public function render(): View
     {
+        AssertStoredPublicViewSelectorsAction::run($this->layout);
+        AssertStoredPublicViewSelectorsAction::run($this->theme);
+
         RenderPageRecordDataAction::run($this->pageRecord, $this->params);
 
         return view(
@@ -405,11 +409,15 @@ abstract class AbstractPage extends Component
 
     private function getLayoutFile(?Layout $layout): string
     {
-        return $layout->meta['layout_file'] ?? config('capell-frontend.layout_file', 'capell::app');
+        $view = $layout?->meta['layout_file'] ?? null;
+
+        return is_string($view) && $view !== '' ? $view : config('capell-frontend.layout_file', 'capell::app');
     }
 
     private function getMasterFile(Layout $layout): string
     {
-        return $layout->meta['master_file'] ?? static::$defaultView;
+        $view = $layout->meta['master_file'] ?? null;
+
+        return is_string($view) && $view !== '' ? $view : static::$defaultView;
     }
 }

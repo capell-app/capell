@@ -9,7 +9,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Override;
 
-class EditAction extends \Filament\Actions\EditAction
+class EditAction extends \Capell\Admin\Filament\Actions\EditAction
 {
     #[Override]
     protected function setUp(): void

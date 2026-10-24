@@ -49,6 +49,12 @@ class RedirectPolicy
             && $this->canAccessRecord($user, $record);
     }
 
+    public function replicate(User $user, PageUrl $record): bool
+    {
+        return $user->checkPermissionTo(self::permission('replicate', $this->subject()))
+            && $this->canAccessRecord($user, $record);
+    }
+
     public function deleteAny(User $user): bool
     {
         return $user->checkPermissionTo(self::permission('delete_any', $this->subject()));

@@ -12,6 +12,20 @@ final class ThemeChromeRegistry
     /** @var array<string, string> */
     private array $footers = [];
 
+    /** @var array<string, string> */
+    private array $logos = ['brand.capell-logo' => 'Capell'];
+
+    public function registerLogo(string $view, string $label): void
+    {
+        $this->logos[$view] = $label;
+    }
+
+    /** @return array<string, string> */
+    public function logoOptions(): array
+    {
+        return $this->logos;
+    }
+
     public function registerHeader(string $component, string $label): void
     {
         $this->headers[$component] = $label;

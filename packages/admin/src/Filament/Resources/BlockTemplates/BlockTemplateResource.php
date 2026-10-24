@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\BlockTemplates;
 
 use BackedEnum;
+use Capell\Admin\Filament\Actions\EditAction;
 use Capell\Admin\Filament\Resources\BlockTemplates\Pages\ManageBlockTemplates;
 use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Support\Json\JsonCodec;
 use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
 use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;

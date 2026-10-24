@@ -86,6 +86,12 @@ Capell ships with a single upgrade entry point: `php artisan capell:upgrade`. Ev
 
 Capell 1.x treats upgrades as durable operations. The CLI command remains the stable contract, but admin-triggered upgrades are tracked in the database, run through the queue when safe, and fall back to exact manual server commands when background work is not available.
 
+## Stored public view selectors
+
+Register existing custom layout masters and shells through `LayoutViewRegistry`, and theme headers, footers and logo views through `ThemeChromeRegistry`, before deploying this upgrade. Model saves reject unregistered selectors, and the Blade renderer and Livewire page entry point return a generic 404 for invalid stored layout or theme selectors.
+
+Site `logo_blade_view` metadata also requires `ThemeChromeRegistry::registerLogo()`, including values inherited from Blueprint metadata. Public headers omit unregistered logo views; they do not render arbitrary existing views. The built-in `brand.capell-logo` remains registered and `false` still disables the logo view. Stored metadata is not rewritten. Load registrations in HTTP, CLI, job and import runtimes; see [trusted view registration](../getting-started/building-pages.md).
+
 ## Admin Upgrades
 
 Open **Administration → Upgrades** in the Capell admin when you want the most visible upgrade path. The page shows the installed Capell version, links to these docs, explains the upgrade safety rails, and exposes two actions:

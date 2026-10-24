@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Providers;
 
+use BezhanSalleh\FilamentShield\Support\Utils as ShieldUtils;
 use Capell\Admin\Actions\CreateDefaultPagesAction;
+use Capell\Admin\Actions\Media\StoreAdminUploadedFilesAction;
+use Capell\Admin\Actions\Media\ValidateAdminUploadStateAction;
 use Capell\Admin\Actions\Notifications\ResolveDefaultPackageOperationRecipientsAction;
 use Capell\Admin\Console\Commands\CacheConfiguratorsCommand;
 use Capell\Admin\Console\Commands\CacheWidgetsCommand;
@@ -60,6 +63,8 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Events\ServingAdmin;
 use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Filament\Components\Forms\FileUpload as AdminFileUpload;
+use Capell\Admin\Filament\Components\Forms\SpatieMediaLibraryFileUpload as AdminSpatieMediaLibraryFileUpload;
 use Capell\Admin\Filament\Imports\RedirectImporter;
 use Capell\Admin\Filament\Livewire\PageScratchDraftPanel;
 use Capell\Admin\Filament\Livewire\PublishStatusPanel;
@@ -124,12 +129,15 @@ use Capell\Admin\Macros\Filament\TestableMacro;
 use Capell\Admin\Macros\Filament\TextInputMacro;
 use Capell\Admin\Observers\LayoutObserver as AdminLayoutObserver;
 use Capell\Admin\Observers\PageObserver as AdminPageObserver;
+use Capell\Admin\Policies\ActivityPolicy;
+use Capell\Admin\Policies\BlockTemplatePolicy;
 use Capell\Admin\Policies\BlueprintPolicy;
 use Capell\Admin\Policies\LanguagePolicy;
 use Capell\Admin\Policies\LayoutPolicy;
 use Capell\Admin\Policies\MediaPolicy;
 use Capell\Admin\Policies\PagePolicy;
 use Capell\Admin\Policies\RedirectPolicy;
+use Capell\Admin\Policies\RolePolicy;
 use Capell\Admin\Policies\SiteDomainPolicy;
 use Capell\Admin\Policies\SitePolicy;
 use Capell\Admin\Policies\ThemePolicy;
@@ -225,6 +233,7 @@ use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Events\InstalledRuntimeRefreshed;
 use Capell\Core\Events\PageUrlsRewritten;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -251,10 +260,13 @@ use CmsMulti\FilamentClearCache\Facades\FilamentClearCache;
 use Filament\Actions\Action;
 use Filament\Actions\ImportAction;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Field;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
@@ -269,6 +281,7 @@ use Filament\Tables\Columns\Column;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
@@ -280,7 +293,9 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Livewire\Mechanisms\DataStore;
 use Override;
+use ReflectionClass;
 use RuntimeException;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\LaravelPackageTools\Package;
 use Throwable;
 
@@ -344,6 +359,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         }
 
         parent::registeringPackage();
+
+        // Native make() and legacy factories use the container too. The native
+        // original-path fallback reads model attributes before its allow callback,
+        // which fails for virtual/nested fields. Share our persisted-data resolver.
+        $this->app->bindIf(FileUpload::class, AdminFileUpload::class);
+        $this->app->bindIf(SpatieMediaLibraryFileUpload::class, AdminSpatieMediaLibraryFileUpload::class);
 
         $this->registerAdminEventSystem();
 
@@ -550,6 +571,32 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
     #[Override]
     protected function bootPackage(): self
     {
+        BaseFileUpload::configureUsing(
+            static function (BaseFileUpload $upload): void {
+                if (! $upload instanceof SpatieMediaLibraryFileUpload) {
+                    $upload->beforeStateDehydrated(static function (BaseFileUpload $component): void {
+                        StoreAdminUploadedFilesAction::run($component);
+                    }, shouldUpdateValidatedStateAfter: true);
+                }
+
+                if (! $upload instanceof AdminFileUpload && ! $upload instanceof AdminSpatieMediaLibraryFileUpload) {
+                    // Keep native subclass methods intact. The native guard's
+                    // condition runs before validation, previews and removal;
+                    // authorise there before bypassing its top-level-only lookup.
+                    $upload->preventFilePathTampering(static function (BaseFileUpload $component): bool {
+                        ValidateAdminUploadStateAction::run($component);
+
+                        return false;
+                    });
+
+                    return;
+                }
+
+                $upload->preventFilePathTampering();
+            },
+            isImportant: true,
+        );
+
         $publishDirectory = realpath(__DIR__ . '/../../publishes');
 
         throw_if($publishDirectory === false, RuntimeException::class, 'Publish directory not found.');
@@ -1108,6 +1155,9 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
         // invoked outside Filament's resource-scoped policy lookup (e.g.
         // from Actions, CLI, queued jobs) still resolves the right policy.
         $policies = [
+            Activity::class => ActivityPolicy::class,
+            BlockTemplate::class => BlockTemplatePolicy::class,
+            ShieldUtils::getRoleModel() => RolePolicy::class,
             Page::class => PagePolicy::class,
             PageUrl::class => RedirectPolicy::class,
             Layout::class => LayoutPolicy::class,
@@ -1132,6 +1182,13 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 array_keys(Gate::policies()),
                 static fn (string $registeredModel): bool => is_a($model, $registeredModel, true),
             );
+
+            if (class_exists($model)) {
+                $reflection = new ReflectionClass($model);
+                do {
+                    $hasExplicitPolicy = $hasExplicitPolicy || $reflection->getAttributes(UsePolicy::class) !== [];
+                } while ($reflection = $reflection->getParentClass());
+            }
 
             if (! $hasExplicitPolicy) {
                 Gate::policy($model, $policy);

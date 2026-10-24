@@ -9,6 +9,7 @@ use Capell\Core\Actions\GenerateThemeImageAction;
 use Capell\Core\Actions\GenerateUniqueKeyAction;
 use Capell\Core\Actions\InvalidateGeneratedThemeImageAction;
 use Capell\Core\Actions\UpdateTailwindClassesFileAction;
+use Capell\Core\Actions\ValidateStoredViewSelectorsAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\ThemeColorsUpdated;
@@ -27,6 +28,8 @@ class ThemeObserver
 
     public function saving(Theme $theme): void
     {
+        ValidateStoredViewSelectorsAction::run($theme);
+
         $key = $theme->getAttribute('key');
 
         if (! is_string($key) || $key === '') {
