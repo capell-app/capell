@@ -82,10 +82,11 @@ final class BuildErrorPageCopyDiagnosticsAction
     {
         $routeScoped = ($manifest['version'] ?? null) === 2;
         $entry = ErrorPageFallbackManifest::entry($manifest, $host, $scheme, $port, $path);
+        $explicitLegacy = ($manifest['version'] ?? null) === 1;
         $hostValue = $routeScoped
             ? $this->manifestValue($entry, ['copy', $status, $field])
-            : $this->manifestValue($manifest, ['hosts', $host, 'copy', $status, $field]);
-        $defaultValue = $routeScoped ? null : $this->manifestValue($manifest, ['default', 'copy', $status, $field]);
+            : ($explicitLegacy ? $this->manifestValue($manifest, ['hosts', $host, 'copy', $status, $field]) : null);
+        $defaultValue = $explicitLegacy ? $this->manifestValue($manifest, ['default', 'copy', $status, $field]) : null;
         $sectionKey = $viewPath === null ? null : $this->sectionTranslationKey($viewPath, $field);
         $sectionValue = $sectionKey === null ? null : $this->translation($sectionKey);
         $packageDefaultKey = sprintf('capell-frontend::errors.default_%s', $field);

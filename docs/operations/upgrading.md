@@ -217,3 +217,50 @@ do not delete a lock while an upgrade could still be active.
 **A step failed mid-run** — find it with `SELECT * FROM capell_upgrade_log WHERE type='step' AND status='failed';`. Re-running `capell:upgrade` retries it — failures are not considered "applied".
 
 **"Downgrade detected"** — Composer has an older version than the log. Usually a deployment mistake. Restore the newer version, or pass `--force-downgrade` if truly intentional.
+
+## Private SiteSpec imports and static route manifests
+
+Before reopening an upgraded installation, drain workers from the previous release
+and keep the application and exported site behind maintenance while auditing private
+imports. Retain each original private SiteSpec outside the web root. Its canonical
+hash identifies the existing import; a different spec cannot repair that import.
+
+```bash
+php artisan capell:site-spec-import /private/original-spec.json --audit-private
+php artisan capell:site-spec-import /private/original-spec.json --repair-private --keep-published=deliberately-published-slug
+```
+
+The audit lists current page IDs, slugs and publication dates without changing
+anything. Review null dates against publication history: the old importer used null
+for private secondary pages, but an author may also have deliberately chosen null.
+Repeat `--keep-published` for those deliberate publications, including an edited
+homepage that should remain public. Omit it when none should remain public. Repair
+drafts the remaining null-dated secondary pages, preserves explicit publication and
+schedule dates, and replaces the unchanged Coming soon placeholder's metadata with
+safe values. An edited homepage must be reviewed and explicitly kept. Unknown or
+ambiguous original page identities stop the repair; do not substitute another spec
+or blindly draft every imported page. An identical ordinary reimport refuses an
+unaudited legacy private import instead of reporting success.
+
+Repair saves through normal cache invalidation, purges the site's frontend caches
+and configured CDN surrogate keys, and deletes its locally managed static exports.
+The completion marker is recorded only after remediation succeeds; retry the same
+repair after a failure. Remove any separately deployed exports and purge external
+caches before reopening, then regenerate authorised output with
+`php artisan capell:generate-html --site=SITE_ID`. New private imports keep authored
+source metadata in `storage/app/capell-private/site-spec` with private permissions;
+never expose this directory through a web alias or include it in public exports.
+
+Active legacy maintenance manifests are converted to version 2 using current site
+domains and regenerated HTML before route matching. Database, render or write
+failure returns a generic 503, without legacy branding or application fall-through.
+Every request validates the version and routing fields, so a previous worker's
+legacy rewrite triggers conversion again. Stop those workers rather than relying
+on a once-only deployment marker. Version 2 manifests keep normal request matching
+free of content-table queries.
+
+Unversioned error fallback branding is ignored until regeneration, including legacy
+rewrites after conversion. Run `php artisan capell:generate-error-pages` to rebuild
+route-scoped fallback branding on deployment. Explicit host/default branding written
+through the current store API uses version 1; generated version 2 branding is scoped
+by scheme, host, port and mount, and route transfers remove previous ownership.

@@ -21,6 +21,7 @@ it('reads the current manifest for each fallback operation without crossing host
     $store = resolve(ErrorPageFallbackManifestStore::class);
 
     $store->write([
+        'version' => 1,
         'default' => fallbackBranding('Default A'),
         'hosts' => [
             'alpha.test' => fallbackBranding('Alpha A'),
@@ -37,6 +38,7 @@ it('reads the current manifest for each fallback operation without crossing host
         ->toBe('https://cdn.test/Beta A.svg');
 
     $store->write([
+        'version' => 1,
         'default' => fallbackBranding('Default B'),
         'hosts' => [
             'alpha.test' => fallbackBranding('Alpha B'),
@@ -110,7 +112,7 @@ it('reads and writes both manifests in the configured directory', function (): v
 
     try {
         $store = resolve(ErrorPageFallbackManifestStore::class);
-        $store->write(['default' => fallbackBranding('Relocated')]);
+        $store->write(['version' => 1, 'default' => fallbackBranding('Relocated')]);
 
         expect($store->path())->toBe($directory . DIRECTORY_SEPARATOR . 'capell-error-pages-fallback.json')
             ->and(resolve(ErrorPageManifestStore::class)->path())->toBe($directory . DIRECTORY_SEPARATOR . 'capell-error-pages.json')
@@ -154,4 +156,50 @@ it('fails closed on malformed route branding without querying the database', fun
 
     expect(ErrorPageFallbackManifest::forHost('example.test', '404'))->toBe(['logo_url' => null, 'copy' => null])
         ->and($queries)->toBe(0);
+});
+
+it('replaces previous route ownership by domain id and canonical address', function (int $old, int $new, bool $sameId): void {
+    $store = resolve(ErrorPageFallbackManifestStore::class);
+    $route = ['site_domain_id' => 12, 'scheme' => 'https', 'port' => 443, 'domain' => 'shared.test', 'path' => '/docs'];
+    $store->replaceSite($old, [array_merge($route, fallbackBranding('OLD OWNER'))]);
+    $replacement = array_merge($route, [
+        'site_domain_id' => $sameId ? 12 : 99,
+        'port' => null, 'domain' => 'SHARED.test', 'path' => '/docs/',
+    ], fallbackBranding('NEW OWNER'));
+    $store->replaceSite($new, [$replacement]);
+
+    expect(ErrorPageFallbackManifest::forHost('shared.test', '500', 'https', 443, '/docs/missing')['copy']['headline'] ?? null)
+        ->toBe('NEW OWNER headline');
+    // Regenerating the former owner afterwards must not resurrect its branding.
+    $store->replaceSite($old, []);
+    expect(ErrorPageFallbackManifest::forHost('shared.test', '500', 'https', 443, '/docs/missing')['copy']['headline'] ?? null)
+        ->toBe('NEW OWNER headline');
+})->with([[1, 2, true], [2, 1, true], [1, 2, false], [2, 1, false]]);
+
+it('removes the former address of a transferred domain id', function (): void {
+    $store = resolve(ErrorPageFallbackManifestStore::class);
+    $route = ['site_domain_id' => 12, 'scheme' => 'https', 'port' => null, 'domain' => 'old.test', 'path' => '/'];
+    $store->replaceSite(1, [array_merge($route, fallbackBranding('OLD OWNER'))]);
+    $store->replaceSite(2, [array_merge($route, ['domain' => 'new.test'], fallbackBranding('NEW OWNER'))]);
+
+    expect(ErrorPageFallbackManifest::forHost('old.test', '500')['copy'])->toBeNull()
+        ->and(ErrorPageFallbackManifest::forHost('new.test', '500')['copy']['headline'] ?? null)->toBe('NEW OWNER headline');
+});
+
+it('ignores unversioned generated branding until routes are regenerated including old worker rewrites', function (): void {
+    $store = resolve(ErrorPageFallbackManifestStore::class);
+    $legacy = ['default' => fallbackBranding('WRONG OWNER'), 'hosts' => ['shared.test' => fallbackBranding('OLD OWNER')]];
+    foreach ([false, true] as $converted) {
+        if ($converted) {
+            $store->replaceSite(2, [[
+                'scheme' => 'https', 'port' => 8443, 'domain' => 'shared.test', 'path' => '/',
+                ...fallbackBranding('NEW OWNER'),
+            ]]);
+            expect(ErrorPageFallbackManifest::forHost('shared.test', '500', 'https', 8443)['copy']['headline'] ?? null)->toBe('NEW OWNER headline');
+        }
+
+        $store->write($legacy);
+        expect(ErrorPageFallbackManifest::forHost('shared.test', '500', 'https', 8443))->toBe(['logo_url' => null, 'copy' => null])
+            ->and(ErrorPageFallbackManifest::forHost('unknown.test', '500'))->toBe(['logo_url' => null, 'copy' => null]);
+    }
 });

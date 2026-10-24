@@ -13,7 +13,6 @@ use Capell\Core\Models\Translation;
 use Capell\Frontend\Actions\RegenerateSiteErrorPagesAction;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationQueue;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationScope;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 
@@ -24,7 +23,7 @@ use Throwable;
  * a tight relevance gate for accepted models and Translation owners so
  * unrelated saves never trigger regeneration. Never throws out of the observer.
  */
-final class ErrorPageModelInvalidationObserver implements ShouldHandleEventsAfterCommit
+final class ErrorPageModelInvalidationObserver
 {
     /**
      * @param  array<int, mixed>  $payload
@@ -69,17 +68,30 @@ final class ErrorPageModelInvalidationObserver implements ShouldHandleEventsAfte
                 return;
             }
 
-            $siteId = $this->resolveSiteId($model);
-
-            if ($siteId === null) {
-                return;
+            // Capture ownership before Eloquent syncs originals. Deferring the
+            // entire observer loses the former owner at transaction commit.
+            $siteIds = [$this->resolveSiteId($model)];
+            if ($isUpdate && $model instanceof SiteDomain && $model->wasChanged('site_id')) {
+                $siteIds[] = $this->integerKey($model->getRawOriginal('site_id'));
             }
 
-            if (resolve(ErrorPageRegenerationScope::class)->isGenerating($siteId)) {
-                return;
-            }
+            foreach (array_unique($siteIds) as $siteId) {
+                if ($siteId === null) {
+                    continue;
+                }
 
-            $this->dispatch($siteId);
+                if (resolve(ErrorPageRegenerationScope::class)->isGenerating($siteId)) {
+                    continue;
+                }
+
+                $model->getConnection()->afterCommit(function () use ($siteId): void {
+                    try {
+                        $this->dispatch($siteId);
+                    } catch (Throwable) {
+                        // One failed owner must not suppress the other owner.
+                    }
+                });
+            }
         } catch (Throwable) {
             // Never block a model save because of error-page regeneration.
         }

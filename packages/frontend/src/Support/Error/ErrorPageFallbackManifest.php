@@ -46,7 +46,7 @@ final class ErrorPageFallbackManifest
         $entry = self::entry($manifest, $host, $scheme, $port, $path);
         $copy = self::nestedArray($entry, ['copy', $status]);
         $logo = self::nestedString($entry, ['logo_url']);
-        if (($manifest['version'] ?? null) !== 2) {
+        if (($manifest['version'] ?? null) === 1) {
             $copy = self::nestedArray($manifest, ['hosts', strtolower($host), 'copy', $status])
                 ?? self::nestedArray($manifest, ['default', 'copy', $status]);
             $logo = self::nestedString($manifest, ['hosts', strtolower($host), 'logo_url'])

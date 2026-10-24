@@ -6,6 +6,7 @@ namespace Capell\Frontend\Http\Middleware;
 
 use Capell\Core\Support\Locale\HtmlLanguageAttribute;
 use Capell\Core\Support\Security\LockdownStore;
+use Capell\Frontend\Actions\UpgradeMaintenanceManifestRoutingAction;
 use Capell\Frontend\Contracts\FrontendSettingsReaderInterface;
 use Capell\Frontend\Contracts\StaticMaintenancePageStore;
 use Capell\Frontend\Support\Maintenance\MaintenanceManifestStore;
@@ -31,10 +32,26 @@ final class ServeStaticMaintenancePage extends PreventRequestsDuringMaintenance
 
         $maintenanceData = null;
         $laravelMaintenanceActive = $this->app->maintenanceMode()->active();
-        $manifest = resolve(MaintenanceManifestStore::class)->read();
+        try {
+            $manifest = resolve(MaintenanceManifestStore::class)->read();
+        } catch (Throwable) {
+            // Previous workers wrote in place; a partial write must not turn
+            // unknown maintenance state into an inactive default manifest.
+            return $this->lockdownFallbackResponse();
+        }
 
         if (! $lockdownActive && ! $laravelMaintenanceActive && ! $this->manifestHasActiveMaintenance($manifest)) {
             return $next($request);
+        }
+
+        if (resolve(MaintenanceManifestStore::class)->needsRoutingUpgrade($manifest)) {
+            try {
+                $manifest = UpgradeMaintenanceManifestRoutingAction::run();
+            } catch (Throwable) {
+                // Legacy HTML has ambiguous ownership. Keep denial even when
+                // the database, renderer or manifest publication is unavailable.
+                return $this->lockdownFallbackResponse();
+            }
         }
 
         if (! $lockdownActive && ! $this->customMaintenancePagesEnabled()) {
@@ -76,6 +93,10 @@ final class ServeStaticMaintenancePage extends PreventRequestsDuringMaintenance
         }
 
         if ($lockdownActive) {
+            return $this->lockdownFallbackResponse();
+        }
+
+        if (($manifest['global_active'] ?? false) === true || ($entry['active'] ?? false) === true) {
             return $this->lockdownFallbackResponse();
         }
 

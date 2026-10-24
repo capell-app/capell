@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\BuildSiteFromSpecFileAction;
 use Capell\Core\Actions\CreateDefaultLanguagesAction;
 use Capell\Core\Actions\ResolvePublicPageByUrlAction;
 use Capell\Core\Contracts\SiteSpec\SiteSpecApplier;
@@ -223,3 +224,81 @@ it('only exposes the coming soon homepage for a private import', function (bool 
         ->and(Page::query()->whereBelongsTo($site)->publishedDate()->count())->toBe($public ? 2 : 1);
     Http::assertNothingSent();
 })->with(['private' => false, 'acknowledged public' => true]);
+
+it('requires an explicit legacy privacy audit and repairs identical private imports without undoing publication decisions', function (): void {
+    $payload = importSiteSpecPayload();
+    $payload['initialVisibility'] = 'private';
+    $payload['acknowledgePublic'] = false;
+    $payload['media'] = ['images' => []];
+    $payload['extensions'] = [];
+    $payload['navigations'] = [];
+    $payload['pages'][] = array_merge($payload['pages'][1], ['name' => 'Published', 'slug' => 'published']);
+    $path = writeSiteSpec($payload);
+
+    try {
+        $site = BuildSiteFromSpecFileAction::run($path);
+        $meta = $site->meta;
+        unset($meta['site_spec_privacy_version']);
+        $site->update(['meta' => $meta]);
+        $about = $site->pages()->where('name', 'About')->firstOrFail();
+        $published = $site->pages()->where('name', 'Published')->firstOrFail();
+        $about->update(['visible_from' => null]);
+        $published->update(['visible_from' => now()->subDays(3)]);
+        $publicationDate = $published->visible_from;
+
+        // A matching hash must no longer silently certify unsafe legacy state.
+        artisanCommand('capell:site-spec-import', ['spec' => $path, '--audit-private' => true])->assertSuccessful();
+        expect($about->fresh()->visible_from)->toBeNull();
+        artisanCommand('capell:site-spec-import', ['spec' => $path])->assertFailed();
+        artisanCommand('capell:site-spec-import', ['spec' => $path, '--repair-private' => true])->assertSuccessful();
+        artisanCommand('capell:site-spec-import', ['spec' => $path])->assertSuccessful();
+
+        expect(PublishSentinel::isDraftValue($about->fresh()->visible_from))->toBeTrue()
+            ->and($published->fresh()->visible_from->equalTo($publicationDate))->toBeTrue()
+            ->and(ResolvePublicPageByUrlAction::run($site->fresh(), $site->language, $about->pageUrls()->firstOrFail()->url)->page)->toBeNull()
+            ->and($site->fresh()->meta['site_spec_privacy_version'])->toBe(2);
+    } finally {
+        unlink($path);
+    }
+});
+
+it('refuses to repair a different original spec without creating a replacement site', function (): void {
+    $payload = importSiteSpecPayload();
+    $payload['initialVisibility'] = 'private';
+    $payload['acknowledgePublic'] = false;
+    $payload['media'] = ['images' => []];
+    $payload['extensions'] = [];
+    $payload['navigations'] = [];
+    $path = writeSiteSpec($payload);
+    try {
+        artisanCommand('capell:site-spec-import', ['spec' => $path, '--repair-private' => true])->assertFailed();
+        expect(Site::query()->count())->toBe(0);
+    } finally {
+        unlink($path);
+    }
+});
+
+it('preserves explicitly reviewed legacy null publication decisions during repair', function (): void {
+    $payload = importSiteSpecPayload();
+    $payload['initialVisibility'] = 'private';
+    $payload['acknowledgePublic'] = false;
+    $payload['media'] = ['images' => []];
+    $payload['extensions'] = [];
+    $payload['navigations'] = [];
+    $path = writeSiteSpec($payload);
+
+    try {
+        $site = BuildSiteFromSpecFileAction::run($path);
+        $meta = $site->meta;
+        unset($meta['site_spec_privacy_version']);
+        $site->update(['meta' => $meta]);
+        $about = $site->pages()->where('name', 'About')->firstOrFail();
+        $about->update(['visible_from' => null]);
+        artisanCommand('capell:site-spec-import', ['spec' => $path, '--repair-private' => true, '--keep-published' => ['about']])->assertSuccessful();
+        artisanCommand('capell:site-spec-import', ['spec' => $path])->assertSuccessful();
+        expect($about->fresh()->visible_from)->toBeNull()
+            ->and(Page::query()->whereKey($about->id)->publishedDate()->exists())->toBeTrue();
+    } finally {
+        unlink($path);
+    }
+});

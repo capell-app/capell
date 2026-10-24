@@ -149,3 +149,65 @@ it('keeps generated error and maintenance pages bound to their routing domain', 
     'mounted domain' => ['https', null, '/docs', false],
     'mounted domain reversed' => ['https', null, '/docs', true],
 ]);
+
+it('converts legacy maintenance routes before matching a non-default port', function (): void {
+    $domain = SiteDomain::factory()->create(['scheme' => 'https', 'domain' => 'shared.test', 'port' => 8443, 'path' => '/']);
+    $store = resolve(MaintenanceManifestStore::class);
+    $store->write(['sites' => [$domain->site_id => ['active' => true, 'domains' => [[
+        'scheme' => 'https', 'domain' => 'shared.test', 'path' => '/',
+        'site_domain_id' => $domain->id, 'file' => 'legacy.html',
+    ]]]]]);
+
+    $response = resolve(ServeStaticMaintenancePage::class)->handle(
+        Request::create('https://shared.test:8443/missing'),
+        fn (): Response => new Response('application'),
+    );
+
+    expect($response->getStatusCode())->toBe(503)
+        ->and($response->getContent())->toBe('<h1>Site ' . $domain->site_id . '</h1>')
+        ->and($store->read()['version'] ?? null)->toBe(2)
+        ->and($store->read()['sites'][$domain->site_id]['domains'][0]['port'])->toBe(8443);
+});
+
+it('denies legacy maintenance generically on conversion failure and detects old worker rewrites', function (): void {
+    $domain = SiteDomain::factory()->create(['scheme' => 'https', 'domain' => 'shared.test', 'port' => 8443, 'path' => '/']);
+    $store = resolve(MaintenanceManifestStore::class);
+    $legacy = ['sites' => [$domain->site_id => ['active' => true, 'domains' => [[
+        'scheme' => 'https', 'domain' => 'shared.test', 'path' => '/', 'file' => 'legacy.html',
+    ]]]]];
+    // A deployment may already have converted the file before an old worker replaces it.
+    GenerateMaintenancePageCacheAction::run($domain->site);
+    resolve(StaticMaintenancePageStore::class)->put('legacy.html', 'WRONG OWNER');
+    $renderer = Mockery::mock(ThemePreviewRendererInterface::class);
+    $renderer->shouldReceive('render')->twice()->andThrow(new RuntimeException('Offline'));
+    app()->instance(ThemePreviewRendererInterface::class, $renderer);
+
+    foreach ([null, 2] as $version) {
+        // Missing routing fields remain untrusted even if a stale writer retained the version.
+        $store->write(array_merge($legacy, $version === null ? [] : ['version' => $version]));
+        $called = false;
+        $response = resolve(ServeStaticMaintenancePage::class)->handle(
+            Request::create('https://shared.test:8443/missing'),
+            function () use (&$called): Response {
+                $called = true;
+
+                return new Response('application');
+            },
+        );
+        expect($response->getStatusCode())->toBe(503)
+            ->and($response->getContent())->not->toContain('WRONG OWNER', 'application')
+            ->and($called)->toBeFalse();
+    }
+});
+
+it('denies requests during partial legacy manifest rewrites', function (string $contents): void {
+    $path = resolve(MaintenanceManifestStore::class)->path();
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, $contents);
+    $response = resolve(ServeStaticMaintenancePage::class)->handle(
+        Request::create('https://shared.test:8443/missing'),
+        fn (): Response => new Response('application'),
+    );
+    expect($response->getStatusCode())->toBe(503)
+        ->and($response->getContent())->not->toContain('application');
+})->with(['', '{', 'null', '{"sites":"invalid"}']);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Error;
 
 use Capell\Core\Support\Json\JsonCodec;
+use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Illuminate\Support\Facades\File;
 
 final class ErrorPageFallbackManifestStore
@@ -36,7 +37,7 @@ final class ErrorPageFallbackManifestStore
     /** @param array<int, array<string, string>> $copy */
     public function setHost(string $host, string $logoUrl, array $copy): void
     {
-        $manifest = $this->read();
+        $manifest = $this->explicitBrandingManifest();
         $manifest['hosts'][$host] = [
             'logo_url' => $logoUrl,
             'copy' => $copy,
@@ -48,7 +49,7 @@ final class ErrorPageFallbackManifestStore
     /** @param array<int, array<string, string>> $copy */
     public function setDefault(string $logoUrl, array $copy): void
     {
-        $manifest = $this->read();
+        $manifest = $this->explicitBrandingManifest();
         $manifest['default'] = [
             'logo_url' => $logoUrl,
             'copy' => $copy,
@@ -66,8 +67,46 @@ final class ErrorPageFallbackManifestStore
         $manifest['version'] = 2;
         $manifest['hosts'] = [];
         $manifest['default'] = ['logo_url' => null, 'copy' => []];
+        foreach (($manifest['sites'] ?? []) as $key => $site) {
+            if (! is_array($site)) {
+                continue;
+            }
+
+            if ((string) $key === (string) $siteId) {
+                continue;
+            }
+
+            $site['domains'] = array_values(array_filter($site['domains'] ?? [], fn (array $existing): bool => ! array_any(
+                $domains,
+                fn (array $domain): bool => $this->sameRoute($existing, $domain),
+            )));
+            $manifest['sites'][$key] = $site;
+        }
+
         $manifest['sites'][(string) $siteId] = ['domains' => $domains];
         $this->write($manifest);
+    }
+
+    /** @param array<string, mixed> $domain */
+    private function routingIdentity(array $domain): string
+    {
+        return SiteDomainAddressing::routingIdentity(
+            $domain['scheme'] ?? null,
+            $domain['domain'] ?? null,
+            $domain['port'] ?? null,
+            $domain['path'] ?? '/',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $first
+     * @param  array<string, mixed>  $second
+     */
+    private function sameRoute(array $first, array $second): bool
+    {
+        return (isset($first['site_domain_id'], $second['site_domain_id'])
+            && (string) $first['site_domain_id'] === (string) $second['site_domain_id'])
+            || $this->routingIdentity($first) === $this->routingIdentity($second);
     }
 
     /** @return array<string, mixed> */
@@ -77,5 +116,17 @@ final class ErrorPageFallbackManifestStore
             'default' => ['logo_url' => null, 'copy' => []],
             'hosts' => [],
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function explicitBrandingManifest(): array
+    {
+        $manifest = $this->read();
+        if (! isset($manifest['version'])) {
+            // Unversioned generated branding cannot establish route ownership.
+            return array_merge($this->defaults(), ['version' => 1]);
+        }
+
+        return $manifest;
     }
 }
