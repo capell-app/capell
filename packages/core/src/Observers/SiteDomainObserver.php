@@ -95,6 +95,11 @@ class SiteDomainObserver
             CacheEnum::RelationExists,
         ]);
 
-        event(new FrontendSurrogateKeysInvalidated(['site-' . $siteDomain->site_id]));
+        $event = new FrontendSurrogateKeysInvalidated(['site-' . $siteDomain->site_id]);
+
+        // Shared fragments must be invalidated after committed domain data becomes visible.
+        $siteDomain->getConnection()->afterCommit(static function () use ($event): void {
+            event($event);
+        });
     }
 }
