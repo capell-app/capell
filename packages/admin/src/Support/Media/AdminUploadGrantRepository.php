@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Support\Media;
 
 use Closure;
-use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\Events\TransactionCommitted;
-use Illuminate\Database\Events\TransactionRolledBack;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -17,27 +15,39 @@ final class AdminUploadGrantRepository
     /** @var array<int, array<string, Closure(): void>> */
     private array $pending = [];
 
-    public function __construct(Dispatcher $events)
+    /**
+     * Reapply the journal after each savepoint rollback, retaining it until the
+     * outer transaction ends. Registered once per application by
+     * AdminUploadGrantTransactionListener, never per scoped instance.
+     */
+    public function rolledBack(ConnectionInterface $connection): void
     {
-        // These events run after PDO rollback AND transaction-manager cleanup.
-        // Reapply on each savepoint rollback, retaining the journal until the
-        // outer transaction ends. This also works on SQLite :memory: without
-        // a second connection, and with Laravel's testing transaction manager.
-        $events->listen(TransactionRolledBack::class, function (TransactionRolledBack $event): void {
-            $id = spl_object_id($event->connection);
-            foreach ($this->pending[$id] ?? [] as $write) {
-                $write();
-            }
+        $id = spl_object_id($connection);
+        foreach ($this->pending[$id] ?? [] as $write) {
+            $write();
+        }
 
-            if ($event->connection->transactionLevel() === 0) {
-                unset($this->pending[$id]);
-            }
-        });
-        $events->listen(TransactionCommitted::class, function (TransactionCommitted $event): void {
-            if ($event->connection->transactionLevel() === 0) {
-                unset($this->pending[spl_object_id($event->connection)]);
-            }
-        });
+        if ($connection->transactionLevel() === 0) {
+            unset($this->pending[$id]);
+        }
+    }
+
+    public function committed(ConnectionInterface $connection): void
+    {
+        if ($connection->transactionLevel() === 0) {
+            unset($this->pending[spl_object_id($connection)]);
+        }
+    }
+
+    /**
+     * A commit that fails terminally dispatches neither event, so entries left
+     * by it must never replay into a later, unrelated outer transaction.
+     */
+    public function beginning(ConnectionInterface $connection): void
+    {
+        if ($connection->transactionLevel() === 1) {
+            unset($this->pending[spl_object_id($connection)]);
+        }
     }
 
     public function grant(string $scope, string $path): void

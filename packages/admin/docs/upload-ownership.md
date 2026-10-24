@@ -17,7 +17,11 @@ reasserts issued grants after Laravel reports a rollback. It preserves the
 original expiry across nested savepoints and outer rollbacks, and journals
 revocations too. It uses the same connection, including SQLite `:memory:`; no
 second database connection or cache fallback is required. The journal is cleared
-when the outer transaction ends.
+when the outer transaction ends, and also when the next outer transaction begins,
+so a commit that fails terminally never replays into a later transaction. It is
+request-scoped; three stateless listeners are registered once per application and
+resolve the current journal when a transaction event fires, so a long-lived
+worker never accumulates listeners or retains finished requests.
 
 Each grant has fixed-length SHA-256 scope and path hashes, a stored path and an
 indexed expiry. The scope includes the session ID and CSRF token, actor, Livewire

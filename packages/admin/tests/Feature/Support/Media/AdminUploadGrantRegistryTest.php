@@ -6,8 +6,13 @@ use Capell\Admin\Actions\Media\PruneAdminUploadGrantsAction;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Providers\AdminServiceProvider;
 use Capell\Admin\Support\Media\AdminUploadGrantRepository;
+use Closure;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Events\TransactionCommitted;
+use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -209,4 +214,69 @@ it('reasserts grants with their original expiry after nested and outer rollback 
         DB::disconnect('upload-rollback');
         DB::setDefaultConnection($originalConnection);
     }
+})->with([false, true]);
+
+function withUploadRollbackConnection(Closure $callback): void
+{
+    $originalConnection = DB::getDefaultConnection();
+    config()->set('database.connections.upload-rollback', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => 'retry_']);
+    DB::setDefaultConnection('upload-rollback');
+    try {
+        (require dirname(__DIR__, 4) . '/database/migrations/2026_10_24_000001_create_admin_upload_grants_table.php')->up();
+        $callback();
+    } finally {
+        DB::disconnect('upload-rollback');
+        DB::setDefaultConnection($originalConnection);
+    }
+}
+
+it('registers its transaction listeners once and lets discarded scoped repositories be collected', function (): void {
+    $events = resolve(Dispatcher::class);
+    $counts = static fn (): array => array_map(
+        static fn (string $event): int => count($events->getListeners($event)),
+        [TransactionBeginning::class, TransactionCommitted::class, TransactionRolledBack::class],
+    );
+    $before = $counts();
+
+    withUploadRollbackConnection(function () use ($counts, $before): void {
+        $first = WeakReference::create(resolve(AdminUploadGrantRepository::class));
+        foreach (range(1, 10) as $index) {
+            DB::beginTransaction();
+            resolve(AdminUploadGrantRepository::class)->grant(hash('sha256', 'scope-' . $index), 'owned.txt');
+            DB::commit();
+            app()->forgetScopedInstances();
+        }
+
+        gc_collect_cycles();
+
+        expect($counts())->toBe($before)
+            ->and($first->get())->toBeNull();
+    });
+});
+
+it('never replays a journal left by a terminally failed commit into a later transaction or scope', function (bool $newScope): void {
+    withUploadRollbackConnection(function () use ($newScope): void {
+        $scope = hash('sha256', 'failed-commit');
+        $registry = resolve(AdminUploadGrantRepository::class);
+        DB::beginTransaction();
+        $registry->grant($scope, 'deleted.txt');
+
+        // A lost connection during COMMIT rolls back and resets the transaction level
+        // without dispatching either terminal transaction event.
+        DB::connection()->getPdo()->rollBack();
+        $property = new ReflectionProperty(DB::connection(), 'transactions');
+        $property->setValue(DB::connection(), 0);
+
+        if ($newScope) {
+            app()->forgetScopedInstances();
+            $registry = resolve(AdminUploadGrantRepository::class);
+            $registry->grant($scope, 'deleted.txt');
+        }
+
+        $registry->forget($scope, 'deleted.txt');
+        DB::beginTransaction();
+        DB::rollBack();
+
+        expect($registry->paths($scope, ['deleted.txt']))->toBe([]);
+    });
 })->with([false, true]);

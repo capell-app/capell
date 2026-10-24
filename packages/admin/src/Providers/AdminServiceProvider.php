@@ -111,6 +111,7 @@ use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioQuickActionsFil
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioTimelineFilamentWidget;
 use Capell\Admin\Filament\Widgets\MarketingStudio\MarketingStudioWorkQueueFilamentWidget;
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
+use Capell\Admin\Listeners\AdminUploadGrantTransactionListener;
 use Capell\Admin\Listeners\RememberPageUrlRewriteForPrompt;
 use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Livewire\Header\AdminWorkspaceSwitcher;
@@ -287,6 +288,9 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Events\TransactionCommitted;
+use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
@@ -375,6 +379,12 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->app->scoped(AdminUploadGrantRepository::class);
         $this->app->scoped(AdminUploadDeletion::class);
+
+        $events = $this->app->make(Dispatcher::class);
+        $events->listen(TransactionBeginning::class, [AdminUploadGrantTransactionListener::class, 'beginning']);
+        $events->listen(TransactionCommitted::class, [AdminUploadGrantTransactionListener::class, 'committed']);
+        $events->listen(TransactionRolledBack::class, [AdminUploadGrantTransactionListener::class, 'rolledBack']);
+
         $this->app->singleton(AgentAdminAuthorization::class);
         $this->app->singleton(AgentAdminConfirmationStore::class);
         $this->app->singleton(AgentAdminPropertyValuePresenter::class);
