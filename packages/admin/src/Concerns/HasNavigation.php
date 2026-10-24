@@ -118,10 +118,19 @@ trait HasNavigation
                 label: 'capell-admin::navigation.group_marketing',
             ),
             new NavigationGroupData(
+                label: 'capell-admin::navigation.group_customers',
+            ),
+            new NavigationGroupData(
                 label: 'capell-admin::navigation.group_reports',
             ),
             new NavigationGroupData(
+                label: 'capell-admin::navigation.group_operations',
+            ),
+            new NavigationGroupData(
                 label: 'capell-admin::navigation.group_monitoring',
+            ),
+            new NavigationGroupData(
+                label: 'capell-admin::navigation.group_security',
             ),
             new NavigationGroupData(
                 label: 'capell-admin::navigation.group_settings',

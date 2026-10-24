@@ -60,3 +60,16 @@ it('translates every referenced navigation group in every shipped admin locale',
 it('keeps the translated companion group map in step with the declared labels', function (): void {
     expect(array_keys(CompanionNavigationGroups::translated()))->toBe(CompanionNavigationGroups::LABELS);
 });
+
+it('uses sentence case for English sidebar group headings', function (): void {
+    /** @var array<string, string> $translations */
+    $translations = require __DIR__ . '/../../../resources/lang/en/navigation.php';
+
+    foreach ($translations as $key => $label) {
+        if (! str_starts_with($key, 'group_') && ! str_starts_with($key, 'workspace_')) {
+            continue;
+        }
+
+        expect($label)->toBe(ucfirst(strtolower($label)));
+    }
+});

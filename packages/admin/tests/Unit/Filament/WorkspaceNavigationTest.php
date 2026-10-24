@@ -31,7 +31,7 @@ it('keeps content grouped and secondary design tools local without losing packag
 
     $groups = $navigation->organise([NavigationGroup::make()->items($items)]);
     expect(array_map(fn (NavigationGroup $group): ?string => $group->getLabel(), $groups))
-        ->toBe([null, 'Content Library', 'Design']);
+        ->toBe([null, __('capell-admin::navigation.workspace_library'), __('capell-admin::navigation.workspace_design')]);
     expect(collect($groups[0]->getItems())->first()?->getLabel())->toBe('Package feature')
         ->and(collect($groups[1]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['Media', 'Sections'])
         ->and(collect($groups[2]->getItems())->map(fn (NavigationItem $item): string => $item->getLabel())->all())->toBe(['Layouts', 'Themes'])
