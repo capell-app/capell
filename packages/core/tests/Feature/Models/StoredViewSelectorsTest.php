@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
+use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Core\Support\Themes\ThemeChromeRegistry;
@@ -48,3 +50,31 @@ it('allows absent and empty optional selectors', function (mixed $value): void {
     expect($layout->fresh()->meta)->toEqual($layout->meta)
         ->and($theme->fresh()->meta)->toEqual($theme->meta);
 })->with([null, '']);
+
+it('rejects private logo views on site and blueprint writes', function (bool $blueprint): void {
+    $record = $blueprint
+        ? Blueprint::factory()->site()->make(['meta' => ['logo_blade_view' => 'private.report']])
+        : Site::factory()->make(['meta' => ['logo_blade_view' => 'private.report']]);
+    expect(fn () => $record->save())->toThrow(ValidationException::class);
+})->with([false, true]);
+
+it('validates effective inherited logos and permits registered and disabled logos', function (): void {
+    resolve(ThemeChromeRegistry::class)->registerLogo('host::logo', 'Host logo');
+    $blueprint = Blueprint::factory()->site()->create(['meta' => ['logo_blade_view' => 'host::logo']]);
+    $site = Site::factory()->create(['blueprint_id' => $blueprint->id, 'meta' => []]);
+    expect($site->fresh()->getMeta('logo_blade_view'))->toBe('host::logo');
+    expect($site->update(['meta' => ['logo_blade_view' => false]]))->toBeTrue();
+
+    // Simulate legacy metadata written before selector validation existed.
+    $blueprint->forceFill(['meta' => ['logo_blade_view' => 'private.report']])->saveQuietly();
+    $site = $site->fresh();
+    expect(fn () => $site->update(['meta' => []]))->toThrow(ValidationException::class);
+    expect($site->fresh()->meta)->toBe(['logo_blade_view' => false]);
+});
+
+it('rejects inherited private logos when the default blueprint is assigned during creation', function (): void {
+    $blueprint = Blueprint::factory()->site()->create(['default' => true]);
+    $blueprint->forceFill(['meta' => ['logo_blade_view' => 'private.report']])->saveQuietly();
+    $site = Site::factory()->make(['blueprint_id' => null, 'meta' => []]);
+    expect(fn () => $site->save())->toThrow(ValidationException::class);
+});

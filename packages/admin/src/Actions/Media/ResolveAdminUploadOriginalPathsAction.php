@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Media;
 
 use Filament\Forms\Components\BaseFileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -46,15 +48,39 @@ final class ResolveAdminUploadOriginalPathsAction
 
             $paths = $media->map(fn (Media $item): mixed => $item->getAttribute('uuid'))->all();
         } else {
-            $path = $upload->getStatePathForRelationship();
-
-            if (! is_string($path) || $path === '') {
+            $root = $upload->getModelRootContainer();
+            $fieldPath = $upload->getStatePath();
+            if (! is_string($fieldPath) || $fieldPath === '') {
                 return [];
             }
 
-            // Read persisted values without accessing absent virtual attributes
-            // or trusting client-controlled Livewire state.
-            $paths = Arr::wrap(data_get($record->getOriginal(), $path));
+            $segments = explode('.', $fieldPath);
+            $container = $upload->getContainer();
+
+            while ($container !== $root && ($parent = $container->getParentComponent()) instanceof Component) {
+                if ($parent instanceof Repeater) {
+                    // Filament's UUID item keys are transient and reorderable.
+                    // Authorise only this field's persisted paths across the
+                    // repeater snapshot, never constantState/current item data.
+                    $repeaterPath = $parent->getStatePath();
+                    if (! is_string($repeaterPath) || $repeaterPath === '') {
+                        return [];
+                    }
+
+                    $segments[count(explode('.', $repeaterPath))] = '*';
+                }
+
+                $container = $parent->getContainer();
+            }
+
+            $rootPath = $root->getStatePath();
+            $path = implode('.', array_slice($segments, filled($rootPath) ? count(explode('.', $rootPath)) : 0));
+
+            if ($path === '') {
+                return [];
+            }
+
+            $paths = Arr::flatten(Arr::wrap(data_get($record->getOriginal(), $path)));
         }
 
         return array_values(array_filter($paths, static fn (mixed $path): bool => is_string($path) && $path !== ''));

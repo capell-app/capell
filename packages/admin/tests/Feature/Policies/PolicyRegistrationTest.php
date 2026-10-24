@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Actions\AssignPermissionsToRole;
 use Capell\Admin\Actions\EnsureCapellPermissionsAction;
 use Capell\Admin\Actions\GrantCapellDefaultRolePermissionsAction;
@@ -13,9 +14,12 @@ use Capell\Admin\Policies\LanguagePolicy;
 use Capell\Admin\Policies\LayoutPolicy;
 use Capell\Admin\Policies\PagePolicy;
 use Capell\Admin\Policies\RedirectPolicy;
+use Capell\Admin\Policies\RolePolicy;
 use Capell\Admin\Policies\SiteDomainPolicy;
 use Capell\Admin\Policies\SitePolicy;
 use Capell\Admin\Policies\ThemePolicy;
+use Capell\Admin\Providers\AdminServiceProvider;
+use Capell\Core\Models\BlockTemplate;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
@@ -26,6 +30,7 @@ use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
 use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Support\Facades\Gate;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -135,3 +140,47 @@ it('preserves default admin global resource parity and keeps editors without acc
             ->and(Gate::forUser($author)->allows($ability, $record))->toBeFalse();
     }
 })->with(['fresh install', 'install grant', 'upgrade grant'])->with([ResourceEnum::Theme, ResourceEnum::Blueprint, ResourceEnum::Language]);
+
+it('preserves explicit denying host policies when the admin provider boots', function (string $model, string $subject): void {
+    $model = $model === 'configured-role' ? Utils::getRoleModel() : $model;
+    $actor = User::factory()->createOne();
+    $actor->givePermissionTo(Permission::findOrCreate('ViewAny:' . $subject, 'web'));
+    if ($subject === 'Role') {
+        // The test host explicitly registers its legacy Role policy.
+        $actor->givePermissionTo(Permission::findOrCreate('view_any_role', 'web'));
+    }
+
+    expect(Gate::forUser($actor)->allows('viewAny', $model))->toBeTrue();
+    $policy = new class
+    {
+        public function viewAny(User $user): bool
+        {
+            return false;
+        }
+    };
+    Gate::policy($model, $policy::class);
+    expect(Gate::forUser($actor)->denies('viewAny', $model))->toBeTrue();
+    $provider = expectPresent(app()->getProvider(AdminServiceProvider::class));
+    $provider->callBootedCallbacks();
+    expect(Gate::getPolicyFor($model))->toBeInstanceOf($policy::class)
+        ->and(Gate::forUser($actor)->denies('viewAny', $model))->toBeTrue();
+})->with([
+    [Activity::class, 'Activity'],
+    [BlockTemplate::class, 'BlockTemplate'],
+    ['configured-role', 'Role'],
+]);
+
+it('registers defaults despite convention based policy discovery', function (): void {
+    $actor = User::factory()->createOne();
+    $actor->givePermissionTo(Permission::findOrCreate('ViewAny:Role', 'web'));
+
+    $gate = new Illuminate\Auth\Access\Gate(app(), fn (): User => $actor);
+    $gate->guessPolicyNamesUsing(fn (string $model): string => Capell\Tests\Fixtures\Policies\RolePolicy::class);
+    Gate::swap($gate);
+    $model = Utils::getRoleModel();
+    expect(Gate::getPolicyFor($model))->toBeInstanceOf(Capell\Tests\Fixtures\Policies\RolePolicy::class)
+        ->and(Gate::policies())->toBe([]);
+    expectPresent(app()->getProvider(AdminServiceProvider::class))->callBootedCallbacks();
+    expect(Gate::getPolicyFor($model))->toBeInstanceOf(RolePolicy::class)
+        ->and(Gate::allows('viewAny', $model))->toBeTrue();
+});

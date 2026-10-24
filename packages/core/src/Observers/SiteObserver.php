@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Observers;
 
+use Capell\Core\Actions\ValidateStoredViewSelectorsAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Blueprint;
@@ -21,6 +22,15 @@ use InvalidArgumentException;
 
 class SiteObserver
 {
+    public function saving(Site $site): void
+    {
+        if ($site->isDirty('blueprint_id')) {
+            $site->unsetRelation('blueprint');
+        }
+
+        ValidateStoredViewSelectorsAction::run($site);
+    }
+
     public function creating(Site $site): void
     {
         if ($site->uuid === null || $site->uuid === '') {
@@ -32,6 +42,8 @@ class SiteObserver
         if ($blueprintId === null || $blueprintId === 0) {
             $site->blueprint_id = Blueprint::query()->siteType()->default()->value('id');
             throw_unless($site->blueprint_id, InvalidArgumentException::class, 'Unable to create site without a type.');
+            $site->unsetRelation('blueprint');
+            ValidateStoredViewSelectorsAction::run($site);
         }
     }
 

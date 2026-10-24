@@ -6,7 +6,11 @@ use Capell\Admin\Filament\Components\Forms\ImageIconUpload;
 use Capell\Admin\Filament\Components\Forms\MediaLibraryFileUpload;
 use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Theme;
+use Capell\Core\Support\Media\SpatieMediaFieldFactory;
+use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
@@ -99,3 +103,58 @@ it('limits retained UUIDs to the visible media subset and field multiplicity', f
     expect(Validator::make(['image' => ['first']], ['image' => $field->getValidationRules()])->passes())->toBeTrue();
     expect(Validator::make(['image' => ['second']], ['image' => $field->getValidationRules()])->fails())->toBeTrue();
 });
+
+it('authorises owned UUIDs through native and legacy Spatie fields', function (bool $legacy, string $name): void {
+    $record = Site::factory()->createOne()->fresh();
+    $record->setRelation('media', new MediaCollection([
+        new Media(['uuid' => 'owned-native-image', 'collection_name' => $name]),
+    ]));
+    $field = $legacy
+        ? resolve(SpatieMediaFieldFactory::class)->make($name)
+        : SpatieMediaLibraryFileUpload::make($name)->collection($name);
+    Schema::make(Livewire::make())->record($record)->components([$field])->getFlatComponents();
+    expect($field->shouldPreventFilePathTampering())->toBeTrue();
+    expect(Validator::make(['image' => ['owned-native-image']], ['image' => $field->getValidationRules()])->passes())->toBeTrue();
+    expect(Validator::make(['image' => ['foreign-image']], ['image' => $field->getValidationRules()])->fails())->toBeTrue();
+})->with([false, true])->with(['image', 'extension.image']);
+
+it('retains persisted repeater font paths independently of client item order', function (bool $reverse, bool $native): void {
+    $fonts = [
+        ['name' => 'First', 'files' => ['theme/fonts/first.woff2']],
+        ['name' => 'Second', 'files' => ['theme/fonts/second.woff2']],
+    ];
+    $record = Theme::factory()->createOne(['meta' => ['fonts' => $fonts]])->fresh();
+    $livewire = Livewire::make()->data(['meta' => ['fonts' => [
+        'first-item' => $fonts[0], 'second-item' => $fonts[1],
+    ]]]);
+    if ($reverse) {
+        $livewire->data['meta']['fonts'] = array_reverse($livewire->data['meta']['fonts'], true);
+    }
+
+    $repeater = Repeater::make('fonts')->schema([
+        ($native ? FileUpload::make('files') : Capell\Admin\Filament\Components\Forms\FileUpload::make('files'))->multiple(),
+    ]);
+    Schema::make($livewire)->statePath('data')->record($record)->components([
+        Group::make([$repeater])->statePath('meta'),
+    ])->getFlatComponents();
+    foreach ($repeater->getItems() as $item) {
+        $field = $item->getComponent('files');
+        expect($field)->toBeInstanceOf(BaseFileUpload::class);
+        assert($field instanceof BaseFileUpload);
+        $paths = $field->getRawState();
+        expect($paths)->toBeArray()->not->toBeEmpty();
+        assert(is_array($paths));
+        $paths = array_values($paths);
+        expect(Validator::make(['files' => $paths], ['files' => $field->getValidationRules()])->passes())->toBeTrue();
+    }
+
+    // Rebuild the item schema from forged Livewire data as on a subsequent request.
+    $livewire->data['meta']['fonts']['first-item']['files'] = ['theme/fonts/foreign.woff2'];
+    $repeater->clearCachedChildSchemas();
+    $item = $repeater->getItems()['first-item'];
+    $field = $item->getComponent('files');
+    expect($field)->toBeInstanceOf(BaseFileUpload::class);
+    assert($field instanceof BaseFileUpload);
+    expect(Validator::make(['files' => ['theme/fonts/foreign.woff2']], ['files' => $field->getValidationRules()])->fails())->toBeTrue();
+
+})->with([false, true])->with([false, true]);

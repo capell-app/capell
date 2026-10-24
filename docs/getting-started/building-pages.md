@@ -33,8 +33,8 @@ Move to blocks when a page body needs typed, reorderable units. The page type ca
 
 Blocks are a body-authoring choice, not a replacement for a page layout. Use the package-owned [Block Library documentation](https://docs.capell.app/packages/block-library) for available block types and custom block implementation details.
 
-| Work with a configured block                                                                                                                                                                                     | Add another typed block                                                                                                                                                                                                  |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Work with a configured block                                                                                                                                                                                     | Add another typed block                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [![Blocks editor with a typed content block and controls for configuring, cloning, and reordering it](../images/generated/page-building-blocks-editor.png)](../images/generated/page-building-blocks-editor.png) | [![Blocks editor add menu offering Cards, Content, and Split image and HTML blocks](../images/generated/content-builder.png)](../images/generated/content-builder.png) |
 
 _The first screen proves block-level editing and ordering. The second proves that editors add from registered block types without opening Layout Builder._
@@ -64,9 +64,10 @@ $layouts->registerLayout('host::layouts.public', 'Public shell');
 $chrome = resolve(ThemeChromeRegistry::class);
 $chrome->registerHeader('host::header', 'Public header');
 $chrome->registerFooter('host::footer', 'Public footer');
+$chrome->registerLogo('host::logo', 'Public logo');
 ```
 
-Register only public-safe views or components. Registration is required for existing custom selectors too: no stored metadata is rewritten, but unregistered selectors are rejected on model saves and return a generic 404 before public rendering. Empty selectors retain the standard defaults; Frontend registers the built-in master `capell::livewire.page.page` and shell `capell::app` automatically. CLI, jobs and imports must load the same registrations as HTTP requests.
+Register only public-safe views or components. Registration is required for existing custom selectors too: no stored metadata is rewritten, but unregistered layout and theme selectors are rejected on model saves and return a generic 404 before public rendering. Empty selectors retain the standard defaults; Frontend registers the built-in master `capell::livewire.page.page` and shell `capell::app` automatically. Site `logo_blade_view`, including Blueprint defaults, also requires registration with `ThemeChromeRegistry::registerLogo()`. Unregistered logos are rejected on saves and omitted by public renderers; `brand.capell-logo` is registered by default and `false` disables the logo view. CLI, jobs and imports must load the same registrations as HTTP requests.
 
 Create a dedicated layout in the admin and assign it only to that page. Set its developer-facing layout metadata in the layout's **Files** section:
 
