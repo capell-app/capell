@@ -38,7 +38,7 @@ class RetriableInstallUser extends User implements Illuminate\Contracts\Auth\Mus
     }
 }
 
-it('rolls back failed verification on the user connection and can retry account creation', function (bool $additional, bool $separateConnection): void {
+it('rolls back failed verification on the user connection and can retry account creation', function (bool $additional, bool $separateConnection, bool $verificationReturnsFalse): void {
     RetriableInstallUser::$testConnection = $separateConnection ? 'installer_atomicity' : null;
     config([
         'auth.providers.users.model' => RetriableInstallUser::class,
@@ -54,12 +54,18 @@ it('rolls back failed verification on the user connection and can retry account 
         $table->timestamps();
     });
     $failVerification = true;
-    RetriableInstallUser::updating(function (RetriableInstallUser $user) use (&$failVerification): void {
+    RetriableInstallUser::updating(function (RetriableInstallUser $user) use (&$failVerification, $verificationReturnsFalse): ?bool {
         if ($user->isDirty('email_verified_at') && $failVerification) {
             $failVerification = false;
 
+            if ($verificationReturnsFalse) {
+                return false;
+            }
+
             throw new RuntimeException('Verification write failed');
         }
+
+        return null;
     });
     $data = new NewUserData('Retry user', 'retry@example.test', 'retry-password', $separateConnection ? null : 'super_admin');
     $create = fn (): mixed => $additional
@@ -67,7 +73,7 @@ it('rolls back failed verification on the user connection and can retry account 
         : ResolveInstallUserAction::run(null, $data, new NullProgressReporter);
 
     try {
-        expect($create)->toThrow(RuntimeException::class, 'Verification write failed');
+        expect($create)->toThrow(RuntimeException::class, $verificationReturnsFalse ? 'Install user email verification failed.' : 'Verification write failed');
         expect(RetriableInstallUser::query()->count())->toBe(0);
 
         $create();
@@ -85,9 +91,12 @@ it('rolls back failed verification on the user connection and can retry account 
         DB::purge('installer_atomicity');
     }
 })->with([
-    'primary on user connection' => [false, true],
-    'starter on user connection' => [true, true],
-    'starter role initialisation' => [true, false],
+    'primary on user connection with exception' => [false, true, false],
+    'starter on user connection with exception' => [true, true, false],
+    'starter role initialisation with exception' => [true, false, false],
+    'primary on user connection with verification veto' => [false, true, true],
+    'starter on user connection with verification veto' => [true, true, true],
+    'starter role initialisation with verification veto' => [true, false, true],
 ]);
 
 it('returns existing user by id', function (): void {
