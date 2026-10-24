@@ -18,7 +18,7 @@ Plain-English definitions for everyday content work.
 | Alt text | A short text description of an image, used by screen readers and when the image fails to load. |
 | Site switcher | The admin control for choosing which site you are currently editing. |
 | Media | Uploaded files (images, documents) managed in the Media area. |
-| Blueprint | The reusable definition behind a page, theme, site, element, or section. Admin labels: Page blueprint, Theme blueprint, Site blueprint. |
+| Blueprint | The reusable definition behind a page, theme or site. Admin labels: Page blueprint, Theme blueprint, Site blueprint. |
 | Site | A top-level publishing surface with its own domain(s), languages, and settings. |
 | Page | The primary routable content entity. Pages belong to a site and can have one or more language translations. |
 | Workspace | An isolated sandbox where edits are staged. One workspace may hold a single page change or hundreds of coordinated edits. |
@@ -29,10 +29,10 @@ Implementation-level definitions for package and theme authors.
 
 | Term | Means |
 | --- | --- |
-| Draft | A page version scoped to a workspace, identified by a non-zero `workspace_id`. |
-| Live | A page version with `workspace_id = 0`, served to the public. |
+| Draft | A page whose publishing state is `draft` (`PublishVisibilityStateEnum::draft`): its `visible_from` date holds the far-future draft placeholder, so visitors cannot see it. This needs only Foundation. A page row staged inside a Publishing Studio workspace (non-zero `workspace_id`) is also treated as a draft by the admin, but that is a separate, optional storage model; see Workspace. |
+| Live | A page whose publishing state is `published`: its visibility window has started and not ended. When Publishing Studio is installed, the live row also carries `workspace_id = 0`. |
 | Draftable model | Any Eloquent model that participates in the workspace system. Draftable models use the `BelongsToWorkspace` trait. See the [Draftable contract](https://docs.capell.app/publishing-studio-draftable-contract/). |
-| Workspace | An isolated sandbox where edits are staged. Implemented via the `BelongsToWorkspace` trait. See [PublishingStudio & Versions](https://docs.capell.app/publishing-studio/). |
+| Workspace | An isolated sandbox where edits are staged. Provided by the optional Publishing Studio package (`Capell\PublishingStudio\BelongsToWorkspace`), not by Foundation. See [PublishingStudio & Versions](https://docs.capell.app/publishing-studio/). |
 | Version | An immutable snapshot of the live manifest at a point in time. Publishing a workspace creates a new version and flips it live. |
 | Publish | The atomic flip that promotes a workspace's draft rows to live. Runs publish-checks (freshness, URL collisions, release windows) inside a single transaction. |
 | Rebase | Bringing a stale workspace up to date after another workspace has published. See [Rebase flow](https://docs.capell.app/publishing-studio/#rebase-flow). |
@@ -44,7 +44,10 @@ Implementation-level definitions for package and theme authors.
 | Event registry | The Admin package's event bus for subscribing to admin lifecycle events (e.g. `afterSave`). See [Extending Capell §5](https://docs.capell.app/extending-capell/#5-event-registry-callbacks--subscribers). |
 | Settings Schema Registry | Runtime registry of settings form-builder shown on the admin **Settings** page. See [Settings Schema Registry](https://docs.capell.app/packages/admin/settings-schema-registry/). |
 | `Layout` (core model) | The theme-scoped template structure a page renders into (`Capell\Core\Models\Layout`). An ordered, theme/site-scoped template record with a status flag, a default flag, and an attached image, selected per page. Part of core. |
-| Layout Builder / Layout block (ContentSections) | Page-composition block primitives editors drag and drop, provided by the ContentSections [approved package](../packages/catalog.md). Distinct from the core `Layout` model above. **Not part of core.** |
+| Layout Builder | The optional `capell-app/layout-builder` package: containers, layout widgets and widget assets composed into a page layout. It builds on the core `Layout` model above. **Not part of core.** See [Layout Builder](../packages/layout-builder.md). |
+| Layout widget | A reusable rendered unit placed in a named area of a layout, owned by Layout Builder. Distinct from a body block. |
+| Body block | A typed, reorderable unit inside a page body, chosen when the page type or the page's `content_structure_override` selects blocks. The block types come from the optional Block Library package. See [Build a page](../getting-started/building-pages.md). |
+| Content Sections | The optional `capell-app/content-sections` package: ready-made, themeable page sections (hero, FAQ, pricing and so on). It requires Layout Builder but is a separate package. **Not part of core.** See [Content Sections](../packages/content-sections.md). |
 | Migration package archive | A portable archive containing exported content, manifest data, payloads, and integrity checks that can be re-imported through the Recovery Center when `capell-app/migration-assistant` is installed. See [Recovery Center](../admin/recovery.md). |
 | Static HTML cache | Rendered HTML written to disk and served directly by the web server before PHP runs. See [HTML Caching](https://docs.capell.app/cache/). |
 | Render hook context | The `RenderHookContext` DTO passed to every render-hook extension, exposing the location, the current item, and any extra data the host component provides. |

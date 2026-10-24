@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Enums\PackageScopeEnum;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Install\Cli\InstallPostInstallOptionResolver;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Feature\Commands\Fixtures\FakeMigrationFilesystem;
@@ -573,3 +574,94 @@ function patchedCoreWelcomeRoutes(string $path): RouteCollection
         $router->setRoutes($original);
     }
 }
+
+it('keeps frontend root registration disabled when an accepted CLI choice leaves an application root', function (string $route): void {
+    $path = welcomeRouteTestRoutesPath();
+    if (! is_dir(dirname($path))) {
+        mkdir(dirname($path), 0755, true);
+    }
+
+    $content = "<?php\nuse Illuminate\\Support\\Facades\\Route;\n" . $route;
+    file_put_contents($path, $content);
+    file_put_contents(welcomeRouteTestEnvPath(), "CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false\n");
+    $installer = resolve(WelcomeRouteInstaller::class);
+    $messages = [];
+    $record = function (string $message) use (&$messages): void {
+        $messages[] = $message;
+    };
+    (new InstallPostInstallOptionResolver)->configureWelcomeRoute($installer, true, $record, $record);
+    $installer->install();
+    expect(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false')
+        ->and($messages)->toBe([])
+        ->and($installer->hasRootRoute())->toBeTrue();
+    $expected = str_replace("Route::get('/', fn () => view('welcome'));", '', $content);
+    expect(file_get_contents($path))->toBe($expected);
+    $routes = patchedCoreWelcomeRoutes($path);
+    expect($routes->match(Request::create('/'))->uri())->toBe('/');
+})->with([
+    'controller' => "Route::get('/', [HomeController::class, 'index']);",
+    'view' => "Route::view('/', 'homepage');",
+    'redirect' => "Route::redirect('/', '/health');",
+    'middleware group' => "Route::middleware('auth')->group(function () { Route::get('/', [HomeController::class, 'index']); });",
+    'resource index' => "Route::resource('/', HomeController::class)->only('index');",
+    'group router' => "Route::group([], function (\\Illuminate\\Routing\\Router \$router) { \$router->get('/', fn () => 'custom'); });",
+    'invoked closure' => "(function () { Route::get('/', fn () => 'custom'); })();",
+    'set root URI' => "Route::get('/health', fn () => 'custom')->setUri('/');",
+    'assigned group callback' => "\$registerHome = function () { Route::get('/', fn () => 'custom'); }; Route::group([], \$registerHome);",
+    'explicit invocation' => "(function () { Route::get('/', fn () => 'custom'); })->__invoke();",
+    'call_user_func' => "call_user_func(function () { Route::get('/', fn () => 'custom'); });",
+    'named registration function' => "function coreWelcomeRouteRegisterHome() { Route::get('/', fn () => 'custom'); } coreWelcomeRouteRegisterHome();",
+    'local router' => "\$router = app('router'); \$router->get('/', fn () => 'custom');",
+    'parenthesised setUri' => "(Route::get('/health', fn () => 'custom'))->setUri('/');",
+    'unresolved group callback expression' => "Route::group([], [fn () => Route::get('/', fn () => 'custom')][0]);",
+    'stock plus custom root' => "Route::get('/', fn () => view('welcome'));\nRoute::redirect('/', '/health');",
+]);
+
+it('enables the frontend root only after the stock route has been removed', function (): void {
+    $path = welcomeRouteTestRoutesPath();
+    if (! is_dir(dirname($path))) {
+        mkdir(dirname($path), 0755, true);
+    }
+
+    file_put_contents($path, "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::view('/', 'welcome');");
+    file_put_contents(welcomeRouteTestEnvPath(), "CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false\n");
+    $installer = resolve(WelcomeRouteInstaller::class);
+    $messages = [];
+    $record = function (string $message) use (&$messages): void {
+        $messages[] = $message;
+    };
+    (new InstallPostInstallOptionResolver)->configureWelcomeRoute($installer, true, $record, $record);
+    expect(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false')
+        ->and($installer->hasStockWelcomeRoute())->toBeTrue();
+    expect($installer->install())->toBeTrue()
+        ->and($installer->hasRootRoute())->toBeFalse()
+        ->and(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true')
+        ->and($messages)->toBe([]);
+});
+
+it('enables the frontend root when fluent mutations move the application route away from root', function (string $route): void {
+    $path = welcomeRouteTestRoutesPath();
+    if (! is_dir(dirname($path))) {
+        mkdir(dirname($path), 0755, true);
+    }
+
+    $content = "<?php\nuse Illuminate\\Support\\Facades\\Route;\n" . $route;
+    file_put_contents($path, $content);
+    file_put_contents(welcomeRouteTestEnvPath(), "CAPELL_FRONTEND_REGISTER_HOME_ROUTE=false\n");
+    $installer = resolve(WelcomeRouteInstaller::class);
+    $record = static function (string $message): void {};
+    (new InstallPostInstallOptionResolver)->configureWelcomeRoute($installer, true, $record, $record);
+
+    expect($installer->install())->toBeFalse()
+        ->and($installer->hasRootRoute())->toBeFalse()
+        ->and(file_get_contents(welcomeRouteTestEnvPath()))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true')
+        ->and(file_get_contents($path))->toBe($content);
+    $routes = patchedCoreWelcomeRoutes($path);
+    expect($routes->match(Request::create('/admin'))->run())->toBe('custom');
+    expect(fn () => $routes->match(Request::create('/')))->toThrow(NotFoundHttpException::class);
+})->with([
+    'prefix' => "Route::get('/', fn () => 'custom')->prefix('admin');",
+    'setUri' => "Route::get('/', fn () => 'custom')->setUri('/admin');",
+    'parenthesised prefix' => "(Route::get('/', fn () => 'custom'))->prefix('admin');",
+    'parenthesised setUri' => "(Route::get('/', fn () => 'custom'))->setUri('/admin');",
+]);

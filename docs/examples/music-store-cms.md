@@ -83,7 +83,7 @@ If an editor moves `Piano lessons` under a different parent, Capell rebuilds the
 
 ## Compose pages with ContentSections
 
-Use ContentSections for pages that need more than a rich text body.
+Use Content Sections (and Layout Builder widgets) for pages that need more than a rich text body.
 
 | Page    | Useful widgets                                                      |
 | ------- | ------------------------------------------------------------------- |
@@ -93,7 +93,7 @@ Use ContentSections for pages that need more than a rich text body.
 | Repairs | Process steps, turnaround times, before/after media, booking CTA    |
 | Events  | Upcoming events list, newsletter signup, location cards             |
 
-Editors can reuse content blocks across pages. A “Spring guitar setup offer” CTA can appear on Home, Guitars, and Repairs without being retyped three times.
+Editors can reuse saved sections across pages. A “Spring guitar setup offer” CTA can appear on Home, Guitars, and Repairs without being retyped three times.
 
 ## Add articles
 
