@@ -373,8 +373,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->registerAdminEventSystem();
 
-        $this->app->singleton(AdminUploadGrantRepository::class);
-        $this->app->singleton(AdminUploadDeletion::class);
+        $this->app->scoped(AdminUploadGrantRepository::class);
+        $this->app->scoped(AdminUploadDeletion::class);
         $this->app->singleton(AgentAdminAuthorization::class);
         $this->app->singleton(AgentAdminConfirmationStore::class);
         $this->app->singleton(AgentAdminPropertyValuePresenter::class);
