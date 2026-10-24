@@ -100,7 +100,7 @@ Admin connects to Core records and package records through Filament resources:
 
 Migration impact:
 
-- Admin has settings migrations only.
+- Admin has settings migrations and an upload ownership registry schema migration.
 - Core creates shared tables used by Admin, including admin notification subscriptions.
 
 Deletion and retention:

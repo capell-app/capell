@@ -7,6 +7,7 @@ namespace Capell\Admin\Console\Commands;
 use Capell\Admin\Actions\AdminPanelIntegration\IntegrateCapellAdminPanelAction;
 use Capell\Admin\Actions\SyncCapellPermissionsAction;
 use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
+use Capell\Admin\Console\Commands\Concerns\MigratesAdminSchema;
 use Capell\Admin\Data\AdminPanelIntegration\AdminPanelChangeResultData;
 use Capell\Admin\Data\AdminPanelIntegration\AdminPanelSetupOptionsData;
 use Capell\Admin\Data\AdminPanelIntegration\AdminPanelSetupResultData;
@@ -14,7 +15,6 @@ use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Support\AdminRuntimeActivator;
-use Capell\Core\Console\Commands\Concerns\CallsRequiredCommands;
 use Capell\Core\Console\Commands\Concerns\DescribesCommandOptions;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Filament\Facades\Filament;
@@ -22,8 +22,8 @@ use Illuminate\Console\Command;
 
 class InstallCommand extends Command
 {
-    use CallsRequiredCommands;
     use DescribesCommandOptions;
+    use MigratesAdminSchema;
 
     protected $signature = 'capell:admin-install
         {--admin-panel-changes=manual : How to handle Filament admin panel changes: auto or manual}
@@ -62,6 +62,10 @@ class InstallCommand extends Command
             '--path' => 'database/settings',
             '--force' => true,
         ])) {
+            return self::FAILURE;
+        }
+
+        if (! $this->migrateAdminSchema()) {
             return self::FAILURE;
         }
 

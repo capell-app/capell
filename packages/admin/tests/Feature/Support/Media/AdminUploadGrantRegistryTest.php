@@ -170,3 +170,43 @@ it('reads ownership from the write database so replica lag cannot lose a retry g
         DB::purge('upload-replica');
     }
 });
+
+it('reasserts grants with their original expiry after nested and outer rollback on an in-memory connection', function (bool $commitInner): void {
+    $originalConnection = DB::getDefaultConnection();
+    config()->set('database.connections.upload-rollback', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => 'retry_']);
+    DB::setDefaultConnection('upload-rollback');
+    $migration = require dirname(__DIR__, 4) . '/database/migrations/2026_10_24_000001_create_admin_upload_grants_table.php';
+    try {
+        $migration->up();
+        $registry = resolve(AdminUploadGrantRepository::class);
+        $scope = hash('sha256', 'rolled-back');
+        DB::beginTransaction();
+        DB::beginTransaction();
+        $registry->grant($scope, 'owned.txt');
+        $expiry = DB::table('admin_upload_grants')->value('expires_at');
+        $commitInner ? DB::commit() : DB::rollBack();
+        expect($registry->paths($scope, ['owned.txt']))->toBe(['owned.txt']);
+        $this->travel(1)->minutes();
+        DB::rollBack();
+        expect(DB::transactionLevel())->toBe(0)
+            ->and($registry->paths($scope, ['owned.txt']))->toBe(['owned.txt'])
+            ->and(DB::table('admin_upload_grants')->value('expires_at'))->toBe($expiry);
+
+        DB::beginTransaction();
+        $registry->forget($scope, 'owned.txt');
+        DB::rollBack();
+        expect($registry->paths($scope, ['owned.txt']))->toBe([]);
+
+        // A completed journal must not revive a later revocation.
+        DB::beginTransaction();
+        $registry->grant($scope, 'committed.txt');
+        DB::commit();
+        $registry->forget($scope, 'committed.txt');
+        DB::beginTransaction();
+        DB::rollBack();
+        expect($registry->paths($scope, ['committed.txt']))->toBe([]);
+    } finally {
+        DB::disconnect('upload-rollback');
+        DB::setDefaultConnection($originalConnection);
+    }
+})->with([false, true]);

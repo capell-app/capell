@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Actions\Media;
 
 use Capell\Admin\Support\Media\AdminUploadBuilderTypes;
+use Capell\Admin\Support\Media\AdminUploadDeletion;
 use Capell\Admin\Support\Media\AdminUploadOwnership;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\Builder;
@@ -28,6 +29,7 @@ final class ResolveAdminUploadOriginalPathsAction
     {
         $storedPaths = [];
         if (! $upload instanceof SpatieMediaLibraryFileUpload) {
+            resolve(AdminUploadDeletion::class)->prepare($upload);
             $ownership = resolve(AdminUploadOwnership::class);
             $ownership->forgetMissingPaths($upload);
             $storedPaths = $ownership->paths($upload);

@@ -200,6 +200,8 @@ use Capell\Admin\Support\Makers\AdminBladeComponentMaker;
 use Capell\Admin\Support\Makers\AdminConfiguratorMaker;
 use Capell\Admin\Support\Makers\FilamentWidgetMaker;
 use Capell\Admin\Support\MarketingStudio\MarketingStudioActionRegistry;
+use Capell\Admin\Support\Media\AdminUploadDeletion;
+use Capell\Admin\Support\Media\AdminUploadGrantRepository;
 use Capell\Admin\Support\Media\LegacyAwareAdminMediaFieldFactory;
 use Capell\Admin\Support\Media\MediaDuplicateIndex;
 use Capell\Admin\Support\Navigation\AdminNavigationBadgeCountCache;
@@ -371,6 +373,8 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $this->registerAdminEventSystem();
 
+        $this->app->singleton(AdminUploadGrantRepository::class);
+        $this->app->singleton(AdminUploadDeletion::class);
         $this->app->singleton(AgentAdminAuthorization::class);
         $this->app->singleton(AgentAdminConfirmationStore::class);
         $this->app->singleton(AgentAdminPropertyValuePresenter::class);
@@ -569,6 +573,20 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 },
             ),
         );
+    }
+
+    #[Override]
+    protected function bootPackageMigrations(): self
+    {
+        // Keep the same ledger/rollback identity as Capell's package publisher.
+        // Spatie's default publisher replaces even an existing timestamp.
+        foreach (CapellAdmin::getMigrations() as $migration) {
+            $this->publishes([
+                __DIR__ . '/../../database/migrations/' . $migration . '.php' => database_path('migrations/' . $migration . '.php'),
+            ], 'capell-admin-migrations');
+        }
+
+        return $this;
     }
 
     #[Override]

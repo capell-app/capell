@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Capell\Admin\Support\Media;
 
 use Capell\Admin\Actions\Media\PruneAdminUploadGrantsAction;
+use Closure;
 use Filament\Forms\Components\BaseFileUpload;
+use Filament\Schemas\Components\Component;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 
@@ -67,6 +69,18 @@ final class AdminUploadOwnership
         }
     }
 
+    /** @return Closure(): void */
+    public function captureRevocation(BaseFileUpload $upload, string $path): Closure
+    {
+        $scope = $this->scope($upload);
+
+        return static function () use ($scope, $path): void {
+            if ($scope !== null) {
+                resolve(AdminUploadGrantRepository::class)->forget($scope, $path);
+            }
+        };
+    }
+
     private function scope(BaseFileUpload $upload): ?string
     {
         $builderTypes = resolve(AdminUploadBuilderTypes::class)->forUpload($upload);
@@ -74,7 +88,23 @@ final class AdminUploadOwnership
             return null;
         }
 
+        $records = [];
         $record = $upload->getRecord();
+        $records[] = $record instanceof Model ? [$record->getMorphClass(), $record->getKey()] : $record;
+        $container = $upload->getContainer();
+        // Walk actual ancestry, never getModelRootContainer(): local model([])
+        // and relationship models must not hide the enclosing form's record.
+        while (true) {
+            $record = $container->getRecord();
+            $records[] = $record instanceof Model ? [$record->getMorphClass(), $record->getKey()] : $record;
+            $parent = $container->getParentComponent();
+            if (! $parent instanceof Component) {
+                break;
+            }
+
+            $container = $parent->getContainer();
+        }
+
         $livewire = $upload->getLivewire();
 
         // Session regeneration and actor changes invalidate old grants. Include
@@ -85,7 +115,7 @@ final class AdminUploadOwnership
             auth()->id(),
             $livewire::class,
             $livewire->getId() ?? spl_object_id($livewire),
-            $record instanceof Model ? [$record->getMorphClass(), $record->getKey()] : $record,
+            $records,
             $upload->getStatePath(),
             $builderTypes,
             $upload->getDiskName(),

@@ -9,7 +9,11 @@ All application nodes must share the registry's default database connection. The
 registry honours the configured database table prefix and works with transient
 cache stores, including `array`.
 
-Use the normal Capell upgrade flow to publish and run package migrations. For a
+Use the normal Capell upgrade flow to publish and run package migrations.
+Direct `capell:admin-install` and `capell:admin-upgrade` also publish and run the
+Admin schema. Vendor publication with `--tag=capell-admin-migrations` keeps the
+same canonical migration filename as the package publisher; migrate it before
+serving requests if publishing manually. For a
 staged deployment, run `php artisan capell:upgrade --force` against the new release
 while upload editing is paused, then switch application nodes to the new release and resume editing. Existing cache-backed
 retry grants are not migrated: complete or re-upload pending unsaved uploads

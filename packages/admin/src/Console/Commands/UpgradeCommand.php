@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Capell\Admin\Console\Commands;
 
 use Capell\Admin\Actions\SyncCapellPermissionsAction;
+use Capell\Admin\Console\Commands\Concerns\MigratesAdminSchema;
 use Capell\Admin\Enums\PermissionSyncMode;
 use Capell\Admin\Support\AdminRuntimeActivator;
 use Capell\Core\Actions\Upgrade\RunDatabaseMigrationsAction;
-use Capell\Core\Console\Commands\Concerns\CallsRequiredCommands;
 use Filament\Facades\Filament;
 use Illuminate\Console\Command;
 
 class UpgradeCommand extends Command
 {
-    use CallsRequiredCommands;
+    use MigratesAdminSchema;
 
     protected $description = 'Upgrade capell-admin';
 
@@ -37,6 +37,10 @@ class UpgradeCommand extends Command
                 'exit_code' => $migrationResult->exitCode,
             ]));
 
+            return self::FAILURE;
+        }
+
+        if (! $this->migrateAdminSchema()) {
             return self::FAILURE;
         }
 

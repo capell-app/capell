@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -305,7 +306,7 @@ it('accepts temporary uploads through a native subclass guard', function (): voi
     expect($field->getUploadedFiles())->toBe(['temporary' => null]);
 });
 
-it('retries stored uploads after a later validation failure without trusting forged state', function (bool $native, bool $halt): void {
+it('retries stored uploads after a later validation failure without trusting forged state', function (bool $native, bool $halt, int $transactions): void {
     Storage::fake('local');
     config()->set('livewire.temporary_file_upload.disk', 'local');
     Storage::disk('local')->put('livewire-tmp/retry-upload.txt', 'Uploaded content');
@@ -323,6 +324,10 @@ it('retries stored uploads after a later validation failure without trusting for
         ]);
     };
     $schema = $makeSchema();
+    for ($level = 0; $level < $transactions; $level++) {
+        DB::beginTransaction();
+    }
+
     expect(fn (): array => $schema->getState(afterValidate: function () use ($halt): void {
         throw_if($halt, Halt::class);
 
@@ -334,6 +339,10 @@ it('retries stored uploads after a later validation failure without trusting for
         ->and(Storage::disk('local')->exists($stored))->toBeTrue()
         ->and($record->fresh()->meta['icon'])->toBe('site/existing.txt');
 
+    for ($level = 0; $level < $transactions; $level++) {
+        DB::rollBack();
+    }
+
     // Recreate the component and field as on the corrected Livewire request.
     $livewire = Livewire::make()->data($livewire->data);
     $livewire->setId('upload-retry-form');
@@ -344,7 +353,7 @@ it('retries stored uploads after a later validation failure without trusting for
 
     $livewire->data['meta']['icon'] = ['forged' => 'site/foreign.txt'];
     expect(fn (): array => $makeSchema()->getState())->toThrow(ValidationException::class);
-})->with([false, true])->with([false, true]);
+})->with([false, true])->with([false, true])->with([0, 1, 2]);
 
 it('limits failed-save upload ownership to its form scope and existing unexpired files', function (string $boundary, bool $native): void {
     Storage::fake('local');
@@ -494,3 +503,75 @@ it('binds failed-save uploads to every enclosing builder block type', function (
 
     expect(fn (): array => $makeSchema()->getState())->toThrow(ValidationException::class);
 })->with([false, true])->with(['inner', 'outer'])->with(['none', 'upload-array', 'group-array', 'group-record']);
+
+it('binds retry grants to enclosing and local records across model boundaries', function (bool $native, string $boundary, string $changed): void {
+    Storage::fake('local');
+    config()->set('livewire.temporary_file_upload.disk', 'local');
+    Storage::disk('local')->put('livewire-tmp/boundary.txt', 'Upload');
+    $record = Site::factory()->createOne();
+    $localRecord = Site::factory()->createOne();
+    $livewire = Livewire::make()->data(['icon' => ['tmp' => new TemporaryUploadedFile('boundary.txt', 'local')]]);
+    $livewire->setId('record-boundary');
+
+    $makeSchema = function () use ($native, $boundary, &$record, &$localRecord, $livewire): Schema {
+        $field = ($native ? NativeWidgetFileUpload::make('icon') : Capell\Admin\Filament\Components\Forms\FileUpload::make('icon'))->disk('local');
+        $component = match ($boundary) {
+            'upload-array' => $field->model([]),
+            'group-array' => Group::make([$field])->model([]),
+            'changed-model' => Group::make([$field])->model($localRecord),
+            default => throw new InvalidArgumentException('Unknown model boundary.'),
+        };
+
+        return Schema::make($livewire)->statePath('data')->record($record)->components([$component]);
+    };
+    expect(fn (): array => $makeSchema()->getState(afterValidate: function (): void {
+        throw ValidationException::withMessages(['title' => 'Failed save']);
+    }))->toThrow(ValidationException::class);
+    $stored = array_values($livewire->data['icon'])[0];
+    expect($makeSchema()->getState()['icon'])->toBe($stored);
+    if ($changed === 'enclosing') {
+        $record = Site::factory()->createOne();
+    } else {
+        $localRecord = Site::factory()->createOne();
+    }
+
+    expect(fn (): array => $makeSchema()->getState())->toThrow(ValidationException::class);
+})->with([false, true])->with([
+    ['upload-array', 'enclosing'], ['group-array', 'enclosing'],
+    ['changed-model', 'enclosing'], ['changed-model', 'local'],
+]);
+
+it('revokes a deleted upload before its path can be recreated and replayed', function (bool $native, bool $throwAfterDeletion, bool $rollback): void {
+    Storage::fake('local');
+    config()->set('livewire.temporary_file_upload.disk', 'local');
+    Storage::disk('local')->put('livewire-tmp/delete.txt', 'Upload');
+    $livewire = Livewire::make()->data(['icon' => ['tmp' => new TemporaryUploadedFile('delete.txt', 'local')]]);
+    $field = ($native ? NativeWidgetFileUpload::make('icon') : Capell\Admin\Filament\Components\Forms\FileUpload::make('icon'))
+        ->disk('local')->deleteUploadedFileUsing(function (string $file) use ($throwAfterDeletion): void {
+            Storage::disk('local')->delete($file);
+            throw_if($throwAfterDeletion, RuntimeException::class, 'After deletion');
+        });
+    $schema = Schema::make($livewire)->statePath('data')->components([$field]);
+    expect(fn (): array => $schema->getState(afterValidate: function (): void {
+        throw ValidationException::withMessages(['title' => 'Failed save']);
+    }))->toThrow(ValidationException::class);
+    $stored = array_values($livewire->data['icon'])[0];
+    if ($rollback) {
+        DB::beginTransaction();
+    }
+
+    if ($throwAfterDeletion) {
+        expect(fn (): BaseFileUpload => $field->deleteUploadedFile(array_key_first($field->getRawState())))->toThrow(RuntimeException::class, 'After deletion');
+    } else {
+        $field->deleteUploadedFile(array_key_first($field->getRawState()));
+    }
+
+    if ($rollback) {
+        DB::rollBack();
+    }
+
+    expect(Storage::disk('local')->exists($stored))->toBeFalse();
+    Storage::disk('local')->put($stored, 'Replacement');
+    $livewire->data['icon'] = ['replay' => $stored];
+    expect(fn (): array => $schema->getState())->toThrow(ValidationException::class);
+})->with([false, true])->with([false, true])->with([false, true]);
