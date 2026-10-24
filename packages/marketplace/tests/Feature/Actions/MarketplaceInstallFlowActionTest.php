@@ -252,7 +252,7 @@ it('checks out a premium extension through v2 hosted flow and queues the authori
         ->and($session?->status)->toBe(MarketplaceInstallFlowSessionStatus::Completed)
         ->and($session?->remote_entitlement_ids)->toBe(['capell-marketplace/premium-seo' => 123])
         ->and($attempt->composer_name)->toBe('capell-marketplace/premium-seo')
-        ->and($attempt->composer_command)->toBe('composer require capell-marketplace/premium-seo:^1.2.3')
+        ->and($attempt->composer_command)->toBe("composer require 'capell-marketplace/premium-seo:^1.2.3'")
         ->and($attempt->context['remote_entitlement_ids']['capell-marketplace/premium-seo'] ?? null)->toBe(123)
         ->and($instance?->account_email)->toBe('ben@example.com');
 });
@@ -611,7 +611,7 @@ it('resumes a returned flow using the listing composer name when authorization o
     expect($attempts)->toHaveCount(1)
         ->and($attempt)->toBeInstanceOf(MarketplaceInstallAttempt::class)
         ->and($attempt->composer_name)->toBe('capell-marketplace/premium-seo')
-        ->and($attempt->composer_command)->toBe('composer require capell-marketplace/premium-seo:^1.2.3');
+        ->and($attempt->composer_command)->toBe("composer require 'capell-marketplace/premium-seo:^1.2.3'");
 
     $session->refresh();
 

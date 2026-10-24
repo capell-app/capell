@@ -10,12 +10,75 @@ use Capell\Core\Support\Install\NullProgressReporter;
 use Capell\Core\Tests\Support\Models\HasSitePermissionsTestUser;
 use Capell\Core\Tests\Support\Models\RetriableInstallUser;
 use Capell\Tests\Fixtures\Models\User;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
+
+it('rolls back a starter account on role failure and recovers without changing existing accounts', function (bool $siteScoped): void {
+    config([
+        'auth.providers.users.model' => HasSitePermissionsTestUser::class,
+        'capell.roles.super_admin' => 'retry_install_admin',
+        'permission.teams' => true,
+    ]);
+    $registrar = resolve(PermissionRegistrar::class);
+    $previousTeams = $registrar->teams;
+    $previousTeamId = $registrar->getPermissionsTeamId();
+    $registrar->teams = true;
+    $dispatcher = Role::getEventDispatcher();
+
+    throw_unless($dispatcher instanceof Dispatcher, RuntimeException::class, 'The starter role regression requires model events.');
+
+    Role::setEventDispatcher(clone $dispatcher);
+
+    try {
+        $site = Site::factory()->createOne();
+        $existing = User::factory()->createOne(['email_verified_at' => null]);
+        $originalAttributes = $existing->fresh()->getAttributes();
+        $originalRoles = $existing->roles()->pluck('roles.id')->all();
+        $roleName = $siteScoped ? 'retry_install_editor' : 'retry_install_admin';
+        $roleAttempts = 0;
+        Role::creating(function (Role $role) use ($roleName, &$roleAttempts): void {
+            throw_if($role->name === $roleName && ++$roleAttempts === 1, RuntimeException::class, 'Transient starter role failure');
+        });
+        $users = [
+            new NewUserData('Existing starter', $existing->email, 'replacement-password', $roleName),
+            new NewUserData('Completed starter', 'completed-starter@example.test', 'completed-password'),
+            new NewUserData('Retry starter', 'retry-starter@example.test', 'retry-password', $roleName),
+        ];
+        $create = fn (): mixed => CreateAdditionalInstallUsersAction::run($users, new NullProgressReporter, $site);
+
+        expect($create)->toThrow(RuntimeException::class, 'Transient starter role failure');
+        expect(User::query()->where('email', 'retry-starter@example.test')->exists())->toBeFalse()
+            ->and(Role::query()->where('name', $roleName)->exists())->toBeFalse();
+        $completedAttributes = User::query()->where('email', 'completed-starter@example.test')->sole()->getAttributes();
+
+        $create();
+
+        $created = HasSitePermissionsTestUser::query()->where('email', 'retry-starter@example.test')->sole();
+        expect(Hash::check('retry-password', $created->password))->toBeTrue()
+            ->and($siteScoped ? $created->hasRoleForSite($site, $roleName) : $created->hasRole($roleName))->toBeTrue()
+            ->and($roleAttempts)->toBe(2);
+        $createdAttributes = $created->getAttributes();
+
+        $create();
+
+        expect($existing->fresh()->getAttributes())->toBe($originalAttributes)
+            ->and($existing->fresh()->roles()->pluck('roles.id')->all())->toBe($originalRoles)
+            ->and(User::query()->where('email', 'completed-starter@example.test')->sole()->getAttributes())->toBe($completedAttributes)
+            ->and($created->refresh()->getAttributes())->toBe($createdAttributes)
+            ->and($roleAttempts)->toBe(2);
+    } finally {
+        Role::setEventDispatcher($dispatcher);
+        $registrar->setPermissionsTeamId($previousTeamId);
+        $registrar->teams = $previousTeams;
+        $registrar->forgetCachedPermissions();
+    }
+})->with(['global admin' => false, 'site editor' => true]);
 
 it('rolls back failed verification on the user connection and can retry account creation', function (bool $additional, bool $separateConnection, bool $verificationReturnsFalse): void {
     RetriableInstallUser::$testConnection = $separateConnection ? 'installer_atomicity' : null;

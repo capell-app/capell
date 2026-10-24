@@ -28,7 +28,7 @@ it('returns composer acquisition instructions for free extensions without market
 
     $acquisition = CreateExtensionAcquisitionAction::run($listing);
 
-    expect($acquisition->composerCommand)->toBe('composer require capell-app/seo-suite:^2.1.0')
+    expect($acquisition->composerCommand)->toBe("composer require 'capell-app/seo-suite:^2.1.0'")
         ->and($acquisition->requiresDeployment)->toBeFalse()
         ->and($acquisition->signedActivation)->toBe([])
         ->and($acquisition->metadata)->toBe(['authorization_source' => 'local_free_policy']);
@@ -98,7 +98,7 @@ it('records install intent telemetry after protected marketplace authorization s
         installOptions: ['starter_content' => true, 'ignored' => true],
     );
 
-    expect($acquisition->composerCommand)->toBe('composer require capell-app/seo-suite:^2.1')
+    expect($acquisition->composerCommand)->toBe("composer require 'capell-app/seo-suite:^2.1'")
         ->and($acquisition->composerAuth)->toBe([
             'github-oauth' => [
                 'github.com' => 'ghp_secret_token',

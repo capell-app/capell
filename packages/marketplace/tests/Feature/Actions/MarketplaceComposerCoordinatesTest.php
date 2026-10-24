@@ -6,8 +6,13 @@ use Capell\Marketplace\Actions\CreateExtensionAcquisitionAction;
 use Capell\Marketplace\Actions\CreateExtensionUpdateAcquisitionAction;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
+use Capell\Marketplace\Enums\MarketplaceOperationType;
+use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Models\MarketplaceInstallIntent;
+use Capell\Marketplace\Support\MarketplaceComposerCommand;
 use Capell\Marketplace\Support\ProcessMarketplaceComposerRunner;
 use Illuminate\Support\Facades\Http;
+use Symfony\Component\Process\Process;
 
 beforeEach(function (): void {
     config([
@@ -20,6 +25,73 @@ function coordinateTestListing(string $name = 'publisher/extension', ?string $ve
 {
     return new ExtensionListingData('extension', 'Extension', $name, 'package', null, $paid ? 100 : 0, $paid, null, null, $version);
 }
+
+it('preserves authorized constraints as one literal shell argument', function (string $constraint): void {
+    config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);
+    Http::fake(['*' => Http::response(['data' => [
+        'composer_name' => 'publisher/extension', 'version_constraint' => $constraint,
+    ]])]);
+    $acquisition = CreateExtensionAcquisitionAction::run(coordinateTestListing(paid: true), hostedFlowAuthorized: true);
+    $argument = substr((string) $acquisition->composerCommand, strlen('composer require '));
+    $process = Process::fromShellCommandline("printf '%s\\0' " . $argument);
+    $process->mustRun();
+
+    expect($acquisition->versionConstraint)->toBe($constraint)
+        ->and($process->getOutput())->toBe('publisher/extension:' . $constraint . "\0");
+})->with(['^2.4 || ^3.0', '>2.3 <3.0', '*', 'dev-main;true', 'dev-main$(printf)', "dev-main'quote"]);
+
+it('quotes upgrade commands containing Composer range operators', function (): void {
+    config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);
+    Http::fake(['*' => Http::response(['data' => [
+        'composer_name' => 'publisher/extension', 'version_constraint' => '>2.3 <3.0 || ^4.0',
+    ]])]);
+    $acquisition = CreateExtensionUpdateAcquisitionAction::run(coordinateTestListing(paid: true), '2.1.0');
+
+    expect($acquisition->composerCommand)->toBe("composer require 'publisher/extension:>2.3 <3.0 || ^4.0'");
+});
+
+it('renders legacy stored commands safely for operation and pending theme readers', function (): void {
+    $legacyCommand = 'composer require publisher/extension:dev-main;true';
+    $coordinates = [
+        'composer_name' => 'publisher/extension',
+        'version_constraint' => 'dev-main;true',
+        'composer_command' => $legacyCommand,
+    ];
+    $intent = new MarketplaceInstallIntent($coordinates);
+    $attempt = new MarketplaceInstallAttempt([...$coordinates, 'operation' => MarketplaceOperationType::Update]);
+
+    expect($intent->composer_command)->toBe("composer require 'publisher/extension:dev-main;true'")
+        ->and($attempt->composer_command)->toBe("composer require 'publisher/extension:dev-main;true'")
+        ->and($attempt->toArray()['composer_command'])->toBe("composer require 'publisher/extension:dev-main;true'")
+        ->and($attempt->getAttributes()['composer_command'])->toBe($legacyCommand)
+        ->and($intent->getAttributes()['composer_command'])->toBe($legacyCommand);
+
+    $attempt->operation = MarketplaceOperationType::Uninstall;
+    expect($attempt->composer_command)->toBe("composer remove 'publisher/extension'");
+    $attempt->composer_command = null;
+    expect($attempt->composer_command)->toBeNull();
+    $attempt->composer_command = '';
+    expect($attempt->composer_command)->toBe('');
+
+    $intent->version_constraint = null;
+    expect($intent->composer_command)->toBe("composer require 'publisher/extension:dev-main;true'")
+        ->and(MarketplaceComposerCommand::remove('publisher/extension'))->toBe("composer remove 'publisher/extension'");
+});
+
+it('preserves constraints stored only in legacy command text', function (bool $quoted): void {
+    $constraint = "dev-main'quote;true";
+    $command = $quoted
+        ? MarketplaceComposerCommand::require('publisher/extension', $constraint)
+        : 'composer require publisher/extension:' . $constraint;
+    $intent = new MarketplaceInstallIntent([
+        'composer_name' => 'publisher/extension',
+        'version_constraint' => null,
+        'composer_command' => $command,
+    ]);
+
+    expect($intent->composer_command)->toBe("composer require 'publisher/extension:dev-main'\\''quote;true'")
+        ->and($intent->getAttributes()['composer_command'])->toBe($command);
+})->with(['legacy raw' => false, 'already quoted' => true]);
 
 it('refuses malformed listing coordinates before authorizing an installation', function (string $name, string $version): void {
     Http::fake();

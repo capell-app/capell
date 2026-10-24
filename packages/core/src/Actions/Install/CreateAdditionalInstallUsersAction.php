@@ -16,7 +16,6 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Spatie\Permission\Models\Role;
-use Throwable;
 
 final class CreateAdditionalInstallUsersAction
 {
@@ -84,26 +83,22 @@ final class CreateAdditionalInstallUsersAction
             return;
         }
 
-        try {
-            if ($this->isGlobalSuperAdminRole($userData->roleName)) {
-                PermissionTeamContext::run(null, function () use ($user, $userData): void {
-                    $user->assignRole(Role::findOrCreate($userData->roleName, 'web'));
-                }, $user instanceof Model ? $user : null);
+        if ($this->isGlobalSuperAdminRole($userData->roleName)) {
+            PermissionTeamContext::run(null, function () use ($user, $userData): void {
+                $user->assignRole(Role::findOrCreate($userData->roleName, 'web'));
+            }, $user instanceof Model ? $user : null);
 
-                return;
-            }
-
-            if (! $site instanceof Site || ! method_exists($user, 'assignRoleForSite')) {
-                $reporter->report(sprintf('→ Role %s could not be assigned to %s automatically because no site-scoped permission support is available.', $userData->roleName, $userData->email));
-
-                return;
-            }
-
-            $role = PermissionTeamContext::run($site->getKey(), fn (): \Spatie\Permission\Contracts\Role => Role::findOrCreate($userData->roleName, 'web'));
-            $user->assignRoleForSite($site, $role);
-        } catch (Throwable) {
-            $reporter->report(sprintf('→ Role %s could not be assigned to %s automatically.', $userData->roleName, $userData->email));
+            return;
         }
+
+        if (! $site instanceof Site || ! method_exists($user, 'assignRoleForSite')) {
+            $reporter->report(sprintf('→ Role %s could not be assigned to %s automatically because no site-scoped permission support is available.', $userData->roleName, $userData->email));
+
+            return;
+        }
+
+        $role = PermissionTeamContext::run($site->getKey(), fn (): \Spatie\Permission\Contracts\Role => Role::findOrCreate($userData->roleName, 'web'));
+        $user->assignRoleForSite($site, $role);
     }
 
     private function isGlobalSuperAdminRole(string $roleName): bool
