@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms;
 
+use Capell\Admin\Actions\Blueprints\SaveInlineBlueprintAction;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
@@ -27,6 +28,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Override;
@@ -129,9 +131,16 @@ class BlueprintSelect extends SelectWithBelongsToRelation
         return $this->getOptionLabelFromRecordUsing(
             fn (Blueprint $record): string => static::getSelectOption($record),
         )
+            ->createOptionUsing(function (array $data, Schema $schema): int {
+                $blueprint = SaveInlineBlueprintAction::run(null, $data);
+                $schema->model($blueprint)->saveRelationships();
+
+                return (int) $blueprint->getKey();
+            })
             ->createOptionForm(fn (Schema $schema): Schema => BlueprintForm::configure($schema->model(Blueprint::class)))
             ->createOptionAction(
                 fn (Action $action): Action => $action
+                    ->authorize(fn (): bool => Gate::allows('create', Blueprint::class))
                     ->fillForm(function (HasActions&HasSchemas $livewire, self $component): array {
                         $schemaName = $livewire->getMountedActionSchemaName();
 
@@ -192,6 +201,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
         ))
             ->editOptionAction(
                 fn (Action $action): Action => $action
+                    ->authorize(fn (): bool => ($blueprint = $this->resolveSelectedBlueprintForEdit()) instanceof Blueprint && Gate::allows('update', $blueprint))
                     ->modalHeading(function (string $context, self $component, ?int $state): ?HtmlString {
                         if ($state === null || $state === 0) {
                             return null;
@@ -268,20 +278,7 @@ class BlueprintSelect extends SelectWithBelongsToRelation
                     return;
                 }
 
-                unset($data['creation_mode'], $data['name'], $data['key'], $data['type']);
-
-                foreach (['admin', 'meta'] as $attribute) {
-                    $existingValue = is_array($blueprint->{$attribute}) ? $blueprint->{$attribute} : [];
-                    $submittedValue = is_array($data[$attribute] ?? null) ? $data[$attribute] : [];
-
-                    if ($submittedValue !== []) {
-                        $data[$attribute] = array_replace_recursive($existingValue, $submittedValue);
-                    }
-                }
-
-                if ($data !== []) {
-                    $blueprint->update($data);
-                }
+                SaveInlineBlueprintAction::run($blueprint, $data);
             });
     }
 

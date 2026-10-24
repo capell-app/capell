@@ -6,6 +6,7 @@ namespace Capell\Core\Models;
 
 use Awobaz\Compoships\Compoships;
 use Bkwld\Cloner\Cloneable;
+use Capell\Core\Actions\SiteDomains\WithSiteDomainClaimLockAction;
 use Capell\Core\Data\SiteDomains\SiteOriginData;
 use Capell\Core\Database\Factories\SiteDomainFactory;
 use Capell\Core\Models\Concerns\HasDefault;
@@ -106,7 +107,9 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
     use HasStatus;
 
     use HasUserstamps;
-    use SoftDeletes;
+    use SoftDeletes {
+        restore as private restoreWithoutClaimLock;
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -126,6 +129,18 @@ class SiteDomain extends Model implements Defaultable, Statusable, Userstampable
     ];
 
     protected static string $factory = SiteDomainFactory::class;
+
+    /** @param array<string, mixed> $options */
+    #[Override]
+    public function save(array $options = []): bool
+    {
+        return WithSiteDomainClaimLockAction::run($this->getConnection(), fn (): bool => parent::save($options));
+    }
+
+    public function restore(): bool
+    {
+        return WithSiteDomainClaimLockAction::run($this->getConnection(), fn (): bool => $this->restoreWithoutClaimLock());
+    }
 
     public function getDomainKey(): string
     {

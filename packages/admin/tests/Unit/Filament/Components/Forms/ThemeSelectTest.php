@@ -8,7 +8,9 @@ use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
+use Capell\Tests\Fixtures\Models\User;
 use Filament\Schemas\Schema;
+use Spatie\Permission\Models\Permission;
 
 it('binds nested theme forms to their own model and selected record', function (): void {
     test()->actingAsAdmin();
@@ -35,4 +37,25 @@ it('binds nested theme forms to their own model and selected record', function (
     expect($create->getModel())->toBe(Theme::class)
         ->and($edit->getModel())->toBe(Theme::class)
         ->and($record->getKey())->toBe($theme->getKey());
+});
+
+it('requires theme permissions for inline modals even when the actor can edit pages', function (): void {
+    $theme = Theme::factory()->create();
+    $actor = User::factory()->create();
+    $actor->givePermissionTo(Permission::findOrCreate('Update:Page', 'web'));
+
+    test()->actingAs($actor);
+    $component = ThemeSelect::make('theme_id')->withCreateForm()->withEditForm();
+    $schema = Schema::make(Livewire::make()->data(['theme_id' => $theme->id]))
+        ->statePath('data')->model(Site::class)->components([$component]);
+    $mounted = $schema->getComponents()[0];
+    assert($mounted instanceof ThemeSelect);
+    $mounted->state($theme->id);
+
+    expect(expectPresent($mounted->getCreateOptionAction())->isAuthorized())->toBeFalse()
+        ->and(expectPresent($mounted->getEditOptionAction())->isAuthorized())->toBeFalse();
+    $actor->givePermissionTo(Permission::findOrCreate('Create:Theme', 'web'));
+    $actor->givePermissionTo(Permission::findOrCreate('Update:Theme', 'web'));
+    expect(expectPresent($mounted->getCreateOptionAction())->isAuthorized())->toBeTrue()
+        ->and(expectPresent($mounted->getEditOptionAction())->isAuthorized())->toBeTrue();
 });

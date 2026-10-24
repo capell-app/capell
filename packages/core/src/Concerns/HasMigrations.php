@@ -79,6 +79,7 @@ trait HasMigrations
             '2026_09_26_000001_create_reporting_incidents_table',
             '2026_09_29_000001_remove_implicit_timestamp_updates',
             '2026_10_05_000001_add_attribute_changes_to_activity_log_table',
+            '2026_10_24_000001_create_site_domain_claim_locks_table',
         ];
     }
 
