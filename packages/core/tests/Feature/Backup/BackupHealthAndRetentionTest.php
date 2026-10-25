@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\Backup\CreateBackupAction;
 use Capell\Core\Actions\Backup\InspectBackupHealthAction;
 use Capell\Core\Actions\Backup\PruneBackupsAction;
+use Capell\Core\Actions\Backup\SignBackupManifestAction;
 use Capell\Core\Support\Backup\BackupArtifactStore;
 use Capell\Core\Tests\Support\BackupSigningTestKeys;
 use Illuminate\Support\Facades\Date;
@@ -85,7 +86,7 @@ it('rejects future-dated manifests as invalid rather than permanently fresh', fu
     $manifestPath = 'capell-backups/' . $manifest->snapshotId . '/manifest.json';
     $stored = Storage::disk('backups')->json($manifestPath);
     $stored['created_at'] = '2027-07-10T12:00:00+00:00';
-    Storage::disk('backups')->put($manifestPath, json_encode($stored, JSON_THROW_ON_ERROR));
+    Storage::disk('backups')->put($manifestPath, json_encode(SignBackupManifestAction::run($stored), JSON_THROW_ON_ERROR));
 
     $report = InspectBackupHealthAction::run();
 
