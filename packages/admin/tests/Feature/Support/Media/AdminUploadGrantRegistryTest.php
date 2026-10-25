@@ -279,3 +279,113 @@ it('never replays a journal left by a terminally failed commit into a later tran
         expect($registry->paths($scope, ['deleted.txt']))->toBe([]);
     });
 })->with([false, true]);
+
+it('settles a failed direct commit at level one without replaying stale grants or revocations', function (bool $commit): void {
+    withUploadRollbackConnection(function () use ($commit): void {
+        $connection = DB::connection();
+        $connection->statement('PRAGMA foreign_keys = ON');
+        $connection->statement('CREATE TABLE retry_upload_parents (id INTEGER PRIMARY KEY)');
+        $connection->statement('CREATE TABLE retry_upload_children (parent_id INTEGER REFERENCES retry_upload_parents(id) DEFERRABLE INITIALLY DEFERRED)');
+
+        $registry = resolve(AdminUploadGrantRepository::class);
+        $scope = hash('sha256', 'direct-commit');
+        $registry->grant($scope, 'revoked.txt');
+
+        $connection->beginTransaction();
+        $registry->grant($scope, 'retry.txt');
+        $expiry = $connection->table('admin_upload_grants')->where('path', 'retry.txt')->value('expires_at');
+        $registry->forget($scope, 'revoked.txt');
+        $connection->table('upload_children')->insert(['parent_id' => 1]);
+
+        // A real deferred constraint fails at COMMIT, leaving Laravel and PDO
+        // inside the same outer transaction, with no terminal event dispatched.
+        expect(fn () => $connection->commit())->toThrow(PDOException::class)
+            ->and($connection->transactionLevel())->toBe(1)
+            ->and($connection->getPdo()->inTransaction())->toBeTrue();
+        $this->travel(1)->minutes();
+        if ($commit) {
+            $connection->table('upload_parents')->insert(['id' => 1]);
+            $connection->commit();
+        } else {
+            $connection->rollBack();
+        }
+
+        expect($connection->transactionLevel())->toBe(0)
+            ->and($registry->paths($scope, ['retry.txt', 'revoked.txt']))->toBe(['retry.txt'])
+            ->and($connection->table('admin_upload_grants')->value('expires_at'))->toBe($expiry);
+
+        // Both journal directions must have ended: a later unrelated rollback
+        // must neither revive a deleted grant nor delete a newly issued one.
+        $registry->forget($scope, 'retry.txt');
+        $registry->grant($scope, 'revoked.txt');
+
+        $connection->beginTransaction();
+        $connection->rollBack();
+
+        expect($registry->paths($scope, ['retry.txt', 'revoked.txt']))->toBe(['revoked.txt']);
+    });
+})->with(['later commit' => true, 'later rollback' => false]);
+
+it('keeps grant and revocation journals on their issuing connection when the default changes', function (): void {
+    withUploadRollbackConnection(function (): void {
+        $first = DB::connection();
+        config()->set('database.connections.upload-second', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => 'second_']);
+        DB::setDefaultConnection('upload-second');
+        try {
+            (require dirname(__DIR__, 4) . '/database/migrations/2026_10_24_000001_create_admin_upload_grants_table.php')->up();
+            $second = DB::connection();
+            $registry = resolve(AdminUploadGrantRepository::class);
+            $scope = hash('sha256', 'shared-scope');
+            $registry->grant($scope, 'revoked.txt');
+            $second->beginTransaction();
+            $registry->grant($scope, 'second.txt');
+            $registry->forget($scope, 'revoked.txt');
+
+            DB::setDefaultConnection('upload-rollback');
+            $registry->grant($scope, 'revoked.txt');
+            $first->beginTransaction();
+            $registry->grant($scope, 'first.txt');
+
+            // Dispatch the second connection's rollback while the first is the
+            // default: replay must use the connection captured by each write.
+            $second->rollBack();
+            expect($registry->paths($scope, ['first.txt', 'second.txt', 'revoked.txt']))->toBe(['first.txt', 'revoked.txt']);
+
+            DB::setDefaultConnection('upload-second');
+            expect($registry->paths($scope, ['first.txt', 'second.txt', 'revoked.txt']))->toBe(['second.txt']);
+            $first->rollBack();
+            expect($registry->paths($scope, ['first.txt', 'second.txt', 'revoked.txt']))->toBe(['second.txt']);
+
+            // A completed second journal cannot revive its grant or replay its
+            // revocation during another rollback on either connection.
+            $registry->forget($scope, 'second.txt');
+            $registry->grant($scope, 'revoked.txt');
+            $second->beginTransaction();
+            $second->rollBack();
+            expect($registry->paths($scope, ['second.txt', 'revoked.txt']))->toBe(['revoked.txt']);
+            DB::setDefaultConnection('upload-rollback');
+            expect($registry->paths($scope, ['first.txt', 'second.txt', 'revoked.txt']))->toBe(['first.txt', 'revoked.txt']);
+        } finally {
+            DB::setDefaultConnection('upload-rollback');
+            DB::purge('upload-second');
+        }
+    });
+});
+
+it('keeps a grant revoked through savepoint rollback and outer rollback', function (bool $commitInner): void {
+    withUploadRollbackConnection(function () use ($commitInner): void {
+        $registry = resolve(AdminUploadGrantRepository::class);
+        $scope = hash('sha256', 'nested-revocation');
+        DB::beginTransaction();
+        $registry->grant($scope, 'deleted.txt');
+        DB::beginTransaction();
+        $registry->forget($scope, 'deleted.txt');
+        $commitInner ? DB::commit() : DB::rollBack();
+        expect(DB::transactionLevel())->toBe(1)
+            ->and($registry->paths($scope, ['deleted.txt']))->toBe([]);
+
+        DB::rollBack();
+        expect(DB::transactionLevel())->toBe(0)
+            ->and($registry->paths($scope, ['deleted.txt']))->toBe([]);
+    });
+})->with(['savepoint rollback' => false, 'nested commit then outer rollback' => true]);
