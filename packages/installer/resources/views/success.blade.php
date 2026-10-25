@@ -112,7 +112,7 @@
                             class="button secondary"
                             href="{{ $completion->destination() }}"
                         >
-                            {{ __($completion->adminUrl !== null ? 'capell-installer::installer.go_to_admin' : 'capell-installer::installer.return_to_site') }}
+                            @if ($completion->adminUrl !== null) {{ __('capell-installer::installer.go_to_admin') }}@else {{ __('capell-installer::installer.return_to_site') }}@endif
                         </a>
                         @if ($completion->adminUrl !== null)
                             <a

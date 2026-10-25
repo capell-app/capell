@@ -2995,9 +2995,9 @@ it('uses the prepared installed panel destination on every completion surface', 
             : '//a[@id="admin-link"]');
 
         expect($link->getAttribute('href'))->toBe($adminUrl ?? 'https://site.test/capell')
-            ->and(trim($link->textContent))->toBe(__($adminUrl !== null
-                ? 'capell-installer::installer.go_to_admin'
-                : 'capell-installer::installer.return_to_site'));
+            ->and(trim($link->textContent))->toBe($adminUrl !== null
+                ? __('capell-installer::installer.go_to_admin')
+                : __('capell-installer::installer.return_to_site'));
     }
 })->with([
     'default panel' => ['https://site.test/capell/admin'],
