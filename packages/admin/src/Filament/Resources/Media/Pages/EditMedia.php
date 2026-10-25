@@ -184,7 +184,9 @@ class EditMedia extends EditRecord
                             TextInput::make('meta.alt')
                                 ->label(__('capell-admin::media.alt_text'))
                                 ->helperText(__('capell-admin::media.alt_text_helper'))
-                                ->required(fn (Get $get): bool => ! (bool) $get('meta.decorative')
+                                ->visible(fn (): bool => $this->record->isImage())
+                                ->required(fn (Get $get): bool => $this->record->isImage()
+                                    && ! (bool) $get('meta.decorative')
                                     && $this->shouldSaveLocalizedMetadata($get->array('')))
                                 ->maxLength(255),
                             Textarea::make('meta.caption')
@@ -197,6 +199,7 @@ class EditMedia extends EditRecord
                                 ->maxLength(255),
                             Toggle::make('meta.decorative')
                                 ->label(__('capell-admin::media.decorative'))
+                                ->visible(fn (): bool => $this->record->isImage())
                                 ->live()
                                 ->helperText(__('capell-admin::media.decorative_helper')),
                         ])

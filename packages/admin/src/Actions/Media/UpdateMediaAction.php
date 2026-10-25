@@ -111,6 +111,20 @@ final class UpdateMediaAction
                 'decorative' => (bool) ($translationData['meta']['decorative'] ?? false),
             ], fn (mixed $value): bool => $value !== null && $value !== '');
 
+            if (! $media->isImage()) {
+                $existingTranslation = $media->translations()->where('language_id', $languageId)->first();
+                $existingMeta = $existingTranslation instanceof Translation ? ($existingTranslation->meta ?? []) : [];
+
+                // Image-only fields are absent from document forms; retain historic values.
+                foreach (['alt', 'decorative'] as $key) {
+                    unset($meta[$key]);
+
+                    if (array_key_exists($key, $existingMeta)) {
+                        $meta[$key] = $existingMeta[$key];
+                    }
+                }
+            }
+
             Translation::query()->updateOrCreate(
                 [
                     'language_id' => $languageId,

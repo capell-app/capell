@@ -432,7 +432,7 @@ return [
     'permalink_action_reset' => 'Reset',
     'permalink_label' => 'Permalink:',
     'permalink_label_link_visit' => 'Visit',
-    'permalink_status_changed' => 'changed',
+    'permalink_status_changed' => 'unsaved',
     'precheck_backup' => 'Backup',
     'precheck_backup_hint' => 'Create or confirm a restorable backup first.',
     'precheck_compatibility' => 'Compatibility',
