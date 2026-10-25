@@ -464,12 +464,12 @@ it('saves document metadata per language without image alt text or decorative co
 
     expect($translations)->toHaveCount(2)
         ->and($englishTranslation->title)->toBe('Visitor brochure')
-        ->and($englishTranslation->meta)->toBe([
+        ->and($englishTranslation->meta)->toEqual([
             'caption' => 'Plan your visit',
             'credit' => 'Visitor Services',
         ])
         ->and($frenchTranslation->title)->toBe('Brochure de visite')
-        ->and($frenchTranslation->meta)->toBe([
+        ->and($frenchTranslation->meta)->toEqual([
             'caption' => 'Préparez votre visite',
             'credit' => 'Office de tourisme',
         ]);
