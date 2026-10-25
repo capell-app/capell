@@ -99,7 +99,8 @@ it('stores only canonical positive UTC integer count events', function (): void 
         1,
         1,
         MetricScopeData::global('UTC'),
-        CarbonImmutable::now('Europe/London'),
+        // A zone with a permanent non-zero offset: Europe/London is UTC+0 all winter, which the UTC check rightly accepts.
+        CarbonImmutable::now('Asia/Tokyo'),
     ))->toThrow(InvalidArgumentException::class);
 });
 
