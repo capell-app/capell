@@ -7,11 +7,13 @@ namespace Capell\Installer\Actions;
 use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Facades\CapellCore;
 use Capell\Installer\Data\InstallerCompletionData;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 final class BuildInstallerCompletionDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): InstallerCompletionData

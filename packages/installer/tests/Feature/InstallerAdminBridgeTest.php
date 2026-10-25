@@ -18,6 +18,7 @@ use Capell\Installer\Providers\InstallerAdminServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Filament\Facades\Filament;
 use Filament\Panel;
+use Filament\PanelRegistry;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Http\Request;
@@ -66,8 +67,9 @@ it('resolves the configured panel independently of request host and current pane
         expect(Filament::getTenant())->toBeNull();
     }
 
-    Filament::registerPanel($panel);
-    Filament::registerPanel(Panel::make()->id('unrelated')->path('other'));
+    $registry = resolve(PanelRegistry::class);
+    $registry->register($panel);
+    $registry->register(Panel::make()->id('unrelated')->path('other'));
     Filament::setCurrentPanel(Filament::getPanel('unrelated'));
     $domainPrefix = count($domains) > 1 ? $domains[0] . '.' : '';
     if ($registerHome) {

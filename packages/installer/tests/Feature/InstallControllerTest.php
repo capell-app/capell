@@ -3022,7 +3022,8 @@ it('offers a site handoff without consulting an admin runtime on a headless inst
     foreach (['show', 'progress', 'success'] as $surface) {
         $parameters = $surface === 'show' ? [] : ['installId' => $installId];
         $page = installerMarkup(get(route('capell-installer.' . $surface, $parameters))->assertOk()->content());
-        expect(domCount($page, '//a[contains(@href, "/admin")]'))->toBe(0)
+        expect(domCount($page, '//a[starts-with(@href, "https://site.test/capell/admin")]'))->toBe(0)
+            ->and(domCount($page, '//a[normalize-space(.) = "' . __('capell-installer::installer.go_to_admin') . '"]'))->toBe(0)
             ->and(domCount($page, '//a[@href="https://site.test/capell"]'))->toBe(1);
     }
 });
