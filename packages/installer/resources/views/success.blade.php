@@ -83,41 +83,45 @@
                 </div>
 
                 <div class="completion-launch-column">
-                    <div class="completion-checklist">
-                        <h3>
-                            {{ __('capell-installer::installer.launchpad_checklist_title') }}
-                        </h3>
-                        <p>{{ __('capell-installer::installer.launchpad_message') }}</p>
+                    @if ($completion->adminUrl !== null)
+                        <div class="completion-checklist">
+                            <h3>
+                                {{ __('capell-installer::installer.launchpad_checklist_title') }}
+                            </h3>
+                            <p>{{ __('capell-installer::installer.launchpad_message') }}</p>
 
-                        <ul>
-                            <li>
-                                {{ __('capell-installer::installer.launchpad_check_pages') }}
-                            </li>
-                            <li>
-                                {{ __('capell-installer::installer.launchpad_check_site_settings') }}
-                            </li>
-
-                            @if ($roleUsersCreated)
+                            <ul>
                                 <li>
-                                    {{ __('capell-installer::installer.launchpad_check_roles') }}
+                                    {{ __('capell-installer::installer.launchpad_check_pages') }}
                                 </li>
-                            @endif
-                        </ul>
-                    </div>
+                                <li>
+                                    {{ __('capell-installer::installer.launchpad_check_site_settings') }}
+                                </li>
+
+                                @if ($roleUsersCreated)
+                                    <li>
+                                        {{ __('capell-installer::installer.launchpad_check_roles') }}
+                                    </li>
+                                @endif
+                            </ul>
+                        </div>
+                    @endif
 
                     <div class="completion-actions">
                         <a
                             class="button secondary"
-                            href="{{ url('/admin') }}"
+                            href="{{ $completion->destination() }}"
                         >
-                            {{ __('capell-installer::installer.go_to_admin') }}
+                            {{ __($completion->adminUrl !== null ? 'capell-installer::installer.go_to_admin' : 'capell-installer::installer.return_to_site') }}
                         </a>
-                        <a
-                            class="button secondary"
-                            href="{{ url('/') }}"
-                        >
-                            {{ __('capell-installer::installer.return_to_site') }}
-                        </a>
+                        @if ($completion->adminUrl !== null)
+                            <a
+                                class="button secondary"
+                                href="{{ $completion->siteUrl }}"
+                            >
+                                {{ __('capell-installer::installer.return_to_site') }}
+                            </a>
+                        @endif
                     </div>
                 </div>
             </section>
