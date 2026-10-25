@@ -36,15 +36,48 @@ it('does not lock an automatic URL update', function (): void {
         ->and($client['manual'])->toBeFalse();
 });
 
-it('retains the existing cancel behaviour and the chosen URL lock', function (): void {
-    $client = SlugEditorClientForTest::update(mountedSlugEditorForTest()->toHtml(), 'data.meta.slug', 'chosen-before-cancel', 'cancel');
+it('discards cancelled typing and restores the opening form value and manual lock', function (string $interaction, bool $manual): void {
+    $client = SlugEditorClientForTest::update(mountedSlugEditorForTest('original-url')->toHtml(), 'data.meta.slug', 'discard-me', $interaction, $manual);
 
-    expect($client['slug'])->toBe('chosen-before-cancel')
+    expect($client['slug'])->toBe('original-url')
+        ->and($client['manual'])->toBe($manual)
+        ->and($client['modified'])->toBeFalse()
+        ->and($client['editing'])->toBeFalse();
+})->with(['cancel', 'escape'])->with([false, true]);
+
+it('preserves an earlier applied change when the next edit is cancelled', function (string $interaction): void {
+    $client = SlugEditorClientForTest::sequence(mountedSlugEditorForTest('original-url')->toHtml(), 'data.meta.slug', [
+        ['slug' => 'Change A', 'interaction' => 'ok'],
+        ['slug' => 'change-b', 'interaction' => $interaction],
+    ]);
+
+    expect($client['slug'])->toBe('change-a')
+        ->and($client['manual'])->toBeTrue()
+        ->and($client['modified'])->toBeTrue()
+        ->and($client['editing'])->toBeFalse();
+})->with(['cancel', 'escape']);
+
+it('commits the normalised draft through Apply or Enter', function (string $interaction): void {
+    $client = SlugEditorClientForTest::update(mountedSlugEditorForTest()->toHtml(), 'data.meta.slug', '  Crème Brûlée!  ', $interaction);
+
+    expect($client['slug'])->toBe('creme-brulee')
         ->and($client['manual'])->toBeTrue()
         ->and($client['editing'])->toBeFalse();
+})->with(['ok', 'enter']);
+
+it('keeps the saved visit address truthful while an applied permalink is pending', function (): void {
+    $component = mountedSlugEditorForTest('original-url')
+        ->slugInputRecordSlug(fn (): string => 'original-url')
+        ->slugInputVisitLinkRoute(fn (): string => 'https://capell.test/original-url');
+    $client = SlugEditorClientForTest::update($component->toHtml(), 'data.meta.slug', 'pending-url', 'ok');
+
+    expect($client['slug'])->toBe('pending-url')
+        ->and($client['modified'])->toBeTrue()
+        ->and($client['visitUrl'])->toBe('https://capell.test/original-url')
+        ->and($client['visitText'])->toBe('https://capell.test/original-url');
 });
 
-it('resets an edited URL to its original value without unlocking it', function (): void {
+it('applies a reset to the original URL without unlocking it', function (): void {
     $client = SlugEditorClientForTest::update(mountedSlugEditorForTest('original-url')->toHtml(), 'data.meta.slug', 'changed-url', 'reset', manual: true);
 
     expect($client['slug'])->toBe('original-url')
