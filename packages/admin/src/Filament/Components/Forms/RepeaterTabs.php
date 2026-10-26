@@ -41,10 +41,13 @@ class RepeaterTabs extends Repeater
 
     protected string $view = 'capell-admin::components.schemas.repeater-tabs';
 
+    private bool $syncActiveTab = false;
+
     private ?Closure $beforeAddAction = null;
 
     private Closure|bool $minimal = false;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -184,6 +187,18 @@ class RepeaterTabs extends Repeater
     public function getParentComponent(): ?Component
     {
         return $this->getContainer()->getParentComponent();
+    }
+
+    public function syncActiveTabWithServer(bool $condition = true): static
+    {
+        $this->syncActiveTab = $condition;
+
+        return $this;
+    }
+
+    public function isActiveTabSyncedWithServer(): bool
+    {
+        return $this->syncActiveTab;
     }
 
     public function activeTab(int|Closure $activeTab): static

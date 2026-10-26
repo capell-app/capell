@@ -18,6 +18,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
@@ -106,18 +107,32 @@ class DetailsSchema
                 ->columnSpanFull()
                 ->hiddenOn(['create', 'createOption', 'replicate'])
                 ->schema([
-                    TextInput::make('master_file')
+                    Select::make('master_file')
+                        ->searchable()
+                        ->options(fn (): array => resolve(LayoutViewRegistry::class)->masterOptions())
                         ->rule(fn () => Rule::in(array_keys(resolve(LayoutViewRegistry::class)->masterOptions())))
                         ->label(__('capell-admin::form.master_file'))
-                        ->helperText(__('capell-admin::generic.layout_master_file_info'))
-                        ->placeholder('page.page'),
-                    TextInput::make('layout_file')
+                        ->helperText(fn (?string $state): string => self::viewHelp($state, resolve(LayoutViewRegistry::class)->masterOptions(), (string) __('capell-admin::generic.layout_master_file_info')))
+                        ->placeholder(__('capell-admin::layout_views.default')),
+                    Select::make('layout_file')
+                        ->searchable()
+                        ->options(fn (): array => resolve(LayoutViewRegistry::class)->layoutOptions())
                         ->rule(fn () => Rule::in(array_keys(resolve(LayoutViewRegistry::class)->layoutOptions())))
                         ->label(__('capell-admin::form.layout_file'))
-                        ->helperText(__('capell-admin::generic.layout_layout_file_info'))
-                        ->placeholder('layout.base'),
+                        ->helperText(fn (?string $state): string => self::viewHelp($state, resolve(LayoutViewRegistry::class)->layoutOptions(), (string) __('capell-admin::generic.layout_layout_file_info')))
+                        ->placeholder(__('capell-admin::layout_views.default')),
                 ]),
         ];
+    }
+
+    /** @param array<string, string> $options */
+    private static function viewHelp(?string $state, array $options, string $help): string
+    {
+        if (filled($state) && ! array_key_exists($state, $options)) {
+            return $help . ' ' . __('capell-admin::layout_views.unavailable', ['view' => $state]);
+        }
+
+        return $options === [] ? $help . ' ' . __('capell-admin::layout_views.registration') : $help;
     }
 
     private static function themeSelect(Schema $schema): ThemeSelect

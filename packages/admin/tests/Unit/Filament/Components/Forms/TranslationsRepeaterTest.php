@@ -175,7 +175,7 @@ it('uses the page content structure override when preparing translation content'
     expect($mutatedData['content'])->toBe($blocks);
 });
 
-it('blocks page translation additions that would violate parent language coverage', function (): void {
+it('keeps child translation input available while parent language coverage is unresolved', function (): void {
     test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
     $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
@@ -219,14 +219,15 @@ it('blocks page translation additions that would violate parent language coverag
 
     expect($component->getState())->toHaveCount(1);
 
-    expect(fn (): mixed => $addAction->call([
+    $addAction->call([
         'component' => $component,
         'arguments' => [
             'language_id' => $welsh->getKey(),
         ],
-    ]))->toThrow(Halt::class);
+    ]);
 
-    expect($component->getState())->toHaveCount(1);
+    expect($component->getState())->toHaveCount(2)
+        ->and(array_column($component->getState(), 'language_id'))->toContain($english->getKey(), $welsh->getKey());
 
     $componentWithoutResolvableParent = mountedNestedPageTranslationsRepeaterForTest([
         'site_id' => $site->getKey(),

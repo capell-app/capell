@@ -16,7 +16,7 @@ final class BuildMediaHealthIndexAction
     use AsObject;
 
     /** @return array<int, string> */
-    public function handle(): array
+    public function handle(?string $issue = null): array
     {
         /** @var Collection<int, Media> $media */
         $media = SiteAccess::current()->scopeMedia(
@@ -26,7 +26,11 @@ final class BuildMediaHealthIndexAction
         $states = [];
 
         foreach ($media as $record) {
-            $states[(int) $record->getKey()] = BuildMediaHealthStateAction::run($record)->primaryIssue();
+            $state = BuildMediaHealthStateAction::run($record);
+
+            if ($issue === null || in_array($issue, $state->issues(), true)) {
+                $states[(int) $record->getKey()] = $state->primaryIssue();
+            }
         }
 
         return $states;

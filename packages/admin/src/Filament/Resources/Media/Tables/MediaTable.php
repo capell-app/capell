@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Resources\Media\Tables;
 use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
 use Capell\Admin\Actions\Media\BuildMediaHealthIndexAction;
 use Capell\Admin\Actions\Media\BuildMediaHealthStateAction;
+use Capell\Admin\Actions\Media\ResolvePublicMediaLinkAction;
 use Capell\Admin\Actions\ReplaceMediaFileAction;
 use Capell\Admin\Enums\MediaHealthIssueEnum;
 use Capell\Admin\Enums\ResourceEnum;
@@ -53,13 +54,16 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Js;
 use Illuminate\Support\Number;
 use Illuminate\Support\Str;
+use Override;
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Throwable;
 
 class MediaTable implements TableConfigurator
 {
+    #[Override]
     public static function configure(Table $table): Table
     {
         return $table
@@ -139,6 +143,20 @@ class MediaTable implements TableConfigurator
                     self::editRedirectOwnerAction(),
                 ])
                     ->color('gray'),
+                Action::make('open-file')
+                    ->label(__('capell-admin::media_links.open_file'))
+                    ->url(fn (Media $record): ?string => ResolvePublicMediaLinkAction::run($record))
+                    ->openUrlInNewTab()
+                    ->visible(fn (Media $record): bool => ResolvePublicMediaLinkAction::run($record) !== null),
+                Action::make('copy-public-link')
+                    ->label(__('capell-admin::media_links.copy_public_link'))
+                    ->alpineClickHandler(fn (Media $record): string => 'navigator.clipboard.writeText(' . Js::from(ResolvePublicMediaLinkAction::run($record)) . ')')
+                    ->visible(fn (Media $record): bool => ResolvePublicMediaLinkAction::run($record) !== null),
+                Action::make('public-link-unavailable')
+                    ->label(__('capell-admin::media_links.unavailable'))
+                    ->disabled()
+                    ->tooltip(__('capell-admin::media_links.private_help'))
+                    ->visible(fn (Media $record): bool => ResolvePublicMediaLinkAction::run($record) === null),
                 Action::make('replace-file')
                     ->label(__('capell-admin::media.replace_file'))
                     ->icon(Heroicon::OutlinedArrowUpTray)
@@ -372,12 +390,9 @@ class MediaTable implements TableConfigurator
         }
 
         /** @var array<int, string> $healthIndex */
-        $healthIndex = BuildMediaHealthIndexAction::run();
+        $healthIndex = BuildMediaHealthIndexAction::run($value);
 
-        $matchingIds = collect($healthIndex)
-            ->filter(static fn (string $issue): bool => $issue === $value)
-            ->keys()
-            ->all();
+        $matchingIds = array_keys($healthIndex);
 
         return $query->whereKey($matchingIds === [] ? [0] : $matchingIds);
     }

@@ -122,9 +122,15 @@ it('escapes language names in parent coverage warnings', function (string $kind)
     ];
     if ($kind === 'create') {
         Livewire::test(CreatePage::class)
-            ->set('data.translations', [])->fillForm([
-                'name' => 'Child', 'site_id' => $site->getKey(), 'parent_id' => $parent->getKey(),
-            ])->call('create');
+            ->fillForm($data)->call('create')
+            ->assertHasFormErrors(['parent_id'])
+            ->assertSee(e($name), escape: false)
+            ->assertDontSee($name, escape: false);
+
+        // The final save guard must still escape names if coverage changes after form validation.
+        $component = new CreatePage;
+        $component->data = $data;
+        expect(fn (): mixed => new ReflectionMethod($component, 'afterValidate')->invoke($component))->toThrow(Halt::class);
     } elseif ($kind === 'edit') {
         $component = new EditPage;
         $component->record = $child;
@@ -139,9 +145,15 @@ it('escapes language names in parent coverage warnings', function (string $kind)
         ]);
         $schema->getFlatComponents();
         $repeater->state([]);
-        expect(fn (): mixed => $repeater->getAddAction()->call([
+        $repeater->getAddAction()->call([
             'component' => $repeater, 'arguments' => ['language_id' => $other->getKey()],
-        ]))->toThrow(Halt::class);
+        ]);
+        expect(array_column($repeater->getState(), 'language_id'))->toBe([$other->getKey()]);
+
+        // Adding retains the draft input; saving remains blocked by missing parent languages.
+        $component = new CreatePage;
+        $component->data = array_replace($data, ['translations' => $repeater->getState()]);
+        expect(fn (): mixed => new ReflectionMethod($component, 'afterValidate')->invoke($component))->toThrow(Halt::class);
     }
 
     $notification = FilamentNotificationSnapshots::pull()->reverse()->firstOrFail();

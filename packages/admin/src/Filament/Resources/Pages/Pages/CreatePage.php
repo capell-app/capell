@@ -30,6 +30,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 use Override;
@@ -226,16 +227,18 @@ class CreatePage extends CreateRecord implements HasPageResource
                     continue;
                 }
 
+                $canEditParent = Gate::allows('update', $parent);
                 Notification::make('page_language_parent')
                     ->warning()
                     ->title(__('capell-admin::message.page_language_parent', ['name' => e($language->name)]))
-                    ->body(__('capell-admin::message.page_language_parent_info'))
-                    ->actions([
+                    ->body($canEditParent ? __('capell-admin::parent_languages.handoff') : __('capell-admin::parent_languages.ask_editor'))
+                    ->actions($canEditParent ? [
                         Action::make('edit')
                             ->button()
                             ->label(__('capell-admin::generic.edit') . ' ' . Str::limit($parent->name, 30))
-                            ->url(GetEditPageResourceUrlAction::run($parent)),
-                    ])
+                            ->url(GetEditPageResourceUrlAction::run($parent))
+                            ->openUrlInNewTab(),
+                    ] : [])
                     ->send();
 
                 $this->halt();

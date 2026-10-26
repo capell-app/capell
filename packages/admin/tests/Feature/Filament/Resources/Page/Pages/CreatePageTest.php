@@ -10,6 +10,8 @@ use Capell\Admin\Filament\Configurators\Pages\ResultsPageConfigurator;
 use Capell\Admin\Filament\Resources\Pages\Pages\CreatePage;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
+use Capell\Admin\Tests\Support\ScopedAdminUser;
+use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
@@ -21,13 +23,19 @@ use Capell\Core\Support\Creator\LayoutCreator;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\Testing\TestAction;
+use Filament\Notifications\Livewire\Notifications;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 use function Pest\Laravel\assertDatabaseCount;
 use function Pest\Laravel\assertDatabaseHas;
 use function Pest\Laravel\assertDatabaseMissing;
+
+use Spatie\Permission\Models\Permission;
 
 require_once dirname(__DIR__, 8) . '/tests/Support/DomQuery.php';
 
@@ -184,7 +192,8 @@ it('prevents creating a page if parent missing languages', function (): void {
             'parent_id' => $parent->id,
         ])
         ->call('create')
-        ->assertNotified(__('capell-admin::message.page_language_parent', ['name' => $language2->name]));
+        ->assertHasFormErrors(['parent_id'])
+        ->assertSee(__('capell-admin::parent_languages.missing', ['languages' => $language2->name]));
 
     assertDatabaseMissing(Page::class, [
         'name' => $newData->name,
@@ -516,4 +525,155 @@ it('keeps the selected site when opening the full page form', function (): void 
 
     Livewire::test(CreatePage::class)
         ->assertSchemaStateSet(['site_id' => $selected->id]);
+});
+
+it('explains missing parent languages before saving without clearing child input', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $parent = Page::factory()->site($site)->withTranslations($english)->createOne();
+    Blueprint::factory()->page()->default()->createOne();
+    $component = Livewire::test(CreatePage::class)->fillForm([
+        'site_id' => $site->id,
+        'parent_id' => $parent->id,
+        'name' => 'Keep my child draft',
+        'translations' => [
+            'english' => ['language_id' => $english->id, 'title' => 'English draft'],
+            'french' => ['language_id' => $french->id, 'title' => 'French draft'],
+        ],
+    ]);
+
+    $component->assertSee(__('capell-admin::parent_languages.missing', ['languages' => $french->name]))
+        ->assertFormSet(['name' => 'Keep my child draft']);
+
+    $parent->translations()->create(['language_id' => $french->id, 'title' => 'French parent']);
+    $component->callAction(TestAction::make('recheck-parent-languages')->schemaComponent('parent_id', schema: 'form'));
+    $component->assertSee(__('capell-admin::parent_languages.compatible'))
+        ->assertFormSet(['name' => 'Keep my child draft']);
+});
+
+it('opens the requested page translation rather than the default language', function (bool $creating): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $page = Page::factory()->site($site)->withTranslations([$english, $french])->createOne();
+
+    Livewire::withQueryParams(['language_id' => $french->id, 'site_id' => $site->id])
+        ->test($creating ? CreatePage::class : EditPage::class, $creating ? [] : ['record' => $page->getRouteKey()])
+        ->assertFormFieldExists('translations', function ($field) use ($french): bool {
+            $rows = array_values($field->getState());
+
+            return (int) ($rows[$field->getActiveTab() - 1]['language_id'] ?? 0) === $french->id;
+        });
+})->with(['edit' => false, 'create' => true]);
+
+it('carries the filtered language into edit type chooser and quick create', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $type = Blueprint::factory()->page()->default()->createOne();
+    $page = Page::factory()->site($site)->type($type)->withTranslations([$english, $french])->createOne();
+
+    Livewire::test(ListPages::class)
+        ->set('tableFilters.filter.language_id', $french->id)
+        ->assertTableActionHasUrl('edit', GetEditPageResourceUrlAction::run($page) . '?language_id=' . $french->id, $page)
+        ->mountAction('choosePageType')
+        ->assertMountedActionModalSeeHtml('language_id=' . $french->id);
+
+    $quick = Livewire::test(ListPages::class)
+        ->set('tableFilters.filter.language_id', $french->id)
+        ->mountAction('create');
+    $rows = $quick->get('mountedActions.0.data.translations');
+    expect(array_map(intval(...), array_column($rows, 'language_id')))->toBe([$french->id]);
+});
+
+it('rechecks parent languages even when editing an unchanged parent relationship', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $parent = Page::factory()->site($site)->withTranslations($english)->createOne();
+    $child = Page::factory()->site($site)->parent($parent)->withTranslations($english)->createOne();
+    $component = Livewire::test(EditPage::class, ['record' => $child->getRouteKey()]);
+    $translations = $component->get('data.translations');
+    $translations['new-french'] = ['language_id' => $french->id, 'title' => 'French child', 'meta' => ['slug' => 'french-child']];
+
+    $component->set('data.translations', $translations)
+        ->call('save')
+        ->assertNotified(__('capell-admin::message.page_language_parent', ['name' => $french->name]));
+
+    expect($child->translations()->where('language_id', $french->id)->exists())->toBeFalse();
+});
+
+it('updates draft preview language from the active saved tab and disables unsaved translations', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $page = Page::factory()->pending()->site($site)->withTranslations([$english, $french])->createOne();
+    $component = Livewire::withQueryParams(['language_id' => $french->id])->test(EditPage::class, ['record' => $page->getRouteKey()]);
+    $component->assertActionEnabled('previewDraftPage');
+
+    $action = $component->instance()->getAction('previewDraftPage');
+    expect($action->getUrl())->toContain('language_id=' . $french->id);
+
+    $page->translations()->where('language_id', $french->id)->delete();
+    $component->set('data.activeTab', 2)->assertActionDisabled('previewDraftPage');
+});
+
+it('keeps the final parent language warning honest when the editor cannot update the parent', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $parent = Page::factory()->site($site)->withTranslations($english)->createOne();
+    $child = Page::factory()->site($site)->parent($parent)->withTranslations([$english, $french])->createOne();
+    foreach (['View:Page', 'Update:Page'] as $permission) {
+        Permission::findOrCreate($permission);
+    }
+
+    $actor = test()->createUserWithPermission(['View:Page', 'Update:Page']);
+    $actor->assignedSiteIds = collect([$site->id]);
+
+    test()->actingAs($actor);
+    Gate::before(fn (mixed $user, string $ability, array $arguments): ?bool => $ability === 'update' && ($arguments[0] ?? null) instanceof Page && $arguments[0]->is($parent) ? false : null);
+
+    Livewire::test(EditPage::class, ['record' => $child->getRouteKey()])->call('save');
+    Livewire::test(Notifications::class)
+        ->assertSee(__('capell-admin::parent_languages.ask_editor'))
+        ->assertDontSee(GetEditPageResourceUrlAction::run($parent));
+});
+
+it('shares site language membership across repeated row and edit URL callbacks', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
+    $type = Blueprint::factory()->page()->default()->createOne();
+    $pages = Page::factory()->count(3)->site($site)->type($type)->withTranslations([$english, $french])->create();
+    test()->actingAs(ScopedAdminUser::make(collect([$site->id])));
+    $component = Livewire::test(ListPages::class)->set('tableFilters.filter.language_id', $french->id);
+    $table = $component->instance()->getTable();
+    $edit = $table->getAction('edit');
+    assert($edit instanceof Action);
+    // Warm the unrelated resource URL resolver before measuring membership reads.
+    $urls = $pages->mapWithKeys(fn (Page $page): array => [$page->id => GetEditPageResourceUrlAction::run($page) . '?language_id=' . $french->id]);
+
+    $previousRequest = request();
+    try {
+        app()->instance('request', Request::create('/admin'));
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        foreach ($pages as $page) {
+            $edit->record($page);
+            for ($evaluation = 0; $evaluation < 5; $evaluation++) {
+                expect($table->getRecordUrl($page))->toBe($urls[$page->id])
+                    ->and($edit->getUrl())->toBe($urls[$page->id]);
+            }
+        }
+
+        $queries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'from "sites"')
+            || str_contains($query['query'], 'from "site_domains"') || str_contains($query['query'], 'from "languages"'));
+        DB::disableQueryLog();
+        expect($queries)->toHaveCount(4);
+    } finally {
+        DB::disableQueryLog();
+        app()->instance('request', $previousRequest);
+    }
 });

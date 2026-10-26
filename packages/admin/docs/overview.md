@@ -48,7 +48,9 @@ The bulk confirmation proves that reverting hides selected pages from visitors w
 
 ### Page history and layout choices
 
-The history timeline shows saved changes before an editor opens the rollback preview. The layout selector identifies disabled and unused layouts before selection.
+The history timeline shows saved changes before an editor opens the rollback preview. The layout selector identifies disabled and unused layouts before selection. In a layout editor, wrapper and body views are searchable choices from their separate `LayoutViewRegistry` registrations. Leave either choice blank to use the default. An unavailable saved view must be cleared, replaced or registered again before saving.
+
+Bulk moves offer parents eligible for at least one selected page. Mixed-site selections can move only the pages belonging to the chosen parent's site. The result names viewable moved and skipped pages, including recursive or permission-related skips; the server rechecks eligibility when the action runs.
 
 | Surface               | Light                                                                           | Dark                                                                                              |
 | --------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -57,6 +59,10 @@ The history timeline shows saved changes before an editor opens the rollback pre
 | Layout selector       | [Layout choices](images/screenshots/admin-page-layout-select-record-states.png) | [Layout choices in dark mode](images/screenshots/admin-page-layout-select-record-states-dark.png) |
 
 ### Media workflow
+
+Health filters match every applicable issue, so an image missing both alt text and credit appears in both filters. The primary badge still shows one issue; its tooltip lists them all. Healthy contains only records without issues.
+
+Use **Open file or video** or **Copy public link** to obtain a generated URL for a publicly stored file, or the canonical source of an external video. **Copy file name** remains separate. Private files show that a public link is unavailable and retain their authorised delivery method.
 
 | Replace an upload                                                                                                                                    | Set a focal point                                                                                                                           |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |

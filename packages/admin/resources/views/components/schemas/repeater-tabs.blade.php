@@ -19,6 +19,9 @@
 
     $createItems = $getCreateItems();
     $activeTab = $getActiveTab();
+    $syncActiveTab = $isActiveTabSyncedWithServer()
+        ? '$watch(\'tab\', value => $wire.set(' . \Illuminate\Support\Js::from($field->getContainer()->getStatePath() . '.activeTab') . ', value))'
+        : '';
     $label = $getLabel();
     $flagIconRenderer = app(FlagIconRenderer::class);
 @endphp
@@ -34,6 +37,7 @@
             ? (tab = $event.detail.tabId)
             : null
     "
+    x-init="{{ $syncActiveTab }}"
     x-cloak
     wire:key="{{ $livewireKey }}.nav"
     :attributes="
