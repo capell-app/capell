@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'page_site_unsupported_languages' => 'Resolve the unsupported language content before saving: switch back to a compatible site or confirm Use site languages.',
+    'page_site_choices_cleared' => 'Review page choices after changing site',
     'extension_panel_topology_refresh' => 'Panel topology changes require a fresh application.',
     'extension_panel_refresh_deferred' => 'Panel :panel remains unavailable; new surfaces are deferred until a fresh application.',
     'extension_panel_middleware_removal' => 'Panel middleware removal requires a fresh application.',

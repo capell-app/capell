@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'use_site_languages' => 'Use site languages',
     'add_action' => 'Add Action',
     'act_as_owner' => 'Act as owner',
     'add_asset' => 'Add Asset',

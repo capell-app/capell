@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Actions\Page\ReplicatePageAction as HeaderReplicatePageAction;
 use Capell\Admin\Filament\Actions\Table\ReplicatePageAction as RowReplicatePageAction;
+use Capell\Admin\Filament\Components\Forms\Page\SiteSelect;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -22,9 +24,9 @@ uses(CreatesAdminUser::class)->group('page');
 
 beforeEach(function (): void {
     $this->actingAsAdmin();
-    $english = Language::factory()->createOne(['default' => true]);
-    $french = Language::factory()->createOne(['default' => false]);
-    $site = Site::factory()->createOne(['language_id' => $english->id]);
+    $english = Language::factory()->english()->createOne(['default' => true]);
+    $french = Language::factory()->french()->createOne(['default' => false]);
+    $site = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
     $this->page = Page::factory()->createOne(['site_id' => $site->id, 'name' => 'Atlas parent']);
 
     foreach ([$english, $french] as $language) {
@@ -58,6 +60,61 @@ it('prefills the required name for replicate', function (bool $header): void {
 
         return $field->isRequired();
     });
+})->with(['header' => true, 'row' => false]);
+
+it('reconciles the destination site before saving a replica', function (bool $header): void {
+    $siteA = $this->page->site;
+    $german = Language::factory()->createOne(['name' => 'German', 'code' => 'de', 'default' => false]);
+    $siteB = Site::factory()->language($german)->withTranslations($german)->createOne();
+    $layoutA = Layout::factory()->site($siteA)->createOne();
+    $layoutB = Layout::factory()->site($siteB)->createOne();
+    $parentA = Page::factory()->site($siteA)->layout($layoutA)->createOne();
+    $this->page->update(['layout_id' => $layoutA->id, 'parent_id' => $parentA->id]);
+    $component = $header
+        ? Livewire::test(EditPage::class, ['record' => $this->page->id])
+        : Livewire::test(ListPages::class);
+    $action = $header ? HeaderReplicatePageAction::class : TestAction::make(RowReplicatePageAction::class)->table($this->page);
+    $component->mountAction($action);
+    $schemaName = expectPresent($component->instance()->getMountedActionSchemaName());
+    $statePath = 'mountedActions.0.data';
+    $originals = collect($component->get($statePath . '.translations'))->keyBy('language_id');
+    $component->set($statePath . '.site_id', $siteB->id)
+        ->assertFormSet(['parent_id' => null, 'layout_id' => null], $schemaName)
+        ->assertNotified(__('capell-admin::message.page_site_choices_cleared'));
+    $translations = collect($component->get($statePath . '.translations'))->keyBy('language_id');
+    expect($translations->keys()->all())->toContain($german->id);
+    foreach ($originals as $languageId => $original) {
+        expect($translations[$languageId])->toMatchArray($original);
+    }
+
+    $schema = expectPresent($component->instance()->getSchema($schemaName));
+    $siteSelect = $schema->getComponent('site_id');
+    assert($siteSelect instanceof SiteSelect);
+    $warning = $siteSelect->getChildSchema(SiteSelect::BELOW_CONTENT_SCHEMA_KEY)?->toHtml();
+    foreach ($this->page->load('translations.language')->translations as $translation) {
+        expect($warning)->toContain(e($translation->language->name));
+    }
+
+    $component->fillForm(['layout_id' => $layoutB->id], $schemaName)
+        ->callMountedAction()->assertHasActionErrors(['site_id']);
+    expect(Page::query()->where('site_id', $siteB->id)->exists())->toBeFalse();
+    $component->set($statePath . '.site_id', $siteA->id);
+    foreach ($originals as $languageId => $original) {
+        expect(collect($component->get($statePath . '.translations'))->keyBy('language_id')[$languageId])->toMatchArray($original);
+    }
+
+    $component->set($statePath . '.site_id', $siteB->id);
+    $confirmation = TestAction::make('useSiteLanguages')->schemaComponent('site_id', schema: $schemaName);
+    $component->mountAction($confirmation)->assertActionMounted($confirmation);
+    expect($component->get($statePath . '.translations'))->toHaveCount(3);
+    $component->callMountedAction();
+    expect(collect($component->get($statePath . '.translations'))->pluck('language_id')->all())->toBe([$german->id]);
+    $component->fillForm(['layout_id' => $layoutB->id, 'parent_id' => null], $schemaName)
+        ->callMountedAction()->assertHasNoActionErrors();
+    $copy = Page::query()->where('site_id', $siteB->id)->sole();
+    expect($copy->translations()->sole()->language_id)->toBe($german->id)
+        ->and($copy->layout_id)->toBe($layoutB->id)
+        ->and($this->page->fresh()->translations)->toHaveCount(2);
 })->with(['header' => true, 'row' => false]);
 
 it('replicates the default state twice with unique urls in every language', function (bool $header): void {
@@ -160,6 +217,7 @@ it('preserves custom slugs when replicating', function (bool $header): void {
 it('rejects an explicitly reused source slug as a replicate form error', function (bool $header): void {
     $translations = [];
     $errors = [];
+    $translationIds = Translation::query()->orderBy('id')->pluck('id')->all();
     foreach ($this->page->translations as $translation) {
         $key = 'record-' . $translation->id;
         $translations[$key] = $translation->only($translation->getFillable());
@@ -176,7 +234,8 @@ it('rejects an explicitly reused source slug as a replicate form error', functio
         ->assertHasActionErrors($errors);
 
     expect(Page::query()->count())->toBe(1)
-        ->and(Translation::query()->count())->toBe(2)
+        ->and(Translation::query()->count())->toBe(4)
+        ->and(Translation::query()->orderBy('id')->pluck('id')->all())->toBe($translationIds)
         ->and(PageUrl::query()->count())->toBe(2);
 })->with(['header' => true, 'row' => false]);
 

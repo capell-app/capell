@@ -50,3 +50,19 @@ describe('MutateDefaultPageDataAction feature', function (): void {
         expect(array_diff(array_keys($data), $allowedKeys))->toBeEmpty();
     });
 });
+
+it('keeps inline creation layout defaults within the chosen default site', function (): void {
+    test()->actingAsAdmin();
+    $siteA = Site::factory()->createOne(['default' => false]);
+    $siteB = Site::factory()->createOne(['default' => true]);
+    Layout::factory()->site($siteA)->createOne(['default' => true]);
+    $layoutB = Layout::factory()->site($siteB)->createOne(['default' => false]);
+
+    expect(MutateDefaultPageDataAction::run()['layout_id'])->toBeNull();
+    $layoutB->update(['default' => true]);
+    $data = MutateDefaultPageDataAction::run();
+
+    expect($data['site_id'])->toBe($siteB->id)
+        ->and($data['layout_id'])->toBe($layoutB->id)
+        ->and(collect($data['translations'])->pluck('language_id')->all())->toBe([$siteB->language_id]);
+});

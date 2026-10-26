@@ -50,6 +50,8 @@ class PageSelect extends Select
 
     private ?Closure $modifySelectOptionsQueryUsing = null;
 
+    private ?int $eligibilityOptionId = null;
+
     #[Override]
     protected function setUp(): void
     {
@@ -91,6 +93,22 @@ class PageSelect extends Select
     public function getPageType(): ?string
     {
         return $this->evaluate($this->pageType);
+    }
+
+    public function isOptionEligible(int $value): bool
+    {
+        $siteId = $this->makeGetUtility()('site_id');
+        $record = $this->getRecord();
+        $previousId = $this->eligibilityOptionId;
+        $this->eligibilityOptionId = $value;
+
+        try {
+            return array_key_exists($value, $this->getPageOptions(
+                site_id: filled($siteId) ? (int) $siteId : ($record instanceof Site ? $record->id : null),
+            ));
+        } finally {
+            $this->eligibilityOptionId = $previousId;
+        }
     }
 
     public function modifySelectOptionsQueryUsing(?Closure $callback): static
@@ -264,6 +282,7 @@ class PageSelect extends Select
             'pages._lft',
             'pages._rgt',
         ])
+            ->when($this->eligibilityOptionId !== null, fn (Builder $query): Builder => $query->whereKey($this->eligibilityOptionId))
             ->when(
                 $this->modifySelectOptionsQueryUsing,
                 fn (Builder $query): mixed => $this->evaluate($this->modifySelectOptionsQueryUsing, ['query' => $query]),

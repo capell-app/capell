@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Components\Forms\Page\LayoutSelect;
 use Capell\Admin\Filament\Resources\Pages\Pages\CreatePage;
+use Capell\Admin\Tests\Fixtures\Livewire as FormLivewire;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -92,6 +93,7 @@ it('keeps the actor-visible usage count without marking it as globally authorita
     test()->actingAs(ScopedAdminUser::make(collect([$assignedSite->getKey()])));
 
     $component = LayoutSelect::make('layout_id');
+    mountLayoutSelectForSiteTest($component);
     $property = new ReflectionProperty(Select::class, 'modifyRelationshipQueryUsing');
     $modifyQuery = $property->getValue($component);
     assert($modifyQuery instanceof Closure);
@@ -120,6 +122,7 @@ it('does not run a fallback usage query while rendering an option without the se
 
 it('loads a single cross-variation usage aggregate for relationship options', function (): void {
     $component = LayoutSelect::make('layout_id');
+    mountLayoutSelectForSiteTest($component);
     $property = new ReflectionProperty(Select::class, 'modifyRelationshipQueryUsing');
     $modifyQuery = $property->getValue($component);
 
@@ -141,3 +144,87 @@ function layoutSelectChildComponents(LayoutSelect $component): array
 
     return $component->getChildSchema(LayoutSelect::BELOW_CONTENT_SCHEMA_KEY)?->getComponents() ?? [];
 }
+
+/** @param array<string, mixed> $state */
+function mountLayoutSelectForSiteTest(LayoutSelect $component, array $state = [], ?Page $record = null, string $operation = 'create'): void
+{
+    Schema::make(FormLivewire::make()->data($state))
+        ->model($record ?? Page::class)
+        ->operation($operation)
+        ->statePath('data')
+        ->components([$component])
+        ->getComponents();
+}
+
+it('offers only selected-site and shared layouts in options and search', function (string $operation): void {
+    $siteA = Site::factory()->createOne();
+    $siteB = Site::factory()->createOne();
+    $siteC = Site::factory()->createOne();
+    $layoutA = Layout::factory()->site($siteA)->createOne(['name' => 'Candidate A']);
+    $layoutB = Layout::factory()->site($siteB)->createOne(['name' => 'Candidate B']);
+    $layoutC = Layout::factory()->site($siteC)->createOne(['name' => 'Candidate C']);
+    $shared = Layout::factory()->createOne(['name' => 'Candidate shared', 'site_id' => null]);
+    test()->actingAs(ScopedAdminUser::make(collect([$siteA->id, $siteB->id])));
+    $component = LayoutSelect::make('layout_id');
+    mountLayoutSelectForSiteTest($component, ['site_id' => $siteB->id], operation: $operation);
+
+    expect(validator(['layout_id' => $layoutA->id], ['layout_id' => $component->getValidationRules()])->fails())->toBeTrue();
+
+    foreach ([$component->getSearchResults(''), $component->getSearchResults('Candidate')] as $options) {
+        expect($options)->toHaveKeys([$layoutB->id, $shared->id])
+            ->not->toHaveKey($layoutA->id)
+            ->not->toHaveKey($layoutC->id);
+    }
+})->with(['create', 'createOption']);
+
+it('uses the edited page site when a configurator omits the site field', function (): void {
+    test()->actingAsAdmin();
+    $siteA = Site::factory()->createOne();
+    $siteB = Site::factory()->createOne();
+    $layoutA = Layout::factory()->site($siteA)->createOne();
+    $layoutB = Layout::factory()->site($siteB)->createOne();
+    $page = Page::factory()->site($siteB)->layout($layoutB)->createOne();
+    $component = LayoutSelect::make('layout_id');
+    mountLayoutSelectForSiteTest($component, record: $page, operation: 'edit');
+
+    expect($component->getSearchResults(''))->toHaveKey($layoutB->id)->not->toHaveKey($layoutA->id);
+    expect(validator(['layout_id' => $layoutB->id], ['layout_id' => $component->getValidationRules()])->passes())->toBeTrue();
+});
+
+it('chooses an eligible default and honours configurator restrictions', function (bool $shared): void {
+    test()->actingAsAdmin();
+    $siteA = Site::factory()->createOne();
+    $siteB = Site::factory()->createOne();
+    Layout::factory()->site($siteA)->createOne(['default' => true]);
+    $layout = Layout::factory()->createOne(['site_id' => $shared ? null : $siteB->id, 'default' => false]);
+    $hidden = Layout::factory()->site($siteB)->createOne(['default' => false, 'admin' => ['hidden_from_selection' => true]]);
+    $component = LayoutSelect::make('layout_id');
+    mountLayoutSelectForSiteTest($component, ['site_id' => $siteB->id]);
+
+    expect($component->getDefaultState())->toBeNull();
+    $layout->update(['default' => true]);
+    $hidden->update(['default' => true]);
+
+    expect($component->getDefaultState())->toBe($layout->id)
+        ->and($component->getSearchResults(''))->not->toHaveKey($hidden->id);
+
+    $component->modifyQueryUsing(function (Builder $query) use ($hidden): void {
+        $query->whereKey($hidden->id);
+    });
+    expect($component->getDefaultState())->toBeNull()
+        ->and($component->getSearchResults(''))->toBe([]);
+})->with([true, false]);
+
+it('keeps shared layout choices when a configurator supplies no site context', function (): void {
+    test()->actingAsAdmin();
+    $site = Site::factory()->createOne();
+    $siteLayout = Layout::factory()->site($site)->createOne(['default' => true]);
+    $shared = Layout::factory()->createOne(['site_id' => null, 'default' => false]);
+    $component = LayoutSelect::make('layout_id');
+    mountLayoutSelectForSiteTest($component, operation: 'createOption');
+
+    expect($component->getSearchResults(''))->toHaveKey($shared->id)->not->toHaveKey($siteLayout->id);
+    expect($component->getDefaultState())->toBeNull();
+    $shared->update(['default' => true]);
+    expect($component->getDefaultState())->toBe($shared->id);
+});

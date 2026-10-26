@@ -77,7 +77,10 @@
                             aria-controls="{{ $item->getLivewireKey() }}.panel"
                             wire:key="{{ $item->getLivewireKey() }}.nav"
                             x-bind:aria-selected="tab === {{ $loop->iteration }}"
-                            x-on:click.stop="tab = {{ $loop->iteration }}"
+                            x-on:click.stop="
+                                tab = {{ $loop->iteration }};
+                                $wire.$set({{ \Illuminate\Support\Js::from($getContainer()->getStatePath() . '.activeTab') }}, tab, false)
+                            "
                             x-bind:tabindex="tab === {{ $loop->iteration }} ? 0 : -1"
                         >
                             <span
@@ -188,7 +191,10 @@
                     x-bind:class="{
                         'fi-active': tab === @js($loop->iteration),
                     }"
-                    x-on:expand="tab = @js($loop->iteration)"
+                    x-on:expand="
+                        tab = @js($loop->iteration);
+                        $wire.$set(@js($getContainer()->getStatePath() . '.activeTab'), tab, false)
+                    "
                     x-cloak
                     {{
                         $attributes

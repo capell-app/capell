@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Resources\Pages;
 
 use BackedEnum;
+use Capell\Admin\Actions\Pages\BuildPageLayoutOptionsQueryAction;
 use Capell\Admin\Actions\Pages\BuildPageRelationshipCountsAction;
 use Capell\Admin\Actions\Pages\ResolvePageAvailabilityStateAction;
 use Capell\Admin\Actions\ScopePageRestoreVisibilityAction;
@@ -41,7 +42,6 @@ use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Models\Contracts\Publishable;
-use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -302,10 +302,7 @@ class PageResource extends SiteScopedResource implements ValidatesDelete
         }
 
         if (! array_key_exists('layout_id', $data) || $data['layout_id'] === '') {
-            /** @var class-string<Layout> $model */
-            $model = Layout::class;
-
-            $data['layout_id'] = SiteAccess::current()->query($model)->default()->value('id');
+            $data['layout_id'] = BuildPageLayoutOptionsQueryAction::run($site->id)->default()->value('id');
         }
 
         if (! array_key_exists('blueprint_id', $data) || $data['blueprint_id'] === '') {

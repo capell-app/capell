@@ -30,6 +30,7 @@ use Override;
 
 class TranslationsRepeater extends BaseTranslationsRepeater
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -46,6 +47,13 @@ class TranslationsRepeater extends BaseTranslationsRepeater
                 ->orderBy('languages.name'),
         )
             ->setupActiveTabAfterStateHydrated()
+            ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
+                if (is_array($data['meta'] ?? null)) {
+                    $data['meta'] = array_filter($data['meta'], fn (mixed $value): bool => $value !== null);
+                }
+
+                return $data;
+            })
             ->required()
             ->persistTabInQueryString()
             ->default(function (self $component, Get $get, ?Model $record): array {
