@@ -176,5 +176,5 @@ it('preserves explicitly saved visibility when opening dashboard settings', func
 
     DashboardSettingsSchema::make(Mockery::mock(Schema::class));
 
-    expect(array_intersect_key(AdminSettings::instance()->refresh()->enabled_widgets, $saved))->toBe($saved);
+    expect(array_intersect_key(AdminSettings::instance()->refresh()->enabled_widgets, $saved))->toEqual($saved);
 });

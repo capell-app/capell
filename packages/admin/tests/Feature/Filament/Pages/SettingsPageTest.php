@@ -224,7 +224,7 @@ it('persists dashboard Filament widget layout across settings page admin tab sav
 
     $freshSettings = AdminSettings::instance()->refresh();
 
-    expect($freshSettings->widget_order)->toBe(array_replace(AdminSettings::defaultWidgetOrder(), [
+    expect($freshSettings->widget_order)->toEqual(array_replace(AdminSettings::defaultWidgetOrder(), [
         'site_stats_overview' => 1,
         'my_work_queue' => 5,
         'recently_published' => 3,
