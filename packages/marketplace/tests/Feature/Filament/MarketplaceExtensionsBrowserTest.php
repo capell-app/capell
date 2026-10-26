@@ -2282,7 +2282,7 @@ it('offers the exact installed extension and safe existing setup documentation i
 
     $installedUrl = expectPresent($setup->installedUrl);
     $component->assertSeeHtml('href="' . e($installedUrl) . '"');
-    parse_str((string) parse_url($installedUrl, PHP_URL_QUERY), $query);
+    parse_str((string) parse_url((string) $installedUrl, PHP_URL_QUERY), $query);
     Livewire::test(ExtensionsPage::class)
         ->assertSee('capell-app/setup-suite')
         ->assertSee('capell-app/unrelated-suite');
