@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Contracts\Media\AdminMediaFieldFactory;
 use Capell\Admin\Filament\Components\Forms\ImageSourcePicker;
+use Capell\Core\Settings\CoreSettings;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
@@ -93,3 +94,18 @@ function imageSourcePickerChildren(ImageSourcePicker $picker): array
 
     return $property->getValue($picker)['default'] ?? [];
 }
+
+it('uses a compatible global default and safely falls back for legacy or field restrictions', function (string $policy, string $default, string $fieldPolicy, string $expected): void {
+    $settings = resolve(CoreSettings::class);
+    $settings->allowed_image_sources = $policy;
+    $settings->default_image_source = $default;
+    $settings->save();
+
+    $picker = ImageSourcePicker::make('image')->allowedSources($fieldPolicy);
+    $children = imageSourcePickerChildren($picker);
+    expect($children[0]->getDefaultState())->toBe($expected);
+})->with([
+    ['all', 'upload', 'all', 'upload'],
+    ['upload_only', 'media', 'upload_only', 'upload'],
+    ['url_media', 'media', 'url_only', 'url'],
+]);

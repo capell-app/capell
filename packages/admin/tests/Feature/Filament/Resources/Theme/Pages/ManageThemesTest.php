@@ -29,6 +29,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\Testing\TestAction;
+use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\Column;
 use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Support\Collection as SupportCollection;
@@ -1087,4 +1088,18 @@ it('can not delete theme if it is used', function (): void {
         ->assertCountTableRecords(1);
 
     assertDatabaseHas($theme, ['id' => $theme->id]);
+});
+
+it('clears the preview page when its site changes and explains an empty site', function (): void {
+    test()->actingAsAdmin();
+    Blueprint::factory()->theme()->default()->create();
+    $theme = Theme::factory()->createOne();
+    $siteA = Site::factory()->default()->create();
+    $siteB = Site::factory()->create();
+    $pageA = Page::factory()->site($siteA)->create();
+    $preview = Livewire::test(ManageThemes::class)->mountTableAction('previewTheme', $theme)
+        ->setTableActionData(['site_id' => $siteA->id, 'page_id' => $pageA->id]);
+    $preview->set('mountedActions.0.data.site_id', $siteB->id)
+        ->assertSchemaStateSet(['page_id' => null])
+        ->assertSchemaComponentExists('page_id', checkComponentUsing: fn (Select $component): bool => str_contains($component->getChildSchema(Select::BELOW_CONTENT_SCHEMA_KEY)?->toHtml() ?? '', __('capell-admin::theme-library.help.preview_empty_site')));
 });

@@ -121,3 +121,54 @@ it('keeps an edited manual URL when title and URL are deferred in the same save'
     expect($translation->refresh()->title)->toBe('Updated title')
         ->and(data_get($translation->meta, 'slug'))->toBe('chosen-edited-url');
 });
+
+it('saves the original permalink after cancelling an edit', function (string $interaction): void {
+    test()->actingAsAdmin();
+    $language = Language::factory()->createOne();
+    $page = Page::factory()->recycle($language)->withTranslations(slug: 'original-url')->createOne();
+    $translation = $page->translation;
+    $originalUrl = $page->pageUrl()->where('language_id', $language->getKey())->firstOrFail();
+    $originalPublicUrl = $originalUrl->full_url;
+    $form = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])->assertSuccessful();
+    $path = sprintf('data.translations.record-%s', $translation->getKey());
+    $client = SlugEditorClientForTest::update($form->html(), $path . '.meta.slug', 'discard-this-url', $interaction, manual: true);
+
+    $form->update(
+        calls: [['method' => 'save', 'params' => []]],
+        updates: [
+            $path . '.title' => 'Updated title',
+            $path . '.meta.slug' => $client['slug'],
+            $path . '.slug_auto_update_disabled' => $client['manual'],
+        ],
+    )->assertHasNoFormErrors()
+        ->assertNotNotified(__('capell-admin::message.url_changed'));
+
+    expect($translation->refresh()->title)->toBe('Updated title')
+        ->and(data_get($translation->meta, 'slug'))->toBe('original-url')
+        ->and($originalUrl->refresh()->full_url)->toBe($originalPublicUrl)
+        ->and($page->pageUrl()->where('language_id', $language->getKey())->count())->toBe(1);
+})->with(['cancel', 'escape']);
+
+it('saves an applied permalink after cancelling a later edit', function (string $interaction): void {
+    test()->actingAsAdmin();
+    $language = Language::factory()->createOne();
+    $page = Page::factory()->recycle($language)->withTranslations(slug: 'original-url')->createOne();
+    $translation = $page->translation;
+    $form = Livewire::test(EditPage::class, ['record' => $page->getRouteKey()])->assertSuccessful();
+    $path = sprintf('data.translations.record-%s', $translation->getKey());
+    $client = SlugEditorClientForTest::sequence($form->html(), $path . '.meta.slug', [
+        ['slug' => 'Applied URL', 'interaction' => 'ok'],
+        ['slug' => 'discard-this-url', 'interaction' => $interaction],
+    ], manual: true);
+
+    $form->update(
+        calls: [['method' => 'save', 'params' => []]],
+        updates: [
+            $path . '.meta.slug' => $client['slug'],
+            $path . '.slug_auto_update_disabled' => $client['manual'],
+        ],
+    )->assertHasNoFormErrors();
+
+    expect(data_get($translation->refresh()->meta, 'slug'))->toBe('applied-url')
+        ->and($page->pageUrl()->where('language_id', $language->getKey())->whereNull('type')->value('url'))->toBe('/applied-url');
+})->with(['cancel', 'escape']);

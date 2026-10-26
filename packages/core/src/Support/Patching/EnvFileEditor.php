@@ -49,6 +49,11 @@ final class EnvFileEditor
         return null;
     }
 
+    public function content(): string
+    {
+        return $this->content;
+    }
+
     public function save(): void
     {
         $bytesWritten = @file_put_contents($this->filePath, $this->content);
@@ -66,24 +71,9 @@ final class EnvFileEditor
         $backupDir = $baseBackupDir;
         $suffix = 0;
 
-        while (true) {
-            if (is_dir($backupDir)) {
-                $suffix++;
-                $backupDir = $baseBackupDir . '-' . $suffix;
-
-                continue;
-            }
-
-            $created = @mkdir($backupDir, 0755, true);
-            if ($created || is_dir($backupDir)) {
-                break;
-            }
-
-            throw_unless(
-                is_dir(dirname($backupDir)),
-                RuntimeException::class,
-                'Failed to create environment backup directory: ' . $backupDir,
-            );
+        while (! @mkdir($backupDir, 0700, true)) {
+            throw_unless(is_dir($backupDir), RuntimeException::class, 'Failed to create environment backup directory: ' . $backupDir);
+            $backupDir = $baseBackupDir . '-' . ++$suffix;
         }
 
         $backupPath = $backupDir . '/.env';

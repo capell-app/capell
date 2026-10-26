@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
-use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Patching\ReviewableFilePatch;
 use Capell\Core\Support\Patching\RootRouteEditor;
+use Capell\Installer\Support\InstallGuide\PlansFilePatch;
 use Override;
 use RuntimeException;
 use Throwable;
 
-class RemoveWelcomeRoutePatch implements Patch
+class RemoveWelcomeRoutePatch implements ReviewableFilePatch
 {
+    use PlansFilePatch;
+
     private const string ROUTES_WEB_PATH = 'routes/web.php';
 
     #[Override]
@@ -88,43 +92,12 @@ class RemoveWelcomeRoutePatch implements Patch
         return null;
     }
 
-    #[Override]
-    public function apply(): void
+    protected function plan(): FilePatchPlan
     {
-        $routesWebPath = base_path(self::ROUTES_WEB_PATH);
+        $path = base_path(self::ROUTES_WEB_PATH);
+        $content = file_get_contents($path);
+        throw_unless(is_string($content), RuntimeException::class, 'Could not read routes/web.php');
 
-        throw_unless(
-            file_exists($routesWebPath),
-            RuntimeException::class,
-            'routes/web.php not found at: ' . $routesWebPath,
-        );
-
-        $status = $this->probe();
-        if ($status !== PatchStatus::Applicable) {
-            throw new RuntimeException(
-                'Cannot apply patch when status is: ' . $status->value,
-            );
-        }
-
-        try {
-            $content = file_get_contents($routesWebPath);
-            throw_unless($content !== false, RuntimeException::class, 'Could not read routes/web.php');
-
-            $modifiedContent = new RootRouteEditor($content)->removeStockWelcomeRoutes();
-
-            // Write the file back
-            $written = file_put_contents($routesWebPath, $modifiedContent);
-            throw_unless(
-                $written !== false,
-                RuntimeException::class,
-                'Failed to write modified routes/web.php',
-            );
-        } catch (Throwable $throwable) {
-            throw new RuntimeException(
-                'Failed to apply RemoveWelcomeRoutePatch: ' . $throwable->getMessage(),
-                (int) $throwable->getCode(),
-                $throwable,
-            );
-        }
+        return new FilePatchPlan($path, self::ROUTES_WEB_PATH, $content, new RootRouteEditor($content)->removeStockWelcomeRoutes());
     }
 }
