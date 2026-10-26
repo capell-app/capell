@@ -22,6 +22,7 @@ const defaultOptions = {
 }
 
 const formComponents = [
+    { entry: 'components/repeater-tabs', output: 'components/repeater-tabs' },
     { entry: 'agent/admin-bridge', output: 'agent/admin-bridge' },
     {
         entry: 'components/html-code-editor',

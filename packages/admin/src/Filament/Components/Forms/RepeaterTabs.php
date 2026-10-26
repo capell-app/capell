@@ -45,6 +45,7 @@ class RepeaterTabs extends Repeater
 
     private Closure|bool $minimal = false;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -81,14 +82,12 @@ class RepeaterTabs extends Repeater
 
         return $this->afterStateHydrated(function (RepeaterTabs $component) use ($afterStateHydrated): void {
             if ($afterStateHydrated instanceof Closure) {
-                $afterStateHydrated($component);
+                $component->evaluate($afterStateHydrated);
             }
 
             $livewire = $component->getLivewire();
 
-            $containerStatePath = $component->getContainer()->getStatePath();
-
-            data_set($livewire, $containerStatePath . '.activeTab', $component->getActiveTab());
+            data_set($livewire, $component->getActiveTabStatePath(), $component->getActiveTab());
         });
     }
 
@@ -225,12 +224,15 @@ class RepeaterTabs extends Repeater
             $this->activeTab = $this->getDefaultTab();
         }
 
-        $parentStatePath = $this->getContainer()->getStatePath();
-        $livewire = $this->getLivewire();
+        $activeTab = data_get($this->getLivewire(), $this->getActiveTabStatePath());
+        $selected = $activeTab ?? $this->evaluate($this->activeTab);
 
-        $activeTab = data_get($livewire, $parentStatePath . '.activeTab');
+        return max(1, min((int) $selected, max(1, count((array) $this->getState()))));
+    }
 
-        return $activeTab ?? $this->evaluate($this->activeTab);
+    public function getActiveTabStatePath(): string
+    {
+        return $this->getContainer()->getStatePath() . '.activeTab';
     }
 
     #[Override]
@@ -274,6 +276,7 @@ class RepeaterTabs extends Repeater
 
                 $component->collapsed(false, shouldMakeComponentCollapsible: false);
 
+                data_set($livewire, $component->getActiveTabStatePath(), $tabId);
                 $livewire->dispatch('refresh-tabs', tabId: $tabId, statePath: $statePath);
 
                 $component->callAfterStateUpdated();
@@ -334,6 +337,7 @@ class RepeaterTabs extends Repeater
 
                 $component->collapsed(false, shouldMakeComponentCollapsible: false);
 
+                data_set($livewire, $component->getActiveTabStatePath(), 1);
                 $livewire->dispatch('refresh-tabs', tabId: 1, statePath: $statePath);
 
                 $component->callAfterStateUpdated();
@@ -468,6 +472,7 @@ class RepeaterTabs extends Repeater
         $this->callAfterStateUpdated();
 
         // Activate next tab
+        data_set($livewire, $this->getActiveTabStatePath(), $newTab);
         $livewire->dispatch('refresh-tabs', tabId: $newTab, statePath: $statePath);
     }
 
@@ -489,9 +494,8 @@ class RepeaterTabs extends Repeater
 
         $this->callAfterStateUpdated();
 
-        if ($tabId !== 0) {
-            $livewire->dispatch('refresh-tabs', tabId: $tabId, statePath: $statePath);
-        }
+        data_set($livewire, $this->getActiveTabStatePath(), max(1, $tabId));
+        $livewire->dispatch('refresh-tabs', tabId: $tabId, statePath: $statePath);
     }
 
     /**
@@ -616,7 +620,7 @@ class RepeaterTabs extends Repeater
 
                 $component->callAfterStateUpdated();
 
-                $livewire->dispatch('repeater::translate', statePath: $statePath, tab: 1);
+                $livewire->dispatch('repeater::translate', statePath: $statePath, tab: $tab);
             });
     }
 
