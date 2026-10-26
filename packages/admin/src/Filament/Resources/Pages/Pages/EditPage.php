@@ -1239,10 +1239,6 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
         $data = is_array($this->data) ? $this->data : [];
         $parentId = $data['parent_id'] ?? null;
 
-        if ($this->record->parent_id === (int) $parentId) {
-            return true;
-        }
-
         $selectedLangIds = [];
         foreach ((array) ($data['translations'] ?? []) as $translation) {
             if (isset($translation['language_id'])) {
@@ -1254,7 +1250,7 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
 
         $parent = SiteAccess::current()->query(Page::class)
             ->withWhereHas('blueprint')
-            ->withWhereHas('translations')
+            ->with('translations')
             ->firstWhere('id', $parentId);
 
         if ($parent === null) {
@@ -1271,16 +1267,18 @@ class EditPage extends EditRecord implements HasPageResource, ValidatesDelete
             $language = Language::query()->find($language_id);
             $languageName = $language instanceof Language ? $language->name : '';
 
+            $canEditParent = Gate::allows('update', $parent);
             Notification::make('page_language_parent')
                 ->warning()
                 ->title(__('capell-admin::message.page_language_parent', ['name' => e($languageName)]))
-                ->body(__('capell-admin::message.page_language_parent_info'))
-                ->actions([
+                ->body($canEditParent ? __('capell-admin::parent_languages.handoff') : __('capell-admin::parent_languages.ask_editor'))
+                ->actions($canEditParent ? [
                     Action::make('edit')
                         ->button()
                         ->label(__('capell-admin::generic.edit') . ' ' . Str::limit($parent->name, 30))
-                        ->url(GetEditPageResourceUrlAction::run($parent)),
-                ])
+                        ->url(GetEditPageResourceUrlAction::run($parent))
+                        ->openUrlInNewTab(),
+                ] : [])
                 ->send();
 
             return false;

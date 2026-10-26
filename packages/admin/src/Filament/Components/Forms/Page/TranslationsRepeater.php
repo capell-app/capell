@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
+use Capell\Admin\Actions\Pages\ResolvePageJourneyLanguageAction;
 use Capell\Admin\Filament\Components\Forms\TranslationsRepeater as BaseTranslationsRepeater;
 use Capell\Admin\Filament\Contracts\HasPageResource;
 use Capell\Admin\Support\Filament\RawState;
-use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -22,14 +22,13 @@ use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
-use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 use Override;
 
 class TranslationsRepeater extends BaseTranslationsRepeater
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -46,7 +45,22 @@ class TranslationsRepeater extends BaseTranslationsRepeater
                 ->orderBy('languages.name'),
         )
             ->setupActiveTabAfterStateHydrated()
+            ->syncActiveTabWithServer()
             ->required()
+            ->helperText(function (): ?string {
+                $languageId = request()->query('language_id');
+                if (! is_int($languageId) && ! is_string($languageId)) {
+                    return null;
+                }
+
+                foreach ($this->getState() ?? [] as $row) {
+                    if ((string) ($row['language_id'] ?? '') === (string) $languageId) {
+                        return (string) __('capell-admin::page_journey.selected_language');
+                    }
+                }
+
+                return (string) __('capell-admin::page_journey.missing_translation');
+            })
             ->persistTabInQueryString()
             ->default(function (self $component, Get $get, ?Model $record): array {
                 $pageRecord = $record instanceof Pageable ? $record : null;
@@ -111,7 +125,7 @@ class TranslationsRepeater extends BaseTranslationsRepeater
             })
             ->addAction(fn (Action $action): Action => $action->color('primary')->icon('heroicon-m-plus'))
             ->addActionLabel(__('capell-admin::button.add_translation'))
-            ->beforeAddAction(function (self $component, Action $action, array $data, array $state): bool {
+            ->beforeAddAction(function (Action $action, array $data, array $state): bool {
                 $languageId = (int) ($data['language_id'] ?? null);
 
                 if ($languageId === 0) {
@@ -127,57 +141,7 @@ class TranslationsRepeater extends BaseTranslationsRepeater
                     ->filter(fn (array $item): bool => (int) $item['language_id'] === $languageId)
                     ->first();
 
-                if ($matchingData) {
-                    return false;
-                }
-
-                $parentComponent = $component->getParentComponent();
-
-                if (! $parentComponent instanceof Component) {
-                    return false;
-                }
-
-                $formData = RawState::array($parentComponent->getContainer()->getRawState());
-
-                // Check all description languages exist in parent
-                if ($formData['parent_id'] ?? null) {
-                    /** @var class-string<Page> $model */
-                    $model = Page::class;
-
-                    $parent = SiteAccess::current()->query($model)
-                        ->with(['blueprint', 'translations' => fn (BuilderContract $query): BuilderContract => $query->with('language')])
-                        ->firstWhere('id', $formData['parent_id']);
-
-                    if (! $parent instanceof Page) {
-                        return true;
-                    }
-
-                    $langIds = $parent->translations->pluck('language_id')->toArray();
-
-                    if (! in_array($languageId, $langIds, true)) {
-                        /** @var class-string<Language> $model */
-                        $model = Language::class;
-
-                        /** @var Language|null $language */
-                        $language = $model::query()->find($languageId, ['name']);
-
-                        Notification::make('page_language_parent')
-                            ->warning()
-                            ->title(__('capell-admin::message.page_language_parent', ['name' => e($language->name ?? '')]))
-                            ->body(__('capell-admin::message.page_language_parent_info'))
-                            ->actions([
-                                Action::make('edit')
-                                    ->button()
-                                    ->label(__('capell-admin::generic.edit') . ' ' . Str::limit($parent->name, 30))
-                                    ->url(GetEditPageResourceUrlAction::run($parent)),
-                            ])
-                            ->send();
-
-                        $action->halt();
-                    }
-                }
-
-                return true;
+                return ! $matchingData;
             })
             ->cloneable(fn (): bool => true)
             ->itemLabel(function (self $component, string $uuid, array $state, ?Pageable $record): string {
@@ -194,6 +158,29 @@ class TranslationsRepeater extends BaseTranslationsRepeater
                 return __('capell-admin::generic.tab');
 
             });
+    }
+
+    #[Override]
+    public function getDefaultTab(): ?int
+    {
+        $requestedTab = request()->query($this->getTabQueryStringKey());
+        if (is_string($requestedTab) && array_key_exists($requestedTab, $this->getChildSchemas())) {
+            return parent::getDefaultTab();
+        }
+
+        $state = RawState::array($this->getRootContainer()->getRawState());
+        $record = $this->getRecord();
+        $siteId = $state['site_id'] ?? ($record instanceof Page ? $record->site_id : null);
+        $language = ResolvePageJourneyLanguageAction::run(is_numeric($siteId) ? (int) $siteId : null, request()->query('language_id'));
+        $index = 0;
+        foreach ($this->getState() ?? [] as $row) {
+            $index++;
+            if ($language !== null && (int) ($row['language_id'] ?? 0) === $language->id) {
+                return $index;
+            }
+        }
+
+        return parent::getDefaultTab();
     }
 
     /**

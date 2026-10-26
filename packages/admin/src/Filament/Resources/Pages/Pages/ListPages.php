@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Pages\Pages;
 
 use Capell\Admin\Actions\Pages\BuildPageListingQueryAction;
 use Capell\Admin\Actions\Pages\ResolvePageCreationSiteAction;
+use Capell\Admin\Actions\Pages\ResolvePageJourneyLanguageAction;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\Page\CreatePageAction;
 use Capell\Admin\Filament\Concerns\ApplySearchRelationsTable;
@@ -193,6 +194,7 @@ class ListPages extends ListRecords implements HasPageResource, ValidatesDelete
                 $resource::getUrl('create', array_filter([
                     'type' => $pageType->key,
                     'site_id' => $site?->id,
+                    'language_id' => ResolvePageJourneyLanguageAction::run($site?->id, $this->getTableFilterState('filter')['language_id'] ?? null)?->id,
                 ])),
             ));
     }
