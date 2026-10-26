@@ -160,6 +160,9 @@ Deletion and retention:
 - Database-backed sessions or cache can fail before tables exist; the provider falls back per request when safe.
 - Composer package choices are shown only when the web PHP process can resolve the package.
 - Guide patches must be idempotent and covered by focused tests.
+- Install Guide requires **Review changes** before **Apply changes**. Review is read-only: it shows affected relative paths, bounded before/after edits with host literal values redacted, and the backup or file-creation recovery plan. The server binds a review to the current actor, selection and source fingerprints for 15 minutes. Changing the selection, source contents or file permissions requires a fresh review. Applying consumes the review, including on failure.
+- Patches may opt into Core's `Capell\Core\Support\Patching\ReviewablePatch` capability without changing the existing `Patch` interface. `preview()` returns `PatchPreviewData`; `recoveryResult()` returns `PatchRecoveryData` with actual backup and created-file paths, including partial failures. Keep raw source contents server-side and use the same patch-owned plan for preview and application. Patches without this capability, or whose current state cannot be previewed safely, remain explicit manual steps in the reviewed browser flow. Existing command-line patch entry points retain their applicability safeguards.
+- Results remain visible after patch statuses refresh. Existing files are backed up before writing; newly created files are listed separately with instructions to reverse their creation. Multiple edits within the same second retain separate backups. A failed write never counts as a success or a skipped patch.
 
 ## Quick Start
 

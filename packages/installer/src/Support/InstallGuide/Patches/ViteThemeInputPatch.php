@@ -4,46 +4,58 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
-use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Patching\ReviewableFilePatch;
+use Capell\Installer\Support\InstallGuide\PlansFilePatch;
+use Override;
 use RuntimeException;
 
-final class ViteThemeInputPatch implements Patch
+final class ViteThemeInputPatch implements ReviewableFilePatch
 {
+    use PlansFilePatch;
+
     private const string THEME_PATH = 'resources/css/filament/admin/theme.css';
 
     private const string VITE_CONFIG_PATH = 'vite.config.js';
 
+    #[Override]
     public function id(): string
     {
         return 'vite-theme-input-patch';
     }
 
+    #[Override]
     public function group(): string
     {
         return 'themes';
     }
 
+    #[Override]
     public function label(): string
     {
         return __('capell-installer::install-guide.vite_theme_input_patch_label');
     }
 
+    #[Override]
     public function description(): string
     {
         return __('capell-installer::install-guide.vite_theme_input_patch_description');
     }
 
+    #[Override]
     public function docUrl(): string
     {
         return 'https://filamentphp.com/docs/5.x/styling/overview#creating-a-custom-theme';
     }
 
+    #[Override]
     public function defaultEnabled(): bool
     {
         return true;
     }
 
+    #[Override]
     public function probe(): PatchStatus
     {
         $viteConfigPath = base_path(self::VITE_CONFIG_PATH);
@@ -67,12 +79,13 @@ final class ViteThemeInputPatch implements Patch
             : PatchStatus::Customised;
     }
 
+    #[Override]
     public function reason(): ?string
     {
         return null;
     }
 
-    public function apply(): void
+    protected function plan(): FilePatchPlan
     {
         throw_if($this->probe() !== PatchStatus::Applicable, RuntimeException::class, 'The Vite theme input patch is not applicable.');
 
@@ -95,7 +108,14 @@ final class ViteThemeInputPatch implements Patch
 
         throw_if(! is_string($updatedContents) || $updatedContents === $contents, RuntimeException::class, 'Could not register the Filament theme in vite.config.js.');
 
-        throw_if(file_put_contents($viteConfigPath, $updatedContents) === false, RuntimeException::class, 'Could not write vite.config.js.');
+        return new FilePatchPlan(
+            $viteConfigPath,
+            self::VITE_CONFIG_PATH,
+            $contents,
+            $updatedContents,
+            text: true,
+            safeAfter: "'" . self::THEME_PATH . "'",
+        );
     }
 
     private function inputArrayMatches(string $contents): bool

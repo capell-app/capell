@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Actions\InstallGuide;
 
+use Capell\Core\Support\Patching\FilePatchReview;
+use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Patching\ReviewableFilePatch;
+use Capell\Core\Support\Patching\ReviewablePatch;
 use Capell\Installer\Data\InstallGuide\ApplyPatchesInputData;
 use Capell\Installer\Data\InstallGuide\ApplyPatchesResultData;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
@@ -28,10 +32,16 @@ class ApplyInstallGuidePatchesAction extends Action
                 continue;
             }
 
-            $statusBefore = $patch->probe();
+            $statusBefore = PatchStatus::Unsupported;
 
             try {
-                $patch->apply();
+                $statusBefore = $patch->probe();
+                if ($input->fileReview instanceof FilePatchReview && $patch instanceof ReviewableFilePatch) {
+                    $patch->applyReviewed($input->fileReview);
+                } else {
+                    $patch->apply();
+                }
+
                 $statusAfter = $patch->probe();
 
                 $patchResult = new PatchResult(
@@ -39,6 +49,8 @@ class ApplyInstallGuidePatchesAction extends Action
                     label: $patch->label(),
                     statusBefore: $statusBefore,
                     statusAfter: $statusAfter,
+                    recoveryPaths: $patch instanceof ReviewablePatch ? $patch->recoveryResult()->backupPaths : [],
+                    createdPaths: $patch instanceof ReviewablePatch ? $patch->recoveryResult()->createdPaths : [],
                 );
             } catch (Throwable $exception) {
                 $patchResult = new PatchResult(
@@ -47,6 +59,8 @@ class ApplyInstallGuidePatchesAction extends Action
                     statusBefore: $statusBefore,
                     statusAfter: $statusBefore,
                     errorMessage: $this->manualChangeMessage($exception->getMessage()),
+                    recoveryPaths: $patch instanceof ReviewablePatch ? $patch->recoveryResult()->backupPaths : [],
+                    createdPaths: $patch instanceof ReviewablePatch ? $patch->recoveryResult()->createdPaths : [],
                 );
             }
 
