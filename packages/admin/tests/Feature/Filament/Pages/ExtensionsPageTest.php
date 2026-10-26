@@ -370,7 +370,7 @@ it('renders extension dashboard Filament widgets as header widgets above the ins
 
     $settings = AdminSettings::instance();
     $settings->enabled_widgets = [
-        'extensions.stats' => false,
+        'extensions.stats' => true,
         'extensions.installed' => true,
     ];
     $settings->widget_order = [
@@ -392,6 +392,19 @@ it('renders extension dashboard Filament widgets as header widgets above the ins
         ->and($widgetNames)->not->toContain(Livewire::new(InstalledExtensionsFilamentWidget::class)->getName())
         ->and(AdminSettings::instance()->refresh()->enabled_widgets)
         ->toHaveKey('extensions.stats', true);
+});
+
+it('preserves a disabled extension statistics widget when rendering the dashboard', function (): void {
+    grantExtensionsPageAccess();
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = array_replace($settings->enabled_widgets, ['extensions.stats' => false]);
+    $settings->save();
+
+    $editor = Livewire::test(ExtensionsPage::class)->assertSuccessful();
+    $widgetName = Livewire::new(ExtensionStatsOverviewFilamentWidget::class)->getName();
+
+    expect(domElements(domXPath($editor->html()), '//*[@*[name()="wire:name"] = "' . $widgetName . '"]'))->toBe([])
+        ->and(AdminSettings::instance()->refresh()->enabled_widgets)->toHaveKey('extensions.stats', false);
 });
 
 it('renders extension stats with two default, three medium and five large columns', function (): void {

@@ -16,5 +16,7 @@ final class MarketplaceCataloguePageData extends Data
         public readonly int $perPage,
         public readonly ?string $nextPageUrl = null,
         public readonly bool $stale = false,
+        public readonly ?string $observedAt = null,
+        public readonly bool $refreshFailed = false,
     ) {}
 }

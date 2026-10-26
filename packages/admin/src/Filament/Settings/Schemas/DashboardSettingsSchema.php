@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Settings\Schemas;
 
+use Capell\Admin\Actions\RestoreMainDashboardLayoutAction;
 use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Enums\DashboardEnum;
@@ -12,11 +13,14 @@ use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Components\Forms\DashboardFilamentWidgetSettings;
 use Capell\Admin\Filament\Contracts\HasSchema;
 use Exception;
+use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Override;
 use ReflectionMethod;
 
 final class DashboardSettingsSchema implements HasSchema
@@ -26,12 +30,10 @@ final class DashboardSettingsSchema implements HasSchema
      *
      * @return list<Component>
      */
+    #[Override]
     public static function make(Schema $schema): array
     {
-        SyncDashboardFilamentWidgetSettingsAction::run(
-            repairFullyDisabledDefaults: true,
-            repairOverEnabledDefaults: true,
-        );
+        SyncDashboardFilamentWidgetSettingsAction::run();
 
         $contributed = self::allContributedKeys(DashboardEnum::Main);
 
@@ -39,6 +41,13 @@ final class DashboardSettingsSchema implements HasSchema
             Section::make(__('capell-admin::form.dashboard_widget_grid'))
                 ->columnSpanFull()
                 ->description(__('capell-admin::form.dashboard_widget_grid_helper'))
+                ->headerActions([
+                    Action::make('restoreMainDashboardLayout')
+                        ->label(__('capell-admin::form.restore_main_dashboard_layout'))
+                        ->requiresConfirmation()
+                        ->modalDescription(__('capell-admin::form.restore_main_dashboard_layout_help'))
+                        ->action(fn (Set $set) => $set('widget_layout', RestoreMainDashboardLayoutAction::run())),
+                ])
                 ->schema([
                     DashboardFilamentWidgetSettings::make()
                         ->hiddenLabel()

@@ -4,18 +4,25 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Capell\Admin\Filament\Resources\Users\Pages\ListUsers;
+use Capell\Admin\Filament\Resources\Users\Tables\UsersTable;
 use Capell\Core\Database\Factories\RoleFactory;
 use Capell\Core\Database\Factories\UserFactory;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Factories\Sequence;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 
 use function Pest\Laravel\assertModelExists;
 use function Pest\Laravel\assertModelMissing;
+
+use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(CreatesAdminUser::class);
 
@@ -158,3 +165,78 @@ it('can filter users by verified status', function (): void {
         ->assertCanSeeTableRecords([$unverifiedUser])
         ->assertCanNotSeeTableRecords([$verifiedUser]);
 });
+
+it('distinguishes user assignments from shared role permission editing', function (): void {
+    $role = (new RoleFactory)->create(['name' => 'Shared editor']);
+    $user = UserFactory::new()->createOne();
+    $user->roles()->attach($role);
+
+    Livewire::test(ListUsers::class)
+        ->assertTableActionExists('edit', fn ($action): bool => $action->getLabel() === __('capell-admin::button.edit_user'))
+        ->assertTableActionExists('edit-role', fn ($action): bool => $action->getLabel() === __('capell-admin::button.edit_role_permissions'))
+        ->assertTableActionExists('edit-role', fn ($action): bool => $action->getModalDescription() === __('capell-admin::generic.shared_role_permissions_notice'));
+
+    $options = new ReflectionMethod(UsersTable::class, 'editableRoleOptions')->invoke(null, $user->refresh()->load('roles'));
+    expect($options[$role->id])->toContain($role->name)->toContain(__('capell-admin::generic.role_scope_global'));
+});
+
+it('batches role scope queries when rendering users sharing a role', function (): void {
+    $role = (new RoleFactory)->create(['name' => 'Shared visible role']);
+    $users = UserFactory::new()->createMany(25);
+    foreach ($users as $user) {
+        $user->roles()->attach($role);
+    }
+
+    $page = Livewire::test(ListUsers::class)->assertSuccessful();
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        $page->set('tableRecordsPerPage', 50)->assertSuccessful()->assertCanSeeTableRecords($users);
+        $queries = collect(DB::getQueryLog());
+    } finally {
+        DB::disableQueryLog();
+    }
+
+    $scopeQueries = $queries->filter(fn (array $query): bool => preg_match('/^select ["`]?id["`]? from ["`]?roles["`]?/', $query['query']) === 1 && ! str_contains($query['query'], 'limit 1'));
+    expect($scopeQueries)->toHaveCount(1);
+    foreach ($page->instance()->getTableRecords() as $record) {
+        if ($users->contains('id', $record->getKey())) {
+            $page->assertTableActionVisible('edit-role', $record);
+        }
+    }
+});
+
+it('rechecks role scope and policy at submission after row visibility was cached', function (string $restriction): void {
+    test()->actingAsUser();
+    $policy = new class
+    {
+        public bool $blocked = false;
+    };
+    Gate::before(fn (User $actor, string $ability, array $arguments): bool => ! ($policy->blocked && $ability === 'update' && ($arguments[0] ?? null) instanceof Role));
+    $role = (new RoleFactory)->create(['name' => 'Previously editable role']);
+    $user = test()->authenticatedUser();
+    $user->roles()->attach($role);
+    $page = Livewire::test(ListUsers::class)->assertSuccessful();
+    $record = $page->instance()->getTableRecords()->firstWhere('id', $user->id);
+    expect($record)->toBeInstanceOf(User::class);
+    $action = $page->instance()->getTable()->getAction('edit-role')->record($record);
+    expect($action->isVisible())->toBeTrue();
+
+    $originalScopes = Role::getAllGlobalScopes();
+    try {
+        if ($restriction === 'scope') {
+            Role::addGlobalScope('submission-role-scope', fn (Builder $query) => $query->whereKeyNot($role->id));
+        } else {
+            $policy->blocked = true;
+        }
+
+        try {
+            $action->call(['data' => ['role_id' => $role->id]]);
+            $this->fail('A role that is no longer editable must not be submitted.');
+        } catch (HttpException $exception) {
+            expect($exception->getStatusCode())->toBe(403);
+        }
+    } finally {
+        Role::setAllGlobalScopes($originalScopes);
+    }
+})->with(['scope', 'policy']);
