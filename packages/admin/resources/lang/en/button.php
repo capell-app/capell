@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'use_site_languages' => 'Use site languages',
     'edit_user' => 'Edit user',
     'edit_role_permissions' => 'Edit role permissions',
 

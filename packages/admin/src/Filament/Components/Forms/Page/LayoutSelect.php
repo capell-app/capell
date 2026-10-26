@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Components\Forms\Page;
 
+use Capell\Admin\Actions\Pages\BuildPageLayoutOptionsQueryAction;
 use Capell\Admin\Data\RecordRelationshipCountData;
 use Capell\Admin\Data\RecordStateData;
 use Capell\Admin\Filament\Concerns\HasCustomSelectOption;
 use Capell\Admin\Filament\Resources\Layouts\LayoutResource;
 use Capell\Admin\Filament\Resources\Layouts\Tables\LayoutsTable;
+use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Facades\CapellDatabase;
 use Capell\Core\Models\Layout;
@@ -16,12 +18,12 @@ use Capell\Core\Support\Permissions\SiteAccess;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Override;
 
 class LayoutSelect extends Select
 {
@@ -31,6 +33,7 @@ class LayoutSelect extends Select
 
     protected ?Closure $modifyQueryUsing = null;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -48,15 +51,6 @@ class LayoutSelect extends Select
                         LayoutsTable::getUsesCountSelect($query, 'pages_count'),
                     ])
                     ->with(['image'])
-                    ->where(
-                        // On MySQL, JSON_CONTAINS returns NULL for an absent key, so a
-                        // layout whose `admin` JSON exists but lacks hidden_from_selection
-                        // would be wrongly excluded (orWhereNull('admin') doesn't rescue a
-                        // non-null admin). The key-presence guard includes the absent case.
-                        fn (Builder $query) => $query->whereNull('admin')
-                            ->orWhereJsonDoesntContainKey('admin->hidden_from_selection')
-                            ->orWhereJsonDoesntContain('admin->hidden_from_selection', true),
-                    )
                     ->when(
                         $search,
                         function (Builder $query, string $search): void {
@@ -69,7 +63,7 @@ class LayoutSelect extends Select
                     ),
             )
             ->rules([
-                fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
                     if (blank($value)) {
                         return;
                     }
@@ -84,14 +78,14 @@ class LayoutSelect extends Select
                         return;
                     }
 
-                    $siteId = $get('site_id');
+                    $siteId = $this->selectedSiteId();
 
                     if ($layout->site_id !== null && $layout->site_id !== (int) $siteId) {
                         $fail(__('capell-admin::message.layout_not_accessible'));
                     }
                 },
             ])
-            ->default(fn (): ?int => LayoutResource::getEloquentQuery()->default()->first(['id'])?->id)
+            ->default(fn (): ?int => $this->selectableLayouts()->default()->value('id'))
             ->getOptionLabelFromRecordUsing(function (Layout $record): string {
                 $pagesCountAttribute = $record->getAttributes()['pages_count'] ?? null;
                 $hasPagesCount = is_numeric($pagesCountAttribute);
@@ -162,6 +156,30 @@ class LayoutSelect extends Select
     public function getModifyQueryUsing(): ?Closure
     {
         return $this->modifyQueryUsing;
+    }
+
+    public function isOptionEligible(int $value): bool
+    {
+        return $this->selectableLayouts()->whereKey($value)->exists();
+    }
+
+    /** @return Builder<Layout> */
+    private function selectableLayouts(): Builder
+    {
+        return BuildPageLayoutOptionsQueryAction::run($this->selectedSiteId())->when(
+            $this->modifyQueryUsing instanceof Closure,
+            fn (Builder $query): mixed => $this->evaluate($this->modifyQueryUsing, ['query' => $query]),
+        );
+    }
+
+    private function selectedSiteId(): ?int
+    {
+        $siteId = $this->makeGetUtility()('site_id');
+        $record = $this->getRecord();
+
+        return filled($siteId) ? (int) $siteId : ($record instanceof Pageable
+            ? $record->site_id
+            : null);
     }
 
     private function layoutPreviewImageUrl(Layout $layout): ?string
@@ -237,7 +255,7 @@ class LayoutSelect extends Select
     {
         return $query->whereIn(
             $query->qualifyColumn($query->getModel()->getKeyName()),
-            LayoutResource::getEloquentQuery()->select('id'),
+            BuildPageLayoutOptionsQueryAction::run($this->selectedSiteId())->select('id'),
         );
     }
 }

@@ -202,11 +202,13 @@ class CreatePageAction extends CreateAction
 
         $site = ResolvePageCreationSiteAction::run($this->creationSiteId());
 
+        if ($site !== null) {
+            $data['site_id'] = $site->id;
+        }
+
         $this->getPageResource($group)::mutateFormDataBeforeCreate($data, $formData);
 
         if ($site !== null) {
-            $data['site_id'] = $site->id;
-
             if (! isset($data['translations']) || (is_array($data['translations']) && $data['translations'] === [])) {
                 $name = isset($data['name']) && is_string($data['name']) ? $data['name'] : '';
                 $slug = $name !== '' ? SlugGenerator::slug($name) : '';

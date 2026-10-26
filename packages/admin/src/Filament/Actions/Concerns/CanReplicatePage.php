@@ -28,10 +28,6 @@ trait CanReplicatePage
             $removeExtras = ['slug_auto_update_disabled'];
             foreach (array_keys($data['translations']) as $key) {
                 foreach ($removeExtras as $removeExtra) {
-                    if (! isset($data['translations'][$key][$removeExtra])) {
-                        continue;
-                    }
-
                     unset($data['translations'][$key][$removeExtra]);
                 }
             }
