@@ -9,11 +9,15 @@ use Capell\Core\Support\Patching\EnvFileEditor;
 use Capell\Core\Support\Patching\FileBackup;
 use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\FilePatchReview;
-use Lorisleiva\Actions\Action;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
-class ApplyFilePatchPlanAction extends Action
+class ApplyFilePatchPlanAction
 {
+    use AsFake;
+    use AsObject;
+
     /**
      * The callback records the backup before saving, including when saving fails.
      *
