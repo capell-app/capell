@@ -205,39 +205,56 @@
                             aria-label="{{ __('capell-installer::installer.installer_flow_preview') }}"
                         >
                             <div class="installer-rail-panel">
-                                <ul
-                                    class="installer-steps"
-                                    aria-label="Installer sections"
+                                <nav
+                                    aria-label="{{ __('capell-installer::installer.installer_sections') }}"
                                 >
-                                    <li
-                                        class="installer-step active"
-                                        data-step-trigger="readiness"
-                                        tabindex="0"
+                                    <ol
+                                        class="installer-steps"
+                                        role="list"
                                     >
-                                        {{ __('capell-installer::installer.section_preflight') }}
-                                    </li>
-                                    <li
-                                        class="installer-step"
-                                        data-step-trigger="site"
-                                        tabindex="0"
-                                    >
-                                        {{ __('capell-installer::installer.section_setup') }}
-                                    </li>
-                                    <li
-                                        class="installer-step"
-                                        data-step-trigger="packages"
-                                        tabindex="0"
-                                    >
-                                        {{ __('capell-installer::installer.workspace_packages') }}
-                                    </li>
-                                    <li
-                                        class="installer-step"
-                                        data-step-trigger="options"
-                                        tabindex="0"
-                                    >
-                                        {{ __('capell-installer::installer.section_options') }}
-                                    </li>
-                                </ul>
+                                        <li>
+                                            <button
+                                                class="installer-step active"
+                                                type="button"
+                                                data-step-trigger="readiness"
+                                                aria-controls="installer-workspace"
+                                                aria-current="step"
+                                            >
+                                                {{ __('capell-installer::installer.section_preflight') }}
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button
+                                                class="installer-step"
+                                                type="button"
+                                                data-step-trigger="site"
+                                                aria-controls="installer-workspace"
+                                            >
+                                                {{ __('capell-installer::installer.section_setup') }}
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button
+                                                class="installer-step"
+                                                type="button"
+                                                data-step-trigger="packages"
+                                                aria-controls="installer-workspace"
+                                            >
+                                                {{ __('capell-installer::installer.workspace_packages') }}
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button
+                                                class="installer-step"
+                                                type="button"
+                                                data-step-trigger="options"
+                                                aria-controls="installer-workspace"
+                                            >
+                                                {{ __('capell-installer::installer.section_options') }}
+                                            </button>
+                                        </li>
+                                    </ol>
+                                </nav>
                             </div>
 
                             <div class="installer-rail-panel installer-meta">
@@ -254,7 +271,12 @@
                             </div>
                         </aside>
 
-                        <div class="installer-workspace">
+                        <div
+                            class="installer-workspace"
+                            id="installer-workspace"
+                            role="region"
+                            aria-labelledby="installer-step-readiness-heading"
+                        >
                             <section
                                 class="section preflight-panel"
                                 data-installer-step="readiness"
@@ -262,7 +284,12 @@
                                 <div class="preflight-layout">
                                     <div class="preflight-summary">
                                         <div class="preflight-score-row">
-                                            <h2 class="section-title">
+                                            <h2
+                                                class="section-title"
+                                                id="installer-step-readiness-heading"
+                                                tabindex="-1"
+                                                data-step-heading
+                                            >
                                                 {{ __('capell-installer::installer.section_preflight') }}
                                             </h2>
                                             <span
@@ -327,6 +354,14 @@
                                 data-installer-step="site"
                                 hidden
                             >
+                                <h2
+                                    class="section-title"
+                                    id="installer-step-site-heading"
+                                    tabindex="-1"
+                                    data-step-heading
+                                >
+                                    {{ __('capell-installer::installer.section_setup') }}
+                                </h2>
                                 <p class="section-help">{{ __('capell-installer::installer.section_setup_help') }}</p>
 
                                 <div class="site-setup-grid">
@@ -506,12 +541,13 @@
 
                                             <div
                                                 @class([
-                                                    'admin-user-fields field',
+                                                    'admin-user-fields',
                                                     'hidden' => $adminUserMode !== 'existing',
                                                 ])
                                                 data-admin-user-fields="existing"
                                             >
                                                 <div
+                                                    class="field"
                                                     data-field="existing_user_id"
                                                 >
                                                     <label
@@ -699,7 +735,11 @@
                                 data-installer-step="packages"
                                 hidden
                             >
-                                <h2>
+                                <h2
+                                    id="installer-step-packages-heading"
+                                    tabindex="-1"
+                                    data-step-heading
+                                >
                                     {{ __('capell-installer::installer.packages_configure_heading') }}
                                 </h2>
                                 <p>{{ __('capell-installer::installer.packages_configure_body') }}</p>
@@ -973,6 +1013,16 @@
                                 </section>
                             @endif
 
+                            <h2
+                                class="section-title"
+                                id="installer-step-options-heading"
+                                tabindex="-1"
+                                data-step-heading
+                                data-installer-step="options"
+                                hidden
+                            >
+                                {{ __('capell-installer::installer.section_options') }}
+                            </h2>
                             @unless ($developerToolingInstalled)
                                 <section
                                     class="section"
@@ -1054,10 +1104,6 @@
                                 data-installer-step="options"
                                 hidden
                             >
-                                <h2 class="section-title">
-                                    {{ __('capell-installer::installer.section_options') }}
-                                </h2>
-
                                 <div class="field">
                                     <label class="checkbox-row">
                                         <input
@@ -1483,11 +1529,11 @@
                     </a>
                     <a
                         class="button primary"
-                        href="{{ url('/admin') }}"
+                        href="{{ $completion->destination() }}"
                         id="admin-link"
                         hidden
                     >
-                        {{ __('capell-installer::installer.go_to_admin') }}
+                        @if ($completion->adminUrl !== null) {{ __('capell-installer::installer.go_to_admin') }}@else {{ __('capell-installer::installer.return_to_site') }}@endif
                     </a>
                 </div>
             </div>

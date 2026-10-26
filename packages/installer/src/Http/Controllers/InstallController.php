@@ -11,6 +11,7 @@ use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
 use Capell\Core\Support\Install\InstallInputFactory;
 use Capell\Installer\Actions\AdvanceInstallerRunAction;
+use Capell\Installer\Actions\BuildInstallerCompletionDataAction;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
 use Capell\Installer\Actions\BuildInstallerRunReportAction;
 use Capell\Installer\Actions\CancelInstallerRunAction;
@@ -71,6 +72,7 @@ final class InstallController
             canReinstall: $canReinstall,
         );
         $viewData = $pageData->toViewData();
+        $viewData['completion'] = BuildInstallerCompletionDataAction::run();
         $viewData['canRemoveInstaller'] = $this->canRemoveInstaller($request);
 
         $installId = $viewData['installId'] ?? null;
@@ -240,6 +242,7 @@ final class InstallController
         return view($progressView, [
             'installId' => $installId,
             'installStatus' => $status,
+            'completion' => BuildInstallerCompletionDataAction::run(),
             'reportDownloadFilename' => $this->reportDownloadFilename($installId),
             'reportUrl' => route('capell-installer.progress.download', ['installId' => $installId]),
         ]);
@@ -260,6 +263,7 @@ final class InstallController
             'primaryAdmin' => $successSummary['primaryAdmin'] ?? null,
             'roleUsersCreated' => ($successSummary['roleUsersCreated'] ?? false) === true,
             'canRemoveInstaller' => true,
+            'completion' => BuildInstallerCompletionDataAction::run(),
         ])->withHeaders($this->installerSessionHeaders());
     }
 
