@@ -6,7 +6,7 @@ use Capell\Admin\Actions\Media\BuildMediaUsageItemsAction;
 use Capell\Admin\Actions\Media\CreateExternalVideoMediaAction;
 use Capell\Admin\Actions\Media\UploadSiteMediaAction;
 use Capell\Admin\Data\AdminSurfaceContributionData;
-use Capell\Admin\Data\Media\MediaUploadStatus;
+use Capell\Admin\Enums\MediaUploadStatus;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Pages\ListMedia;

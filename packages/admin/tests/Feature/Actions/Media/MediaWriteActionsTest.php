@@ -7,7 +7,7 @@ use Capell\Admin\Actions\Media\UpdateMediaAction;
 use Capell\Admin\Actions\Media\UploadSiteMediaAction;
 use Capell\Admin\Data\Media\MediaUploadAttemptData;
 use Capell\Admin\Data\Media\MediaUploadFileData;
-use Capell\Admin\Data\Media\MediaUploadStatus;
+use Capell\Admin\Enums\MediaUploadStatus;
 use Capell\Admin\Tests\Fixtures\SharedUploadPathGenerator;
 use Capell\Core\Enums\MediaCollectionEnum;
 use Capell\Core\Models\Language;
@@ -16,6 +16,8 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Media\YouTubeVideoUrl;
+use Capell\Core\Support\Permissions\SiteAccess;
+use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -26,6 +28,7 @@ use Illuminate\Validation\ValidationException;
 use Spatie\MediaLibrary\Conversions\FileManipulator;
 use Spatie\MediaLibrary\MediaCollections\Models\Media as SpatieMedia;
 use Spatie\MediaLibrary\Support\FileRemover\FileBaseFileRemover;
+use Spatie\MediaLibrary\Support\PathGenerator\DefaultPathGenerator;
 use Spatie\MediaLibrary\Support\PathGenerator\PathGeneratorFactory;
 
 uses(CreatesAdminUser::class);
@@ -407,3 +410,56 @@ it('retains an unproven shared destination containing the failed media identity'
         ->and(Storage::disk('public')->get('shared-1/committed-b.txt'))->toBe('committed B')
         ->and(Storage::disk('local')->get('media-uploads/retained-a.txt'))->toBe('attempt A');
 });
+
+it('restores scalar journal statuses and attempt provenance without reading a legacy object cache', function (MediaUploadStatus $status): void {
+    test()->actingAsAdmin();
+    $site = Site::factory()->createOne();
+    $uploader = UploadSiteMediaAction::make();
+    $batch = $uploader->prepare($site, ['media-uploads/checkpoint.txt']);
+    $journal = 'capell/media-upload-journal/' . hash('sha256', $batch->id) . '.json';
+    $payload = json_decode(expectPresent(Storage::disk('local')->get($journal)), true, 64, JSON_THROW_ON_ERROR);
+    $payload['files'][0]['status'] = $status->value;
+    $payload['files'][0]['attempt'] = [
+        'mediaId' => 123,
+        'destinations' => [['disk' => 'public', 'directory' => '123', 'existingFiles' => []]],
+        'pathGenerator' => DefaultPathGenerator::class,
+    ];
+    Storage::disk('local')->put($journal, json_encode($payload, JSON_THROW_ON_ERROR));
+
+    // Old cached DTOs can contain the former enum class name. The durable
+    // scalar journal must be read before any cache deserialisation is attempted.
+    Cache::shouldReceive('get')->never();
+    $recovered = $uploader->outcome($batch->id);
+
+    expect($recovered)->not->toBeNull()
+        ->and($recovered?->files[0]->status)->toBe($status)
+        ->and($recovered?->files[0]->attempt?->toArray())->toBe($payload['files'][0]['attempt'])
+        ->and($recovered?->toArray())->toBe($payload);
+})->with(MediaUploadStatus::cases());
+
+it('refuses compensation when a captured media owner is outside the actors grants', function (bool $trashed): void {
+    test()->actingAsAdmin();
+    $assignedSite = Site::factory()->createOne();
+    $foreignSite = Site::factory()->createOne();
+    $media = $foreignSite->addMedia(UploadedFile::fake()->createWithContent('owned.txt', 'committed bytes'))->toMediaCollection('uploads');
+    if ($trashed) {
+        $media->delete();
+    }
+
+    $path = $media->getPathRelativeToRoot();
+    $actor = User::factory()->createOne();
+    $actor->assignedSiteIds = collect([(int) $assignedSite->getKey()]);
+
+    test()->actingAs($actor);
+    expect(SiteAccess::current()->query(Media::class)->withTrashed()->whereKey($media->getKey())->exists())->toBeFalse();
+
+    $attempt = new MediaUploadAttemptData((int) $media->getKey(), [
+        ['disk' => 'public', 'directory' => (string) $media->getKey(), 'existingFiles' => []],
+    ], DefaultPathGenerator::class);
+    $clean = new ReflectionMethod(UploadSiteMediaAction::class, 'cleanAttempt');
+
+    expect(fn (): mixed => $clean->invoke(UploadSiteMediaAction::make(), $attempt))
+        ->toThrow(RuntimeException::class, 'The upload destination still has a media owner.');
+    expect(Media::withTrashed()->whereKey($media->getKey())->exists())->toBeTrue()
+        ->and(Storage::disk('public')->get($path))->toBe('committed bytes');
+})->with([false, true]);

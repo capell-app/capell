@@ -7,7 +7,7 @@ namespace Capell\Admin\Actions\Media;
 use Capell\Admin\Data\Media\MediaUploadAttemptData;
 use Capell\Admin\Data\Media\MediaUploadBatchData;
 use Capell\Admin\Data\Media\MediaUploadFileData;
-use Capell\Admin\Data\Media\MediaUploadStatus;
+use Capell\Admin\Enums\MediaUploadStatus;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Media\CustomPathGenerator;
@@ -174,7 +174,7 @@ final class UploadSiteMediaAction
                     $media = $connection->transaction(function () use ($site, &$batch, &$file, $index): Media {
                         // Serialise durable reconciliation and compensation with
                         // writers even if the cache lock's lease expires.
-                        $site->newQuery()->whereKey($site->getKey())->lockForUpdate()->firstOrFail();
+                        SiteAccess::current()->scope($site->newQuery())->whereKey($site->getKey())->lockForUpdate()->firstOrFail();
                         $this->authorize($site);
                         $committed = $this->committedMedia($site, $batch, $file);
                         if ($committed instanceof Media) {
@@ -210,7 +210,7 @@ final class UploadSiteMediaAction
                         throw_if($connection->transactionLevel() !== $transactionLevel, fn (): RuntimeException => new RuntimeException('The upload transaction has not confirmed rollback.', 0, $exception));
 
                         $outcome = $connection->transaction(function () use ($site, $batch, $file): MediaUploadFileData {
-                            $site->newQuery()->whereKey($site->getKey())->lockForUpdate()->firstOrFail();
+                            SiteAccess::current()->scope($site->newQuery())->whereKey($site->getKey())->lockForUpdate()->firstOrFail();
                             // A post-commit listener can throw after the media is
                             // live. Never compensate a committed upload.
                             $committed = $this->committedMedia($site, $batch, $file);
@@ -422,7 +422,7 @@ final class UploadSiteMediaAction
     private function committedMedia(Site $site, MediaUploadBatchData $batch, MediaUploadFileData $file): ?Media
     {
         /** @var Media|null $media */
-        $media = Media::query()->withTrashed()->useWritePdo()
+        $media = SiteAccess::current()->query(Media::class)->withTrashed()->useWritePdo()
             ->where('model_type', $site->getMorphClass())
             ->where('model_id', $site->getKey())
             ->where('collection_name', 'uploads')

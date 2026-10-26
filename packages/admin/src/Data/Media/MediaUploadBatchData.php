@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Data\Media;
 
+use Capell\Admin\Enums\MediaUploadStatus;
 use Spatie\LaravelData\Data;
 
 final class MediaUploadBatchData extends Data
