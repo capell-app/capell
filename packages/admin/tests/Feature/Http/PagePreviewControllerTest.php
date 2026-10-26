@@ -10,7 +10,11 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Theme;
+use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Panel;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
 uses(CreatesAdminUser::class)
@@ -45,6 +49,7 @@ it('renders signed page previews through the frontend preview renderer', functio
 
         public ?Page $page = null;
 
+        #[Override]
         public function render(
             Theme $theme,
             Site $site,
@@ -75,4 +80,91 @@ it('renders signed page previews through the frontend preview renderer', functio
         ->and($renderer->theme?->is($theme))->toBeTrue()
         ->and($renderer->site?->is($site))->toBeTrue()
         ->and($renderer->page?->is($page))->toBeTrue();
+});
+
+it('binds the chosen language into the signed draft preview and renderer', function (): void {
+    test()->actingAsAdmin();
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $theme = Theme::factory()->defaultMeta()->createOne();
+    $site = Site::factory()->language($english)->theme($theme)->withTranslations([$english, $french])->createOne();
+    $page = Page::factory()->site($site)->withTranslations([$english, $french])->createOne();
+    $renderer = Mockery::mock(ThemePreviewRendererInterface::class);
+    $renderer->shouldReceive('render')->once()->withArgs(fn (Theme $theme, Site $site, Page $record, ?Language $language = null, ?SiteDomain $siteDomain = null): bool => $record->is($page) && $language?->is($french) === true && $siteDomain?->language_id === $french->id)
+        ->andReturn(new Response('French preview'));
+    app()->instance(ThemePreviewRendererInterface::class, $renderer);
+
+    $url = IssuePagePreviewTokenAction::run($page, languageId: $french->id);
+    expect($url)->toContain('language_id=' . $french->id);
+    test()->get($url)->assertOk()->assertSee('French preview');
+    test()->get(str_replace('language_id=' . $french->id, 'language_id=' . $english->id, $url))->assertForbidden();
+});
+
+it('explains an unavailable signed preview language without rendering another translation', function (): void {
+    test()->actingAsAdmin();
+    $english = Language::factory()->english()->createOne();
+    $foreign = Language::factory()->french()->createOne();
+    $theme = Theme::factory()->defaultMeta()->createOne();
+    $site = Site::factory()->language($english)->theme($theme)->withTranslations($english)->createOne();
+    $page = Page::factory()->site($site)->withTranslations($english)->createOne();
+    $renderer = Mockery::mock(ThemePreviewRendererInterface::class);
+    $renderer->shouldNotReceive('render');
+
+    app()->instance(ThemePreviewRendererInterface::class, $renderer);
+    $url = URL::temporarySignedRoute('capell.admin.preview-page', now()->addMinutes(10), [
+        'page' => $page->id,
+        'language_id' => $foreign->id,
+    ]);
+
+    test()->getJson($url)->assertUnprocessable()
+        ->assertJsonPath('message', __('capell-admin::page_journey.missing_translation'));
+});
+
+it('retains preview access to assigned sites outside the current authoring scope', function (): void {
+    $english = Language::factory()->english()->createOne();
+    $french = Language::factory()->french()->createOne();
+    $theme = Theme::factory()->defaultMeta()->createOne();
+    $site = Site::factory()->language($english)->theme($theme)->withTranslations([$english, $french])->createOne();
+    $page = Page::factory()->site($site)->withTranslations([$english, $french])->createOne();
+    $actor = new class extends User
+    {
+        #[Override]
+        public function isGlobalAdmin(): bool
+        {
+            return false;
+        }
+
+        /** @return Collection<int, int> */
+        #[Override]
+        public function getAssignedSiteIds(): Collection
+        {
+            return collect();
+        }
+
+        /** @return Collection<int, int> */
+        public function getAllAssignedSiteIds(): Collection
+        {
+            return $this->assignedSiteIds;
+        }
+
+        #[Override]
+        public function canAccessPanel(Panel $panel): bool
+        {
+            return true;
+        }
+    };
+    $actor->forceFill(['id' => 99999]);
+    $actor->assignedSiteIds = collect([$site->id]);
+
+    test()->actingAs($actor);
+    $renderer = Mockery::mock(ThemePreviewRendererInterface::class);
+    $renderer->shouldReceive('render')->once()->withArgs(fn (Theme $theme, Site $site, Page $page, ?Language $language = null): bool => $language?->is($french) === true)
+        ->andReturn(new Response('Assigned site French preview'));
+    app()->instance(ThemePreviewRendererInterface::class, $renderer);
+    $url = URL::temporarySignedRoute('capell.admin.preview-page', now()->addMinutes(10), [
+        'page' => $page->id,
+        'language_id' => $french->id,
+    ]);
+
+    test()->get($url)->assertOk()->assertSee('Assigned site French preview');
 });
