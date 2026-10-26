@@ -8,10 +8,12 @@ use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Settings\Schemas\DashboardSettingsSchema;
 use Capell\Admin\Settings\AdminSettings;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class RestoreMainDashboardLayoutAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return list<array{key: string, enabled: bool, order: int}> */

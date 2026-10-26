@@ -10,10 +10,12 @@ use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Illuminate\Database\Eloquent\Model;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class BuildLanguageSetupDataAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): LanguageSetupData

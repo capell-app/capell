@@ -266,7 +266,7 @@ it('restores only recommended main dashboard choices in a reviewable layout', fu
     $layout = RestoreMainDashboardLayoutAction::run();
     expect(collect($layout)->firstWhere('key', 'list_pages')['enabled'])->toBeTrue()
         ->and(collect($layout)->pluck('key')->all())->not->toContain('extensions.stats')
-        ->and(AdminSettings::instance()->refresh()->enabled_widgets)->toBe($before);
+        ->and(AdminSettings::instance()->refresh()->enabled_widgets)->toEqual($before);
     $normalised = NormalizeDashboardFilamentWidgetSettingsAction::run(['widget_layout' => $layout], DashboardEnum::Main);
     expect($normalised['enabled_widgets']['extensions.stats'])->toBeFalse();
 });

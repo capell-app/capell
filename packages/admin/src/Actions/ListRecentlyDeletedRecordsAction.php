@@ -19,10 +19,12 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 final class ListRecentlyDeletedRecordsAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return LengthAwarePaginator<int, Model> */
