@@ -5,6 +5,9 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Components\Forms\RepeaterTabs;
 use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Language;
+use Filament\Forms\Components\Builder;
+use Filament\Forms\Components\Builder\Block;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
@@ -397,6 +400,34 @@ it('completes nested fields when their metadata container is entirely absent', f
     expect($component->getItems()['new-french']->getRawState())
         ->toBe(['language_id' => 4, 'meta' => ['description' => null]]);
 });
+
+it('renders tab labels from replaced item state without dehydrating stale editors', function (bool $minimal, bool $wasBuilder): void {
+    view()->share('errors', new ViewErrorBag);
+    $html = '<p>Preserved translation</p>';
+    $blocks = ['block-one' => ['type' => 'content', 'data' => ['content' => $html]]];
+    $editor = $wasBuilder
+        ? Builder::make('content')->blocks([Block::make('content')->schema([TextInput::make('content')])])
+        : RichEditor::make('content');
+    $component = mountedRepeaterTabs(
+        RepeaterTabs::make('translations')->tabs([
+            TextInput::make('title'),
+            // A mode switch hides the old editor until the next form mount.
+            $editor->hidden()->dehydratedWhenHidden(),
+        ])->itemLabel(fn (array $state): string => $state['title'])
+            ->addable(false)->deletable(false)->minimal($minimal),
+        ['original-key' => ['title' => 'Original title', 'content' => $wasBuilder ? $blocks : $html]],
+    );
+
+    expect($component->toHtml())->toContain('Original title');
+
+    foreach (['original-key', 'replacement-key'] as $key) {
+        $replacement = ['title' => 'Updated title', 'content' => $wasBuilder ? $html : $blocks];
+        $component->state([$key => $replacement]);
+
+        expect($component->toHtml())->toContain('Updated title')
+            ->and($component->getState())->toBe([$key => $replacement]);
+    }
+})->with([false, true])->with([false, true]);
 
 it('renders a labelled tab and panel even with only one translation', function (): void {
     view()->share('errors', new ViewErrorBag);

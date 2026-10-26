@@ -17,6 +17,7 @@ use Filament\Support\Components\Attributes\ExposedLivewireMethod;
 use Filament\Support\Concerns\CanBeContained;
 use Filament\Support\Concerns\HasExtraAlpineAttributes;
 use Filament\Support\Enums\Size;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Override;
@@ -115,6 +116,25 @@ class RepeaterTabs extends Repeater
         $icon = $item['icon'] ?? null;
 
         return is_string($icon) && str_starts_with($icon, 'flag-') ? null : $icon;
+    }
+
+    #[Override]
+    public function getItemLabel(string $key, ?int $index = null): string|Htmlable|null
+    {
+        $schema = $this->getChildSchema($key);
+        throw_if(! $schema instanceof Schema, RuntimeException::class, 'Repeater tab child schema could not be resolved.');
+
+        // Labels must not dehydrate sibling editors: a mode switch can replace
+        // their state before the old editor schema is rebuilt.
+        return $this->evaluate($this->itemLabel, [
+            'container' => $schema,
+            'item' => $schema,
+            'key' => $key,
+            'schema' => $schema,
+            'state' => $schema->getRawState(),
+            'uuid' => $key,
+            'index' => $index,
+        ]);
     }
 
     /**
