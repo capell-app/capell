@@ -9,8 +9,12 @@ use Capell\Admin\Contracts\Diagnostics\SiteAwareSiteHealthReportExtender;
 use Capell\Admin\Contracts\Diagnostics\SiteHealthReportExtender;
 use Capell\Admin\Data\Diagnostics\DiagnosticCheckData;
 use Capell\Admin\Data\Diagnostics\DiagnosticSectionData;
+use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\Database\RuntimeSchemaState;
+use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Date;
@@ -18,6 +22,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
+
+beforeEach(function (): void {
+    resolve(CapellPackageRegistry::class)->register(CapellManifestData::fromArray(capellManifestV3Array(name: 'test/optimizer', overrides: ['capabilities' => [PackageCapability::FrontendOptimizer->value]])));
+});
 
 it('builds environment readiness checks', function (): void {
     config()->set('app.url', 'https://example.test');
@@ -295,3 +303,106 @@ it('keeps optimizer artifact paths relative outside debug mode', function (bool 
         File::deleteDirectory($directory);
     }
 })->with([false, true]);
+
+it('marks unused optimiser prerequisites optional without hiding failed legacy jobs', function (): void {
+    resolve(CapellPackageRegistry::class)->fill([]);
+    app()->useStoragePath('/tmp/core-misc-unused-optimiser-storage');
+    app()->usePublicPath('/tmp/core-misc-unused-optimiser-public');
+
+    config()->set('capell.server_side_tooling', false);
+    config()->set('capell-frontend-optimizer', []);
+
+    $factory = new FakeProcessFactory;
+    app()->instance(ProcessFactoryInterface::class, $factory);
+    config()->set('queue.failed.table', 'optional_optimizer_failed_jobs');
+    Schema::create('optional_optimizer_failed_jobs', function (Blueprint $table): void {
+        $table->id();
+        $table->text('payload');
+        $table->text('exception');
+    });
+    DB::table('optional_optimizer_failed_jobs')->insert(['payload' => 'GenerateCriticalCss', 'exception' => 'failed']);
+
+    $checks = collect(BuildOptimizerReadinessDiagnosticsAction::run());
+
+    expect($checks->firstWhere('label', 'Node runtime')->status)->toBe('not_configured')
+        ->and($checks->firstWhere('label', 'Playwright runtime')->status)->toBe('not_configured')
+        ->and($checks->firstWhere('label', 'Failed critical CSS jobs')->status)->toBe('red');
+});
+
+it('keeps in-flight legacy generation visible without an optional capability', function (): void {
+    resolve(CapellPackageRegistry::class)->fill([]);
+    config(['capell.server_side_tooling' => false, 'capell-frontend-optimizer' => [], 'queue.connections.database.table' => 'optimizer_pending_test']);
+    Schema::create('optimizer_pending_test', function (Blueprint $table): void {
+        $table->id();
+        $table->text('payload');
+    });
+    DB::table('optimizer_pending_test')->insert(['payload' => 'GenerateCriticalCss']);
+    app()->instance(ProcessFactoryInterface::class, new FakeProcessFactory);
+    $checks = collect(BuildOptimizerReadinessDiagnosticsAction::run());
+    expect($checks->firstWhere('label', __('capell-admin::diagnostics.pending_critical_css_jobs'))->status)->toBe('amber')
+        ->and($checks->firstWhere('label', 'Node runtime')->status)->not->toBe('not_configured');
+});
+
+it('observes optimiser work on the configured queue database independently of the application database', function (string $applicationTable, bool $queueTableExists): void {
+    resolve(CapellPackageRegistry::class)->fill([]);
+    config([
+        'capell-frontend-optimizer' => [],
+        'queue.connections.database.connection' => 'optimizer_queue',
+        'queue.connections.database.table' => 'optimizer_connection_jobs',
+        'database.connections.optimizer_queue' => [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+        ],
+    ]);
+    $originalStoragePath = storage_path();
+    $originalPublicPath = public_path();
+    $directory = sys_get_temp_dir() . '/optimizer-queue-' . bin2hex(random_bytes(8));
+    app()->useStoragePath($directory . '/storage');
+    app()->usePublicPath($directory . '/public');
+    app()->instance(ProcessFactoryInterface::class, new FakeProcessFactory);
+
+    try {
+        if ($applicationTable !== 'missing') {
+            Schema::create('optimizer_connection_jobs', function (Blueprint $table): void {
+                $table->id();
+                $table->text('payload');
+            });
+            if ($applicationTable === 'populated') {
+                DB::table('optimizer_connection_jobs')->insert(['payload' => 'GenerateCriticalCss']);
+            }
+        }
+
+        if ($queueTableExists) {
+            Schema::connection('optimizer_queue')->create('optimizer_connection_jobs', function (Blueprint $table): void {
+                $table->id();
+                $table->text('payload');
+            });
+            DB::connection('optimizer_queue')->table('optimizer_connection_jobs')->insert([
+                ['payload' => 'GenerateCriticalCss'],
+                ['payload' => 'frontend-optimizer generation'],
+                ['payload' => 'UnrelatedJob'],
+            ]);
+        }
+
+        $checks = collect(BuildOptimizerReadinessDiagnosticsAction::run());
+        $pending = $checks->firstWhere('label', __('capell-admin::diagnostics.pending_critical_css_jobs'));
+
+        expect($pending->status)->toBe($queueTableExists ? 'amber' : 'not_configured')
+            ->and($pending->detail)->toBe($queueTableExists
+                ? __('capell-admin::diagnostics.optimizer_queue_pending', ['count' => 2])
+                : __('capell-admin::diagnostics.optimizer_queue_unavailable'))
+            ->and($checks->firstWhere('label', 'Node runtime')->status)->toBe($queueTableExists ? 'green' : 'not_configured')
+            ->and($checks->firstWhere('label', 'Playwright runtime')->status)->toBe($queueTableExists ? 'green' : 'not_configured')
+            ->and($checks->firstWhere('label', __('capell-admin::diagnostics.latest_optimizer_profile'))->status)->toBe($queueTableExists ? 'amber' : 'not_configured');
+    } finally {
+        DB::purge('optimizer_queue');
+        app()->useStoragePath($originalStoragePath);
+        app()->usePublicPath($originalPublicPath);
+        File::deleteDirectory($directory);
+    }
+})->with([
+    'application table absent, queue has work' => ['missing', true],
+    'application table empty, queue has work' => ['empty', true],
+    'application has work, queue table absent' => ['populated', false],
+]);

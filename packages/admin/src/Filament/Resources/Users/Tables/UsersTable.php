@@ -24,13 +24,18 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Override;
 use Spatie\Permission\Models\Role;
 use STS\FilamentImpersonate\Actions\Impersonate;
 
 class UsersTable implements TableConfigurator
 {
+    #[Override]
     public static function configure(Table $table): Table
     {
+        // Keep the rendering snapshot on this table, never across requests.
+        $scopedRoleIds = null;
+
         return $table
             ->columns([
                 NameColumn::make('name'),
@@ -79,12 +84,19 @@ class UsersTable implements TableConfigurator
                     ->label(__('capell-admin::button.act_as_owner'))
                     ->hidden(fn (): bool => ! self::supportActionsBridgeEnabled()),
                 ...self::extenderRecordActions(),
-                EditAction::make(),
+                EditAction::make()->label(__('capell-admin::button.edit_user')),
                 ActionGroup::make([
                     Action::make('edit-role')
-                        ->label(__('capell-admin::button.edit'))
+                        ->label(__('capell-admin::button.edit_role_permissions'))
+                        ->modalDescription(__('capell-admin::generic.shared_role_permissions_notice'))
                         ->icon('heroicon-o-shield-check')
-                        ->visible(fn (Model $record): bool => self::editableRoles($record) !== [])
+                        ->visible(function (Model $record) use (&$scopedRoleIds): bool {
+                            $scopedRoleIds ??= array_values(RoleResource::getEloquentQuery()->pluck('id')
+                                ->filter(fn (mixed $id): bool => is_int($id) || is_string($id))
+                                ->all());
+
+                            return self::editableRoles($record, $scopedRoleIds) !== [];
+                        })
                         ->schema([
                             Select::make('role_id')
                                 ->label(__('capell-admin::table.role'))
@@ -154,8 +166,11 @@ class UsersTable implements TableConfigurator
         return AdminSettings::instance()->enable_support_actions_user_bridge;
     }
 
-    /** @return list<Role> */
-    private static function editableRoles(Model $record): array
+    /**
+     * @param  list<int|string>|null  $scopedIds
+     * @return list<Role>
+     */
+    private static function editableRoles(Model $record, ?array $scopedIds = null): array
     {
         $roles = $record->getRelationValue('roles');
 
@@ -163,9 +178,12 @@ class UsersTable implements TableConfigurator
             return [];
         }
 
+        // Options and submission recheck scope; only row visibility uses the snapshot.
+        $scopedIds ??= RoleResource::getEloquentQuery()->whereKey($roles->modelKeys())->pluck('id')->all();
+
         return array_values(
             $roles
-                ->filter(fn (mixed $role): bool => $role instanceof Role && RoleResource::canEdit($role))
+                ->filter(fn (mixed $role): bool => $role instanceof Role && in_array($role->getKey(), $scopedIds, true) && RoleResource::canEdit($role))
                 ->all(),
         );
     }
@@ -174,7 +192,11 @@ class UsersTable implements TableConfigurator
     private static function editableRoleOptions(Model $record): array
     {
         return collect(self::editableRoles($record))
-            ->mapWithKeys(fn (Role $role): array => [$role->getKey() => $role->name])
+            ->mapWithKeys(fn (Role $role): array => [$role->getKey() => $role->name . ' — ' . (
+                $role->getAttribute((string) config('permission.column_names.team_foreign_key', 'team_id')) === null
+                    ? __('capell-admin::generic.role_scope_global')
+                    : __('capell-admin::generic.role_scope_site', ['site' => $role->getAttribute((string) config('permission.column_names.team_foreign_key', 'team_id'))])
+            )])
             ->all();
     }
 }

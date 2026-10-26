@@ -146,6 +146,7 @@ return [
     'section_installed_packages' => 'Installed extensions',
     'section_installed_packages_help' => 'These extensions are already available in this application.',
     'marketplace_later_note' => 'Install extensions later via Marketplace.',
+    'installer_sections' => 'Installer sections',
     'section_options' => 'Options',
     'section_packages' => 'Core Packages',
     'section_preflight' => 'Pre-flight checks',

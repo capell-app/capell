@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 return [
+    'recently_deleted_search' => 'Search deleted records',
+    'recently_deleted_open_resource' => 'Open deleted :resource',
+    'shared_role_permissions_notice' => 'Choose a role to edit its shared permissions. Changes affect other users holding that role; use Edit user to change only this user’s assignments.',
+    'role_scope_global' => 'Shared across sites',
+    'role_scope_site' => 'Site :site',
+
     'unavailable_subject' => 'Unavailable subject (:key)',
     '2xl' => '2 Extra Large',
     '3xl' => '3 Extra Large',
@@ -435,7 +441,7 @@ return [
     'permalink_action_reset' => 'Reset',
     'permalink_label' => 'Permalink:',
     'permalink_label_link_visit' => 'Visit',
-    'permalink_status_changed' => 'changed',
+    'permalink_status_changed' => 'unsaved',
     'precheck_backup' => 'Backup',
     'precheck_backup_hint' => 'Create or confirm a restorable backup first.',
     'precheck_compatibility' => 'Compatibility',
@@ -508,7 +514,7 @@ return [
     'settings' => 'Settings',
     'settings_info' => 'The main settings for your Capell installation.',
     'settings_core_image_policy_info' => 'Control the fallback image sources allowed across public content fields.',
-    'settings_core_language_info' => 'Choose the locale Capell uses when no site or content record provides a more specific language.',
+    'settings_core_language_info' => 'Admin preferences and site Language settings control the effective language. Host integrations may separately consume the stored integration locale.',
     'default_pages_helper' => 'Select the starter pages Capell should create automatically for this site.',
     'custom_pages_helper' => 'Add extra top-level pages that should exist from day one.',
     'custom_page_name_helper' => 'Use the public page title editors should see in the page tree.',

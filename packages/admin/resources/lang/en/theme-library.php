@@ -51,6 +51,7 @@ return [
         'preset_count' => ':count preset|:count presets',
     ],
     'actions' => [
+        'create_preview_page' => 'Create a page for this site',
         'apply' => 'Apply theme',
         'add_theme' => 'New theme',
         'apply_theme' => 'Apply :theme',
@@ -71,6 +72,9 @@ return [
         'validate' => 'Validate themes',
     ],
     'help' => [
+        'preview_site_unavailable' => 'Choose a site you can access.',
+        'preview_page_unavailable' => 'This page is no longer available. Choose an accessible page from the selected site.',
+        'preview_empty_site' => 'This site has no accessible pages to preview. Create a page in Pages if permitted, or select another site.',
         'activation_scope' => 'Global changes the default theme for sites without an override. Selected sites changes only the chosen site records.',
         'apply' => 'Choose where this theme should be used. Applying a theme refreshes affected frontend cache keys.',
         'available_theme' => 'Create or complete the installed theme record before customising, previewing, or applying this package definition.',

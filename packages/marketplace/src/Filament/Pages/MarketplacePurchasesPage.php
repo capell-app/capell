@@ -8,6 +8,12 @@ use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\BuildMarketplacePurchasesPageDataAction;
+use Capell\Marketplace\Actions\RunMarketplaceHeartbeatAction;
+use Capell\Marketplace\Filament\Actions\ConnectMarketplaceAccountAction;
+use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
+use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
@@ -16,6 +22,8 @@ use Override;
 final class MarketplacePurchasesPage extends Page
 {
     use HasPageShield;
+
+    public bool $refreshFailed = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
@@ -70,6 +78,30 @@ final class MarketplacePurchasesPage extends Page
             ExtensionsPage::getUrl() => (string) __('capell-marketplace::marketplace.operations.extensions'),
             MarketplacePage::getUrl() => MarketplacePage::getNavigationLabel(),
             self::getNavigationLabel(),
+        ];
+    }
+
+    /** @return list<Action> */
+    #[Override]
+    protected function getHeaderActions(): array
+    {
+        return [
+            ConnectMarketplaceAccountAction::make(resolve(MarketplaceConnectionFormModel::class)),
+            Action::make('refreshPurchases')
+                ->label(__('capell-marketplace::marketplace.install.run_heartbeat'))
+                ->visible(fn (): bool => ExtensionsPage::canManageExtensions())
+                ->authorize(fn (): bool => ExtensionsPage::canManageExtensions())
+                ->disabled(fn (): bool => resolve(MarketplaceInstanceResolver::class)->latest() === null)
+                ->action(function (): void {
+                    abort_unless(ExtensionsPage::canManageExtensions(), 403);
+                    $result = RunMarketplaceHeartbeatAction::run();
+                    $this->refreshFailed = ! $result->successful;
+                    resolve(MarketplaceInstanceResolver::class)->forget();
+                    Notification::make()->title($result->successful
+                        ? __('capell-marketplace::marketplace.install.heartbeat_completed')
+                        : __('capell-marketplace::marketplace.install.heartbeat_failed'))
+                        ->status($result->successful ? 'success' : 'warning')->send();
+                }),
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\Users\ResolveAdminLocaleForUserAction;
 use Capell\Admin\Enums\AdminFormActionPositionEnum;
 use Capell\Admin\Enums\EditorEnum;
 use Capell\Admin\Facades\CapellAdmin;
@@ -10,6 +11,10 @@ use Capell\Admin\Settings\AdminSettings;
 use Capell\Core\Enums\ImageSourceType;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\Testing\TestAction;
+use Filament\Schemas\Components\Section;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -219,11 +224,100 @@ it('persists dashboard Filament widget layout across settings page admin tab sav
 
     $freshSettings = AdminSettings::instance()->refresh();
 
-    expect($freshSettings->widget_order)->toBe([
+    expect($freshSettings->widget_order)->toEqual(array_replace(AdminSettings::defaultWidgetOrder(), [
+        'site_stats_overview' => 1,
         'my_work_queue' => 5,
-    ])
+        'recently_published' => 3,
+    ]))
         ->and($freshSettings->enabled_widgets)->toMatchArray([
             'my_work_queue' => true,
             'site_stats_overview' => false,
         ]);
+});
+
+it('rejects an image default excluded by the selected policy', function (string $policy, string $source): void {
+    Permission::create(['name' => 'View:SettingsPage', 'guard_name' => 'web']);
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
+
+    Livewire::test(SettingsPage::class)
+        ->fillForm(['core' => ['allowed_image_sources' => $policy, 'default_image_source' => $source]])
+        ->call('save')
+        ->assertHasFormErrors(['core.default_image_source']);
+
+    expect(resolve(CoreSettings::class)->refresh()->allowed_image_sources)->toBe('all');
+})->with([
+    ['upload_only', ImageSourceType::Media->value],
+    ['url_media', ImageSourceType::Upload->value],
+]);
+
+it('shows effective language controls without changing locale precedence', function (): void {
+    Permission::findOrCreate('View:SettingsPage', 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
+    config()->set('app.locale', 'en_GB');
+    $settings = resolve(CoreSettings::class);
+    $settings->default_locale = 'fr';
+    $settings->save();
+
+    Livewire::test(SettingsPage::class)
+        ->assertSee('data-capell-language-setup', false)
+        ->assertSee('en_GB')
+        ->assertSchemaComponentStateSet('core.default_locale', 'fr');
+
+    expect(ResolveAdminLocaleForUserAction::run(test()->authenticatedUser()))->toBe('en_GB');
+});
+
+it('persists deliberate dashboard layouts through save and revisit', function (bool $enabled): void {
+    Permission::findOrCreate('View:SettingsPage', 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = array_replace($settings->enabled_widgets, ['extensions.stats' => ! $enabled]);
+    $settings->save();
+
+    $page = Livewire::test(SettingsPage::class);
+    $layout = $page->get('data.admin.widget_layout');
+    foreach ($layout as &$widget) {
+        $widget['enabled'] = $enabled;
+    }
+
+    unset($widget);
+
+    $page->fillForm(['admin' => ['widget_layout' => $layout]])->call('save')->assertHasNoFormErrors();
+    Livewire::test(SettingsPage::class)->assertSuccessful();
+    $saved = AdminSettings::instance()->refresh()->enabled_widgets;
+    foreach ($layout as $widget) {
+        expect($saved[$widget['key']])->toBe($enabled);
+    }
+
+    expect($saved['extensions.stats'])->toBe(! $enabled);
+})->with([true, false]);
+
+it('reviews the explicit main dashboard reset before saving only that scope', function (): void {
+    Permission::findOrCreate('View:SettingsPage', 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo('View:SettingsPage');
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = array_fill_keys(array_keys(AdminSettings::defaultWidgetOrder()), false);
+    $settings->save();
+
+    $saved = $settings->enabled_widgets;
+    $page = Livewire::test(SettingsPage::class);
+    $section = collect($page->instance()->form->getFlatComponents(withHidden: true))->first(
+        fn ($component): bool => $component instanceof Section && array_any(
+            $component->getHeaderActions(),
+            fn (Action|ActionGroup $action): bool => $action instanceof Action && $action->getName() === 'restoreMainDashboardLayout',
+        ),
+    );
+    throw_unless($section instanceof Section, RuntimeException::class);
+    $key = $section->getKey();
+    throw_unless(is_string($key), RuntimeException::class);
+    $page->callAction(TestAction::make('restoreMainDashboardLayout')->schemaComponent(str($key)->after('form.')->toString(), schema: 'form'));
+    expect(AdminSettings::instance()->refresh()->enabled_widgets['list_pages'])->toBeFalse();
+    $layout = collect($page->get('data.admin.widget_layout'));
+    expect($layout->firstWhere('key', 'list_pages')['enabled'])->toBeTrue();
+    $page->call('save')->assertHasNoFormErrors();
+    expect(AdminSettings::instance()->refresh()->enabled_widgets['list_pages'])->toBeTrue()
+        ->and(AdminSettings::instance()->refresh()->enabled_widgets['extensions.stats'])->toBe($saved['extensions.stats']);
 });
