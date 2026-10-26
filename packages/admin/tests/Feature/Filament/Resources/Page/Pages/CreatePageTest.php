@@ -652,12 +652,11 @@ it('shares site language membership across repeated row and edit URL callbacks',
     $table = $component->instance()->getTable();
     $edit = $table->getAction('edit');
     assert($edit instanceof Action);
-    // Warm the unrelated resource URL resolver before measuring membership reads.
-    $urls = $pages->mapWithKeys(fn (Page $page): array => [$page->id => GetEditPageResourceUrlAction::run($page) . '?language_id=' . $french->id]);
-
     $previousRequest = request();
     try {
         app()->instance('request', Request::create('/admin'));
+        // Warm the unrelated resource URL resolver before measuring membership reads, under the same request root as the callbacks.
+        $urls = $pages->mapWithKeys(fn (Page $page): array => [$page->id => GetEditPageResourceUrlAction::run($page) . '?language_id=' . $french->id]);
         DB::enableQueryLog();
         DB::flushQueryLog();
         foreach ($pages as $page) {
