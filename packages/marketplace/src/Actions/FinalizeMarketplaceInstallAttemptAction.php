@@ -8,6 +8,7 @@ use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceInstallAttemptTransitionData;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceRuntimePropagationStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -49,6 +50,17 @@ final class FinalizeMarketplaceInstallAttemptAction
             if ($lockedAttempt->status !== MarketplaceInstallIntentStatus::Running) {
                 return $lockedAttempt;
             }
+
+            // Commit the pending outcome atomically with success, before readers
+            // can offer setup or stop polling while propagation is still running.
+            $lockedAttempt->forceFill([
+                'context' => [
+                    ...($lockedAttempt->context ?? []),
+                    'runtime_propagation' => MarketplaceRuntimePropagationStatus::Pending->value,
+                    'runtime_propagation_started_at' => now()->getTimestamp(),
+                    'runtime_propagation_deadline_at' => now()->addSeconds(RecoverMarketplaceRuntimePropagationAction::TIMEOUT_SECONDS)->getTimestamp(),
+                ],
+            ])->save();
 
             return TransitionMarketplaceInstallAttemptAction::run(
                 $lockedAttempt,

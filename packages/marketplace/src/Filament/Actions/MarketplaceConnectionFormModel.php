@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Filament\Actions;
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Capell\Marketplace\Actions\RunMarketplaceHeartbeatAction;
 use Capell\Marketplace\Actions\StartMarketplaceAccountConnectionAction;
+use Capell\Marketplace\Data\MarketplaceConnectionStartResultData;
+use Capell\Marketplace\Enums\MarketplaceConnectionFailure;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
 use Capell\Marketplace\Enums\MarketplacePermission;
+use Capell\Marketplace\Exceptions\MarketplaceConnectionStartException;
+use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
-use Capell\Marketplace\Support\MarketplaceWebUrl;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -111,17 +115,45 @@ final class MarketplaceConnectionFormModel
         return [];
     }
 
-    public function startAccountConnection(): ?string
+    public function startAccountConnection(): MarketplaceConnectionStartResultData
     {
+        abort_unless($this->canManageConnectionActions(), 403);
+
         try {
-            $approvalUrl = StartMarketplaceAccountConnectionAction::run();
+            return new MarketplaceConnectionStartResultData(approvalUrl: StartMarketplaceAccountConnectionAction::run());
         } catch (Throwable $throwable) {
-            Log::warning('capell-marketplace: marketplace account connection failed', ['error' => $throwable->getMessage()]);
+            $failure = $throwable instanceof MarketplaceConnectionStartException
+                ? $throwable->failure
+                : MarketplaceConnectionFailure::Service;
 
-            return $this->capellAppAccountUrl();
+            Log::warning('capell-marketplace: marketplace account connection failed', [
+                'exception_class' => $throwable::class,
+                'failure' => $failure->value,
+            ]);
+
+            $actions = [
+                Action::make('reviewMarketplaceConnection')
+                    ->label((string) __('capell-marketplace::marketplace.connection_failures.review_connection'))
+                    ->url(MarketplacePage::getUrl()),
+            ];
+            $accountUrl = $this->capellAppAccountUrl();
+
+            if ($accountUrl !== null) {
+                $actions[] = Action::make('marketplaceAccountLogin')
+                    ->label((string) __('capell-marketplace::marketplace.connection_failures.account_login'))
+                    ->url($accountUrl, shouldOpenInNewTab: true);
+            }
+
+            Notification::make()
+                ->danger()
+                ->title((string) __('capell-marketplace::marketplace.marketplace.connection_failed'))
+                ->body($failure->description())
+                ->actions($actions)
+                ->persistent()
+                ->send();
+
+            return new MarketplaceConnectionStartResultData(failure: $failure);
         }
-
-        return $approvalUrl;
     }
 
     public function runHeartbeat(): void
@@ -201,8 +233,20 @@ final class MarketplaceConnectionFormModel
         return is_string($baseUrl) && $baseUrl !== '';
     }
 
-    private function capellAppAccountUrl(): string
+    private function capellAppAccountUrl(): ?string
     {
-        return MarketplaceWebUrl::resolve() . '/login';
+        $webUrl = MarketplaceAssetUrl::webUrl();
+
+        if ($webUrl === null || filter_var($webUrl, FILTER_VALIDATE_URL) === false
+            || ! in_array(parse_url($webUrl, PHP_URL_SCHEME), ['http', 'https'], true)
+            || parse_url($webUrl, PHP_URL_USER) !== null
+            || parse_url($webUrl, PHP_URL_PASS) !== null
+            || parse_url($webUrl, PHP_URL_QUERY) !== null
+            || parse_url($webUrl, PHP_URL_FRAGMENT) !== null
+        ) {
+            return null;
+        }
+
+        return $webUrl . '/login';
     }
 }

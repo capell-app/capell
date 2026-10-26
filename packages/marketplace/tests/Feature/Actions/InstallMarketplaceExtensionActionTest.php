@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
@@ -17,6 +18,7 @@ use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceInstallNotifications;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -25,6 +27,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
 
@@ -73,7 +76,7 @@ it('orchestrates a free marketplace install with selected options and queued tel
 
     expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued)
         ->and($attempt->composer_name)->toBe('capell-app/seo-suite')
-        ->and($attempt->requested_options)->toBe(['starter_content' => true])
+        ->and($attempt->requested_options)->toEqual(['starter_content' => true])
         ->and($attempt->telemetry_status)->toBe('pending');
 
     Queue::assertPushed(SendMarketplaceInstallTelemetryJob::class);
@@ -212,7 +215,8 @@ it('returns a translated licence validation error to modal callers without expos
     expect(MarketplaceInstallAttempt::query()->count())->toBe(0);
 });
 
-it('records authorization-blocked attempts and returns account connection redirects', function (): void {
+it('records authorization-blocked attempts and keeps failed connection recovery local', function (): void {
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web'));
     config(['capell-marketplace.marketplace.web_url' => 'https://capell.test']);
     installMarketplaceExtensionActionConnectedInstance();
 
@@ -251,9 +255,12 @@ it('records authorization-blocked attempts and returns account connection redire
 
     $attempt = MarketplaceInstallAttempt::query()->sole();
 
-    expect($redirectUrl)->toBe('https://capell.test/login')
+    expect($redirectUrl)->toBeNull()
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
         ->and($attempt->failure_reason)->toBe('account_required');
+
+    $notification = FilamentNotificationSnapshots::pull()->last();
+    expect(expectPresent($notification)->getBody())->toBe(__('capell-marketplace::marketplace.connection_failures.service'));
 });
 
 it('records theme install intents during marketplace install orchestration', function (): void {

@@ -10,7 +10,6 @@ use Capell\Core\Models\Theme;
 use Capell\Marketplace\Actions\ApplyRequestedThemeActivationAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PersistMarketplaceActivationAction;
-use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
@@ -116,8 +115,6 @@ final class RunMarketplaceInstallAttemptJob extends AbstractMarketplaceOperation
         // code from before the install, so this happens before the operator
         // is told the install is done — and what it could not reach travels
         // with that notification.
-        $runtimeNotice = null;
-
         // What the operator ticked on the review screen, honoured here because
         // here is the first moment the theme actually exists on disk. Reported
         // and never rethrown: the install itself succeeded, and a theme that
@@ -138,14 +135,7 @@ final class RunMarketplaceInstallAttemptJob extends AbstractMarketplaceOperation
             ]);
         }
 
-        try {
-            $runtimeNotice = PropagateMarketplaceRuntimeStateAction::run($attempt);
-        } catch (Throwable $throwable) {
-            report($throwable);
-            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_runtime_propagation_failed', MarketplaceInstallFailureStage::Notification, [
-                'reason' => $throwable->getMessage(),
-            ]);
-        }
+        $runtimeNotice = $this->propagateRuntimeState($attempt);
 
         try {
             NotifyMarketplaceInstallCompletedAction::run($attempt->refresh(), $runtimeNotice);

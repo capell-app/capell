@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceRuntimePropagationStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -71,10 +72,16 @@ final class FindStuckMarketplaceInstallOperationsAction
             ->where(function (Builder $query) use ($staleBefore, $queuedStaleBefore): void {
                 $query
                     ->where(fn (Builder $inFlight): Builder => $this->silentInFlightOperations($inFlight, $staleBefore))
-                    ->orWhere(fn (Builder $queued): Builder => $this->unclaimedQueuedOperations($queued, $queuedStaleBefore));
+                    ->orWhere(fn (Builder $queued): Builder => $this->unclaimedQueuedOperations($queued, $queuedStaleBefore))
+                    ->orWhere(fn (Builder $pending): Builder => $pending
+                        ->where('status', MarketplaceInstallIntentStatus::Succeeded->value)
+                        ->where('context->runtime_propagation', MarketplaceRuntimePropagationStatus::Pending->value));
             })
             ->oldest('started_at')
-            ->get();
+            ->get()
+            ->filter(static fn (MarketplaceInstallAttempt $attempt): bool => ! RecoverMarketplaceRuntimePropagationAction::isPending($attempt)
+                || RecoverMarketplaceRuntimePropagationAction::hasExpired($attempt))
+            ->values();
     }
 
     /**

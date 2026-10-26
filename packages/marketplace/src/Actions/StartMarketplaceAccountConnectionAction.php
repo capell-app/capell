@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Enums\MarketplaceAccountConnectionSessionStatus;
+use Capell\Marketplace\Enums\MarketplaceConnectionFailure;
+use Capell\Marketplace\Exceptions\MarketplaceConnectionStartException;
 use Capell\Marketplace\Models\MarketplaceAccountConnectionSession;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceApprovalUrl;
@@ -28,7 +30,13 @@ final class StartMarketplaceAccountConnectionAction
         $appUrl = rtrim((string) config('app.url'), '/');
         $host = parse_url($appUrl, PHP_URL_HOST);
 
-        throw_if(! is_string($host) || $host === '', RuntimeException::class, 'APP_URL must include a valid host before connecting Marketplace.');
+        throw_if(filter_var($appUrl, FILTER_VALIDATE_URL) === false
+            || ! in_array(parse_url($appUrl, PHP_URL_SCHEME), ['http', 'https'], true)
+            || ! is_string($host) || $host === ''
+            || parse_url($appUrl, PHP_URL_USER) !== null
+            || parse_url($appUrl, PHP_URL_PASS) !== null
+            || parse_url($appUrl, PHP_URL_QUERY) !== null
+            || parse_url($appUrl, PHP_URL_FRAGMENT) !== null, MarketplaceConnectionStartException::class, MarketplaceConnectionFailure::Configuration);
 
         $state = Str::random(64);
         $codeVerifier = Str::random(96);
@@ -57,11 +65,16 @@ final class StartMarketplaceAccountConnectionAction
             ]);
 
             $connectionSessionId = $this->requiredString($response, 'connection_session_id');
-            $approvalUrl = MarketplaceApprovalUrl::validate($this->requiredString($response, 'approval_url'));
+
+            try {
+                $approvalUrl = MarketplaceApprovalUrl::validate($this->requiredString($response, 'approval_url'));
+            } catch (RuntimeException) {
+                throw new MarketplaceConnectionStartException(MarketplaceConnectionFailure::Approval);
+            }
         } catch (Throwable $throwable) {
             $session->update([
                 'status' => MarketplaceAccountConnectionSessionStatus::Failed,
-                'last_error' => $throwable->getMessage(),
+                'last_error' => $throwable::class,
             ]);
 
             throw $throwable;

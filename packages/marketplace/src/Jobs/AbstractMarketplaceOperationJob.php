@@ -20,7 +20,9 @@ use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FinalizeMarketplaceInstallOperationTelemetryAction;
 use Capell\Marketplace\Actions\FindStuckMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\PackageIsAvailableForLifecycleAction;
+use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Actions\RecordMarketplaceInstallAttemptEventAction;
+use Capell\Marketplace\Actions\RecoverMarketplaceRuntimePropagationAction;
 use Capell\Marketplace\Actions\RedactMarketplaceDiagnosticContextAction;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
@@ -37,6 +39,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
+use Capell\Marketplace\Enums\MarketplaceRuntimePropagationStatus;
 use Capell\Marketplace\Exceptions\MarketplaceHealthCheckFailedException;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
@@ -393,6 +396,8 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
         }
 
         if (! $attempt->status->isActiveInstallOperation()) {
+            RecoverMarketplaceRuntimePropagationAction::run($attempt, interrupted: true);
+
             return;
         }
 
@@ -646,6 +651,26 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
             versionConstraint: $attempt->version_constraint ?: '*',
             timeoutSeconds: static::composerTimeoutSeconds(),
         );
+    }
+
+    protected function propagateRuntimeState(MarketplaceInstallAttempt $attempt): ?string
+    {
+        try {
+            return PropagateMarketplaceRuntimeStateAction::run($attempt);
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $attempt->refresh()->forceFill([
+                'context' => [
+                    ...($attempt->context ?? []),
+                    'runtime_propagation' => MarketplaceRuntimePropagationStatus::RecoveryRequired->value,
+                ],
+            ])->save();
+            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_runtime_propagation_failed', MarketplaceInstallFailureStage::Notification, [
+                'reason' => $throwable->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     private static function positiveConfiguredSeconds(string $key, int $default): int

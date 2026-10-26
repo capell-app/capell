@@ -9,12 +9,14 @@ use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\QueryMarketplaceInstallProgressAction;
 use Capell\Marketplace\Actions\QueueMarketplaceBulkUpdateAction;
+use Capell\Marketplace\Actions\ResolveMarketplaceInstallSetupAction;
 use Capell\Marketplace\Actions\StartReviewedMarketplaceSelectionAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\MarketplaceEnvironmentReadinessData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Data\MarketplaceInstallProgressData;
 use Capell\Marketplace\Data\MarketplaceInstallProgressQueryData;
+use Capell\Marketplace\Data\MarketplaceInstallSetupData;
 use Capell\Marketplace\Data\MarketplaceReviewedSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionRecordData;
@@ -433,6 +435,12 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
             return;
         }
 
+        // A failed account connection or an instruction-only handoff can return
+        // without queueing work. Keep the review and its recovery notice visible.
+        if ($outcome->queuedAttemptIds === []) {
+            return;
+        }
+
         $this->selectedMarketplaceComposerNames = [];
         $this->selectedMarketplaceInstallOptions = [];
         $this->marketplaceLicenseKey = null;
@@ -450,19 +458,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
      * and a second copy of that in a Livewire property is a copy that can be
      * stale at exactly the moment the operator is watching it.
      *
-     * @return array<int, array{
-     *     id: int,
-     *     name: string,
-     *     composer_name: string,
-     *     status: string,
-     *     stage: ?string,
-     *     stage_label: string,
-     *     progress_current: int,
-     *     progress_total: int,
-     *     active: bool,
-     *     succeeded: bool,
-     *     failure_reason: ?string
-     * }>
+     * @return array<int, array{id: int, name: string, composer_name: string, status: string, stage: ?string, stage_label: string, progress_current: int, progress_total: int, active: bool, succeeded: bool, failure_reason: ?string, setup: ?MarketplaceInstallSetupData}>
      */
     public function marketplaceInstallProgress(): array
     {
@@ -485,6 +481,7 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
                 'active' => $progress->isActive(),
                 'succeeded' => $progress->succeeded(),
                 'failure_reason' => $progress->failureReason,
+                'setup' => ResolveMarketplaceInstallSetupAction::run($progress),
             ],
             QueryMarketplaceInstallProgressAction::run(
                 MarketplaceInstallProgressQueryData::forAttemptIds($this->activeMarketplaceInstallAttemptIds),
@@ -751,6 +748,10 @@ final class MarketplaceExtensionsBrowser extends Component implements HasActions
 
     private function marketplaceInstallStageLabel(MarketplaceInstallProgressData $progress): string
     {
+        if ($progress->succeeded() && $progress->isActive()) {
+            return (string) __('capell-marketplace::marketplace.progress.stage_notification');
+        }
+
         if ($progress->status === MarketplaceInstallIntentStatus::Succeeded) {
             return (string) __('capell-marketplace::marketplace.progress.stage_completed');
         }

@@ -13,6 +13,7 @@ use Capell\Marketplace\Filament\Pages\MarketplacePage;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
@@ -346,7 +347,7 @@ it('redirects extension managers to the Capell account approval URL from the ins
         ->assertRedirect('https://capell.test/marketplace/connect/mcs_123');
 });
 
-it('redirects extension managers to Capell App login when the connection session cannot start', function (): void {
+it('keeps extension managers in the workspace with safe recovery when the connection session cannot start', function (): void {
     grantInstalledExtensionsPageManagementAccessForMarketplaceTest();
 
     config([
@@ -363,7 +364,12 @@ it('redirects extension managers to Capell App login when the connection session
 
     Livewire::test(ExtensionsPage::class)
         ->mountAction('connectMarketplaceAccount')
-        ->assertRedirect('https://capell.test/login');
+        ->assertNoRedirect();
+
+    $notification = FilamentNotificationSnapshots::pull()->sole();
+    expect($notification->getTitle())->toBe(__('capell-marketplace::marketplace.marketplace.connection_failed'))
+        ->and($notification->getBody())->toBe(__('capell-marketplace::marketplace.connection_failures.service'))
+        ->and($notification->getActions())->toHaveCount(2);
 });
 
 it('does not allow view-only extensions users to mount connection actions', function (): void {

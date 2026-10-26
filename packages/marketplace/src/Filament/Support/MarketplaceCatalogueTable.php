@@ -101,7 +101,14 @@ final class MarketplaceCatalogueTable
             ->paginated(MarketplaceCatalogueRecordProvider::TABLE_PAGE_OPTIONS)
             ->defaultPaginationPageOption(MarketplaceCatalogueRecordProvider::DEFAULT_TABLE_PAGE_OPTION)
             ->emptyStateHeading(fn (): string => $this->marketplaceEmptyStateHeading())
-            ->emptyStateDescription(fn (): string => $this->marketplaceEmptyStateDescription());
+            ->emptyStateDescription(fn (): string => $this->marketplaceEmptyStateDescription())
+            ->emptyStateActions([
+                Action::make('retryMarketplaceCatalogue')
+                    ->label((string) __('capell-marketplace::marketplace.filters.retry'))
+                    ->icon(Heroicon::OutlinedArrowPath)
+                    ->visible(fn (): bool => $this->recordProvider->marketplaceBrowseUnavailable())
+                    ->action('$refresh'),
+            ]);
     }
 
     public function marketplaceEmptyStateHeading(): string
@@ -116,12 +123,8 @@ final class MarketplaceCatalogueTable
     public function marketplaceEmptyStateDescription(): string
     {
         if ($this->recordProvider->marketplaceBrowseUnavailable()) {
-            $description = (string) __('capell-marketplace::marketplace.filters.unavailable_description');
-            $reason = $this->recordProvider->marketplaceBrowseUnavailableReason();
-
-            return is_string($reason) && $reason !== ''
-                ? $description . ' ' . __('capell-marketplace::marketplace.filters.unavailable_reason', ['reason' => $reason])
-                : $description;
+            return $this->recordProvider->marketplaceBrowseUnavailableReason()
+                ?? (string) __('capell-marketplace::marketplace.filters.unavailable_description');
         }
 
         return (string) __('capell-marketplace::marketplace.filters.empty');

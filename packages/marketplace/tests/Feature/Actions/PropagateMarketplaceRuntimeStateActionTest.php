@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
+use Capell\Marketplace\Actions\QueryMarketplaceInstallProgressAction;
 use Capell\Marketplace\Contracts\MarketplaceRuntimeRefresher;
+use Capell\Marketplace\Data\MarketplaceInstallProgressQueryData;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceRuntimePropagationStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Tests\Support\RecordingMarketplaceRuntimeRefresher;
 
@@ -33,8 +36,17 @@ it('refreshes this node and still asks for an octane restart on a single-node ho
 
     expect($refresher->refreshCount)->toBe(1)
         ->and($notice)->toBe(__('capell-marketplace::marketplace.operations.runtime_refresh_invoked'))
+        ->and($notice)->toContain('Restart your Octane workers')
         ->and($attempt->events()->pluck('message')->all())
         ->toContain(__('capell-marketplace::marketplace.operations.timeline_runtime_refresh_invoked'));
+
+    $progress = QueryMarketplaceInstallProgressAction::run(
+        MarketplaceInstallProgressQueryData::forAttemptIds([(int) $attempt->getKey()]),
+    )->items[0];
+    expect($progress->succeeded())->toBeTrue()
+        ->and($progress->isActive())->toBeFalse()
+        ->and($progress->runtimeRefreshRequired)->toBeTrue()
+        ->and($progress->runtimePropagationStatus)->toBe(MarketplaceRuntimePropagationStatus::RecoveryRequired);
 });
 
 it('refuses to claim the other nodes were refreshed on a multi-node host', function (): void {

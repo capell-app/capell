@@ -56,6 +56,10 @@ class ExtensionsPage extends Dashboard implements ExtensionTableDataSource, HasA
 
     public const string MANAGE_PERMISSION = 'Manage:ExtensionsPage';
 
+    /** @var array<string, mixed>|null */
+    #[Url(as: 'installed-extensionsFilters')]
+    public ?array $tableFilters = null;
+
     #[Url]
     public ?string $manage = null;
 

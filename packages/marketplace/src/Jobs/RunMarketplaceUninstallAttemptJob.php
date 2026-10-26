@@ -9,7 +9,6 @@ use Capell\Core\Actions\RemovePackageAction;
 use Capell\Core\Actions\UninstallPackageAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\NotifyMarketplaceUninstallCompletedAction;
-use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceUninstallOptionsData;
@@ -302,16 +301,7 @@ final class RunMarketplaceUninstallAttemptJob extends AbstractMarketplaceOperati
     #[Override]
     protected function announceSucceededAttempt(MarketplaceInstallAttempt $attempt): void
     {
-        $runtimeNotice = null;
-
-        try {
-            $runtimeNotice = PropagateMarketplaceRuntimeStateAction::run($attempt);
-        } catch (Throwable $throwable) {
-            report($throwable);
-            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_runtime_propagation_failed', MarketplaceInstallFailureStage::Notification, [
-                'reason' => $throwable->getMessage(),
-            ]);
-        }
+        $runtimeNotice = $this->propagateRuntimeState($attempt);
 
         try {
             NotifyMarketplaceUninstallCompletedAction::run($attempt->refresh(), $runtimeNotice);
