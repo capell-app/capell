@@ -36,6 +36,7 @@ class TranslationsRepeater extends RepeaterTabs
     /** @var array<string, array<array-key, mixed>> */
     private array $restoredTranslationMetadata = [];
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -48,7 +49,6 @@ class TranslationsRepeater extends RepeaterTabs
                 name: 'translations',
                 modifyQueryUsing: fn (Builder $query): Builder => $this->modifyTranslationsQuery($query),
             )
-            ->setupActiveTabAfterStateHydrated()
             ->mutateRelationshipDataBeforeFillUsing(fn (array $data): array => $this->mutateTranslationRowBeforeFill($data))
             ->columnSpanFull()
             ->collapsible()
@@ -57,6 +57,7 @@ class TranslationsRepeater extends RepeaterTabs
                     $component->state([]);
                 }
             })
+            ->setupActiveTabAfterStateHydrated()
             ->defaultItems(0)
             ->required(
                 function (self $component, ?Model $record): bool {

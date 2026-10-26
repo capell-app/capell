@@ -21,6 +21,36 @@ use Filament\Support\Exceptions\Halt;
 
 uses(CreatesAdminUser::class);
 
+it('initialises the entangled selection through the base translations hydration lifecycle', function (): void {
+    $translations = [
+        'english-row' => ['language_id' => 1, 'title' => 'Welcome'],
+        'french-row' => ['language_id' => 2, 'title' => 'Bienvenue'],
+    ];
+    $component = mountedBaseTranslationsRepeaterForTest(['translations' => $translations]);
+    $component->activeTab(2);
+
+    expect(data_get($component->getLivewire(), $component->getActiveTabStatePath()))->toBeNull();
+
+    $component->callAfterStateHydrated();
+
+    expect($component->getActiveTabStatePath())->toBe('data.activeTab')
+        ->and(data_get($component->getLivewire(), 'data.activeTab'))->toBe(2)
+        ->and($component->getActiveTab())->toBe(2)
+        ->and($component->getState())->toBe($translations);
+});
+
+it('normalises non-array base translation state before initialising selection', function (mixed $state): void {
+    $component = mountedBaseTranslationsRepeaterForTest(['translations' => []]);
+    $component->state($state);
+    $component->activeTab(2);
+
+    $component->callAfterStateHydrated();
+
+    expect($component->getState())->toBe([])
+        ->and(data_get($component->getLivewire(), 'data.activeTab'))->toBe(1)
+        ->and($component->getActiveTab())->toBe(1);
+})->with([null, 'invalid']);
+
 it('enforces required site translation languages from mounted admin form state', function (): void {
     test()->actingAsAdmin();
     $english = Language::factory()->english()->createOne();
