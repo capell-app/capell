@@ -14,6 +14,10 @@
 
 Use this package when an admin needs to discover, authorize, or maintain extensions from the Capell marketplace. Local enable, disable, uninstall, and bulk extension management remain part of the installed Extensions surface.
 
+Purchase information distinguishes an unconnected installation, a connection without an observed commercial snapshot, and a known purchase list from the last successful heartbeat. Failed refreshes retain dated information. Connect and refresh actions retain their existing management permissions.
+
+The native catalogue keeps older cached results available and shows their observation time where recorded. A failed background warm is identified explicitly; rechecking uses the existing coalesced warm requests. Catalogue display never grants installation authority. Update history and confirmation use the same supported release-text aliases, escape remote text and identify releases without notes.
+
 ## Package Boundary
 
 Marketplace owns:

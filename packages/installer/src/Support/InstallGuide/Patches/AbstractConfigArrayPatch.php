@@ -5,23 +5,29 @@ declare(strict_types=1);
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Core\Support\Patching\ConfigArrayEditor;
-use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
+use Capell\Core\Support\Patching\ReviewableFilePatch;
+use Capell\Installer\Support\InstallGuide\PlansFilePatch;
+use Override;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
+use PhpParser\Node\Expr\ArrayItem;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
-use RuntimeException;
+use PhpParser\NodeFinder;
 use Throwable;
 
 /**
  * Applies a guarded entry to one PHP configuration array.
  */
-abstract class AbstractConfigArrayPatch implements Patch
+abstract class AbstractConfigArrayPatch implements ReviewableFilePatch
 {
+    use PlansFilePatch;
+
     public function __construct(private readonly ?string $path = null) {}
 
     abstract protected function relativeConfigFilePath(): string;
@@ -32,6 +38,7 @@ abstract class AbstractConfigArrayPatch implements Patch
 
     abstract protected function isCanonicalValue(Expr $value): bool;
 
+    #[Override]
     public function probe(): PatchStatus
     {
         $path = $this->path();
@@ -60,43 +67,26 @@ abstract class AbstractConfigArrayPatch implements Patch
         }
     }
 
+    #[Override]
     public function reason(): ?string
     {
         return null;
     }
 
-    public function apply(): void
+    protected function plan(): FilePatchPlan
     {
         $path = $this->path();
-
-        throw_unless(
-            file_exists($path),
-            RuntimeException::class,
-            $this->relativeConfigFilePath() . ' not found at: ' . $path,
-        );
-
-        $status = $this->probe();
-        if ($status !== PatchStatus::Applicable) {
-            throw new RuntimeException('Cannot apply patch when status is: ' . $status->value);
+        $editor = new PhpFileEditor($path);
+        $value = $this->buildConfigValue();
+        new ConfigArrayEditor($editor)->insertKey($this->configArrayPath(), $value);
+        $keys = explode('.', $this->configArrayPath());
+        foreach (new NodeFinder()->findInstanceOf($value, ArrayItem::class) as $item) {
+            if ($item->key instanceof String_) {
+                $keys[] = $item->key->value;
+            }
         }
 
-        try {
-            $editor = new PhpFileEditor($path);
-            $editor->backup();
-
-            new ConfigArrayEditor($editor)->insertKey(
-                $this->configArrayPath(),
-                $this->buildConfigValue(),
-            );
-
-            $editor->save();
-        } catch (Throwable $throwable) {
-            throw new RuntimeException(
-                'Failed to apply ' . class_basename(static::class) . ': ' . $throwable->getMessage(),
-                (int) $throwable->getCode(),
-                $throwable,
-            );
-        }
+        return new FilePatchPlan($path, $this->relativeConfigFilePath(), $editor->originalContent(), $editor->print(), visiblePhpArrayKeys: $keys);
     }
 
     protected function arrayItemValue(Array_ $array, string $key): ?Expr

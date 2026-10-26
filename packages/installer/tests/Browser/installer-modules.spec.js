@@ -1,4 +1,5 @@
 const path = require('path')
+const { readFileSync } = require('fs')
 const { expect, test } = require('@playwright/test')
 
 const installerScripts = [
@@ -20,7 +21,7 @@ async function addInstallerScripts(page, scripts = installerScripts) {
     }
 }
 
-async function setInstallerHarness(page) {
+async function setInstallerHarness(page, { existingUserFields = '' } = {}) {
     await page.setContent(`
         <meta name="csrf-token" content="initial-token">
         <main>
@@ -32,15 +33,22 @@ async function setInstallerHarness(page) {
                     <button type="button" data-step-trigger="site">Site</button>
                     <button type="button" data-step-trigger="packages">Packages</button>
                     <button type="button" data-step-trigger="options">Options</button>
-                    <section data-installer-step="readiness"></section>
+                    <div id="installer-workspace" role="region" aria-labelledby="readiness-heading">
+                    <section data-installer-step="readiness">
+                        <h2 id="readiness-heading" tabindex="-1" data-step-heading>Readiness</h2>
+                    </section>
                     <section data-installer-step="site" hidden>
+                        <h2 id="site-heading" tabindex="-1" data-step-heading>Site</h2>
                         <div class="field" data-field="site_name">
-                            <label>Site name</label>
-                            <input name="site_name" required>
+                            <label for="site-name">Site name</label>
+                            <input id="site-name" name="site_name" required aria-describedby="site-help">
+                            <small id="site-help">Name your site</small>
                             <span class="field-error"></span>
                         </div>
+                        ${existingUserFields}
                     </section>
                     <section data-installer-step="packages" hidden>
+                        <h2 id="packages-heading" tabindex="-1" data-step-heading>Packages</h2>
                         <label>
                             <input type="checkbox" data-package-select-all="extensions">
                             <span data-package-select-all-label>Select all</span>
@@ -60,7 +68,10 @@ async function setInstallerHarness(page) {
                             </label>
                         </div>
                     </section>
-                    <section data-installer-step="options" hidden></section>
+                    <section data-installer-step="options" hidden>
+                        <h2 id="options-heading" tabindex="-1" data-step-heading>Options</h2>
+                    </section>
+                    </div>
                     <button type="button" data-step-back>Back</button>
                     <button type="button" data-step-continue>Continue</button>
                     <button id="submit-button" type="submit" hidden><span data-submit-label>Install Capell</span></button>
@@ -1018,4 +1029,222 @@ test('runner discards a review when settings change while it is loading', async 
         .toEqual(['Review again'])
     await expect(page.locator('#installation-review')).toBeHidden()
     await expect(page.locator('[name="review_token"]')).toHaveValue('')
+})
+
+test('keyboard step controls expose the current step and focus each transition without losing input', async ({
+    page,
+}) => {
+    await setInstallerHarness(page)
+    await expect(page.locator('body')).toBeFocused()
+    await expect(
+        page.getByRole('button', { name: 'Readiness', exact: true }),
+    ).toHaveAttribute('aria-current', 'step')
+    await expect(page.locator('[aria-current="step"]')).toHaveCount(1)
+
+    await page.getByRole('button', { name: 'Continue', exact: true }).focus()
+    await page.keyboard.press('Enter')
+    await expect(
+        page.getByRole('heading', { name: 'Site', exact: true }),
+    ).toBeFocused()
+    await expect(
+        page.getByRole('button', { name: 'Site', exact: true }),
+    ).toHaveAttribute('aria-current', 'step')
+    await expect(
+        page.getByRole('region', { name: 'Site', exact: true }),
+    ).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Readiness', exact: true }),
+    ).toHaveCount(0)
+    await expect(page.getByRole('checkbox')).toHaveCount(0)
+    await page
+        .getByRole('textbox', { name: 'Site name' })
+        .fill('Remember this site')
+
+    await page.getByRole('button', { name: 'Packages', exact: true }).focus()
+    await page.keyboard.press('Space')
+    await expect(
+        page.getByRole('heading', { name: 'Packages', exact: true }),
+    ).toBeFocused()
+    await expect(page.getByRole('textbox', { name: 'Site name' })).toHaveCount(
+        0,
+    )
+    await expect(page.locator('[aria-selected]')).toHaveCount(0)
+    await expect(page.locator('[aria-current="step"]')).toHaveCount(1)
+
+    await page.getByRole('button', { name: 'Back', exact: true }).focus()
+    await page.keyboard.press('Enter')
+    await expect(
+        page.getByRole('heading', { name: 'Site', exact: true }),
+    ).toBeFocused()
+    await expect(page.getByRole('textbox', { name: 'Site name' })).toHaveValue(
+        'Remember this site',
+    )
+
+    // Native Tab navigation cannot enter a hidden panel's controls.
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('textbox', { name: 'Site name' })).toBeFocused()
+})
+
+test('invalid fields keep focus and their associated errors during a blocked transition', async ({
+    page,
+}) => {
+    await setInstallerHarness(page)
+    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    const field = page.getByRole('textbox', { name: 'Site name' })
+    await expect(field).toBeFocused()
+    await expect(field).toHaveAttribute('aria-invalid', 'true')
+    await expect(field).toHaveAttribute(
+        'aria-describedby',
+        'site-help installer-error-site_name',
+    )
+    await expect(page.locator('#installer-error-site_name')).not.toBeEmpty()
+    await expect(
+        page.getByRole('button', { name: 'Site', exact: true }),
+    ).toHaveAttribute('aria-current', 'step')
+    await expect(
+        page.getByRole('region', { name: 'Site', exact: true }),
+    ).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Options', exact: true }),
+    ).toHaveCount(0)
+
+    await field.fill('A valid site')
+    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(
+        page.getByRole('heading', { name: 'Packages', exact: true }),
+    ).toBeFocused()
+    await expect(page.locator('#site-name')).not.toHaveAttribute('aria-invalid')
+    await expect(page.locator('#site-name')).toHaveAttribute(
+        'aria-describedby',
+        'site-help',
+    )
+})
+
+test('server validation reveals and focuses the invalid field with its error', async ({
+    page,
+}) => {
+    await setInstallerHarness(page)
+    await continueToPackages(page)
+    await page.evaluate(() => {
+        const wizard = window.CapellInstaller.createWizard({
+            form: document.getElementById('install-form'),
+        })
+        wizard.showFieldErrors({ site_name: ['Choose a different site name.'] })
+    })
+    await expect(page.getByRole('textbox', { name: 'Site name' })).toBeFocused()
+    await expect(page.locator('#installer-error-site_name')).toHaveText(
+        'Choose a different site name.',
+    )
+    await expect(
+        page.getByRole('button', { name: 'Site', exact: true }),
+    ).toHaveAttribute('aria-current', 'step')
+    await expect(
+        page.getByRole('region', { name: 'Site', exact: true }),
+    ).toBeVisible()
+})
+
+test('correcting an existing user clears nested field errors and preserves hint descriptions', async ({
+    page,
+}) => {
+    const installView = readFileSync(
+        path.resolve(__dirname, '../../resources/views/install.blade.php'),
+        'utf8',
+    )
+    // Reuse the production error owner so its class cannot drift from this fixture.
+    const [existingUserField] = installView.match(
+        /<div\s[^>]*\bdata-field="existing_user_id"[^>]*>/,
+    )
+    await setInstallerHarness(page, {
+        existingUserFields: `
+            <label><input type="radio" name="admin_user_mode" value="existing" data-admin-user-mode checked>Use an existing user</label>
+            <div class="admin-user-fields" data-admin-user-fields="existing">
+                ${existingUserField}
+                    <label class="field-label" for="existing_user_id">Existing user</label>
+                    <select id="existing_user_id" name="existing_user_id" required aria-describedby="existing-user-help existing-user-permissions">
+                        <option value=""></option>
+                        <option value="42">Existing administrator</option>
+                    </select>
+                    <small id="existing-user-help">Choose an existing account.</small>
+                    <small id="existing-user-permissions">This account will administer the site.</small>
+                    <span class="field-error"></span>
+                </div>
+            </div>
+        `,
+    })
+    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Site name' }).fill('A valid site')
+
+    const owner = page.locator('[data-field="existing_user_id"]')
+    const field = page.locator('#existing_user_id')
+    const error = owner.locator('.field-error')
+    const hintIds = 'existing-user-help existing-user-permissions'
+
+    // Repeated invalid/corrected transitions must neither retain nor duplicate error IDs.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        await field.selectOption('')
+        await page
+            .getByRole('button', { name: 'Continue', exact: true })
+            .click()
+        await expect(field).toBeFocused()
+        await expect(field).toHaveAttribute('aria-invalid', 'true')
+        await expect(field).toHaveAttribute(
+            'aria-describedby',
+            `${hintIds} installer-error-existing_user_id`,
+        )
+        await expect(owner).toHaveClass(/has-error/)
+        await expect(error).not.toBeEmpty()
+
+        await field.selectOption('42')
+        await page
+            .getByRole('button', { name: 'Continue', exact: true })
+            .click()
+        await expect(
+            page.getByRole('heading', { name: 'Packages', exact: true }),
+        ).toBeFocused()
+        await expect(owner).not.toHaveClass(/has-error/)
+        await expect(error).toBeEmpty()
+        await expect(field).not.toHaveAttribute('aria-invalid')
+        await expect(field).toHaveAttribute('aria-describedby', hintIds)
+        await page.getByRole('button', { name: 'Back', exact: true }).click()
+        await expect(field).toHaveAccessibleDescription(
+            'Choose an existing account. This account will administer the site.',
+        )
+    }
+})
+
+test('narrow reduced-motion transitions orient focus and scroll without animation', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 375, height: 667 })
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await setInstallerHarness(page)
+    await page.evaluate(() => {
+        window.installerScrolls = []
+        Element.prototype.scrollIntoView = function (options) {
+            window.installerScrolls.push({
+                id: this.id,
+                behavior: options.behavior,
+            })
+        }
+    })
+    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(
+        page.getByRole('heading', { name: 'Site', exact: true }),
+    ).toBeFocused()
+    await expect(page.locator('[data-installer-step="site"]')).not.toHaveClass(
+        /installer-step-enter/,
+    )
+    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await expect(page.getByRole('textbox', { name: 'Site name' })).toBeFocused()
+    expect(await page.evaluate(() => window.installerScrolls)).toEqual([
+        { id: 'site-heading', behavior: 'instant' },
+        { id: 'site-name', behavior: 'instant' },
+    ])
+    await page.getByRole('textbox', { name: 'Site name' }).fill('Narrow site')
+    await page.getByRole('button', { name: 'Continue', exact: true }).click()
+    await page.getByRole('button', { name: 'Back', exact: true }).click()
+    await expect(page.getByRole('textbox', { name: 'Site name' })).toHaveValue(
+        'Narrow site',
+    )
 })

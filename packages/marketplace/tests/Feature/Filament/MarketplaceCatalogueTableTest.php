@@ -894,7 +894,9 @@ it('queues a background refresh when serving stale marketplace table results', f
 
         $records = $provider->paginatedRecords();
 
-        expect($records->items()[0]['slug'])->toBe('cached-suite');
+        expect($records->items()[0]['slug'])->toBe('cached-suite')
+            ->and($provider->catalogueFreshness()->stale)->toBeTrue()
+            ->and($provider->catalogueFreshness()->observedAt)->not->toBeNull();
 
         Bus::assertDispatchedAfterResponse(WarmMarketplaceCatalogueCacheJob::class);
         Http::assertSentCount(1);

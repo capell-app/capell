@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\BuildLanguageSetupDataAction;
 use Capell\Admin\Http\Middleware\SetAdminLocale;
 use Capell\Core\Database\Factories\UserFactory;
 use Capell\Core\Models\Language;
@@ -40,3 +41,19 @@ function adminLocaleRequestFor(mixed $user): Request
 
     return $request;
 }
+
+it('keeps the configured application fallback visible after applying an admin preference', function (): void {
+    config()->set('app.locale', 'en_GB');
+    $language = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls')->create(['status' => true]);
+    $user = UserFactory::new()->createOne(['preferred_admin_language_id' => $language->id]);
+    test()->actingAs($user);
+    $request = adminLocaleRequestFor($user);
+    app()->instance('request', $request);
+
+    (new SetAdminLocale)->handle($request, function (): ResponseFactory|Response {
+        $setup = BuildLanguageSetupDataAction::run();
+        expect($setup->applicationLocale)->toBe('en_GB')->and($setup->adminLocale)->toBe('cy');
+
+        return response('ok');
+    });
+});

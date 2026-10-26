@@ -205,6 +205,11 @@ body {
     overflow: hidden;
 }
 
+.installer-workspace > [data-step-heading] {
+    grid-column: 1 / -1;
+    margin-bottom: 0;
+}
+
 .installer-screen-progress .installer-workspace {
     display: grid;
     grid-template-columns: 1fr;
@@ -255,6 +260,10 @@ body {
 
 .installer-step {
     display: flex;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
     gap: 12px;
     align-items: center;
     justify-content: flex-start;

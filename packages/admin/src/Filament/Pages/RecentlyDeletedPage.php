@@ -6,10 +6,13 @@ namespace Capell\Admin\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Actions\ListRecentlyDeletedRecordsAction;
 use Capell\Admin\Actions\RestorePageCascadeAction;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Actions\ForceDeleteAction;
 use Capell\Admin\Filament\Concerns\Validate\PageValidation;
 use Capell\Admin\Filament\Contracts\ValidatesDelete;
+use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -19,8 +22,8 @@ use Filament\Pages\Page as FilamentPage;
 use Filament\Support\Exceptions\Halt;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Livewire\WithPagination;
 use Override;
 
 /**
@@ -35,6 +38,9 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
 {
     use HasPageShield;
     use PageValidation;
+    use WithPagination;
+
+    public string $search = '';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTrash;
 
@@ -48,6 +54,12 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
     public static function getNavigationLabel(): string
     {
         return (string) __('capell-admin::generic.recently_deleted');
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage(pageName: 'pagePage');
+        $this->resetPage(pageName: 'mediaPage');
     }
 
     #[Override]
@@ -148,28 +160,31 @@ class RecentlyDeletedPage extends FilamentPage implements ValidatesDelete
     }
 
     /**
-     * @return list<array{label: string, icon: string, resource: string, items: Collection<int, Model>}>
+     * @return list<array<string, mixed>>
      */
     private function collectGroups(): array
     {
-        /** @var Collection<int, Model> $deletedPages */
-        $deletedPages = new Collection(SiteAccess::current()->query(Page::class)->onlyTrashed()->with(['blueprint.roleRestrictions', 'site'])->latest('deleted_at')->limit(50)->get()->filter(fn (Page $page): bool => Gate::allows('view', $page))->all());
-
-        /** @var Collection<int, Model> $deletedMedia */
-        $deletedMedia = new Collection(SiteAccess::current()->query(Media::class)->onlyTrashed()->latest('deleted_at')->limit(50)->get()->all());
+        $pages = ListRecentlyDeletedRecordsAction::run('page', $this->search, $this->getPage('pagePage'));
+        $media = ListRecentlyDeletedRecordsAction::run('media', $this->search, $this->getPage('mediaPage'));
+        $pageResource = AdminSurfaceLookup::resource(ResourceEnum::Page);
+        $mediaResource = AdminSurfaceLookup::resource(ResourceEnum::Media);
 
         return [
             [
                 'label' => (string) __('capell-admin::generic.pages'),
                 'icon' => 'heroicon-o-document-text',
                 'resource' => 'page',
-                'items' => $deletedPages,
+                'items' => new Collection($pages->items()),
+                'pagination' => $pages,
+                'url' => $pageResource::canViewAny() ? $pageResource::getUrl('index', ['filters' => ['trashed' => ['value' => '0']]]) : null,
             ],
             [
                 'label' => (string) __('capell-admin::generic.media'),
                 'icon' => 'heroicon-o-photo',
                 'resource' => 'media',
-                'items' => $deletedMedia,
+                'items' => new Collection($media->items()),
+                'pagination' => $media,
+                'url' => $mediaResource::canViewAny() ? $mediaResource::getUrl('index', ['filters' => ['trashed' => ['value' => '0']]]) : null,
             ],
         ];
     }

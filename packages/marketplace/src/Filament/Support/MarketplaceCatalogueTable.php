@@ -32,6 +32,8 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\View;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -61,6 +63,11 @@ final class MarketplaceCatalogueTable
                 perPage: $this->recordProvider->normalizeRecordsPerPage($recordsPerPage),
                 includeLocalExtensionState: $includeLocalExtensionState,
             ))
+            ->header(function (Table $table): Factory|View {
+                $table->getLivewire()->getTableRecords();
+
+                return view('capell-marketplace::filament.tables.catalogue-freshness', ['freshness' => $this->recordProvider->catalogueFreshness()]);
+            })
             ->searchable()
             ->searchPlaceholder((string) __('capell-marketplace::marketplace.filters.search_placeholder'))
             ->searchDebounce('300ms')

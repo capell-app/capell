@@ -3,6 +3,13 @@
 declare(strict_types=1);
 
 return [
+    'catalogue_freshness' => [
+        'failed' => 'The latest catalogue refresh failed. Retaining the last received results. Installation still uses separate current authorisation and readiness checks.',
+        'retained' => 'Showing an older cached catalogue while a background refresh is requested. If refresh fails, these results remain available. Installation uses separate current authorisation and readiness checks.',
+        'observed' => 'Catalogue last received: :date',
+        'unknown_date' => 'The observation time of this older cache is unavailable.',
+        'recheck' => 'Recheck cached catalogue (refresh requests are limited)',
+    ],
     'errors' => [
         'invalid_composer_coordinates' => 'Marketplace returned invalid Composer package coordinates.',
         'unsafe_update_constraint' => 'Marketplace returned an update constraint that permits the current version or a downgrade.',
@@ -86,6 +93,15 @@ return [
         'cancelled' => 'Cancelled',
     ],
     'purchases' => [
+        'snapshot' => [
+            'not_connected' => 'Connect a Capell account to obtain purchase information. An authorised administrator can connect using the account action.',
+            'not_observed' => 'Connected installation: purchase information has not yet been received. Ask an authorised administrator to run heartbeat.',
+            'current' => 'Purchase information from the last successful account check.',
+            'retained' => 'The account refresh failed. Showing the last received purchase information, where available.',
+        ],
+        'observed' => 'Last successful observation: :date',
+        'observation_unknown' => 'Not recorded',
+        'licence_retained' => 'Licence refresh failed; showing retained local status.',
         'page_title' => 'Purchases and licences',
         'heading' => 'Purchases and licences',
         'description' => 'Review account purchases, installed paid extensions, renewals, and support.',
