@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Settings;
 
+use Capell\Admin\Actions\BuildLanguageSetupDataAction;
 use Capell\Admin\Filament\Contracts\HasSchema;
-use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Core\Enums\ImageSourceType;
 use Capell\Core\Support\Media\ImageSourcePresets;
 use Filament\Forms\Components\Checkbox;
@@ -13,10 +13,14 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Override;
 
 class CoreSettingsSchema implements HasSchema
 {
+    #[Override]
     public static function make(Schema $schema): array
     {
         return [
@@ -24,6 +28,8 @@ class CoreSettingsSchema implements HasSchema
                 ->columnSpanFull()
                 ->description(__('capell-admin::generic.settings_core_language_info'))
                 ->schema([
+                    View::make('capell-admin::filament.settings.language-setup')
+                        ->viewData(fn (): array => ['setup' => BuildLanguageSetupDataAction::run()]),
                     TextInput::make('default_locale')
                         ->label(__('capell-admin::form.default_locale'))
                         ->helperText(__('capell-admin::form.default_locale_helper'))
@@ -39,21 +45,16 @@ class CoreSettingsSchema implements HasSchema
                         ->helperText(__('capell-admin::form.allowed_image_sources_helper'))
                         ->options(ImageSourcePresets::presetOptions())
                         ->default('all')
+                        ->live()
                         ->required(),
                     Select::make('default_image_source')
                         ->label(__('capell-admin::form.default_image_source'))
-                        ->helperText(__('capell-admin::form.default_image_source_helper'))
-                        ->options([
-                            ImageSourceType::Url->value => resolve(EnumPresentationRegistry::class)->label(ImageSourceType::Url),
-                            ImageSourceType::Upload->value => resolve(EnumPresentationRegistry::class)->label(ImageSourceType::Upload),
-                            ImageSourceType::Media->value => resolve(EnumPresentationRegistry::class)->label(ImageSourceType::Media),
-                        ])
+                        ->helperText(fn (Get $get): string => array_key_exists((string) $get('default_image_source'), ImageSourcePresets::options($get('allowed_image_sources') ?? 'all'))
+                            ? (string) __('capell-admin::form.default_image_source_helper') : (string) __('capell-admin::form.default_image_source_conflict'))
+                        ->options(fn (Get $get): array => ImageSourcePresets::options($get('allowed_image_sources') ?? 'all'))
                         ->default(ImageSourceType::Media->value)
-                        ->in([
-                            ImageSourceType::Url->value,
-                            ImageSourceType::Upload->value,
-                            ImageSourceType::Media->value,
-                        ])
+                        ->in(fn (Get $get): array => array_keys(ImageSourcePresets::options($get('allowed_image_sources') ?? 'all')))
+                        ->validationMessages(['in' => __('capell-admin::form.default_image_source_conflict')])
                         ->required(),
                     TagsInput::make('allowed_remote_image_domains')
                         ->label(__('capell-admin::form.allowed_remote_image_domains'))

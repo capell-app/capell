@@ -27,12 +27,15 @@ use Capell\Marketplace\Filament\Support\MarketplaceCatalogueRecordProvider;
 use Capell\Marketplace\Filament\Support\MarketplaceCatalogueTable;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
+use Capell\Marketplace\Jobs\WarmMarketplaceCatalogueCacheJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -2232,3 +2235,42 @@ it('carries the activate-after-install choice from the review screen into the th
     expect(data_get($intent->metadata, 'acquisition.' . RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL))
         ->toBe($activate);
 })->with([true, false]);
+
+it('renders retained catalogue results through failed and successful warming in the native table', function (): void {
+    grantMarketplaceBrowserViewOnlyAccess();
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+        'capell-marketplace.marketplace.cache_ttl_seconds' => 1,
+        'capell-marketplace.marketplace.stale_cache_ttl_seconds' => 300,
+    ]);
+    $payload = ['data' => [[
+        'slug' => 'cached-example', 'name' => 'Cached example', 'composer_name' => 'capell-app/cached-example', 'kind' => 'plugin', 'latest_version' => '1.0.0',
+    ]]];
+    $updatedPayload = $payload;
+    $updatedPayload['data'][0]['name'] = 'Updated example';
+    $responses = Http::sequence()->push($payload)->whenEmpty(Http::response([], 503));
+    Http::fake(['https://marketplace.test/api/extensions*' => $responses]);
+    Bus::fake();
+    Livewire::test(MarketplaceExtensionsBrowser::class)->call('loadMarketplaceResults')->assertDontSee('data-capell-catalogue-stale', false);
+    CarbonImmutable::setTestNow(CarbonImmutable::now()->addSeconds(2));
+
+    try {
+        $browser = Livewire::test(MarketplaceExtensionsBrowser::class)->call('loadMarketplaceResults')->assertSee('data-capell-catalogue-stale', false)->assertSee('Cached example');
+        $browser->call('$refresh')->assertSee('data-capell-catalogue-stale', false);
+        Http::assertSentCount(1);
+        Bus::assertDispatchedAfterResponseTimes(WarmMarketplaceCatalogueCacheJob::class, 2);
+        foreach (Bus::dispatchedAfterResponse(WarmMarketplaceCatalogueCacheJob::class) as $job) {
+            $job->handle();
+        }
+
+        $browser->call('$refresh')->assertSee('Cached example')->assertSee('data-capell-catalogue-refresh-failed', false);
+        $responses->push($updatedPayload)->push($updatedPayload);
+        foreach (Bus::dispatchedAfterResponse(WarmMarketplaceCatalogueCacheJob::class) as $job) {
+            $job->handle();
+        }
+
+        $browser->call('$refresh')->assertDontSee('data-capell-catalogue-stale', false)->assertSee('Updated example');
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
+});

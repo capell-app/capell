@@ -50,9 +50,12 @@
 
         function setInstallerStep(stepName, transitionDirection) {
             var activeStepIndex = stepIndex(stepName)
+            var isIntentionalTransition =
+                stepName !== currentInstallerStep &&
+                (transitionDirection === 'forward' ||
+                    transitionDirection === 'back')
             var shouldAnimateStep =
-                transitionDirection === 'forward' ||
-                transitionDirection === 'back'
+                isIntentionalTransition && !prefersReducedMotion()
 
             if (activeStepIndex === -1) {
                 return
@@ -95,11 +98,10 @@
                     triggerStepIndex > activeStepIndex,
                 )
 
-                if (trigger.tagName === 'BUTTON') {
-                    trigger.setAttribute(
-                        'aria-selected',
-                        isActive ? 'true' : 'false',
-                    )
+                if (isActive) {
+                    trigger.setAttribute('aria-current', 'step')
+                } else {
+                    trigger.removeAttribute('aria-current')
                 }
             })
 
@@ -116,12 +118,31 @@
                 submitButton.hidden = !isSubmitStep
             }
 
-            if (window.matchMedia('(min-width: 901px)').matches) {
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth',
+            var activeSection = form.querySelector(
+                '[data-installer-step="' + stepName + '"]',
+            )
+            var heading = null
+            if (activeSection) {
+                heading = activeSection.matches('[data-step-heading]')
+                    ? activeSection
+                    : activeSection.querySelector('[data-step-heading]')
+            }
+            var workspace = document.getElementById('installer-workspace')
+            if (workspace && heading) {
+                workspace.setAttribute('aria-labelledby', heading.id)
+            }
+
+            if (isIntentionalTransition && heading) {
+                heading.focus({ preventScroll: true })
+                heading.scrollIntoView({
+                    block: 'start',
+                    behavior: prefersReducedMotion() ? 'instant' : 'smooth',
                 })
             }
+        }
+
+        function prefersReducedMotion() {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches
         }
 
         function setFlowStep(stepName) {
@@ -204,7 +225,7 @@
 
             inputs[0].scrollIntoView({
                 block: 'center',
-                behavior: 'smooth',
+                behavior: prefersReducedMotion() ? 'instant' : 'smooth',
             })
             inputs[0].focus({ preventScroll: true })
         }
@@ -238,8 +259,6 @@
             }
 
             showFieldErrors(validationErrorsForInputs(invalidInputs))
-            focusFirstInvalidInput(invalidInputs)
-
             return false
         }
 
@@ -319,6 +338,24 @@
                 var msg = node.querySelector('.field-error')
                 if (msg) {
                     msg.textContent = ''
+                    node.querySelectorAll('[aria-describedby]').forEach(
+                        function (input) {
+                            var descriptions = input
+                                .getAttribute('aria-describedby')
+                                .split(/\s+/)
+                                .filter(function (id) {
+                                    return id !== msg.id
+                                })
+                            if (descriptions.length) {
+                                input.setAttribute(
+                                    'aria-describedby',
+                                    descriptions.join(' '),
+                                )
+                            } else {
+                                input.removeAttribute('aria-describedby')
+                            }
+                        },
+                    )
                 }
             })
             form.querySelectorAll('[aria-invalid]').forEach(function (input) {
@@ -349,6 +386,7 @@
         function showFieldErrors(errors) {
             clearFieldErrors()
             var firstInvalidStep = null
+            var firstInvalidInput = null
             var unmatchedMessages = []
 
             Object.keys(errors).forEach(function (name) {
@@ -361,15 +399,42 @@
                     if (!firstInvalidStep && fieldStep) {
                         firstInvalidStep = fieldStep.dataset.installerStep
                     }
-                    var input = fieldNode.querySelector(
-                        'input, select, textarea',
+                    var inputs = fieldNode.querySelectorAll(
+                        'input:not([type=hidden]):not(:disabled), ' +
+                            'select:not(:disabled), textarea:not(:disabled)',
                     )
+                    var input =
+                        Array.prototype.find.call(inputs, function (candidate) {
+                            return candidate.name === name
+                        }) || inputs[0]
                     if (input) {
                         input.setAttribute('aria-invalid', 'true')
                     }
                     var msgEl = fieldNode.querySelector('.field-error')
                     if (msgEl) {
                         msgEl.textContent = message
+                        if (input) {
+                            if (!msgEl.id) {
+                                msgEl.id =
+                                    'installer-error-' +
+                                    name.replace(/[^a-z0-9_-]/gi, '-')
+                            }
+                            var descriptions = (
+                                input.getAttribute('aria-describedby') || ''
+                            )
+                                .split(/\s+/)
+                                .filter(Boolean)
+                            if (descriptions.indexOf(msgEl.id) === -1) {
+                                descriptions.push(msgEl.id)
+                            }
+                            input.setAttribute(
+                                'aria-describedby',
+                                descriptions.join(' '),
+                            )
+                        }
+                    }
+                    if (!firstInvalidInput && input) {
+                        firstInvalidInput = input
                     }
                     return
                 }
@@ -382,6 +447,7 @@
             }
 
             showGlobalErrors(unmatchedMessages)
+            if (firstInvalidInput) focusFirstInvalidInput([firstInvalidInput])
         }
 
         function showGlobalError(message) {
@@ -390,15 +456,6 @@
 
         stepTriggers.forEach(function (trigger) {
             trigger.addEventListener('click', function () {
-                goToInstallerStep(trigger.dataset.stepTrigger)
-            })
-
-            trigger.addEventListener('keydown', function (event) {
-                if (event.key !== 'Enter' && event.key !== ' ') {
-                    return
-                }
-
-                event.preventDefault()
                 goToInstallerStep(trigger.dataset.stepTrigger)
             })
         })

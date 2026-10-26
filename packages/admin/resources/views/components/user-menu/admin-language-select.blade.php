@@ -41,7 +41,7 @@
                 onchange="this.form.submit()"
             >
                 <option value="">
-                    {{ __('capell-admin::form.default_locale') }}
+                    {{ __('capell-admin::form.application_locale', ['locale' => request()->attributes->get(\Capell\Admin\Http\Middleware\SetAdminLocale::APPLICATION_LOCALE_ATTRIBUTE, config('app.locale', 'en'))]) }}
                 </option>
 
                 @foreach ($languageOptions as $languageId => $languageName)

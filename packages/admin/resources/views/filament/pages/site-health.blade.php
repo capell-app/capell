@@ -91,7 +91,7 @@
                                         <span class="sr-only">
                                             {{ __('capell-admin::generic.status') }}:
                                         </span>
-                                        {{ strtoupper($check->status) }}
+                                        {{ $check->status === 'not_configured' ? __('capell-admin::diagnostics.not_configured') : strtoupper($check->status) }}
                                     </x-filament::badge>
                                 </div>
 

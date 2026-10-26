@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
+use Capell\Core\Actions\Install\ApplyFilePatchPlanAction;
 use Capell\Core\Support\Install\PanelProviderTargetResolver;
-use Capell\Core\Support\Install\PanelProviderWriter;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use PhpParser\Node;
@@ -66,7 +67,20 @@ final class AdminPanelProviderPatcher
      * @param  array<int, class-string>  $useStatements
      * @param  array<int, class-string>  $removeUseStatements
      */
+    /**
+     * @param  array<int, class-string>  $useStatements
+     * @param  array<int, class-string>  $removeUseStatements
+     */
     public function apply(callable $decide, callable $mutate, array $useStatements = [], array $removeUseStatements = []): void
+    {
+        ApplyFilePatchPlanAction::run($this->plan($decide, $mutate, $useStatements, $removeUseStatements), static function (string $path): void {});
+    }
+
+    /**
+     * @param  array<int, class-string>  $useStatements
+     * @param  array<int, class-string>  $removeUseStatements
+     */
+    public function plan(callable $decide, callable $mutate, array $useStatements = [], array $removeUseStatements = []): FilePatchPlan
     {
         $absolutePath = resolve(PanelProviderTargetResolver::class)->resolve($this->providerPath, adoptDefault: true)[0] ?? null;
 
@@ -82,7 +96,6 @@ final class AdminPanelProviderPatcher
         }
 
         $editor = new PhpFileEditor($absolutePath);
-        $editor->backup();
 
         if ($useStatements !== []) {
             $editor->addUseStatements($useStatements);
@@ -99,7 +112,13 @@ final class AdminPanelProviderPatcher
             $mutate($panelMethodNode->stmts[0]);
         }
 
-        resolve(PanelProviderWriter::class)->save($absolutePath, $editor->originalContent(), $editor->print());
+        return new FilePatchPlan(
+            $absolutePath,
+            ltrim(substr($absolutePath, strlen(realpath(base_path()) ?: base_path())), '/'),
+            $editor->originalContent(),
+            $editor->print(),
+            panelProvider: true,
+        );
     }
 
     public function hasMethodCall(Node $stmt, string $methodName): bool

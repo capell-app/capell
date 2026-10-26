@@ -10,9 +10,11 @@ use Capell\Core\Models\Concerns\HasSitePermissions;
 use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Activity\LogOptions;
 use Capell\Core\Support\Activity\LogsActivity;
-use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
+use Capell\Core\Support\Patching\ReviewableFilePatch;
+use Capell\Installer\Support\InstallGuide\PlansFilePatch;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Foundation\Auth\User;
 use Override;
@@ -57,10 +59,11 @@ use PhpParser\ParserFactory;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Traits\HasRoles;
-use Throwable;
 
-class UserModelPatch implements Patch
+class UserModelPatch implements ReviewableFilePatch
 {
+    use PlansFilePatch;
+
     private const string USER_MODEL_PATH = 'app/Models/User.php';
 
     private const string CLASS_NAME = 'User';
@@ -234,58 +237,33 @@ class UserModelPatch implements Patch
         return $reason;
     }
 
-    #[Override]
-    public function apply(): void
+    protected function plan(): FilePatchPlan
     {
         $userModelPath = base_path(self::USER_MODEL_PATH);
+        $editor = new PhpFileEditor($userModelPath);
+        $this->resolveNames($editor);
 
-        throw_unless(file_exists($userModelPath), RuntimeException::class, 'User model not found at: ' . $userModelPath);
+        // Add use statements for the traits and interface
+        $editor->addUseStatements(array_values(array_filter(
+            $this->importsToAdd(),
+            fn (string $use): bool => $this->referenceName($editor, $use) instanceof FullyQualified,
+        )));
+        $this->resolveNames($editor);
 
-        $status = $this->probe();
-        if ($status !== PatchStatus::Applicable) {
-            throw new RuntimeException(
-                'Cannot apply patch when status is: ' . $status->value,
-            );
-        }
+        // Find the class and add interface + traits
+        $classNode = $editor->findClass(self::CLASS_NAME);
+        throw_unless($classNode instanceof Class_, RuntimeException::class, 'Could not find User class in the file');
 
-        try {
-            $editor = new PhpFileEditor($userModelPath);
-            $editor->backup();
-            $this->resolveNames($editor);
+        // Add FilamentUser to implements
+        $this->addInterfaceToClass($editor, $classNode, self::FILAMENT_USER_INTERFACE);
 
-            // Add use statements for the traits and interface
-            $editor->addUseStatements(array_values(array_filter(
-                $this->importsToAdd(),
-                fn (string $use): bool => $this->referenceName($editor, $use) instanceof FullyQualified,
-            )));
-            $this->resolveNames($editor);
+        // Add traits to the class
+        $this->addTraitsToClass($editor, $classNode);
 
-            // Find the class and add interface + traits
-            $classNode = $editor->findClass(self::CLASS_NAME);
-            throw_unless($classNode instanceof Class_, RuntimeException::class, 'Could not find User class in the file');
+        // Add the getActivitylogOptions method
+        $this->addActivitylogOptionsMethod($editor, $classNode);
 
-            // Add FilamentUser to implements
-            $this->addInterfaceToClass($editor, $classNode, self::FILAMENT_USER_INTERFACE);
-
-            // Add traits to the class
-            $this->addTraitsToClass($editor, $classNode);
-
-            // Add the getActivitylogOptions method
-            $this->addActivitylogOptionsMethod($editor, $classNode);
-
-            $editor->save();
-            clearstatcache(true, $userModelPath);
-
-            if (function_exists('opcache_invalidate')) {
-                opcache_invalidate($userModelPath, true);
-            }
-        } catch (Throwable $throwable) {
-            throw new RuntimeException(
-                'Failed to apply UserModelPatch: ' . $throwable->getMessage(),
-                (int) $throwable->getCode(),
-                $throwable,
-            );
-        }
+        return new FilePatchPlan($userModelPath, self::USER_MODEL_PATH, $editor->originalContent(), $editor->print());
     }
 
     private function getNodeName(Node $node): string

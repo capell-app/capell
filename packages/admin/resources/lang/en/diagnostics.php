@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 return [
+    'pending_critical_css_jobs' => 'In-flight critical CSS jobs',
+    'optimizer_queue_unavailable' => 'Database queue observation is unavailable. Inspect the configured queue worker for outstanding generation work.',
+    'optimizer_queue_pending' => ':count critical CSS or optimiser job(s) in the database queue.',
+    'optimizer_worker_context' => 'Check the queue worker environment, tools and job progress. Web-host runtime checks do not establish worker readiness. Normal stylesheet delivery remains available.',
+    'not_configured' => 'Not configured',
+    'optimizer_optional' => 'Not configured: the optional generated-asset pipeline is unused. Normal stylesheet delivery remains available. If you configure generation, check Node, Playwright and profiles in the worker environment that runs it; web-host probes do not prove worker readiness.',
     'app_url' => 'App URL',
     'app_url_detail' => 'APP_URL is :url.',
     'app_url_invalid' => 'APP_URL is missing or not an HTTP URL.',

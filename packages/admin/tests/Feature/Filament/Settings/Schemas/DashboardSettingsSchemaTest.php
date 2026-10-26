@@ -165,3 +165,16 @@ function dashboardFilamentWidgetSettingsChildComponents(DashboardFilamentWidgetS
 
     return $property->getValue($component)['default'] ?? [];
 }
+
+it('preserves explicitly saved visibility when opening dashboard settings', function (): void {
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = array_fill_keys(array_keys(AdminSettings::defaultWidgetOrder()), false);
+    $settings->enabled_widgets = array_replace($settings->enabled_widgets, ['extensions.stats' => false]);
+    $settings->save();
+
+    $saved = $settings->enabled_widgets;
+
+    DashboardSettingsSchema::make(Mockery::mock(Schema::class));
+
+    expect(array_intersect_key(AdminSettings::instance()->refresh()->enabled_widgets, $saved))->toEqual($saved);
+});

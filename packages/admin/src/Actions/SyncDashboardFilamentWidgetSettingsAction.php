@@ -49,7 +49,7 @@ final class SyncDashboardFilamentWidgetSettingsAction
         }
 
         foreach ($this->promotedDefaultWidgetKeys() as $promotedDefaultKey) {
-            if (in_array($promotedDefaultKey, $defaultEnabledKeys, true)) {
+            if ($repairFullyDisabledDefaults && in_array($promotedDefaultKey, $defaultEnabledKeys, true)) {
                 $enabledWidgets[$promotedDefaultKey] = true;
             }
         }
