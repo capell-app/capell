@@ -557,3 +557,38 @@ it('refuses an update call from a user who may not reach the marketplace', funct
             $page->updateExtension();
         })->toThrow(HttpException::class);
 });
+
+it('renders supported release text safely in history and update consent without starting an update', function (string $alias): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web'));
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+    config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+    $text = '<script>release explanation</script>';
+    $detail = [
+        'slug' => 'seo-suite', 'name' => 'SEO suite', 'composer_name' => 'capell-app/seo-suite',
+        'latest_version' => '2.1.0', 'kind' => 'plugin',
+        'install_eligibility' => ['state' => 'authorized', 'can_install' => true, 'can_update' => true, 'can_run_existing' => true],
+        'version_history' => [
+            ['version' => '2.1.0', $alias => $text],
+            ['version' => '2.0.1', 'notes' => ' '],
+            ['version' => '2.0.0', 'notes' => 'Already installed'],
+        ],
+    ];
+    Http::fake([
+        'https://marketplace.test/api/extensions/seo-suite' => Http::response(['data' => $detail]),
+        'https://marketplace.test/api/extensions*' => Http::response(['data' => [$detail]]),
+    ]);
+    Queue::fake();
+    $page = Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()->assertSee('data-capell-marketplace-update-changelog', false)
+        ->assertDontSee($text, false)->assertSee($text)
+        ->assertSee(__('capell-marketplace::marketplace.updates.changelog_empty'));
+
+    expect(substr_count($page->html(), e($text)))->toBe(2)
+        ->and(array_column($page->instance()->updateChangelog(), 'version'))->toBe(['2.1.0', '2.0.1'])
+        ->and(MarketplaceInstallAttempt::query()->count())->toBe(0);
+    Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
+})->with(['summary', 'notes', 'changelog', 'body', 'description']);

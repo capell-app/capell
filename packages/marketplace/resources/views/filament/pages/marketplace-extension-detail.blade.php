@@ -335,9 +335,7 @@
                                     {{ __('capell-marketplace::marketplace.updates.changelog_version', ['version' => $release['version']]) }}
                                 </p>
 
-                                @if ($release['notes'] !== '')
-                                    <p class="text-amber-800 dark:text-amber-200">{{ $release['notes'] }}</p>
-                                @endif
+                                <p class="text-amber-800 dark:text-amber-200">{{ $release['notes'] !== '' ? $release['notes'] : __('capell-marketplace::marketplace.updates.changelog_empty') }}</p>
                             </div>
                         @empty
                             <p data-capell-marketplace-update-changelog-empty class="mt-2 text-amber-800 dark:text-amber-200">
@@ -610,9 +608,7 @@
                                 <p class="font-semibold text-gray-950 dark:text-white">
                                     {{ $version['version'] ?? __('capell-marketplace::marketplace.card.unknown_version') }}
                                 </p>
-                                @if (is_string($version['summary'] ?? null))
-                                    <p class="mt-1 text-gray-600 dark:text-gray-300">{{ $version['summary'] }}</p>
-                                @endif
+                                <p class="mt-1 text-gray-600 dark:text-gray-300">{{ resolve(\Capell\Marketplace\Filament\Support\MarketplaceUpdateChangelogPresenter::class)->releaseText($version) ?: __('capell-marketplace::marketplace.updates.changelog_empty') }}</p>
                             </article>
                         @endforeach
                     </div>

@@ -14,6 +14,23 @@
             </p>
         </header>
 
+        <div
+            data-capell-account-snapshot="{{ $this->refreshFailed ? 'retained' : $data['snapshot_state'] }}"
+        >
+            @if ($this->refreshFailed)
+                <p>{{ __('capell-marketplace::marketplace.purchases.snapshot.retained') }}</p>
+            @elseif ($data['snapshot_state'] === 'not_connected')
+                <p>{{ __('capell-marketplace::marketplace.purchases.snapshot.not_connected') }}</p>
+            @elseif ($data['snapshot_state'] === 'not_observed')
+                <p>{{ __('capell-marketplace::marketplace.purchases.snapshot.not_observed') }}</p>
+            @else
+                <p>{{ __('capell-marketplace::marketplace.purchases.snapshot.current') }}</p>
+            @endif
+            @if ($data['observed_at'])
+                <p>{{ __('capell-marketplace::marketplace.purchases.observed', ['date' => $data['observed_at']]) }}</p>
+            @endif
+        </div>
+
         <x-filament::section
             :heading="__('capell-marketplace::marketplace.purchases.account_heading')"
         >
@@ -34,7 +51,9 @@
                         @endif
                     </article>
                 @empty
-                    <p data-capell-marketplace-purchases-empty>{{ __('capell-marketplace::marketplace.purchases.empty') }}</p>
+                    @if ($data['snapshot_state'] === 'current')
+                        <p data-capell-marketplace-purchases-empty>{{ __('capell-marketplace::marketplace.purchases.empty') }}</p>
+                    @endif
                 @endforelse
             </div>
         </x-filament::section>
@@ -62,7 +81,10 @@
                     >
                         <p class="font-semibold text-gray-950 dark:text-white">{{ $extension['name'] }}</p>
                         <p class="text-sm text-gray-600 dark:text-gray-300">
-                            {{ __('capell-marketplace::marketplace.purchases.status', ['status' => $extension['status']]) }}
+                            {{ __('capell-marketplace::marketplace.purchases.status', ['status' => $extension['status']]) }} {{ __('capell-marketplace::marketplace.purchases.observed', ['date' => $extension['checked_at']?->toAtomString() ?? __('capell-marketplace::marketplace.purchases.observation_unknown')]) }}
+                            @if ($extension['refresh_failed'])
+                                {{ __('capell-marketplace::marketplace.purchases.licence_retained') }}
+                            @endif
                         </p>
                     </article>
                 @empty

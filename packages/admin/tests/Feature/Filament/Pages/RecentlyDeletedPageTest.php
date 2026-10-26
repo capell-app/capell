@@ -3,26 +3,34 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\CanRestorePageCascadeAction;
+use Capell\Admin\Actions\ListRecentlyDeletedRecordsAction;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
+use Capell\Admin\Policies\MediaPolicy;
+use Capell\Admin\Policies\PagePolicy;
 use Capell\Core\Actions\CollectPageRestoreCascadeIdsAction;
 use Capell\Core\Exceptions\PageRestoreSlugConflictException;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\DeletionBatchRecord;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Layout;
 use Capell\Core\Models\Media as CapellMedia;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\Translation;
 use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\Access\Events\GateEvaluated;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 uses(CreatesAdminUser::class)
     ->group('page', 'media');
@@ -124,6 +132,7 @@ it('lists only accessible deleted pages and media', function (): void {
     $actor = User::factory()->create();
     $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
     $actor->givePermissionTo(Permission::findOrCreate('View:Page', 'web'));
+    $actor->givePermissionTo(Permission::findOrCreate('View:Media', 'web'));
 
     test()->actingAs($actor);
 
@@ -537,3 +546,279 @@ it('withholds inaccessible historical descendants without disclosing their exist
         ->and($parent->fresh()->trashed())->toBeFalse()
         ->and($child->fresh()->trashed())->toBeTrue();
 })->group('restore-review');
+
+it('finds and restores older deleted pages beyond the first fifty rows', function (): void {
+    $site = Site::factory()->create();
+    $older = Page::factory()->site($site)->createOne(['name' => 'Older recovery target']);
+    $older->delete();
+    Page::withTrashed()->whereKey($older->id)->update(['deleted_at' => now()->subDay()]);
+    $newer = Page::factory()->site($site)->count(59)->create();
+    foreach ($newer as $record) {
+        $record->delete();
+    }
+
+    Livewire::test(RecentlyDeletedPage::class)
+        ->set('search', 'Older recovery target')
+        ->assertSee('Older recovery target')
+        ->call('restoreRecord', 'page', $older->id);
+
+    expect($older->fresh()->trashed())->toBeFalse()
+        ->and(Page::onlyTrashed()->whereKey($newer->modelKeys())->count())->toBe(59);
+});
+
+it('paginates sixty deleted media and restores an older searched item', function (): void {
+    $owner = Page::factory()->create();
+    $media = CapellMedia::factory()->model($owner)->count(60)->create();
+    foreach ($media as $index => $record) {
+        $record->name = 'Recovery media ' . $index;
+        $record->save();
+        $record->delete();
+    }
+
+    $old = $media->first();
+    CapellMedia::onlyTrashed()->whereKey($old->id)->update(['deleted_at' => now()->subDay()]);
+    Livewire::test(RecentlyDeletedPage::class)->assertDontSee($old->name)
+        ->call('setPage', 3, 'mediaPage')->assertSee($old->name)
+        ->set('search', $old->name)->assertSee($old->name)
+        ->call('restoreRecord', 'media', $old->id);
+    expect($old->fresh()->trashed())->toBeFalse()
+        ->and(CapellMedia::onlyTrashed()->whereKey($media->modelKeys())->count())->toBe(59);
+});
+
+it('counts and searches permitted pages before applying pagination', function (): void {
+    $site = Site::factory()->create();
+    $old = Page::factory()->site($site)->create(['name' => 'Permitted recovery']);
+    $old->delete();
+    Page::onlyTrashed()->whereKey($old->id)->update(['deleted_at' => now()->subDay()]);
+    $restricted = Page::factory()->site($site)->count(59)->create(['name' => 'Restricted recovery']);
+    foreach ($restricted as $record) {
+        $record->delete();
+    }
+
+    test()->actingAsUser();
+    test()->authenticatedUser()->assignedSiteIds = collect([$site->id]);
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate('View:RecentlyDeletedPage', 'web'));
+    Gate::before(fn (User $user, string $ability, array $arguments): ?bool => $ability === 'view' && ($arguments[0] ?? null) instanceof Page
+        ? $arguments[0]->id === $old->id : null);
+
+    $component = Livewire::test(RecentlyDeletedPage::class)->assertSee($old->name)->assertDontSee('Restricted recovery');
+    $data = new ReflectionMethod(RecentlyDeletedPage::class, 'getViewData')->invoke($component->instance());
+    expect($data['groups'][0]['pagination']->total())->toBe(1);
+    $component->set('search', 'Restricted')->assertDontSee('Restricted recovery');
+    $data = new ReflectionMethod(RecentlyDeletedPage::class, 'getViewData')->invoke($component->instance());
+    expect($data['groups'][0]['pagination']->total())->toBe(0);
+});
+
+it('batches deleted media owner checks for a non-global site-scoped actor', function (string $ownerType, int $count): void {
+    $site = Site::factory()->create();
+    $owners = match ($ownerType) {
+        'page' => Page::factory()->site($site)->count($count)->create(),
+        'layout' => Layout::factory()->count($count)->create(['site_id' => $site->id]),
+        'translation' => Translation::factory()->count($count)->create(['translatable_type' => $site->getMorphClass(), 'translatable_id' => $site->id]),
+        default => collect([$site]),
+    };
+    $media = collect();
+    for ($index = 0; $index < $count; $index++) {
+        $media->push(CapellMedia::factory()->model($owners[$index % $owners->count()])->create());
+    }
+
+    CapellMedia::query()->whereKey($media->pluck('id')->all())->update(['deleted_at' => now()]);
+    $foreign = CapellMedia::factory()->model(Site::factory()->create())->create();
+    $foreign->delete();
+
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$site->id]);
+    $actor->givePermissionTo(Permission::findOrCreate('View:Media', 'web'));
+
+    expect($actor->isGlobalAdmin())->toBeFalse();
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        $results = ListRecentlyDeletedRecordsAction::run('media', '', 1);
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+    }
+
+    // Include the batched listing query's owner subqueries, as well as any
+    // separate owner-existence reads performed by the real Media policy.
+    $ownerTable = $owners->first()->getTable();
+    $ownerQueries = array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'from ' . DB::getQueryGrammar()->wrapTable($ownerTable)));
+    expect($results->total())->toBe($count)
+        ->and($results->items())->toHaveCount(25)
+        ->and($results->getCollection()->pluck('id')->all())->not->toContain($foreign->id)
+        ->and($ownerQueries)->toHaveCount((int) ceil($count / 200))
+        ->and(count($queries))->toBeLessThan(20);
+})->with([
+    'site owner' => ['site', 60],
+    'distinct page owners' => ['page', 60],
+    'distinct layout owners' => ['layout', 60],
+    'translation owners' => ['translation', 60],
+    'multiple batches' => ['site', 205],
+]);
+
+it('retains custom policy restrictions in deleted record counts and searches', function (string $resource): void {
+    $site = Site::factory()->create();
+    $records = $resource === 'page'
+        ? Page::factory()->site($site)->count(30)->create()
+        : CapellMedia::factory()->model($site)->count(30)->create();
+    $allowed = $records->first();
+    foreach ($records as $record) {
+        $record->name = $record->is($allowed) ? 'Permitted recovery' : 'Denied recovery';
+        $record->save();
+    }
+
+    $records->first()::query()->whereKey($records->modelKeys())->update(['deleted_at' => now()]);
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$site->id]);
+    $actor->givePermissionTo(Permission::findOrCreate($resource === 'page' ? 'View:Page' : 'View:Media', 'web'));
+
+    $policy = $resource === 'page' ? new class extends PagePolicy
+    {
+        #[Override]
+        public function view(Illuminate\Foundation\Auth\User $user, Page $page): bool
+        {
+            return $page->name === 'Permitted recovery' && parent::view($user, $page);
+        }
+    } : new class extends MediaPolicy
+    {
+        #[Override]
+        public function view(Illuminate\Foundation\Auth\User $user, CapellMedia $media): bool
+        {
+            return $media->name === 'Permitted recovery' && parent::view($user, $media);
+        }
+    };
+    Gate::policy($records->first()::class, $policy::class);
+
+    $results = ListRecentlyDeletedRecordsAction::run($resource, '', 1);
+    expect($results->total())->toBe(1)
+        ->and($results->getCollection()->pluck('id')->all())->toBe([$allowed->id])
+        ->and(ListRecentlyDeletedRecordsAction::run($resource, 'Denied', 1)->total())->toBe(0)
+        ->and(Gate::getPolicyFor($allowed)::class)->toBe($policy::class);
+})->with(['page', 'media']);
+
+it('keeps listing snapshots out of fresh restore and permanent delete authorisation', function (string $resource, string $operation, string $permission): void {
+    $site = Site::factory()->create();
+    $record = $resource === 'page' ? Page::factory()->site($site)->create() : CapellMedia::factory()->model($site)->create();
+    $record->delete();
+
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$site->id]);
+    $actor->givePermissionTo([
+        Permission::findOrCreate($resource === 'page' ? 'View:Page' : 'View:Media', 'web'),
+        Permission::findOrCreate($permission, 'web'),
+    ]);
+    expect(ListRecentlyDeletedRecordsAction::run($resource, '', 1)->total())->toBe(1);
+    $actor->revokePermissionTo($permission);
+
+    expect(fn () => (new RecentlyDeletedPage)->{$operation}($resource, (int) $record->id))->toThrow(AuthorizationException::class);
+    expect($record->fresh()->trashed())->toBeTrue();
+})->with([
+    ['page', 'restoreRecord', 'Restore:Page'],
+    ['page', 'forceDeleteRecord', 'ForceDelete:Page'],
+    ['media', 'restoreRecord', 'Restore:Media'],
+    ['media', 'forceDeleteRecord', 'ForceDelete:Media'],
+]);
+
+it('batches equivalent page restrictions without including denied blueprints', function (): void {
+    $site = Site::factory()->create();
+    $restricted = Blueprint::factory()->create();
+    $restricted->syncRoleRestrictions([Role::findOrCreate('recovery-specialist', 'web')->id]);
+
+    $pages = Page::factory()->site($site)->count(60)->create(['blueprint_id' => $restricted->id]);
+    Page::query()->whereKey($pages->modelKeys())->update(['deleted_at' => now()]);
+    $allowed = Page::factory()->site($site)->create();
+    $allowed->delete();
+
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$site->id]);
+    $actor->givePermissionTo(Permission::findOrCreate('View:Page', 'web'));
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    try {
+        $results = ListRecentlyDeletedRecordsAction::run('page', '', 1);
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+    }
+
+    $roleChecks = array_filter($queries, fn (array $query): bool => str_contains($query['query'], 'from ' . DB::getQueryGrammar()->wrapTable('model_has_roles'))
+        && str_contains($query['query'], DB::getQueryGrammar()->wrap('role_id') . ' in '));
+    expect($results->total())->toBe(1)
+        ->and($results->getCollection()->pluck('id')->all())->toBe([$allowed->id])
+        ->and($roleChecks)->toHaveCount(1);
+});
+
+it('retains per-record gate hooks and evaluated events in the batched listing', function (string $resource): void {
+    $site = Site::factory()->create();
+    $records = $resource === 'page'
+        ? Page::factory()->site($site)->count(30)->create()
+        : CapellMedia::factory()->model($site)->count(30)->create();
+    $records->first()::query()->whereKey($records->modelKeys())->update(['deleted_at' => now()]);
+    $allowed = $records->first();
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$site->id]);
+    $actor->givePermissionTo(Permission::findOrCreate($resource === 'page' ? 'View:Page' : 'View:Media', 'web'));
+
+    $before = [];
+    $after = [];
+    $evaluated = [];
+    Gate::before(function (User $user, string $ability, array $arguments) use (&$before, $allowed): ?bool {
+        if ($ability !== 'view') {
+            return null;
+        }
+
+        $before[] = $arguments[0]->id;
+
+        return $arguments[0]->is($allowed) ? null : false;
+    });
+    Gate::after(function (User $user, string $ability, ?bool $result, array $arguments) use (&$after): void {
+        if ($ability === 'view') {
+            $after[] = $arguments[0]->id;
+        }
+    });
+    Event::listen(GateEvaluated::class, function (GateEvaluated $event) use (&$evaluated): void {
+        if ($event->ability === 'view') {
+            $evaluated[] = $event->arguments[0]->id;
+        }
+    });
+
+    $results = ListRecentlyDeletedRecordsAction::run($resource, '', 1);
+    expect($results->total())->toBe(1)
+        ->and($results->getCollection()->pluck('id')->all())->toBe([$allowed->id])
+        ->and($before)->toEqualCanonicalizing($records->modelKeys())
+        ->and($after)->toEqualCanonicalizing($records->modelKeys())
+        ->and($evaluated)->toEqualCanonicalizing($records->modelKeys());
+})->with(['page', 'media']);
+
+it('rereads persisted ownership after listing before restoring or permanently deleting media', function (string $operation): void {
+    $owner = Page::factory()->create();
+    $record = CapellMedia::factory()->model($owner)->create();
+    $record->delete();
+
+    test()->actingAsUser();
+    $actor = test()->authenticatedUser();
+    $actor->assignedSiteIds = collect([$owner->site_id]);
+    foreach (['View:Media', 'Restore:Media', 'ForceDelete:Media'] as $permission) {
+        $actor->givePermissionTo(Permission::findOrCreate($permission, 'web'));
+    }
+
+    $results = ListRecentlyDeletedRecordsAction::run('media', '', 1);
+    expect($results->total())->toBe(1);
+    $stale = $results->items()[0];
+    $stale->load('model');
+    Page::query()->whereKey($owner->id)->update(['site_id' => Site::factory()->create()->id]);
+
+    expect(Gate::allows('restore', $stale))->toBeFalse()
+        ->and(Gate::allows('forceDelete', $stale))->toBeFalse();
+    (new RecentlyDeletedPage)->{$operation}('media', (int) $record->id);
+    expect($record->fresh()->trashed())->toBeTrue()
+        ->and(ListRecentlyDeletedRecordsAction::run('media', '', 1)->total())->toBe(0);
+})->with(['restoreRecord', 'forceDeleteRecord']);

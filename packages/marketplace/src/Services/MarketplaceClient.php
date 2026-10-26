@@ -162,18 +162,27 @@ final class MarketplaceClient
             $cachedResponse = Cache::get($staleCacheKey);
 
             if (is_array($cachedResponse)) {
-                return $this->cataloguePageFromResponse($cachedResponse, $query, stale: true);
+                return $this->cataloguePageFromResponse($cachedResponse, $query, stale: true, refreshFailed: Cache::get($cacheKey . '.refresh-failed') === true);
             }
         }
 
         $responseData = $this->fetchCataloguePage($query, $marketplaceContext);
+        $responseData['observed_at'] = now()->toAtomString();
         $ttl = config('capell-marketplace.marketplace.cache_ttl_seconds', 300);
         $staleTtl = config('capell-marketplace.marketplace.stale_cache_ttl_seconds', 3600);
 
+        Cache::forget($cacheKey . '.refresh-failed');
         Cache::put($cacheKey, $responseData, $ttl);
         Cache::put($staleCacheKey, $responseData, $staleTtl);
 
         return $this->cataloguePageFromResponse($responseData, $query);
+    }
+
+    public function recordCatalogueWarmFailure(MarketplaceCatalogueQueryData $query): void
+    {
+        $payload = $this->catalogueCachePayload($query);
+        $key = 'capell-marketplace.marketplace.extensions-page.' . hash('xxh3', JsonCodec::encode($payload));
+        Cache::put($key . '.refresh-failed', true, config('capell-marketplace.marketplace.stale_cache_ttl_seconds', 3600));
     }
 
     /**
@@ -570,6 +579,7 @@ final class MarketplaceClient
         array $responseData,
         MarketplaceCatalogueQueryData $query,
         bool $stale = false,
+        bool $refreshFailed = false,
     ): MarketplaceCataloguePageData {
         $items = $responseData['data'] ?? [];
 
@@ -597,6 +607,8 @@ final class MarketplaceClient
             perPage: $perPage,
             nextPageUrl: is_string($nextPageUrl) && $nextPageUrl !== '' ? $nextPageUrl : null,
             stale: $stale,
+            observedAt: is_string($responseData['observed_at'] ?? null) ? $responseData['observed_at'] : null,
+            refreshFailed: $refreshFailed,
         );
     }
 

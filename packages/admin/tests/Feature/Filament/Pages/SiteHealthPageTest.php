@@ -11,8 +11,11 @@ use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthStatusFilamentWidget;
 use Capell\Admin\Support\Diagnostics\ExtensionHealthSiteHealthWidget;
 use Capell\Admin\Support\SiteScope;
+use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\SiteDomain;
+use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Models\Contracts\FilamentUser;
@@ -40,6 +43,7 @@ function grantSiteHealthPageAccess(): void
 
 function fakeOptimizerRuntimeProcesses(): void
 {
+    resolve(CapellPackageRegistry::class)->register(CapellManifestData::fromArray(capellManifestV3Array(name: 'test/optimizer', overrides: ['capabilities' => [PackageCapability::FrontendOptimizer->value]])));
     $nodeProcess = Mockery::mock(Process::class);
     $nodeProcess->shouldReceive('run')->atLeast()->once();
     $nodeProcess->shouldReceive('isSuccessful')->atLeast()->once()->andReturnTrue();

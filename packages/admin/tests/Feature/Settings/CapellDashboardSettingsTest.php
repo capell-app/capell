@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\NormalizeDashboardFilamentWidgetSettingsAction;
+use Capell\Admin\Actions\RestoreMainDashboardLayoutAction;
 use Capell\Admin\Actions\SyncDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Contracts\DashboardSettingsContributor;
 use Capell\Admin\Enums\DashboardEnum;
@@ -207,7 +208,7 @@ it('force enables defaults for install and setup commands', function (): void {
         ->toHaveKey('recent_activity', true);
 });
 
-it('repairs extension stats when it was synced as optional before becoming a default widget', function (): void {
+it('repairs legacy extension stats only through explicit repair', function (): void {
     $settings = AdminSettings::instance();
     $settings->enabled_widgets = [
         'extensions.stats' => false,
@@ -215,7 +216,7 @@ it('repairs extension stats when it was synced as optional before becoming a def
     ];
     $settings->save();
 
-    $fresh = SyncDashboardFilamentWidgetSettingsAction::run();
+    $fresh = SyncDashboardFilamentWidgetSettingsAction::run(repairFullyDisabledDefaults: true);
 
     expect($fresh->enabled_widgets)
         ->toHaveKey('extensions.stats', true)
@@ -254,4 +255,18 @@ it('repairs over-enabled optional package widgets when loading dashboard setting
         ->toHaveKey('fixture_a', false)
         ->toHaveKey('site_stats_overview', false)
         ->toHaveKey('list_pages', true);
+});
+
+it('restores only recommended main dashboard choices in a reviewable layout', function (): void {
+    $settings = AdminSettings::instance();
+    $settings->enabled_widgets = ['extensions.stats' => false, 'list_pages' => false];
+    $settings->save();
+
+    $before = $settings->enabled_widgets;
+    $layout = RestoreMainDashboardLayoutAction::run();
+    expect(collect($layout)->firstWhere('key', 'list_pages')['enabled'])->toBeTrue()
+        ->and(collect($layout)->pluck('key')->all())->not->toContain('extensions.stats')
+        ->and(AdminSettings::instance()->refresh()->enabled_widgets)->toEqual($before);
+    $normalised = NormalizeDashboardFilamentWidgetSettingsAction::run(['widget_layout' => $layout], DashboardEnum::Main);
+    expect($normalised['enabled_widgets']['extensions.stats'])->toBeFalse();
 });

@@ -1,5 +1,13 @@
 <x-filament-panels::page>
     <div class="space-y-8">
+        <label>
+            {{ __('capell-admin::generic.recently_deleted_search') }}
+            <input
+                type="search"
+                wire:model.live.debounce.300ms="search"
+                class="rounded-lg border-gray-300"
+            />
+        </label>
         @foreach ($groups as $group)
             <div>
                 <h2
@@ -11,9 +19,16 @@
                     />
                     {{ $group['label'] }}
                     <span class="text-sm font-normal text-gray-500">
-                        ({{ $group['items']->count() }})
+                        ({{ $group['pagination']->total() }})
                     </span>
                 </h2>
+
+                @if ($group['url'])
+                    <a
+                        href="{{ $group['url'] }}"
+                        >{{ __('capell-admin::generic.recently_deleted_open_resource', ['resource' => $group['label']]) }}</a
+                    >
+                @endif
 
                 @if ($group['resource'] === 'page')
                     <p class="mt-2 text-sm text-gray-500">
@@ -68,6 +83,7 @@
                         @endforeach
                     </ul>
                 @endif
+                {{ $group['pagination']->links() }}
             </div>
         @endforeach
     </div>

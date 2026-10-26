@@ -27,6 +27,7 @@ final class WarmMarketplaceCatalogueCacheAction
                 forceRefresh: true,
             );
         } catch (Throwable $throwable) {
+            $this->marketplace->recordCatalogueWarmFailure($query ?? new MarketplaceCatalogueQueryData);
             $cacheKey = 'capell-marketplace.marketplace.catalogue-warm-failed-log.' . hash('xxh3', $throwable::class . '|' . $throwable->getMessage());
             $throttleSeconds = config('capell-marketplace.marketplace.warm_failure_log_throttle_seconds', 300);
 

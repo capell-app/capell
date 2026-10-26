@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 return [
+    'edit_user' => 'Edit user',
+    'edit_role_permissions' => 'Edit role permissions',
+
     'add_action' => 'Add Action',
     'act_as_owner' => 'Act as owner',
     'add_asset' => 'Add Asset',
