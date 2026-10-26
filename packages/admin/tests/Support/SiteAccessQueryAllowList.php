@@ -66,7 +66,15 @@ final class SiteAccessQueryAllowList
                 'grantSuperAdminPermissions|$tenantModel::query()->pluck($this->modelKeyName($tenantModel))',
             ],
             'packages/admin/src/Actions/Diagnostics/CheckAdminPanelAccessAction.php' => ['handle|$userModel::query()->limit(250)->get()->all()', 'handle|$roleModel::query()->where(\'name\', $roleName)->where(\'guard_name\', $guard)->pluck($rolePrototype->getKeyName())', 'handle|' . DB::class . '::table($pivotTable)->whereIn(\'role_id\', $roleIds)->where(\'model_type\', $userMorphType)->count()'],
-            'packages/admin/src/Actions/Sites/SyncSitePermissionsAction.php' => ['handle|' . DB::class . '::table($modelHasRolesTable)->where($teamColumn, $site->getKey())->delete()', 'handle|' . DB::class . '::table($modelHasRolesTable)->insertOrIgnore([\'role_id\' => $roleId, \'model_type\' => $user->getMorphClass(), \'model_id\' => $assignment->userId, $teamColumn => $site->getKey()])', 'usersById|$userModel::query()->whereKey($userIds)->get()->keyBy(fn(\Illuminate\Foundation\Auth\User $user): int => (int) $user->getKey())'],
+            // This authorised provisioning transaction locks its selected site, then
+            // diffs only configured user morphs. Unrelated model pivots stay intact.
+            'packages/admin/src/Actions/Sites/SyncSitePermissionsAction.php' => [
+                'handle|$site->newQuery()->whereKey($site->getKey())->lockForUpdate()->firstOrFail()',
+                'reconcileRows|' . DB::class . '::table($table)->where($teamColumn, $site->getKey())->where(\'model_type\', $row[\'model_type\'])->where(\'model_id\', $row[\'model_id\'])->where(\'role_id\', $row[\'role_id\'])->delete()',
+                'reconcileRows|' . DB::class . '::table($table)->insert([...$row, $teamColumn => $site->getKey()])',
+                'review|$userModel::query()->whereKey($userIds)->when($lock, fn($query) => $query->lockForUpdate())->get()->keyBy(fn(\Illuminate\Foundation\Auth\User $user): int => (int) $user->getKey())',
+                'currentRows|' . DB::class . '::table($this->modelHasRolesTable())->where($this->teamColumn(), $site->getKey())->whereIn(\'model_type\', array_values(array_unique([$userModel, (new $userModel())->getMorphClass()])))->orderBy(\'model_id\')->orderBy(\'role_id\')->orderBy(\'model_type\')->when($lock, fn($query) => $query->lockForUpdate())->get([\'model_id\', \'role_id\', \'model_type\'])->map(fn(object $row): array => [\'model_id\' => (int) $row->model_id, \'role_id\' => (int) $row->role_id, \'model_type\' => (string) $row->model_type])->all()',
+            ],
             'packages/admin/src/Support/HeaderNavigation/HeaderNavigationAccessResolver.php' => ['roleIdsForSite|' . DB::class . '::table($modelHasRolesTable)->where(\'model_type\', $actor->getMorphClass())->where(\'model_id\', $actor->getKey())->where(function (\Illuminate\Database\Query\Builder $query) use ($teamColumn, $siteId): void {
     $query->whereNull($teamColumn)->orWhere($teamColumn, $siteId);
 })->pluck(\'role_id\')'],
