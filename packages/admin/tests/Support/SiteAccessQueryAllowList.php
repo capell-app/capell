@@ -12,6 +12,7 @@ use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\ExtensionHealthAlert;
 use Capell\Core\Models\Language;
+use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Json\JsonCodec;
@@ -31,6 +32,10 @@ final class SiteAccessQueryAllowList
             // counting only the actor's visible sites would let the library trash
             // a file another site still displays.
             'packages/admin/src/Actions/Media/RepairMediaHealthAction.php' => ['deleteUnused|$media->assetRelations()->exists()'],
+            // Compensation checks the captured primary key for any surviving owner,
+            // including a trashed row or an owner outside the actor's current grants.
+            // Scoping this existence check could delete another site's live files.
+            'packages/admin/src/Actions/Media/UploadSiteMediaAction.php' => ['cleanAttempt|' . Media::class . '::query()->withTrashed()->useWritePdo()->whereKey($attempt->mediaId)->exists()'],
             // Filament's navigation manager, not a model query: the override reads
             // the parent's registered groups before regrouping them.
             'packages/admin/src/Support/Navigation/WorkspaceNavigationManager.php' => ['get|parent::get()'],
