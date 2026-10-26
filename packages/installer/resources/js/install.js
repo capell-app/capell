@@ -81,7 +81,8 @@
         if (
             event.key !== 'Enter' ||
             wizard.isOnLastStep() ||
-            event.target.tagName === 'TEXTAREA'
+            event.target.tagName === 'TEXTAREA' ||
+            event.target.closest('button')
         ) {
             return
         }

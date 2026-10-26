@@ -11,6 +11,7 @@ use Capell\Admin\Actions\NormalizeDashboardFilamentWidgetSettingsAction;
 use Capell\Admin\Actions\PersistMissingSettingsDefaultsAction;
 use Capell\Admin\Actions\Reports\BuildReportVisibilityFormStateAction;
 use Capell\Admin\Actions\Reports\NormalizeReportVisibilitySettingsAction;
+use Capell\Admin\Enums\DashboardEnum;
 use Capell\Admin\Filament\Settings\Schemas\DashboardSettingsSchema;
 use Capell\Admin\Filament\Settings\Schemas\ReportsSettingsSchema;
 use Capell\Admin\Settings\AdminSettings;
@@ -221,7 +222,7 @@ class SettingsPage extends AbstractAdminSettingsPage
 
             unset($adminSettings['report_visibility']);
 
-            $data['admin'] = NormalizeDashboardFilamentWidgetSettingsAction::run($adminSettings);
+            $data['admin'] = NormalizeDashboardFilamentWidgetSettingsAction::run($adminSettings, DashboardEnum::Main);
         }
 
         $themeStudioSettings = $data['theme_studio'] ?? null;

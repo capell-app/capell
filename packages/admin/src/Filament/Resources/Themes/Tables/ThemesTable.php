@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Themes\CreateThemePreviewUrlAction;
 use Capell\Admin\Actions\Themes\ResolveThemeEditorStateAction;
 use Capell\Admin\Actions\Themes\SetActiveThemeForSitesAction;
 use Capell\Admin\Data\Themes\SetActiveThemeForSitesData;
+use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Enums\Themes\ThemeActivationScope;
 use Capell\Admin\Filament\Actions\ForceDeleteBulkAction;
 use Capell\Admin\Filament\Components\Tables\Actions\EditAction;
@@ -16,6 +17,7 @@ use Capell\Admin\Filament\Components\Tables\Columns\StatusIconColumn;
 use Capell\Admin\Filament\Components\Tables\Filters\StatusFilter;
 use Capell\Admin\Filament\Contracts\TableConfigurator;
 use Capell\Admin\Filament\Resources\Themes\Pages\ManageThemes;
+use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\Themes\ThemeLibraryRuntime;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -29,6 +31,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\Layout\View as LayoutView;
 use Filament\Tables\Columns\TextColumn;
@@ -40,11 +43,14 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\LazyCollection;
 use Illuminate\Validation\ValidationException;
+use Override;
 
 class ThemesTable implements TableConfigurator
 {
+    #[Override]
     public static function configure(Table $table): Table
     {
         return $table
@@ -86,8 +92,12 @@ class ThemesTable implements TableConfigurator
                             ? self::findScopedPage((int) ($data['page_id'] ?? 0), $site)
                             : null;
 
-                        if (! $site instanceof Site || ! $page instanceof Page) {
-                            return null;
+                        if (! $site instanceof Site) {
+                            throw ValidationException::withMessages(['site_id' => __('capell-admin::theme-library.help.preview_site_unavailable')]);
+                        }
+
+                        if (! $page instanceof Page) {
+                            throw ValidationException::withMessages(['page_id' => __('capell-admin::theme-library.help.preview_page_unavailable')]);
                         }
 
                         return redirect()->away(CreateThemePreviewUrlAction::run(
@@ -303,15 +313,23 @@ class ThemesTable implements TableConfigurator
                 ->getSearchResultsUsing(fn (string $search): array => self::siteOptions(search: $search, limit: 50))
                 ->getOptionLabelUsing(fn (mixed $value): ?string => self::siteLabel((int) $value))
                 ->default(fn (): ?int => self::defaultPreviewSite()?->getKey())
+                ->afterStateUpdated(fn (Set $set) => $set('page_id', null))
                 ->live()
                 ->required(),
             Select::make('page_id')
                 ->label(__('capell-admin::form.page'))
+                ->hintAction(Action::make('createPreviewPage')
+                    ->label(__('capell-admin::theme-library.actions.create_preview_page'))
+                    ->visible(fn (Get $get): bool => self::findScopedSite((int) ($get('site_id') ?? 0)) instanceof Site && AdminSurfaceLookup::resource(ResourceEnum::Page)::canCreate())
+                    ->url(fn (Get $get): string => AdminSurfaceLookup::resource(ResourceEnum::Page)::getUrl('create', ['site_id' => (int) ($get('site_id') ?? 0)]))
+                    ->openUrlInNewTab())
                 ->searchable()
                 ->options(fn (Get $get): array => self::pageOptions((int) ($get('site_id') ?? 0), limit: 50))
                 ->getSearchResultsUsing(fn (Get $get, string $search): array => self::pageOptions((int) ($get('site_id') ?? 0), search: $search, limit: 50))
                 ->getOptionLabelUsing(fn (Get $get, mixed $value): ?string => self::pageLabel((int) $value, (int) ($get('site_id') ?? 0)))
-                ->default(fn (): ?int => self::defaultPreviewPage()?->getKey())
+                ->default(fn (Get $get): ?int => self::defaultPreviewPage(self::findScopedSite((int) ($get('site_id') ?? 0)))?->getKey())
+                ->helperText(fn (Get $get): ?string => self::pageOptions((int) ($get('site_id') ?? 0), limit: 1) === []
+                    ? (string) __('capell-admin::theme-library.help.preview_empty_site') : null)
                 ->required(),
             Select::make('preset_key')
                 ->label(__('capell-admin::theme-library.labels.presets'))
@@ -385,10 +403,8 @@ class ThemesTable implements TableConfigurator
             $query->where('name', 'like', sprintf('%%%s%%', $search));
         }
 
-        return $query
-            ->limit($limit)
-            ->pluck('name', 'id')
-            ->all();
+        return $query->with(['blueprint.roleRestrictions', 'site'])->lazy(200)
+            ->filter(fn (Page $page): bool => Gate::allows('view', $page))->take($limit)->collect()->pluck('name', 'id')->all();
     }
 
     private static function siteLabel(int $siteId): ?string
@@ -453,22 +469,21 @@ class ThemesTable implements TableConfigurator
         return SiteAccess::current()->scope(SiteAccess::current()->query(Site::class)->ordered(), 'id')->first();
     }
 
-    private static function defaultPreviewPage(?Site $site = null): ?Page
+    private static function defaultPreviewPage(?Site $site): ?Page
     {
-        $site ??= self::defaultPreviewSite();
 
         if (! $site instanceof Site) {
             return null;
         }
 
-        /** @var Page|null $page */
-        $page = Page::getSiteHomePage($site)
-            ?? SiteAccess::current()->query(Page::class)
-                ->where('site_id', $site->getKey())
-                ->orderBy((new Page)->getLftName())
-                ->first();
+        $home = Page::getSiteHomePage($site);
+        if ($home instanceof Page && Gate::allows('view', $home)) {
+            return $home;
+        }
 
-        return $page;
+        $id = array_key_first(self::pageOptions((int) $site->getKey(), limit: 1));
+
+        return $id !== null ? self::findScopedPage((int) $id, $site) : null;
     }
 
     /**
@@ -512,10 +527,13 @@ class ThemesTable implements TableConfigurator
             return null;
         }
 
-        return SiteAccess::current()->query(Page::class)
+        $page = SiteAccess::current()->query(Page::class)
+            ->with(['blueprint.roleRestrictions', 'site'])
             ->whereKey($pageId)
             ->where('site_id', $site->getKey())
             ->first();
+
+        return $page instanceof Page && Gate::allows('view', $page) ? $page : null;
     }
 
     /**

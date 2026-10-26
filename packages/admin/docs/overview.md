@@ -15,6 +15,18 @@ Admin extends these Capell surfaces:
 - Admin header tools, user menu items, dashboard Filament widgets, resource actions, schema hooks, settings schemas, and report pages.
 - Admin-facing package settings through the settings schema registry.
 
+## Recovery and setup controls
+
+Recently Deleted searches and pages through permitted deleted Pages and Media. Counts exclude inaccessible records. Resource links open the existing deleted-only filter; restore and permanent-delete policies still apply.
+
+Settings preserve saved dashboard visibility, including an intentionally empty main dashboard. **Restore recommended main dashboard layout** resets the main layout in the form; Save applies it without resetting Extensions. Explicit install/setup repair remains available for legacy configuration.
+
+The default image source must belong to the allowed image-source preset. Older inconsistent configuration still falls back to an allowed source at runtime, and individual fields can impose narrower restrictions.
+
+The stored Core `default_locale` property remains available for host integrations. Foundation admin language follows the enabled user preference, falling back to `app.locale`; public language follows the resolved site and route. The language setup section links to authorised user and site settings without changing that precedence. Host applications must document any additional consumers of `default_locale`.
+
+Site Health marks unused optimiser tool/profile prerequisites **Not configured**. Optimiser capability registration, pipeline configuration, generated artefacts and outstanding database queue work keep active readiness checks applicable. Failed and in-flight critical-CSS diagnostics remain visible independently. Tools must be available to the worker running generation; a web-host check does not prove worker readiness. Normal stylesheet delivery remains available.
+
 ## Why It Matters
 
 - **For developers:** Admin is the package boundary for Filament resources, schema extension, policies, settings pages, dashboard Filament widgets, and admin events. Packages extend Admin through documented registries instead of editing core resources.

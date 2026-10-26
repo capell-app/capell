@@ -20,7 +20,7 @@ Installer owns:
 
 - `/install` browser setup routes and progress/report routes
 - Filament install pages and the not-installed dashboard Filament widget
-- install guide patch discovery and safe patch application
+- install guide patch discovery, redacted edit review, stale-input checks, and patch application with recovery paths
 - first-admin defaults, default package selection, environment preflight checks, and setup package removal
 
 Installer does not own:

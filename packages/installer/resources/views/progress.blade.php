@@ -104,11 +104,11 @@
             </a>
             <a
                 class="button primary"
-                href="{{ url('/admin') }}"
+                href="{{ $completion->destination() }}"
                 id="admin-link"
                 hidden
             >
-                {{ __('capell-installer::installer.go_to_admin') }}
+                @if ($completion->adminUrl !== null) {{ __('capell-installer::installer.go_to_admin') }}@else {{ __('capell-installer::installer.return_to_site') }}@endif
             </a>
         </footer>
     </main>

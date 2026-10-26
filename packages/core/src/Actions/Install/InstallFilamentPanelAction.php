@@ -10,6 +10,7 @@ use Capell\Core\Support\Composer\ComposerProcessEnvironment;
 use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\PanelProviderTargetResolver;
 use Capell\Core\Support\Install\PanelProviderWriter;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
 use Capell\Core\Support\Process\ArtisanProcessEnvironment;
@@ -143,6 +144,43 @@ class InstallFilamentPanelAction
         }
     }
 
+    /** @return list<FilePatchPlan> */
+    public function themeFilePlans(string $path): array
+    {
+        $editor = new PhpFileEditor($path);
+        $themeCalls = $this->themeCalls($editor, $path);
+        if ($themeCalls === []) {
+            if (! $this->canAppendTheme($editor, $path)) {
+                return [];
+            }
+
+            $method = $editor->findMethodInClass(pathinfo($path, PATHINFO_FILENAME), 'panel');
+            $statement = $method?->stmts[0] ?? null;
+            throw_unless($statement instanceof Return_ && $statement->expr instanceof MethodCall, RuntimeException::class, 'Unable to append panel theme.');
+            $statement->expr = new MethodCall($statement->expr, 'viteTheme', [new Arg(new String_(self::DEFAULT_THEME_PATH))]);
+        }
+
+        $plans = [];
+        $themePath = resource_path('css/filament/admin/theme.css');
+        if (($themeCalls === [] || $this->referencesDefaultTheme($themeCalls)) && ! File::exists($themePath)) {
+            $plans[] = new FilePatchPlan($themePath, self::DEFAULT_THEME_PATH, null, $this->defaultThemeStylesheet(), text: true, safeAfter: $this->defaultThemeStylesheet());
+        }
+
+        $plans[] = new FilePatchPlan($path, ltrim(substr($path, strlen(realpath(base_path()) ?: base_path())), '/'), $editor->originalContent(), $editor->print(), panelProvider: true);
+
+        return $plans;
+    }
+
+    private function defaultThemeStylesheet(): string
+    {
+        return <<<'CSS'
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+CSS;
+    }
+
     /**
      * @return list<string>
      */
@@ -263,12 +301,7 @@ class InstallFilamentPanelAction
         }
 
         File::ensureDirectoryExists(dirname($themePath));
-        File::put($themePath, <<<'CSS'
-@import '../../../../vendor/filament/filament/resources/css/theme.css';
-
-@source '../../../../app/Filament/**/*';
-@source '../../../../resources/views/filament/**/*';
-CSS);
+        File::put($themePath, $this->defaultThemeStylesheet());
     }
 
     /**
@@ -283,36 +316,23 @@ CSS);
                 continue;
             }
 
-            $editor = new PhpFileEditor($path);
-            $themeCalls = $this->themeCalls($editor, $path);
-
-            if ($themeCalls !== []) {
-                if ($this->referencesDefaultTheme($themeCalls)) {
-                    $this->ensureDefaultThemeStylesheetExists();
-                }
-
-                resolve(PanelProviderWriter::class)->save($path, $editor->originalContent(), $editor->originalContent());
-
-                continue;
-            }
-
-            if (! $this->canAppendTheme($editor, $path)) {
+            $plans = $this->themeFilePlans($path);
+            if ($plans === []) {
                 $this->reportMissingThemeConfiguration([$path], $reporter);
 
                 continue;
             }
 
-            $method = $editor->findMethodInClass(pathinfo($path, PATHINFO_FILENAME), 'panel');
-            $statement = $method?->stmts[0] ?? null;
-            throw_unless($statement instanceof Return_ && $statement->expr instanceof MethodCall, RuntimeException::class, 'Unable to append panel theme.');
-
-            $this->ensureDefaultThemeStylesheetExists();
-            $statement->expr = new MethodCall($statement->expr, 'viteTheme', [
-                new Arg(new String_(self::DEFAULT_THEME_PATH)),
-            ]);
-            resolve(PanelProviderWriter::class)->save($path, $editor->originalContent(), $editor->print());
-
-            $reporter->report('→ Configured the compiled Filament admin theme.');
+            foreach ($plans as $plan) {
+                if ($plan->before === null) {
+                    $this->ensureDefaultThemeStylesheetExists();
+                } else {
+                    resolve(PanelProviderWriter::class)->save($path, $plan->before, $plan->after);
+                    if ($plan->after !== $plan->before) {
+                        $reporter->report('→ Configured the compiled Filament admin theme.');
+                    }
+                }
+            }
         }
     }
 

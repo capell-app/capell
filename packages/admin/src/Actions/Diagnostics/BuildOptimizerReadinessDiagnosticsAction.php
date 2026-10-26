@@ -6,9 +6,13 @@ namespace Capell\Admin\Actions\Diagnostics;
 
 use Capell\Admin\Data\Diagnostics\DiagnosticCheckData;
 use Capell\Admin\Models\FailedJob;
+use Capell\Core\Actions\Packages\BuildPackageCapabilityGraphAction;
+use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -27,20 +31,54 @@ final class BuildOptimizerReadinessDiagnosticsAction
      */
     public function handle(): array
     {
+        $active = $this->pipelineConfigured();
+        $profile = $this->latestProfileGenerationCheck();
+
         return [
-            $this->commandCheck(
+            $active ? $this->commandCheck(
                 ['node', '--version'],
                 (string) __('capell-admin::diagnostics.node_runtime'),
                 (string) __('capell-admin::diagnostics.node_runtime_remediation'),
-            ),
-            $this->commandCheck(
+            ) : $this->optionalCheck((string) __('capell-admin::diagnostics.node_runtime')),
+            $active ? $this->commandCheck(
                 ['npx', 'playwright', '--version'],
                 (string) __('capell-admin::diagnostics.playwright_runtime'),
                 (string) __('capell-admin::diagnostics.playwright_runtime_remediation'),
-            ),
-            $this->latestProfileGenerationCheck(),
+            ) : $this->optionalCheck((string) __('capell-admin::diagnostics.playwright_runtime')),
+            $active ? $profile : $this->optionalCheck((string) __('capell-admin::diagnostics.latest_optimizer_profile')),
             $this->failedCriticalCssJobsCheck(),
+            $this->pendingCriticalCssJobsCheck(),
         ];
+    }
+
+    private function optionalCheck(string $label): DiagnosticCheckData
+    {
+        return new DiagnosticCheckData(
+            status: 'not_configured',
+            label: $label,
+            detail: (string) __('capell-admin::diagnostics.optimizer_optional'),
+        );
+    }
+
+    private function pipelineConfigured(): bool
+    {
+        $capabilities = BuildPackageCapabilityGraphAction::run();
+        if ($capabilities->packagesWith(PackageCapability::FrontendOptimizer) !== []
+            || $capabilities->packagesWith(PackageCapability::FrontendOptimizerConsole) !== []
+            || (is_array(config('capell-frontend-optimizer')) && config('capell-frontend-optimizer') !== [])
+        ) {
+            return true;
+        }
+
+        foreach ([storage_path('app/capell/frontend-optimizer'), public_path('frontend-optimizer')] as $path) {
+            if (is_dir($path) && File::allFiles($path) !== []) {
+                return true;
+            }
+        }
+
+        // In-flight legacy work is evidence of an active pipeline even when no
+        // optional package is registered. Failed work is always reported below.
+        return $this->pendingCriticalCssJobsQuery()?->exists() ?? false;
     }
 
     /**
@@ -125,6 +163,32 @@ final class BuildOptimizerReadinessDiagnosticsAction
             path: $latestPath,
             generatedAt: CarbonImmutable::createFromTimestamp($latestTimestamp)->toDateTimeString(),
         );
+    }
+
+    private function pendingCriticalCssJobsCheck(): DiagnosticCheckData
+    {
+        $count = $this->pendingCriticalCssJobsQuery()?->count();
+
+        return new DiagnosticCheckData(
+            status: $count === null ? 'not_configured' : ($count > 0 ? 'amber' : 'green'),
+            label: (string) __('capell-admin::diagnostics.pending_critical_css_jobs'),
+            detail: $count === null ? (string) __('capell-admin::diagnostics.optimizer_queue_unavailable') : (string) __('capell-admin::diagnostics.optimizer_queue_pending', ['count' => $count]),
+            remediation: $count > 0 ? (string) __('capell-admin::diagnostics.optimizer_worker_context') : null,
+        );
+    }
+
+    private function pendingCriticalCssJobsQuery(): ?QueryBuilder
+    {
+        $connection = DB::connection(config('queue.connections.database.connection'));
+        $table = config('queue.connections.database.table', 'jobs');
+
+        if (! $connection->getSchemaBuilder()->hasTable($table)) {
+            return null;
+        }
+
+        return $connection->table($table)->where(function (QueryBuilder $query): void {
+            $query->where('payload', 'like', '%CriticalCss%')->orWhere('payload', 'like', '%frontend-optimizer%');
+        });
     }
 
     private function failedCriticalCssJobsCheck(): DiagnosticCheckData

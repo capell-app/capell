@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Capell\Installer\Actions;
 
 use Capell\Core\Actions\RemovePackageAction;
-use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Illuminate\Support\Facades\Artisan;
@@ -26,7 +25,7 @@ final class RemoveSetupPackageAction
             requiresServerSideTooling: $requiresServerSideTooling,
         );
 
-        $redirectUrl = $this->redirectUrl();
+        $redirectUrl = BuildInstallerCompletionDataAction::run()->destination();
 
         $this->clearFilamentComponentCache();
 
@@ -41,20 +40,6 @@ final class RemoveSetupPackageAction
             Artisan::call('filament:clear-cached-components');
         } catch (Throwable) {
             // Cache cleanup is best-effort because the command may be unavailable after a partial install.
-        }
-    }
-
-    private function redirectUrl(): string
-    {
-        return $this->adminPackageIsInstalled() ? url('/admin') : url('/');
-    }
-
-    private function adminPackageIsInstalled(): bool
-    {
-        try {
-            return CapellCore::isPackageInstalled('capell-app/admin');
-        } catch (Throwable) {
-            return false;
         }
     }
 }

@@ -33,6 +33,8 @@
             basePath: @js($getBasePath()),
             autoUpdateDisabledStatePath: @js($getAutoUpdateDisabledStatePath()),
             editing: false,
+            openingState: '',
+            openingManualState: false,
             modified: false,
             init() {
                 this.$wire.watch('{{ $statePath }}', (value) => {
@@ -50,27 +52,36 @@
                 })
             },
             initModification() {
+                this.openingState = this.currentSlug()
+                this.openingManualState = this.autoUpdateDisabledStatePath !== null
+                    && Boolean(this.$get(this.autoUpdateDisabledStatePath))
                 this.editing = true
                 this.$nextTick(() => this.$refs.slugInput?.focus())
             },
             submitModification() {
-                let state = $get('{{ $relativeStatePath }}')
-                this.updateAutoUpdateDisabled(state)
-                let slug = state
+                let state = this.currentSlug().trim()
+                let slug = state === '/' ? '/' : state
                     .normalize('NFD')
                     .replace(/[\u0300-\u036f]/g, '')
                     .toLowerCase()
                     .trim()
-                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/[^a-z0-9_]+/g, '-')
                     .replace(/^-+|-+$/g, '')
+                this.updateAutoUpdateDisabled(slug)
+                this.$set('{{ $relativeStatePath }}', slug)
                 this.modified = slug !== this.initialState
                 this.editing = false
             },
             cancelModification() {
+                this.$set('{{ $relativeStatePath }}', this.openingState)
+                if (this.autoUpdateDisabledStatePath !== null) {
+                    this.$set(this.autoUpdateDisabledStatePath, this.openingManualState)
+                }
+                this.modified = this.openingState !== this.initialState
                 this.editing = false
             },
             resetModification() {
-                this.$set('{{ $relativeStatePath }}', this.initialState)
+                this.$set('{{ $relativeStatePath }}', this.initialState ?? '')
                 this.updateAutoUpdateDisabled(this.initialState)
                 this.modified = false
             },
@@ -117,17 +128,19 @@
                             class="page-title-with-slug-link hover:text-primary-600 hover:decoration-primary-500 focus-visible:ring-primary-500 dark:hover:text-primary-400 ml-1 inline-flex min-w-0 items-baseline text-gray-400 no-underline transition focus-visible:ring-2 focus-visible:outline-none"
                         >
                             <span
-                                class="shrink-0"
-                                x-text="displayBaseUrl()"
-                            ></span>
-                            <span
                                 class="truncate font-semibold text-gray-600 underline decoration-gray-300 underline-offset-2 dark:text-gray-300"
-                                x-text="currentSlug()"
-                            ></span>
+                                >{{ $recordUrl }}</span
+                            >
                             <span class="sr-only">
                                 {{ $getVisitLinkLabel() }}
                             </span>
                         </a>
+                        <span
+                            class="ml-2 truncate font-semibold text-gray-600 dark:text-gray-300"
+                            x-show="modified"
+                            x-cloak
+                            x-text="displayBaseUrl() + (currentSlug() === '/' ? '' : currentSlug())"
+                        ></span>
                     @else
                         <span
                             class="ml-1 inline-flex min-w-0 items-baseline text-gray-400"
@@ -186,7 +199,7 @@
                                 x-bind:disabled="! editing"
                                 x-on:input="updateAutoUpdateDisabled($event.target.value)"
                                 x-on:keydown.enter.prevent="submitModification()"
-                                x-on:keydown.escape="cancelModification()"
+                                x-on:keydown.escape.prevent.stop="cancelModification()"
                                 @if ($autocomplete = $getAutocomplete()) autocomplete="{{ $autocomplete }}" @endif
                                 id="{{ $getId() }}"
                                 {{ $wireModelAttribute }}="{{ $statePath }}"
