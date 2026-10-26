@@ -668,8 +668,7 @@ it('shares site language membership across repeated row and edit URL callbacks',
             }
         }
 
-        $queries = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'from "sites"')
-            || str_contains($query['query'], 'from "site_domains"') || str_contains($query['query'], 'from "languages"'));
+        $queries = collect(DB::getQueryLog())->filter(fn (array $query): bool => preg_match('/from [`"\[]?(sites|site_domains|languages)[`"\]]?(\s|$)/', $query['query']) === 1);
         DB::disableQueryLog();
         expect($queries)->toHaveCount(4);
     } finally {
