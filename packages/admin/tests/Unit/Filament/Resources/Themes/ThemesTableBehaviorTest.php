@@ -84,7 +84,7 @@ it('evaluates theme table columns and action form choices from real admin record
 
     expect(stringableThemeTableValue($previewAction->getModalHeading()))->toContain('Campaign Studio')
         ->and($previewAction->isIconButton())->toBeTrue()
-        ->and($previewAction->call(['data' => ['site_id' => 0, 'page_id' => 0]]))->toBeNull()
+
         ->and(stringableThemeTableValue($applyAction->getModalHeading()))->toContain('Campaign Studio')
         ->and($applyAction->isIconButton())->toBeTrue()
         ->and($applyAction->isDisabled())->toBeFalse()
@@ -137,9 +137,10 @@ it('opens theme previews only for scoped sites and pages', function (): void {
         ->and($previewSpy->args['theme'])->toBe($theme)
         ->and($previewSpy->args['site']->is($site))->toBeTrue()
         ->and($previewSpy->args['page']->is($page))->toBeTrue()
-        ->and($previewSpy->args['presetKey'])->toBe('launch')
-        ->and($action->call(['data' => ['site_id' => $site->getKey(), 'page_id' => $otherPage->getKey()]]))->toBeNull()
-        ->and($action->call(['data' => ['site_id' => 0, 'page_id' => $page->getKey()]]))->toBeNull();
+        ->and($previewSpy->args['presetKey'])->toBe('launch');
+
+    expect(fn () => $action->call(['data' => ['site_id' => $site->getKey(), 'page_id' => $otherPage->getKey()]]))->toThrow(ValidationException::class);
+    expect(fn () => $action->call(['data' => ['site_id' => 0, 'page_id' => $page->getKey()]]))->toThrow(ValidationException::class);
 });
 
 it('validates theme activation scope against the current actor site access', function (): void {
@@ -224,6 +225,8 @@ it('resolves theme preview and apply options from scoped sites and pages', funct
     assert($previewComponents['preset_key'] instanceof Select);
     assert($applyComponents['scope'] instanceof Select);
     assert($applyComponents['site_ids'] instanceof Select);
+
+    $previewComponents['site_id']->state($previewComponents['site_id']->getDefaultState());
 
     expect($previewComponents['site_id']->getDefaultState())->toBe($firstSite->getKey())
         ->and($previewComponents['page_id']->getDefaultState())->toBe($page->getKey())
@@ -365,3 +368,20 @@ function registerThemesTableDefinitionForTest(Theme $theme): void
 
     app()->instance(ThemeRegistry::class, $registry);
 }
+
+it('rejects a vanished preview page with a field error', function (): void {
+    $theme = Theme::factory()->create(['key' => 'preview-missing', 'name' => 'Preview missing']);
+    registerThemesTableDefinitionForTest($theme);
+    $site = Site::factory()->create();
+    $page = Page::factory()->site($site)->create();
+    $page->delete();
+
+    $action = themeTableActionsForTest($theme)['previewTheme']->record($theme);
+
+    try {
+        $action->call(['data' => ['site_id' => $site->id, 'page_id' => $page->id]]);
+        test()->fail('An unavailable preview page must have a field error.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors())->toHaveKey('page_id');
+    }
+});

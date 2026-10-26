@@ -15,6 +15,7 @@ use Capell\Marketplace\Actions\QueueMarketplaceCatalogueWarmAction;
 use Capell\Marketplace\Actions\ResolveMarketplaceCatalogueLocalStateAction;
 use Capell\Marketplace\Contracts\MarketplaceSelectionRecordProvider;
 use Capell\Marketplace\Data\ExtensionListingData;
+use Capell\Marketplace\Data\MarketplaceCatalogueFreshnessData;
 use Capell\Marketplace\Data\MarketplaceCatalogueLocalStateData;
 use Capell\Marketplace\Data\MarketplaceCatalogueLocalStateSnapshotData;
 use Capell\Marketplace\Data\MarketplaceCataloguePageData;
@@ -50,6 +51,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
 
     private const int DEFAULT_MAX_REMOTE_PAGE = 3;
 
+    private ?MarketplaceCatalogueFreshnessData $freshness = null;
+
     private bool $marketplaceBrowseUnavailable = false;
 
     private ?string $marketplaceBrowseUnavailableReason = null;
@@ -61,6 +64,11 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         private readonly MarketplaceInstanceResolver $instances,
         private readonly FoundationInstalledVersionResolver $foundationVersion,
     ) {}
+
+    public function catalogueFreshness(): MarketplaceCatalogueFreshnessData
+    {
+        return $this->freshness ?? new MarketplaceCatalogueFreshnessData;
+    }
 
     /**
      * @param  array<string, mixed>  $filters
@@ -324,6 +332,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             includeLocalExtensionState: $includeLocalExtensionState,
         );
 
+        $this->freshness = new MarketplaceCatalogueFreshnessData($marketplacePage->stale, $marketplacePage->observedAt, $marketplacePage->refreshFailed);
+
         return new LengthAwarePaginator(
             items: $marketplacePage->extensions,
             total: $marketplacePage->total,
@@ -420,6 +430,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             perPage: $query->perPage,
             nextPageUrl: $resolvedPage['next_page_url'],
             stale: $resolvedPage['stale'],
+            observedAt: $resolvedPage['observed_at'],
+            refreshFailed: $resolvedPage['refresh_failed'],
         );
     }
 
@@ -458,7 +470,7 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
     }
 
     /**
-     * @return array{records: array<int, array<string, mixed>>, total: int, next_page_url: ?string, stale: bool}
+     * @return array{records: array<int, array<string, mixed>>, total: int, next_page_url: ?string, stale: bool, observed_at: ?string, refresh_failed: bool}
      */
     private function visibleMarketplacePage(
         MarketplaceCatalogueQueryData $query,
@@ -481,6 +493,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
         $records = [];
         $remotePageNumber = 1;
         $stale = false;
+        $refreshFailed = false;
+        $observedAt = null;
 
         do {
             $pageQuery = $this->queryForPage($query, $remotePageNumber);
@@ -488,6 +502,10 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             $lastRemotePage = $remotePage;
             $nextPageUrl = $remotePage->nextPageUrl;
             $stale = $stale || $remotePage->stale;
+            $refreshFailed = $refreshFailed || $remotePage->refreshFailed;
+            if ($remotePage->observedAt !== null && ($observedAt === null || $remotePage->observedAt < $observedAt)) {
+                $observedAt = $remotePage->observedAt;
+            }
 
             $visibleExtensions = collect($remotePage->extensions)
                 ->reject(fn (ExtensionListingData $extension): bool => $this->isHiddenMarketplaceExtension($extension))
@@ -523,11 +541,13 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'total' => max($targetVisibleOffset + count($records), $remoteTotal - $hiddenSeen),
             'next_page_url' => $nextPageUrl,
             'stale' => $stale,
+            'observed_at' => $observedAt,
+            'refresh_failed' => $refreshFailed,
         ];
     }
 
     /**
-     * @return array{records: array<int, array<string, mixed>>, total: int, next_page_url: ?string, stale: bool}
+     * @return array{records: array<int, array<string, mixed>>, total: int, next_page_url: ?string, stale: bool, observed_at: ?string, refresh_failed: bool}
      */
     private function singleRemoteMarketplacePage(
         MarketplaceCatalogueQueryData $query,
@@ -553,6 +573,8 @@ final class MarketplaceCatalogueRecordProvider implements ExtensionCatalogueMeta
             'total' => max($visibleExtensions->count(), $marketplacePage->total - $hiddenExtensionsCount),
             'next_page_url' => $marketplacePage->nextPageUrl,
             'stale' => $marketplacePage->stale,
+            'observed_at' => $marketplacePage->observedAt,
+            'refresh_failed' => $marketplacePage->refreshFailed,
         ];
     }
 

@@ -44,9 +44,7 @@ final class MarketplaceUpdateChangelogPresenter
             $entries[$version] = [
                 'version' => $version,
                 'kind' => ExtensionReleaseKindEnum::between($installedVersion, $version)->value,
-                'notes' => $this->stringValue(
-                    $release['notes'] ?? $release['changelog'] ?? $release['body'] ?? $release['description'] ?? null,
-                ) ?? '',
+                'notes' => $this->releaseText($release),
             ];
         }
 
@@ -62,6 +60,19 @@ final class MarketplaceUpdateChangelogPresenter
         // releases and a modal the operator has to scroll past is a modal they
         // stop reading.
         return array_slice(array_values($entries), 0, self::MAXIMUM_ENTRIES);
+    }
+
+    /** @param array<string, mixed> $release */
+    public function releaseText(array $release): string
+    {
+        foreach (['notes', 'changelog', 'body', 'description', 'summary'] as $key) {
+            $text = $this->stringValue($release[$key] ?? null);
+            if ($text !== null) {
+                return $text;
+            }
+        }
+
+        return '';
     }
 
     private function stringValue(mixed $value): ?string

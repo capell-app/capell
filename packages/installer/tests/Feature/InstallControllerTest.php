@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\RunInstallAction;
 use Capell\Core\Actions\Install\RunInstallStepAction;
+use Capell\Core\Actions\RemovePackageAction;
+use Capell\Core\Contracts\AdminPanelUrlResolver;
 use Capell\Core\Contracts\ProgressReporter;
 use Capell\Core\Data\Install\RunInstallStepResultData;
 use Capell\Core\Data\InstallInputData;
@@ -16,6 +18,7 @@ use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\CacheProgressReporter;
 use Capell\Core\Support\Install\DeveloperToolingInstallationState;
 use Capell\Core\Support\Install\InstallPlan;
+use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
@@ -590,6 +593,7 @@ it('does not rerun Boost install when AI Agent Bridge developer tooling is alrea
 });
 
 it('renders a post-install launchpad for first admin onboarding', function (): void {
+    CapellCore::forcePackageInstalled('capell-app/admin');
     $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
     Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
     Cache::put(sprintf('capell.install.%s.success', $installId), []);
@@ -2967,4 +2971,107 @@ it('retains the removal session grant after tooling refusal and permits retry', 
     post(route('capell-installer.destroy'))
         ->assertRedirect(url('/admin'))
         ->assertSessionMissing('capell.installer.can_remove_setup_package');
+});
+
+it('uses the prepared installed panel destination on every completion surface', function (?string $adminUrl): void {
+    config(['app.url' => 'https://site.test/capell']);
+    CapellCore::forcePackageInstalled('capell-app/admin');
+    $resolver = Mockery::mock(AdminPanelUrlResolver::class);
+    $resolver->shouldReceive('resolve')->times(3)->andReturn($adminUrl);
+    app()->instance(AdminPanelUrlResolver::class, $resolver);
+
+    $installId = '19aee81d-82d1-44d0-a204-cf3baf319476';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+    Cache::put(sprintf('capell.install.%s.success', $installId), []);
+    withSession(installerAccessSessionData($installId));
+
+    foreach (['show', 'progress', 'success'] as $surface) {
+        $parameters = $surface === 'show' ? [] : ['installId' => $installId];
+        $path = route('capell-installer.' . $surface, $parameters, absolute: false);
+        $page = installerMarkup(get('https://hostile.test' . $path)->assertOk()->content());
+        $link = installerElement($page, $surface === 'success'
+            ? '//*[contains(concat(" ", normalize-space(@class), " "), " completion-actions ")]/a[1]'
+            : '//a[@id="admin-link"]');
+
+        expect($link->getAttribute('href'))->toBe($adminUrl ?? 'https://site.test/capell')
+            ->and(trim($link->textContent))->toBe($adminUrl !== null
+                ? __('capell-installer::installer.go_to_admin')
+                : __('capell-installer::installer.return_to_site'));
+    }
+})->with([
+    'default panel' => ['https://site.test/capell/admin'],
+    'custom path' => ['https://site.test/capell/cms'],
+    'separate domain root' => ['https://cms.test/'],
+    'unavailable panel' => [null],
+]);
+
+it('offers a site handoff without consulting an admin runtime on a headless install', function (): void {
+    config(['app.url' => 'https://site.test/capell']);
+    CapellCore::clearPackages();
+    $resolver = Mockery::mock(AdminPanelUrlResolver::class);
+    $resolver->shouldNotReceive('resolve');
+
+    app()->instance(AdminPanelUrlResolver::class, $resolver);
+
+    $installId = '19aee81d-82d1-44d0-a204-cf3baf319476';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+    Cache::put(sprintf('capell.install.%s.success', $installId), []);
+    withSession(installerAccessSessionData($installId));
+
+    foreach (['show', 'progress', 'success'] as $surface) {
+        $parameters = $surface === 'show' ? [] : ['installId' => $installId];
+        $page = installerMarkup(get(route('capell-installer.' . $surface, $parameters))->assertOk()->content());
+        expect(domCount($page, '//a[starts-with(@href, "https://site.test/capell/admin")]'))->toBe(0)
+            ->and(domCount($page, '//a[normalize-space(.) = "' . __('capell-installer::installer.go_to_admin') . '"]'))->toBe(0)
+            ->and(domCount($page, '//a[@href="https://site.test/capell"]'))->toBe(1);
+    }
+});
+
+it('redirects removal to the resolved panel before removing its runtime', function (): void {
+    config(['capell.server_side_tooling' => true]);
+    CapellCore::forcePackageInstalled('capell-app/admin');
+    $resolver = Mockery::mock(AdminPanelUrlResolver::class);
+    $resolver->shouldReceive('resolve')->once()->andReturn('https://cms.test/workspace');
+    app()->instance(AdminPanelUrlResolver::class, $resolver);
+    RemovePackageAction::mock()
+        ->shouldReceive('handle')->once()->andReturnUsing(function (): array {
+            // Resolution after Composer removal would no longer be possible.
+            CapellCore::clearPackages();
+            app()->instance(AdminPanelUrlResolver::class, new UnavailableAdminPanelUrlResolver);
+
+            return ['package' => 'capell-app/installer', 'status' => 'removed', 'message' => '', 'output' => '', 'cache_cleared' => true];
+        });
+
+    withSession(['capell.installer.can_remove_setup_package' => true])
+        ->post(route('capell-installer.destroy'), ['redirect' => 'https://hostile.test'])
+        ->assertRedirect('https://cms.test/workspace')
+        ->assertSessionMissing('capell.installer.can_remove_setup_package');
+});
+
+it('renders ordered native step controls for a named workspace with hidden inactive steps', function (): void {
+    $page = installerShowMarkup();
+    $navigation = installerElement($page, '//nav[ol[contains(@class, "installer-steps")]]');
+    expect($navigation->getAttribute('aria-label'))->toBe(__('capell-installer::installer.installer_sections'))
+        ->and(domCount($page, '//nav/ol/li/button[@type="button" and @data-step-trigger]'))->toBe(4)
+        ->and(domCount($page, '//*[@aria-current="step"]'))->toBe(1)
+        ->and(installerElement($page, '//*[@aria-current="step"]')->getAttribute('data-step-trigger'))->toBe('readiness');
+
+    $workspace = installerElement($page, '//*[@id="installer-workspace" and @role="region"]');
+    expect($workspace->getAttribute('aria-labelledby'))->toBe('installer-step-readiness-heading');
+
+    foreach (['readiness', 'site', 'packages', 'options'] as $step) {
+        $button = installerElement($page, '//button[@data-step-trigger="' . $step . '"]');
+        $heading = installerElement($page, '//h2[@id="installer-step-' . $step . '-heading"]');
+        expect(trim($button->textContent))->not->toBeEmpty()
+            ->and($button->getAttribute('aria-controls'))->toBe($workspace->getAttribute('id'))
+            ->and($button->hasAttribute('aria-selected'))->toBeFalse()
+            ->and($heading->getAttribute('tabindex'))->toBe('-1')
+            ->and(trim($heading->textContent))->not->toBeEmpty()
+            ->and(domCount($page, '//*[@data-installer-step="' . $step . '"]'))->toBeGreaterThan(0);
+
+        foreach ($page->query('//*[@data-installer-step="' . $step . '"]') ?: [] as $section) {
+            assert($section instanceof DOMElement);
+            expect($section->hasAttribute('hidden'))->toBe($step !== 'readiness');
+        }
+    }
 });

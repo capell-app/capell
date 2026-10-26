@@ -26,17 +26,22 @@ final class BuildMarketplacePurchasesPageDataAction
      *   support_url: string|null,
      *   priority_support_price: string|null,
      *   expired_explanation: string|null,
+     *   snapshot_state: string,
+     *   observed_at: string|null,
      *   currency: string|null
      * }
      */
     public function handle(): array
     {
-        $commercial = resolve(MarketplaceInstanceResolver::class)->latest()?->connection_metadata['commercial'] ?? [];
-        $commercial = is_array($commercial) ? $commercial : [];
+        $instance = resolve(MarketplaceInstanceResolver::class)->latest();
+        $snapshot = $instance?->connection_metadata['commercial'] ?? null;
+        $commercial = is_array($snapshot) ? $snapshot : [];
 
         $currency = $this->optionalString($commercial['currency'] ?? null);
 
         return [
+            'snapshot_state' => $instance === null ? 'not_connected' : (is_array($snapshot) && $instance->last_heartbeat_at !== null ? 'current' : 'not_observed'),
+            'observed_at' => is_array($snapshot) ? $instance?->last_heartbeat_at?->toAtomString() : null,
             'purchases' => $this->purchases($commercial),
             'installed' => $this->installedPaidExtensions(),
             'renewal_url' => $this->optionalString($commercial['renewal_url'] ?? null),
@@ -86,6 +91,8 @@ final class BuildMarketplacePurchasesPageDataAction
                     ? $extension->marketplace_runtime_status
                     : null;
 
+                $checkedAt = $extension->marketplace_activation_checked_at;
+                $refreshFailed = false;
                 try {
                     $decision = ResolveExtensionLicenceDecisionAction::run(
                         $this->slug($extension),
@@ -93,7 +100,9 @@ final class BuildMarketplacePurchasesPageDataAction
                         $domain,
                     );
                     $status = $decision->licenceStatus->value;
+                    $checkedAt = CarbonImmutable::now();
                 } catch (Throwable) {
+                    $refreshFailed = true;
                     // Heartbeat/local activation remains useful when the account
                     // service is temporarily unreachable. The page must not fail
                     // as a whole because one licence could not be refreshed.
@@ -105,7 +114,8 @@ final class BuildMarketplacePurchasesPageDataAction
                     'composer_name' => $extension->composer_name,
                     'name' => $extension->name ?? $extension->composer_name,
                     'status' => $status,
-                    'checked_at' => $extension->marketplace_activation_checked_at,
+                    'checked_at' => $checkedAt,
+                    'refresh_failed' => $refreshFailed,
                 ];
             })
             ->all();

@@ -83,3 +83,11 @@ it('skips history entries that do not name a version', function (): void {
 
     expect(changelog()->entriesSince($detail, '2.1.0'))->toHaveCount(1);
 });
+
+it('uses the first non-empty supported release text alias', function (string $alias): void {
+    $detail = detailWithVersionHistory([
+        ['version' => '2.2.0', 'notes' => ' ', $alias => '<script>release</script>'],
+    ]);
+
+    expect(changelog()->entriesSince($detail, '2.1.0')[0]['notes'])->toBe('<script>release</script>');
+})->with(['summary', 'changelog', 'body', 'description']);
