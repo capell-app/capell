@@ -12,7 +12,10 @@ for (const quickCreate of [false, true]) {
             page,
         }) => {
             const fixturePath = process.env.CAPELL_PAGE_SITE_FIXTURE
-            expect(fixturePath, 'CAPELL_PAGE_SITE_FIXTURE must be set').toBeTruthy()
+            expect(
+                fixturePath,
+                'CAPELL_PAGE_SITE_FIXTURE must be set',
+            ).toBeTruthy()
             const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
             const errors = []
             page.on('pageerror', (error) => errors.push(error.message))
@@ -21,12 +24,16 @@ for (const quickCreate of [false, true]) {
             await page.getByLabel(/email/i).first().fill(fixture.email)
             await page.locator('input[type="password"]').fill(fixture.password)
             await page.locator('button[type="submit"]').last().click()
-            await page.waitForURL((url) => !url.pathname.endsWith('/admin/login'))
+            await page.waitForURL(
+                (url) => !url.pathname.endsWith('/admin/login'),
+            )
             await page.goto(
                 `${fixture.baseUrl}/admin/pages/${quickCreate ? `${fixture.pageId}/edit` : 'create'}`,
             )
             const componentId = await page
-                .locator(`form[wire\\:submit="${quickCreate ? 'save' : 'create'}"]`)
+                .locator(
+                    `form[wire\\:submit="${quickCreate ? 'save' : 'create'}"]`,
+                )
                 .evaluate((form) =>
                     form.closest('[wire\\:id]').getAttribute('wire:id'),
                 )
@@ -56,9 +63,15 @@ for (const quickCreate of [false, true]) {
                 { componentId, quickCreate, statePath, fixture },
             )
 
-            const englishTitle = page.locator('input[id$=".translations.english.title"]')
-            const frenchTitle = page.locator('input[id$=".translations.french.title"]')
-            const germanTitle = page.locator('input[id$=".translations.german.title"]')
+            const englishTitle = page.locator(
+                'input[id$=".translations.english.title"]',
+            )
+            const frenchTitle = page.locator(
+                'input[id$=".translations.french.title"]',
+            )
+            const germanTitle = page.locator(
+                'input[id$=".translations.german.title"]',
+            )
             const retainedTitle = retainActive ? germanTitle : englishTitle
             const repeater = englishTitle.locator(
                 'xpath=ancestor::*[@*[name()="x-on:refresh-tabs.window"]][1]',
@@ -76,24 +89,48 @@ for (const quickCreate of [false, true]) {
 
             await page.evaluate(
                 async ({ componentId, statePath, siteBId }) => {
-                    await window.Livewire.find(componentId).set(`${statePath}.site_id`, siteBId)
+                    await window.Livewire.find(componentId).set(
+                        `${statePath}.site_id`,
+                        siteBId,
+                    )
                 },
-                { componentId, statePath, siteBId: retainActive ? fixture.siteCId : fixture.siteBId },
+                {
+                    componentId,
+                    statePath,
+                    siteBId: retainActive ? fixture.siteCId : fixture.siteBId,
+                },
             )
-            await page.getByRole('button', { name: 'Use site languages', exact: true }).click()
+            await page
+                .getByRole('button', {
+                    name: 'Use site languages',
+                    exact: true,
+                })
+                .click()
             const confirmation = page.getByRole('dialog').last()
             await expect(confirmation).toBeVisible()
-            await confirmation.getByRole('button', { name: 'Confirm', exact: true }).click()
+            await confirmation
+                .getByRole('button', { name: 'Confirm', exact: true })
+                .click()
 
             await expect(frenchTitle).toHaveCount(0)
             await expect(tabs).toHaveCount(retainActive ? 2 : 1)
             await expect(retainedTitle).toBeVisible()
-            await expect(retainedTitle).toHaveValue(retainActive ? 'Retained German title' : 'Retained English title')
+            await expect(retainedTitle).toHaveValue(
+                retainActive
+                    ? 'Retained German title'
+                    : 'Retained English title',
+            )
             if (retainActive) {
-                await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
+                await expect(tabs.nth(1)).toHaveAttribute(
+                    'aria-selected',
+                    'true',
+                )
                 await expect(englishTitle).toBeHidden()
             } else {
-                await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
+                await expect(tabs.first()).toHaveAttribute(
+                    'aria-selected',
+                    'true',
+                )
                 await expect(germanTitle).toHaveCount(0)
             }
             await retainedTitle.fill('Edited retained title')
@@ -106,19 +143,30 @@ for (const quickCreate of [false, true]) {
                             window.Livewire.find(componentId).get(
                                 `${statePath}.translations.${language}.title`,
                             ),
-                        { componentId, statePath, language: retainActive ? 'german' : 'english' },
+                        {
+                            componentId,
+                            statePath,
+                            language: retainActive ? 'german' : 'english',
+                        },
                     ),
                 )
                 .toBe('Edited retained title')
             const state = await page.evaluate(
-                ({ componentId, statePath }) => window.Livewire.find(componentId).get(statePath),
+                ({ componentId, statePath }) =>
+                    window.Livewire.find(componentId).get(statePath),
                 { componentId, statePath },
             )
             expect(state.activeTab).toBe(retainActive ? 2 : 1)
-            expect(state.translations.english.content).toBe('<p>Retained English draft</p>')
+            expect(state.translations.english.content).toBe(
+                '<p>Retained English draft</p>',
+            )
             if (retainActive) {
-                expect(state.translations.german.content).toBe('<p>Retained German draft</p>')
-                expect(state.translations.german.title).toBe('Edited retained title')
+                expect(state.translations.german.content).toBe(
+                    '<p>Retained German draft</p>',
+                )
+                expect(state.translations.german.title).toBe(
+                    'Edited retained title',
+                )
             }
             expect(errors).toEqual([])
         })
