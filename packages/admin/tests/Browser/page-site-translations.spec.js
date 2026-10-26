@@ -63,10 +63,14 @@ for (const quickCreate of [false, true]) {
             const repeater = englishTitle.locator(
                 'xpath=ancestor::*[@*[name()="x-on:refresh-tabs.window"]][1]',
             )
-            const tabs = repeater.locator('.fi-tabs-item[aria-controls]')
+            const tabs = repeater.getByRole('tab')
+            const viewedTab = repeater.locator(
+                `[role="tab"][data-tab-index="${retainActive ? 3 : 2}"]`,
+            )
             await expect(englishTitle).toBeVisible()
             await expect(germanTitle).toBeHidden()
-            await tabs.nth(retainActive ? 2 : 1).click()
+            await viewedTab.click()
+            await expect(viewedTab).toHaveAttribute('aria-selected', 'true')
             await expect(retainActive ? germanTitle : frenchTitle).toBeVisible()
             await expect(englishTitle).toBeHidden()
 
@@ -82,13 +86,14 @@ for (const quickCreate of [false, true]) {
             await confirmation.getByRole('button', { name: 'Confirm', exact: true }).click()
 
             await expect(frenchTitle).toHaveCount(0)
-            await expect(tabs).toHaveCount(retainActive ? 2 : 0)
+            await expect(tabs).toHaveCount(retainActive ? 2 : 1)
             await expect(retainedTitle).toBeVisible()
             await expect(retainedTitle).toHaveValue(retainActive ? 'Retained German title' : 'Retained English title')
             if (retainActive) {
                 await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
                 await expect(englishTitle).toBeHidden()
             } else {
+                await expect(tabs.first()).toHaveAttribute('aria-selected', 'true')
                 await expect(germanTitle).toHaveCount(0)
             }
             await retainedTitle.fill('Edited retained title')

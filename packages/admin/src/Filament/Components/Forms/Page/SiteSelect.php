@@ -75,7 +75,7 @@ class SiteSelect extends BaseSiteSelect
                                 $position = array_search($activeKey, array_keys($transition->translations), true);
                                 $tabId = $position === false ? 1 : $position + 1;
                                 $livewire = $repeater->getLivewire();
-                                data_set($livewire, $repeater->getContainer()->getStatePath() . '.activeTab', $tabId);
+                                data_set($livewire, $repeater->getActiveTabStatePath(), $tabId);
                                 $livewire->dispatch('refresh-tabs', tabId: $tabId, statePath: $repeater->getStatePath());
                             }
 

@@ -353,14 +353,16 @@ it('activates a retained translation after confirming language removal', functio
     $schemaName = $quickCreate ? expectPresent($form->instance()->getMountedActionSchemaName()) : 'form';
     $outerSiteId = $form->get('data.site_id');
     $outerActiveTab = $form->get('data.activeTab');
+    $outerData = $form->get('data');
     $form->set($statePath . '.site_id', $siteA->id)
         ->set($statePath . '.translations', [
             'english' => ['language_id' => $english->id, 'title' => 'Retained title', 'content' => '<p>English draft</p>'],
             'french' => ['language_id' => $french->id, 'title' => 'Titre français'],
-            'german' => ['language_id' => $german->id, 'title' => 'Deutscher Titel'],
+            'german' => ['language_id' => $german->id, 'title' => 'Deutscher Titel', 'content' => '<p>German draft</p>'],
         ]);
 
-    // Execute the rendered browser handler, rather than pre-seeding server activeTab.
+    // Run the rendered handler against the real Alpine component, then send its
+    // selection through the Livewire state path shared by $wire.$entangle().
     view()->share('errors', new ViewErrorBag);
     $form->assertSet($statePath . '.activeTab', 1);
     $schema = expectPresent($form->instance()->getSchema($schemaName));
@@ -377,27 +379,28 @@ it('activates a retained translation after confirming language removal', functio
         libxml_use_internal_errors($previousLibxmlErrors);
     }
 
-    $tabs = new DOMXPath($document)->query($event === 'x-on:expand' ? '//*[@role="tabpanel"]' : '//*[@*[name()="x-bind:aria-selected"]]');
+    $tabs = new DOMXPath($document)->query($event === 'x-on:expand' ? '//*[@role="tabpanel"]' : '//*[@role="tab"]');
     throw_unless($tabs !== false, RuntimeException::class, 'Invalid tab query.');
     $tab = $tabs->item($retainActive ? 2 : 1);
     throw_unless($tab instanceof DOMElement, RuntimeException::class, 'Expected the non-initial translation tab.');
-    $click = new Process(['node', '-e', <<<'JS_WRAP'
-    const { handler } = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
-    const updates = [];
-    const state = { tab: 1, $wire: { $set: (path, value, live = true) => updates.push({ path, value, live }) } };
+    $click = new Process(['node', '--input-type=module', '-e', <<<'JS_WRAP'
+    import { readFileSync } from 'node:fs';
+    import capellRepeaterTabs from './packages/admin/resources/js/components/repeater-tabs.js';
+    const { handler, activeTab } = JSON.parse(readFileSync(0, 'utf8'));
+    const state = capellRepeaterTabs({ activeTab });
     new Function(`with (this) { ${handler} }`).call(state);
-    process.stdout.write(JSON.stringify({ tab: state.tab, updates }));
+    process.stdout.write(JSON.stringify({ tab: state.tab, focusedTab: state.focusedTab }));
     JS_WRAP]);
-    $click->setInput(json_encode(['handler' => $tab->getAttribute($event)], JSON_THROW_ON_ERROR));
+    $click->setInput(json_encode(['handler' => $tab->getAttribute($event), 'activeTab' => $repeater->getActiveTab()], JSON_THROW_ON_ERROR));
     $click->mustRun();
 
     $selection = json_decode($click->getOutput(), true, flags: JSON_THROW_ON_ERROR);
-    expect($selection['tab'])->toBe($retainActive ? 3 : 2);
-    foreach ($selection['updates'] as $update) {
-        expect($update['path'])->toBe($statePath . '.activeTab')
-            ->and($update['live'])->toBeFalse();
-        $form->set($update['path'], $update['value']);
-    }
+    $activeTabStatePath = $repeater->getActiveTabStatePath();
+    expect($selection['tab'])->toBe($retainActive ? 3 : 2)
+        ->and($selection['focusedTab'])->toBe($selection['tab'])
+        ->and($activeTabStatePath)->toBe($statePath . '.activeTab');
+    $form->set($activeTabStatePath, $selection['tab'])
+        ->assertSet($activeTabStatePath, $retainActive ? 3 : 2);
 
     $form->set($statePath . '.site_id', $siteB->id);
     $action = TestAction::make('useSiteLanguages')->schemaComponent('site_id', schema: $schemaName);
@@ -414,12 +417,14 @@ it('activates a retained translation after confirming language removal', functio
     if ($retainActive) {
         $form->set($statePath . '.translations.german.title', 'Bearbeiteter Titel')
             ->assertSet($statePath . '.translations.german.title', 'Bearbeiteter Titel')
+            ->assertSet($statePath . '.translations.german.content', '<p>German draft</p>')
             ->assertSet($statePath . '.activeTab', 2);
     }
 
     if ($quickCreate) {
         expect($form->get('data.site_id'))->toBe($outerSiteId)
-            ->and($form->get('data.activeTab'))->toBe($outerActiveTab);
+            ->and($form->get('data.activeTab'))->toBe($outerActiveTab)
+            ->and($form->get('data'))->toBe($outerData);
     }
 })->with(['ordinary creation' => false, 'quick create' => true])
     ->with(['removed active row' => false, 'retained active row moves' => true])
