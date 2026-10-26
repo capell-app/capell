@@ -26,10 +26,12 @@ final class FilterExtensionManagementEntriesAction
         ?string $price = null,
         ?string $health = null,
         ?string $sort = 'latest',
+        ?string $composerName = null,
     ): array {
         $installedStatus = $this->installedStatus($installedStatus, $installedOnly);
 
         return array_values(collect($entries)
+            ->filter(fn (ExtensionManagementEntryData $entry): bool => $composerName === null || $composerName === '' || $entry->packageName === $composerName)
             ->filter(fn (ExtensionManagementEntryData $entry): bool => $this->matchesSearch($entry, (string) $search))
             ->filter(fn (ExtensionManagementEntryData $entry): bool => $this->matchesInstalledStatus($entry, $installedStatus))
             ->filter(fn (ExtensionManagementEntryData $entry): bool => $productGroup === null || $productGroup === '' || $entry->productGroup === $productGroup)

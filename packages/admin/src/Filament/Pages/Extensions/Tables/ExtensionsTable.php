@@ -21,6 +21,7 @@ use Capell\Admin\Support\Extensions\ExtensionsPageActionRegistry;
 use Capell\Core\Contracts\SettingsContract;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -114,6 +115,7 @@ class ExtensionsTable implements TableConfigurator
             Filter::make('extension_filters')
                 ->label(__('capell-admin::filter.extensions'))
                 ->schema([
+                    Hidden::make('composer_name'),
                     TextInput::make('search')
                         ->label(__('capell-admin::filter.search'))
                         ->placeholder(__('capell-admin::filter.search_extensions')),
@@ -249,6 +251,7 @@ class ExtensionsTable implements TableConfigurator
             : [];
 
         return [
+            'composerName' => self::selectedOption($data['composer_name'] ?? null),
             'price' => self::selectedOption($data['price'] ?? null),
             'installedStatus' => self::selectedInstalledStatus($filters['installed_status']['value'] ?? null),
             'health' => self::selectedOption($data['health'] ?? null),

@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Capell\Core\Facades\CapellCore;
+use Capell\Core\Support\Manifest\CapellManifestData;
+use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Actions\BuildMarketplaceSelectionReviewAction;
+use Capell\Marketplace\Actions\FinalizeMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
+use Capell\Marketplace\Actions\QueryMarketplaceInstallProgressAction;
 use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Contracts\MarketplaceComposerChangePublisher;
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
+use Capell\Marketplace\Contracts\MarketplaceRuntimeRefresher;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
+use Capell\Marketplace\Data\MarketplaceComposerResultData;
+use Capell\Marketplace\Data\MarketplaceInstallProgressQueryData;
 use Capell\Marketplace\Data\MarketplaceSelectionInputData;
 use Capell\Marketplace\Data\MarketplaceSelectionReviewData;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
@@ -32,13 +40,18 @@ use Capell\Marketplace\Models\MarketplaceInstallFlowSession;
 use Capell\Marketplace\Models\MarketplaceInstallIntent;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
+use Capell\Marketplace\Support\ArtisanMarketplaceRuntimeRefresher;
+use Capell\Marketplace\Tests\Support\RecordingMarketplaceRuntimeRefresher;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
+
+require_once dirname(__DIR__, 5) . '/tests/Support/DomQuery.php';
 
 uses(CreatesAdminUser::class);
 
@@ -585,7 +598,7 @@ it('queues a free marketplace extension install from the grouped browser footer'
         ->and($attempt->extension_name)->toBe('Authentication Log')
         ->and($attempt->composer_name)->toBe('capell-app/login-audit')
         ->and($attempt->version_constraint)->toBe('^1.0.0')
-        ->and($attempt->requested_options)->toBe(['seed_examples' => true])
+        ->and($attempt->requested_options)->toEqual(['seed_examples' => true])
         ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued);
 
     // The redirect is still reachable — it is now something the operator picks.
@@ -1630,7 +1643,7 @@ it('marks marketplace browse as unavailable when the catalogue request fails', f
         'https://marketplace.test/api/extensions*' => Http::response(['message' => 'Unavailable'], 503),
     ]);
 
-    $unavailableDescription = __('capell-marketplace::marketplace.filters.unavailable_description') . ' ' . __('capell-marketplace::marketplace.filters.unavailable_reason', ['reason' => 'Unavailable']);
+    $unavailableDescription = __('capell-marketplace::marketplace.catalogue_failures.service');
     $provider = resolve(MarketplaceCatalogueRecordProvider::class);
     $catalogueTable = resolve(MarketplaceCatalogueTable::class);
 
@@ -1956,6 +1969,7 @@ it('reports each stage of a running install through the progress pill', function
         'active' => true,
         'succeeded' => false,
         'failure_reason' => null,
+        'setup' => null,
     ]])
         ->and($component->instance()->hasActiveMarketplaceInstalls())->toBeTrue();
 
@@ -2232,3 +2246,344 @@ it('carries the activate-after-install choice from the review screen into the th
     expect(data_get($intent->metadata, 'acquisition.' . RecordThemeInstallIntentAction::ACTIVATE_AFTER_INSTALL))
         ->toBe($activate);
 })->with([true, false]);
+
+it('offers the exact installed extension and safe existing setup documentation in the progress footer', function (?string $documentationUrl): void {
+    grantMarketplaceBrowserManagementAccess();
+    registerMarketplaceSetupPackage();
+    registerMarketplaceSetupPackage('capell-app/unrelated-suite');
+    registerMarketplaceSetupPackage('capell-app/setup-suite-pro');
+    CapellCore::getPackage('capell-app/unrelated-suite')->description = 'Integrates with capell-app/setup-suite';
+    CapellCore::getPackage('capell-app/setup-suite')->documentationUrl = $documentationUrl;
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+
+    $attempt = marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus::Succeeded);
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()])
+        ->assertSee(__('capell-marketplace::marketplace.progress.open_installed', ['name' => 'Setup Suite']))
+        ->assertSee(__('capell-marketplace::marketplace.progress.no_editor'));
+
+    $setup = expectPresent($component->instance()->marketplaceInstallProgress()[0]['setup']);
+    if ($documentationUrl === 'https://docs.example.test/setup-suite') {
+        $component->assertSee($documentationUrl, false);
+        expect($setup->documentationUrl)->toBe($documentationUrl);
+    } else {
+        expect($setup->documentationUrl)->toBeNull();
+        $component->assertDontSee(__('capell-marketplace::marketplace.progress.setup_documentation', ['name' => 'Setup Suite']));
+    }
+
+    expect($setup->installedUrl)->toBe(ExtensionsPage::getUrl([
+        'installed-extensionsFilters' => ['extension_filters' => ['composer_name' => 'capell-app/setup-suite']],
+    ]));
+
+    $installedUrl = expectPresent($setup->installedUrl);
+    $component->assertSeeHtml('href="' . e($installedUrl) . '"');
+    parse_str((string) parse_url($installedUrl, PHP_URL_QUERY), $query);
+    Livewire::test(ExtensionsPage::class)
+        ->assertSee('capell-app/setup-suite')
+        ->assertSee('capell-app/unrelated-suite');
+    Livewire::withQueryParams($query)->test(ExtensionsPage::class)
+        ->assertSee('capell-app/setup-suite')
+        ->assertDontSee('capell-app/unrelated-suite')
+        ->assertDontSee('capell-app/setup-suite-pro');
+
+    Livewire::test(ExtensionsPage::class)
+        ->filterTable('extension_filters', ['search' => 'capell-app/setup-suite'])
+        ->assertSee('capell-app/setup-suite')
+        ->assertSee('capell-app/setup-suite-pro')
+        ->assertSee('capell-app/unrelated-suite');
+})->with([
+    'documentation available' => ['https://docs.example.test/setup-suite'],
+    'no documentation' => [null],
+    'unsafe documentation' => ['https://secret-token@docs.example.test/setup-suite'],
+]);
+
+it('keeps polling without setup between success finalisation and runtime propagation', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    registerMarketplaceSetupPackage();
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+    config(['capell.multi_node' => false, 'octane.server' => null]);
+    $attempt = marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus::Running);
+    $attempt = FinalizeMarketplaceInstallAttemptAction::run($attempt, new MarketplaceComposerResultData(0, '', ''));
+
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and(QueryMarketplaceInstallProgressAction::run(
+            MarketplaceInstallProgressQueryData::forComposerNames([$attempt->composer_name]),
+        )->attemptIds())->toBe([(int) $attempt->getKey()]);
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()]);
+
+    expect($component->instance()->hasActiveMarketplaceInstalls())->toBeTrue();
+    $component->assertSee(__('capell-marketplace::marketplace.progress.stage_notification'))
+        ->assertSeeHtml('wire:poll.3s')
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.setup_ready', ['name' => 'Setup Suite']))
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.open_installed', ['name' => 'Setup Suite']));
+
+    PropagateMarketplaceRuntimeStateAction::run($attempt);
+    $component->call('$refresh')
+        ->assertDontSeeHtml('wire:poll.3s')
+        ->assertSee(__('capell-marketplace::marketplace.progress.setup_ready', ['name' => 'Setup Suite']))
+        ->assertSee(__('capell-marketplace::marketplace.progress.open_installed', ['name' => 'Setup Suite']));
+    expect($component->instance()->hasActiveMarketplaceInstalls())->toBeFalse();
+});
+
+it('withholds setup after an Octane refresh or orphaned propagation expires', function (bool $octane): void {
+    grantMarketplaceBrowserManagementAccess();
+    registerMarketplaceSetupPackage();
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+    config(['capell.multi_node' => false, 'octane.server' => $octane ? 'frankenphp' : null]);
+    $attempt = marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus::Running);
+    $attempt = FinalizeMarketplaceInstallAttemptAction::run($attempt, new MarketplaceComposerResultData(0, '', ''));
+
+    if ($octane) {
+        app()->instance(
+            MarketplaceRuntimeRefresher::class,
+            new RecordingMarketplaceRuntimeRefresher,
+        );
+        PropagateMarketplaceRuntimeStateAction::run($attempt);
+    } else {
+        $this->travel(2)->hours();
+    }
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()])
+        ->assertSee(__('capell-marketplace::marketplace.progress.runtime_refresh_required'))
+        ->assertSee('data-capell-marketplace-view-operations', false)
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.setup_ready', ['name' => 'Setup Suite']))
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.open_installed', ['name' => 'Setup Suite']))
+        ->assertDontSeeHtml('wire:poll.3s');
+})->with([true, false]);
+
+it('politely announces setup guidance when polling observes completion', function (bool $runtimeRefreshRequired): void {
+    grantMarketplaceBrowserManagementAccess();
+    registerMarketplaceSetupPackage();
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+    $attempt = marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus::Running);
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()]);
+
+    $statusQuery = '//*[@data-capell-marketplace-setup-status]';
+    $initialStatus = domElement(domXPath($component->html()), $statusQuery);
+    expect(trim(domText($initialStatus)))->toBe('');
+
+    $attempt->update(['status' => MarketplaceInstallIntentStatus::Succeeded, 'progress_current' => 5, 'context' => ['runtime_propagation' => 'ready']]);
+    if ($runtimeRefreshRequired) {
+        $attempt->events()->create([
+            'level' => 'warning',
+            'stage' => 'notification',
+            'message' => __('capell-marketplace::marketplace.operations.timeline_runtime_refresh_required'),
+            'context' => ['command' => ArtisanMarketplaceRuntimeRefresher::COMMAND],
+            'occurred_at' => now(),
+        ]);
+    }
+
+    $announcement = $runtimeRefreshRequired
+        ? __('capell-marketplace::marketplace.progress.runtime_refresh_required')
+        : __('capell-marketplace::marketplace.progress.setup_ready', ['name' => 'Setup Suite']);
+
+    for ($poll = 0; $poll < 2; $poll++) {
+        $component->call('$refresh')->assertNoRedirect();
+        $dom = domXPath($component->html());
+        $status = domElement($dom, $statusQuery);
+
+        expect(domCount($dom, $statusQuery))->toBe(1)
+            ->and(domAttribute($status, 'role'))->toBe('status')
+            ->and(domAttribute($status, 'aria-live'))->toBe('polite')
+            ->and(domAttribute($status, 'aria-atomic'))->toBe('true')
+            ->and(trim(domText($status)))->toBe($announcement)
+            ->and(domCount($dom, './/*[@autofocus or @tabindex]', $status))->toBe(0);
+    }
+})->with([false, true]);
+
+it('provides actionable runtime recovery in the progress handoff after propagation stops', function (string $recovery, bool $multiNode): void {
+    grantMarketplaceBrowserManagementAccess();
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+    config(['capell.multi_node' => $multiNode, 'octane.server' => 'frankenphp']);
+    $attempt = marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus::Running);
+    $attempt = FinalizeMarketplaceInstallAttemptAction::run($attempt, new MarketplaceComposerResultData(0, '', ''));
+
+    $component = Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()])
+        ->assertDontSee('capell:runtime-refresh');
+
+    if ($recovery === 'expired') {
+        $this->travel(5)->minutes();
+    } elseif ($recovery === 'interrupted') {
+        new RunMarketplaceInstallAttemptJob((int) $attempt->getKey())
+            ->failed(new RuntimeException('secret-token=interrupted-worker'));
+    } else {
+        app()->instance(MarketplaceRuntimeRefresher::class, new RecordingMarketplaceRuntimeRefresher);
+        PropagateMarketplaceRuntimeStateAction::run($attempt);
+    }
+
+    $component->call('$refresh')
+        ->assertNoRedirect()
+        ->assertDontSeeHtml('wire:poll.3s')
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.open_installed', ['name' => 'Setup Suite']))
+        ->assertDontSee('secret-token=interrupted-worker');
+
+    expect($attempt->refresh()->status)->toBe(MarketplaceInstallIntentStatus::Succeeded)
+        ->and($attempt->context['runtime_propagation'] ?? null)->toBe('recovery_required')
+        ->and($attempt->failure_reason)->toBeNull();
+
+    $handoff = domElement(domXPath($component->html()), '//*[@data-capell-marketplace-setup="capell-app/setup-suite"]');
+    expect(domText($handoff))->toContain('Run capell:runtime-refresh', 'restart Octane or PHP-FPM')
+        ->and(domText($handoff))->toContain($multiNode ? 'on every application node' : 'on this node');
+
+    $component->call('viewMarketplaceInstallOperations')
+        ->assertRedirect(MarketplacePackageOperationsPage::getUrl(['tab' => 'active', 'operation' => $attempt->getKey()]));
+})->with(['expired', 'interrupted', 'propagated'])->with([false, true]);
+
+it('does not offer successful setup for pending or failed operations', function (MarketplaceInstallIntentStatus $status): void {
+    grantMarketplaceBrowserManagementAccess();
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+    $attempt = marketplaceSetupProgressAttempt($status);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()])
+        ->assertSee('data-capell-marketplace-progress-status="' . $status->value . '"', false)
+        ->assertDontSee('data-capell-marketplace-setup=', false)
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.open_installed', ['name' => 'Setup Suite']));
+})->with([MarketplaceInstallIntentStatus::Queued, MarketplaceInstallIntentStatus::Running, MarketplaceInstallIntentStatus::Failed]);
+
+it('withholds setup shortcuts from view-only users and packages no longer installed', function (bool $viewOnly): void {
+    if ($viewOnly) {
+        grantMarketplaceBrowserViewOnlyAccess();
+        registerMarketplaceSetupPackage();
+    } else {
+        grantMarketplaceBrowserManagementAccess();
+    }
+
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+    $attempt = marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus::Succeeded);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()])
+        ->assertSee('data-capell-marketplace-progress-status="succeeded"', false)
+        ->assertDontSee('data-capell-marketplace-setup=', false);
+})->with([true, false]);
+
+it('retains runtime refresh instructions before offering an installed extension shortcut', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    registerMarketplaceSetupPackage();
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+    $attempt = marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus::Succeeded);
+    $attempt->events()->create([
+        'level' => 'warning',
+        'stage' => 'notification',
+        'message' => __('capell-marketplace::marketplace.operations.timeline_runtime_refresh_required'),
+        'context' => ['command' => ArtisanMarketplaceRuntimeRefresher::COMMAND],
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()])
+        ->assertSee(__('capell-marketplace::marketplace.progress.runtime_refresh_required'))
+        ->assertSee('data-capell-marketplace-view-operations', false)
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.open_installed', ['name' => 'Setup Suite']));
+});
+
+it('requires recovery for a succeeded legacy attempt without a recorded propagation outcome', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    registerMarketplaceSetupPackage();
+    Http::fake(['*' => Http::response(['data' => [], 'links' => ['next' => null]])]);
+    $attempt = marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus::Succeeded);
+    $attempt->update(['context' => null]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->set('marketplaceStep', 'progress')
+        ->set('activeMarketplaceInstallAttemptIds', [(int) $attempt->getKey()])
+        ->assertSee(__('capell-marketplace::marketplace.progress.runtime_refresh_required'))
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.setup_ready', ['name' => 'Setup Suite']))
+        ->assertDontSee(__('capell-marketplace::marketplace.progress.open_installed', ['name' => 'Setup Suite']))
+        ->assertDontSeeHtml('wire:poll.3s');
+});
+
+function marketplaceSetupProgressAttempt(MarketplaceInstallIntentStatus $status): MarketplaceInstallAttempt
+{
+    return MarketplaceInstallAttempt::query()->create([
+        'composer_name' => 'capell-app/setup-suite',
+        'extension_slug' => 'setup-suite',
+        'extension_name' => 'Setup Suite',
+        'kind' => 'tool',
+        'status' => $status,
+        'context' => ['runtime_propagation' => $status === MarketplaceInstallIntentStatus::Succeeded ? 'ready' : 'pending'],
+        'composer_command' => 'composer require capell-app/setup-suite',
+        'current_stage' => 'notification',
+        'progress_current' => $status === MarketplaceInstallIntentStatus::Succeeded ? 5 : 1,
+        'progress_total' => 5,
+        'queued_at' => now(),
+    ]);
+}
+
+function registerMarketplaceSetupPackage(string $name = 'capell-app/setup-suite'): void
+{
+    $manifest = CapellManifestData::fromArray(capellManifestV3Array(
+        name: $name,
+        overrides: ['version' => '1.0.0'],
+    ));
+    resolve(CapellPackageRegistry::class)->register($manifest);
+    CapellCore::registerManifestPackage($manifest);
+    CapellCore::forcePackageInstalled($manifest->name);
+}
+
+it('retains the reviewed selection when a recovery handoff queues no installation', function (): void {
+    grantMarketplaceBrowserManagementAccess();
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::Automated);
+    Queue::fake();
+    $listing = marketplaceBrowserExtensionPayload([
+        'slug' => 'setup-suite',
+        'name' => 'Setup Suite',
+        'composer_name' => 'capell-app/setup-suite',
+    ]);
+    Http::fake([
+        'https://marketplace.test/api/extensions/by-composer*' => Http::response([
+            'data' => [[
+                ...$listing,
+                'install_eligibility' => ['state' => 'blocked', 'block_reason' => 'account_required'],
+            ]],
+        ]),
+        'https://marketplace.test/api/extensions?*' => Http::response([
+            'data' => [$listing],
+            'links' => ['next' => null],
+        ]),
+        'https://marketplace.test/api/marketplace/connections' => Http::response(['message' => 'remote-secret-sentinel'], 503),
+    ]);
+
+    Livewire::test(MarketplaceExtensionsBrowser::class)
+        ->call('loadMarketplaceResults')
+        ->call('toggleMarketplaceSelection', 'capell-app/setup-suite')
+        ->call('showMarketplaceInstallReview')
+        ->assertSet('marketplaceStep', 'review')
+        ->set('installReviewedMarketplaceExtensionsConfirmed', true)
+        ->call('installReviewedMarketplaceExtensions')
+        ->assertNoRedirect()
+        ->assertSet('marketplaceStep', 'review')
+        ->assertSet('selectedMarketplaceComposerNames', ['capell-app/setup-suite'])
+        ->assertSet('activeMarketplaceInstallAttemptIds', [])
+        ->assertDontSee('data-capell-marketplace-install-progress', false)
+        ->assertDontSee('remote-secret-sentinel');
+
+    $notification = FilamentNotificationSnapshots::pull()->sole();
+    expect($notification->getBody())->toBe(__('capell-marketplace::marketplace.connection_failures.service'));
+    $attempt = MarketplaceInstallAttempt::query()->sole();
+    expect($attempt->status)->toBe(MarketplaceInstallIntentStatus::Blocked)
+        ->and($attempt->failure_reason)->toBe('account_required');
+    Queue::assertNotPushed(RunMarketplaceInstallAttemptJob::class);
+});

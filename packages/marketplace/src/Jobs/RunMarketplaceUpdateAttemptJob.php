@@ -11,7 +11,6 @@ use Capell\Core\Actions\Upgrade\RunSettingsMigrationsAction;
 use Capell\Core\Data\MigrationRunResult;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\NotifyMarketplaceUpdateCompletedAction;
-use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
@@ -206,16 +205,7 @@ final class RunMarketplaceUpdateAttemptJob extends AbstractMarketplaceOperationJ
     #[Override]
     protected function announceSucceededAttempt(MarketplaceInstallAttempt $attempt): void
     {
-        $runtimeNotice = null;
-
-        try {
-            $runtimeNotice = PropagateMarketplaceRuntimeStateAction::run($attempt);
-        } catch (Throwable $throwable) {
-            report($throwable);
-            $this->recordEvent($attempt, MarketplaceInstallAttemptEventLevel::Warning, 'timeline_runtime_propagation_failed', MarketplaceInstallFailureStage::Notification, [
-                'reason' => $throwable->getMessage(),
-            ]);
-        }
+        $runtimeNotice = $this->propagateRuntimeState($attempt);
 
         try {
             NotifyMarketplaceUpdateCompletedAction::run($attempt->refresh(), $runtimeNotice);

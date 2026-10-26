@@ -58,6 +58,7 @@ trait InteractsWithExtensionTableData
             price: $filters['price'] ?? null,
             health: $filters['health'] ?? null,
             sort: $filters['sort'] ?? 'latest',
+            composerName: $filters['composerName'] ?? null,
         );
 
         $records = array_values(collect($entries)

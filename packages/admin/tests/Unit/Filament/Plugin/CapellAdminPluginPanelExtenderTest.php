@@ -625,7 +625,16 @@ it('reconciles a real compiled cache for a non-interactive Marketplace installat
     try {
         InstallPackageAction::run(CapellCore::getPackage('test/panel-runtime'));
         config(['capell.multi_node' => false, 'octane.server' => null]);
-        $notice = PropagateMarketplaceRuntimeStateAction::run(new MarketplaceInstallAttempt);
+        $attempt = MarketplaceInstallAttempt::query()->create([
+            'composer_name' => 'test/panel-runtime',
+            'extension_slug' => 'panel-runtime',
+            'extension_name' => 'Panel Runtime',
+            'kind' => 'plugin',
+            'status' => 'succeeded',
+            'context' => ['runtime_propagation' => 'pending'],
+        ]);
+        $notice = PropagateMarketplaceRuntimeStateAction::run($attempt);
+        expect($attempt->refresh()->context['runtime_propagation'] ?? null)->toBe('ready');
         expect($notice)->toBeNull()->and(file_exists($path))->toBeFalse()
             ->and(file_exists($panel->getComponentCachePath()))->toBeFalse();
     } finally {

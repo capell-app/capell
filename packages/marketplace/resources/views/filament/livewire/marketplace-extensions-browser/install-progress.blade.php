@@ -39,7 +39,7 @@
                         @class([
                             'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1',
                             'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-200' => $progress['active'],
-                            'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-200' => $progress['succeeded'],
+                            'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-500/10 dark:text-green-200' => $progress['succeeded'] && ! $progress['active'],
                             'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-200' => ! $progress['active'] && ! $progress['succeeded'],
                         ])
                     >
@@ -70,6 +70,26 @@
         @endforeach
     </div>
 
+    <div
+        data-capell-marketplace-setup-status
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        class="sr-only"
+    >
+        @foreach ($progressRecords as $progress)
+            @if ($progress['setup'] !== null)
+                <p
+                    wire:key="marketplace-setup-status-{{ $progress['composer_name'] }}"
+                >
+                    {{ $progress['setup']->runtimeRefreshRequired
+                        ? __('capell-marketplace::marketplace.progress.runtime_refresh_required')
+                        : __('capell-marketplace::marketplace.progress.setup_ready', ['name' => $progress['name']]) }}
+                </p>
+            @endif
+        @endforeach
+    </div>
+
     <template x-teleport="#capell-marketplace-browser-modal-footer">
         <div
             class="relative z-50 flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
@@ -81,6 +101,46 @@
             >
                 {{ __('capell-marketplace::marketplace.progress.back_to_browse') }}
             </button>
+
+            @foreach ($progressRecords as $progress)
+                @if ($progress['setup'] !== null)
+                    <div
+                        data-capell-marketplace-setup="{{ $progress['composer_name'] }}"
+                        class="space-y-2 text-sm"
+                    >
+                        @if ($progress['setup']->runtimeRefreshRequired)
+                            <p class="text-amber-700 dark:text-amber-300">
+                                {{ __('capell-marketplace::marketplace.progress.runtime_refresh_required') }}
+                            </p>
+                            <p class="text-gray-600 dark:text-gray-400">
+                                {{ $progress['setup']->runtimeRefreshInstructions }}
+                            </p>
+                        @else
+                            @if (! $progress['setup']->hasEditor)
+                                <p class="text-gray-600 dark:text-gray-400">
+                                    {{ __('capell-marketplace::marketplace.progress.no_editor') }}
+                                </p>
+                            @endif
+                            <a
+                                href="{{ $progress['setup']->installedUrl }}"
+                                class="font-semibold text-primary-600 hover:underline dark:text-primary-400"
+                            >
+                                {{ __('capell-marketplace::marketplace.progress.open_installed', ['name' => $progress['name']]) }}
+                            </a>
+                            @if ($progress['setup']->documentationUrl !== null)
+                                <a
+                                    href="{{ $progress['setup']->documentationUrl }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="block font-semibold text-primary-600 hover:underline dark:text-primary-400"
+                                >
+                                    {{ __('capell-marketplace::marketplace.progress.setup_documentation', ['name' => $progress['name']]) }}
+                                </a>
+                            @endif
+                        @endif
+                    </div>
+                @endif
+            @endforeach
 
             {{-- The redirect the confirm step used to perform on its own. It is
                  still one click away, it is just no longer imposed. --}}

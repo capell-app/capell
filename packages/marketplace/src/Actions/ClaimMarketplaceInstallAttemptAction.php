@@ -39,6 +39,10 @@ final class ClaimMarketplaceInstallAttemptAction
             }
 
             if ($lockedAttempt->status !== MarketplaceInstallIntentStatus::Queued) {
+                // Redelivery after terminal success may recover propagation,
+                // but must never claim or replay the completed Composer work.
+                RecoverMarketplaceRuntimePropagationAction::run($lockedAttempt, interrupted: true);
+
                 return null;
             }
 

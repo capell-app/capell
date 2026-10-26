@@ -14,6 +14,7 @@ use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FindStuckMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\NotifyMarketplaceInstallCompletedAction;
 use Capell\Marketplace\Actions\PropagateMarketplaceRuntimeStateAction;
+use Capell\Marketplace\Actions\QueryMarketplaceInstallProgressAction;
 use Capell\Marketplace\Actions\RecordThemeInstallIntentAction;
 use Capell\Marketplace\Actions\RestoreComposerStateAction;
 use Capell\Marketplace\Actions\RunPostOperationHealthCheckAction;
@@ -22,6 +23,8 @@ use Capell\Marketplace\Contracts\MarketplaceComposerRunner;
 use Capell\Marketplace\Contracts\MarketplaceComposerScriptRunner;
 use Capell\Marketplace\Data\MarketplaceComposerResultData;
 use Capell\Marketplace\Data\MarketplaceHealthCheckResultData;
+use Capell\Marketplace\Data\MarketplaceInstallProgressData;
+use Capell\Marketplace\Data\MarketplaceInstallProgressQueryData;
 use Capell\Marketplace\Enums\MarketplaceHealthProbeOutcome;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
@@ -52,6 +55,10 @@ uses(CreatesAdminUser::class);
 
 beforeEach(function (): void {
     preserveTestbenchPackageManifestFilesDuringPackageRemoval();
+
+    // Worker tests reload Composer; retain the web readers from this checkout.
+    class_exists(QueryMarketplaceInstallProgressAction::class);
+    class_exists(MarketplaceInstallProgressData::class);
 });
 
 it('guards each install attempt and bounds lock-contention retries', function (): void {
@@ -738,6 +745,10 @@ it('keeps a succeeded install succeeded when the runtime propagation throws', fu
         'user_id' => (string) $admin->getKey(),
     ]);
 
+    expect(QueryMarketplaceInstallProgressAction::run(
+        MarketplaceInstallProgressQueryData::forAttemptIds([(int) $attempt->getKey()]),
+    )->items[0]->isActive())->toBeTrue();
+
     app()->instance(MarketplaceComposerRunner::class, new class implements MarketplaceComposerRunner
     {
         public function require(string $composerName, string $versionConstraint, int $timeoutSeconds): MarketplaceComposerResultData
@@ -772,6 +783,12 @@ it('keeps a succeeded install succeeded when the runtime propagation throws', fu
         // The operator is still told the install finished, which is the whole
         // point of not letting a post-success side effect fail the attempt.
         ->and($attempt->events()->where('message', __('capell-marketplace::marketplace.operations.timeline_notification_sent'))->exists())->toBeTrue();
+
+    $progress = QueryMarketplaceInstallProgressAction::run(
+        MarketplaceInstallProgressQueryData::forAttemptIds([(int) $attempt->getKey()]),
+    )->items[0];
+    expect($progress->runtimeRefreshRequired)->toBeTrue()
+        ->and($progress->isActive())->toBeFalse();
 
     Notification::assertSentTo($admin, BroadcastNotification::class);
 });

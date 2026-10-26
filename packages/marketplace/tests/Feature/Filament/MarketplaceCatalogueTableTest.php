@@ -426,9 +426,7 @@ it('marks marketplace browse as unavailable when the catalogue request fails', f
         ->and($provider->marketplaceBrowseUnavailable())->toBeTrue()
         ->and($table->marketplaceEmptyStateHeading())->toBe(__('capell-marketplace::marketplace.filters.unavailable_heading'))
         ->and($table->marketplaceEmptyStateDescription())->toBe(
-            __('capell-marketplace::marketplace.filters.unavailable_description')
-            . ' '
-            . __('capell-marketplace::marketplace.filters.unavailable_reason', ['reason' => 'Unavailable']),
+            __('capell-marketplace::marketplace.catalogue_failures.service'),
         );
 
     Http::assertSent(fn ($request): bool => str_starts_with((string) $request->url(), 'https://marketplace.test/api/extensions?')
@@ -444,7 +442,7 @@ it('marks marketplace browse as unavailable when the catalogue request fails', f
         && ! array_key_exists('max_price_cents', $request->data()));
 });
 
-it('shows marketplace validation details when catalogue browsing fails', function (): void {
+it('explains catalogue configuration failures without remote validation details', function (): void {
     Http::fake([
         'https://marketplace.test/api/extensions*' => Http::response([
             'message' => 'The given data was invalid.',
@@ -461,8 +459,8 @@ it('shows marketplace validation details when catalogue browsing fails', functio
 
     expect($records)->toBeEmpty()
         ->and($provider->marketplaceBrowseUnavailable())->toBeTrue()
-        ->and($provider->marketplaceBrowseUnavailableReason())->toBe('The instance id field must be a valid UUID.')
-        ->and($table->marketplaceEmptyStateDescription())->toContain('The instance id field must be a valid UUID.');
+        ->and($provider->marketplaceBrowseUnavailableReason())->toBe(__('capell-marketplace::marketplace.catalogue_failures.configuration'))
+        ->and($table->marketplaceEmptyStateDescription())->not->toContain('The instance id field must be a valid UUID.');
 });
 
 it('uses the generic empty state when marketplace browsing is available', function (): void {
@@ -2092,7 +2090,7 @@ it('guides admins to connect marketplace when install authorization needs a regi
     Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/private-suite');
 });
 
-it('redirects account-required installs to Capell App login when connection startup fails', function (): void {
+it('keeps account-required installs local when connection startup fails', function (): void {
     config([
         'app.url' => 'https://example.test',
         'capell-marketplace.instance.id' => null,
@@ -2124,7 +2122,8 @@ it('redirects account-required installs to Capell App login when connection star
         redirectAccountActions: true,
     );
 
-    expect($redirectUrl)->toBe('https://capell.test/login');
+    expect($redirectUrl)->toBeNull()
+        ->and(FilamentNotificationSnapshots::pull()->last()?->getBody())->toBe(__('capell-marketplace::marketplace.connection_failures.service'));
 });
 
 it('shows purchase guidance when marketplace requires checkout before installation', function (): void {

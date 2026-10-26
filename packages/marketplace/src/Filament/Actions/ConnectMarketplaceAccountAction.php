@@ -24,13 +24,13 @@ final class ConnectMarketplaceAccountAction
             ->action(function (Component $livewire) use ($connection): void {
                 abort_unless($connection->canManageConnectionActions(), 403);
 
-                $approvalUrl = $connection->startAccountConnection();
+                $result = $connection->startAccountConnection();
 
-                if ($approvalUrl === null) {
+                if ($result->approvalUrl === null) {
                     return;
                 }
 
-                $livewire->redirect($approvalUrl);
+                $livewire->redirect($result->approvalUrl);
             });
     }
 }

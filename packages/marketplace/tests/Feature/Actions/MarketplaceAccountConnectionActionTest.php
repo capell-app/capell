@@ -152,7 +152,7 @@ it('marks the local account session failed when marketplace cannot start the rem
 
     expect($session)->toBeInstanceOf(MarketplaceAccountConnectionSession::class)
         ->and($session->status)->toBe(MarketplaceAccountConnectionSessionStatus::Failed)
-        ->and($session->last_error)->toBe('Marketplace unavailable.');
+        ->and($session->last_error)->toBe(RuntimeException::class);
 });
 
 it('rejects account connection approval redirects outside the configured marketplace host', function (): void {

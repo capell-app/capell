@@ -49,6 +49,7 @@ it('passes search filters sorting and pagination through the extensions table da
         ' ignored fallback ',
         [
             'extension_filters' => [
+                'composer_name' => 'vendor/alpha',
                 'search' => '  Alpha  ',
                 'tag' => 'Content',
                 'price' => 'free',
@@ -79,6 +80,7 @@ it('passes search filters sorting and pagination through the extensions table da
         'search' => 'Alpha',
         'productGroup' => 'Content',
         'filters' => [
+            'composerName' => 'vendor/alpha',
             'price' => 'free',
             'installedStatus' => 'uninstalled',
             'health' => 'warning',
@@ -93,6 +95,7 @@ it('passes search filters sorting and pagination through the extensions table da
             'search' => 'fallback search',
             'productGroup' => null,
             'filters' => [
+                'composerName' => null,
                 'price' => null,
                 'installedStatus' => 'installed',
                 'health' => null,

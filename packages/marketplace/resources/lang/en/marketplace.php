@@ -10,6 +10,19 @@ return [
         'operator_action_failed' => 'The action could not be completed. Review Package Operations for redacted diagnostics and a safe next step.',
         'view_details' => 'View details',
     ],
+    'catalogue_failures' => [
+        'connection' => 'Capell could not reach the Marketplace in time. Retry the catalogue. If it still fails, ask your administrator to check the connection.',
+        'configuration' => 'Marketplace could not accept this site’s connection settings. Ask your administrator to review the Marketplace connection, then retry the catalogue.',
+        'service' => 'The Marketplace is temporarily unavailable. Retry the catalogue shortly. Your installed extensions are unaffected.',
+        'verification' => 'Capell could not safely load the Marketplace response. No catalogue results have been accepted. Retry, or ask your administrator to review the Marketplace connection if this continues.',
+    ],
+    'connection_failures' => [
+        'configuration' => 'This site’s installation URL is invalid. Ask your administrator to correct the configured site URL, then use Set up account again. No account has been connected.',
+        'service' => 'Marketplace could not start account approval. Use Set up account again shortly to start a new attempt. No account has been connected.',
+        'approval' => 'Marketplace did not return a trusted account approval link. Stay in this workspace and ask your administrator to review the Marketplace connection before trying again. No account has been connected.',
+        'review_connection' => 'Review Marketplace connection',
+        'account_login' => 'Open account login (does not connect this site)',
+    ],
     'qa' => [
         'lifecycle' => [
             'extension_not_found' => 'Marketplace did not return the requested extension [:package].',
@@ -215,6 +228,7 @@ return [
         'description' => 'Browse Marketplace extensions. Filters query Marketplace; installed badges stay local.',
     ],
     'filters' => [
+        'retry' => 'Retry catalogue',
         'all_capabilities' => 'All capabilities',
         'all_categories' => 'All categories',
         'all_extensions' => 'All extensions',
@@ -260,7 +274,6 @@ return [
         'type_label' => 'Type',
         'unavailable_description' => 'Capell could not reach the marketplace catalogue. Check the marketplace URL and try again.',
         'unavailable_heading' => 'Marketplace unavailable',
-        'unavailable_reason' => 'Marketplace said: :reason',
     ],
     'feedback' => [
         'blocked' => 'This marketplace account cannot submit feedback for this extension.',
@@ -640,6 +653,13 @@ return [
         'description' => 'Capell is downloading and installing what you selected. You can close this and it will keep going.',
         'back_to_browse' => 'Back to the marketplace',
         'view_operations' => 'View operations',
+        'open_installed' => 'Open installed extension: :name',
+        'setup_ready' => ':name is installed. Setup options are ready below.',
+        'setup_documentation' => 'Setup documentation: :name',
+        'no_editor' => 'This extension has no editor screen. Review its installed details and use its documentation or ask your developer to continue setup.',
+        'runtime_refresh_required' => 'The extension is installed, but a runtime refresh is still required. Follow the refresh instructions below before continuing setup.',
+        'runtime_refresh_single_node' => 'Run capell:runtime-refresh, then restart Octane or PHP-FPM on this node before continuing setup. This installation is configured as single node; if it runs on more than one, set CAPELL_MULTI_NODE=true and refresh and restart the others too.',
+        'runtime_refresh_multi_node' => 'Run capell:runtime-refresh, then restart Octane or PHP-FPM, on every application node before continuing setup. A refresh on this node cannot refresh the others.',
         'stage_queue' => 'Waiting for a worker',
         'stage_preflight' => 'Checking this site',
         'stage_composer' => 'Downloading packages',

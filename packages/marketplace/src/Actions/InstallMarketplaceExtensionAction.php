@@ -132,7 +132,7 @@ final class InstallMarketplaceExtensionAction
             $this->recordBlockedAttempt($listing, $selectedInstallOptions, $eligibility);
 
             if ($redirectAccountActions && $this->shouldRedirectForMarketplaceAccountAction($eligibility)) {
-                return $this->connection->startAccountConnection();
+                return $this->connection->startAccountConnection()->approvalUrl;
             }
 
             $this->presenter->sendBlockedNotification([
@@ -177,7 +177,7 @@ final class InstallMarketplaceExtensionAction
             $this->recordAuthorizationBlockedAttempt($listing, $acquisition, $selectedInstallOptions, $authorizationEligibility);
 
             if ($redirectAccountActions && $authorizationEligibility instanceof MarketplaceInstallEligibilityData && $this->shouldRedirectForMarketplaceAccountAction($authorizationEligibility)) {
-                return $this->connection->startAccountConnection();
+                return $this->connection->startAccountConnection()->approvalUrl;
             }
 
             $this->presenter->sendBlockedNotification([

@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Contracts\MarketplaceRuntimeRefresher;
 use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
+use Capell\Marketplace\Enums\MarketplaceRuntimePropagationStatus;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\ArtisanMarketplaceRuntimeRefresher;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -53,21 +54,30 @@ final class PropagateMarketplaceRuntimeStateAction
         $multiNode = config('capell.multi_node', false) === true;
 
         if ($multiNode) {
-            return $this->requireManualRefresh($attempt, 'runtime_refresh_required_multi_node');
+            return $this->requireManualRefresh($attempt, (string) __('capell-marketplace::marketplace.operations.runtime_refresh_required_multi_node'));
         }
 
         if (! $this->longLivedRuntimeDetected()) {
+            $this->recordOutcome($attempt, MarketplaceRuntimePropagationStatus::Ready);
+
             return null;
         }
 
-        return $this->refresh()
-            ? $this->recordNotice(
-                $attempt,
-                'timeline_runtime_refresh_invoked',
-                'runtime_refresh_invoked',
-                MarketplaceInstallAttemptEventLevel::Info,
-            )
-            : $this->requireManualRefresh($attempt, 'runtime_refresh_required_single_node');
+        if (! $this->refresh()) {
+            return $this->requireManualRefresh($attempt, (string) __('capell-marketplace::marketplace.operations.runtime_refresh_required_single_node'));
+        }
+
+        $notice = $this->recordNotice(
+            $attempt,
+            (string) __('capell-marketplace::marketplace.operations.timeline_runtime_refresh_invoked'),
+            (string) __('capell-marketplace::marketplace.operations.runtime_refresh_invoked'),
+            MarketplaceInstallAttemptEventLevel::Info,
+        );
+        // Cache refresh restarts queue workers, but cannot prove Octane's
+        // long-lived web workers have reloaded their application containers.
+        $this->recordOutcome($attempt, MarketplaceRuntimePropagationStatus::RecoveryRequired);
+
+        return $notice;
     }
 
     /**
@@ -122,30 +132,39 @@ final class PropagateMarketplaceRuntimeStateAction
         @opcache_reset();
     }
 
-    private function requireManualRefresh(MarketplaceInstallAttempt $attempt, string $noticeKey): string
+    private function requireManualRefresh(MarketplaceInstallAttempt $attempt, string $notice): string
     {
+        $this->recordOutcome($attempt, MarketplaceRuntimePropagationStatus::RecoveryRequired);
+
         return $this->recordNotice(
             $attempt,
-            'timeline_runtime_refresh_required',
-            $noticeKey,
+            (string) __('capell-marketplace::marketplace.operations.timeline_runtime_refresh_required'),
+            $notice,
             MarketplaceInstallAttemptEventLevel::Warning,
         );
     }
 
+    private function recordOutcome(MarketplaceInstallAttempt $attempt, MarketplaceRuntimePropagationStatus $status): void
+    {
+        $attempt->refresh()->forceFill([
+            'context' => [...($attempt->context ?? []), 'runtime_propagation' => $status->value],
+        ])->save();
+    }
+
     private function recordNotice(
         MarketplaceInstallAttempt $attempt,
-        string $timelineKey,
-        string $noticeKey,
+        string $timelineMessage,
+        string $notice,
         MarketplaceInstallAttemptEventLevel $level,
     ): string {
         RecordMarketplaceInstallAttemptEventAction::run(
             attempt: $attempt,
             level: $level,
-            message: (string) __('capell-marketplace::marketplace.operations.' . $timelineKey),
+            message: $timelineMessage,
             stage: MarketplaceInstallFailureStage::Notification,
             context: ['command' => ArtisanMarketplaceRuntimeRefresher::COMMAND],
         );
 
-        return (string) __('capell-marketplace::marketplace.operations.' . $noticeKey);
+        return $notice;
     }
 }
