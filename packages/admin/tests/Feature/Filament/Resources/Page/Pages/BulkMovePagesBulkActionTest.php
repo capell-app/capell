@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Resources\Pages\Actions\BulkMovePagesBulkAction;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Policies\PagePolicy;
+use Capell\Admin\Tests\Support\SentNotifications;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
@@ -12,7 +13,6 @@ use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Testing\TestAction;
 use Filament\Forms\Components\Select;
-use Filament\Notifications\Livewire\Notifications;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 
@@ -244,7 +244,7 @@ it('bulk move mixed valid and invalid pages reports correct counts', function ()
         )
         ->assertHasNoActionErrors();
 
-    Livewire::test(Notifications::class)
+    SentNotifications::component()
         ->assertSee(__('capell-admin::bulk_actions.move_pages_done', ['moved' => 1, 'skipped' => 1]))
         ->assertSee($validPage->name)
         ->assertSee($ancestor->name)

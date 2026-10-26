@@ -11,6 +11,7 @@ use Capell\Admin\Filament\Resources\Pages\Pages\CreatePage;
 use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Tests\Support\ScopedAdminUser;
+use Capell\Admin\Tests\Support\SentNotifications;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Models\Blueprint;
@@ -23,7 +24,6 @@ use Capell\Core\Support\Creator\LayoutCreator;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Action;
 use Filament\Actions\Testing\TestAction;
-use Filament\Notifications\Livewire\Notifications;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -636,7 +636,7 @@ it('keeps the final parent language warning honest when the editor cannot update
     Gate::before(fn (mixed $user, string $ability, array $arguments): ?bool => $ability === 'update' && ($arguments[0] ?? null) instanceof Page && $arguments[0]->is($parent) ? false : null);
 
     Livewire::test(EditPage::class, ['record' => $child->getRouteKey()])->call('save');
-    Livewire::test(Notifications::class)
+    SentNotifications::component()
         ->assertSee(__('capell-admin::parent_languages.ask_editor'))
         ->assertDontSee(GetEditPageResourceUrlAction::run($parent));
 });
