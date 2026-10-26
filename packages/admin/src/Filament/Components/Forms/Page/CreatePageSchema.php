@@ -83,7 +83,6 @@ class CreatePageSchema
 
         return ParentSelect::make('parent_id')
             ->label(__('capell-admin::form.parent_page'))
-            ->helperText(__('capell-admin::generic.parent_page_info'))
             ->setupRelation('parent', $schema)
             ->when(
                 true,

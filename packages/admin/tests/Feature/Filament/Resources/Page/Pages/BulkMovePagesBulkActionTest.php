@@ -5,12 +5,14 @@ declare(strict_types=1);
 use Capell\Admin\Filament\Resources\Pages\Actions\BulkMovePagesBulkAction;
 use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Policies\PagePolicy;
+use Capell\Admin\Tests\Support\SentNotifications;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Actions\Testing\TestAction;
+use Filament\Forms\Components\Select;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 
@@ -240,10 +242,33 @@ it('bulk move mixed valid and invalid pages reports correct counts', function ()
             TestAction::make(BulkMovePagesBulkAction::class)->table()->bulk(),
             data: ['parent_id' => $descendant->getKey()],
         )
-        ->assertHasNoActionErrors()
-        ->assertNotified(__('capell-admin::bulk_actions.move_pages_done', ['moved' => 1, 'skipped' => 1]));
+        ->assertHasNoActionErrors();
+
+    SentNotifications::component()
+        ->assertSee(__('capell-admin::bulk_actions.move_pages_done', ['moved' => 1, 'skipped' => 1]))
+        ->assertSee($validPage->name)
+        ->assertSee($ancestor->name)
+        ->assertSee(__('capell-admin::page_moves.reasons.cycle'));
 
     // Only validPage should be moved (ancestor creates cycle)
     expect($validPage->fresh()->parent_id)->toBe($descendant->getKey())
         ->and($ancestor->fresh()->parent_id)->toBeNull();
+});
+
+it('offers only move targets with an eligible selected page', function (): void {
+    $site = Site::factory()->createOne();
+    $otherSite = Site::factory()->createOne();
+    $page = Page::factory()->recycle($site)->createOne();
+    $target = Page::factory()->recycle($site)->createOne();
+    $foreign = Page::factory()->recycle($otherSite)->createOne();
+
+    $component = Livewire::test(ListPages::class)
+        ->selectTableRecords([$page])
+        ->mountAction(TestAction::make(BulkMovePagesBulkAction::class)->table()->bulk());
+    $select = $component->instance()->getSchema($component->instance()->getMountedActionSchemaName())->getComponent('parent_id');
+    expect($select)->toBeInstanceOf(Select::class);
+    $options = $select->getSearchResults('');
+    expect($options)->toHaveKey($target->getKey())
+        ->not->toHaveKey($foreign->getKey())
+        ->not->toHaveKey($page->getKey());
 });

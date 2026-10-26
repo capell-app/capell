@@ -13,6 +13,8 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\Creator\LayoutCreator;
 use Capell\Core\Support\Themes\LayoutViewRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Forms\Components\Field;
+use Filament\Forms\Components\Select;
 use Livewire\Livewire;
 
 use function Pest\Laravel\assertDatabaseHas;
@@ -197,3 +199,56 @@ it('can edit layouts', function (LayoutEnum $layoutEnum): void {
         'key' => $newData->key,
     ]);
 })->with(LayoutEnum::cases());
+
+it('offers registered labelled wrapper and body views in their own selectors', function (): void {
+    resolve(LayoutViewRegistry::class)->registerMaster('page.alternative', 'Alternative wrapper');
+    resolve(LayoutViewRegistry::class)->registerLayout('layout.alternative', 'Alternative body');
+
+    $layout = Layout::factory()->createOne();
+
+    Livewire::test(EditLayout::class, ['record' => $layout->getRouteKey()])
+        ->assertFormFieldExists('meta.master_file', fn (Field $field): bool => $field instanceof Select
+                && ($field->getOptions()['page.updated'] ?? null) === 'Updated page'
+            && ($field->getOptions()['page.alternative'] ?? null) === 'Alternative wrapper'
+                && ! array_key_exists('layout.updated', $field->getOptions()))
+        ->assertFormFieldExists('meta.layout_file', fn (Field $field): bool => $field instanceof Select
+                && ($field->getOptions()['layout.updated'] ?? null) === 'Updated layout'
+            && ($field->getOptions()['layout.alternative'] ?? null) === 'Alternative body'
+                && ! array_key_exists('page.updated', $field->getOptions()));
+});
+
+it('explains unavailable saved views and rejects forged view selections', function (): void {
+    $layout = Layout::factory()->createOne();
+    // Simulate a saved layout whose consumer has since removed its registration.
+    $layout->forceFill(['meta' => ['master_file' => 'removed.wrapper']])->saveQuietly();
+
+    Livewire::test(EditLayout::class, ['record' => $layout->getRouteKey()])
+        ->assertSee(__('capell-admin::layout_views.unavailable', ['view' => 'removed.wrapper']))
+        ->fillForm(['meta' => ['master_file' => 'unregistered.wrapper', 'layout_file' => 'unregistered.body']])
+        ->call('save')
+        ->assertHasFormErrors(['meta.master_file', 'meta.layout_file']);
+
+    expect($layout->refresh()->meta['master_file'])->toBe('removed.wrapper');
+});
+
+it('lets editors clear registered view overrides to retain default rendering', function (): void {
+    $layout = Layout::factory()->createOne(['meta' => ['master_file' => 'page.updated', 'layout_file' => 'layout.updated']]);
+
+    Livewire::test(EditLayout::class, ['record' => $layout->getRouteKey()])
+        ->fillForm(['meta' => ['master_file' => null, 'layout_file' => null]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($layout->refresh()->meta['master_file'] ?? null)->toBeNull()
+        ->and($layout->meta['layout_file'] ?? null)->toBeNull();
+});
+
+it('explains registration when a consumer has no registered view choices', function (): void {
+    app()->instance(LayoutViewRegistry::class, new LayoutViewRegistry);
+    $layout = Layout::factory()->createOne();
+
+    Livewire::test(EditLayout::class, ['record' => $layout->getRouteKey()])
+        ->assertSee(__('capell-admin::layout_views.registration'))
+        ->assertFormFieldExists('meta.master_file', fn (Select $field): bool => $field->getOptions() === [])
+        ->assertFormFieldExists('meta.layout_file', fn (Select $field): bool => $field->getOptions() === []);
+});

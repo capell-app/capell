@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Pages\Tables;
 
 use Capell\Admin\Actions\Blueprints\UpdateBlueprintAction;
 use Capell\Admin\Actions\Pages\BuildPageDeletionImpactAction;
+use Capell\Admin\Actions\Pages\ResolvePageJourneyLanguageAction;
 use Capell\Admin\Contracts\Extenders\PageTableExtender;
 use Capell\Admin\Contracts\Pages\PageTableStatusResolver;
 use Capell\Admin\Data\AdminZoneContextData;
@@ -83,12 +84,14 @@ use Illuminate\Support\LazyCollection;
 use InvalidArgumentException;
 use Livewire\Component;
 use LogicException;
+use Override;
 
 /**
  * @template TLivewire of Component
  */
 class PagesTable implements TableConfigurator
 {
+    #[Override]
     public static function configure(Table $table): Table
     {
         return $table
@@ -105,7 +108,7 @@ class PagesTable implements TableConfigurator
             ->columnManagerColumns(3)
             ->recordClasses(self::recordClasses(...))
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()->url(self::getJourneyRecordUrl(...)),
                 ActionGroup::make([
                     VisitUrlAction::make(),
                     Action::make('edit-layout')
@@ -169,7 +172,7 @@ class PagesTable implements TableConfigurator
             ->emptyStateHeading(__('capell-admin::generic.no_pages_found'))
             ->emptyStateDescription(__('capell-admin::generic.no_pages_description'))
             ->emptyStateIcon('heroicon-o-document-text')
-            ->recordUrl(self::getRecordUrl(...));
+            ->recordUrl(self::getJourneyRecordUrl(...));
     }
 
     /**
@@ -1001,6 +1004,16 @@ class PagesTable implements TableConfigurator
             ->get()
             ->pluck('name', 'id')
             ->all();
+    }
+
+    private static function getJourneyRecordUrl(PageModel $record, HasTable $livewire): ?string
+    {
+        $url = static::getRecordUrl($record);
+        $language = ResolvePageJourneyLanguageAction::run($record->site_id, $livewire->getTableFilterState('filter')['language_id'] ?? null);
+
+        return $url !== null && $language !== null
+            ? $url . (str_contains($url, '?') ? '&' : '?') . http_build_query(['language_id' => $language->id])
+            : $url;
     }
 
     /**
