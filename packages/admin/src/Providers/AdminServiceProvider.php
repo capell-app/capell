@@ -642,6 +642,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             )->loadedOnRequest(),
             AlpineComponent::make('capell-agent-admin', $publishDirectory . '/build/js/agent/admin-bridge.js'),
             AlpineComponent::make('html-code-editor', $publishDirectory . '/build/js/components/html-code-editor.js'),
+            AlpineComponent::make('capell-repeater-tabs', $publishDirectory . '/build/js/components/repeater-tabs.js'),
             AlpineComponent::make('capell-keyboard-shortcuts', $publishDirectory . '/build/js/components/keyboard-shortcuts.js'),
             AlpineComponent::make('capell-content-lock-heartbeat', $publishDirectory . '/build/js/components/content-lock-heartbeat.js'),
         ], package: 'capell-admin');

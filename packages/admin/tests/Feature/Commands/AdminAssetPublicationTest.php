@@ -73,6 +73,7 @@ final class AdminAssetPublicationTest extends AdminTestCase
                 'js/capell-admin/rich-content-plugins/highlight.js' => '/publishes/build/js/filament/rich-content-plugins/highlight.js',
                 'js/capell-admin/components/capell-agent-admin.js' => '/publishes/build/js/agent/admin-bridge.js',
                 'js/capell-admin/components/html-code-editor.js' => '/publishes/build/js/components/html-code-editor.js',
+                'js/capell-admin/components/capell-repeater-tabs.js' => '/publishes/build/js/components/repeater-tabs.js',
                 'js/capell-admin/components/capell-keyboard-shortcuts.js' => '/publishes/build/js/components/keyboard-shortcuts.js',
                 'js/capell-admin/components/capell-content-lock-heartbeat.js' => '/publishes/build/js/components/content-lock-heartbeat.js',
             ];
@@ -86,7 +87,7 @@ final class AdminAssetPublicationTest extends AdminTestCase
                 $this->assertSame(File::get($sourcePath), File::get($publishedPath));
             }
 
-            $this->assertCount(4, FilamentAsset::getAlpineComponents(['capell-admin']));
+            $this->assertCount(5, FilamentAsset::getAlpineComponents(['capell-admin']));
             $this->assertCount(1, FilamentAsset::getScripts(['capell-admin']));
             $this->assertCount(1, FilamentAsset::getStyles([AdminServiceProvider::$packageName]));
         } finally {
