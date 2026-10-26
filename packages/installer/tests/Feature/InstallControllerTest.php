@@ -29,7 +29,6 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Capell\Tests\Support\PatchedPhpRuntime;
 use Capell\Tests\Support\StylesheetRuntime;
 use Composer\InstalledVersions;
-use DOMElement;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
