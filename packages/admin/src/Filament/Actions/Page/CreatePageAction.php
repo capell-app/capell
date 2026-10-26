@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Actions\Page;
 
 use Capell\Admin\Actions\Pages\ResolvePageCreationSiteAction;
+use Capell\Admin\Actions\Pages\ResolvePageJourneyLanguageAction;
 use Capell\Admin\Actions\Pages\ValidatePageAuthoringAction;
 use Capell\Admin\Data\Configurators\ConfiguratorContextData;
 use Capell\Admin\Enums\ConfiguratorTypeEnum;
@@ -214,7 +215,7 @@ class CreatePageAction extends CreateAction
 
                 $data['translations'] = [
                     (string) Str::uuid() => [
-                        'language_id' => $site->language_id,
+                        'language_id' => ResolvePageJourneyLanguageAction::run($site->id, $this->journeyLanguageId())->id ?? $site->language_id,
                         'title' => $name,
                         'meta' => ['slug' => $slug],
                     ],
@@ -223,6 +224,20 @@ class CreatePageAction extends CreateAction
         }
 
         return $this->mutateFormData($data);
+    }
+
+    private function journeyLanguageId(): mixed
+    {
+        $arguments = $this->getArguments();
+        if (array_key_exists('language_id', $arguments)) {
+            return $arguments['language_id'];
+        }
+
+        $livewire = $this->getLivewire();
+
+        return $livewire instanceof ListRecords
+            ? ($livewire->getTableFilterState('filter')['language_id'] ?? null)
+            : request()->query('language_id');
     }
 
     private function creationSiteId(): int|string|null

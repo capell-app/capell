@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Http\Controllers;
 
+use Capell\Admin\Actions\Pages\ResolvePageJourneyLanguageAction;
 use Capell\Core\Contracts\Themes\ThemePreviewRendererInterface;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -34,7 +35,15 @@ final class PagePreviewController extends BaseController
         abort_unless($theme instanceof Theme, SymfonyResponse::HTTP_NOT_FOUND);
         abort_unless(app()->bound(ThemePreviewRendererInterface::class), SymfonyResponse::HTTP_NOT_FOUND);
 
-        $response = resolve(ThemePreviewRendererInterface::class)->render($theme, $site, $page);
+        $requestedLanguage = request()->query('language_id');
+        $language = ResolvePageJourneyLanguageAction::make()->forSite($site, $requestedLanguage);
+        if ($requestedLanguage !== null) {
+            abort_unless($language !== null && $page->translations->contains('language_id', $language->id), 422, (string) __('capell-admin::page_journey.missing_translation'));
+        }
+
+        $siteDomain = $language === null ? null : $site->siteDomains()->enabled()->where('language_id', $language->id)->orderByDesc('default')->first();
+
+        $response = resolve(ThemePreviewRendererInterface::class)->render($theme, $site, $page, $language, $siteDomain);
 
         $response->headers->set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
         $response->headers->set('Pragma', 'no-cache');

@@ -105,6 +105,14 @@ Adding is capped at the number of existing languages, and the create menu only o
 
 A blueprint can mark translations as required (`admin.require_translations`), in which case the repeater becomes required and validates against the site's own `admin.require_translations` list, failing with the names of the languages still missing.
 
+### Page journey language and parent eligibility
+
+A language selected in the Pages list is carried into row Edit, the page type chooser and Quick create. Edit and full-page creation select the matching translation tab when it exists; Quick create starts with the selected permitted site language. Without a language choice, the site's default behaviour remains. A missing translation is explained in the translation area so the editor can choose or add an available language.
+
+Draft preview uses the selected saved translation. The language is included in the signed preview URL and revalidated against the page and site before rendering; changing it invalidates the signature.
+
+The Parent Page field names languages missing from the chosen parent before Save. Child translation input can remain in progress while this is resolved, but saving still requires the parent to have every child language. Editors allowed to update the parent can open its translations in a new tab, leaving child input in the original tab. Otherwise the field explains that an authorised editor must add the translations or a compatible parent must be chosen. After changing the parent translations, return to the child tab and choose **Recheck parent languages**. This refreshes eligibility without clearing the child input.
+
 ### Completeness badges
 
 Every non-default tab carries a badge. The default language never carries one.

@@ -16,7 +16,6 @@ use Capell\Core\Support\Url\PageUrlRewriteContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -58,7 +57,6 @@ class BulkMovePagesAction
         $skippedPages = [];
         $failedAt = null;
         $currentPage = null;
-        $targetParentDenied = Gate::forUser($actor)->inspect('update', $newParent)->denied();
 
         // Wrap the whole batch in a single transaction so a mid-batch failure
         // rolls back every earlier move — no half-applied state on the public
@@ -69,7 +67,6 @@ class BulkMovePagesAction
                 $newParent,
                 $actor,
                 $addRedirects,
-                $targetParentDenied,
                 &$movedCount,
                 &$skippedCount,
                 &$redirectCount,
@@ -78,7 +75,7 @@ class BulkMovePagesAction
             ): void {
                 foreach ($pages as $page) {
                     $currentPage = $page;
-                    $reason = $this->skipReason($page, $newParent, $actor, $targetParentDenied);
+                    $reason = ResolvePageMoveSkipReasonAction::run($page, $newParent, $actor);
                     if ($reason !== null) {
                         $skippedCount++;
                         $skippedPages[] = [
@@ -121,56 +118,6 @@ class BulkMovePagesAction
             'skipped_pages' => $skippedPages,
             'failed_at' => $failedAt,
         ];
-    }
-
-    private function skipReason(Page $page, Page $newParent, User $actor, bool $targetParentDenied): ?string
-    {
-        if ($targetParentDenied) {
-            return 'target_parent_denied';
-        }
-
-        if ($this->wouldCrossSites($page, $newParent)) {
-            return 'cross_sites';
-        }
-
-        if ($this->wouldCreateCycle($page, $newParent, $actor)) {
-            return 'cycle';
-        }
-
-        if (Gate::forUser($actor)->inspect('update', $page)->denied()) {
-            return 'unauthorized';
-        }
-
-        return null;
-    }
-
-    private function wouldCreateCycle(Page $page, Page $newParent, User $actor): bool
-    {
-        if ($page->is($newParent)) {
-            return true;
-        }
-
-        $pageKey = $page->getKey();
-        $current = $newParent;
-
-        while ($current->parent_id !== null) {
-            if ($current->parent_id === $pageKey) {
-                return true;
-            }
-
-            $current = SiteAccess::forActor($actor)->query(Page::class)->find($current->parent_id);
-
-            if ($current === null) {
-                return false;
-            }
-        }
-
-        return false;
-    }
-
-    private function wouldCrossSites(Page $page, Page $newParent): bool
-    {
-        return $page->site_id !== $newParent->site_id;
     }
 
     /**
