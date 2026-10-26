@@ -16,9 +16,18 @@ final class SlugEditorClientForTest
      * Execute the handlers on the rendered native input, rather than inventing
      * a manual flag that the browser did not submit.
      *
-     * @return array{slug: string, manual: bool, editing: bool, modified: bool}
+     * @return array{slug: string, manual: bool, editing: bool, modified: bool, visitUrl: ?string, visitText: ?string}
      */
     public static function update(string $html, string $statePath, string $slug, string $interaction, bool $manual = false): array
+    {
+        return self::sequence($html, $statePath, [['slug' => $slug, 'interaction' => $interaction]], $manual);
+    }
+
+    /**
+     * @param  list<array{slug: string, interaction: string}>  $steps
+     * @return array{slug: string, manual: bool, editing: bool, modified: bool, visitUrl: ?string, visitText: ?string}
+     */
+    public static function sequence(string $html, string $statePath, array $steps, bool $manual = false): array
     {
         throw_if($html === '', RuntimeException::class, 'Rendered slug editor is empty.');
 
@@ -45,18 +54,33 @@ final class SlugEditorClientForTest
 
             throw_unless($wrapper instanceof DOMElement, RuntimeException::class, 'Slug editor Alpine scope is missing.');
 
+            $links = $xpath->query('.//a[contains(@class, "page-title-with-slug-link")]', $wrapper);
+            $link = $links !== false ? $links->item(0) : null;
+            $linkParts = [];
+            if ($link instanceof DOMElement) {
+                foreach ($link->getElementsByTagName('span') as $span) {
+                    if ($span->getAttribute('class') !== 'sr-only') {
+                        $linkParts[] = ['text' => trim($span->textContent), 'expression' => $span->getAttribute('x-text')];
+                    }
+                }
+            }
+
             $process = new Process(['node', __DIR__ . '/slug-editor-client.cjs']);
             $process->setInput(json_encode([
                 'alpine' => $wrapper->getAttribute('x-data'),
                 'input' => $input->getAttribute('x-on:input'),
+                'wireModel' => $input->getAttribute('wire:model'),
                 'enter' => $input->getAttribute('x-on:keydown.enter.prevent') ?: $input->getAttribute('x-on:keydown.enter'),
-                'slug' => $slug,
-                'interaction' => $interaction,
+                'escape' => $input->getAttribute('x-on:keydown.escape.prevent.stop') ?: $input->getAttribute('x-on:keydown.escape'),
+                'statePath' => $statePath,
+                'steps' => $steps,
                 'manual' => $manual,
+                'visitUrl' => $link instanceof DOMElement ? $link->getAttribute('href') : null,
+                'linkParts' => $linkParts,
             ], JSON_THROW_ON_ERROR));
             $process->mustRun();
 
-            /** @var array{slug: string, manual: bool, editing: bool, modified: bool} $result */
+            /** @var array{slug: string, manual: bool, editing: bool, modified: bool, visitUrl: ?string, visitText: ?string} $result */
             $result = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
 
             return $result;

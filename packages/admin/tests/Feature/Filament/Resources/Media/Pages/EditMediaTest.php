@@ -99,6 +99,19 @@ function createEditableImageMedia(): CapellMedia
     return $media;
 }
 
+function createEditableDocumentMedia(): CapellMedia
+{
+    $owner = Page::factory()->createOne();
+
+    /** @var CapellMedia $media */
+    $media = $owner
+        ->addMedia(UploadedFile::fake()->create('brochure.pdf', 100, 'application/pdf'))
+        ->usingName('Brochure')
+        ->toMediaCollection('uploads');
+
+    return $media;
+}
+
 it('shows shared media impact before the media item is saved', function (): void {
     test()->actingAsAdmin();
 
@@ -410,6 +423,112 @@ it('requires alt text for non-decorative localized metadata', function (): void 
         ->assertHasFormErrors(['translations.0.meta.alt' => 'required']);
 });
 
+it('saves document metadata per language without image alt text or decorative controls', function (): void {
+    $media = createEditableDocumentMedia();
+    $english = Language::query()->default()->firstOrFail();
+    $french = Language::factory()->french()->createOne();
+
+    expect($media->isImage())->toBeFalse();
+
+    $editor = Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->assertSuccessful();
+    $rowKey = array_key_first($editor->get('data.translations'));
+
+    $editor
+        ->fillForm([
+            'name' => 'Visitor brochure',
+            'translations' => [
+                $rowKey => [
+                    'language_id' => $english->getKey(),
+                    'title' => 'Visitor brochure',
+                    'meta' => ['alt' => '', 'caption' => 'Plan your visit', 'credit' => 'Visitor Services', 'decorative' => false],
+                ],
+                'french' => [
+                    'language_id' => $french->getKey(),
+                    'title' => 'Brochure de visite',
+                    'meta' => ['alt' => '', 'caption' => 'Préparez votre visite', 'credit' => 'Office de tourisme', 'decorative' => false],
+                ],
+            ],
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors()
+        ->assertFormFieldIsHidden(sprintf('translations.%s.meta.alt', $rowKey))
+        ->assertFormFieldIsHidden(sprintf('translations.%s.meta.decorative', $rowKey))
+        ->assertNotified();
+
+    expect($media->refresh()->name)->toBe('Visitor brochure');
+    $translations = $media->translations()->get()->keyBy('language_id');
+
+    $englishTranslation = $translations->sole('language_id', $english->getKey());
+    $frenchTranslation = $translations->sole('language_id', $french->getKey());
+
+    expect($translations)->toHaveCount(2)
+        ->and($englishTranslation->title)->toBe('Visitor brochure')
+        ->and($englishTranslation->meta)->toEqual([
+            'caption' => 'Plan your visit',
+            'credit' => 'Visitor Services',
+        ])
+        ->and($frenchTranslation->title)->toBe('Brochure de visite')
+        ->and($frenchTranslation->meta)->toEqual([
+            'caption' => 'Préparez votre visite',
+            'credit' => 'Office de tourisme',
+        ]);
+});
+
+it('preserves historic document alt and decorative metadata during unrelated edits', function (): void {
+    $media = createEditableDocumentMedia();
+    $english = Language::query()->default()->firstOrFail();
+    $french = Language::factory()->french()->createOne();
+
+    foreach ([$english, $french] as $language) {
+        $media->translations()->create([
+            'language_id' => $language->getKey(),
+            'title' => 'Historic brochure',
+            'meta' => ['alt' => 'Historic description ' . $language->locale, 'caption' => 'Historic caption', 'credit' => 'Historic credit', 'decorative' => true],
+        ]);
+    }
+
+    $editor = Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()]);
+    $translations = $editor->get('data.translations');
+    foreach ($translations as $rowKey => $translation) {
+        $translations[$rowKey]['title'] = 'Updated brochure';
+        $translations[$rowKey]['meta']['credit'] = 'Updated credit';
+    }
+
+    $editor->fillForm(['translations' => $translations])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    foreach ([$english, $french] as $language) {
+        $translation = $media->translations()->where('language_id', $language->getKey())->firstOrFail();
+        expect($translation->title)->toBe('Updated brochure')
+            ->and($translation->meta)->toMatchArray([
+                'alt' => 'Historic description ' . $language->locale,
+                'caption' => 'Historic caption',
+                'credit' => 'Updated credit',
+                'decorative' => true,
+            ]);
+    }
+});
+
+it('denies media metadata editing to an unauthorised actor', function (bool $image): void {
+    $media = $image ? createEditableImageMedia() : createEditableDocumentMedia();
+    $originalName = $media->name;
+    $owner = $media->model;
+    assert($owner instanceof Page);
+    $actor = test()->createUser();
+    // Resolve an accessible record, then exercise the edit-permission denial.
+    $actor->assignedSiteIds = collect([(int) $owner->site_id]);
+
+    test()->actingAs($actor);
+
+    Livewire::test(EditMedia::class, ['record' => $media->getRouteKey()])
+        ->assertForbidden();
+
+    expect($media->refresh()->name)->toBe($originalName)
+        ->and($media->translations()->exists())->toBeFalse();
+})->with([false, true]);
+
 it('allows empty alt text when localized metadata is decorative', function (): void {
     $media = createEditableImageMedia();
     $language = Language::factory()->english()->create();
@@ -436,6 +555,9 @@ it('allows empty alt text when localized metadata is decorative', function (): v
         ])
         ->call('save')
         ->assertHasNoFormErrors();
+
+    expect($media->refresh()->isDecorative($language))->toBeTrue()
+        ->and($media->getAltText($language))->toBe('');
 });
 
 it('allows installed packages to contribute media edit actions', function (): void {
