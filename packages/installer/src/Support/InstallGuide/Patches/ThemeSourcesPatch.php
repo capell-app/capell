@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
-use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
+use Capell\Core\Support\Patching\ReviewableFilePatch;
+use Capell\Installer\Support\InstallGuide\PlansFilePatch;
+use Override;
 use PhpParser\Node;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\MethodCall;
@@ -15,8 +18,10 @@ use PhpParser\Node\Scalar\String_;
 use RuntimeException;
 use Throwable;
 
-class ThemeSourcesPatch implements Patch
+class ThemeSourcesPatch implements ReviewableFilePatch
 {
+    use PlansFilePatch;
+
     private const string THEME_CSS_PATH = 'resources/css/filament/admin/theme.css';
 
     private const string ADMIN_PANEL_PROVIDER_PATH = 'app/Providers/Filament/AdminPanelProvider.php';
@@ -30,36 +35,43 @@ class ThemeSourcesPatch implements Patch
         "@source '../../../../resources/views/filament/**/*';",
     ];
 
+    #[Override]
     public function id(): string
     {
         return 'theme-sources-patch';
     }
 
+    #[Override]
     public function group(): string
     {
         return 'themes';
     }
 
+    #[Override]
     public function label(): string
     {
         return __('capell-installer::install-guide.theme_sources_patch_label');
     }
 
+    #[Override]
     public function description(): string
     {
         return __('capell-installer::install-guide.theme_sources_patch_description');
     }
 
+    #[Override]
     public function docUrl(): ?string
     {
         return 'https://filamentphp.com/docs/3.x/admin/themes#creating-a-custom-theme';
     }
 
+    #[Override]
     public function defaultEnabled(): bool
     {
         return true;
     }
 
+    #[Override]
     public function probe(): PatchStatus
     {
         $themeCssPath = $this->themeCssPath();
@@ -89,67 +101,28 @@ class ThemeSourcesPatch implements Patch
         return PatchStatus::Applicable;
     }
 
+    #[Override]
     public function reason(): ?string
     {
         return null;
     }
 
-    public function apply(): void
+    protected function plan(): FilePatchPlan
     {
-        $themeCssPath = $this->themeCssPath();
+        $path = $this->themeCssPath();
+        $content = file_get_contents($path);
+        throw_unless(is_string($content), RuntimeException::class, 'Could not read theme CSS file');
+        $lines = array_values(array_filter(self::REQUIRED_SOURCES, static fn (string $line): bool => ! str_contains($content, $line)));
+        $addition = "\n" . implode("\n", $lines) . "\n";
 
-        throw_unless(
-            file_exists($themeCssPath),
-            RuntimeException::class,
-            'Theme CSS file not found at: ' . $themeCssPath,
+        return new FilePatchPlan(
+            $path,
+            ltrim(str_replace(base_path(), '', $path), '/'),
+            $content,
+            $content . $addition,
+            text: true,
+            safeAfter: implode("\n", $lines),
         );
-
-        $status = $this->probe();
-        if ($status !== PatchStatus::Applicable) {
-            throw new RuntimeException(
-                'Cannot apply patch when status is: ' . $status->value,
-            );
-        }
-
-        try {
-            $content = file_get_contents($themeCssPath);
-
-            throw_unless(
-                $content !== false,
-                RuntimeException::class,
-                'Could not read theme CSS file',
-            );
-
-            // Collect missing lines
-            $linesToAdd = [];
-            foreach (self::REQUIRED_SOURCES as $requiredLine) {
-                if (! str_contains($content, $requiredLine)) {
-                    $linesToAdd[] = $requiredLine;
-                }
-            }
-
-            // Append missing lines
-            if ($linesToAdd !== []) {
-                $appendContent = "\n" . implode("\n", $linesToAdd) . "\n";
-                $content .= $appendContent;
-
-                $writeResult = file_put_contents($themeCssPath, $content);
-
-                throw_unless(
-                    $writeResult !== false,
-                    RuntimeException::class,
-                    'Could not write to theme CSS file',
-                );
-            }
-        } catch (RuntimeException $runtimeException) {
-            throw $runtimeException;
-        } catch (Throwable $throwable) {
-            throw new RuntimeException(
-                'Failed to apply ThemeSourcesPatch: ' . $throwable->getMessage(),
-                (int) $throwable->getCode(),
-                $throwable,
-            );
-        }
     }
 
     private function themeCssPath(): string

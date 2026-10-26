@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Data\Patching\PatchPreviewData;
+use Capell\Core\Data\Patching\PatchRecoveryData;
 use Capell\Core\Events\CapellInstallationCompleted;
 use Capell\Core\Models\Site;
-use Capell\Core\Support\Patching\Patch;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Patching\ReviewablePatch;
 use Capell\Installer\Filament\Pages\InstallGuidePage;
 use Capell\Installer\Support\InstallGuide\PatchRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
@@ -102,12 +104,13 @@ it('applies selected install guide patches and reports success skipped and manua
 
     Livewire::test(InstallGuidePage::class)
         ->set('data.selectedPatches', ['queue', 'custom-theme', 'protected-file'])
+        ->call('reviewPatches')
         ->call('applyPatches')
         ->assertNotified('Install guide patch queue')
         ->assertSet('data.selectedPatches', ['protected-file']);
 
     expect($appliedPatchCalls)->toBe(1)
-        ->and($skippedPatchCalls)->toBe(1)
+        ->and($skippedPatchCalls)->toBe(0)
         ->and($failedPatchCalls)->toBe(1);
 });
 
@@ -137,7 +140,7 @@ function registerInstallGuidePagePatch(
     ?string $reason = null,
     ?callable $applyCallback = null,
 ): void {
-    resolve(PatchRegistry::class)->register(new class($id, $group, $status, $statusAfterApply ?? $status, $defaultEnabled, $reason, $applyCallback) implements Patch
+    resolve(PatchRegistry::class)->register(new class($id, $group, $status, $statusAfterApply ?? $status, $defaultEnabled, $reason, $applyCallback) implements ReviewablePatch
     {
         /**
          * @param  null|callable(): void  $applyCallback
@@ -190,6 +193,16 @@ function registerInstallGuidePagePatch(
         public function reason(): ?string
         {
             return $this->reason;
+        }
+
+        public function preview(): PatchPreviewData
+        {
+            return new PatchPreviewData([], hash('sha256', $this->id . $this->status->value));
+        }
+
+        public function recoveryResult(): PatchRecoveryData
+        {
+            return new PatchRecoveryData;
         }
 
         public function apply(): void

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Patching;
 
-use Illuminate\Support\Facades\Date;
 use PhpParser\Node;
 use PhpParser\Node\Name;
 use PhpParser\Node\Stmt\Class_;
@@ -178,36 +177,7 @@ final class PhpFileEditor
 
     public function backup(): string
     {
-        $backupBaseDir = sys_get_temp_dir() . '/capell/php-file-backups';
-        try {
-            if (function_exists('storage_path')) {
-                $backupBaseDir = storage_path('capell/php-file-backups');
-            }
-        } catch (Throwable) {
-            // Fall back to temp directory if storage_path fails
-        }
-
-        $backupDir = $backupBaseDir . '/' . Date::now()->format('Y-m-d-His');
-        if (! is_dir($backupDir)) {
-            $created = @mkdir($backupDir, 0755, true);
-
-            throw_unless(
-                $created || is_dir($backupDir),
-                RuntimeException::class,
-                'Failed to create PHP backup directory: ' . $backupDir,
-            );
-        }
-
-        $backupPath = $backupDir . '/' . basename($this->filePath);
-        $copied = @copy($this->filePath, $backupPath);
-
-        throw_unless(
-            $copied,
-            RuntimeException::class,
-            'Failed to back up PHP file to path: ' . $backupPath,
-        );
-
-        return $backupPath;
+        return new FileBackup($this->filePath)->create();
     }
 
     /**

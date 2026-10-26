@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
 use Capell\Core\Support\Patching\EnvFileEditor;
-use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
+use Capell\Core\Support\Patching\ReviewableFilePatch;
+use Capell\Installer\Support\InstallGuide\PlansFilePatch;
+use Override;
 use RuntimeException;
 use Throwable;
 
@@ -16,8 +19,10 @@ use Throwable;
  * PatchStatus; this base owns the shared file-exists/probe-before-apply/
  * backup-and-save/error-wrap shape every .env key patch was re-deriving.
  */
-abstract class AbstractEnvKeyPatch implements Patch
+abstract class AbstractEnvKeyPatch implements ReviewableFilePatch
 {
+    use PlansFilePatch;
+
     public function __construct(private readonly ?string $path = null) {}
 
     abstract protected function key(): string;
@@ -26,6 +31,7 @@ abstract class AbstractEnvKeyPatch implements Patch
 
     abstract protected function decideStatus(?string $currentValue): PatchStatus;
 
+    #[Override]
     public function probe(): PatchStatus
     {
         $path = $this->path();
@@ -43,34 +49,32 @@ abstract class AbstractEnvKeyPatch implements Patch
         }
     }
 
+    #[Override]
     public function reason(): ?string
     {
         return null;
     }
 
-    public function apply(): void
+    protected function plan(): FilePatchPlan
     {
         $path = $this->path();
+        $before = file_get_contents($path);
+        throw_unless(is_string($before), RuntimeException::class, 'Could not read environment file.');
+        $editor = new EnvFileEditor($path);
+        $editor->set($this->key(), $this->value());
 
-        throw_unless(file_exists($path), RuntimeException::class, '.env file not found at: ' . $path);
-
-        $status = $this->probe();
-        if ($status !== PatchStatus::Applicable) {
-            throw new RuntimeException('Cannot apply patch when status is: ' . $status->value);
-        }
-
-        try {
-            $editor = new EnvFileEditor($path);
-            $editor->backup();
-            $editor->set($this->key(), $this->value());
-            $editor->save();
-        } catch (Throwable $throwable) {
-            throw new RuntimeException(
-                'Failed to apply ' . class_basename(static::class) . ': ' . $throwable->getMessage(),
-                (int) $throwable->getCode(),
-                $throwable,
-            );
-        }
+        return new FilePatchPlan(
+            $path,
+            '.env',
+            $before,
+            $editor->content(),
+            environment: true,
+            visibleEnvironmentValues: match ($this->key()) {
+                'QUEUE_CONNECTION' => ['QUEUE_CONNECTION' => ['sync', 'database']],
+                'SETTINGS_CACHE_ENABLED' => ['SETTINGS_CACHE_ENABLED' => ['true', 'false']],
+                default => [],
+            },
+        );
     }
 
     private function path(): string

@@ -3,6 +3,19 @@
 declare(strict_types=1);
 
 return [
+    'review_changes' => 'Review changes',
+    'review_required' => 'The review is missing, expired or no longer matches the selected patches and files. Review the changes again before applying them.',
+    'preview_manual' => 'No safe automatic preview is available for this step or its current state. It will not be applied here. Review the patch instructions and make any required changes manually.',
+    'preview_backup' => 'Only the scoped edits are shown. Host literal values are redacted. A backup of the original file will be created before writing; its recovery path will appear in the result.',
+    'preview_before' => 'Before',
+    'preview_after' => 'After',
+    'preview_truncated' => 'This preview is truncated. Inspect the complete file locally before applying.',
+    'apply_results' => 'Change results and recovery',
+    'preview_creation' => 'This change creates a file. The result will list its path; removing that new file reverses its creation. Existing files are backed up before writing.',
+    'recovery_created_file' => 'Created file: :path. To undo its creation, remove this file after reviewing any later edits.',
+    'recovery_file' => 'Original file backup: :path',
+    'reviewed_patch_failed' => 'The patch could not be applied. Inspect the file and any recovery path below. Manual changes may be required; see the install-time write permissions documentation.',
+
     'admin_panel_colors_patch_description' => 'Adds colour configuration to the Filament admin panel',
     'admin_panel_colors_patch_label' => 'Admin Panel Colours Patch',
     'admin_panel_dashboard_patch_description' => 'Registers the Capell dashboard page in AdminPanelProvider',

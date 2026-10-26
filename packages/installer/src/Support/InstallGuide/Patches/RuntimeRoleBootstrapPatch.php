@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Capell\Installer\Support\InstallGuide\Patches;
 
-use Capell\Core\Support\Patching\Patch;
+use Capell\Core\Support\Patching\FilePatchPlan;
 use Capell\Core\Support\Patching\PatchStatus;
 use Capell\Core\Support\Patching\PhpFileEditor;
+use Capell\Core\Support\Patching\ReviewableFilePatch;
 use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
+use Capell\Installer\Support\InstallGuide\PlansFilePatch;
 use Illuminate\Foundation\Application;
+use Override;
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Assign;
@@ -23,40 +26,49 @@ use PhpParser\Node\Stmt\Use_;
 use RuntimeException;
 use Throwable;
 
-final class RuntimeRoleBootstrapPatch implements Patch
+final class RuntimeRoleBootstrapPatch implements ReviewableFilePatch
 {
+    use PlansFilePatch;
+
     private const string BOOTSTRAP_PATH = 'bootstrap/app.php';
 
+    #[Override]
     public function id(): string
     {
         return 'runtime-role-bootstrap-patch';
     }
 
+    #[Override]
     public function group(): string
     {
         return 'application';
     }
 
+    #[Override]
     public function label(): string
     {
         return __('capell-installer::install-guide.runtime_role_bootstrap_patch_label');
     }
 
+    #[Override]
     public function description(): string
     {
         return __('capell-installer::install-guide.runtime_role_bootstrap_patch_description');
     }
 
+    #[Override]
     public function docUrl(): ?string
     {
         return null;
     }
 
+    #[Override]
     public function defaultEnabled(): bool
     {
         return true;
     }
 
+    #[Override]
     public function probe(): PatchStatus
     {
         $path = base_path(self::BOOTSTRAP_PATH);
@@ -80,22 +92,15 @@ final class RuntimeRoleBootstrapPatch implements Patch
         }
     }
 
+    #[Override]
     public function reason(): ?string
     {
         return null;
     }
 
-    public function apply(): void
+    protected function plan(): FilePatchPlan
     {
         $path = base_path(self::BOOTSTRAP_PATH);
-        $status = $this->probe();
-
-        throw_unless(
-            $status === PatchStatus::Applicable,
-            RuntimeException::class,
-            'Cannot apply patch when status is: ' . $status->value,
-        );
-
         $editor = new PhpFileEditor($path);
         $returnIndex = $this->stockApplicationReturnIndex($editor);
 
@@ -117,11 +122,9 @@ final class RuntimeRoleBootstrapPatch implements Patch
             new Return_(new Variable('app')),
         ]);
 
-        $editor->backup();
-        $editor
-            ->setAst($ast)
-            ->addUseStatements([RuntimeRoleBootstrap::class])
-            ->save();
+        $editor->setAst($ast)->addUseStatements([RuntimeRoleBootstrap::class]);
+
+        return new FilePatchPlan($path, self::BOOTSTRAP_PATH, $editor->originalContent(), $editor->print());
     }
 
     private function stockApplicationReturnIndex(PhpFileEditor $editor): ?int
