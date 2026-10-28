@@ -16,6 +16,20 @@ Thanks for your interest in improving Capell. This guide outlines workflow, codi
     ```
 4. Create a feature branch and commit changes following conventions.
 
+### Installing in sandboxed or proxied environments
+
+Some environments (for example Claude Code cloud containers or locked-down CI proxies) return `403` for GitHub zipball downloads (`api.github.com` / `codeload.github.com`) while `git clone` still works. A plain `composer install` then fails, and `--prefer-source` alone is not enough because some lock entries are dist-only — notably `phpstan/phpstan`, which fails with "Could not authenticate against github.com".
+
+Use the source-install script instead:
+
+```bash
+scripts/install-from-source.sh
+```
+
+It sets `use-github-api false` globally, temporarily adds a git `source` (same commit reference) to any dist-only GitHub lock entry — the `phpstan/phpstan` repository ships `phpstan.phar` itself, so a clone at the locked reference is equivalent to the dist — runs `composer install --prefer-source`, and restores `composer.lock` byte-for-byte on exit, including on failure. Never commit a `composer.lock` modified by this workaround; `git status` should show it clean afterwards. Extra arguments are passed to `composer install`.
+
+The codebase requires PHP 8.4 (it uses syntax such as `new X()->method()`); PHP 8.3 fails to parse it. In Claude Code cloud sessions, `.claude/hooks/session-start.sh` installs PHP 8.4 (via `ppa:ondrej/php`) when needed and runs the script if `vendor/` is missing.
+
 ## Branch & Commit Conventions
 
 - Prefix branches with type: `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`.
