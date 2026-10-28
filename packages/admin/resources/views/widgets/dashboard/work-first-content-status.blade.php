@@ -6,7 +6,7 @@
             @foreach ($this->counts as $status => $count)
                 <div>
                     <dt>
-                        {{ __('capell-admin::dashboard.work_first_status_' . $status) }}
+                        {{ match ($status) { 'draft' => __('capell-admin::dashboard.work_first_status_draft'), 'scheduled' => __('capell-admin::dashboard.work_first_status_scheduled'), 'published' => __('capell-admin::dashboard.work_first_status_published'), 'expired' => __('capell-admin::dashboard.work_first_status_expired'), default => $status } }}
                     </dt>
                     <dd class="font-semibold">{{ number_format($count) }}</dd>
                 </div>

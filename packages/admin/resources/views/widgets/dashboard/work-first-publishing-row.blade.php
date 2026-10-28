@@ -15,7 +15,7 @@
         <div class="mt-2 flex flex-wrap items-center gap-2">
             <x-filament::badge
                 :color="$item->readiness === 'blocked' ? 'warning' : 'gray'"
-                >{{ $item->readinessLabel ?? __('capell-admin::work-first.' . $item->readiness) }}</x-filament::badge
+                >{{ $item->readinessLabel ?? match ($item->readiness) { 'ready' => __('capell-admin::work-first.ready'), 'blocked' => __('capell-admin::work-first.blocked'), 'needs_approval' => __('capell-admin::work-first.needs_approval'), default => $item->readiness } }}</x-filament::badge
             >
             @if ($item->readiness === 'blocked')
                 @if ($attentionVisible)
@@ -27,15 +27,15 @@
                 @else
                     <span
                         class="text-xs text-gray-500"
-                        >{{ implode(' · ', array_map(fn ($reason) => \Illuminate\Support\Facades\Lang::has('capell-admin::work-first.reason_' . $reason) ? __('capell-admin::work-first.reason_' . $reason) : $reason, $item->reasons)) }}</span
+                        >{{ implode(' · ', array_map(fn ($reason) => match ($reason) { 'blueprint' => __('capell-admin::work-first.reason_blueprint'), 'layout' => __('capell-admin::work-first.reason_layout'), 'translation' => __('capell-admin::work-first.reason_translation'), 'url' => __('capell-admin::work-first.reason_url'), 'publication_check' => __('capell-admin::work-first.reason_publication_check'), default => $reason }, $item->reasons)) }}</span
                     >
-                    @if ($item->url)
-                        <a
-                            href="{{ $item->url }}"
-                            class="text-xs text-primary-600 hover:underline dark:text-primary-400"
-                            >{{ __('capell-admin::work-first.review') }}</a
-                        >
-                    @endif
+                @endif
+                @if ($item->url)
+                    <a
+                        href="{{ $item->url }}"
+                        class="text-xs text-primary-600 hover:underline dark:text-primary-400"
+                        >{{ __('capell-admin::work-first.review') }}</a
+                    >
                 @endif
             @elseif ($item->url)
                 <a

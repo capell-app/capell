@@ -70,7 +70,7 @@ final class BuildWorkFirstAttentionAction
                     title: $page->name,
                     siteId: (int) $page->site_id,
                     siteName: $page->site->name,
-                    description: (string) __($urgent ? 'capell-admin::work-first.public_page_blocked' : 'capell-admin::work-first.content_setup'),
+                    description: (string) ($urgent ? __('capell-admin::work-first.public_page_blocked') : __('capell-admin::work-first.content_setup')),
                     reasons: $reasons,
                     url: $page->blueprint !== null && Gate::forUser($actor)->allows('update', $page)
                         ? GetEditPageResourceUrlAction::run($page) : null,

@@ -5,12 +5,15 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Dashboard\BuildPersonalDraftsAction;
 use Capell\Admin\Contracts\Dashboard\DashboardWorkDataProvider;
 use Capell\Admin\Data\Dashboard\DashboardWorkData;
+use Capell\Admin\Filament\Resources\Pages\Pages\ListPages;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PersonalDraftsWidget;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Livewire\Livewire;
 
 uses(CreatesAdminUser::class);
 
@@ -91,4 +94,47 @@ it('passes scope to assigned work and does not resolve it when disabled', functi
     $widget->assignments();
 
     expect($provider->site)->toBe(-1);
+});
+
+it('opens the owned drafts queue with matching site and language filters', function (): void {
+    test()->actingAsAdmin();
+    $actor = test()->authenticatedUser();
+    $language = Language::factory()->createOne();
+    $otherLanguage = Language::factory()->createOne();
+    $site = Site::factory()->createOne();
+    $otherSite = Site::factory()->createOne();
+    $own = Page::factory()->recycle($site)->withTranslations($language)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    $otherLang = Page::factory()->recycle($site)->withTranslations($otherLanguage)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    $otherSitePage = Page::factory()->recycle($otherSite)->withTranslations($language)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    $published = Page::factory()->recycle($site)->withTranslations($language)->createOne(['visible_from' => now()->subDay()]);
+    $foreign = Page::factory()->recycle($site)->withTranslations($language)->createOne(['visible_from' => PublishSentinel::draftValue()]);
+    foreach ([$own, $otherLang, $otherSitePage, $published] as $page) {
+        $page->forceFill(['created_by' => $actor->getAuthIdentifier()])->saveQuietly();
+    }
+
+    $foreign->forceFill(['created_by' => test()->createUser()->getKey()])->saveQuietly();
+
+    $result = resolve(BuildPersonalDraftsAction::class)->handle($actor, (int) $site->getKey(), 5, $language->code);
+    expect($result->listUrl)->not->toBeNull();
+    parse_str((string) parse_url((string) $result->listUrl, PHP_URL_QUERY), $query);
+    expect($query['site'])->toBe((string) $site->getKey())
+        ->and(data_get($query, 'tableFilters.owned_drafts.isActive'))->toBe('1')
+        ->and(data_get($query, 'tableFilters.site_id.value'))->toBe((string) $site->getKey())
+        ->and(data_get($query, 'tableFilters.filter.language_id'))->toBe((string) $language->getKey());
+
+    Livewire::test(ListPages::class)
+        ->filterTable('owned_drafts')
+        ->filterTable('site_id', $site->getKey())
+        ->set('tableFilters.filter.language_id', $language->getKey())
+        ->assertCanSeeTableRecords([$own])
+        ->assertCanNotSeeTableRecords([$otherLang, $otherSitePage, $published, $foreign]);
+});
+
+it('clears the remembered site filter when opening all sites own drafts', function (): void {
+    $this->actingAsAdmin();
+    $site = Site::factory()->createOne();
+    session()->put('capell.current_site_id', $site->id);
+    $data = resolve(BuildPersonalDraftsAction::class)->handle($this->authenticatedUser(), null, 5);
+    parse_str((string) parse_url((string) $data->listUrl, PHP_URL_QUERY), $query);
+    expect(data_get($query, 'tableFilters.site_id.value'))->toBe('');
 });

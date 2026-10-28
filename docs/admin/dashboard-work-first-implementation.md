@@ -89,6 +89,22 @@ are offered in the chooser but hidden in a default layout. Hiding a widget
 personally preserves its preferences and does not disable shared checks needed
 by another widget.
 
+`capell-admin.dashboard.work_first.widget_metadata` is keyed by registered widget
+class and accepts optional `label`, `description`, `group` and `requirements`
+strings. Supported groups are `work`, `content`, `performance`, `system` and
+`extensions`; unknown widgets default to `extensions`. For example:
+
+```php
+'widget_metadata' => [
+    ExampleWidget::class => [
+        'label' => 'Example',
+        'description' => 'A useful summary.',
+        'group' => 'content',
+        'requirements' => 'Requires the example provider.',
+    ],
+],
+```
+
 `capell-admin.dashboard.work_first.site_timezones` maps site UUIDs to IANA time
 zone identifiers for publishing deadlines; the resolver uses the application
 zone when a site has no mapping, and UTC for an invalid value. Built-in daily page-view rollups report

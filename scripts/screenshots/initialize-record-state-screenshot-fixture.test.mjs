@@ -273,3 +273,9 @@ echo json_encode([
         rmSync(directory, { recursive: true, force: true })
     }
 })
+
+test('seeds a real scheduled page for the admin dashboard capture', () => {
+    assert.deepEqual(commandsForEntries([{ id: 'admin-dashboard' }]), [
+        'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+    ])
+})

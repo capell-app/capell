@@ -6,8 +6,10 @@ namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Data\Dashboard\DashboardWorkData;
 use Capell\Admin\Data\Dashboard\DashboardWorkItemData;
+use Capell\Admin\Filament\Resources\Pages\PageResource;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -22,7 +24,8 @@ final class BuildPersonalDraftsAction
         $items = [];
         $total = 0;
         $evaluator = resolve(DashboardSiteEvaluator::class);
-        foreach ($evaluator->siteIds($actor, $siteId) as $candidate) {
+        $siteIds = $evaluator->siteIds($actor, $siteId);
+        foreach ($siteIds as $candidate) {
             $result = $evaluator->run($actor, $candidate, fn (): DashboardWorkData => $this->handleSite($actor, $candidate, $limit, $language, $retainedPageIds));
             $total += $result->total;
             $items = [...$items, ...$result->items];
@@ -30,7 +33,26 @@ final class BuildPersonalDraftsAction
 
         usort($items, static fn ($left, $right): int => ($right->updatedAt ?? '') <=> ($left->updatedAt ?? ''));
 
-        return new DashboardWorkData(true, $total, array_values(array_filter($items, static fn (DashboardWorkItemData $item, int $index): bool => $index < max(0, $limit) || in_array($item->pageId, $retainedPageIds, true), ARRAY_FILTER_USE_BOTH)));
+        $listUrl = null;
+        if (($siteId !== null && in_array($siteId, $siteIds, true)) || ($siteId === null && SiteAccess::forActor($actor, acrossAssignedSites: true)->isGlobal())) {
+            $filters = ['owned_drafts' => ['isActive' => true], 'site_id' => ['value' => '']];
+            if ($siteId !== null && $siteId > 0) {
+                $filters['site_id'] = ['value' => $siteId];
+            }
+
+            if ($language !== null) {
+                $languageId = Language::query()->where('code', $language)->value('id');
+                if ($languageId !== null) {
+                    $filters['filter'] = ['language_id' => $languageId];
+                } else {
+                    return new DashboardWorkData(true, $total, array_values(array_filter($items, static fn (DashboardWorkItemData $item, int $index): bool => $index < max(0, $limit) || in_array($item->pageId, $retainedPageIds, true), ARRAY_FILTER_USE_BOTH)));
+                }
+            }
+
+            $listUrl = PageResource::getUrl(parameters: ['site' => $siteId, 'tableFilters' => $filters]);
+        }
+
+        return new DashboardWorkData(true, $total, array_values(array_filter($items, static fn (DashboardWorkItemData $item, int $index): bool => $index < max(0, $limit) || in_array($item->pageId, $retainedPageIds, true), ARRAY_FILTER_USE_BOTH)), $listUrl);
     }
 
     /** @param list<int> $retainedPageIds */

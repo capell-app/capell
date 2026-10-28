@@ -426,7 +426,7 @@ class CapellDashboard extends Dashboard
                     ->label(__('capell-admin::dashboard.work_first_reset_layout'))
                     ->helperText(__('capell-admin::dashboard.work_first_reset_help'))
                     ->live(),
-                ...array_map(fn (string $group): Section => Section::make(__('capell-admin::dashboard.work_first_group_' . $group))
+                ...array_map(fn (string $group): Section => Section::make($this->dashboardWidgetGroupLabel($group))
                     ->visible(fn (Get $get): bool => ! $get('restore_defaults') && $this->groupWidgetKeys($group) !== [])
                     ->schema([
                         CheckboxList::make('selected_' . $group)
@@ -661,11 +661,22 @@ class CapellDashboard extends Dashboard
         };
     }
 
+    private function dashboardWidgetGroupLabel(string $group): string
+    {
+        return (string) match ($group) {
+            'work' => __('capell-admin::dashboard.work_first_group_work'),
+            'content' => __('capell-admin::dashboard.work_first_group_content'),
+            'performance' => __('capell-admin::dashboard.work_first_group_performance'),
+            'system' => __('capell-admin::dashboard.work_first_group_system'),
+            default => __('capell-admin::dashboard.work_first_group_extensions'),
+        };
+    }
+
     private function dashboardWidgetPreview(string $key, bool $added): HtmlString
     {
-        $group = __('capell-admin::dashboard.work_first_group_' . $this->dashboardWidgetGroup($key));
+        $group = $this->dashboardWidgetGroupLabel($this->dashboardWidgetGroup($key));
         $label = e($this->dashboardWidgetLabel($key));
-        $groupLabel = e((string) $group);
+        $groupLabel = e($group);
         $previewLabel = e((string) __('capell-admin::dashboard.work_first_preview'));
         $metadata = $this->dashboardWidgetMetadata($key);
         $description = $metadata['description'] ?? null;

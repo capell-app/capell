@@ -22,7 +22,7 @@
                 <h3
                     class="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-500"
                 >
-                    {{ __('capell-admin::work-first.' . $label) }} · {{ count($group) }}
+                    {{ $urgent ? __('capell-admin::work-first.urgent') : __('capell-admin::work-first.improvements') }} · {{ count($group) }}
                 </h3>
                 <ul class="divide-y divide-gray-100 dark:divide-white/5">
                     @foreach (array_slice($group, 0, $limit) as $item)

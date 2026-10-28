@@ -13,7 +13,7 @@
             <ul class="mt-1 text-xs text-gray-500">
                 @foreach ($item->reasons as $reason)
                     <li>
-                        {{ \Illuminate\Support\Facades\Lang::has('capell-admin::work-first.reason_' . $reason) ? __('capell-admin::work-first.reason_' . $reason) : $reason }}
+                        {{ match ($reason) { 'blueprint' => __('capell-admin::work-first.reason_blueprint'), 'layout' => __('capell-admin::work-first.reason_layout'), 'translation' => __('capell-admin::work-first.reason_translation'), 'url' => __('capell-admin::work-first.reason_url'), 'publication_check' => __('capell-admin::work-first.reason_publication_check'), default => $reason } }}
                     </li>
                 @endforeach
             </ul>

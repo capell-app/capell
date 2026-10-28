@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 
 function hasRecordStateSeed(entries) {
     const seededEntryIds = new Set([
+        'admin-dashboard',
         'admin-pages-list',
         'admin-layouts-list',
         'admin-media-list',

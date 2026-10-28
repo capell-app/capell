@@ -74,6 +74,11 @@
                 >
                     {{ __('capell-admin::dashboard.work_first_team_reviews', ['count' => $approvals->teamReviewCount]) }}
                 </a>
+            @elseif ($approvals->teamReviewCount > 0)
+                <p class="mt-2 text-sm">{{ __('capell-admin::dashboard.work_first_team_reviews', ['count' => $approvals->teamReviewCount]) }}</p>
+            @endif
+            @if (in_array($this->pageFilters['site_id'] ?? null, [null, ''], true) && (($approvals->assignedReviewCount > count($this->approvalRows) && $approvals->assignedReviewUrl === null) || ($approvals->teamReviewCount > 0 && $approvals->teamReviewUrl === null)))
+                <p class="mt-2 text-xs text-gray-500">{{ __('capell-admin::dashboard.work_first_choose_site_queue') }}</p>
             @endif
         </x-filament::section>
     @endif

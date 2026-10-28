@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstActivityAction;
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstAttentionAction;
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstPublishingAction;
+use Capell\Admin\Data\Dashboard\DashboardPublicationItemData;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PublishingHealthWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\TeamActivityWidget;
 use Capell\Core\Contracts\Publishing\PublicationReadinessContributor;
@@ -19,6 +20,7 @@ use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Livewire;
+use Sinnbeck\DomAssertions\TestHtml;
 use Spatie\Activitylog\Models\Activity;
 
 uses(CreatesAdminUser::class);
@@ -113,4 +115,24 @@ it('includes registered publication blockers in upcoming readiness and site atte
     expect($upcoming[0]->readiness)->toBe('blocked')
         ->and($upcoming[0]->reasons)->toContain('publication_check')
         ->and($attention[0]->reasons)->toContain('publication_check');
+});
+
+it('keeps blocked publication diagnostics reachable independently of the attention preview', function (): void {
+    $this->actingAsAdmin();
+    $item = new DashboardPublicationItemData(
+        key: 'blocked-publication',
+        pageId: 1,
+        siteId: 1,
+        siteName: 'Site',
+        title: 'Upcoming page',
+        scheduledAt: now()->addDay()->toIso8601String(),
+        timezone: 'UTC',
+        readiness: 'blocked',
+        reasons: ['publication_check'],
+        url: '/admin/review/upcoming-page',
+    );
+    foreach ([true, false] as $attentionVisible) {
+        new TestHtml(view('capell-admin::widgets.dashboard.work-first-publishing-row', ['item' => $item, 'attentionVisible' => $attentionVisible])->render())
+            ->assertContainsElement('a', ['href' => '/admin/review/upcoming-page']);
+    }
 });

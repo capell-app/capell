@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'work_first_owned_drafts' => 'My drafts',
+    'work_first_choose_site_queue' => 'Choose a site to open its full queue.',
     'work_first_page_total' => ':count pages',
     'work_first_assigned_total' => ':count work items',
     'work_first_drafts_total' => ':count unfinished drafts',
