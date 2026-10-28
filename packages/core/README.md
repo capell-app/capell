@@ -53,11 +53,11 @@ Use `php artisan list capell` in the host app to confirm the exact command set a
 
 - Provider: `Capell\Core\Providers\CapellServiceProvider`
 - Config: `config/capell.php`, `config/redirects.php`
-- Main models: `Page`, `PageUrl`, `Site`, `SiteDomain`, `Language`, `Layout`, `Theme`, `Blueprint`, `Type`, `Media`, `CapellExtension`, `UpgradeLogEntry`
+- Main models: `Page`, `PageUrl`, `Site`, `SiteDomain`, `Language`, `Layout`, `Theme`, `Blueprint`, `Media`, `CapellExtension`, `UpgradeLogEntry`
 - Main commands: `capell:install`, `capell:upgrade`, `capell:rollback`, `capell:doctor`, `capell:package-cache`, `capell:package-cache:clear`, `capell:publish-migrations`, `capell:delete-migrations`, `capell:publish-components`, `capell:make-*`
 - Test case support: `Capell\Core\Testing\ExtensionTestHarness`
 
-`Type` remains present for compatibility while the admin surface is moving toward Blueprint naming. New docs and UI copy should prefer Blueprint unless they are documenting a compatibility API that still uses type terminology.
+Type terminology survives only in compatibility APIs such as `PageTypeData`. New docs and UI copy should prefer Blueprint unless they are documenting one of those compatibility APIs.
 
 ## Extension Points
 

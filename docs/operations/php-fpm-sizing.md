@@ -58,7 +58,7 @@ Do not raise the number until you know why the pool filled:
 
 1. **Slow requests holding workers.** Look at what the busy workers are doing (enable `pm.status_path` and the slow log: `request_slowlog_timeout`, `slowlog`). A slow upstream call, an unindexed query, or an export holds a worker for the whole duration.
 2. **A burst of uncached traffic.** After a cache purge or deploy, many visitors miss the cache at once. Warm the origin before purging the edge, as described in [refreshing public HTML after a release](deploy-and-cache-refresh.md).
-3. **Scanner or bot traffic.** Requests for paths that do not exist still boot Laravel unless nginx answers them. See [hardening basics](deploy-and-cache-refresh.md#scanners-419-and-429-responses).
+3. **Scanner or bot traffic.** Requests for paths that do not exist still boot Laravel unless nginx answers them. See [Scanners, 419 and 429 responses](deploy-and-cache-refresh.md#scanners-419-and-429-responses).
 4. **A genuinely undersized pool.** Raise `pm.max_children` only if the memory budget above has room. If it has not, the fix is more RAM, a cheaper request path, or more caching, not a bigger pool.
 
 A warning that appears briefly after a deploy is expected. A warning that appears during ordinary traffic means the budget or the request path needs work.

@@ -13,3 +13,8 @@ Use this section when you need a compact definition, relationship map, architect
 | Look up config, environment, disks, or logging | [Configuration reference](../development/configuration.md) |
 | Decide where documentation belongs             | [Docs ownership rules](../development/docs-ownership.md)   |
 | Check third-party credits                      | [Credits](credits.md)                                      |
+
+## Next
+
+- [Learn Capell](../getting-started/capell-learn.md) for the guided path.
+- [Docs route map](../README.md) for every section.

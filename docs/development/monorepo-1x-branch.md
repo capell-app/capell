@@ -58,8 +58,8 @@ In the Laravel application used for testing Capell, add path repositories that p
 
 ```json
 "repositories": [
-    { "type": "path", "url": "../packages/capell-4/packages/*", "symlink": true },
-    { "type": "path", "url": "../packages/capell-packages-4/packages/*", "symlink": true }
+    { "type": "path", "url": "../packages/capell/capell-4/packages/*", "options": { "symlink": true } },
+    { "type": "path", "url": "../packages/capell/capell-packages-4/packages/*", "options": { "symlink": true } }
 ]
 ```
 

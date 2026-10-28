@@ -82,7 +82,7 @@ Before upgrading production, check:
 - `php artisan list capell` shows expected package commands
 - Site Health is clean or known issues are documented
 
-Rollback behavior depends on the app deploy platform and database backup strategy. Capell can record upgrade state, but it cannot replace infrastructure-level rollback.
+Rollback behaviour depends on the app deploy platform and database backup strategy. Capell can record upgrade state, but it cannot replace infrastructure-level rollback.
 
 Use the [backup and restore runbook](backups.md) before production changes. Use the [upgrade runbook](upgrading.md) for durable run tracking, package compatibility, migrations, cache clearing, and post-upgrade checks. For a product-facing explanation of the feature, use [Durable Upgrade Operations](../platform/upgrade-operations.md).
 
@@ -118,7 +118,7 @@ The default Marketplace API URL is:
 CAPELL_MARKETPLACE_URL=https://capell.app/api/v1
 ```
 
-Use the [Marketplace package overview](../../packages/marketplace/docs/overview.md) for account connection, heartbeat, cache, and install-authorization details. Use [Marketplace hosting](marketplace-hosting.md) for capability tiers and remediation, and [Troubleshooting](troubleshooting.md) for copy-paste checks.
+Use the [Marketplace package overview](../../packages/marketplace/docs/overview.md) for account connection, heartbeat, cache, and install-authorisation details. Use [Marketplace hosting](marketplace-hosting.md) for capability tiers and remediation, and [Troubleshooting](troubleshooting.md) for copy-paste checks.
 
 For deeper Marketplace incidents, use [Debugging Marketplace](debugging-marketplace.md).
 

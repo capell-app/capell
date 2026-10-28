@@ -17,9 +17,9 @@ Broad tests and preflights use the [host release verification gate](../../docs/r
   `composer test:all:matrix:local`
 - Extension contracts: `composer check:extension-surfaces` and
   `composer check:stable-extension-api`
-- Documentation contracts: `composer check:docs-links`,
-  `composer check:docs-orphans`, `composer check:docs-requirements`,
-  `composer check:docs-commands`, and `composer check:docs-screenshots`
+- Documentation contracts: `composer docs:check` (spelling, links, orphans,
+  requirements, commands, env, config and screenshots), plus
+  `composer check:root-docs` and `php scripts/check-readme-engineering-standards.php`
 - New development documentation changes generated distribution exclusions. Run
   `php scripts/sync-split-repository-health.php`, then its `--check` mode before committing it.
 

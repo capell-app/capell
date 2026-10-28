@@ -34,14 +34,14 @@ return new class extends SettingsMigration
     public function up(): void
     {
         // Use exists() check to avoid errors on re-runs
-        if (! $this->migration-assistant->exists('mygroup.setting_key')) {
-            $this->migration-assistant->add('mygroup.setting_key', 'default_value');
+        if (! $this->migrator->exists('mygroup.setting_key')) {
+            $this->migrator->add('mygroup.setting_key', 'default_value');
         }
     }
 
     public function down(): void
     {
-        $this->migration-assistant->delete('mygroup.setting_key');
+        $this->migrator->delete('mygroup.setting_key');
     }
 };
 ```
