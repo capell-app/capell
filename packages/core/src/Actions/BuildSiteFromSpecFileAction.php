@@ -26,8 +26,8 @@ final class BuildSiteFromSpecFileAction
 
         try {
             $payload = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            $payload = [];
+        } catch (JsonException $jsonException) {
+            throw new RuntimeException((string) __('capell::message.site_spec_import_invalid_json', ['reason' => $jsonException->getMessage()]), $jsonException->getCode(), previous: $jsonException);
         }
 
         throw_unless(is_array($payload), RuntimeException::class, 'The site spec must decode to a JSON object.');
