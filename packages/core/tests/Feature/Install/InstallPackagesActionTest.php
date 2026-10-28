@@ -134,6 +134,33 @@ it('does nothing when packages list is empty', function (): void {
         ->not->toThrow(Throwable::class);
 });
 
+it('passes captured first-install provenance only to packages declaring that lifecycle option', function (bool $initial): void {
+    Storage::fake();
+    app()->instance(MigrationFilesystemInterface::class, new FakeMigrationFilesystem);
+    CapellCore::registerPackage(name: 'test');
+    $package = CapellCore::getPackage('test');
+    $package->installAction = LifecycleRecorderAction::class;
+    $package->installParams = ['initial-installation'];
+
+    $input = new InstallInputData(
+        siteUrl: 'https://example.test',
+        packages: ['test'],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+        seedDefaultData: false,
+        initialInstallation: $initial,
+    );
+
+    InstallPackagesAction::run($input, null, new NullProgressReporter);
+
+    expect(LifecycleRecorderAction::$calls)->toBe([[
+        'package' => 'test', 'arguments' => $initial ? ['--initial-installation' => true] : [],
+    ]]);
+})->with([true, false]);
+
 it('installs a registered package and marks it installed', function (): void {
     bootstrapInstallPackagesTest(['test']);
     $user = User::factory()->createOne();
