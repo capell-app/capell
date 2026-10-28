@@ -113,6 +113,12 @@ also run during release deployment. Existing release and dispatch entry points
 remain available. The Test All engineering-metrics job is still push-only and
 has no automatic trigger after the main push trigger is removed.
 
+Nightly main (`.github/workflows/nightly-main.yml`) runs every night and by
+manual dispatch. It calls the Fast PR gate with a fresh latest-dependency update
+(no vendor cache) followed by `composer audit`, and calls Test All. A failure on
+`main` opens or comments on a single issue labelled `nightly-failure`; the next
+passing run closes it.
+
 ## Approval environments and workflow credentials
 
 Configure a `release` environment in the monorepo with required reviewers,

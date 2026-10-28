@@ -21,6 +21,13 @@ on:
       - '.github/workflows/test-full.yml'
       - 'phpunit.xml'
       - 'phpunit-coverage.xml'
+  workflow_call:
+    inputs:
+      cell:
+        description: 'Optional exact behaviour, unit, or portability cell. Leave blank for the complete workflow.'
+        required: false
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       cell:
