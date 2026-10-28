@@ -74,7 +74,7 @@ The seeder marks removed first-party extensions as hidden, so keep the list comp
 
 - **Morph map.** Any pageable model must register its alias in the service provider before the seeder runs.
 - **PublishingStudio.** Rows inserted without a `workspace_id` land in the live version (workspace 0). If you seed draft content, set `workspace_id` explicitly.
-- **Cache.** Run `php artisan capell:cache:clear-pages` (or equivalent) after seeding if your app is hot.
+- **Cache.** Run `php artisan optimize:clear`, and clear the installed page-cache package's cache (for example `capell:html-cache:clear` when `capell-app/html-cache` is installed), after seeding if your app is hot.
 
 ## Related
 

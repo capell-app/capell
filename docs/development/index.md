@@ -16,7 +16,7 @@ capell/
 
 The host repo owns Core, Admin, Frontend, Installer, and Marketplace. Add-on package behaviour belongs in `../capell-packages-4` unless the host repo owns the contract or extension point.
 
-When more than one person or agent session works in this repo at once, use a [git worktree](worktrees.md) and set it up with `bash scripts/init-worktree.sh` — a fresh worktree has no `vendor/`, and symlinking one by hand silently makes tests run against the primary checkout.
+When more than one person or agent session works in this repo at once, use a [git worktree](worktrees.md) and provision it as that page describes (`./capell up` then `./capell composer install` with the Docker harness, or `bash scripts/init-worktree.sh --host-only` when PHP runs on the host) — a fresh worktree has no `vendor/`, and symlinking one by hand silently makes tests run against the primary checkout.
 
 Use Composer path repositories for local package development. Keep matching `1.x` branches in both repos when a change spans host and add-on packages.
 
@@ -68,7 +68,7 @@ Common host commands:
 | `capell:admin-cache-widgets`, `capell:admin-clear-widgets-cache`, `capell:admin-cache-configurators`, `capell:admin-clear-configurators-cache`                               | Warm or clear Admin registries.                                                      |
 | `capell:frontend-install`, `capell:frontend-after-install`, `capell:frontend-upgrade`                                                                                        | Frontend package lifecycle commands.                                                 |
 
-Optional-package commands such as `capell:static-site`, `capell:xml-sitemap`, and `capell:frontend-tailwind-assets` only exist when their package is installed.
+Optional-package commands such as `capell:static-site` and `capell:xml-sitemap` only exist when their package is installed.
 
 ## Development Routes
 

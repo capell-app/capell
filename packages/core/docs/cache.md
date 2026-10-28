@@ -152,7 +152,7 @@ If `disable_cache_save_keys` includes `/^user-\d+$/`, then `user-123` will never
 
 ```php
 test('HasCache respects disable_cache_save_keys', function () {
-    config(['capell-core.disable_cache_save_keys' => ['page-*', '/^user-\\d+$/', 'my-key']]);
+    config(['capell.disable_cache_save_keys' => ['page-*', '/^user-\\d+$/', 'my-key']]);
     $service = new class {
         use \Capell\Core\Concerns\HasCache;
         public function get(string $key) {

@@ -38,7 +38,7 @@ Thanks for your interest in improving Capell. This guide outlines workflow, codi
 
 - Read the [full coding standard](docs/standards/coding-standards.md) before changing production code or package extension points.
 - PHP: 8.4+. Use strict types.
-- Style: PSR-12 + project rules enforced via Laravel Pint.
+- Style: Laravel Pint with the `laravel` preset plus the project rules in `pint.json`.
     ```bash
     composer lint
     ```
