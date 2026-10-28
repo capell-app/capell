@@ -1,6 +1,8 @@
 name: 'Workflow Lint'
 
 on:
+  merge_group:
+    types: [checks_requested]
   push:
     branches:
       - main
@@ -26,7 +28,7 @@ permissions:
 
 jobs:
   actionlint:
-    if: github.actor != 'dependabot[bot]'
+    if: github.event_name == 'merge_group' || github.actor != 'dependabot[bot]'
     name: actionlint
     runs-on: ubuntu-latest
     steps:
