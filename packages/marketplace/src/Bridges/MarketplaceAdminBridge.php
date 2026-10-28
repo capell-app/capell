@@ -63,9 +63,9 @@ final class MarketplaceAdminBridge extends AbstractAdminBridge
         ));
 
         $registrar->page(MarketplacePage::class);
-        $registrar->page(MarketplacePurchasesPage::class);
         $registrar->page(MarketplaceExtensionDetailPage::class);
         $registrar->page(MarketplacePackageOperationsPage::class);
+        $registrar->page(MarketplacePurchasesPage::class);
         $registrar->page(ThemeExtensionPage::class);
         $registrar->filamentDashboardWidget(
             MarketplaceCommercialWarningFilamentWidget::class,
