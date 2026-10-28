@@ -246,3 +246,41 @@ or timed-out cell is incomplete evidence, not support proof.
 
 - [Development commands](commands.md)
 - [Docs ownership rules](docs-ownership.md)
+
+## Enqueueing approved PRs by label
+
+Adding `ready-to-merge` to an open PR targeting `main` authorises the queue to
+update its branch and merge it after checks pass, without a further per-PR chat
+approval. This is an explicit exception to the normal PR merge approval rule.
+The worker scans all labelled PRs, including existing labels, in PR creation order.
+It excludes drafts and `awaiting-merge` PRs, and handles one PR at a time. If
+its branch is behind, the worker updates it from `main` and waits for checks on
+the new head. When checks pass, it adds the PR to GitHub's merge queue and waits
+for that queue to finish before processing another PR. It runs when the label is
+added, every 15 minutes and by manual dispatch; GitHub may delay scheduled runs.
+
+If a PR's checks fail, it conflicts, or GitHub removes it from the merge queue,
+the worker removes `ready-to-merge` and continues with the next candidate. Fix
+the problem, review the new final diff and reapply the label to retry. PRs from
+forks must be updated manually. Unexpected API failures stop the scan and retry
+later rather than being treated as test failures. A previously queued or merged
+newer PR cannot be reordered when an older PR is labelled later.
+
+The label authorises the worker to process the PR's current head, including an
+automatic update from `main`. Remove it before pushing changes that should not
+be merged; reapply it when the PR is ready. Removing the label does not dequeue
+an existing PR: remove it from GitHub's queue separately. Enqueueing can lead to
+an automatic merge and there is no direct-merge fallback. Monitor the workflow
+and queue.
+
+An administrator must enable the `main` merge queue and install a dedicated
+GitHub App on this repository with Contents write, Pull requests write and Merge
+queues write permissions, without bypass rights. Store its ID and private key
+in `MERGE_QUEUE_APP_ID` and `MERGE_QUEUE_APP_PRIVATE_KEY` repository secrets.
+The workflow creates a short-lived installation token for each run. The
+`ready-to-merge` label must exist. Verify the App can enqueue and required
+checks run before relying on the queue. `actionlint` and `PHP Quality (8.4)` run
+on `merge_group`; review branch protection and rulesets for any additional
+required checks and ensure each reports on `merge_group`. Hosted Actions billing
+or credential restrictions can prevent the worker from running; local checks
+do not produce the required merge-group status.
