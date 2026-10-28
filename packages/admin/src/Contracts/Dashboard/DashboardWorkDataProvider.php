@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Contracts\Dashboard;
+
+use Capell\Admin\Data\Dashboard\DashboardWorkData;
+use Illuminate\Contracts\Auth\Authenticatable;
+
+interface DashboardWorkDataProvider
+{
+    /**
+     * Scope queries, items, totals and URLs to the actor, site and language.
+     * Include personal assignments and requested changes, never approvals.
+     */
+    public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardWorkData;
+}

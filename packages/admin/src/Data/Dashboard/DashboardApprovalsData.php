@@ -17,5 +17,6 @@ final class DashboardApprovalsData extends Data
         public readonly int $teamReviewCount,
         public readonly ?string $teamReviewUrl,
         public readonly array $items,
+        public readonly ?string $assignedReviewUrl = null,
     ) {}
 }
