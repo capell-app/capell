@@ -67,6 +67,12 @@ export function commandsForEntries(entries, frontendOrigin = null) {
         )
     }
 
+    if (entries.some((entry) => entry.id.startsWith('action-coverage-'))) {
+        commands.push(
+            'Workbench\\App\\Support\\ActionScreenshotFixture::initialize();',
+        )
+    }
+
     if (hasRecordStateSeed(entries)) {
         commands.push(
             'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',

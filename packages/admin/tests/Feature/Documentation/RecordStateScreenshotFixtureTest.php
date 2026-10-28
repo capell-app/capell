@@ -19,6 +19,7 @@ use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Workbench\App\Providers\ScreenshotWorkbenchServiceProvider;
+use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
 
 uses(CreatesAdminUser::class)
@@ -206,4 +207,19 @@ it('uses the configured screenshot port for the local marketplace fixture', func
 
     expect(config('capell-marketplace.marketplace.base_url'))->toBe('http://127.0.0.1:18147/api/v1')
         ->and(config('capell-marketplace.marketplace.web_url'))->toBe('http://127.0.0.1:18147');
+});
+
+it('seeds reusable action screenshot records and protects their routes', function (): void {
+    test()->actingAsAdmin();
+    ActionScreenshotFixture::initialize();
+    $child = Page::query()->where('name', 'Screenshot child page')->firstOrFail();
+    $parent = Page::query()->where('name', 'Screenshot parent page')->firstOrFail();
+    expect($child->parent_id)->toBe($parent->getKey())
+        ->and($child->site_id)->toBe($parent->site_id)
+        ->and(Site::query()->where('name', 'Screenshot French site')->firstOrFail()->language->code)->toBe('fr-x-screenshot');
+    test()->get('/screenshot-fixtures/actions/parent')->assertRedirect(ActionScreenshotFixture::parentHintUrl());
+    test()->get('/screenshot-fixtures/actions/site')->assertRedirect(ActionScreenshotFixture::createUrl());
+    ActionScreenshotFixture::initialize();
+    expect(Page::query()->where('name', 'Screenshot child page')->count())->toBe(1)
+        ->and(Site::query()->where('name', 'Screenshot French site')->count())->toBe(1);
 });
