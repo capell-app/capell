@@ -26,7 +26,7 @@ Choose another approach when:
 - Craft's dedicated content-modelling ecosystem is the reason for the project;
 - a hosted no-code CMS or public content-delivery API is a hard requirement.
 
-Capell is not hosted software and does not ship a public content-delivery API. Public pages render through the Laravel application using Blade, Livewire, Inertia, Vue, or the host's own stack.
+Capell is not hosted software and does not ship a public content-delivery API. Public pages render through the Laravel application using Blade and Livewire, through Inertia and Vue with the optional Inertia packages, or through the host's own stack.
 
 ## What Laravel keeps and Capell adds
 

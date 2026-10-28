@@ -32,12 +32,12 @@ The first fields decide where the page lives before you write content.
 
 **Site** — which public website owns the page. Even on a single-site install, the Site carries the domain, languages, default pages, related sites, and brand-level details the frontend uses.
 
-**Parent Page** — where the page sits in the tree.
+**Parent page** — where the page sits in the tree.
 
 - Leave it empty for a top-level page such as `/about`.
 - Choose a parent when the page belongs under another, such as `/about/team`.
 
-**Internal name** — the admin-facing name for the page record. It normally follows the page title, but you can keep the admin list clear when the frontend title is long or marketing-led.
+**Name** — the admin-facing name for the page record. It normally follows the page title, but you can change it to keep the admin list clear when the frontend title is long or marketing-led.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/first-page-parent-selector-dark.png"><img src="../images/generated/admin/first-page-parent-selector.png" alt="Parent Page selector on the page form"></picture>
 
@@ -117,9 +117,9 @@ You do not need to fill every field on the first pass. Add the content that help
 
 **Layout** — which frontend template renders the page. A normal content page can use the default layout; a landing page, article, product page, or campaign page may use a different one if your project has registered it.
 
-**Visible From** — scheduled availability. Leave it empty when the page should be available as soon as it is published.
+**Visible from** — scheduled availability. Leave it empty when the page should be available as soon as it is published.
 
-Page **Blueprint** is closely related to layout, but it is not the same thing. Blueprints define reusable editing, rendering, and behaviour rules:
+The page type you chose (its blueprint) is related to the layout, but it is not the same thing. Blueprints define reusable editing, rendering, and behaviour rules:
 
 | Concept   | Practical meaning                                       |
 | --------- | ------------------------------------------------------- |
@@ -138,7 +138,7 @@ On an already published page, the save action is labelled **Save**. If workflow 
 ## Preview and publish
 
 1. Open your saved draft for editing from **Pages**. Choose **Preview draft** to open its signed preview in another tab. When editing an existing published page, use the preview action your configured workflow provides and remember that **Save** can update the live page. Check the text, links, and any image. This preview lets you review unpublished content; it does not make the page public.
-2. Return to the editor and inspect the **Publish** panel. For an immediate first publication, review its URL and publishing blockers, and avoid a deliberate future **Visible From** or expired **Visible until** date. A saved draft is expected to remain unavailable until you publish it.
+2. Return to the editor and inspect the **Publish** panel. For an immediate first publication, review its URL and publishing blockers, and avoid a deliberate future **Visible from** or expired **Visible until** date. A saved draft is expected to remain unavailable until you publish it.
 3. Choose **Save and Publish** on the draft editor, or the **Publish** action provided by your workflow. Resolve any validation or approval message rather than assuming the save made the page live.
 4. Copy the canonical public URL for the page and open it in a private browser window with no Admin session. Use the ordinary site URL, not the signed preview link. For a top-level page with slug `about`, this is normally the selected site’s domain followed by `/about`.
 5. Confirm that the page loads and shows the text you just wrote, plus the image if you attached one. Reload after any later change to prove it reaches visitors.
@@ -205,7 +205,7 @@ Do not install every package on day one. Add the next package when the page you 
 | Extension                                                      | Add it when you need                                                                                       |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | [Layout Builder](../packages/layout-builder.md)                | Containers, reusable layout widgets, and approved section composition in a page layout.                    |
-| [ContentSections](../packages/content-sections.md)             | Ready-made, themeable page sections (hero, FAQ, pricing) built on Layout Builder.                          |
+| [Content Sections](../packages/content-sections.md)            | Ready-made, themeable page sections (hero, FAQ, pricing) built on Layout Builder.                          |
 | [Navigation](../packages/catalog.md#capell-foundation)         | Header, footer, sidebar, or utility menus that link your pages together.                                   |
 | Built-in Default Theme                                         | A practical frontend starting point provided by `capell-app/frontend` without installing a theme package.  |
 | [Frontend Authoring](../packages/catalog.md#capell-foundation) | Edit page title, description, or content from the public page after the admin-only beacon confirms access. |

@@ -4,8 +4,6 @@
 
 Start with the smallest page-building path that gives editors what they need. Move from HTML to blocks when the page body needs typed, reorderable units; move to Layout Builder when the page needs approved section composition; use a custom Blade layout only when the page is genuinely bespoke.
 
-A page does not have a direct `view_file` override. Give one page a custom Blade implementation by assigning it a dedicated layout with `master_file` and, where needed, `layout_file`. A widget can use its own `view_file`.
-
 [![Diagram showing the progression from an HTML page body, through content blocks and Layout Builder widgets, to a dedicated Blade layout.](../images/generated/page-building-continuum.webp)](../images/generated/page-building-continuum.webp)
 
 The diagram is an explanatory illustration, not a product screenshot. The screenshots below show real Capell admin surfaces.
@@ -25,7 +23,7 @@ The page type supplies the default. A page can opt out for its own body with `co
 
 Use HTML content for ordinary prose: headings, paragraphs, lists, links, and a page body that does not need editor-managed modules. It is the normal starting point for a simple About, policy, or contact page.
 
-Set the page type's content structure to HTML when that is the normal shape for pages of that type. An editor can use the page's content mode control when one page needs a different shape; Capell records that as `content_structure_override`, rather than changing the type for every page.
+Set the page type's content structure to HTML when that is the normal shape for pages of that type. To change one page, use **Convert content to blocks** (or **Convert content to HTML**) in the page editor; Capell records that as `content_structure_override`, rather than changing the type for every page.
 
 Use the [Create your first page](create-your-first-page.md) guide for the basic page workflow. Keep public rendering on the normal frontend path: templates receive prepared page data and should not query models or lazy-load relationships.
 

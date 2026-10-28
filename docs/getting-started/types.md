@@ -2,7 +2,7 @@
 
 Blueprints define reusable editing, rendering, and behaviour rules for content.
 
-Think of them as the cards in the Capell Library. A card has a name, a short description, a family, and a set of rules. The editor sees the plain name and description. Capell keeps the schema, renderer, cache settings, package hooks, and permissions behind it.
+Each blueprint appears on the **Blueprints** screen with a name, a short description and a family (page, site or theme). The editor sees the plain name and description. Capell keeps the schema, renderer, cache settings, package hooks, and permissions behind it.
 
 ![Core and demo blueprint variations](../images/types-core-demo-variations.svg)
 

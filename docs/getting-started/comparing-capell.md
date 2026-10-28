@@ -22,7 +22,7 @@ Capell is the strongest fit when a website is part of a Laravel product and cont
 
 ## Editorial and delivery trade-offs
 
-Capell favours developer-owned composition and predictable package contracts. It provides page trees, sites, languages, URLs, media boundaries, permissions, settings, publishing hooks, themes, widgets, and Layout Builder composition without moving the site out of Laravel.
+Capell favours developer-owned composition and predictable package contracts. It provides page trees, sites, languages, URLs, media boundaries, permissions, settings, publishing hooks, themes and, with the optional Layout Builder package, widget composition, without moving the site out of Laravel.
 
 WordPress is usually the fastest choice when a suitable plugin/theme combination already solves the brief. Application-specific workflows can, however, become a negotiation between plugin conventions, WordPress data, and the surrounding product.
 

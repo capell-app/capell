@@ -2,7 +2,7 @@
 
 > **Learn Capell · Stage 2 of 8 · about 20 min** · Previous: [Why Capell](why-capell.md) · [All stages](capell-learn.md) · Next: [Your first session](first-session.md)
 
-Use this path to install the current 1.x Foundation in a fresh Laravel application, open a styled Pages workspace, publish your own page, and inspect its history. It selects Core, Admin, Frontend, Installer, and Marketplace, with the default theme and demo content.
+Use this path to install the current 1.x Foundation in a fresh Laravel application, open the styled Pages screen, publish your own page, and inspect its history. It selects Core, Admin, Frontend, Installer, and Marketplace, with the default theme and demo content.
 
 The current 1.x Capell Foundation release is MIT-licensed and available through public Packagist packages without a Capell account. Paid marketplace packages use separate commercial terms and entitlement-scoped Composer access.
 
@@ -77,11 +77,11 @@ Capell Install Handoff
 
 If a required package lifecycle, asset build, permission sync, or health check fails, the command exits non-zero and withholds the success message. Follow the printed `Fix:` instruction, then rerun the installer; do not treat a partial run as production-ready.
 
-The handoff lists the installed packages, Admin and public URLs, first-page state, warnings, a short **What next** list (sign-in, first page, theme, content packages) and the next action. Use those URLs to check your installation.
+The handoff lists the installed packages, Admin and public URLs, first-page state, warnings, a short **What next** list (the asset build when one is still needed, sign-in, first page, theme, content packages) and the next action. Use those URLs to check your installation.
 
 ## 3. Start the application
 
-Before opening Admin or the public page, apply the Frontend dependency plan and build the production assets unless the installer recorded a successful resource rebuild:
+If the handoff's **What next** list includes `php artisan capell:frontend-after-install --apply --no-interaction`, run it before starting the application; it installs the frontend dependencies and builds the production assets. Otherwise go straight to `php artisan serve`:
 
 ```bash
 php artisan capell:frontend-after-install --apply --no-interaction
@@ -113,7 +113,7 @@ Demo content lets you inspect the workspace. Create your own saved page for this
 1. Select the intended site, open **Pages**, and create a page using the [first-page guide](create-your-first-page.md). Choose a suitable page type, title and slug, then add a short paragraph and **Save as draft**.
 2. Follow [Preview and publish](create-your-first-page.md#preview-and-publish): check the signed draft preview, inspect the Publish panel and its blockers, then **Save and Publish**. Saving a draft or scheduling it for later does not make it public now.
 3. Open the page's canonical public URL in a private browser window with no Admin session. Your paragraph should appear at the ordinary site URL; the signed preview is a separate check.
-4. Edit one sentence on the published page and **Save**. Reload its public URL, then open the page's history relation and inspect the before/after change. Preview a rollback and cancel unless you deliberately want to apply it.
+4. Edit one sentence on the published page and **Save**. Reload its public URL, then open the page's **History** tab and inspect the before/after change. Preview a rollback and cancel unless you deliberately want to apply it.
 
 [![Capell page editor with content and publishing controls](../images/generated/admin/admin-page-edit-form.png)](../images/generated/admin/admin-page-edit-form.png)
 

@@ -115,7 +115,7 @@ Capell uses host packages for shared contracts and optional packages for product
 
 | Capability         | Host package responsibility                                                                                                               | Optional package responsibility                                                                                                                                       |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Page and URL model | `Core` owns sites, languages, pages, Page URLs, layouts, blueprints, themes, redirects, and shared settings.                              | Blog, ContentSections, URL Manager, and other packages add specialist content types or richer workflows.                                                              |
+| Page and URL model | `Core` owns sites, languages, pages, Page URLs, layouts, blueprints, themes, redirects, and shared settings.                              | Blog, Content Sections, URL Manager, and other packages add specialist content types or richer workflows.                                                              |
 | Admin workspace    | `Admin` owns the Filament panel, core resources, policies, settings shell, extension surfaces, and dashboard slots.                       | Packages register resources, pages, widgets, settings, reports, schema extenders, and workflow actions.                                                               |
 | Public rendering   | `Frontend` owns request resolution, render context, public Blade/Livewire output, hooks, assets, cache headers, and public-output safety. | Themes, [HTML Cache](../architecture/page-cache.md), Frontend Authoring, SEO Suite, Site Discovery, Inertia, and widget packages add runtime behaviour.               |
 | Publishing         | Host pages have publishing dates, visibility checks, policies, and cache invalidation hooks.                                              | Publishing Studio adds workspaces, [approvals](../../packages/admin/docs/permissions-and-approval.md), scheduling, revisions, preview links, and workflow dashboards. |
@@ -128,8 +128,8 @@ Optional packages extend the host surfaces rather than replacing them.
 
 Examples:
 
-- `Capell Foundation`: ContentSections, blog, navigation, frontend authoring, the built-in Frontend default theme, HTML Cache, and Site Discovery
-- `Capell Publishing Pro`: Publishing Studio and preview tooling
+- Foundation add-ons: Content Sections, blog, navigation, frontend authoring, HTML Cache, and Site Discovery
+- Publishing workflow: Publishing Studio and preview tooling
 - `Capell Operations`: Migration Assistant, Diagnostics, Exception Reports, and Login Audit
 - `Capell Search & SEO`: SEO operations and site search
 

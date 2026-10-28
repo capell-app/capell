@@ -18,7 +18,8 @@ Plain-English definitions for everyday content work.
 | Alt text | A short text description of an image, used by screen readers and when the image fails to load. |
 | Site switcher | The admin control for choosing which site you are currently editing. |
 | Media | Uploaded files (images, documents) managed in the Media area. |
-| Blueprint | The reusable definition behind a page, theme or site. Admin labels: Page blueprint, Theme blueprint, Site blueprint. Older APIs call a page blueprint a page type. |
+| Blueprint | A reusable definition behind pages, sites or themes, managed on the **Blueprints** screen. When you create a page, Admin asks you to choose a page type: each page type is a page blueprint. |
+| Page type | The page blueprint you pick when creating a page. It decides the fields you see and how the page renders and lists. |
 | Site | A top-level publishing surface with its own domain(s), languages, and settings. |
 | Page | The primary routable content entity. Pages belong to a site and can have one or more language translations. |
 | Page URL | The site-scoped, per-language address of a page. A page keeps its old URLs as redirects when its slug or parent changes. |
@@ -27,7 +28,7 @@ Plain-English definitions for everyday content work.
 | Theme | The look of a site: templates, styles and assets. Managed in **Theme Library**. |
 | Theme Library | The admin screen for installed themes: **Customise → Preview → Apply**. See [Theme Library](../admin/theme-library.md). |
 | Page history | The recorded versions of a page. Compare any two, preview a rollback, then roll backward or forward without erasing history. Not a backup. See [Page history and rollback](../development/page-event-history.md). |
-| Clear Cache | The admin header action that refreshes cached pages and settings after a change that did not appear on the public site. |
+| Clear cache | The admin header action (shown to global administrators) that refreshes cached pages and settings after a change that did not appear on the public site. |
 | Peek | An optional package that previews an unsaved snapshot of the editor through the real theme. |
 | Scratch recovery | Restoring an editor form from the last unsaved draft the admin kept for you. |
 | Foundation | The five MIT-licensed host packages: Core, Admin, Frontend, Installer and Marketplace. Everything else is an optional package. |
