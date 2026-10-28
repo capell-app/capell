@@ -17,5 +17,6 @@ final class DashboardWorkItemData extends Data
         public readonly ?string $deadline,
         public readonly ?string $updatedAt,
         public readonly ?string $editUrl,
+        public readonly ?string $timezone = null,
     ) {}
 }

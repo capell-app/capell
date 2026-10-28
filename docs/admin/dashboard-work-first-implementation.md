@@ -23,16 +23,79 @@ that the dashboard is complete.
 - Approval assignments and review history belong to Publishing Studio. The
   existing neutral work queue does not establish that bridge.
 
-## Ordered slices and acceptance status
+## Acceptance matrix
 
-| Slice        | Required work                                                                                                 | Evidence / status                                                                       |
-| ------------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Shell        | Durable fresh-install opt-in, master fallback, widget switches, authorised registry, saved layouts and scopes | Outstanding; installation lifecycle and Filament extension points require verification. |
-| Work         | Personal work, approval bridge, evidence-based attention, publishing readiness and activity                   | Outstanding; optional approval provider needed.                                         |
-| Performance  | Typed availability, complete periods, source mapping, coverage, comparisons and honest empty states           | Outstanding; existing snapshot is insufficient.                                         |
-| Experience   | Widget designs, chooser, accessible layout editing and responsive states                                      | Outstanding; browser acceptance required.                                               |
-| Verification | Behaviour regressions, permission isolation, focused and full gates, shared-runner screenshots                | Outstanding. No runtime or browser evidence yet.                                        |
+These statuses describe the work in this branch, not release approval. The
+legacy dashboard remains selected when `capell-admin.dashboard.work_first.enabled`
+is false. The installation marker, companion providers and their independent
+verification are tracked separately by the coordinating checkout.
 
-The source tree and tests must be inspected in detail before each slice. Existing
-providers and saved settings must remain compatible; no optional integration is
-claimed solely because a placeholder renders.
+| Requirement                                        | Evidence and outstanding work                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Master fallback and per-widget switches            | Covered in `DefaultDashboardWidgetsTest.php`; disabled work and approvals provider calls are covered in `PersonalDraftsWidgetTest.php` and `ApprovalsWidgetTest.php`. The complete widget/job inventory still needs review.                                                                                                                                                                                                             |
+| Personal layouts and scope                         | Order, hide/show, sizes, Save/Cancel, reset, separate site/All-sites storage and remembered scope have focused tests in `WorkFirstLayoutTest.php`, `WorkFirstScopeTest.php` and `AdminWorkspaceTest.php`. `WorkFirstStableRowsTest.php` covers update prompts and removal of unavailable rows. The chooser has grouped previews and separate ordering controls; it still needs shared-runner browser, keyboard and responsive evidence. |
+| Personal work and approvals                        | Authorised own drafts and provider scope forwarding have focused tests; Publishing Studio owns the provider implementation and separate integration evidence. End-to-end assignment, deadline priority, review onboarding and permission coverage remain outstanding.                                                                                                                                                                   |
+| Urgent summary, attention, publishing and activity | Separate work-first widgets are present; trace the coordinator’s tests and browser evidence before marking these complete. Optional content status and recently updated widgets are hidden by default and have site-scoped focused checks in `OptionalContentWidgetsTest.php`.                                                                                                                                                          |
+| Analytics                                          | `BuildPageViewsActionTest.php` covers complete coverage, valid zero, disconnected, restricted role, failed fetch and stale cached figures. `VisitorsSnapshotTest.php` covers configured single-site visitor mapping and omits All-sites visitor totals. `BuildCompleteAnalyticsPeriodActionTest.php` covers complete source-local periods across DST. More multi-site, stale, source and browser cases remain.                          |
+| Popular and rising                                 | `PageRankingsTest.php` covers populated and insufficient states, mapping, site selection and thresholds. The default source cannot supply page rankings; configured external providers need separate integration evidence.                                                                                                                                                                                                              |
+| Accessibility and visual acceptance                | Not yet browser verified. Required populated, empty, failure, restricted-role, multilingual and multi-site states, responsive widths, keyboard editing, light/dark and shared-runner screenshots remain.                                                                                                                                                                                                                                |
+| Full verification                                  | Focused host PHP 8.4 checks have run. Required full local gates, coverage and hosted CI remain for the coordinator.                                                                                                                                                                                                                                                                                                                     |
+
+No optional integration is claimed merely because an unavailable state renders.
+
+## Ranking capability and thresholds
+
+The built-in daily rollups aggregate page views by site and language, and the
+raw activity bucket retention defaults to one day. They cannot supply reliable
+30-day page rankings. The work-first ranking provider therefore defaults to an
+unavailable state. Enable `capell-admin.dashboard.work_first.analytics.rankings`
+and set its `measure` and `source` labels to match the provider explicitly. Capable integrations must return
+authorised managed-page counts for complete comparable periods, excluding utility and error pages.
+Rising pages require at least 10 current observations, an absolute increase of
+at least 5, and growth of at least 20%. A zero previous count is shown as a new
+page only when the provider supplies separate page-creation evidence. The
+provider and its labels, scope, freshness and completeness still need independent
+integration and browser verification.
+
+## Audience source mapping
+
+The built-in page-view card uses complete UTC daily Capell activity rollups.
+Visitors are omitted until `capell-admin.dashboard.work_first.analytics.visitors`
+is explicitly enabled with `measure` and `source` labels matching an installed
+`DashboardVisitorsProvider`. The visitor provider is called only for a selected,
+authorised site; the All-sites view explains why visitor figures are omitted.
+Providers own source-specific complete-period, permission and availability
+semantics. The dashboard caches the last successful scoped snapshot for seven
+days and rechecks current access before displaying it as stale after a fetch
+failure; stale ranking links are suppressed. This bridge has focused contract tests but no real provider
+integration or browser acceptance yet.
+
+## Configuration keys
+
+`capell-admin.dashboard.work_first.enabled` is the master switch. Its package
+configuration reads `CAPELL_WORK_FIRST_DASHBOARD`; existing installations stay
+on the legacy dashboard unless explicitly enabled. Fresh-install enablement and
+explicit opt-out handling must be verified against the installer implementation.
+
+`capell-admin.dashboard.work_first.widgets` is a map of widget keys to booleans.
+Setting a key to `false` overrides personal layouts and prevents that widget's
+dedicated reads. The built-in keys are `urgent_summary`, `your_work`,
+`approvals`, `attention`, `page_views`, `visitors`, `publishing_health`,
+`popular_pages`, `rising_pages`, `team_activity`, `content_status` and
+`recently_updated`. Unspecified keys default to enabled; the last two widgets
+are offered in the chooser but hidden in a default layout. Hiding a widget
+personally preserves its preferences and does not disable shared checks needed
+by another widget.
+
+`capell-admin.dashboard.work_first.site_timezones` maps site UUIDs to IANA time
+zone identifiers for publishing deadlines; the resolver uses the application
+zone when a site has no mapping, and UTC for an invalid value. Built-in daily page-view rollups report
+complete UTC days and label them as UTC. Optional source mappings are configured
+under `capell-admin.dashboard.work_first.analytics.visitors` and
+`capell-admin.dashboard.work_first.analytics.rankings`, each with `enabled`,
+`measure` and `source`. Both mappings default off and must match the configured
+provider's labels. Unsupported engagement and conversion measures are omitted.
+
+Site and language choices, personal layouts and advisory decisions are stored
+per user in the existing `admin_workspace_preferences` JSON column. Site-specific
+layouts are shared across individual sites; the All-sites layout is separate.

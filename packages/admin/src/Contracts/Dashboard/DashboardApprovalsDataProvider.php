@@ -12,6 +12,7 @@ interface DashboardApprovalsDataProvider
     /**
      * Scope every query, item, total and URL to the actor and selected site.
      * Items represent direct assignments, not all approvals the actor may review.
+     * A zero limit is a capability/permission probe and must avoid queue/history queries.
      */
     public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardApprovalsData;
 }

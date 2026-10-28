@@ -13,5 +13,6 @@ final class DashboardWorkData extends Data
         public readonly bool $available,
         public readonly int $total,
         public readonly array $items,
+        public readonly ?string $listUrl = null,
     ) {}
 }

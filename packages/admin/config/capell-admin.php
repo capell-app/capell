@@ -21,6 +21,27 @@ $notificationEmails = array_values(array_filter(
 ));
 
 return [
+    'dashboard' => [
+        // Existing installations opt in explicitly; fresh-install wiring is separate.
+        'work_first' => [
+            'enabled' => env('CAPELL_WORK_FIRST_DASHBOARD', false),
+            'widgets' => [],
+            'site_timezones' => [],
+            'analytics' => [
+                'visitors' => [
+                    'enabled' => false,
+                    'measure' => null,
+                    'source' => null,
+                ],
+                'rankings' => [
+                    'enabled' => false,
+                    'measure' => null,
+                    'source' => null,
+                ],
+            ],
+        ],
+    ],
+
     'path' => env('CAPELL_ADMIN_PATH', 'admin'),
 
     'domain' => env('CAPELL_ADMIN_DOMAIN'),

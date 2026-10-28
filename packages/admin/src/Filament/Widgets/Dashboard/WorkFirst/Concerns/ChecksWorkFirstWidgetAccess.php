@@ -1,0 +1,26 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns;
+
+use Capell\Core\Models\Page;
+use Illuminate\Support\Facades\Gate;
+
+trait ChecksWorkFirstWidgetAccess
+{
+    public static function widgetEnabled(string $key): bool
+    {
+        $switches = config('capell-admin.dashboard.work_first.widgets', []);
+        $actor = auth()->user();
+
+        return config('capell-admin.dashboard.work_first.enabled', false) === true
+            && (! is_array($switches) || ($switches[$key] ?? true) !== false)
+            && $actor !== null && Gate::forUser($actor)->allows('viewAny', Page::class);
+    }
+
+    protected function rejectInvalidWorkFirstScope(): bool
+    {
+        return true;
+    }
+}

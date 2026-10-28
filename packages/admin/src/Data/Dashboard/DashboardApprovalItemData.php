@@ -17,5 +17,6 @@ final class DashboardApprovalItemData extends Data
         public readonly ?string $submittedAt,
         public readonly ?string $deadline,
         public readonly string $reviewUrl,
+        public readonly ?string $timezone = null,
     ) {}
 }

@@ -23,6 +23,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\RecentActivityFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\RecentlyPublishedFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\SiteStatsOverviewFilamentWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\UpdateAdvisoryFilamentWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PersonalDraftsWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionActionsFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionHealthFilamentWidget;
 use Capell\Admin\Filament\Widgets\Extensions\ExtensionStatsOverviewFilamentWidget;
@@ -388,3 +389,22 @@ function assertOptionalDashboardFilamentWidgetsKeepNativeColumnSpan(array $widge
         expect((new $widgetClass)->getColumnSpan())->toBe($expectedColumnSpan);
     }
 }
+
+it('opts existing dashboards into the work-first widget list only when enabled', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+
+    config()->set('capell-admin.dashboard.work_first.enabled', false);
+    expect((new CapellDashboard)->getWidgets())->not->toContain(PersonalDraftsWidget::class);
+
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    expect((new CapellDashboard)->getWidgets())->toContain(PersonalDraftsWidget::class)
+        ->not->toContain(AnalyticsOverviewFilamentWidget::class)
+        ->not->toContain(AnalyticsTrendFilamentWidget::class)
+        ->not->toContain(MarketingStudioQuickActionsFilamentWidget::class)
+        ->not->toContain(ListPagesFilamentWidget::class);
+
+    config()->set('capell-admin.dashboard.work_first.widgets', ['your_work' => false]);
+    expect((new CapellDashboard)->getWidgets())->not->toContain(PersonalDraftsWidget::class)
+        ->and(PersonalDraftsWidget::canView())->toBeFalse();
+});
