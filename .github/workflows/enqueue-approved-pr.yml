@@ -15,7 +15,8 @@ concurrency:
 
 jobs:
   enqueue:
-    if: github.event_name != 'pull_request_target' || github.event.label.name == 'ready-to-merge'
+    if: >-
+      ${{ (github.event_name == 'pull_request_target' && github.event.pull_request.base.ref == 'main' && github.event.label.name == 'ready-to-merge') || (github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     steps:
       - name: Check queue credential
