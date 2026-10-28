@@ -26,4 +26,4 @@ Use this section if you edit content, administer a site, or extend Capell's Fila
 | Track the record state UX follow-up       | [Record state UX follow-up plan](record-state-ux-follow-up-plan.md)     |
 | Find optional admin features              | [Packages and extensions](../packages/catalog.md)                       |
 
-Capell Admin owns the host panel and its shared extension contracts. Optional feature behavior and documentation stay with the package that provides them.
+Capell Admin owns the host panel and its shared extension contracts. Optional feature behaviour and documentation stay with the package that provides them.

@@ -18,7 +18,7 @@ Use this checklist before adding or moving documentation.
 - Every doc must be linked from `docs/README.md`, a section index, a package overview, or another doc.
 - Follow the [documentation visual standard](../standards/documentation-visuals.md) for linked originals, captions, theme-aware pairs, ownership, and evidence boundaries.
 - Do not keep "moved" stubs unless an external published URL needs a temporary redirect.
-- Do not document optional package behavior as built-in host behavior.
+- Do not document optional package behaviour as built-in host behaviour.
 - Keep package-specific install commands in the package that owns them.
 - Prefer short task pages over broad narrative pages.
 - End leaf docs with a small `Next` section when there is a natural follow-up.
