@@ -68,6 +68,8 @@ updates:
       # 2.7.0 depends on the abandoned symplify/rule-doc-generator-contracts,
       # which fails composer audit.
       - dependency-name: 'driftingly/rector-laravel'
+      # 2.7.0 adds rules that rewrite existing code; adopt them deliberately.
+      - dependency-name: 'rector/rector'
   - package-ecosystem: 'composer'
     directories:
       - '/packages/*'
