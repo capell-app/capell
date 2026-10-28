@@ -14,16 +14,6 @@ parameters:
               - ../tests/*
           reportUnmatched: false
 
-        # `@internal` marks surfaces outside the stable extension API. Pest test
-        # closures and anonymous migrations live outside the Capell root namespace,
-        # so PHPStan's native internal checks flag first-party use of them.
-        - message: '#(of|with|on|implements|references) internal (class|interface|enum) Capell\\#'
-          paths:
-              - ../packages/*/tests/*
-              - ../tests/*
-              - ../packages/*/database/*
-          reportUnmatched: false
-
         # Testbench declares $app nullable for lifecycle boundaries, but Pest test
         # closures run after setUp has created the application.
         - message: '#Cannot call method .* on Illuminate\\Foundation\\Application\|null#'
