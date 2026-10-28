@@ -20,16 +20,6 @@ parameters:
           path: ../packages/core/tests/*
           reportUnmatched: false
 
-        # These tests deliberately exercise the deprecated 1.x compatibility adapters.
-        - identifier: classConstant.deprecatedClass
-          paths:
-              - ../packages/admin/tests/Feature/Support/Media/FileUploadPathTamperingTest.php
-              - ../packages/core/tests/Feature/Diagnostics/CheckAdminPanelAccessActionTest.php
-          reportUnmatched: false
-        - identifier: method.deprecatedClass
-          path: ../packages/admin/tests/Feature/Support/Media/FileUploadPathTamperingTest.php
-          reportUnmatched: false
-
         # Faker uses __call magic; no static stubs exist for its property generators
         - message: '#Call to an undefined method Faker\\Generator::.*#'
 
