@@ -251,25 +251,31 @@ or timed-out cell is incomplete evidence, not support proof.
 
 After presenting the final diff and impact summary and obtaining Ben's explicit
 approval for a PR, add `ready-to-merge` to that open PR targeting `main`. The
-worker scans all open labelled PRs, including labels added before the worker was
-installed, and tries them in PR creation order, oldest first. It excludes drafts
-and PRs marked `awaiting-merge`. It runs when the label is added, every 15
-minutes and by manual dispatch; GitHub may delay scheduled runs. It retries
-pending or failed enqueue requests on the next run and stops at the first
-blocked candidate so later candidates do not overtake it. Already queued PRs
-are not re-enqueued. A previously queued or merged newer PR cannot be reordered
-retroactively when an older PR is labelled later.
+worker scans all labelled PRs, including existing labels, in PR creation order.
+It excludes drafts and `awaiting-merge` PRs, and handles one PR at a time. If
+its branch is behind, the worker updates it from `main` and waits for checks on
+the new head. When checks pass, it adds the PR to GitHub's merge queue and waits
+for that queue to finish before processing another PR. It runs when the label is
+added, every 15 minutes and by manual dispatch; GitHub may delay scheduled runs.
 
-The worker reads each PR's current head. The label is not proof that a later
-head was reviewed: remove it before pushing changes and apply it again only
-once the new final diff is approved. Audit existing labels and approvals before
-activating the worker. Enqueueing can lead to an automatic merge; monitor the
-workflow and queue. Removing the label does not dequeue an existing PR: remove
-it from GitHub's queue separately. The enqueue mutation has no direct-merge
-fallback.
+If a PR's checks fail, it conflicts, or GitHub removes it from the merge queue,
+the worker removes `ready-to-merge` and continues with the next candidate. Fix
+the problem, review the new final diff and reapply the label to retry. PRs from
+forks must be updated manually. Unexpected API failures stop the scan and retry
+later rather than being treated as test failures. A previously queued or merged
+newer PR cannot be reordered when an older PR is labelled later.
+
+The worker reads each PR's current head. The label does not prove that a later
+head was reviewed: remove it before pushing changes and reapply it only after
+approval. Audit existing labels and approvals before activation. An automatic
+update from `main` changes the head and can change the final diff; the worker
+cannot establish the separate per-PR approval required by the working contract.
+Removing the label does not dequeue an existing PR: remove it from GitHub's
+queue separately. Enqueueing can lead to an automatic merge and there is no
+direct-merge fallback. Monitor the workflow and queue.
 
 An administrator must enable the `main` merge queue and install a dedicated
-GitHub App on this repository with Contents write, Pull requests read and Merge
+GitHub App on this repository with Contents write, Pull requests write and Merge
 queues write permissions, without bypass rights. Store its ID and private key
 in `MERGE_QUEUE_APP_ID` and `MERGE_QUEUE_APP_PRIVATE_KEY` repository secrets.
 The workflow creates a short-lived installation token for each run. The

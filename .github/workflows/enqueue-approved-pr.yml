@@ -7,7 +7,11 @@ on:
   schedule:
     - cron: '*/15 * * * *'
 
-permissions: {}
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  statuses: read
 
 concurrency:
   group: ready-to-merge-queue
@@ -36,16 +40,17 @@ jobs:
           app-id: ${{ secrets.MERGE_QUEUE_APP_ID }}
           private-key: ${{ secrets.MERGE_QUEUE_APP_PRIVATE_KEY }}
           permission-contents: write
-          permission-pull-requests: read
+          permission-pull-requests: write
           permission-merge-queues: write
       - name: Enqueue the approved commit
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           QUEUE_TOKEN: ${{ steps.queue-token.outputs.token }}
         with:
-          github-token: ${{ steps.queue-token.outputs.token }}
+          github-token: ${{ github.token }}
           script: |
             if (!process.env.QUEUE_TOKEN) throw new Error('Queue installation token is missing.');
+            const app = getOctokit(process.env.QUEUE_TOKEN);
             const pulls = await github.paginate(github.rest.pulls.list, {
               ...context.repo, state: 'open', base: 'main', per_page: 100,
             });
@@ -53,38 +58,102 @@ jobs:
               .filter(pr => !pr.draft && pr.labels.some(label => label.name === 'ready-to-merge')
                 && !pr.labels.some(label => label.name === 'awaiting-merge'))
               .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.number - b.number);
+            if (!candidates.length) return;
+            const queue = await github.graphql(`
+              query QueueState($id: ID!) {
+                node(id: $id) { ... on PullRequest {
+                  mergeQueue { id entries(first: 1) { totalCount } }
+                } }
+              }
+            `, { id: candidates[0].node_id });
+            if (!queue.node?.mergeQueue) throw new Error('The main branch has no merge queue configured.');
+            if (queue.node.mergeQueue.entries.totalCount) {
+              core.info('A pull request is already in the merge queue; waiting for it to finish.');
+              return;
+            }
             for (const candidate of candidates) {
               const { data: pr } = await github.rest.pulls.get({
                 ...context.repo, pull_number: candidate.number,
               });
               if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main'
                   || !pr.labels.some(label => label.name === 'ready-to-merge')
-                  || pr.labels.some(label => label.name === 'awaiting-merge')) {
-                throw new Error(`PR #${candidate.number} changed while the queue was being examined; retry.`);
-              }
-              if (pr.head.sha !== candidate.head.sha) {
-                throw new Error(`PR #${candidate.number} changed during the queue scan; review its new head.`);
+                  || pr.labels.some(label => label.name === 'awaiting-merge')
+                  || pr.head.sha !== candidate.head.sha) {
+                throw new Error(`PR #${candidate.number} changed during the scan; retry.`);
               }
               const state = await github.graphql(`
-                query($id: ID!) {
-                  node(id: $id) { ... on PullRequest { mergeQueue { id } mergeQueueEntry { id } } }
+                query Candidate($id: ID!) {
+                  node(id: $id) { ... on PullRequest {
+                    mergeStateStatus mergeQueueEntry { id }
+                    statusCheckRollup { state }
+                    timelineItems(last: 100, itemTypes: [LABELED_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+                      nodes {
+                        __typename
+                        ... on LabeledEvent { createdAt label { name } }
+                        ... on RemovedFromMergeQueueEvent { createdAt reason }
+                      }
+                    }
+                  } }
                 }
               `, { id: pr.node_id });
-              if (!state.node?.mergeQueue) throw new Error('The main branch has no merge queue configured.');
-              if (state.node.mergeQueueEntry) {
-                core.info(`PR #${pr.number} is already queued.`);
+              if (!state.node) throw new Error(`Cannot inspect PR #${pr.number}.`);
+              if (state.node.mergeQueueEntry) return;
+              const timeline = state.node.timelineItems.nodes;
+              const lastLabel = timeline.findLastIndex(event => event.__typename === 'LabeledEvent'
+                && event.label?.name === 'ready-to-merge');
+              const lastRemoval = timeline.findLastIndex(event => event.__typename === 'RemovedFromMergeQueueEvent');
+              const removedAfterLabel = lastRemoval >= 0 && lastRemoval > lastLabel;
+              const result = state.node.statusCheckRollup?.state;
+              const failed = removedAfterLabel || state.node.mergeStateStatus === 'DIRTY';
+              if (failed) {
+                const latest = await github.rest.pulls.get({ ...context.repo, pull_number: pr.number });
+                if (latest.data.head.sha !== pr.head.sha || !latest.data.labels.some(label => label.name === 'ready-to-merge')) {
+                  throw new Error(`PR #${pr.number} changed while handling a failure; retry.`);
+                }
+                await app.rest.issues.removeLabel({ ...context.repo, issue_number: pr.number, name: 'ready-to-merge' });
+                core.warning(`PR #${pr.number} failed checks, has conflicts, or was removed from the merge queue; fix it and reapply ready-to-merge to retry.`);
                 continue;
               }
-              // Stop on a failure: a newer PR must not pass an older labelled PR.
-              const result = await github.graphql(`
+              if (pr.head.repo?.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
+                core.warning(`PR #${pr.number} is from a fork; update its branch manually.`);
+                continue;
+              }
+              if (state.node.mergeStateStatus === 'UNKNOWN') return;
+              const comparison = await github.rest.repos.compareCommitsWithBasehead({
+                ...context.repo, basehead: `main...${pr.head.sha}`,
+              });
+              if (comparison.data.behind_by > 0) {
+                await app.rest.pulls.updateBranch({ ...context.repo, pull_number: pr.number, expected_head_sha: pr.head.sha });
+                core.notice(`Updating PR #${pr.number}; waiting for the new head and its checks.`);
+                return;
+              }
+              if (result === 'FAILURE' || result === 'ERROR') {
+                const latest = await github.rest.pulls.get({ ...context.repo, pull_number: pr.number });
+                if (latest.data.head.sha !== pr.head.sha || !latest.data.labels.some(label => label.name === 'ready-to-merge')) {
+                  throw new Error(`PR #${pr.number} changed while handling a failure; retry.`);
+                }
+                await app.rest.issues.removeLabel({ ...context.repo, issue_number: pr.number, name: 'ready-to-merge' });
+                core.warning(`PR #${pr.number} failed its checks; fix it and reapply ready-to-merge to retry.`);
+                continue;
+              }
+              if (!result || result === 'PENDING' || result === 'EXPECTED') {
+                core.info(`PR #${pr.number} is waiting for checks.`);
+                return;
+              }
+              const latest = await github.rest.pulls.get({ ...context.repo, pull_number: pr.number });
+              if (latest.data.head.sha !== pr.head.sha || latest.data.state !== 'open' || latest.data.draft
+                  || latest.data.base.ref !== 'main' || !latest.data.labels.some(label => label.name === 'ready-to-merge')
+                  || latest.data.labels.some(label => label.name === 'awaiting-merge')) {
+                throw new Error(`PR #${pr.number} changed before enqueue; retry.`);
+              }
+              const queued = await app.graphql(`
                 mutation($id: ID!, $sha: GitObjectID!) {
                   enqueuePullRequest(input: {pullRequestId: $id, expectedHeadOid: $sha}) {
                     mergeQueueEntry { id }
                   }
                 }
               `, { id: pr.node_id, sha: pr.head.sha });
-              if (!result.enqueuePullRequest.mergeQueueEntry) {
-                throw new Error(`GitHub did not return a queue entry for PR #${pr.number}.`);
-              }
-              core.notice(`PR #${pr.number} was enqueued at ${pr.head.sha}; this does not yet mean it merged.`);
+              if (!queued.enqueuePullRequest.mergeQueueEntry) throw new Error(`GitHub did not queue PR #${pr.number}.`);
+              core.notice(`PR #${pr.number} entered the merge queue at ${pr.head.sha}.`);
+              return;
             }
