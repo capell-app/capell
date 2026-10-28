@@ -216,6 +216,25 @@ EOF
     exit 78
 }
 
+require_container_node_dependencies() {
+    # Native npm packages are platform-specific even when the bind mount is shared.
+    if [ ! -d node_modules/lightningcss ]; then
+        return
+    fi
+
+    if ! "${app_exec[@]}" node -e "require('lightningcss')"; then
+        cat >&2 <<'EOF'
+The container could not load this checkout's native Node dependencies.
+If node_modules was installed on the host, rebuild it inside this container:
+
+    ./capell npm ci --no-audit --no-fund
+
+Check the Docker error above if the container is not running.
+EOF
+        exit 78
+    fi
+}
+
 command_name="${1:-help}"
 
 if [ "$#" -gt 0 ]; then
@@ -259,6 +278,7 @@ case "$command_name" in
     composer)
         if [[ "${1:-}" = test* || "${1:-}" = preflight* ]]; then
             require_test_dependencies
+            require_container_node_dependencies
             verification_container_command "$(capell_composer_verification_scope "$@")" test composer "$@"
         else
             verification_container_command "$(capell_composer_verification_scope "$@")" app composer "$@"
@@ -272,10 +292,12 @@ case "$command_name" in
         ;;
     test)
         require_test_dependencies
+        require_container_node_dependencies
         verification_container_command full test composer test "$@"
         ;;
     pest)
         require_test_dependencies
+        require_container_node_dependencies
         verification_container_command "$(capell_test_verification_scope "$@")" test vendor/bin/pest "$@"
         ;;
     analyze)
@@ -286,10 +308,12 @@ case "$command_name" in
         ;;
     preflight)
         require_test_dependencies
+        require_container_node_dependencies
         verification_container_command full app composer preflight "$@"
         ;;
     preflight-all)
         require_test_dependencies
+        require_container_node_dependencies
         verification_container_command full app composer preflight:all "$@"
         ;;
     exec)
