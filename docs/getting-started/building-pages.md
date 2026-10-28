@@ -75,7 +75,7 @@ Create a dedicated layout in the admin and assign it only to that page. Set its 
 - `layout_file` selects the outer document shell that receives the rendered body slot.
 - A widget's `view_file` can override that widget's view when the widget, rather than the whole page, needs a bespoke rendering.
 
-There is no page-level `view_file`; assigning a dedicated layout with `master_file` and `layout_file` is the supported per-page route to full Blade control.
+There is no page-level `view_file`. A page does not have a direct `view_file` override; assigning a dedicated layout with `master_file` and `layout_file` is the supported per-page route to full Blade control.
 
 Keep these views public-safe. Blade should use hydrated data prepared by Capell; do not run queries, call `loadMissing()`, or reach back into package state from a public view. Do not expose authoring IDs, field paths, selectors, package internals, permissions, or signed preview URLs. See the [public HTML safety contract](../frontend/public-html-safety.md) before changing public output.
 
