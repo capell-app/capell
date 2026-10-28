@@ -27,22 +27,28 @@ final class BuildWorkFirstActivityAction
     use AsFake;
     use AsObject;
 
-    /** @return list<DashboardActivityItemData> */
-    public function handle(Authenticatable $actor, ?int $siteId, ?string $language, int $limit = 5): array
+    /**
+     * @param  list<string>  $retainedKeys
+     * @return list<DashboardActivityItemData>
+     */
+    public function handle(Authenticatable $actor, ?int $siteId, ?string $language, int $limit = 5, array $retainedKeys = []): array
     {
         $items = [];
         $evaluator = resolve(DashboardSiteEvaluator::class);
         foreach ($evaluator->siteIds($actor, $siteId) as $candidate) {
-            $items = [...$items, ...$evaluator->run($actor, $candidate, fn (): array => $this->handleSite($actor, $candidate, $language, $limit))];
+            $items = [...$items, ...$evaluator->run($actor, $candidate, fn (): array => $this->handleSite($actor, $candidate, $language, $limit, $retainedKeys))];
         }
 
         usort($items, static fn ($left, $right): int => CarbonImmutable::parse($right->occurredAt)->getTimestamp() <=> CarbonImmutable::parse($left->occurredAt)->getTimestamp());
 
-        return array_slice($items, 0, max(0, $limit));
+        return array_values(array_filter($items, static fn (DashboardActivityItemData $item, int $index): bool => $index < max(0, $limit) || in_array($item->key, $retainedKeys, true), ARRAY_FILTER_USE_BOTH));
     }
 
-    /** @return list<DashboardActivityItemData> */
-    private function handleSite(Authenticatable $actor, ?int $siteId, ?string $language, int $limit = 5): array
+    /**
+     * @param  list<string>  $retainedKeys
+     * @return list<DashboardActivityItemData>
+     */
+    private function handleSite(Authenticatable $actor, ?int $siteId, ?string $language, int $limit = 5, array $retainedKeys = []): array
     {
         if (! Gate::forUser($actor)->allows('viewAny', Activity::class)) {
             return [];
@@ -123,7 +129,7 @@ final class BuildWorkFirstActivityAction
         $items = array_values($items);
         foreach (app()->tagged(DashboardActivityContributor::TAG) as $contributor) {
             if ($contributor instanceof DashboardActivityContributor) {
-                foreach ($contributor->build($actor, $siteId, $language, $limit) as $item) {
+                foreach ($contributor->build($actor, $siteId, $language, $limit, $retainedKeys) as $item) {
                     if ($item instanceof DashboardActivityItemData && resolve(CanViewDashboardItemAction::class)->handle($actor, $item->siteId, $siteId, $item->pageId, $language)) {
                         $items[] = $item;
                     }
@@ -133,6 +139,6 @@ final class BuildWorkFirstActivityAction
 
         usort($items, static fn (DashboardActivityItemData $left, DashboardActivityItemData $right): int => CarbonImmutable::parse($right->occurredAt)->getTimestamp() <=> CarbonImmutable::parse($left->occurredAt)->getTimestamp());
 
-        return array_slice($items, 0, max(0, $limit));
+        return array_values(array_filter($items, static fn (DashboardActivityItemData $item, int $index): bool => $index < max(0, $limit) || in_array($item->key, $retainedKeys, true), ARRAY_FILTER_USE_BOTH));
     }
 }

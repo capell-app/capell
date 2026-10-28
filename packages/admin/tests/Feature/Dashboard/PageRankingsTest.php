@@ -194,3 +194,40 @@ it('does not present page rankings without reporting dates', function (): void {
     });
     expect(resolve(BuildPageRankingsAction::class)->handle(test()->authenticatedUser(), null, null, 30, false)->status)->toBe('insufficient');
 });
+
+it('rejects an old available site period even when another site reports the same period as stale', function (): void {
+    test()->actingAsAdmin();
+    $firstSite = Site::factory()->createOne();
+    $secondSite = Site::factory()->createOne();
+    config()->set('capell-admin.dashboard.work_first.analytics.rankings', ['enabled' => true, 'measure' => 'Page views', 'source' => 'Mixed source']);
+    $provider = new class($firstSite->id) implements DashboardPageRankingProvider
+    {
+        public function __construct(public int $availableSite) {}
+
+        #[Override]
+        public function build(Authenticatable $actor, ?int $siteId, ?string $language, int $days): DashboardPageRankingSourceData
+        {
+            return new DashboardPageRankingSourceData(
+                true,
+                true,
+                true,
+                'Page views',
+                'Mixed source',
+                'UTC',
+                [],
+                sitesRequested: 1,
+                sitesCovered: 1,
+                status: $siteId === $this->availableSite ? 'available' : 'stale',
+                lastUpdated: '2026-10-27T00:00:00+00:00',
+                periodStart: '2026-09-27',
+                periodEnd: '2026-10-27',
+            );
+        }
+    };
+    app()->instance(DashboardPageRankingProvider::class, $provider);
+    $action = resolve(BuildPageRankingsAction::class);
+
+    expect($action->handle(test()->authenticatedUser(), null, null, 30, false)->status)->toBe('insufficient');
+    $provider->availableSite = $secondSite->id;
+    expect($action->handle(test()->authenticatedUser(), null, null, 30, false)->status)->toBe('insufficient');
+});

@@ -15,7 +15,7 @@
         <div class="mt-2 flex flex-wrap items-center gap-2">
             <x-filament::badge
                 :color="$item->readiness === 'blocked' ? 'warning' : 'gray'"
-                >{{ __('capell-admin::work-first.' . $item->readiness) }}</x-filament::badge
+                >{{ $item->readinessLabel ?? __('capell-admin::work-first.' . $item->readiness) }}</x-filament::badge
             >
             @if ($item->readiness === 'blocked')
                 @if ($attentionVisible)
@@ -27,7 +27,7 @@
                 @else
                     <span
                         class="text-xs text-gray-500"
-                        >{{ implode(' · ', array_map(fn ($reason) => __('capell-admin::work-first.reason_' . $reason), $item->reasons)) }}</span
+                        >{{ implode(' · ', array_map(fn ($reason) => \Illuminate\Support\Facades\Lang::has('capell-admin::work-first.reason_' . $reason) ? __('capell-admin::work-first.reason_' . $reason) : $reason, $item->reasons)) }}</span
                     >
                     @if ($item->url)
                         <a

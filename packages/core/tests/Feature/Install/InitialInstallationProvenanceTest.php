@@ -64,6 +64,7 @@ it('retains first installation provenance across a new console invocation until 
     InstallRunState::rememberInitialInstallation(true);
     Site::factory()->create();
     CapellExtension::query()->create(['composer_name' => 'capell-app/admin', 'name' => 'Admin', 'status' => ExtensionStatusEnum::Enabled]);
+    InstallRunState::checkpointInitialInstallation();
     $factory = new InstallInputFactory(new PackageWorkflowPlanner);
     $retry = $factory->fromResolvedConsoleInput(
         siteUrl: 'https://example.test',
@@ -76,5 +77,11 @@ it('retains first installation provenance across a new console invocation until 
     );
     expect($retry->initialInstallation)->toBeTrue();
     InstallRunState::completeInitialInstallation();
+    expect(DetectInitialInstallationAction::run())->toBeFalse();
+});
+
+it('does not reuse an abandoned first-install marker after the database contents change', function (): void {
+    InstallRunState::rememberInitialInstallation(true);
+    Site::factory()->create();
     expect(DetectInitialInstallationAction::run())->toBeFalse();
 });

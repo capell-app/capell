@@ -13,7 +13,7 @@
             <ul class="mt-1 text-xs text-gray-500">
                 @foreach ($item->reasons as $reason)
                     <li>
-                        {{ __('capell-admin::work-first.reason_' . $reason) }}
+                        {{ \Illuminate\Support\Facades\Lang::has('capell-admin::work-first.reason_' . $reason) ? __('capell-admin::work-first.reason_' . $reason) : $reason }}
                     </li>
                 @endforeach
             </ul>

@@ -20,5 +20,6 @@ final class DashboardPublicationItemData extends Data
         public readonly string $readiness,
         public readonly array $reasons,
         public readonly ?string $url,
+        public readonly ?string $readinessLabel = null,
     ) {}
 }

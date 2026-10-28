@@ -66,7 +66,7 @@ final class TeamActivityWidget extends Widget
         $actor = auth()->user();
 
         return ! self::canView() || $actor === null ? [] : resolve(BuildWorkFirstActivityAction::class)
-            ->handle($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage(), 100);
+            ->handle($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage(), 100, $this->dashboardItemOrder);
     }
 
     public function activityUrl(): string

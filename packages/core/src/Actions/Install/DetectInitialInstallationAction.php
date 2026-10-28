@@ -18,11 +18,11 @@ final class DetectInitialInstallationAction
 
     public function handle(): bool
     {
-        if (InstallRunState::hasPendingInitialInstallation()) {
-            return true;
-        }
-
         try {
+            if (InstallRunState::hasPendingInitialInstallation()) {
+                return true;
+            }
+
             $extension = new CapellExtension;
             $schema = $extension->getConnection()->getSchemaBuilder();
             if ($schema->hasTable($extension->getTable())

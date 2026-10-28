@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Contracts\Dashboard\DashboardAttentionContributor;
 use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
+use Capell\Admin\Support\Dashboard\DashboardDeadline;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
@@ -31,7 +32,7 @@ final class BuildWorkFirstAttentionAction
             $items = [...$items, ...$evaluator->run($actor, $candidate, fn (): array => $this->handleSite($actor, $candidate, $language))];
         }
 
-        usort($items, static fn ($left, $right): int => [$left->urgent ? 0 : 1, $left->deadline === null ? 1 : 0, $left->deadline ?? '', $left->key] <=> [$right->urgent ? 0 : 1, $right->deadline === null ? 1 : 0, $right->deadline ?? '', $right->key]);
+        usort($items, static fn ($left, $right): int => [$left->urgent ? 0 : 1, $left->deadline === null ? 1 : 0, DashboardDeadline::timestamp($left->deadline), $left->key] <=> [$right->urgent ? 0 : 1, $right->deadline === null ? 1 : 0, DashboardDeadline::timestamp($right->deadline), $right->key]);
 
         return $items;
     }
@@ -96,9 +97,9 @@ final class BuildWorkFirstAttentionAction
 
         $items = array_values($unique);
         usort($items, static fn (DashboardAttentionItemData $left, DashboardAttentionItemData $right): int => [
-            $left->urgent ? 0 : 1, $left->deadline === null ? 1 : 0, $left->deadline ?? '', $left->key,
+            $left->urgent ? 0 : 1, $left->deadline === null ? 1 : 0, DashboardDeadline::timestamp($left->deadline), $left->key,
         ] <=> [
-            $right->urgent ? 0 : 1, $right->deadline === null ? 1 : 0, $right->deadline ?? '', $right->key,
+            $right->urgent ? 0 : 1, $right->deadline === null ? 1 : 0, DashboardDeadline::timestamp($right->deadline), $right->key,
         ]);
 
         return $items;

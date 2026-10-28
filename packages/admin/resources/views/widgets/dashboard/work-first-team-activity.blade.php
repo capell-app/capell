@@ -31,7 +31,7 @@
                         />
                         <div class="min-w-0 flex-1 text-sm">
                             <span class="font-medium">{{ $item->actor }}</span>
-                            {{ __('capell-admin::work-first.activity_' . $item->event) }}
+                            {{ $item->eventLabel ?? __('capell-admin::work-first.activity_' . $item->event) }}
                             @if ($item->url)
                                 <a
                                     href="{{ $item->url }}"

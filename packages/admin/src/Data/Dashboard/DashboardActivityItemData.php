@@ -19,5 +19,6 @@ final class DashboardActivityItemData extends Data
         public readonly ?string $url,
         public int $changes = 1,
         public readonly ?int $pageId = null,
+        public readonly ?string $eventLabel = null,
     ) {}
 }

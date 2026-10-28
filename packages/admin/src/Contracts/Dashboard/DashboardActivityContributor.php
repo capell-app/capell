@@ -11,6 +11,7 @@ interface DashboardActivityContributor
 {
     public const string TAG = 'capell.admin.dashboard-activity';
 
-    /** @return list<DashboardActivityItemData> Permitted meaningful events, most recent first. */
-    public function build(Authenticatable $actor, ?int $siteId, ?string $language, int $limit): array;
+    /** @param list<string> $retainedKeys
+     * @return list<DashboardActivityItemData> Permitted meaningful events, most recent first. */
+    public function build(Authenticatable $actor, ?int $siteId, ?string $language, int $limit, array $retainedKeys = []): array;
 }

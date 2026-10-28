@@ -189,6 +189,11 @@ final class BuildPageRankingsAction
                 return $part;
             }
 
+            if (! resolve(ValidateDashboardReportingPeriodAction::class)->handle($part->periodStart, $part->periodEnd, $part->timezone, $days, $part->status)) {
+                $currentComplete = false;
+                $previousComplete = false;
+            }
+
             if ($first !== null && ($part->measure !== $first->measure || $part->source !== $first->source || $part->timezone !== $first->timezone
                 || $part->periodStart !== $first->periodStart || $part->periodEnd !== $first->periodEnd)) {
                 $currentComplete = false;

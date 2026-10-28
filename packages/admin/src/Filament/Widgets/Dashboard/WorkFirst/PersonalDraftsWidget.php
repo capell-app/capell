@@ -11,6 +11,7 @@ use Capell\Admin\Data\Dashboard\DashboardWorkItemData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
+use Capell\Admin\Support\Dashboard\DashboardDeadline;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -111,9 +112,9 @@ final class PersonalDraftsWidget extends Widget
 
         $items = array_values($items);
         usort($items, static fn (DashboardWorkItemData $left, DashboardWorkItemData $right): int => [
-            $left->deadline === null ? 1 : 0, $left->deadline ?? '', $left->reason === 'changes_requested' ? 0 : 1, $left->pageId,
+            $left->deadline === null ? 1 : 0, DashboardDeadline::timestamp($left->deadline), $left->reason === 'changes_requested' ? 0 : 1, $left->pageId,
         ] <=> [
-            $right->deadline === null ? 1 : 0, $right->deadline ?? '', $right->reason === 'changes_requested' ? 0 : 1, $right->pageId,
+            $right->deadline === null ? 1 : 0, DashboardDeadline::timestamp($right->deadline), $right->reason === 'changes_requested' ? 0 : 1, $right->pageId,
         ]);
 
         return $items;
