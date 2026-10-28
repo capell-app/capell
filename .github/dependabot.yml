@@ -58,6 +58,18 @@ updates:
       # changes; it needs a planned migration across Core and its consumers.
       - dependency-name: 'spatie/laravel-activitylog'
         update-types: ['version-update:semver-major']
+      # The October 2026 static-analysis bumps crash PHPStan with an internal
+      # array_merge() error; hold them until a release is verified in CI.
+      - dependency-name: 'phpstan/phpstan'
+      - dependency-name: 'larastan/larastan'
+      - dependency-name: 'tomasvotruba/type-coverage'
+      - dependency-name: 'pestphp/pest-plugin-type-coverage'
+      - dependency-name: 'pestphp/pest-plugin-phpstan'
+      # 2.7.0 depends on the abandoned symplify/rule-doc-generator-contracts,
+      # which fails composer audit.
+      - dependency-name: 'driftingly/rector-laravel'
+      # 2.7.0 adds rules that rewrite existing code; adopt them deliberately.
+      - dependency-name: 'rector/rector'
   - package-ecosystem: 'composer'
     directories:
       - '/packages/*'
