@@ -58,12 +58,6 @@
         },
         {
             "repo": "current",
-            "file": "packages/admin/src/Filament/Components/Forms/Page/TranslationsRepeater.php",
-            "actions": ["Action"],
-            "reasons": ["custom action maker"]
-        },
-        {
-            "repo": "current",
             "file": "packages/admin/src/Filament/Components/Forms/PageRelationSelect.php",
             "actions": ["HintEditAction"],
             "reasons": ["custom action maker"]
