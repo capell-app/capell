@@ -98,6 +98,10 @@ layers are required: the browser decodes the attribute before the tooltip render
 its value as HTML. Keep names unchanged in storage and escape them at rendering
 boundaries. Package updates do not replace application view overrides; compare
 each override with the updated package view rather than overwriting customisations.
+The upgrade dry run lists published Admin views that differ from the installed
+package and views whose upstream file cannot be compared. Differences may be
+intentional; review them for upstream security and behaviour changes. An
+unavailable package view directory is reported as unknown.
 
 ## Frontend resource graph breaking change
 
@@ -198,6 +202,20 @@ composer update capell-app/blog
 php artisan capell:upgrade
 ```
 
+## Version-specific steps
+
+The dry run reads the last successful Core version snapshot and the installed
+Composer Core version, then prints the steps for releases after the snapshot up
+to and including the installed version. If either version is unavailable or is
+a development version, the range is unknown and needs manual review. Keep these
+sections aligned with the packaged `packages/core/resources/upgrade-guide.md`;
+the packaged copy is used by installed split packages.
+
+### v1.0.0
+
+- Back up the database, environment and storage, and test the restore before deployment.
+- Update the foundation packages together, then run `php artisan capell:upgrade --dry-run` and `php artisan capell:upgrade`.
+
 ## Standard flow
 
 ```bash
@@ -256,18 +274,19 @@ You can audit upgrades with plain SQL — no joins required.
 
 ## Flags
 
-| Flag                           | Purpose                                             |
-| ------------------------------ | --------------------------------------------------- |
-| `--dry-run`                    | Print the plan; make no changes                     |
-| `--force`                      | Skip interactive confirmations                      |
-| `--force-downgrade`            | Proceed even if Composer is older than the log says |
-| `--force-step=ID` (repeatable) | Re-run a specific step                              |
-| `--skip-migrations`            | Don't publish/run migrations                        |
-| `--skip-steps`                 | Don't run upgrade steps                             |
-| `--only-migrations`            | Run only the migrations phase                       |
-| `--only-steps`                 | Run only the upgrade-steps phase                    |
-| `--no-clear-cache`             | Skip the cache-clear menu                           |
-| `--caches=`                    | Caches to clear after upgrade: `all`, `page`, `config`, `views` |
+| Flag                           | Purpose                                                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `--dry-run`                    | Print the plan; make no changes                                                                             |
+| `--strict`                     | With `--dry-run`, fail on unmet requirements, invalid manifest declarations or version-ledger discrepancies |
+| `--force`                      | Skip interactive confirmations                                                                              |
+| `--force-downgrade`            | Proceed even if Composer is older than the log says                                                         |
+| `--force-step=ID` (repeatable) | Re-run a specific step                                                                                      |
+| `--skip-migrations`            | Don't publish/run migrations                                                                                |
+| `--skip-steps`                 | Don't run upgrade steps                                                                                     |
+| `--only-migrations`            | Run only the migrations phase                                                                               |
+| `--only-steps`                 | Run only the upgrade-steps phase                                                                            |
+| `--no-clear-cache`             | Skip the cache-clear menu                                                                                   |
+| `--caches=`                    | Caches to clear after upgrade: `all`, `page`, `config`, `views`                                             |
 
 ## Rollback
 
@@ -290,6 +309,8 @@ Writes a `rolled_back` row, then marks the original `success` row as `superseded
 ## Retention
 
 `capell_upgrade_runs` and `capell_upgrade_run_events` are append-only operational records. Capell v1 does not prune them automatically. Keep successful dry-run records for at least 30 days, successful production records for at least 180 days, and failed/manual-required records until an operator has reviewed or exported them.
+
+A normal dry run returns success when the report is generated. Add `--strict` to return a failure for actionable findings; unknown backup, migration or version-history status is reported as a warning and does not itself fail strict mode. A successful report does not establish that a backup exists or that migrations are reversible.
 
 ## CI / automated deploys
 

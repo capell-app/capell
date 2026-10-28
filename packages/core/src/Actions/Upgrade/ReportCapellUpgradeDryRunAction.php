@@ -29,27 +29,97 @@ final class ReportCapellUpgradeDryRunAction
 
     private const int MAX_MANIFEST_FINDINGS = 20;
 
-    public function handle(UpgradeReporter $reporter): int
+    public function handle(UpgradeReporter $reporter, bool $strict = false): int
     {
         $composerVersions = ResolveInstalledComposerVersionsAction::run();
         $versionAudit = $this->versionAudit($composerVersions);
+        $requirements = FindUnmetPackageRequirementsAction::run();
+        $manifestFindings = $this->manifestFindings();
 
         $reporter->warn('=== DRY RUN REPORT — no changes will be made ===');
-        foreach (FindUnmetPackageRequirementsAction::run() as $requirement) {
+        foreach ($requirements as $requirement) {
             $reporter->error(__('capell-core::package-requirements.not_enabled', $requirement->toArray()));
         }
 
         $this->reportInstalledVersions($composerVersions, $reporter);
+        $this->reportUpgradeGuide($composerVersions, $reporter);
         $this->reportPendingSchemaMigrations($reporter);
         $this->reportUnknownSettingsMigrations('Pending core settings migrations', $reporter);
         $this->reportPackageMigrations($reporter);
         $this->reportRegisteredStepBindings($reporter);
-        $this->reportManifestAudit($composerVersions, $versionAudit, $reporter);
-        $reporter->error('Backup prerequisite: unknown — no verified backup health signal is available to Capell Core.');
-        $reporter->error('Migration irreversibility: unknown — migrations do not declare reversibility metadata.');
+        $this->reportManifestAudit($composerVersions, $versionAudit, $manifestFindings, $reporter);
+        $this->reportPublishedAdminViews($reporter);
+        $reporter->warn('Backup prerequisite: unknown — no verified backup health signal is available to Capell Core.');
+        $reporter->warn('Migration irreversibility: unknown — migrations do not declare reversibility metadata.');
 
-        // The exit status describes report generation, not upgrade readiness.
-        return Command::SUCCESS;
+        return $strict && ($requirements !== [] || $manifestFindings !== [] || ($versionAudit instanceof VersionAudit && $versionAudit->hasIssues()))
+            ? Command::FAILURE
+            : Command::SUCCESS;
+    }
+
+    /** @param array<string, string> $composerVersions */
+    private function reportUpgradeGuide(array $composerVersions, UpgradeReporter $reporter): void
+    {
+        $reporter->line('<fg=blue;options=bold>Versioned upgrade guide</>');
+        try {
+            $previous = ReadLatestInstalledVersionsAction::run(['capell-app/core']);
+        } catch (Throwable) {
+            $previous = [];
+        }
+
+        $sections = SelectUpgradeGuideSectionsAction::run($previous['capell-app/core'] ?? null, $composerVersions['capell-app/core'] ?? null);
+        if ($sections === null) {
+            $reporter->warn('  Upgrade guide range is unknown; check the last successful Core version and installed release.');
+        } elseif ($sections === []) {
+            $reporter->line('  No version-specific steps in this range.');
+        } else {
+            foreach ($sections as $version => $steps) {
+                $reporter->line('  v' . $version);
+                foreach (explode("\n", $steps) as $line) {
+                    $reporter->line('  ' . $line);
+                }
+            }
+        }
+
+        $reporter->newLine();
+    }
+
+    private function reportPublishedAdminViews(UpgradeReporter $reporter): void
+    {
+        $published = resource_path('views/vendor/capell-admin');
+        $reporter->line('<fg=blue;options=bold>Published Admin views</>');
+        if (! is_dir($published)) {
+            $reporter->line('  No published Admin views found.');
+            $reporter->newLine();
+
+            return;
+        }
+
+        $upstream = ResolveAdminViewDirectoryAction::run();
+
+        if ($upstream === null) {
+            $reporter->warn('  Upstream Admin views are unavailable; override drift is unknown.');
+            $reporter->newLine();
+
+            return;
+        }
+
+        $drift = FindPublishedViewDriftAction::run($published, $upstream);
+        foreach ($drift['different'] as $path) {
+            $reporter->warn('  Review differing override: ' . $path);
+        }
+
+        foreach ($drift['missing'] as $path) {
+            $reporter->warn('  Cannot compare override with upstream: ' . $path);
+        }
+
+        if ($drift['different'] === [] && $drift['missing'] === []) {
+            $reporter->line('  Published views match the installed Admin views.');
+        } else {
+            $reporter->warn('  Differences can be intentional; compare escaping and other upstream fixes before deploying.');
+        }
+
+        $reporter->newLine();
     }
 
     /** @param array<string, string> $composerVersions */
@@ -78,7 +148,7 @@ final class ReportCapellUpgradeDryRunAction
             $repository = $migrator->getRepository();
 
             if (! $repository->repositoryExists()) {
-                $reporter->error('  Migration repository is unavailable; pending migrations are unknown.');
+                $reporter->warn('  Migration repository is unavailable; pending migrations are unknown.');
                 $reporter->newLine();
 
                 return;
@@ -86,7 +156,7 @@ final class ReportCapellUpgradeDryRunAction
 
             $pending = ResolvePendingUpgradeMigrationsAction::run();
         } catch (Throwable) {
-            $reporter->error('  Pending migrations are unknown because the migration repository could not be read.');
+            $reporter->warn('  Pending migrations are unknown because the migration repository could not be read.');
             $reporter->newLine();
 
             return;
@@ -114,7 +184,7 @@ final class ReportCapellUpgradeDryRunAction
     private function reportUnknownSettingsMigrations(string $heading, UpgradeReporter $reporter): void
     {
         $reporter->line(sprintf('<fg=blue;options=bold>%s</>', $heading));
-        $reporter->error('  Unknown — settings migrations use a separate repository that has no read-only status contract.');
+        $reporter->warn('  Unknown — settings migrations use a separate repository that has no read-only status contract.');
         $reporter->newLine();
     }
 
@@ -159,12 +229,13 @@ final class ReportCapellUpgradeDryRunAction
         $reporter->newLine();
     }
 
-    /** @param array<string, string> $composerVersions */
-    private function reportManifestAudit(array $composerVersions, ?VersionAudit $versionAudit, UpgradeReporter $reporter): void
+    /**
+     * @param  array<string, string>  $composerVersions
+     * @param  list<string>  $findings
+     */
+    private function reportManifestAudit(array $composerVersions, ?VersionAudit $versionAudit, array $findings, UpgradeReporter $reporter): void
     {
         $reporter->line('<fg=blue;options=bold>Manifest audit</>');
-
-        $findings = $this->manifestFindings();
 
         if ($findings === []) {
             $reporter->line('  JSON declarations are structurally compatible with the Capell API declaration contract.');
@@ -186,7 +257,7 @@ final class ReportCapellUpgradeDryRunAction
     private function reportVersionAudit(array $composerVersions, ?VersionAudit $versionAudit, UpgradeReporter $reporter): void
     {
         if (! $versionAudit instanceof VersionAudit) {
-            $reporter->error('  Version-ledger compatibility is unknown because upgrade history could not be read.');
+            $reporter->warn('  Version-ledger compatibility is unknown because upgrade history could not be read.');
 
             return;
         }
