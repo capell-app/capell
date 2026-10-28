@@ -58,6 +58,13 @@ updates:
       # changes; it needs a planned migration across Core and its consumers.
       - dependency-name: 'spatie/laravel-activitylog'
         update-types: ['version-update:semver-major']
+      # The October 2026 static-analysis bumps crash PHPStan with an internal
+      # array_merge() error; hold them until a release is verified in CI.
+      - dependency-name: 'phpstan/phpstan'
+      - dependency-name: 'larastan/larastan'
+      - dependency-name: 'tomasvotruba/type-coverage'
+      - dependency-name: 'pestphp/pest-plugin-type-coverage'
+      - dependency-name: 'pestphp/pest-plugin-phpstan'
   - package-ecosystem: 'composer'
     directories:
       - '/packages/*'
