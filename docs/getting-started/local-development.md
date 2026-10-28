@@ -4,11 +4,11 @@ Capell runs inside a Laravel application. For a disposable evaluation, Docker ru
 
 ## Mac
 
-Install and start a Docker-compatible engine with Docker Compose, such as [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Open Terminal in your Laravel project and check `docker compose version` and `docker info`. Then follow the [disposable SQLite container recipe](../development/container-development.md#disposable-sqlite-quickstart).
+Install and start a Docker-compatible engine with Docker Compose, such as [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/). Open Terminal in your Laravel project and check `docker compose version` and `docker info`. Then follow the [container guide](../development/container-development.md) from the beginning: create the shared PHP image files first, then use the disposable SQLite recipe.
 
 ## Windows
 
-Install [WSL 2](https://learn.microsoft.com/windows/wsl/install) and [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/), start Docker Desktop and enable its WSL integration for your distribution. Open a WSL terminal, keep the project in the WSL filesystem, and check `docker compose version` and `docker info`. Run the shell commands in the [disposable SQLite container recipe](../development/container-development.md#disposable-sqlite-quickstart) from that terminal; they use Bash syntax rather than PowerShell.
+Install [WSL 2](https://learn.microsoft.com/windows/wsl/install) and [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/), start Docker Desktop and enable its WSL integration for your distribution. Open a WSL terminal, keep the project in the WSL filesystem, and check `docker compose version` and `docker info`. Follow the [container guide](../development/container-development.md) from the beginning: create the shared PHP image files first, then use the disposable SQLite recipe. Run its commands in the WSL terminal; they use Bash syntax rather than PowerShell.
 
 ## After the first start
 
