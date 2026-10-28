@@ -1,0 +1,11 @@
+# Opt in from an extension's PHPStan configuration. Do not include this in
+# Capell's own analysis: foundation packages may use their own internals.
+services:
+    -
+        class: Capell\Core\PHPStan\InternalClassRule
+        tags:
+            - phpstan.rules.rule
+    -
+        class: Capell\Core\PHPStan\InternalMemberRule
+        tags:
+            - phpstan.rules.rule

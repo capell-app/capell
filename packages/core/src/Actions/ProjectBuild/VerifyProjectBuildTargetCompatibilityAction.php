@@ -13,6 +13,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Throwable;
 
+/** @api */
 final class VerifyProjectBuildTargetCompatibilityAction
 {
     use AsFake;

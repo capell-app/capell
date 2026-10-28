@@ -31,6 +31,8 @@ use UnitEnum;
 
 /**
  * @template T of RenderHookContext
+ *
+ * @internal
  */
 class RenderHookRegistry
 {

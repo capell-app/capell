@@ -8,6 +8,7 @@ use Capell\Core\Enums\ExtensionContributionType;
 use Override;
 use Spatie\LaravelData\Data;
 
+/** @api */
 final class ExtensionContributionData extends Data
 {
     /**

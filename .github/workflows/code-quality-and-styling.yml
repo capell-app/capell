@@ -1,6 +1,8 @@
 name: PHP Quality
 
 on:
+  merge_group:
+    types: [checks_requested]
   pull_request:
     branches:
       - main
@@ -15,7 +17,7 @@ concurrency:
 
 jobs:
   scope:
-    if: github.actor != 'dependabot[bot]'
+    if: github.event_name == 'merge_group' || github.actor != 'dependabot[bot]'
     name: PHP Quality scope
     runs-on: ubuntu-latest
     outputs:
@@ -56,7 +58,7 @@ jobs:
     needs: scope
     # A failed scope job must not turn the required check into a skipped pass,
     # so the gate also runs whenever the scope could not be decided.
-    if: ${{ github.actor != 'dependabot[bot]' && (!cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.relevant == 'true')) }}
+    if: ${{ (github.event_name == 'merge_group' || github.actor != 'dependabot[bot]') && (!cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.relevant == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

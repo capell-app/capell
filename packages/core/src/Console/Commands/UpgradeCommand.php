@@ -30,6 +30,7 @@ class UpgradeCommand extends Command
 
     protected $signature = 'capell:upgrade
         {--dry-run : Show the plan without making any changes}
+        {--strict : Fail a dry run when actionable findings are detected}
         {--force : Skip interactive confirmations}
         {--force-downgrade : Proceed even if Composer version is older than the ledger}
         {--no-clear-cache : Do not clear caches after upgrade}
@@ -48,7 +49,13 @@ class UpgradeCommand extends Command
         $consoleReporter = new ConsoleUpgradeReporter($this);
 
         if ($options->dryRun) {
-            return ReportCapellUpgradeDryRunAction::run($consoleReporter);
+            return ReportCapellUpgradeDryRunAction::run($consoleReporter, (bool) $this->option('strict'));
+        }
+
+        if ($this->option('strict')) {
+            $this->error('--strict requires --dry-run.');
+
+            return self::FAILURE;
         }
 
         if (! $this->confirmToProceed()) {

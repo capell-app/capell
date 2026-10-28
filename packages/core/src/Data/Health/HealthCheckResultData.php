@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Override;
 use Spatie\LaravelData\Data;
 
+/** @internal */
 final class HealthCheckResultData extends Data
 {
     /** @param array<string, bool|float|int|null> $metrics */

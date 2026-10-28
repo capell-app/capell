@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\Extensions;
 
+/** @internal */
 final readonly class ExtensionOrderDiagnosticData
 {
     public function __construct(

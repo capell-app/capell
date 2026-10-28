@@ -11,7 +11,10 @@ use Illuminate\Contracts\Container\Container;
 use LogicException;
 use RuntimeException;
 
-/** @extends AbstractKeyedRegistry<ProjectBuildArtifactHandler> */
+/** @extends AbstractKeyedRegistry<ProjectBuildArtifactHandler>
+ *
+ * @api
+ */
 final class ProjectBuildArtifactHandlerRegistry extends AbstractKeyedRegistry
 {
     private int $taggedHandlerCount = 0;

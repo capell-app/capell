@@ -8,6 +8,7 @@ use Capell\Core\Enums\Health\HealthStatus;
 use Override;
 use Spatie\LaravelData\Data;
 
+/** @internal */
 final class HealthReportData extends Data
 {
     /** @param list<HealthCheckResultData> $checks */

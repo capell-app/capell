@@ -17,6 +17,7 @@ use Capell\Core\Support\SiteSpec\SiteSpecApplierRegistry;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\PendingCommand;
 use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
@@ -94,6 +95,41 @@ function importSiteSpecPng(): string
 
     return $image;
 }
+
+it('reports malformed JSON before validating fields without creating a site', function (): void {
+    $path = tempnam(sys_get_temp_dir(), 'capell-site-spec-import-');
+    throw_unless(is_string($path), RuntimeException::class, 'Unable to create a temporary SiteSpec fixture.');
+    file_put_contents($path, '{"secret":"do-not-print",');
+    $siteCount = Site::query()->count();
+
+    try {
+        $command = $this->artisan('capell:site-spec-import', ['spec' => $path]);
+        assert($command instanceof PendingCommand);
+        $command->expectsOutputToContain('invalid JSON')
+            ->doesntExpectOutput('do-not-print')
+            ->assertExitCode(Command::FAILURE)
+            ->run();
+        expect(Site::query()->count())->toBe($siteCount);
+    } finally {
+        unlink($path);
+    }
+});
+
+it('continues to report field validation for valid incomplete JSON', function (): void {
+    $path = writeSiteSpec([]);
+    $siteCount = Site::query()->count();
+
+    try {
+        $command = $this->artisan('capell:site-spec-import', ['spec' => $path]);
+        assert($command instanceof PendingCommand);
+        $command->expectsOutputToContain(__('capell::message.site_spec_import_validation_failed'))
+            ->assertExitCode(Command::FAILURE)
+            ->run();
+        expect(Site::query()->count())->toBe($siteCount);
+    } finally {
+        unlink($path);
+    }
+});
 
 it('round trips navigation media and extension state through the import command idempotently', function (): void {
     $image = importSiteSpecPng();

@@ -29,6 +29,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\Finder\SplFileInfo;
 
+/** @api */
 final class ExtensionTestHarness
 {
     private ?CapellManifestData $manifest = null;

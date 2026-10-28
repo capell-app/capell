@@ -230,7 +230,7 @@ it('runs the release validator without a Laravel bootstrap', function (): void {
         escapeshellarg($root . '/release-plan.json'),
     ), $output, $exitCode);
 
-    expect($exitCode)->toBe(0)
+    expect($exitCode)->toBe(0, implode(PHP_EOL, $output))
         ->and(implode(PHP_EOL, $output))->toContain('Plan is valid.');
 });
 
@@ -376,8 +376,8 @@ it('documents one public distribution and commercial licensing story', function 
         ->not->toContain('Configure private Capell access')
         ->not->toContain('Do not substitute public Packagist')
         ->and($supportPolicy)
-        ->toContain('Each Capell 1.x minor receives security fixes for 24 months from its release date')
-        ->toContain('the latest 1.x minor is always supported');
+        ->toContain('Each Capell 1.x minor receives security fixes for at least 24 months from its release date')
+        ->toContain('at least 12 months after the next major release');
 
     foreach ([$readme, $quickstart, $install, $supportPolicy] as $publicDocument) {
         expect($publicDocument)->not->toContain('0.0.x');
