@@ -7,11 +7,13 @@ namespace Capell\Installer\Actions;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Install\WelcomeRouteInstaller;
 use Illuminate\Support\Facades\Artisan;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 final class RemoveWelcomeRouteAfterInstallAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(): bool
