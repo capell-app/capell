@@ -1,0 +1,73 @@
+name: Nightly main
+
+on:
+  schedule:
+    - cron: '37 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-main
+  cancel-in-progress: false
+
+jobs:
+  latest-dependencies:
+    name: Latest dependencies + audit
+    uses: ./.github/workflows/test-fast-pr.yml
+    with:
+      fresh-dependencies: true
+      audit: true
+
+  test-all:
+    name: Test All
+    uses: ./.github/workflows/test-full.yml
+
+  report:
+    name: Track nightly failure
+    needs: [latest-dependencies, test-all]
+    if: ${{ always() && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open, update or close the tracking issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        with:
+          script: |
+            const title = 'Nightly main: tests or dependency audit failing';
+            const label = 'nightly-failure';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const failed = process.env.FAILED === 'true';
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo,
+              state: 'open',
+              labels: label,
+              per_page: 10,
+            });
+            const existing = open.find((issue) => issue.title === title && !issue.pull_request);
+
+            if (!failed) {
+              if (existing) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body: `Nightly run passed on ${context.sha}: ${runUrl}` });
+                await github.rest.issues.update({ ...context.repo, issue_number: existing.number, state: 'closed', state_reason: 'completed' });
+              }
+              return;
+            }
+
+            const body = `Nightly run against \`main\` with latest dependencies failed on ${context.sha}.\n\n${runUrl}`;
+            if (existing) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body });
+              return;
+            }
+
+            try {
+              await github.rest.issues.getLabel({ ...context.repo, name: label });
+            } catch {
+              await github.rest.issues.createLabel({ ...context.repo, name: label, color: 'b60205', description: 'Scheduled main run is failing' });
+            }
+            await github.rest.issues.create({ ...context.repo, title, body, labels: [label] });

@@ -21,7 +21,7 @@ Capell\Core\Support\Extensions\CapellExtensionApi::CURRENT_VERSION; // '1.1.0'
 
 This is the **extension API** version. It is deliberately separate from the Capell release version and from any package's own `version`, so the two can move independently: a Capell release that adds no extension surfaces does not bump it.
 
-`^1.0` is the right constraint for almost every package. It accepts every 1.x extension API, including additive minor releases. Pin tighter only when you knowingly depend on behaviour introduced in a specific minor version, and never pin to an exact version — `"1.1.0"` excludes `1.2.0` and makes the package uninstallable on the next Capell release for no benefit.
+`^1.0` accepts every 1.x extension API, including minor releases that may contain documented breaks. Choose a constraint matching the versions your package has tested, and review each release before widening it. An exact constraint such as `"1.1.0"` also excludes compatible later releases; use a bounded range when that better reflects your compatibility testing.
 
 ### Where it is enforced
 
@@ -60,7 +60,17 @@ The baseline check rebuilds the snapshot from current code and diffs it against 
 
 Drift only passes with an explicit compatibility decision record in `stable-extension-api-decision.json` whose `drift` entries match the detected drift exactly. Running the script without `--check` does rewrite the baseline, so the guarantee ultimately rests on reviewing the committed baseline diff rather than on the script alone.
 
-That is the practical guarantee behind `^1.0`. A stable surface does not lose a class or change a public signature within the major line without a recorded, reviewed decision.
+A stable surface does not lose a class or change a public signature without a recorded, reviewed compatibility decision.
+
+### Deprecation and removal
+
+Removing a stable API follows a fixed notice period:
+
+1. **Deprecate first.** The surface is marked `@deprecated` (naming the replacement) and listed in the release notes of a minor release. It keeps working unchanged.
+2. **Keep it for at least one minor release.** A stable API is never removed in the same release that deprecates it.
+3. **Remove only in the next major.** Removal of a stable class, method, property, constant or configuration key ships only in a new major release, with migration guidance in its release notes.
+
+Additive changes and fixes need no deprecation. A behavioural or signature break to a stable surface that cannot follow this path is not permitted within a major line. Experimental and internal surfaces are outside this commitment. A broad constraint such as `^1.0` still accepts a 1.x API minor containing a break: the constraint check alone cannot establish behavioural compatibility. Read the Breaking section and test against the target release before upgrading.
 
 ## Checking Your Package Against A Capell Release
 
@@ -77,11 +87,33 @@ Neither command verifies that your package still *behaves* correctly. Run your o
 
 ## When Capell Bumps The API Version
 
-- **Patch** — no extension surface change.
-- **Minor** — surfaces added. Existing packages on `^1.0` keep working; this is the common case.
-- **Major** — a stable surface was removed or changed. Packages must widen or move their constraint deliberately, and the change carries a recorded decision.
+- **Patch** — fixes that do not break behaviour or contracts.
+- **Minor** — additive changes and deprecations. Experimental surfaces may change with a **Breaking** release-notes section, a reviewed compatibility decision, migration guidance and an extension API version bump. Stable surfaces are never removed in a minor release; see [Deprecation and removal](#deprecation-and-removal).
+- **Major** — a new compatibility line; the only release that removes deprecated stable surfaces. Its release notes describe migration and supported versions.
 
-Declaring `^1.0` and testing against each Capell release is the whole maintenance obligation for most packages.
+The Capell release version and extension API version are separate. Bump the extension API version when an extension contract or its behaviour changes, including a break; document the affected surfaces and migration. Do not assume a semver constraint alone rejects an incompatible minor.
+
+## Stability markers and static analysis
+
+The catalogue is the source of truth for stability. Class-backed stable surfaces carry `@api`; class-backed experimental and internal surfaces carry `@internal`. A method, property or constant on any class may also carry `@internal`. The latter marker means that a class or member is not a stable extension API: an experimental surface remains available for experimentation, but may change without the stable-surface guarantees. Non-class surfaces such as hooks and configuration keys are classified in the catalogue rather than PHPDoc.
+
+Package authors using PHPStan can opt in to the class-use rule by including the file shipped with Core in their own `phpstan.neon`:
+
+```neon
+includes:
+    - vendor/capell-app/core/extension-phpstan.neon
+```
+
+When using the foundation aggregate instead of the split Core package, use `vendor/capell-app/capell/packages/core/extension-phpstan.neon`. Install PHPStan separately in the consuming project. The rules report references to Capell classes marked `@internal` as `capell.internalClass`, and use of `@internal` methods, properties and constants as `capell.internalMember`; non-class surfaces are not inspected. Existing packages are not blocked at runtime, and analysis is opt-in so adoption can be managed by each package.
+
+## Support matrix
+
+| Foundation line | PHP | Laravel | Security support |
+| --- | --- | --- | --- |
+| 1.x current release | 8.4+ | 13.x | While 1.x is current, and at least 12 months after the next major release. |
+| Earlier 1.x minors | See the release's Composer constraints. | See the release's Composer constraints. | At least 24 months from each minor's release. |
+
+The latest 1.x minor also retains its existing 24-month commitment. The 1.x end-of-life date depends on the next major's release date and will be published when that date is known. The security policy in [SECURITY.md](../../SECURITY.md) governs vulnerability reporting and support.
 
 ## Next
 

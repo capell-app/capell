@@ -15,6 +15,8 @@ use Throwable;
 /**
  * Read aggregate health for the opt-in endpoint without exposing incident details.
  * Missing storage returns unavailable.
+ *
+ * @internal
  */
 final readonly class GetReportingHealthAction
 {

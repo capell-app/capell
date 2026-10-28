@@ -6,6 +6,7 @@ require_once dirname(__DIR__, 2) . '/scripts/release/ReleaseEngine.php';
 
 use Capell\Release\CommandRunner;
 use Capell\Release\DependencyGraph;
+use Capell\Release\LockstepFloor;
 use Capell\Release\PlanValidator;
 use Capell\Release\ProcessCommandRunner;
 use Capell\Release\ReleaseEngine;
@@ -559,7 +560,7 @@ it('persists full history and releases every foundation package at one lockstep 
     mkdir($root . '/config', 0777, true);
     foreach (['core' => [], 'admin' => ['capell-app/core' => '^1.0'], 'marketplace' => ['capell-app/admin' => '^1.0']] as $path => $requires) {
         mkdir($root . '/packages/' . $path, 0777, true);
-        file_put_contents($root . '/packages/' . $path . '/composer.json', json_encode(['name' => 'capell-app/' . $path, 'require' => $requires], JSON_THROW_ON_ERROR));
+        file_put_contents($root . '/packages/' . $path . '/composer.json', json_encode(['name' => 'capell-app/' . $path, 'require' => $requires], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     }
 
     file_put_contents($root . '/config/release-packages.json', json_encode(array_map(fn (string $path): array => ['name' => 'capell-app/' . $path, 'path' => 'packages/' . $path, 'repository' => 'capell-app/' . $path], ['core', 'admin', 'marketplace']), JSON_THROW_ON_ERROR));
@@ -595,6 +596,10 @@ it('persists full history and releases every foundation package at one lockstep 
 
     $runner->commit = str_repeat('2', 40);
     $runner->trees['core'] = str_repeat('d', 40);
+    expect(fn (): array => $engine->plan('incremental', $baseline, ['capell-app/core' => 'minor']))
+        ->toThrow(ReleaseException::class, 'Lockstep foundation dependency capell-app/admin->capell-app/core must use ^1.1.');
+    expect($engine->raiseFloors('1.1.0'))->toBe(['packages/admin/composer.json', 'packages/marketplace/composer.json']);
+
     $increment = $engine->plan('incremental', $baseline, ['capell-app/core' => 'minor']);
     expect(array_column($increment['packages'], 'name'))->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/marketplace'])
         ->and(array_values(array_unique(array_column($increment['packages'], 'proposed_version'))))->toBe(['1.1.0'])
@@ -604,13 +609,14 @@ it('persists full history and releases every foundation package at one lockstep 
 
     $runner->commit = str_repeat('3', 40);
     $runner->trees['marketplace'] = str_repeat('e', 40);
-    $next = $engine->plan('incremental', $increment, ['capell-app/marketplace' => 'major']);
+    expect($engine->raiseFloors('1.2.0'))->toBe(['packages/admin/composer.json', 'packages/marketplace/composer.json']);
+    $next = $engine->plan('incremental', $increment, ['capell-app/marketplace' => 'minor']);
     expect(array_column($next['packages'], 'name'))->toBe(['capell-app/core', 'capell-app/admin', 'capell-app/marketplace'])
-        ->and(array_values(array_unique(array_column($next['packages'], 'proposed_version'))))->toBe(['2.0.0'])
-        ->and(array_values(array_unique(array_column($next['packages'], 'release_type'))))->toBe(['major'])
-        ->and(array_values(array_unique(array_column($next['packages'], 'reason'))))->toBe(['Lockstep major foundation release.'])
+        ->and(array_values(array_unique(array_column($next['packages'], 'proposed_version'))))->toBe(['1.2.0'])
+        ->and(array_values(array_unique(array_column($next['packages'], 'release_type'))))->toBe(['minor'])
+        ->and(array_values(array_unique(array_column($next['packages'], 'reason'))))->toBe(['Lockstep minor foundation release.'])
         ->and($next['ledger'])->toHaveCount(3)
-        ->and(array_values(array_unique(array_column($next['ledger'], 'version'))))->toBe(['2.0.0']);
+        ->and(array_values(array_unique(array_column($next['ledger'], 'version'))))->toBe(['1.2.0']);
 });
 
 it('rejects a lockstep foundation dependency still pinned at self.version', function (): void {
@@ -1325,3 +1331,99 @@ it('publishes an empty split remote without transferring obsolete package histor
         ->and($result['output'])->toContain('PASS commits=1 parents=0')
         ->toContain('deterministic=yes main+tag=pushed');
 });
+
+it('raises only lockstep sibling constraints in the require section', function (): void {
+    $contents = json_encode([
+        'name' => 'capell-app/admin',
+        'require' => ['php' => '^8.4', 'capell-app/core' => '^1.0', 'capell-app/external' => '^1.0'],
+        'require-dev' => ['capell-app/core' => '^1.0'],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+    $raised = json_decode(LockstepFloor::raise($contents, ['capell-app/core', 'capell-app/admin'], '1.4.2'), true, 512, JSON_THROW_ON_ERROR);
+
+    expect($raised['require'])->toBe(['php' => '^8.4', 'capell-app/core' => '^1.4', 'capell-app/external' => '^1.0'])
+        ->and($raised['require-dev'])->toBe(['capell-app/core' => '^1.0'])
+        ->and(LockstepFloor::raise($contents, ['capell-app/core'], '1.0.0'))->toBe($contents);
+});
+
+it('raises floors from the command line and then validates the plan', function (): void {
+    $root = sys_get_temp_dir() . '/capell-release-' . bin2hex(random_bytes(5));
+    mkdir($root . '/config', 0777, true);
+    foreach (['core' => [], 'admin' => ['capell-app/core' => '^1.0']] as $path => $requires) {
+        mkdir($root . '/packages/' . $path, 0777, true);
+        file_put_contents($root . '/packages/' . $path . '/composer.json', json_encode(['name' => 'capell-app/' . $path, 'require' => $requires], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    }
+
+    file_put_contents($root . '/config/release-packages.json', json_encode(array_map(fn (string $path): array => ['name' => 'capell-app/' . $path, 'path' => 'packages/' . $path, 'repository' => 'capell-app/' . $path, 'maturity' => 'stable'], ['core', 'admin']), JSON_THROW_ON_ERROR));
+    $git = static function (string ...$arguments) use ($root): string {
+        $result = (new ProcessCommandRunner)->run(['git', '-c', 'user.name=t', '-c', 'user.email=t@example.test', ...$arguments], $root);
+        expect($result['exitCode'])->toBe(0, implode(' ', $arguments) . ': ' . ($result['error'] ?? ''));
+
+        return $result['output'];
+    };
+    $release = static fn (string ...$arguments): array => (new ProcessCommandRunner)->run([PHP_BINARY, dirname(__DIR__, 2) . '/scripts/release.php', ...$arguments], $root);
+    putenv('CAPELL_RELEASE_SOURCE_ROOT=' . $root);
+
+    try {
+        $git('init', '-q', '-b', 'main');
+        $git('remote', 'add', 'origin', 'git@example.test:capell/core.git');
+        $git('add', '.');
+        $git('commit', '-q', '-m', 'baseline');
+        $plan = $release('plan', '--baseline-version=1.0.0');
+        expect($plan['exitCode'])->toBe(0, $plan['error'] ?? '');
+        file_put_contents($root . '/../baseline-' . basename($root) . '.json', $plan['output']);
+        $baselinePath = $root . '/../baseline-' . basename($root) . '.json';
+
+        file_put_contents($root . '/packages/core/extra.txt', 'change');
+        $git('add', '.');
+        $git('commit', '-q', '-m', 'change');
+        $stale = $release('plan', '--from=' . $baselinePath, '--bump=capell-app/core=minor');
+        expect($stale['exitCode'])->toBe(1)->and($stale['error'] ?? '')->toContain('must use ^1.1.');
+
+        $raised = $release('raise-floors', '1.1.0');
+        expect($raised['exitCode'])->toBe(0)->and($raised['output'])->toBe('packages/admin/composer.json');
+        $git('add', '.');
+        $git('commit', '-q', '-m', 'raise floors');
+        $fresh = $release('plan', '--from=' . $baselinePath, '--bump=capell-app/core=minor');
+        expect($fresh['exitCode'])->toBe(0, $fresh['error'] ?? '');
+        $planPath = $root . '/../minor-' . basename($root) . '.json';
+        file_put_contents($planPath, $fresh['output']);
+
+        $valid = $release('validate', $planPath);
+        expect($valid['exitCode'])->toBe(0, $valid['error'] ?? '')->and($valid['output'])->toContain('Plan is valid.');
+    } finally {
+        putenv('CAPELL_RELEASE_SOURCE_ROOT');
+    }
+});
+
+it('refuses every publication path whose planned split trees carry a stale lockstep floor', function (string $constraint, bool $accepted): void {
+    $runner = new readonly class($constraint) implements CommandRunner
+    {
+        public function __construct(private string $constraint) {}
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            return ['output' => json_encode(['name' => 'capell-app/admin', 'require' => ['capell-app/core' => $this->constraint, 'php' => '^8.4']], JSON_THROW_ON_ERROR), 'exitCode' => 0];
+        }
+    };
+    $plan = [
+        'inventory' => [['name' => 'capell-app/core'], ['name' => 'capell-app/admin']],
+        'packages' => [['name' => 'capell-app/admin', 'subtree_hash' => str_repeat('a', 40), 'proposed_version' => '1.3.1']],
+    ];
+    $engine = new ReleaseEngine(sys_get_temp_dir(), $runner);
+
+    if ($accepted) {
+        $engine->assertPlanFloors($plan);
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    expect(fn () => $engine->assertPlanFloors($plan))
+        ->toThrow(ReleaseException::class, 'Lockstep foundation dependency capell-app/admin->capell-app/core must use ^1.3.');
+})->with([
+    'raised floor' => ['^1.3', true],
+    'baseline floor' => ['^1.0', false],
+    'older minor' => ['^1.2', false],
+    'exact pin' => ['1.3.1', false],
+]);

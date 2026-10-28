@@ -6,6 +6,7 @@ namespace Capell\Core\Contracts\ProjectBuild;
 
 use Capell\Core\Data\ProjectBuild\ProjectBuildArtifactReferenceData;
 
+/** @api */
 interface ProjectBuildArtifactHandler
 {
     public const string TAG = 'capell.project-build.artifact-handler';

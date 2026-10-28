@@ -2,6 +2,17 @@ name: Test
 
 on:
   workflow_call:
+    inputs:
+      fresh-dependencies:
+        description: 'Skip the restored vendor cache so the latest-dependency update always runs.'
+        required: false
+        type: boolean
+        default: false
+      audit:
+        description: 'Run composer audit against the updated dependency tree.'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -12,7 +23,7 @@ concurrency:
 
 jobs:
   test:
-    if: ${{ github.actor != 'dependabot[bot]' && (github.event.pull_request.draft == false) }}
+    if: ${{ github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     name: Test - L${{ matrix.laravel }} - shard ${{ matrix.shard }}/${{ matrix.total_shards }}
     runs-on: ubuntu-latest
     env:
@@ -51,6 +62,7 @@ jobs:
           persist-credentials: false
       - name: Cache Dependencies PHP
         id: php-cache
+        if: ${{ !inputs.fresh-dependencies }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: vendor
@@ -126,6 +138,10 @@ jobs:
             "symfony/html-sanitizer:^7.0 || ^8.0" \
             openspout/openspout:^4.22
           composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
+
+      - name: Audit updated dependencies
+        if: ${{ inputs.audit && matrix.shard == 1 }}
+        run: composer audit --no-interaction --ansi
 
       - name: Configure environment
         run: |

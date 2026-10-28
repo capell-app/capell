@@ -8,6 +8,7 @@ use Capell\Admin\Data\AdminZoneContextData;
 use Capell\Admin\Enums\AdminZone;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 
+/** @api */
 interface AdminZoneContribution
 {
     public function zone(): AdminZone;

@@ -6,6 +6,7 @@ namespace Capell\Frontend\Data;
 
 use RuntimeException;
 
+/** @internal */
 final readonly class PublicRenderDataContributionMetadataData
 {
     /** @param list<PublicRenderDataCacheDependencyData> $cacheDependencies */

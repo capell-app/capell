@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums\Database;
 
+/** @internal */
 enum DatabaseCapability: string
 {
     case PrefixIndex = 'prefix-index';
