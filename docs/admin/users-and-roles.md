@@ -11,7 +11,7 @@ Manage who can sign in to the admin and what they can do. Capell uses **site-sco
 2. Click the create action.
 3. Fill **Name**, **Email**, and set a **Password** (and **Password confirmation**).
 4. Assign one or more **Roles**.
-5. Save. The user can now sign in to `/admin`.
+5. Save. The user can now sign in to the admin panel (`/admin` by default; see [Admin domain and path](admin-domain.md)).
 
 ## Change a user's password
 1. Open **Users** and edit the user.

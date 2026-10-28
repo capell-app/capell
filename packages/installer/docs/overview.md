@@ -155,7 +155,7 @@ Deletion and retention:
 ## Common Pitfalls
 
 - `/install` should not remain available after production setup. Remove the package from the success screen or Composer.
-- Reinstall is blocked when Admin is installed, the `sites` table exists, and at least one site exists, unless `CAPELL_SETUP_ALLOW_REINSTALL` is true.
+- Reinstall is blocked when Admin is installed, the `sites` table exists, and at least one site exists, unless `APP_DEBUG=true` and `CAPELL_SETUP_ALLOW_REINSTALL` is true.
 - Web PHP must be able to run the configured PHP, Composer, and Git binaries for browser installs.
 - Database-backed sessions or cache can fail before tables exist; the provider falls back per request when safe.
 - Composer package choices are shown only when the web PHP process can resolve the package.

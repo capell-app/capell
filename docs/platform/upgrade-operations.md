@@ -11,7 +11,7 @@ secondary_cta:
 
 # Durable Upgrade Operations
 
-![Capell Durable Upgrade Operations screenshot](../images/generated/admin/theme-library-admin-flow.png)
+![Capell admin Upgrade page showing upgrade status, readiness checks and recent events](../images/generated/admin/upgrade-page.png)
 
 ## Buyer Overview
 

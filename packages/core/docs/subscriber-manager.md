@@ -93,7 +93,7 @@ Invoke all subscribers with the event name and context object. Resolves each sub
 public function validateWithSubscribers(string|BackedEnum $event, object $context): bool
 ```
 
-Invoke validation subscribers. Returns `false` if any `ValidatingSubscriber` returns `false`; short-circuits and returns `true` otherwise. Plain `Subscriber` instances are skipped.
+Invoke validation subscribers. Returns `false` as soon as any `ValidatingSubscriber` returns `false`; returns `true` otherwise. Plain `Subscriber` instances are skipped.
 
 ---
 
@@ -208,7 +208,7 @@ When `validateWithSubscribers('page.saving', $pageSaved)` is called, if this sub
 
 2. **No automatic injection.** Subscribers are resolved from the container but do not receive constructor dependencies automatically in `handle()`. Inject them in `__construct()` and store as properties, or resolve them manually inside `handle()`.
 
-3. **Validation subscribers only.** `ValidatingSubscriber` is the only interface that short-circuits. Plain `Subscriber` instances are called by `validateWithSubscribers()` but their return value is ignored.
+3. **Validation subscribers only.** `ValidatingSubscriber` is the only interface that short-circuits. Plain `Subscriber` instances are not called by `validateWithSubscribers()`.
 
 4. **Order is insertion order.** Subscribers execute in the order they were registered. If you need a specific order, register them in that order.
 

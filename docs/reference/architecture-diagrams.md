@@ -24,7 +24,7 @@ The manifest buckets answer which provider code is available to the lifecycle;
 `RuntimeContextResolver` answers which resolved context is active for the current
 request or command. They are related stages, not interchangeable names.
 
-The [resolver](../../packages/core/src/Support/PackageRegistry/RuntimeContextResolver.php) returns `console`, `admin`, `auth` or `frontend`. The [enum](../../packages/core/src/Enums/RuntimeContextEnum.php) also defines `shared`; it is not a value returned by that resolver. Manifest buckets remain `metadata`, `install`, `runtime`, `admin` and `frontend`.
+The [resolver](../../packages/core/src/Support/PackageRegistry/RuntimeContextResolver.php) returns `console`, `admin`, `auth` or `frontend`. The [enum](../../packages/core/src/Enums/RuntimeContextEnum.php) also defines `shared`; it is not a value returned by that resolver. Manifest buckets remain `metadata`, `install`, `runtime`, `auth`, `admin` and `frontend`.
 
 ## Admin Extender Resolution
 

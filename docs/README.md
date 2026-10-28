@@ -2,7 +2,7 @@
 
 Capell is a Laravel CMS built on Filament, for teams building applications that outlive their first release. It ships the structure every Filament CMS project ends up rebuilding — page types, layouts, URLs, redirects, previews, undo history and publishing — so the work you do is the work only your application needs.
 
-New here? Start with the [verified quickstart](getting-started/quickstart.md), or use the paths below to find your next task.
+New here? Follow [Learn Capell](getting-started/capell-learn.md), a guided path from deciding whether Capell fits to a published page you understand. Already installed? Jump to [Create your first page](getting-started/create-your-first-page.md). The [glossary](reference/glossary.md) explains any term you meet on the way, and the tables below find one specific task.
 
 ## Choose Your Path
 
@@ -22,7 +22,7 @@ Use these pages to see a workflow before reading its implementation details.
 | ---------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Admin workspace        | [Admin interface](admin/interface.md)                               | Dashboard, Pages, Media, Settings, Theme Library, and Site Health.               |
 | First page authoring   | [Create your first page](getting-started/create-your-first-page.md) | Site and parent selection, URL preview, content editor, draft actions, settings. |
-| Theme management       | [Theme Library](admin/theme-library.md)                             | Installed and available themes, diagnostics, customization, preview, and apply.  |
+| Theme management       | [Theme Library](admin/theme-library.md)                             | Installed and available themes, diagnostics, customisation, preview, and apply.  |
 | Operations diagnostics | [Site Health](operations/site-health.md)                            | Cache status, public-output safety, static generation, optimizer, server checks. |
 | Real content model     | [Music store CMS example](examples/music-store-cms.md)              | Pages, articles, events, products, artists, and navigation working together.     |
 
@@ -45,7 +45,7 @@ Use these pages to see a workflow before reading its implementation details.
 | Before I...                                        | Read                                                                                                                         |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Move or rename published content                   | [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects)             |
-| How should I build this page?                      | [Build a page](getting-started/building-pages.md)                                                                            |
+| Choose how to build a page                         | [Build a page](getting-started/building-pages.md)                                                                            |
 | Put feature code in the host, an add-on, or an app | [Host, package, or app code](development/package-boundaries.md)                                                              |
 | Change anonymous frontend output                   | [Public HTML safety contract](frontend/public-html-safety.md)                                                                |
 | Add or change an extension point                   | [Extension point chooser](packages/extension-point-chooser.md) and [unsafe patterns to avoid](development/do-not-do-this.md) |
@@ -57,7 +57,7 @@ Published URLs are durable. Capell creates redirect Page URLs when a published p
 
 ## Host Packages
 
-The host repo owns these five packages. Optional add-on behavior belongs to the package that provides it.
+The host repo owns these five packages. Optional add-on behaviour belongs to the package that provides it.
 
 | Package     | Composer name            | Package documentation                                            |
 | ----------- | ------------------------ | ---------------------------------------------------------------- |
@@ -71,6 +71,6 @@ Use [Packages and extensions](packages/catalog.md) for add-on boundaries and aut
 
 ## Documentation Ownership
 
-Update an existing page before adding a new one, and link every new page from the narrowest relevant index. Keep optional-package behavior with its owning package and public frontend safety rules beside rendering guidance.
+Update an existing page before adding a new one, and link every new page from the narrowest relevant index. Keep optional-package behaviour with its owning package and public frontend safety rules beside rendering guidance.
 
 Use [Docs ownership rules](development/docs-ownership.md) to choose the right location and avoid duplicate or orphaned pages. Use the [documentation visual standard](standards/documentation-visuals.md) for screenshots, linked galleries, theme-aware pairs, diagrams, captions, and regeneration ownership.

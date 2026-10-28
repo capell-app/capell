@@ -40,7 +40,7 @@ Octane installed the whole mechanism silently does nothing, so there is no cost 
 running Capell under PHP-FPM.
 
 Services tagged today: `CapellCoreManager`, `ComponentRegistry`, `LockdownStore`, and
-the frontend's `ThemeViewRegistrar`.
+the frontend's `ThemeViewRegistrar` and `FrontendLocaleScope`.
 
 ## What you must do when writing an extension
 
