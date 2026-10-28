@@ -1,0 +1,125 @@
+name: Update Pest shards
+
+# Regenerates tests/.pest/shards.json on the same stack as the Fast PR gate.
+# Download the artifact and commit the file when the gate warns it is out of date.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/update-pest-shards.yml
+
+permissions:
+  contents: read
+
+jobs:
+  update-shards:
+    name: Regenerate tests/.pest/shards.json
+    runs-on: ubuntu-latest
+    env:
+      CACHE_STORE: array
+      PAO_DISABLE: 1
+    strategy:
+      matrix:
+        include:
+          - php: 8.4
+            laravel: 13.*
+            testbench: 11.*
+            db: sqlite
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Cache Dependencies PHP
+        id: php-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor
+          key: dependencies-php-${{ matrix.php }}-laravel-${{ matrix.laravel }}-testbench-${{ matrix.testbench }}-${{ matrix.db }}-${{ hashFiles('composer.json', 'composer.lock', '.github/workflows/test-fast-pr.yml') }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup problem matchers
+        run: |
+          echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Check Composer public files
+        run: php scripts/check-composer-local-paths.php
+
+      - name: Check Capell support contract
+        run: composer run check:support-contract
+
+      - name: Check Composer lock file
+        run: composer run check:composer-lock
+
+      - name: Locate Composer download cache
+        id: composer-download-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-download-cache.outputs.dir }}
+          key: composer-downloads-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-downloads-${{ runner.os }}-
+
+      - name: Install PHP dependencies
+        if: steps.php-cache.outputs.cache-hit != 'true'
+        run: |
+          composer remove --no-interaction --no-progress --ansi --dev --no-update laravel/pao
+          composer require --no-interaction --no-progress --ansi --no-update \
+            "laravel/framework:${{ matrix.laravel }}"
+          composer require --no-interaction --no-progress --ansi --dev --no-update \
+            "orchestra/testbench:${{ matrix.testbench }}"
+
+          composer remove --no-interaction --no-progress --ansi --dev --no-update mrpunyapal/peststan pestphp/pest-plugin-phpstan pestphp/pest-plugin-livewire calebdw/larastan-livewire
+          dev_tools=(
+            "pestphp/pest:^5.3.2"
+            "pestphp/pest-plugin-arch:^5.0"
+            "pestphp/pest-plugin-laravel:^5.0"
+            "pestphp/pest-plugin-livewire:^5.0"
+            "pestphp/pest-plugin-phpstan:^5.0"
+            "pestphp/pest-plugin-type-coverage:^5.0"
+            "phpstan/phpstan:^2.1"
+            "phpstan/phpstan-mockery:^2.0"
+            "phpstan/phpstan-strict-rules:^2.0"
+            "canvural/larastan-strict-rules:^3.0"
+            "phpstan/phpstan-beberlei-assert:^2.0"
+            "rector/rector:^2.0"
+            "driftingly/rector-laravel:^2.0"
+            "larastan/larastan:^3.0"
+          )
+
+          composer require --no-interaction --no-progress --ansi --dev --no-update "${dev_tools[@]}"
+          composer require --no-interaction --no-progress --ansi --no-update \
+            livewire/livewire:^4.1 \
+            "filament/filament:^5.7.6" \
+            "filament/support:^5.7.6" \
+            pboivin/filament-peek:^4.1 \
+            "symfony/html-sanitizer:^7.0 || ^8.0" \
+            openspout/openspout:^4.22
+          composer update --no-interaction --no-progress --ansi --optimize-autoloader --with-all-dependencies -W
+
+      - name: Configure environment
+        run: |
+          echo "DB_CONNECTION=sqlite" >> .env
+          echo "DB_DATABASE=:memory:" >> .env
+
+      - name: Run test:fast with --update-shards
+        run: php -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_MAX_PROCESSES:-8} --compact --update-shards --configuration=phpunit.xml
+
+      - name: Upload shards.json
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pest-shards
+          path: tests/.pest/shards.json
+          if-no-files-found: error
