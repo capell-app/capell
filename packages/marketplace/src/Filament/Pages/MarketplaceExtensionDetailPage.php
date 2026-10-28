@@ -33,8 +33,11 @@ use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceWebUrl;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Pages\PageConfiguration;
+use Filament\Panel;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Number;
 use Illuminate\Support\Str;
@@ -75,6 +78,12 @@ final class MarketplaceExtensionDetailPage extends Page
     private ?ExtensionDetailData $resolvedDetail = null;
 
     private ?MarketplaceEnvironmentReadinessData $environmentReadiness = null;
+
+    #[Override]
+    public static function routes(Panel $panel, ?PageConfiguration $configuration = null): void
+    {
+        Route::group(['where' => ['slug' => '(?!purchases$)[^/]+']], static fn () => parent::routes($panel, $configuration));
+    }
 
     #[Override]
     public static function canAccess(): bool

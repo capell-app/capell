@@ -19,6 +19,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Sinnbeck\DomAssertions\Asserts\AssertElement;
 use Spatie\Permission\Models\Permission;
@@ -40,6 +41,14 @@ it('still routes other marketplace slugs to extension details', function (): voi
     $route = resolve(Router::class)->getRoutes()->match(Request::create('/admin/extensions/marketplace/seo-suite'));
 
     expect($route->getActionName())->toContain(MarketplaceExtensionDetailPage::class);
+});
+
+it('reserves the purchases path from the extension detail wildcard', function (): void {
+    $detail = Route::getRoutes()->getByName('filament.admin.pages.extensions.marketplace.{slug}');
+    throw_if($detail === null, RuntimeException::class, 'The Marketplace extension detail route is missing.');
+
+    expect($detail->matches(Request::create('/admin/extensions/marketplace/purchases')))->toBeFalse()
+        ->and($detail->matches(Request::create('/admin/extensions/marketplace/seo-suite')))->toBeTrue();
 });
 
 it('renders heartbeat purchases and renewal links', function (): void {
