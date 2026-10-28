@@ -422,7 +422,7 @@ expect($root . '/' . $path)->toBeFile()
     ->and((string) file_get_contents($root . '/' . $path))->toContain($expectedSection);
 ```
 
-`tests/Arch/TestsAssertNoSourcePositionsTest.php` fails when a test pins a 40-character blob permalink to a line
+`packages/core/tests/Arch/TestsAssertNoSourcePositionsTest.php` fails when a test pins a 40-character blob permalink to a line
 anchor or indexes source lines by number.
 
 ## Next

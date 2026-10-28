@@ -51,7 +51,7 @@ Use only the commands present in `php artisan list capell`.
 it('registers package admin bridge', function (): void {
     CapellCore::forcePackageInstalled('capell-app/example');
 
-    expect(CapellAdmin::getAdminBridgeRegistry()->classes('capell-app/example'))
+    expect(resolve(AdminBridgeRegistry::class)->classes('capell-app/example'))
         ->toContain(ExampleAdminBridge::class);
 });
 ```
@@ -78,6 +78,12 @@ it('hides the package page from users without permission', function (): void {
 });
 ```
 
+## Upload path validation
+
+Admin applies Filament's `preventFilePathTampering()` to all upload fields after component setup, including media-library fields that otherwise disable it. Existing paths are accepted only from the original server-side record field, including nested metadata; current Livewire state is never an allow-list. Media-library fields accept only UUIDs from the record's selected collection and filter. New temporary uploads continue through Filament's normal file validation.
+
+Use `Capell\Admin\Filament\Components\Forms\FileUpload` for custom fields, including nested metadata and action-only fields, so original paths are read without accessing absent model attributes. Persist files in the corresponding record attribute or media collection. Do not send arbitrary stored paths from the client to reuse another record's files.
+
 ## Rules
 
 - Use translations for labels and notifications.
@@ -90,10 +96,3 @@ it('hides the package page from users without permission', function (): void {
 - [Admin extensions](../packages/admin-extensions.md)
 - [Schema hooks](../../packages/admin/docs/schemas/hooks.md)
 - [Extension point API reference](../packages/extension-point-api-reference.md)
-
-
-## Upload path validation
-
-Admin applies Filament's `preventFilePathTampering()` to all upload fields after component setup, including media-library fields that otherwise disable it. Existing paths are accepted only from the original server-side record field, including nested metadata; current Livewire state is never an allow-list. Media-library fields accept only UUIDs from the record's selected collection and filter. New temporary uploads continue through Filament's normal file validation.
-
-Use `Capell\Admin\Filament\Components\Forms\FileUpload` for custom fields, including nested metadata and action-only fields, so original paths are read without accessing absent model attributes. Persist files in the corresponding record attribute or media collection. Do not send arbitrary stored paths from the client to reuse another record's files.

@@ -128,7 +128,7 @@ Hooks are available in:
 
 ## Testing
 
-- See `tests/Frontend/Unit/RenderHookExtensionRegistryTest.php` for real-world examples, including scenario/target-specific hooks.
+- See `tests/Unit/RenderHookExtensionRegistryTest.php` in this package for real-world examples, including scenario/target-specific hooks.
 
 ---
 

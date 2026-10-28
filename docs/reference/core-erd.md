@@ -94,7 +94,7 @@ The extension and marketplace tables intentionally use stable string keys such a
 | `users`  | Host Laravel app        | Userstamps, content locks, upgrade runs, admin notification subscriptions, and audit users. |
 | `roles`  | Spatie Permission       | Page-type access restrictions through `page_role_restrictions.role_id`.                     |
 | `media`  | Spatie Media Library    | Capell media collections and media metadata.                                                |
-| `audits` | OwenIt Laravel Auditing | Activity/audit trail for auditable core models.                                             |
+| `activity_log` | Spatie Laravel Activitylog | Activity/audit trail for core models that log activity.                              |
 
 ## Relationship Notes
 

@@ -174,7 +174,7 @@ scheduling, retention, restore drills, and the deliberate no-in-place boundary.
 
 ## Extension Lifecycle
 
-### `capell:make:theme` (`capell:make-theme` alias)
+### `capell:make-theme` (`capell:make:theme` alias)
 
 Scaffolds a Capell theme package. Use `--local` for app-owned client themes that
 should register runtime views during fresh installs before package install state
@@ -331,7 +331,7 @@ Inspects an extension package or manifest without installing it.
 php artisan capell:extension-playground capell-app/blog --path=packages
 ```
 
-### `capell:make:extension` (`capell:make-extension` alias)
+### `capell:make-extension` (`capell:make:extension` alias)
 
 Scaffolds a local Capell package and manifest. In interactive mode, the command asks for any missing package name, profile, target directory, and display name. In non-interactive scripts, pass `package`, `--profile`, and `--path`.
 
@@ -645,13 +645,12 @@ These create local content for development and testing. Do not run them against 
 
 ## Optional-Package Commands
 
-Commands such as static-site generation, sitemap generation, package-specific demo commands, and frontend Tailwind aggregation are provided by optional packages in a consuming app. Keep those commands in the package README or package docs that own them.
+Commands such as static-site generation, sitemap generation, and package-specific demo commands are provided by optional packages in a consuming app. `capell:frontend-tailwind-assets` ships in `capell-app/frontend`. Keep those commands in the package README or package docs that own them.
 
 | Command                           | Package                     |
 | --------------------------------- | --------------------------- |
 | `capell:static-site`              | `capell-app/html-cache`     |
 | `capell:xml-sitemap`              | `capell-app/site-discovery` |
-| `capell:frontend-tailwind-assets` | `capell-app/frontend`       |
 | `capell:admin-demo`               | `capell-app/demo-kit`       |
 | `capell:demo-kit-full-demo`       | `capell-app/demo-kit`       |
 

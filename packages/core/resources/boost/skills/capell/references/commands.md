@@ -142,7 +142,7 @@ php artisan capell:install --fresh=force --demo
 
 `--fresh` uses a Laravel Prompts confirmation with a default of "no". In a
 non-TTY command run it exits with `Fresh install cancelled.` unless the prompt is
-answered. Use `--fresh=force` when Codex or another agent needs to prove the
+answered. Use `--fresh=force` when an automated agent needs to prove the
 fresh install path end to end without an interactive confirmation.
 
 For prompt-free setup, pass the options that answer required prompts:
@@ -153,7 +153,7 @@ php artisan capell:install --fresh=force --demo \
   --package-mode=all \
   --theme=default \
   --name="Capell Admin" \
-  --email=codex-dashboard-qa@example.com \
+  --email=admin@example.com \
   --password=password \
   --clear-cache \
   --install-welcome-route

@@ -56,7 +56,7 @@ Install, upgrade and role seeding defaults grant `admin` Activity read access an
 
 Policies must be **globally registered** via `Gate::policy()` in `AdminServiceProvider::registerPolicies()`. Capell's policies live in `Capell\Admin\Policies\*` and gate models in `Capell\Core\Models\*`; Laravel's convention-based resolver looks for `App\Policies\{Model}Policy` and will **not** find them. Filament's resource system wires them up for requests going through a panel — but anything invoked outside that context (Actions dispatched from CLI, bulk actions, queued jobs, tests) goes through the raw `Gate` facade, which returns "denied by default" for every ability when the policy isn't globally registered.
 
-The bulk-move-pages bug (April 2026) was this exact mistake: only `WorkspacePolicy` was registered, so every other policy silently returned denied for bulk actions. `PolicyRegistrationTest` (`tests/Admin/Feature/Policies/PolicyRegistrationTest.php`) locks the registration contract.
+The bulk-move-pages bug (April 2026) was this exact mistake: only `WorkspacePolicy` was registered, so every other policy silently returned denied for bulk actions. `PolicyRegistrationTest` (`packages/admin/tests/Feature/Policies/PolicyRegistrationTest.php`) locks the registration contract.
 
 ### Permission naming — Shield configuration matters
 

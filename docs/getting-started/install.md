@@ -205,7 +205,7 @@ Before opening either page, apply the Frontend dependency plan and build product
 php artisan capell:frontend-after-install --apply --no-interaction
 ```
 
-This supported command installs registered dependencies using the application's detected package manager, prepares the asset inputs, and builds once. It works with the current preparation hook and earlier releases. After it succeeds, start the application; a second npm build is unnecessary. If the installer already recorded a successful rebuild, start the application directly.
+This supported command installs registered dependencies using the application's detected package manager, prepares the asset inputs, and builds once. After it succeeds, start the application; a second npm build is unnecessary. If the installer already recorded a successful rebuild, start the application directly.
 
 Run the Laravel application with your normal local workflow, then open:
 
@@ -313,6 +313,10 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 | `--build-assets`                   | Install frontend dependencies and build with the detected manager |
 | `--update-app-url`                 | Update APP_URL to the reviewed site URL after confirmation         |
 | `--save-profile=name`              | Save reusable settings without administrator credentials          |
+| `--profile=name`                   | Reuse a saved or configured installation profile                 |
+| `--recommendation=key`             | Select a deterministic install bundle (for example `blog`)       |
+| `--recommendation-action=...`      | Answer the bundle prompt: `select`, `confirm`, `custom` or `skip` |
+| `--spec=path`                      | Install from a site spec file                                    |
 | `--plan`                           | Print the resolved install plan without changing the application |
 | `--demo`                           | Seed the verified evaluation content                             |
 | `--package-mode=core\|all\|custom` | Select the distribution scope                                    |
