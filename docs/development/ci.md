@@ -247,31 +247,35 @@ or timed-out cell is incomplete evidence, not support proof.
 - [Development commands](commands.md)
 - [Docs ownership rules](docs-ownership.md)
 
-## Enqueueing an approved PR by label
+## Enqueueing approved PRs by label
 
 After presenting the final diff and impact summary and obtaining Ben's explicit
-approval for the PR, add the `ready-to-merge` label to a ready PR targeting
-`main`. The workflow verifies the label event's head SHA still matches the PR,
-and rejects drafts and PRs held by the `awaiting-merge` label. Adding the label
-can lead to an automatic merge; monitor the workflow and PR. A new commit needs
-fresh review and approval. Removing the label does not dequeue a PR: remove it
-from GitHub's merge queue separately.
+approval for a PR, add `ready-to-merge` to that open PR targeting `main`. The
+worker scans all open labelled PRs, including labels added before the worker was
+installed, and tries them in PR creation order, oldest first. It excludes drafts
+and PRs marked `awaiting-merge`. It runs when the label is added, every 15
+minutes and by manual dispatch; GitHub may delay scheduled runs. It retries
+pending or failed enqueue requests on the next run and stops at the first
+blocked candidate so later candidates do not overtake it. Already queued PRs
+are not re-enqueued. A previously queued or merged newer PR cannot be reordered
+retroactively when an older PR is labelled later.
 
-GitHub may reject the enqueue request if required checks are still pending or
-failing. The workflow does not currently retry; after the checks pass and the
-same commit remains approved, remove and re-add the label. If the head changes,
-obtain new approval first. Enqueueing fails if no queue is configured and does
-not fall back to a direct merge or enable auto-merge.
+The worker reads each PR's current head. The label is not proof that a later
+head was reviewed: remove it before pushing changes and apply it again only
+once the new final diff is approved. Audit existing labels and approvals before
+activating the worker. Enqueueing can lead to an automatic merge; monitor the
+workflow and queue. Removing the label does not dequeue an existing PR: remove
+it from GitHub's queue separately. The enqueue mutation has no direct-merge
+fallback.
 
-An administrator must enable the `main` merge queue, create the `ready-to-merge`
-label and install a dedicated GitHub App on this repository with Contents write,
-Pull requests read and Merge queues write permissions, without bypass rights.
-Store its ID and private key in `MERGE_QUEUE_APP_ID` and
-`MERGE_QUEUE_APP_PRIVATE_KEY` repository secrets. The workflow creates a
-short-lived installation token for each request. Verify the app can enqueue and
-that the required checks run before relying on the queue. `actionlint` and
-`PHP Quality (8.4)` run on `merge_group`.
-Review all required checks in branch protection and rulesets before enabling the
-queue, and ensure each reports on `merge_group`. Hosted Actions billing or
-credential restrictions can prevent the workflow from running; local checks do
-not produce the required merge-group status.
+An administrator must enable the `main` merge queue and install a dedicated
+GitHub App on this repository with Contents write, Pull requests read and Merge
+queues write permissions, without bypass rights. Store its ID and private key
+in `MERGE_QUEUE_APP_ID` and `MERGE_QUEUE_APP_PRIVATE_KEY` repository secrets.
+The workflow creates a short-lived installation token for each run. The
+`ready-to-merge` label must exist. Verify the App can enqueue and required
+checks run before relying on the queue. `actionlint` and `PHP Quality (8.4)` run
+on `merge_group`; review branch protection and rulesets for any additional
+required checks and ensure each reports on `merge_group`. Hosted Actions billing
+or credential restrictions can prevent the worker from running; local checks
+do not produce the required merge-group status.

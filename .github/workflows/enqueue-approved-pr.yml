@@ -3,12 +3,19 @@ name: Enqueue approved pull request
 on:
   pull_request_target:
     types: [labeled]
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
 
 permissions: {}
 
+concurrency:
+  group: ready-to-merge-queue
+  cancel-in-progress: false
+
 jobs:
   enqueue:
-    if: github.event.label.name == 'ready-to-merge'
+    if: github.event_name != 'pull_request_target' || github.event.label.name == 'ready-to-merge'
     runs-on: ubuntu-latest
     steps:
       - name: Check queue credential
@@ -34,40 +41,49 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           QUEUE_TOKEN: ${{ steps.queue-token.outputs.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REVIEWED_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           github-token: ${{ steps.queue-token.outputs.token }}
           script: |
             if (!process.env.QUEUE_TOKEN) throw new Error('Queue installation token is missing.');
-            const number = process.env.PR_NUMBER;
-            const sha = process.env.REVIEWED_SHA;
-            if (!/^[1-9][0-9]*$/.test(number) || !/^[0-9a-f]{40}$/i.test(sha)) {
-              throw new Error('Provide a positive PR number and the full reviewed 40-character SHA.');
-            }
-            const { data: pr } = await github.rest.pulls.get({
-              ...context.repo, pull_number: Number(number),
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              ...context.repo, state: 'open', base: 'main', per_page: 100,
             });
-            if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') {
-              throw new Error('The PR must be open, ready for review and target main.');
-            }
-            if (!pr.labels.some(label => label.name === 'ready-to-merge')) {
-              throw new Error('The ready-to-merge label has been removed.');
-            }
-            if (pr.labels.some(label => label.name === 'awaiting-merge')) {
-              throw new Error('The PR is held by the awaiting-merge label.');
-            }
-            if (pr.head.sha.toLowerCase() !== sha.toLowerCase()) {
-              throw new Error('The PR head differs from the reviewed SHA; review it again.');
-            }
-            const result = await github.graphql(`
-              mutation($id: ID!, $sha: GitObjectID!) {
-                enqueuePullRequest(input: {pullRequestId: $id, expectedHeadOid: $sha}) {
-                  mergeQueueEntry { id }
-                }
+            const candidates = pulls
+              .filter(pr => !pr.draft && pr.labels.some(label => label.name === 'ready-to-merge')
+                && !pr.labels.some(label => label.name === 'awaiting-merge'))
+              .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.number - b.number);
+            for (const candidate of candidates) {
+              const { data: pr } = await github.rest.pulls.get({
+                ...context.repo, pull_number: candidate.number,
+              });
+              if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main'
+                  || !pr.labels.some(label => label.name === 'ready-to-merge')
+                  || pr.labels.some(label => label.name === 'awaiting-merge')) {
+                throw new Error(`PR #${candidate.number} changed while the queue was being examined; retry.`);
               }
-            `, { id: pr.node_id, sha });
-            if (!result.enqueuePullRequest.mergeQueueEntry) {
-              throw new Error('GitHub did not return a queue entry.');
+              if (pr.head.sha !== candidate.head.sha) {
+                throw new Error(`PR #${candidate.number} changed during the queue scan; review its new head.`);
+              }
+              const state = await github.graphql(`
+                query($id: ID!) {
+                  node(id: $id) { ... on PullRequest { mergeQueue { id } mergeQueueEntry { id } } }
+                }
+              `, { id: pr.node_id });
+              if (!state.node?.mergeQueue) throw new Error('The main branch has no merge queue configured.');
+              if (state.node.mergeQueueEntry) {
+                core.info(`PR #${pr.number} is already queued.`);
+                continue;
+              }
+              // Stop on a failure: a newer PR must not pass an older labelled PR.
+              const result = await github.graphql(`
+                mutation($id: ID!, $sha: GitObjectID!) {
+                  enqueuePullRequest(input: {pullRequestId: $id, expectedHeadOid: $sha}) {
+                    mergeQueueEntry { id }
+                  }
+                }
+              `, { id: pr.node_id, sha: pr.head.sha });
+              if (!result.enqueuePullRequest.mergeQueueEntry) {
+                throw new Error(`GitHub did not return a queue entry for PR #${pr.number}.`);
+              }
+              core.notice(`PR #${pr.number} was enqueued at ${pr.head.sha}; this does not yet mean it merged.`);
             }
-            core.notice(`PR #${number} was enqueued at ${sha}; this does not yet mean it merged.`);
