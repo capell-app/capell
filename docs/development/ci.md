@@ -246,3 +246,25 @@ or timed-out cell is incomplete evidence, not support proof.
 
 - [Development commands](commands.md)
 - [Docs ownership rules](docs-ownership.md)
+
+## Manually enqueueing an approved PR
+
+The **Enqueue approved pull request** workflow submits one ready PR targeting
+`main` to GitHub's merge queue. First present the final diff and impact summary
+and obtain Ben's explicit approval for that PR. Enter its number and the full
+reviewed head SHA when running the workflow on `main`. The workflow rejects
+held PRs labelled `awaiting-merge` and refuses a changed head. Enqueueing can
+lead to an automatic merge; monitor the PR until it merges or is removed.
+
+Before using this workflow, an administrator must enable the `main` merge queue
+and configure `MERGE_QUEUE_TOKEN` as a repository secret containing a suitably
+scoped GitHub App installation token or service credential with access to read
+PRs and enqueue them. Check the credential's lifetime and repository policy.
+The enqueue mutation fails if no queue is configured; it does not fall back to
+a direct merge or enable auto-merge. Required checks must pass before enqueueing.
+The `actionlint` and `PHP Quality (8.4)` required checks run on `merge_group`
+commits. Review branch protection and rulesets for any additional required
+checks before enabling the queue, and ensure each reports on `merge_group`.
+Queue failures or conflicts require investigation; do not bypass the rules.
+Hosted Actions billing or credential restrictions can prevent this from working;
+local checks do not produce the required merge-group status.
