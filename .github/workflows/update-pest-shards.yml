@@ -115,7 +115,7 @@ jobs:
           echo "DB_DATABASE=:memory:" >> .env
 
       - name: Run test:fast with --update-shards
-        run: php -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --parallel --processes=${PEST_MAX_PROCESSES:-8} --compact --update-shards --configuration=phpunit.xml
+        run: php -d max_execution_time=0 -d pcov.enabled=0 vendor/bin/pest --colors=always --parallel --processes="${PEST_MAX_PROCESSES:-8}" --compact --update-shards --configuration=phpunit.xml
 
       - name: Upload shards.json
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
