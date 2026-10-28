@@ -18,6 +18,7 @@ use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use Workbench\App\Providers\ScreenshotWorkbenchServiceProvider;
 use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\RecordStateScreenshotFixture;
 
@@ -213,4 +214,12 @@ it('seeds reusable action screenshot records and protects their routes', functio
     ActionScreenshotFixture::initialize();
     expect(Page::query()->where('name', 'Screenshot child page')->count())->toBe(1)
         ->and(Site::query()->where('name', 'Screenshot French site')->count())->toBe(1);
+});
+
+it('uses the configured screenshot port for the local marketplace fixture', function (): void {
+    config()->set('screenshot.port', 18147);
+    new ScreenshotWorkbenchServiceProvider(app())->register();
+
+    expect(config('capell-marketplace.marketplace.base_url'))->toBe('http://127.0.0.1:18147/api/v1')
+        ->and(config('capell-marketplace.marketplace.web_url'))->toBe('http://127.0.0.1:18147');
 });

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Override;
+use RuntimeException;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\SiteAdminMetricsScreenshotFixture;
 
@@ -34,9 +35,12 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             Config::set('app.url', $displayOrigin);
         }
 
+        $port = filter_var(config('screenshot.port'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1024, 'max_range' => 65535]]);
+        throw_if($port === false, RuntimeException::class, 'CAPELL_SCREENSHOT_PORT must be an integer from 1024 to 65535.');
+        $localOrigin = 'http://127.0.0.1:' . $port;
         config([
-            'capell-marketplace.marketplace.base_url' => 'http://127.0.0.1:8145/api/v1',
-            'capell-marketplace.marketplace.web_url' => 'http://127.0.0.1:8145',
+            'capell-marketplace.marketplace.base_url' => $localOrigin . '/api/v1',
+            'capell-marketplace.marketplace.web_url' => $localOrigin,
         ]);
     }
 
