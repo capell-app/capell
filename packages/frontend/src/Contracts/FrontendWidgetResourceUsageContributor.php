@@ -11,6 +11,8 @@ use Capell\Frontend\Data\FrontendRenderContextData;
  * Contributes widget resource usages for the current public render.
  *
  * Implementations should be resolved per request and tagged with TAG.
+ *
+ * @internal
  */
 interface FrontendWidgetResourceUsageContributor
 {

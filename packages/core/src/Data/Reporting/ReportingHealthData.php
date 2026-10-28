@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\Reporting;
 
+/** @internal */
 final readonly class ReportingHealthData
 {
     /** @param 'ok'|'degraded'|'disabled'|'unavailable' $status */

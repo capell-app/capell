@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Data;
 
 use Spatie\LaravelData\Data;
 
+/** @internal */
 final class MarketplaceComposerPublicationResultData extends Data
 {
     public function __construct(

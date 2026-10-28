@@ -49,6 +49,7 @@ use Illuminate\Support\HtmlString;
 use Illuminate\View\View;
 use ReflectionFunction;
 
+/** @api */
 final class AdminBridgeRegistrar
 {
     public function __construct(

@@ -10,7 +10,10 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
-/** @method static void run(array<string, mixed>|ProjectBuildManifestData $manifest, string $publicKey) */
+/** @method static void run(array<string, mixed>|ProjectBuildManifestData $manifest, string $publicKey)
+ *
+ * @api
+ */
 final class VerifyProjectBuildManifestSignatureAction
 {
     use AsFake;

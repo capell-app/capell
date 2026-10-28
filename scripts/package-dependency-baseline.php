@@ -63,6 +63,7 @@ return [
             'livewire/livewire',
             'nesbot/carbon',
             'nikic/php-parser',
+            'phpstan/phpstan',
             'ramsey/uuid',
             'spatie/image',
             'spatie/laravel-package-tools',

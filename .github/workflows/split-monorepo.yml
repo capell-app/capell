@@ -99,8 +99,9 @@ jobs:
           git archive "${RELEASE_TOOLING_COMMIT}" \
             scripts/release.php \
             scripts/release/ReleaseEngine.php \
+            scripts/release/BuildReleaseNotesAction.php \
             | tar -x -C "${RELEASE_TOOLING_ROOT}"
-          for path in scripts/release.php scripts/release/ReleaseEngine.php; do
+          for path in scripts/release.php scripts/release/ReleaseEngine.php scripts/release/BuildReleaseNotesAction.php; do
             expected_blob="$(git rev-parse "${RELEASE_TOOLING_COMMIT}:${path}")"
             actual_blob="$(git hash-object "${RELEASE_TOOLING_ROOT}/${path}")"
             test "${actual_blob}" = "${expected_blob}"

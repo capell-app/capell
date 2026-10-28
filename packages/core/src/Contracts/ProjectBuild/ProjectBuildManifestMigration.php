@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Contracts\ProjectBuild;
 
+/** @internal */
 interface ProjectBuildManifestMigration
 {
     public function fromVersion(): int;

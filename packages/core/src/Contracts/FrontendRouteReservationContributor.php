@@ -6,6 +6,7 @@ namespace Capell\Core\Contracts;
 
 use Capell\Core\Data\FrontendRouteReservationData;
 
+/** @internal */
 interface FrontendRouteReservationContributor
 {
     public const string TAG = 'capell.frontend-route-reservation-contributor';

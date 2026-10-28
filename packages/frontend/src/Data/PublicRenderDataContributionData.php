@@ -14,7 +14,10 @@ use stdClass;
 use Throwable;
 use Traversable;
 
-/** One normalised, validated public render-data value. */
+/** One normalised, validated public render-data value.
+ *
+ * @internal
+ */
 final readonly class PublicRenderDataContributionData
 {
     public object $value;

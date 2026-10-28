@@ -15,6 +15,8 @@ use Throwable;
 /**
  * Retry pending deliveries and evaluate backup escalation in bounded rotating batches.
  * Schedule from the host; storage failures propagate so the scheduler can report failure.
+ *
+ * @internal
  */
 final readonly class ProcessReportingIncidentsAction
 {
