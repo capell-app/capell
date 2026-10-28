@@ -23,7 +23,8 @@ it('does not call the approvals provider when disabled and passes selected scope
         public ?string $language = null;
 
         #[Override]
-        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardApprovalsData
+        /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardApprovalsData
         {
             $this->calls++;
             $this->siteId = $siteId;
@@ -53,7 +54,8 @@ it('shows assigned review details', function (): void {
     app()->instance(DashboardApprovalsDataProvider::class, new class implements DashboardApprovalsDataProvider
     {
         #[Override]
-        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardApprovalsData
+        /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardApprovalsData
         {
             return new DashboardApprovalsData(true, true, true, 1, 0, null, [
                 new DashboardApprovalItemData(1, 2, 'Main site', 'Review page', 'Editor', '2026-01-01T12:00:00+00:00', null, '/admin/review'),

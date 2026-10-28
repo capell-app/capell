@@ -12,7 +12,8 @@ use Override;
 final class NullDashboardWorkDataProvider implements DashboardWorkDataProvider
 {
     #[Override]
-    public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardWorkData
+    /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+    public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardWorkData
     {
         return new DashboardWorkData(available: false, total: 0, items: []);
     }

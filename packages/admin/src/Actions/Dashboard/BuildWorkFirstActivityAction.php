@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\Dashboard;
 use Capell\Admin\Contracts\Dashboard\DashboardActivityContributor;
 use Capell\Admin\Contracts\DashboardReports\ActivityTrailQueryProvider;
 use Capell\Admin\Data\Dashboard\DashboardActivityItemData;
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Translation;
@@ -28,6 +29,20 @@ final class BuildWorkFirstActivityAction
 
     /** @return list<DashboardActivityItemData> */
     public function handle(Authenticatable $actor, ?int $siteId, ?string $language, int $limit = 5): array
+    {
+        $items = [];
+        $evaluator = resolve(DashboardSiteEvaluator::class);
+        foreach ($evaluator->siteIds($actor, $siteId) as $candidate) {
+            $items = [...$items, ...$evaluator->run($actor, $candidate, fn (): array => $this->handleSite($actor, $candidate, $language, $limit))];
+        }
+
+        usort($items, static fn ($left, $right): int => CarbonImmutable::parse($right->occurredAt)->getTimestamp() <=> CarbonImmutable::parse($left->occurredAt)->getTimestamp());
+
+        return array_slice($items, 0, max(0, $limit));
+    }
+
+    /** @return list<DashboardActivityItemData> */
+    private function handleSite(Authenticatable $actor, ?int $siteId, ?string $language, int $limit = 5): array
     {
         if (! Gate::forUser($actor)->allows('viewAny', Activity::class)) {
             return [];
@@ -53,9 +68,9 @@ final class BuildWorkFirstActivityAction
                     $subject->morphWith([Page::class => ['site'], Translation::class => ['translatable']]);
                 }
             }])
-            ->latest('created_at')->latest('id')->limit(100);
+            ->latest('created_at')->latest('id');
         $items = [];
-        foreach ($query->get() as $activity) {
+        foreach ($query->lazy() as $activity) {
             if (! $activity instanceof Activity) {
                 continue;
             }
@@ -93,7 +108,7 @@ final class BuildWorkFirstActivityAction
             }
 
             $items[$key] = new DashboardActivityItemData(
-                key: 'activity-' . $activity->getKey(),
+                key: 'activity-' . hash('sha256', $key),
                 siteId: (int) $page->site_id,
                 siteName: $page->site->name,
                 title: $page->name,

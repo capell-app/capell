@@ -22,5 +22,7 @@ final class DashboardPageRankingSourceData extends Data
         public readonly int $sitesCovered = 0,
         public readonly string $status = 'available',
         public readonly ?string $lastUpdated = null,
+        public readonly ?string $periodStart = null,
+        public readonly ?string $periodEnd = null,
     ) {}
 }

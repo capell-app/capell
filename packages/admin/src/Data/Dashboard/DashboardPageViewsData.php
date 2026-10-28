@@ -17,5 +17,7 @@ final class DashboardPageViewsData extends Data
         public readonly ?string $lastUpdated,
         public readonly int $sitesCovered,
         public readonly int $sitesRequested,
+        public readonly ?string $periodStart = null,
+        public readonly ?string $periodEnd = null,
     ) {}
 }

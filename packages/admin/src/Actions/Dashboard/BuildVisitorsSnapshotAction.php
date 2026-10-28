@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Contracts\Dashboard\DashboardVisitorsProvider;
 use Capell\Admin\Data\Dashboard\DashboardVisitorsData;
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -20,15 +21,16 @@ final class BuildVisitorsSnapshotAction
     public function handle(Authenticatable $actor, ?int $siteId, ?string $language, int $days): ?DashboardVisitorsData
     {
         $mapping = config('capell-admin.dashboard.work_first.analytics.visitors', []);
-        if (! resolve(CanViewWorkFirstAnalyticsAction::class)->handle($actor) || $siteId === null || $siteId < 1
+        if (! resolve(CanViewWorkFirstAnalyticsAction::class)->handle($actor, $siteId) || $siteId === null || $siteId < 1
             || $days < 1 || $days > 365 || ! is_array($mapping) || ($mapping['enabled'] ?? false) !== true
             || ! is_string($mapping['measure'] ?? null) || $mapping['measure'] === ''
             || ! is_string($mapping['source'] ?? null) || $mapping['source'] === '') {
             return null;
         }
 
-        $site = SiteAccess::forActor($actor)->query(Site::class)->find($siteId);
-        if (! $site instanceof Site || ! Gate::forUser($actor)->allows('view', $site)) {
+        $evaluator = resolve(DashboardSiteEvaluator::class);
+        $site = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Site::class)->find($siteId);
+        if (! $site instanceof Site || ! $evaluator->allows($actor, $siteId, fn (): bool => Gate::forUser($actor)->allows('view', $site))) {
             return null;
         }
 
@@ -41,15 +43,15 @@ final class BuildVisitorsSnapshotAction
 
         $cacheKey = 'capell:dashboard:visitors:' . hash('sha256', json_encode([$actor::class, $actor->getAuthIdentifier(), $siteId, $site->uuid, $language, $languages, $days, $mapping], JSON_THROW_ON_ERROR));
         try {
-            $data = resolve(DashboardVisitorsProvider::class)->build($actor, $siteId, $language, $days);
+            $data = $evaluator->run($actor, $siteId, fn (): DashboardVisitorsData => resolve(DashboardVisitorsProvider::class)->build($actor, $siteId, $language, $days));
         } catch (Throwable $throwable) {
             report($throwable);
 
-            return $this->staleOrFailed($cacheKey);
+            return $this->staleOrFailed($cacheKey, $days);
         }
 
         if ($data->status === 'failed') {
-            return $this->staleOrFailed($cacheKey);
+            return $this->staleOrFailed($cacheKey, $days);
         }
 
         if ($data->status === 'disconnected') {
@@ -61,13 +63,14 @@ final class BuildVisitorsSnapshotAction
             || ! in_array($data->timezone, DateTimeZone::listIdentifiers(), true)
             || ($data->current !== null && $data->current < 0) || ($data->previous !== null && $data->previous < 0)
             || (in_array($data->status, ['available', 'stale'], true) && $data->current === null)
-            || (in_array($data->status, ['available', 'stale'], true) && $data->lastUpdated === null)) {
+            || (in_array($data->status, ['available', 'stale'], true) && $data->lastUpdated === null)
+            || (in_array($data->status, ['available', 'stale'], true) && ! resolve(ValidateDashboardReportingPeriodAction::class)->handle($data->periodStart, $data->periodEnd, $data->timezone, $days, $data->status))) {
             return new DashboardVisitorsData('insufficient', '', '', '', null, null, null);
         }
 
         if ($data->status === 'available') {
             try {
-                Cache::put($cacheKey, $data, now()->addDays(7));
+                Cache::forever($cacheKey, $data);
             } catch (Throwable $exception) {
                 report($exception);
             }
@@ -76,7 +79,7 @@ final class BuildVisitorsSnapshotAction
         return $data;
     }
 
-    private function staleOrFailed(string $cacheKey): DashboardVisitorsData
+    private function staleOrFailed(string $cacheKey, int $days): DashboardVisitorsData
     {
         try {
             $last = Cache::get($cacheKey);
@@ -86,7 +89,8 @@ final class BuildVisitorsSnapshotAction
         }
 
         return $last instanceof DashboardVisitorsData && $last->lastUpdated !== null
-            ? new DashboardVisitorsData('stale', $last->measure, $last->source, $last->timezone, $last->current, $last->previous, $last->lastUpdated)
+            && resolve(ValidateDashboardReportingPeriodAction::class)->handle($last->periodStart, $last->periodEnd, $last->timezone, $days, 'stale')
+            ? new DashboardVisitorsData('stale', $last->measure, $last->source, $last->timezone, $last->current, $last->previous, $last->lastUpdated, $last->periodStart, $last->periodEnd)
             : new DashboardVisitorsData('failed', '', '', '', null, null, null);
     }
 }

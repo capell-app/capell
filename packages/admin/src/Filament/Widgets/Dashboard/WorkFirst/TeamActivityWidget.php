@@ -11,9 +11,12 @@ use Capell\Admin\Filament\Resources\Activities\ActivityResource;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasStableDashboardOrder;
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Filament\Widgets\Widget;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Override;
+use Spatie\Activitylog\Models\Activity;
 
 /** @property-read list<DashboardActivityItemData> $currentItems */
 final class TeamActivityWidget extends Widget
@@ -28,7 +31,14 @@ final class TeamActivityWidget extends Widget
     #[Override]
     public static function canView(): bool
     {
-        return self::widgetEnabled('team_activity') && ActivityResource::canViewAny();
+        $actor = auth()->user();
+        if (! self::widgetEnabled('team_activity') || $actor === null) {
+            return false;
+        }
+
+        $evaluator = resolve(DashboardSiteEvaluator::class);
+
+        return collect($evaluator->siteIds($actor))->contains(fn (int $siteId): bool => $evaluator->allows($actor, $siteId, fn (): bool => Gate::forUser($actor)->allows('viewAny', Activity::class)));
     }
 
     /** @return list<DashboardActivityItemData> */

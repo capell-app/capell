@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Contracts\Dashboard\DashboardPublishingContributor;
 use Capell\Admin\Data\Dashboard\DashboardPublicationItemData;
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -23,6 +24,20 @@ final class BuildWorkFirstPublishingAction
 
     /** @return list<DashboardPublicationItemData> */
     public function handle(Authenticatable $actor, ?int $siteId, ?string $language): array
+    {
+        $items = [];
+        $evaluator = resolve(DashboardSiteEvaluator::class);
+        foreach ($evaluator->siteIds($actor, $siteId) as $candidate) {
+            $items = [...$items, ...$evaluator->run($actor, $candidate, fn (): array => $this->handleSite($actor, $candidate, $language))];
+        }
+
+        usort($items, static fn ($left, $right): int => [CarbonImmutable::parse($left->scheduledAt)->getTimestamp(), $left->key] <=> [CarbonImmutable::parse($right->scheduledAt)->getTimestamp(), $right->key]);
+
+        return $items;
+    }
+
+    /** @return list<DashboardPublicationItemData> */
+    private function handleSite(Authenticatable $actor, ?int $siteId, ?string $language): array
     {
         if (! Gate::forUser($actor)->allows('viewAny', Page::class)) {
             return [];

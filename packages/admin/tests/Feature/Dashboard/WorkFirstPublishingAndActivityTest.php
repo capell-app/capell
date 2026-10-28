@@ -3,14 +3,21 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstActivityAction;
+use Capell\Admin\Actions\Dashboard\BuildWorkFirstAttentionAction;
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstPublishingAction;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PublishingHealthWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\TeamActivityWidget;
+use Capell\Core\Contracts\Publishing\PublicationReadinessContributor;
+use Capell\Core\Data\Publishing\PublicationReadinessCheckData;
+use Capell\Core\Data\Publishing\PublicationReadinessContextData;
+use Capell\Core\Models\Contracts\Publishable;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
+use Capell\Core\Support\Publishing\PublicationReadinessRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
@@ -77,4 +84,33 @@ it('does not fetch publishing or activity data when their widget switches are of
 
     expect((new PublishingHealthWidget)->items())->toBe([])
         ->and((new TeamActivityWidget)->items())->toBe([]);
+});
+
+it('includes registered publication blockers in upcoming readiness and site attention', function (): void {
+    $this->actingAsAdmin();
+    $site = Site::factory()->create();
+    $page = Page::withoutEvents(fn () => Page::factory()->create(['site_id' => $site->id, 'visible_from' => now()->addDay()]));
+    Translation::withoutEvents(fn () => Translation::factory()->translatable($page)->create(['language_id' => $site->language_id]));
+    resolve(PublicationReadinessRegistry::class)->register(new class implements PublicationReadinessContributor
+    {
+        #[Override]
+        public function supports(Model&Publishable $record): bool
+        {
+            return true;
+        }
+
+        /** @return list<PublicationReadinessCheckData> */
+        #[Override]
+        public function checks(Model&Publishable $record, PublicationReadinessContextData $context): array
+        {
+            return [new PublicationReadinessCheckData('test.required-review')];
+        }
+    });
+    $actor = $this->authenticatedUser();
+    $upcoming = resolve(BuildWorkFirstPublishingAction::class)->handle($actor, $site->id, null);
+    $attention = resolve(BuildWorkFirstAttentionAction::class)->handle($actor, $site->id, null);
+
+    expect($upcoming[0]->readiness)->toBe('blocked')
+        ->and($upcoming[0]->reasons)->toContain('publication_check')
+        ->and($attention[0]->reasons)->toContain('publication_check');
 });

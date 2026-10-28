@@ -58,6 +58,7 @@ it('requires complete scope coverage and preserves valid zero page views', funct
     expect($data->status)->toBe('available')->and($data->current)->toBe(4)->and($data->previous)->toBeNull()
         ->and($data->trend)->toBe([['day' => '2026-10-26', 'count' => 4], ['day' => '2026-10-27', 'count' => 0]]);
 
+    CarbonImmutable::setTestNow('2026-11-12 12:00:00 UTC');
     $connection = DB::connection();
     $originalEvents = $connection->getEventDispatcher();
     throw_if($originalEvents === null, LogicException::class, 'The database event dispatcher is required for this test.');
@@ -70,7 +71,8 @@ it('requires complete scope coverage and preserves valid zero page views', funct
     });
     try {
         $stale = resolve(BuildPageViewsAction::class)->handle(test()->authenticatedUser(), $site->id, null, 2);
-        expect($stale->status)->toBe('stale')->and($stale->current)->toBe(4);
+        expect($stale->status)->toBe('stale')->and($stale->current)->toBe(4)
+            ->and($stale->periodStart)->toBe('2026-10-26')->and($stale->periodEnd)->toBe('2026-10-28');
     } finally {
         $connection->setEventDispatcher($originalEvents);
     }
@@ -83,6 +85,7 @@ it('requires complete scope coverage and preserves valid zero page views', funct
 
 it('reports a disconnected collector rather than zero traffic', function (): void {
     test()->actingAsAdmin();
+    Site::factory()->createOne();
     $settings = AdminSettings::instance();
     $settings->analytics_collection_enabled = false;
     $settings->save();

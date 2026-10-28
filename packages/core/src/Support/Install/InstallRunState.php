@@ -36,6 +36,33 @@ final class InstallRunState
         private bool $packageMetadataRefreshed = false,
     ) {}
 
+    public static function rememberInitialInstallation(bool $initial): void
+    {
+        if (! $initial) {
+            return;
+        }
+
+        self::exclusively(static function (): void {
+            $state = self::progressState();
+            $state['initial_installation'] = true;
+            self::saveProgressState($state);
+        });
+    }
+
+    public static function hasPendingInitialInstallation(): bool
+    {
+        return (self::progressState()['initial_installation'] ?? false) === true;
+    }
+
+    public static function completeInitialInstallation(): void
+    {
+        self::exclusively(static function (): void {
+            $state = self::progressState();
+            unset($state['initial_installation']);
+            self::saveProgressState($state);
+        });
+    }
+
     /** @param list<string> $paths */
     public static function recordScaffoldedPanelProviders(array $paths): void
     {

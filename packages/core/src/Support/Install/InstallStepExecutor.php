@@ -50,6 +50,7 @@ final class InstallStepExecutor
 
     public function execute(string $stepKey, InstallRunState $state): InstallRunState
     {
+        InstallRunState::rememberInitialInstallation($state->inputData->initialInstallation);
         config(['app.url' => $state->inputData->siteUrl]);
         InstallFilamentPanelAction::registerPanelProviders();
         CapellCore::clearExtensionCache();
@@ -57,7 +58,12 @@ final class InstallStepExecutor
         $stepFailed = false;
 
         try {
-            return $this->executeStep($stepKey, $state);
+            $result = $this->executeStep($stepKey, $state);
+            if ($stepKey === InstallPlan::STEP_MARK_CORE_INSTALLED) {
+                InstallRunState::completeInitialInstallation();
+            }
+
+            return $result;
         } catch (Throwable $throwable) {
             $stepFailed = true;
 

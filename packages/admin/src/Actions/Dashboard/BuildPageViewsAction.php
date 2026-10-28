@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Data\Dashboard\DashboardPageViewsData;
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Data\Metrics\MetricScopeData;
 use Capell\Core\Enums\Metrics\MetricCollectionRunStatus;
 use Capell\Core\Enums\Metrics\MetricPointState;
@@ -28,7 +29,7 @@ final class BuildPageViewsAction
 {
     public function handle(Authenticatable $actor, ?int $siteId, ?string $language, int $days = 30): DashboardPageViewsData
     {
-        if (! resolve(CanViewWorkFirstAnalyticsAction::class)->handle($actor)) {
+        if (! resolve(CanViewWorkFirstAnalyticsAction::class)->handle($actor, $siteId)) {
             return new DashboardPageViewsData('unauthorised', null, null, [], null, 0, 0);
         }
 
@@ -37,12 +38,13 @@ final class BuildPageViewsAction
         }
 
         $period = resolve(BuildCompleteAnalyticsPeriodAction::class)->handle(CarbonImmutable::now('UTC'), $days, 'UTC');
-        $sites = SiteAccess::forActor($actor)->query(Site::class)
+        $evaluator = resolve(DashboardSiteEvaluator::class);
+        $sites = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Site::class)
             ->enabled()
             ->with(['language', 'siteDomains.language'])
-            ->when($siteId !== null, fn (Builder $query): Builder => $query->whereKey($siteId))
+            ->whereIn('id', $evaluator->siteIds($actor, $siteId))
             ->get()
-            ->filter(fn (Site $site): bool => Gate::forUser($actor)->allows('view', $site));
+            ->filter(fn (Site $site): bool => $evaluator->allows($actor, (int) $site->getKey(), fn (): bool => resolve(CanViewWorkFirstAnalyticsAction::class)->handle($actor, (int) $site->getKey()) && Gate::forUser($actor)->allows('view', $site)));
         $scopes = [];
         foreach ($sites as $site) {
             foreach ($site->getAllLanguages() as $siteLanguage) {
@@ -61,7 +63,8 @@ final class BuildPageViewsAction
         $cacheKey = 'capell:dashboard:page-views:' . hash('sha256', json_encode([$actor::class, $actor->getAuthIdentifier(), $siteId, $language, $days, $scopeKeys], JSON_THROW_ON_ERROR));
 
         try {
-            $rollups = SiteAccess::forActor($actor)->query(MetricDailyRollup::class)
+            $rollups = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(MetricDailyRollup::class)
+                ->whereIn('site_id', $sites->modelKeys())
                 ->where('owner_package', ActivityBucketsDailyMetricsCollector::OWNER_PACKAGE)
                 ->where('collector_key', ActivityBucketsDailyMetricsCollector::COLLECTOR_KEY)
                 ->where('metric_key', ActivityBucketsDailyMetricsCollector::PAGE_VIEWS_METRIC)
@@ -81,7 +84,8 @@ final class BuildPageViewsAction
             }
 
             return $last instanceof DashboardPageViewsData
-                ? new DashboardPageViewsData('stale', $last->current, $last->previous, $last->trend, $last->lastUpdated, $last->sitesCovered, $last->sitesRequested)
+                && resolve(ValidateDashboardReportingPeriodAction::class)->handle($last->periodStart, $last->periodEnd, 'UTC', $days, 'stale')
+                ? new DashboardPageViewsData('stale', $last->current, $last->previous, $last->trend, $last->lastUpdated, $last->sitesCovered, $last->sitesRequested, $last->periodStart, $last->periodEnd)
                 : new DashboardPageViewsData('failed', null, null, [], null, 0, $sites->count());
         }
 
@@ -165,10 +169,12 @@ final class BuildPageViewsAction
             lastUpdated: $updated,
             sitesCovered: $coveredSites,
             sitesRequested: $sites->count(),
+            periodStart: $period->start->toDateString(),
+            periodEnd: $period->end->toDateString(),
         );
         if ($result->status === 'available' && $result->lastUpdated !== null) {
             try {
-                Cache::put($cacheKey, $result, now()->addDay());
+                Cache::forever($cacheKey, $result);
             } catch (Throwable $exception) {
                 report($exception);
             }

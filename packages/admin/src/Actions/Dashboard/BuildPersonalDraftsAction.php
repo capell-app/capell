@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Data\Dashboard\DashboardWorkData;
 use Capell\Admin\Data\Dashboard\DashboardWorkItemData;
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -15,7 +16,25 @@ use Illuminate\Support\Facades\Gate;
 
 final class BuildPersonalDraftsAction
 {
-    public function handle(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardWorkData
+    /** @param list<int> $retainedPageIds */
+    public function handle(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardWorkData
+    {
+        $items = [];
+        $total = 0;
+        $evaluator = resolve(DashboardSiteEvaluator::class);
+        foreach ($evaluator->siteIds($actor, $siteId) as $candidate) {
+            $result = $evaluator->run($actor, $candidate, fn (): DashboardWorkData => $this->handleSite($actor, $candidate, $limit, $language, $retainedPageIds));
+            $total += $result->total;
+            $items = [...$items, ...$result->items];
+        }
+
+        usort($items, static fn ($left, $right): int => ($right->updatedAt ?? '') <=> ($left->updatedAt ?? ''));
+
+        return new DashboardWorkData(true, $total, array_values(array_filter($items, static fn (DashboardWorkItemData $item, int $index): bool => $index < max(0, $limit) || in_array($item->pageId, $retainedPageIds, true), ARRAY_FILTER_USE_BOTH)));
+    }
+
+    /** @param list<int> $retainedPageIds */
+    private function handleSite(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardWorkData
     {
         if (! Gate::forUser($actor)->allows('viewAny', Page::class)) {
             return new DashboardWorkData(true, 0, []);
@@ -38,7 +57,7 @@ final class BuildPersonalDraftsAction
             }
 
             $total++;
-            if (count($items) >= max(0, $limit)) {
+            if (count($items) >= max(0, $limit) && ! in_array((int) $page->getKey(), $retainedPageIds, true)) {
                 continue;
             }
 

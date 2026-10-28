@@ -25,9 +25,10 @@ it('offers new work before changing the displayed order', function (): void {
         public array $items = [];
 
         #[Override]
-        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardWorkData
+        /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardWorkData
         {
-            return new DashboardWorkData(true, count($this->items), $this->items);
+            return new DashboardWorkData(true, count($this->items), array_values(array_filter($this->items, static fn (DashboardWorkItemData $item, int $index): bool => $index < $limit || in_array($item->pageId, $retainedPageIds, true), ARRAY_FILTER_USE_BOTH)));
         }
     };
     $provider->items = [new DashboardWorkItemData(1, 1, 'Site', 'First assignment', 'assigned', null, null, null)];
@@ -36,7 +37,12 @@ it('offers new work before changing the displayed order', function (): void {
     $component = Livewire::test(PersonalDraftsWidget::class)->assertSee('First assignment');
     array_unshift($provider->items, new DashboardWorkItemData(2, 1, 'Site', 'Second assignment', 'assigned', null, null, null));
     $component->call('$refresh')->assertSee('Show updates')->assertDontSee('Second assignment');
-    $component->call('applyWorkUpdates')->assertSee('Second assignment');
+    foreach (range(3, 105) as $id) {
+        array_unshift($provider->items, new DashboardWorkItemData($id, 1, 'Site', 'Incoming ' . $id, 'assigned', null, null, null));
+    }
+
+    $component->call('$refresh')->assertSee('First assignment')->assertDontSee('Incoming 105');
+    $component->call('applyWorkUpdates')->assertSee('Incoming 6');
     $provider->items = [$provider->items[0]];
     $component->call('$refresh')->assertDontSee('First assignment');
 });
@@ -50,9 +56,10 @@ it('offers new approvals before changing the displayed order', function (): void
         public array $items = [];
 
         #[Override]
-        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardApprovalsData
+        /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardApprovalsData
         {
-            return new DashboardApprovalsData(true, true, true, count($this->items), 0, null, $this->items);
+            return new DashboardApprovalsData(true, true, true, count($this->items), 0, null, array_values(array_filter($this->items, static fn (DashboardApprovalItemData $item, int $index): bool => $index < $limit || in_array($item->pageId, $retainedPageIds, true), ARRAY_FILTER_USE_BOTH)));
         }
     };
     $provider->items = [new DashboardApprovalItemData(1, 1, 'Site', 'First review', 'Editor', null, null, '/review/1')];
@@ -61,7 +68,12 @@ it('offers new approvals before changing the displayed order', function (): void
     $component = Livewire::test(ApprovalsWidget::class)->assertSee('First review');
     array_unshift($provider->items, new DashboardApprovalItemData(2, 1, 'Site', 'Second review', 'Editor', null, null, '/review/2'));
     $component->call('$refresh')->assertSee('Show updates')->assertDontSee('Second review');
-    $component->call('applyApprovalUpdates')->assertSee('Second review');
+    foreach (range(3, 105) as $id) {
+        array_unshift($provider->items, new DashboardApprovalItemData($id, 1, 'Site', 'Incoming review ' . $id, 'Editor', null, null, '/review/' . $id));
+    }
+
+    $component->call('$refresh')->assertSee('First review')->assertDontSee('Incoming review 105');
+    $component->call('applyApprovalUpdates')->assertSee('Incoming review 105');
     $provider->items = [$provider->items[0]];
     $component->call('$refresh')->assertDontSee('First review');
 });
@@ -72,7 +84,8 @@ it('reveals more work rows in the wider size without internal scrolling', functi
     $provider = new class implements DashboardWorkDataProvider
     {
         #[Override]
-        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardWorkData
+        /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardWorkData
         {
             $items = [];
             foreach (range(1, 8) as $number) {

@@ -6,6 +6,7 @@ namespace Capell\Admin\Actions\Dashboard;
 
 use Capell\Admin\Data\Dashboard\DashboardRecentlyUpdatedData;
 use Capell\Admin\Data\Dashboard\DashboardRecentlyUpdatedItemData;
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -16,6 +17,22 @@ use Illuminate\Support\Facades\Gate;
 final class BuildRecentlyUpdatedAction
 {
     public function handle(Authenticatable $actor, ?int $siteId, ?string $language, int $limit): DashboardRecentlyUpdatedData
+    {
+        $items = [];
+        $total = 0;
+        $evaluator = resolve(DashboardSiteEvaluator::class);
+        foreach ($evaluator->siteIds($actor, $siteId) as $candidate) {
+            $result = $evaluator->run($actor, $candidate, fn (): DashboardRecentlyUpdatedData => $this->handleSite($actor, $candidate, $language, $limit));
+            $total += $result->total;
+            $items = [...$items, ...$result->items];
+        }
+
+        usort($items, static fn ($left, $right): int => ($right->updatedAt ?? '') <=> ($left->updatedAt ?? ''));
+
+        return new DashboardRecentlyUpdatedData($total, array_slice($items, 0, max(0, $limit)));
+    }
+
+    private function handleSite(Authenticatable $actor, ?int $siteId, ?string $language, int $limit): DashboardRecentlyUpdatedData
     {
         if ($limit < 1 || ! Gate::forUser($actor)->allows('viewAny', Page::class)) {
             return new DashboardRecentlyUpdatedData(0, []);

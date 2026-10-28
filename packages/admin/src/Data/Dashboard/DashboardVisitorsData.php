@@ -16,5 +16,7 @@ final class DashboardVisitorsData extends Data
         public readonly ?int $current,
         public readonly ?int $previous,
         public readonly ?string $lastUpdated,
+        public readonly ?string $periodStart = null,
+        public readonly ?string $periodEnd = null,
     ) {}
 }

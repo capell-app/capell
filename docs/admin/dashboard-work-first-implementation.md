@@ -65,9 +65,11 @@ is explicitly enabled with `measure` and `source` labels matching an installed
 `DashboardVisitorsProvider`. The visitor provider is called only for a selected,
 authorised site; the All-sites view explains why visitor figures are omitted.
 Providers own source-specific complete-period, permission and availability
-semantics. The dashboard caches the last successful scoped snapshot for seven
-days and rechecks current access before displaying it as stale after a fetch
-failure; stale ranking links are suppressed. This bridge has focused contract tests but no real provider
+semantics. The dashboard stores the last successful scoped snapshot without an expiry and
+rechecks current access before displaying it as stale after a fetch failure; stale
+ranking links are suppressed. Providers supply the actual source-local reporting
+dates (inclusive start and exclusive end) with successful or stale figures.
+Retention is subject to the configured cache store retaining permanent entries. This bridge has focused contract tests but no real provider
 integration or browser acceptance yet.
 
 ## Configuration keys

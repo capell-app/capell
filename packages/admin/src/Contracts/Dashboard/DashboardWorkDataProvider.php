@@ -13,5 +13,6 @@ interface DashboardWorkDataProvider
      * Scope queries, items, totals and URLs to the actor, site and language.
      * Include personal assignments and requested changes, never approvals.
      */
-    public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardWorkData;
+    /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+    public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardWorkData;
 }

@@ -12,7 +12,8 @@ interface DashboardVisitorsProvider
     /**
      * Return an actor/site/language-authorised measure for complete comparable
      * periods, with source-zone freshness and explicit availability. Stale figures
-     * must be a last-successful snapshot with its last update time.
+     * must be a last-successful snapshot with its last update time. Provide
+     * periodStart and periodEnd as source-local YYYY-MM-DD dates, end exclusive.
      */
     public function build(Authenticatable $actor, int $siteId, ?string $language, int $days): DashboardVisitorsData;
 }

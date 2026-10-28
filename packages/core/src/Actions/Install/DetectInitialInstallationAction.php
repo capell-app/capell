@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Install;
 
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Site;
+use Capell\Core\Support\Install\InstallRunState;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
@@ -17,6 +18,10 @@ final class DetectInitialInstallationAction
 
     public function handle(): bool
     {
+        if (InstallRunState::hasPendingInitialInstallation()) {
+            return true;
+        }
+
         try {
             $extension = new CapellExtension;
             $schema = $extension->getConnection()->getSchemaBuilder();

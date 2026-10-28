@@ -10,10 +10,14 @@ use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\RisingPagesWidget;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Livewire\Livewire;
 
 uses(CreatesAdminUser::class);
+
+beforeEach(fn () => CarbonImmutable::setTestNow('2026-10-28 12:00:00 UTC'));
+afterEach(fn () => CarbonImmutable::setTestNow());
 
 it('ranks scoped pages by meaningful growth and distinguishes genuinely new pages', function (): void {
     test()->actingAsAdmin();
@@ -38,7 +42,7 @@ it('ranks scoped pages by meaningful growth and distinguishes genuinely new page
         #[Override]
         public function build(Authenticatable $actor, ?int $siteId, ?string $language, int $days): DashboardPageRankingSourceData
         {
-            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Example source', 'UTC', $this->items, sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00');
+            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Example source', 'UTC', $this->items, sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00', periodStart: '2026-09-28', periodEnd: '2026-10-28');
         }
     });
     $action = resolve(BuildPageRankingsAction::class);
@@ -61,7 +65,7 @@ it('does not claim a ranking when the provider has insufficient history', functi
         #[Override]
         public function build(Authenticatable $actor, ?int $siteId, ?string $language, int $days): DashboardPageRankingSourceData
         {
-            return new DashboardPageRankingSourceData(true, true, false, 'Page views', 'Source', 'UTC', [], sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00');
+            return new DashboardPageRankingSourceData(true, true, false, 'Page views', 'Source', 'UTC', [], sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00', periodStart: '2026-09-28', periodEnd: '2026-10-28');
         }
     });
     expect(resolve(BuildPageRankingsAction::class)->handle(test()->authenticatedUser(), null, null, 30, true)->status)->toBe('insufficient');
@@ -79,7 +83,7 @@ it('requires deliberate matching source and measure mapping', function (): void 
         {
             $this->calls++;
 
-            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Actual source', 'UTC', [], sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00');
+            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Actual source', 'UTC', [], sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00', periodStart: '2026-09-28', periodEnd: '2026-10-28');
         }
     };
     app()->instance(DashboardPageRankingProvider::class, $provider);
@@ -92,14 +96,17 @@ it('requires deliberate matching source and measure mapping', function (): void 
 
 it('does not present partial site coverage as an all-sites ranking', function (): void {
     test()->actingAsAdmin();
-    Site::factory()->count(2)->create();
+    $coveredSite = Site::factory()->createOne();
+    Site::factory()->createOne();
     config()->set('capell-admin.dashboard.work_first.analytics.rankings', ['enabled' => true, 'measure' => 'Page views', 'source' => 'Source']);
-    app()->instance(DashboardPageRankingProvider::class, new class implements DashboardPageRankingProvider
+    app()->instance(DashboardPageRankingProvider::class, new readonly class($coveredSite->id) implements DashboardPageRankingProvider
     {
+        public function __construct(private int $coveredSite) {}
+
         #[Override]
         public function build(Authenticatable $actor, ?int $siteId, ?string $language, int $days): DashboardPageRankingSourceData
         {
-            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Source', 'UTC', [], sitesRequested: 2, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00');
+            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Source', 'UTC', [], sitesRequested: 1, sitesCovered: $siteId === $this->coveredSite ? 1 : 0, lastUpdated: '2026-10-27T00:00:00+00:00', periodStart: '2026-09-28', periodEnd: '2026-10-28');
         }
     });
     $data = resolve(BuildPageRankingsAction::class)->handle(test()->authenticatedUser(), null, null, 30, false);
@@ -119,7 +126,7 @@ it('marks retained rankings stale and reports failed fetches without fabricating
         {
             throw_if($this->fail, RuntimeException::class, 'source unavailable');
 
-            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Source', 'UTC', [], sitesRequested: 1, sitesCovered: 1, status: 'stale', lastUpdated: '2026-10-27T00:00:00+00:00');
+            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Source', 'UTC', [], sitesRequested: 1, sitesCovered: 1, status: 'stale', lastUpdated: '2026-10-27T00:00:00+00:00', periodStart: '2026-09-28', periodEnd: '2026-10-28');
         }
     };
     app()->instance(DashboardPageRankingProvider::class, $provider);
@@ -149,16 +156,21 @@ it('retains only the scoped last-successful ranking when a fetch fails', functio
         {
             throw_if($this->fail, RuntimeException::class, 'source offline');
 
-            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Cache source', 'UTC', [$this->item], sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00');
+            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Cache source', 'UTC', [$this->item], sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00', periodStart: '2026-09-28', periodEnd: '2026-10-28');
         }
     };
     app()->instance(DashboardPageRankingProvider::class, $provider);
     $action = resolve(BuildPageRankingsAction::class);
     expect($action->handle(test()->authenticatedUser(), $site->id, null, 30, true)->status)->toBe('available');
     $provider->fail = true;
+    CarbonImmutable::setTestNow('2026-11-12 12:00:00 UTC');
     $stale = $action->handle(test()->authenticatedUser(), $site->id, null, 30, true);
     expect($stale->status)->toBe('stale')->and($stale->items[0]->title)->toBe('Cached page')
-        ->and($stale->items[0]->current)->toBe(15)->and($stale->items[0]->editUrl)->toBeNull();
+        ->and($stale->items[0]->current)->toBe(15)->and($stale->items[0]->editUrl)->toBeNull()
+        ->and($stale->periodStart)->toBe('2026-09-28')->and($stale->periodEnd)->toBe('2026-10-28');
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    Livewire::test(RisingPagesWidget::class, ['pageFilters' => ['site_id' => $site->id, 'date_range' => 'last_30_days']])
+        ->assertSee('2026-09-28')->assertSee('2026-10-27')->assertSee('UTC');
     expect($action->handle(test()->authenticatedUser(), $otherSite->id, null, 30, true)->status)->toBe('failed');
     config()->set('capell-admin.dashboard.work_first.analytics.rankings.source', 'Different source');
     expect($action->handle(test()->authenticatedUser(), $site->id, null, 30, true)->status)->toBe('failed');
@@ -166,4 +178,19 @@ it('retains only the scoped last-successful ranking when a fetch fails', functio
     $page->delete();
     $afterRemoval = $action->handle(test()->authenticatedUser(), $site->id, null, 30, true);
     expect($afterRemoval->status)->toBe('stale')->and($afterRemoval->items)->toBe([])->and($afterRemoval->total)->toBe(0);
+});
+
+it('does not present page rankings without reporting dates', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    config()->set('capell-admin.dashboard.work_first.analytics.rankings', ['enabled' => true, 'measure' => 'Page views', 'source' => 'Source']);
+    app()->instance(DashboardPageRankingProvider::class, new class implements DashboardPageRankingProvider
+    {
+        #[Override]
+        public function build(Authenticatable $actor, ?int $siteId, ?string $language, int $days): DashboardPageRankingSourceData
+        {
+            return new DashboardPageRankingSourceData(true, true, true, 'Page views', 'Source', 'UTC', [], sitesRequested: 1, sitesCovered: 1, lastUpdated: '2026-10-27T00:00:00+00:00');
+        }
+    });
+    expect(resolve(BuildPageRankingsAction::class)->handle(test()->authenticatedUser(), null, null, 30, false)->status)->toBe('insufficient');
 });

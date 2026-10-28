@@ -8,9 +8,11 @@ use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Models\CapellExtension;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Install\InstallInputFactory;
+use Capell\Core\Support\Install\InstallRunState;
 use Capell\Core\Support\Install\PackageWorkflowPlanner;
 
 beforeEach(function (): void {
+    InstallRunState::completeInitialInstallation();
     CapellExtension::query()->whereIn('composer_name', ['capell-app/core', 'capell-app/admin'])->delete();
 });
 
@@ -51,4 +53,28 @@ it('captures a fresh non-destructive browser install independently of the fresh-
     ]);
 
     expect($input->freshInstall)->toBeFalse()->and($input->initialInstallation)->toBeTrue();
+});
+
+afterEach(function (): void {
+    InstallRunState::completeInitialInstallation();
+});
+
+it('retains first installation provenance across a new console invocation until successful completion', function (): void {
+    expect(DetectInitialInstallationAction::run())->toBeTrue();
+    InstallRunState::rememberInitialInstallation(true);
+    Site::factory()->create();
+    CapellExtension::query()->create(['composer_name' => 'capell-app/admin', 'name' => 'Admin', 'status' => ExtensionStatusEnum::Enabled]);
+    $factory = new InstallInputFactory(new PackageWorkflowPlanner);
+    $retry = $factory->fromResolvedConsoleInput(
+        siteUrl: 'https://example.test',
+        packages: [],
+        languages: ['en'],
+        demoContent: false,
+        cachesToClear: [],
+        generateSitemap: false,
+        generateStaticSite: false,
+    );
+    expect($retry->initialInstallation)->toBeTrue();
+    InstallRunState::completeInitialInstallation();
+    expect(DetectInitialInstallationAction::run())->toBeFalse();
 });

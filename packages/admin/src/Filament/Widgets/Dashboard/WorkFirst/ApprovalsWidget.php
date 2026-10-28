@@ -29,6 +29,10 @@ final class ApprovalsWidget extends Widget
     #[Locked]
     public ?string $approvalScope = null;
 
+    /** @var list<int> */
+    #[Locked]
+    public array $retainedApprovalPages = [];
+
     protected string $view = 'capell-admin::widgets.dashboard.work-first-approvals';
 
     #[Override]
@@ -62,6 +66,7 @@ final class ApprovalsWidget extends Widget
             $this->getDashboardSiteId(),
             100,
             $this->getDashboardLanguage(),
+            $this->retainedApprovalPages,
         );
     }
 
@@ -92,6 +97,7 @@ final class ApprovalsWidget extends Widget
         $items = $this->data->canReview ? $this->data->items : [];
         $this->initialiseApprovalOrder($items);
         $this->approvalOrder = array_values(array_map($this->approvalKey(...), $items));
+        $this->retainedApprovalPages = array_values(array_map(static fn (DashboardApprovalItemData $item): int => $item->pageId, $items));
         unset($this->approvalRows, $this->pendingApprovals);
     }
 
@@ -107,6 +113,7 @@ final class ApprovalsWidget extends Widget
         if ($this->approvalScope !== $scope) {
             $this->approvalScope = $scope;
             $this->approvalOrder = array_values(array_map($this->approvalKey(...), $items));
+            $this->retainedApprovalPages = array_values(array_map(static fn (DashboardApprovalItemData $item): int => $item->pageId, $items));
         }
     }
 }

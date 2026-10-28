@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'reason_publication_check' => 'A publication check is blocking this page. Open its publishing checks for details.',
     'attention' => 'Site needs attention',
     'urgent' => 'Urgent issues',
     'improvements' => 'Improvements',

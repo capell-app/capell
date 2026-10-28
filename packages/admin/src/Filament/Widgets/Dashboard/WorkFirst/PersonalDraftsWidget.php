@@ -11,9 +11,7 @@ use Capell\Admin\Data\Dashboard\DashboardWorkItemData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
-use Capell\Core\Models\Page;
 use Filament\Widgets\Widget;
-use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Override;
@@ -40,13 +38,7 @@ final class PersonalDraftsWidget extends Widget
     #[Override]
     public static function canView(): bool
     {
-        $actor = auth()->user();
-        $switches = config('capell-admin.dashboard.work_first.widgets', []);
-
-        return config('capell-admin.dashboard.work_first.enabled', false) === true
-            && (! is_array($switches) || ($switches['your_work'] ?? true) !== false)
-            && $actor !== null
-            && Gate::forUser($actor)->allows('viewAny', Page::class);
+        return self::widgetEnabled('your_work');
     }
 
     #[Computed]
@@ -63,6 +55,7 @@ final class PersonalDraftsWidget extends Widget
             $this->getDashboardSiteId(),
             100,
             $this->getDashboardLanguage(),
+            $this->workOrder,
         );
     }
 
@@ -75,7 +68,7 @@ final class PersonalDraftsWidget extends Widget
             return new DashboardWorkData(false, 0, []);
         }
 
-        return resolve(BuildPersonalDraftsAction::class)->handle($actor, $this->getDashboardSiteId(), 100, $this->getDashboardLanguage());
+        return resolve(BuildPersonalDraftsAction::class)->handle($actor, $this->getDashboardSiteId(), 100, $this->getDashboardLanguage(), $this->workOrder);
     }
 
     /** @return list<DashboardWorkItemData> */
@@ -116,7 +109,14 @@ final class PersonalDraftsWidget extends Widget
             $items[$item->pageId] ??= $item;
         }
 
-        return array_values($items);
+        $items = array_values($items);
+        usort($items, static fn (DashboardWorkItemData $left, DashboardWorkItemData $right): int => [
+            $left->deadline === null ? 1 : 0, $left->deadline ?? '', $left->reason === 'changes_requested' ? 0 : 1, $left->pageId,
+        ] <=> [
+            $right->deadline === null ? 1 : 0, $right->deadline ?? '', $right->reason === 'changes_requested' ? 0 : 1, $right->pageId,
+        ]);
+
+        return $items;
     }
 
     /** @param list<DashboardWorkItemData> $items */

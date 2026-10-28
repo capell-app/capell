@@ -92,7 +92,9 @@ class CapellDashboard extends Dashboard
         }
 
         return $schema->components([
-            SiteSelect::make('site_id')
+            ($this->workFirstEnabled()
+                ? Select::make('site_id')->options(fn (): array => SiteAccess::forActor(auth()->user(), acrossAssignedSites: true)->query(Site::class)->orderBy('name')->pluck('name', 'id')->all())
+                : SiteSelect::make('site_id'))
                 ->label(__('capell-admin::form.site'))
                 ->default(null)
                 ->placeholder(__('capell-admin::dashboard.filter_all_sites'))
@@ -130,8 +132,8 @@ class CapellDashboard extends Dashboard
             $scope = resolve(AdminWorkspacePreferenceStore::class)->dashboardScope($actor);
             if ($scope !== null) {
                 $siteId = $scope->siteId;
-                if ($siteId !== null && ! SiteAccess::forActor($actor)->query(Site::class)->whereKey($siteId)->exists()) {
-                    $siteId = null;
+                if ($siteId !== null && ! SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Site::class)->whereKey($siteId)->exists()) {
+                    $siteId = -1;
                 }
 
                 $this->filters = ['site_id' => $siteId, 'language' => $scope->language, 'date_range' => DashboardDateRangeEnum::Last30Days->value];
@@ -153,7 +155,7 @@ class CapellDashboard extends Dashboard
 
             $state = DashboardFilterStateData::fromFilters($this->filters);
             $siteId = $this->workFirstSiteFilter();
-            if ($siteId === null || ($siteId > 0 && SiteAccess::forActor($actor)->query(Site::class)->whereKey($siteId)->exists())) {
+            if ($siteId === null || ($siteId > 0 && SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Site::class)->whereKey($siteId)->exists())) {
                 resolve(AdminWorkspacePreferenceStore::class)->saveDashboardScope($actor, new DashboardScopePreferenceData($siteId, $state->language));
             }
         }
@@ -658,7 +660,7 @@ class CapellDashboard extends Dashboard
         }
 
         $siteId = $this->workFirstSiteFilter();
-        $sites = SiteAccess::forActor($actor)->query(Site::class)->enabled()
+        $sites = SiteAccess::forActor($actor, acrossAssignedSites: true)->query(Site::class)->enabled()
             ->with(['language', 'siteDomains.language'])
             ->when($siteId !== null, fn (Builder $query): Builder => $query->whereKey($siteId))
             ->get();

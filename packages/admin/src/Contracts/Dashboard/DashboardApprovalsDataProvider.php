@@ -14,5 +14,6 @@ interface DashboardApprovalsDataProvider
      * Items represent direct assignments, not all approvals the actor may review.
      * A zero limit is a capability/permission probe and must avoid queue/history queries.
      */
-    public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardApprovalsData;
+    /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+    public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardApprovalsData;
 }

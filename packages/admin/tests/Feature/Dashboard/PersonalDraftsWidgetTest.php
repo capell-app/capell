@@ -59,7 +59,8 @@ it('passes scope to assigned work and does not resolve it when disabled', functi
         public int $limit = 0;
 
         #[Override]
-        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null): DashboardWorkData
+        /** @param list<int> $retainedPageIds Authorised rows to retain beyond the new-item preview limit. */
+        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardWorkData
         {
             $this->calls++;
             $this->site = $siteId;

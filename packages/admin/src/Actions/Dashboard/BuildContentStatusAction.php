@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Dashboard;
 
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -14,6 +15,21 @@ final class BuildContentStatusAction
 {
     /** @return array<string, int> */
     public function handle(Authenticatable $actor, ?int $siteId, ?string $language): array
+    {
+        $counts = ['draft' => 0, 'scheduled' => 0, 'published' => 0, 'expired' => 0];
+        $evaluator = resolve(DashboardSiteEvaluator::class);
+        foreach ($evaluator->siteIds($actor, $siteId) as $candidate) {
+            $siteCounts = $evaluator->run($actor, $candidate, fn (): array => $this->handleSite($actor, $candidate, $language));
+            foreach (array_keys($counts) as $key) {
+                $counts[$key] += $siteCounts[$key];
+            }
+        }
+
+        return $counts;
+    }
+
+    /** @return array<string, int> */
+    private function handleSite(Authenticatable $actor, ?int $siteId, ?string $language): array
     {
         $counts = ['draft' => 0, 'scheduled' => 0, 'published' => 0, 'expired' => 0];
         if (! Gate::forUser($actor)->allows('viewAny', Page::class)) {

@@ -12,6 +12,7 @@ use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasStableDashboardOrder;
+use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Models\Page;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -143,10 +144,18 @@ final class AttentionWidget extends Widget
                 continue;
             }
 
-            $page = SiteAccess::forActor($actor)->query(Page::class)->find((int) $matches[1]);
-            if ($page instanceof Page && Gate::forUser($actor)->allows('view', $page)
-                && resolve(BuildDashboardPageBlockersAction::class)->handle($page) === []) {
-                return true;
+            $evaluator = resolve(DashboardSiteEvaluator::class);
+            foreach ($evaluator->siteIds($actor, $this->getDashboardSiteId()) as $siteId) {
+                $recovered = $evaluator->run($actor, $siteId, function () use ($actor, $matches, $siteId): bool {
+                    $page = SiteAccess::forActor($actor)->query(Page::class)
+                        ->where('site_id', $siteId)->find((int) $matches[1]);
+
+                    return $page instanceof Page && Gate::forUser($actor)->allows('view', $page)
+                        && resolve(BuildDashboardPageBlockersAction::class)->handle($page) === [];
+                });
+                if ($recovered) {
+                    return true;
+                }
             }
         }
 

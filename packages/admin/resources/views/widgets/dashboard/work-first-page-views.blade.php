@@ -5,6 +5,7 @@
         @if (in_array($this->data->status, ['available', 'stale'], true))
             @if ($this->data->status === 'stale')
                 <p class="text-sm font-medium">{{ __('capell-admin::dashboard.work_first_analytics_stale') }}</p>
+                <p class="text-xs">{{ __('capell-admin::dashboard.work_first_reporting_period', ['start' => $this->data->periodStart, 'end' => \Carbon\CarbonImmutable::parse($this->data->periodEnd, 'UTC')->subDay()->toDateString(), 'timezone' => 'UTC']) }}</p>
             @endif
             <p class="text-2xl font-semibold">{{ number_format($this->data->current) }}</p>
             @if ($this->data->previous !== null)
@@ -85,6 +86,7 @@
                 @if (in_array($this->visitors->status, ['available', 'stale'], true))
                     @if ($this->visitors->status === 'stale')
                         <p class="text-xs font-medium">{{ __('capell-admin::dashboard.work_first_analytics_stale') }}</p>
+                        <p class="text-xs">{{ __('capell-admin::dashboard.work_first_reporting_period', ['start' => $this->visitors->periodStart, 'end' => \Carbon\CarbonImmutable::parse($this->visitors->periodEnd, $this->visitors->timezone)->subDay()->toDateString(), 'timezone' => $this->visitors->timezone]) }}</p>
                     @endif
                     <p class="text-sm">{{ $this->visitors->measure }}: <strong>{{ number_format($this->visitors->current) }}</strong></p>
                     @if ($this->visitors->previous !== null)

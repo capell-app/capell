@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 return [
     'work_first_page_total' => ':count pages',
-    'work_first_assigned_total' => ':count assignments or change requests',
+    'work_first_assigned_total' => ':count work items',
     'work_first_drafts_total' => ':count unfinished drafts',
     'work_first_content_status' => 'Content status',
     'work_first_recently_updated' => 'Recently updated pages',
@@ -42,6 +42,7 @@ return [
     'work_first_page_views_source' => 'Capell page views · complete days · UTC',
     'work_first_last_updated' => 'Last updated: :date',
     'work_first_analytics_disconnected' => 'Page view collection is switched off.',
+    'work_first_reporting_period' => 'Figures cover :start to :end (:timezone).',
     'work_first_analytics_stale' => 'Showing last successful figures; the latest refresh failed.',
     'work_first_analytics_failed' => 'Page view figures could not be loaded.',
     'work_first_analytics_coverage' => 'Complete data for :covered of :total sites.',

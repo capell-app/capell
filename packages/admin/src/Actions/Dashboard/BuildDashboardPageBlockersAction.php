@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Dashboard;
 
+use Capell\Core\Actions\Publishing\GetPublicationBlockingChecksAction;
 use Capell\Core\Models\Page;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -36,6 +37,10 @@ final class BuildDashboardPageBlockersAction
 
         if ((int) $page->getAttribute('active_url_count') === 0) {
             $reasons[] = 'url';
+        }
+
+        if (resolve(GetPublicationBlockingChecksAction::class)->handle($page) !== []) {
+            $reasons[] = 'publication_check';
         }
 
         return $reasons;

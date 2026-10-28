@@ -5,6 +5,7 @@
         @if (in_array($this->data->status, ['available', 'stale'], true))
             @if ($this->data->status === 'stale')
                 <p class="text-sm font-medium">{{ __('capell-admin::dashboard.work_first_analytics_stale') }}</p>
+                <p class="text-xs">{{ __('capell-admin::dashboard.work_first_reporting_period', ['start' => $this->data->periodStart, 'end' => \Carbon\CarbonImmutable::parse($this->data->periodEnd, $this->data->timezone)->subDay()->toDateString(), 'timezone' => $this->data->timezone]) }}</p>
             @endif
             <p class="text-xs text-gray-600 dark:text-gray-400">{{ __('capell-admin::dashboard.work_first_last_updated', ['date' => $this->data->lastUpdated]) }}</p>
             <p class="text-xs text-gray-600 dark:text-gray-400">{{ $this->data->measure }} · {{ $this->data->source }} · {{ $this->data->timezone }} · {{ __('capell-admin::dashboard.work_first_page_total', ['count' => $this->data->total]) }}</p>
