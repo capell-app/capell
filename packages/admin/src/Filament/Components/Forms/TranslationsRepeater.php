@@ -104,7 +104,7 @@ class TranslationsRepeater extends RepeaterTabs
 
                 return __('capell-admin::generic.tab');
             })
-            ->itemBadge(function (RepeaterTabs $component, string $uuid): ?array {
+            ->itemBadge(function (RepeaterTabs $component, Schema $item, string $uuid): ?array {
                 if ($component->getRelationship() === null) {
                     return null;
                 }
@@ -119,12 +119,14 @@ class TranslationsRepeater extends RepeaterTabs
                 }
 
                 /**
+                 * Keys come from the item's own schema, bound to the Translation record, so
+                 * relationship-bound fields never resolve against the parent model.
                  * CheckTranslationCompletenessAction accepts the nested key shape generated
                  * by GetFlatComponentKeysAction, but its static contract is narrower.
                  *
                  * @var array<string, array<int, string>|null> $keys
                  */
-                $keys = GetFlatComponentKeysAction::run($component);
+                $keys = GetFlatComponentKeysAction::run($item);
 
                 return $this->resolveItemBadge($record, $keys);
             })

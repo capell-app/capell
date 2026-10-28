@@ -261,8 +261,7 @@ it('builds downstream extension update, dependency, runtime, and audit surfaces 
         ->and($dependencyBlocks->firstWhere('packageName', 'capell-app/core')?->reason)->toBe('protected_core_package')
         ->and($dependencyBlocks->firstWhere('packageName', 'vendor/runtime-blocked')?->reason)->toBe('requires_reviewed_license')
         ->and($runtimeChecks->get('vendor/current')?->first()?->state)->toBe('pass')
-        ->and($runtimeChecks->get('vendor/runtime-blocked')?->first()?->state)->toBe('blocked')
-        ->and($runtimeChecks->get('vendor/runtime-blocked')?->first()?->message)->toBe('revoked')
+        ->and($runtimeChecks->get('vendor/runtime-blocked')?->first())->toMatchObject(['state' => 'blocked', 'message' => 'revoked'])
         ->and($runtimeChecks->get('vendor/major-jump')?->last()?->message)->toBe('Provider detected a runtime advisory.')
         ->and($auditEvents)->toHaveCount(3)
         ->and($auditEvents->pluck('packageName')->all())->not->toContain('vendor/uninstalled');
