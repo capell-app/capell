@@ -6,6 +6,7 @@ namespace Capell\Core\Events;
 
 use Capell\Core\Data\PackageData;
 
+/** @api */
 class PackageInstalled
 {
     public function __construct(public PackageData $package) {}

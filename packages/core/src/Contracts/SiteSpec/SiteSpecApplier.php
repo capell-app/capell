@@ -8,6 +8,7 @@ use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 
+/** @api */
 interface SiteSpecApplier
 {
     public const string TAG = 'capell.site-spec.applier';

@@ -8,6 +8,7 @@ use Capell\Frontend\Enums\FrontendPackageDependencyType;
 use InvalidArgumentException;
 use Spatie\LaravelData\Data;
 
+/** @internal */
 final class FrontendPackageDependencyData extends Data
 {
     public function __construct(

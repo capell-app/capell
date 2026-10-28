@@ -10,6 +10,8 @@ namespace Capell\Core\Contracts\Extensions;
  * Capell validates the declared class and its contribution-specific marker
  * before adding it to the package registry. Implementations are resolved only
  * by the subsystem that owns the declared contribution type.
+ *
+ * @api
  */
 interface ExtensionContribution
 {

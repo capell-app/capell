@@ -8,6 +8,7 @@ use Capell\Core\Enums\Reporting\FailureCategory;
 use Capell\Core\Enums\Reporting\Severity;
 use InvalidArgumentException;
 
+/** @internal */
 final readonly class SignalData
 {
     /** @param array<string, mixed> $context */

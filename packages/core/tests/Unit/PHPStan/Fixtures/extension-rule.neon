@@ -1,0 +1,5 @@
+includes:
+    - ../../../../extension-phpstan.neon
+
+parameters:
+    level: 0

@@ -10,5 +10,7 @@ namespace Capell\Core\Contracts\Extensions;
  * Declare the class under the manifest's health-check contribution surface;
  * Capell validates this marker before the owning diagnostics subsystem
  * resolves the implementation.
+ *
+ * @internal
  */
 interface ChecksExtensionHealth extends ExtensionContribution {}
