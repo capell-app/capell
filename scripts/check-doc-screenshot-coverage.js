@@ -34,6 +34,8 @@ const ignoredMarkdownFiles = new Set([
     'FULL-AUDIT-REPORT.md',
     'LICENSE.md',
     'SECURITY.md',
+    // Versioned operational instructions, also consumed by the upgrade command.
+    'packages/core/resources/upgrade-guide.md',
 ])
 
 const coreScreenshotManifests = [
