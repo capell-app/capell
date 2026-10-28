@@ -392,6 +392,9 @@ class RepeaterTabs extends Repeater
         throw_if(! $childSchema instanceof Schema, RuntimeException::class, 'Repeater tab child schema could not be resolved.');
 
         return $this->evaluate($this->itemBadge, [
+            'container' => $childSchema,
+            'item' => $childSchema,
+            'schema' => $childSchema,
             'state' => $childSchema->getRawState(),
             'uuid' => $uuid,
         ]);
