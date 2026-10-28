@@ -8,7 +8,11 @@ on:
         required: true
         type: string
 
-permissions: {}
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+  statuses: read
 
 jobs:
   credential-probe:
@@ -25,9 +29,27 @@ jobs:
           permission-merge-queues: write
       - name: Verify repository access
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          APP_TOKEN: ${{ steps.token.outputs.token }}
         with:
-          github-token: ${{ steps.token.outputs.token }}
+          github-token: ${{ github.token }}
           script: |
-            const result = await github.rest.repos.get(context.repo);
+            const app = getOctokit(process.env.APP_TOKEN);
+            const result = await app.rest.repos.get(context.repo);
             if (result.data.full_name !== 'capell-app/capell') throw new Error('Unexpected repository');
-            core.info('Installation token can read the intended repository.');
+            const query = `query { repository(owner: "capell-app", name: "capell") {
+              pullRequest(number: 937) {
+                mergeStateStatus mergeQueue { id entries(first: 1) { totalCount } } mergeQueueEntry { id }
+                timelineItems(last: 100, itemTypes: [LABELED_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+                  nodes { __typename ... on LabeledEvent { createdAt label { name } }
+                    ... on RemovedFromMergeQueueEvent { createdAt reason } }
+                }
+              }
+            } }`;
+            const state = await app.graphql(query);
+            if (!state.repository.pullRequest) throw new Error('Cannot read queue candidate');
+            const checks = await github.graphql(`query { repository(owner: "capell-app", name: "capell") {
+              pullRequest(number: 937) { statusCheckRollup { state } }
+            } }`);
+            if (!checks.repository.pullRequest.statusCheckRollup) throw new Error('Cannot read PR checks');
+            core.info('Both tokens can inspect the intended pull request.');
