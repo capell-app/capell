@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Contracts;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationRequestData;
 use Capell\Marketplace\Data\MarketplaceComposerPublicationResultData;
 
+/** @internal */
 interface MarketplaceComposerChangePublisher
 {
     public const string TAG = 'capell.marketplace.composer-change-publisher';

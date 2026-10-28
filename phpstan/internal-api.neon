@@ -1,0 +1,11 @@
+# Not baseline debt: `@internal` marks surfaces outside the stable extension API,
+# and PHPStan's native internal checks treat Pest test closures and anonymous
+# migrations (outside the Capell root namespace) as outside consumers of them.
+parameters:
+    ignoreErrors:
+        - message: '#(of|with|on|implements|references) internal (class|interface|enum) Capell\\#'
+          paths:
+              - ../packages/*/tests/*
+              - ../tests/*
+              - ../packages/*/database/*
+          reportUnmatched: false

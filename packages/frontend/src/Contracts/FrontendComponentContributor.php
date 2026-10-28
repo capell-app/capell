@@ -10,6 +10,8 @@ use Capell\Frontend\Data\FrontendComponentContributionData;
  * Contributes named components to the frontend Blade and Livewire runtimes.
  *
  * Bind implementations in the service container and tag them with TAG.
+ *
+ * @internal
  */
 interface FrontendComponentContributor
 {

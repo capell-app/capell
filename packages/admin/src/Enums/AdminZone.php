@@ -6,6 +6,7 @@ namespace Capell\Admin\Enums;
 
 use Capell\Core\Enums\Extensions\ExtensionSurfaceStability;
 
+/** @api */
 enum AdminZone: string
 {
     case PageEditFormActions = 'admin.pages.edit.form.actions';

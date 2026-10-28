@@ -6,6 +6,7 @@ namespace Capell\Core\Data\ProjectBuild;
 
 use Spatie\LaravelData\Data;
 
+/** @api */
 final class ProjectBuildInstalledPackageData extends Data
 {
     public function __construct(

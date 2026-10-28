@@ -6,6 +6,7 @@ namespace Capell\Frontend\Support\Assets;
 
 use Capell\Frontend\Data\Assets\FrontendPackageDependencyData;
 
+/** @internal */
 final class FrontendPackageDependencyRegistry
 {
     /** @var array<int, FrontendPackageDependencyData> */
