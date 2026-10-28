@@ -6,6 +6,8 @@ This guide installs the current 1.x Capell foundation into a Laravel application
 
 Use the [Quickstart](quickstart.md) for a disposable demo. For an existing application, start at [Existing Laravel applications](#existing-laravel-applications).
 
+Working locally? Start with [Mac and Windows local development](local-development.md) for Docker setup and links to the container recipe.
+
 ## Requirements
 
 | Requirement | Supported value                                    |

@@ -6,6 +6,7 @@ namespace Capell\Core\Contracts;
 
 use Capell\Core\Enums\InteractionTargetType;
 
+/** @internal */
 interface InteractionTargetCapabilityContributor
 {
     public const string TAG = 'capell.interaction-target-capability-contributor';

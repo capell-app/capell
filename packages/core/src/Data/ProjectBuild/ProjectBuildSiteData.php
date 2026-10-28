@@ -6,6 +6,7 @@ namespace Capell\Core\Data\ProjectBuild;
 
 use Spatie\LaravelData\Data;
 
+/** @api */
 final class ProjectBuildSiteData extends Data
 {
     /** @param list<string> $locales */

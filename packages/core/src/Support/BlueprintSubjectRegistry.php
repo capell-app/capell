@@ -59,6 +59,8 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @see BlueprintSubjectDescriptorData The descriptor contract itself.
  * @see PackageSurfaceRegistrar::blueprintSubject() The registration entry point.
+ *
+ * @internal
  */
 final class BlueprintSubjectRegistry
 {

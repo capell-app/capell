@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums\Reporting;
 
+/** @api */
 enum FailureCategory: string
 {
     case Configuration = 'configuration';

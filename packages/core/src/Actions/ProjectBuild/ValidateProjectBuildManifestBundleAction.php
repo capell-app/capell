@@ -13,6 +13,7 @@ use JsonException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
+/** @api */
 final class ValidateProjectBuildManifestBundleAction
 {
     use AsFake;

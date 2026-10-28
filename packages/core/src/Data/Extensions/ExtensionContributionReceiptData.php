@@ -9,6 +9,7 @@ use Capell\Core\Enums\ExtensionContributionType;
 use Override;
 use Spatie\LaravelData\Data;
 
+/** @api */
 final class ExtensionContributionReceiptData extends Data
 {
     public function __construct(

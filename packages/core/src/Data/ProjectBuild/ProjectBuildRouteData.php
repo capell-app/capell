@@ -6,6 +6,7 @@ namespace Capell\Core\Data\ProjectBuild;
 
 use Spatie\LaravelData\Data;
 
+/** @api */
 final class ProjectBuildRouteData extends Data
 {
     public function __construct(

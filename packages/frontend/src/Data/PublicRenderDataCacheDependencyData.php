@@ -7,7 +7,10 @@ namespace Capell\Frontend\Data;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
-/** Identifies one persisted model whose mutation invalidates a render entry. */
+/** Identifies one persisted model whose mutation invalidates a render entry.
+ *
+ * @internal
+ */
 final readonly class PublicRenderDataCacheDependencyData
 {
     public function __construct(

@@ -13,6 +13,8 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * Delete a bounded batch of resolved incidents past retention. Unresolved and
  * acknowledged incidents are always retained.
+ *
+ * @internal
  */
 final readonly class PruneReportingIncidentsAction
 {
