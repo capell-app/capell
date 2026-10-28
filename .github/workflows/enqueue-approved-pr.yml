@@ -1,33 +1,25 @@
 name: Enqueue approved pull request
 
 on:
-  workflow_dispatch:
-    inputs:
-      pull_request:
-        description: 'Approved pull request number'
-        required: true
-        type: string
-      reviewed_sha:
-        description: 'Full commit SHA reviewed and approved for merging'
-        required: true
-        type: string
+  pull_request_target:
+    types: [labeled]
 
 permissions: {}
 
 jobs:
   enqueue:
+    if: github.event.label.name == 'ready-to-merge'
     runs-on: ubuntu-latest
     steps:
       - name: Enqueue the approved commit
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           QUEUE_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN }}
-          PR_NUMBER: ${{ inputs.pull_request }}
-          REVIEWED_SHA: ${{ inputs.reviewed_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWED_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           github-token: ${{ secrets.MERGE_QUEUE_TOKEN }}
           script: |
-            if (context.ref !== 'refs/heads/main') throw new Error('Run this workflow from main.');
             if (!process.env.QUEUE_TOKEN) throw new Error('Configure MERGE_QUEUE_TOKEN before enqueueing.');
             const number = process.env.PR_NUMBER;
             const sha = process.env.REVIEWED_SHA;
@@ -39,6 +31,9 @@ jobs:
             });
             if (pr.state !== 'open' || pr.draft || pr.base.ref !== 'main') {
               throw new Error('The PR must be open, ready for review and target main.');
+            }
+            if (!pr.labels.some(label => label.name === 'ready-to-merge')) {
+              throw new Error('The ready-to-merge label has been removed.');
             }
             if (pr.labels.some(label => label.name === 'awaiting-merge')) {
               throw new Error('The PR is held by the awaiting-merge label.');
