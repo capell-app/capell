@@ -246,3 +246,28 @@ or timed-out cell is incomplete evidence, not support proof.
 
 - [Development commands](commands.md)
 - [Docs ownership rules](docs-ownership.md)
+
+## Enqueueing an approved PR by label
+
+After presenting the final diff and impact summary and obtaining Ben's explicit
+approval for the PR, add the `ready-to-merge` label to a ready PR targeting
+`main`. The workflow verifies the label event's head SHA still matches the PR,
+and rejects drafts and PRs held by the `awaiting-merge` label. Adding the label
+can lead to an automatic merge; monitor the workflow and PR. A new commit needs
+fresh review and approval. Removing the label does not dequeue a PR: remove it
+from GitHub's merge queue separately.
+
+GitHub may reject the enqueue request if required checks are still pending or
+failing. The workflow does not currently retry; after the checks pass and the
+same commit remains approved, remove and re-add the label. If the head changes,
+obtain new approval first. Enqueueing fails if no queue is configured and does
+not fall back to a direct merge or enable auto-merge.
+
+An administrator must enable the `main` merge queue, create the `ready-to-merge`
+label and configure `MERGE_QUEUE_TOKEN` as a repository secret with a suitably
+scoped credential able to read PRs and enqueue them. Check credential lifetime
+and repository policy. `actionlint` and `PHP Quality (8.4)` run on `merge_group`.
+Review all required checks in branch protection and rulesets before enabling the
+queue, and ensure each reports on `merge_group`. Hosted Actions billing or
+credential restrictions can prevent the workflow from running; local checks do
+not produce the required merge-group status.
