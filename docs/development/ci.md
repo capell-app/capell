@@ -264,9 +264,13 @@ obtain new approval first. Enqueueing fails if no queue is configured and does
 not fall back to a direct merge or enable auto-merge.
 
 An administrator must enable the `main` merge queue, create the `ready-to-merge`
-label and configure `MERGE_QUEUE_TOKEN` as a repository secret with a suitably
-scoped credential able to read PRs and enqueue them. Check credential lifetime
-and repository policy. `actionlint` and `PHP Quality (8.4)` run on `merge_group`.
+label and install a dedicated GitHub App on this repository with Contents write,
+Pull requests read and Merge queues write permissions, without bypass rights.
+Store its ID and private key in `MERGE_QUEUE_APP_ID` and
+`MERGE_QUEUE_APP_PRIVATE_KEY` repository secrets. The workflow creates a
+short-lived installation token for each request. Verify the app can enqueue and
+that the required checks run before relying on the queue. `actionlint` and
+`PHP Quality (8.4)` run on `merge_group`.
 Review all required checks in branch protection and rulesets before enabling the
 queue, and ensure each reports on `merge_group`. Hosted Actions billing or
 credential restrictions can prevent the workflow from running; local checks do

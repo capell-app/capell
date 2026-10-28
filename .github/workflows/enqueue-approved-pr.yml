@@ -13,23 +13,33 @@ jobs:
     steps:
       - name: Check queue credential
         env:
-          QUEUE_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN }}
+          QUEUE_APP_ID: ${{ secrets.MERGE_QUEUE_APP_ID }}
+          QUEUE_APP_KEY: ${{ secrets.MERGE_QUEUE_APP_PRIVATE_KEY }}
         shell: bash
         run: |
-          if [[ -z "$QUEUE_TOKEN" ]]; then
-            echo '::error::MERGE_QUEUE_TOKEN is not configured; see docs/development/ci.md.'
+          if [[ -z "$QUEUE_APP_ID" || -z "$QUEUE_APP_KEY" ]]; then
+            echo '::error::MERGE_QUEUE_APP_ID and MERGE_QUEUE_APP_PRIVATE_KEY must be configured; see docs/development/ci.md.'
             exit 1
           fi
+      - name: Create queue installation token
+        id: queue-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.MERGE_QUEUE_APP_ID }}
+          private-key: ${{ secrets.MERGE_QUEUE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: read
+          permission-merge-queues: write
       - name: Enqueue the approved commit
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
-          QUEUE_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN }}
+          QUEUE_TOKEN: ${{ steps.queue-token.outputs.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REVIEWED_SHA: ${{ github.event.pull_request.head.sha }}
         with:
-          github-token: ${{ secrets.MERGE_QUEUE_TOKEN }}
+          github-token: ${{ steps.queue-token.outputs.token }}
           script: |
-            if (!process.env.QUEUE_TOKEN) throw new Error('Configure MERGE_QUEUE_TOKEN before enqueueing.');
+            if (!process.env.QUEUE_TOKEN) throw new Error('Queue installation token is missing.');
             const number = process.env.PR_NUMBER;
             const sha = process.env.REVIEWED_SHA;
             if (!/^[1-9][0-9]*$/.test(number) || !/^[0-9a-f]{40}$/i.test(sha)) {
