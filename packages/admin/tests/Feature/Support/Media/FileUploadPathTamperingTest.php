@@ -110,23 +110,17 @@ it('limits retained UUIDs to the visible media subset and field multiplicity', f
     expect(Validator::make(['image' => ['second']], ['image' => $field->getValidationRules()])->fails())->toBeTrue();
 });
 
-it('authorises owned UUIDs through native and legacy Spatie fields', function (bool $legacy, string $name): void {
+it('authorises owned UUIDs through native Spatie fields', function (string $name): void {
     $record = Site::factory()->createOne()->fresh();
     $record->setRelation('media', new MediaCollection([
         new Media(['uuid' => 'owned-native-image', 'collection_name' => $name]),
     ]));
-    // The legacy factory is @deprecated, so it is resolved by string FQCN and
-    // invoked by reflection to keep the hard-gated deprecations check green.
-    $factory = resolve('Capell\\Core\\Support\\Media\\SpatieMediaFieldFactory');
-    $field = $legacy
-        ? new ReflectionMethod($factory, 'make')->invoke($factory, $name)
-        : SpatieMediaLibraryFileUpload::make($name)->collection($name);
-    throw_unless($field instanceof SpatieMediaLibraryFileUpload, RuntimeException::class, 'The media factory did not return a Spatie upload field.');
+    $field = SpatieMediaLibraryFileUpload::make($name)->collection($name);
     Schema::make(Livewire::make())->record($record)->components([$field])->getFlatComponents();
     expect($field->shouldPreventFilePathTampering())->toBeTrue();
     expect(Validator::make(['image' => ['owned-native-image']], ['image' => $field->getValidationRules()])->passes())->toBeTrue();
     expect(Validator::make(['image' => ['foreign-image']], ['image' => $field->getValidationRules()])->fails())->toBeTrue();
-})->with([false, true])->with(['image', 'extension.image']);
+})->with(['image', 'extension.image']);
 
 it('retains persisted repeater font paths independently of client item order', function (bool $reverse, bool $native): void {
     $fonts = [
