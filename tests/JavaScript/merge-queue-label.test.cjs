@@ -43,11 +43,47 @@ async function run(pulls, options = {}) {
                 },
             },
         },
-        graphql: async (_q, v) => {
-            calls.push(['enqueue', v.id, v.sha])
+        graphql: async (query, vars) => {
+            if (query.includes('QueueState'))
+                return {
+                    node: {
+                        mergeQueue: options.noQueue
+                            ? null
+                            : {
+                                  id: 'queue',
+                                  entries: { totalCount: options.busy ? 1 : 0 },
+                              },
+                    },
+                }
+            if (query.includes('Candidate')) {
+                const state = options.states?.[Number(vars.id.slice(3))] || {}
+                return {
+                    node: {
+                        mergeStateStatus: state.mergeState || 'CLEAN',
+                        mergeQueueEntry: state.queued ? { id: 'entry' } : null,
+                        timelineItems: {
+                            nodes: state.removed
+                                ? [
+                                      {
+                                          __typename: 'LabeledEvent',
+                                          label: { name: 'ready-to-merge' },
+                                      },
+                                      {
+                                          __typename:
+                                              'RemovedFromMergeQueueEvent',
+                                          reason: 'Checks failed',
+                                      },
+                                  ]
+                                : [],
+                        },
+                    },
+                }
+            }
+            calls.push(['enqueue', vars.id, vars.sha])
             return { enqueuePullRequest: { mergeQueueEntry: { id: 'entry' } } }
         },
     }
+
     const github = {
         paginate: async () => pulls,
         rest: {
@@ -72,51 +108,19 @@ async function run(pulls, options = {}) {
             },
         },
         graphql: async (query, vars) => {
-            if (query.includes('QueueState'))
-                return {
-                    repository: {
-                        ref: { associatedPullRequests: { nodes: [] } },
-                    },
-                    node: {
-                        mergeQueue: options.noQueue
-                            ? null
-                            : {
-                                  id: 'queue',
-                                  entries: { totalCount: options.busy ? 1 : 0 },
-                              },
-                        mergeQueueEntry: null,
-                    },
-                }
-            const number = Number(vars.id.slice(3))
-            const state = options.states?.[number] || {}
+            assert.ok(query.includes('CheckState'))
+            const state = options.states?.[Number(vars.id.slice(3))] || {}
             return {
                 node: {
-                    mergeStateStatus: state.mergeState || 'CLEAN',
-                    mergeQueueEntry: state.queued ? { id: 'entry' } : null,
                     statusCheckRollup:
                         state.rollup === null
                             ? null
                             : { state: state.rollup || 'SUCCESS' },
-                    timelineItems: {
-                        nodes: state.removed
-                            ? [
-                                  {
-                                      __typename: 'LabeledEvent',
-                                      createdAt: '2026-01-01T00:00:00Z',
-                                      label: { name: 'ready-to-merge' },
-                                  },
-                                  {
-                                      __typename: 'RemovedFromMergeQueueEvent',
-                                      createdAt: '2026-01-02T00:00:00Z',
-                                      reason: 'Checks failed',
-                                  },
-                              ]
-                            : [],
-                    },
                 },
             }
         },
     }
+
     process.env.QUEUE_TOKEN = 'fixture'
     let error
     try {

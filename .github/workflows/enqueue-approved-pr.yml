@@ -59,7 +59,7 @@ jobs:
                 && !pr.labels.some(label => label.name === 'awaiting-merge'))
               .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.number - b.number);
             if (!candidates.length) return;
-            const queue = await github.graphql(`
+            const queue = await app.graphql(`
               query QueueState($id: ID!) {
                 node(id: $id) { ... on PullRequest {
                   mergeQueue { id entries(first: 1) { totalCount } }
@@ -81,11 +81,10 @@ jobs:
                   || pr.head.sha !== candidate.head.sha) {
                 throw new Error(`PR #${candidate.number} changed during the scan; retry.`);
               }
-              const state = await github.graphql(`
+              const state = await app.graphql(`
                 query Candidate($id: ID!) {
                   node(id: $id) { ... on PullRequest {
                     mergeStateStatus mergeQueueEntry { id }
-                    statusCheckRollup { state }
                     timelineItems(last: 100, itemTypes: [LABELED_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]) {
                       nodes {
                         __typename
@@ -103,7 +102,13 @@ jobs:
                 && event.label?.name === 'ready-to-merge');
               const lastRemoval = timeline.findLastIndex(event => event.__typename === 'RemovedFromMergeQueueEvent');
               const removedAfterLabel = lastRemoval >= 0 && lastRemoval > lastLabel;
-              const result = state.node.statusCheckRollup?.state;
+              const checks = await github.graphql(`
+                query CheckState($id: ID!) {
+                  node(id: $id) { ... on PullRequest { statusCheckRollup { state } } }
+                }
+              `, { id: pr.node_id });
+              if (!checks.node) throw new Error(`Cannot inspect checks for PR #${pr.number}.`);
+              const result = checks.node.statusCheckRollup?.state;
               const failed = removedAfterLabel || state.node.mergeStateStatus === 'DIRTY';
               if (failed) {
                 const latest = await github.rest.pulls.get({ ...context.repo, pull_number: pr.number });
