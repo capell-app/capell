@@ -6,6 +6,7 @@ namespace Capell\Core\Contracts\Database;
 
 use Capell\Core\Enums\Database\DatabaseProvisioningResult;
 
+/** @internal */
 interface DatabaseProvisioner
 {
     /**

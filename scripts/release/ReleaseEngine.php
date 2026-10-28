@@ -497,6 +497,7 @@ final class ReleaseEngine
         $candidates = [];
         $graph = [];
         $knownNames = array_column($definitions, 'name');
+        $manifests = [];
         $dependencyNames = [...$knownNames, ...array_column($externalLedger, 'name')];
         foreach ($bumps as $name => $type) {
             throw_if(in_array($type, ['beta', 'promote'], true), ReleaseException::class, 'Foundation packages release in stable lockstep.');
@@ -510,11 +511,9 @@ final class ReleaseEngine
             $dependencies = array_values(array_filter(array_keys($manifest['require'] ?? []), fn (int|string $name): bool => is_string($name) && str_starts_with($name, 'capell-app/')));
             foreach ($dependencies as $dependency) {
                 throw_unless(in_array($dependency, $dependencyNames, true), ReleaseException::class, sprintf('Unknown inventory dependency %s.', $dependency));
-
-                if (in_array($dependency, $knownNames, true) && ($manifest['require'][$dependency] ?? null) !== '^1.0') {
-                    throw new ReleaseException(sprintf('Lockstep foundation dependency %s->%s must use ^1.0.', $definition['name'], $dependency));
-                }
             }
+
+            $manifests[$definition['name']] = $manifest;
 
             $graph[$definition['name']] = $dependencies;
             $old = $previous === null ? null : current(array_filter($previous['ledger'], fn (array $item): bool => $item['name'] === $definition['name']));
@@ -527,11 +526,13 @@ final class ReleaseEngine
             fn (array $candidate): bool => ! is_array($candidate['old']) || $candidate['old']['subtree_hash'] !== $candidate['tree'],
         ) !== [];
 
+        $floorVersion = $previous === null ? '1.0.0' : $this->highestLedgerVersion($previous['ledger']);
         if ($hasChanges) {
             $type = $previous === null ? 'baseline' : $this->highestBumpType($bumps);
             $proposed = $previous === null
                 ? '1.0.0'
                 : self::bump($this->highestLedgerVersion($previous['ledger']), $type);
+            $floorVersion = $proposed;
             $reason = $previous === null
                 ? 'Initial lockstep foundation release.'
                 : sprintf('Lockstep %s foundation release.', $type);
@@ -539,6 +540,10 @@ final class ReleaseEngine
             foreach ($candidates as $candidate) {
                 $packages[] = $this->packageEntry($candidate['definition'], $candidate['dependencies'], $candidate['old'], $candidate['tree'], $commit, $proposed, $reason, $type);
             }
+        }
+
+        foreach ($manifests as $name => $manifest) {
+            LockstepFloor::assertManifest($manifest, $name, $knownNames, $floorVersion);
         }
 
         foreach ($packages as &$package) {
@@ -744,6 +749,53 @@ final class ReleaseEngine
     }
 
     // LOCKSTEP-END verify
+
+    /**
+     * Raises every lockstep sibling constraint in the split packages' `require`
+     * sections to the floor of the release being prepared. Run before planning a
+     * release so the manifests in the planned subtree hashes already carry it.
+     *
+     * @return list<string> composer.json paths that changed
+     */
+    public function raiseFloors(string $version): array
+    {
+        $definitions = $this->releaseDefinitions();
+        $knownNames = array_column($definitions, 'name');
+        $changed = [];
+        foreach ($definitions as $definition) {
+            $path = $this->root . '/' . $definition['path'] . '/composer.json';
+            $contents = (string) file_get_contents($path);
+            $raised = LockstepFloor::raise($contents, $knownNames, $version);
+            if ($raised !== $contents) {
+                file_put_contents($path, $raised);
+                $changed[] = $definition['path'] . '/composer.json';
+            }
+        }
+
+        return $changed;
+    }
+
+    /**
+     * Asserts the Composer manifests inside the plan's exact split trees carry
+     * the lockstep floor of the planned version. Publication, resume and
+     * verification all publish those trees, so every path checks the plan with
+     * this method rather than trusting the working copy.
+     *
+     * @param  array<string, mixed>  $plan
+     */
+    public function assertPlanFloors(array $plan): void
+    {
+        $knownNames = array_column($plan['inventory'], 'name');
+        foreach ($plan['packages'] as $package) {
+            $json = $this->git(['show', $package['subtree_hash'] . ':composer.json']);
+            $manifest = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($manifest)) {
+                throw new ReleaseException(sprintf('Composer manifest is invalid for %s.', $package['name']));
+            }
+
+            LockstepFloor::assertManifest($manifest, $package['name'], $knownNames, $package['proposed_version']);
+        }
+    }
 
     /**
      * DIVERGES from the sibling companion engine by design. Do not sync.
@@ -988,4 +1040,55 @@ final class ReleaseEngine
     }
 
     // LOCKSTEP-END engine-helpers
+}
+
+/**
+ * Foundation packages release in stable lockstep, so a split package must never
+ * accept an older sibling than the release that ships it: releasing X.Y raises
+ * every sibling constraint to ^X.Y. Not shared with the companion engine.
+ */
+final class LockstepFloor
+{
+    public static function constraint(string $version): string
+    {
+        if (preg_match('/^(\d+)\.(\d+)\.\d+$/', $version, $matches) !== 1) {
+            throw new ReleaseException(sprintf('Lockstep floor needs a stable version, got %s.', $version));
+        }
+
+        return sprintf('^%d.%d', (int) $matches[1], (int) $matches[2]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $manifest
+     * @param  list<string>  $knownNames
+     */
+    public static function assertManifest(array $manifest, string $package, array $knownNames, string $version): void
+    {
+        $expected = self::constraint($version);
+        foreach ($manifest['require'] ?? [] as $dependency => $constraint) {
+            if (in_array($dependency, $knownNames, true) && $constraint !== $expected) {
+                throw new ReleaseException(sprintf('Lockstep foundation dependency %s->%s must use %s.', $package, $dependency, $expected));
+            }
+        }
+    }
+
+    /**
+     * Rewrites sibling constraints inside the `require` object only, leaving
+     * the manifest's formatting, `require-dev` and every other key untouched.
+     *
+     * @param  list<string>  $knownNames
+     */
+    public static function raise(string $contents, array $knownNames, string $version): string
+    {
+        $expected = self::constraint($version);
+
+        return (string) preg_replace_callback('/("require"\s*:\s*\{)(.*?)(\n?\s*\})/s', static function (array $block) use ($knownNames, $expected): string {
+            $body = $block[2];
+            foreach ($knownNames as $name) {
+                $body = (string) preg_replace('/("' . preg_quote($name, '/') . '"\s*:\s*")[^"]*(")/', '${1}' . $expected . '${2}', $body);
+            }
+
+            return $block[1] . $body . $block[3];
+        }, $contents, 1);
+    }
 }

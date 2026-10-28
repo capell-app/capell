@@ -19,6 +19,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
+/** @api */
 final class InstallProjectBuildManifestAction
 {
     use AsFake;

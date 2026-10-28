@@ -7,6 +7,7 @@ namespace Capell\Core\Contracts\Extensions;
 use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Core\Enums\ExtensionContributionType;
 
+/** @api */
 interface RecordsExtensionContributionReceipt
 {
     public function recordContribution(

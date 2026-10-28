@@ -8,6 +8,7 @@ use Capell\Core\Data\Presentation\PresentationSettingsData;
 use Capell\Core\Enums\PresentationLoadingStrategy;
 use Spatie\LaravelData\Data;
 
+/** @internal */
 final class FrontendWidgetResourceUsageData extends Data
 {
     public function __construct(

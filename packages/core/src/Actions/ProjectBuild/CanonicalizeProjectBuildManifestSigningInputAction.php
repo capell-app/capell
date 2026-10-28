@@ -9,7 +9,10 @@ use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-/** @method static string run(array<string, mixed>|ProjectBuildManifestData $manifest) */
+/** @method static string run(array<string, mixed>|ProjectBuildManifestData $manifest)
+ *
+ * @api
+ */
 final class CanonicalizeProjectBuildManifestSigningInputAction
 {
     use AsFake;

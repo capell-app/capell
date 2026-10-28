@@ -112,7 +112,7 @@ vendor/bin/pest tests/Feature/StaticBladeRenderingTest.php tests/Feature/MediaCo
 | Livewire | `^3.0` or `^4.0`                 |
 | Core     | The same release as this package |
 
-Each Capell 1.x minor receives security fixes for 24 months from its release date, and the latest 1.x minor is always supported. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for vulnerability reporting.
+Each Capell 1.x minor receives security fixes for at least 24 months from its release date. The latest 1.x minor remains supported while 1.x is current and for at least 12 months after the next major release. Upgrade all installed Capell foundation packages together to the same supported release before requesting a fix. See the [Capell security policy](https://github.com/capell-app/capell/security/policy) for vulnerability reporting.
 
 Support covers the dependency ranges above. When an upstream release reaches its own end of life earlier, upgrading that dependency may be required to receive a safe fix.
 

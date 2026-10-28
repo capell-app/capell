@@ -152,16 +152,11 @@ return RectorConfig::configure()
             __DIR__ . '/packages/installer/src/Support/InstallGuide/Patches/UserModelPatch.php',
             __DIR__ . '/packages/installer/tests/Feature/InstallGuide/Patches/UserModelPatchTest.php',
             __DIR__ . '/packages/core/src/Actions/Extensions/BuildExtensionSurfaceCatalogAction.php',
-            // These two cover @deprecated compatibility steps that still ship and
-            // stay reachable via the frontend.kernel.steps override. A ::class
-            // reference to a deprecated class emits classConstant.deprecatedClass
-            // and fails the hard-gated deprecations check, so the string FQCN is
-            // deliberate — Rector rewriting it back would make the two gates
-            // contradict each other. Both go away with the classes in 2.0.
-            __DIR__ . '/packages/frontend/tests/Unit/ParseUrlStepTest.php',
-            __DIR__ . '/packages/frontend/tests/Unit/NormalizeDomainPathStepTest.php',
-            __DIR__ . '/packages/admin/tests/Feature/Support/Media/FileUploadPathTamperingTest.php',
-            __DIR__ . '/packages/core/tests/Feature/Diagnostics/CheckAdminPanelAccessActionTest.php',
+            // Tests of @deprecated 1.x adapters live under a Legacy/ directory and
+            // name the adapter by string FQCN (see tests/Support/LegacyAdapter.php):
+            // a ::class reference fails the deprecations gate, so Rector must not
+            // rewrite the string back. Goes away with the adapters in 2.0.
+            '*/tests/*/Legacy/*',
             // These production compatibility boundaries deliberately keep
             // deprecated class names as strings for PHPStan's separate
             // deprecation analysis; the relative entries match the changed

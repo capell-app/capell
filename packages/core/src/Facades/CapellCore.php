@@ -119,6 +119,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static Collection<string, array<int, VendorAssetData>> getAllVendorAssets()
  *
  * @mixin CapellCoreManager
+ *
+ * @internal
  */
 class CapellCore extends Facade
 {

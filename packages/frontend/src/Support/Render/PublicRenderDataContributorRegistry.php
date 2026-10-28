@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use WeakMap;
 
+/** @internal */
 final class PublicRenderDataContributorRegistry
 {
     /** @var array<string, PublicRenderDataContributor> */

@@ -7,6 +7,7 @@ namespace Capell\Core\Data\Manifest;
 use Override;
 use Spatie\LaravelData\Data;
 
+/** @api */
 final class ExtensionContributionTraceabilityData extends Data
 {
     /**

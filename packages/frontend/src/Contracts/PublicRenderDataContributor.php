@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Model;
  * Implementations are bound to the container and tagged with TAG by the
  * package provider. A contributor must load all of its data before Blade
  * renders and declare every model dependency that can make that data stale.
+ *
+ * @internal
  */
 interface PublicRenderDataContributor extends RegistersExtensionPublicRenderData
 {

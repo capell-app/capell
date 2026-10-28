@@ -7,6 +7,7 @@ namespace Capell\Core\Data\ProjectBuild;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
 
+/** @api */
 final class ProjectBuildManifestData extends Data
 {
     /**

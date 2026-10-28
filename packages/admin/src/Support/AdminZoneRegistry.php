@@ -33,6 +33,7 @@ use ReflectionReference;
 use Throwable;
 use UnitEnum;
 
+/** @api */
 final class AdminZoneRegistry
 {
     /** @var array<string, AdminZoneContribution> */

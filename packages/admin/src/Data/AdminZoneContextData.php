@@ -12,6 +12,7 @@ use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Filament\Resources\Pages\Tables\PagesTable;
 use Illuminate\Contracts\Auth\Authenticatable;
 
+/** @api */
 final readonly class AdminZoneContextData
 {
     public function __construct(

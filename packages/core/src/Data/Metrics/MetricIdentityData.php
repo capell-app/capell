@@ -10,6 +10,7 @@ use Spatie\LaravelData\Attributes\MapName;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\Mappers\SnakeCaseMapper;
 
+/** @internal */
 #[MapName(SnakeCaseMapper::class)]
 final class MetricIdentityData extends Data
 {
