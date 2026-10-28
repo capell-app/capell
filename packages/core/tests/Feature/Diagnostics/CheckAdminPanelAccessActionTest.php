@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-use Capell\Core\Actions\Diagnostics\CheckAdminPanelAccessAction;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 
 function runLegacyAdminPanelAccessCheckForTest(): DoctorCheckResultData
 {
-    // Deliberately exercise the deprecated 1.x adapter through reflection, as
+    // Deliberately exercise the deprecated 1.x adapter by string FQCN and reflection, as
     // the frontend compatibility-step tests do, while checking its result type.
-    $action = resolve(CheckAdminPanelAccessAction::class);
+    $action = resolve('Capell\\Core\\Actions\\Diagnostics\\CheckAdminPanelAccessAction');
     $result = new ReflectionMethod($action, 'handle')->invoke($action);
     throw_unless($result instanceof DoctorCheckResultData, RuntimeException::class, 'Legacy diagnostics did not return a check result.');
 
