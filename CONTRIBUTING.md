@@ -5,15 +5,19 @@ Thanks for your interest in improving Capell. This guide outlines workflow, codi
 ## Quick Start
 
 1. Fork & clone the repository.
-2. Install PHP & Node dependencies:
+2. Provision the checkout. The supported runtime is PHP 8.4, and the normal route is the repository's Docker harness, driven by the `./capell` wrapper:
     ```bash
-    composer install
-    npm install
+    ./capell up -d
+    ./capell composer install
+    npm ci --no-audit --no-fund
     ```
-3. Run the test suite:
+    If you run PHP 8.4 on the host instead, use `composer install` and `npm ci --no-audit --no-fund` directly. Do not treat failures from another host PHP version as release evidence.
+3. Run a focused test, then the standard gate:
     ```bash
-    composer test
+    ./capell pest packages/core/tests/path/ToTest.php --configuration=phpunit.xml
+    composer preflight
     ```
+    `./capell test` runs the suite and takes no path; `composer test` is the full host suite.
 4. Create a feature branch and commit changes following conventions.
 
 ### Installing in sandboxed or proxied environments
@@ -30,6 +34,14 @@ It sets `use-github-api false` globally, temporarily adds a git `source` (same c
 
 The codebase requires PHP 8.4 (it uses syntax such as `new X()->method()`); PHP 8.3 fails to parse it. In Claude Code cloud sessions, `.claude/hooks/session-start.sh` installs PHP 8.4 (via `ppa:ondrej/php`) when needed and runs the script if `vendor/` is missing.
 
+### Docker harness and worktrees
+
+- `./capell` derives a per-checkout Compose project and runs Composer, Pest and Pint as the `capell` user with the expected test environment. Prefer it over `docker compose exec` directly, which runs as root and trips the package database guard.
+- Use a [git worktree](docs/development/worktrees.md) when more than one person or agent session works in this repository at once, and provision it fully before the first gate.
+- Use [Composer path repositories](docs/development/local-development.md) to test local package changes from a consuming Laravel application.
+- Broad test and preflight commands share the [release verification gate](docs/release-verification-lock.md); a run started during a release waits for it.
+- [Local hazards](.agents/docs/08-local-hazards.md) lists the known traps (hybrid `vendor/` symlinks, host and container PHPStan caches, path-scoped `composer analyze`).
+
 ## Branch & Commit Conventions
 
 - Prefix branches with type: `feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`.
@@ -40,7 +52,7 @@ The codebase requires PHP 8.4 (it uses syntax such as `new X()->method()`); PHP 
 
 - Read the [full coding standard](docs/standards/coding-standards.md) before changing production code or package extension points.
 - PHP: 8.4+. Use strict types.
-- Style: PSR-12 + project rules enforced via Laravel Pint.
+- Style: Laravel Pint with the `laravel` preset plus the project rules in `pint.json`.
     ```bash
     composer lint
     ```
@@ -54,7 +66,7 @@ The codebase requires PHP 8.4 (it uses syntax such as `new X()->method()`); PHP 
 ## Tests
 
 - Framework: Pest.
-- Location: package tests live under `packages/{package}/tests`; repository-level tests live under `tests/` when the behavior crosses package boundaries.
+- Location: package tests live under `packages/{package}/tests`; repository-level tests live under `tests/` when the behaviour crosses package boundaries.
 - For new commands or services, include:
     - Happy path test.
     - At least one edge case (invalid option, missing data, etc.).
@@ -66,7 +78,7 @@ The codebase requires PHP 8.4 (it uses syntax such as `new X()->method()`); PHP 
 1. Register Type via a service provider using `CapellCore::registerPageType(new PageTypeData(...))`.
 2. Add or extend a configurator under the owning package's `Filament/Configurators` namespace.
 3. Register configurators through Capell admin registration surfaces or `CapellAdminPlugin::discoverConfigurators(...)` in a consuming app.
-4. Add focused tests for discovery, form fields, and any action behavior behind the UI.
+4. Add focused tests for discovery, form fields, and any action behaviour behind the UI.
 
 Do not publish and edit generated admin schemas as an upgrade strategy. Extension packages should use documented registries, tagged extenders, lifecycle subscribers, and configurators instead of patching host package classes.
 
@@ -87,25 +99,26 @@ If adjusting public rendering, cache generation, sitemap generation, or static o
 ## Security
 
 - Never commit secrets or `.env` files.
-- Validate/authorize actions in new controllers/commands with appropriate policies / gates.
+- Validate/authorise actions in new controllers/commands with appropriate policies / gates.
 - Escape output in Blade unless intentionally rendering trusted HTML.
 
 ## Documentation
 
 - Update `README.md` for user-facing additions (commands, env vars, extension points).
-- Add new docs under `docs/` for deep dives (link them from README Next Steps section).
+- Add new docs under `docs/` for deep dives and link them from the narrowest relevant index (`docs/README.md` or a section index). The [docs ownership rules](docs/development/docs-ownership.md) say where a page belongs.
 - Keep examples minimal but runnable.
+- After a docs edit run `composer docs:check`; it chains the link, orphan, requirements, command, env, config and screenshot guards that CI runs.
 - The hosted docs at [docs.capell.app](https://docs.capell.app) rebuild automatically when a release is published — no manual step needed.
 
 ## Release & Changelog
 
-- Update `CHANGELOG.md` with summary: Added, Changed, Fixed, Deprecated, Removed.
+- Update the `Unreleased` section of `CHANGELOG.md` under the matching heading: Added, Changed, Fixed, Deprecated, Removed. Published releases are appended by the `Update Changelog` workflow.
 - Follow semantic versioning for published packages.
 
 ## CI Hints
 
-- Include running: `composer validate`, Pint, PHPStan, Pest.
-- Optional: cache Composer & npm to speed builds.
+- `composer preflight` runs the standard static, contract, formatting, analysis and test gates; `composer preflight:all` adds the doc guards, Rector, Prettier, ESLint and the security audit, and applies Rector and Pint fixes, so review its diff.
+- Hosted CI runs the same gates; a ready pull request runs the Fast PR gate shards and the Test All matrix cells, and all of them must pass (see [CI and test shards](docs/development/ci.md)).
 
 ## Getting Help
 
@@ -119,7 +132,7 @@ Open a GitHub Issue with reproduction steps and environment details, or visit ht
 - Cross-package coordination must use neutral boundaries:
     - Emit events or subscriber hooks via `CapellCore::subscriberManager()`.
     - Use shared cache/filesystem paths or Artisan command names (strings) without importing package classes.
-- When Core needs to trigger behavior in another package (e.g., clear Admin schemas cache), emit hook events only (e.g., `admin.schemas.clearing` / `admin.schemas.cleared`). The target package implements the actual behavior via a subscriber.
+- When Core needs to trigger behaviour in another package (e.g., clear Admin schemas cache), emit hook events only (e.g., `admin.schemas.clearing` / `admin.schemas.cleared`). The target package implements the actual behaviour via a subscriber.
 - Treat any static analysis errors caused by cross-package references as blockers; fix imports/case names rather than suppressing.
 
 ### Sanctioned exception: event sourcing in Core

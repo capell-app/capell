@@ -18,10 +18,10 @@ Use this checklist before adding or moving documentation.
 - Every doc must be linked from `docs/README.md`, a section index, a package overview, or another doc.
 - Follow the [documentation visual standard](../standards/documentation-visuals.md) for linked originals, captions, theme-aware pairs, ownership, and evidence boundaries.
 - Do not keep "moved" stubs unless an external published URL needs a temporary redirect.
-- Do not document optional package behavior as built-in host behavior.
+- Do not document optional package behaviour as built-in host behaviour.
 - Keep package-specific install commands in the package that owns them.
 - Prefer short task pages over broad narrative pages.
-- End leaf docs with a small `Next` section when there is a natural follow-up.
+- End leaf docs with a small `Next` section when there is a natural follow-up: one primary next link, then an optional "Dive deeper (optional)" list of at most four links. Pages on the [Learn Capell](../getting-started/capell-learn.md) path open with a stage banner naming the stage, time, previous and next pages.
 - Skills shipped in `packages/*/resources/boost/skills/` (and their `references/` files) are installed into third-party applications by Composer. Write for that reader: say "the Capell CMS" or "this package", use generic placeholders for local paths, and never mention `capell-4`, `capell-packages-4`, the monorepo, a developer's local absolute paths or "companion packages". Naming a Composer package or a Capell concept is fine.
 
 ## Guards that pin documentation
@@ -34,7 +34,7 @@ Front-door docs (root README, `packages/*/README.md`, `docs/README.md`, CONTRIBU
 - `scripts/check-docs-links.php` toggles an inside-fence flag at every triple-backtick line. An odd fence count hides every later heading and anchors report as broken. Check that the number of fence lines in the file is even before debugging anything else; a careless `replace_all` that eats a newline can merge a command into the closing fence.
 - `scripts/check-doc-screenshot-coverage.js` requires every Markdown file outside a `docs/` directory (other than its ignore list, `AGENTS.md` and `CLAUDE.md`) to embed at least one local image, and validates every embedded image path in the files it scans (Markdown images, `<img src>`, `<source srcset>`; fenced and inline code are skipped).
 
-After a docs edit run `composer check:docs-links`, `check:docs-orphans`, `check:docs-requirements`, `check:docs-commands` and `check:docs-screenshots`, plus `scripts/check-root-docs.php` and `scripts/check-readme-engineering-standards.php`.
+After a docs edit run `composer docs:check` (spelling, links, orphans, requirements, commands, env, config and screenshots), plus `scripts/check-root-docs.php` and `scripts/check-readme-engineering-standards.php`.
 
 ## Review Questions
 

@@ -11,7 +11,7 @@
 
 ## Test Infrastructure
 
-- **Framework**: Pest 4 with Pest plugins for Laravel, Livewire, Architecture, Type Coverage
+- **Framework**: Pest 5 with Pest plugins for Laravel, Livewire, Architecture, Type Coverage
 - **Coverage**: PCOV, minimum 90% threshold
 - **Suites**: Architecture, Feature, Integration, Unit
 
@@ -191,8 +191,8 @@ arch('models extend Eloquent Model')
     ->expect('Capell\Core\Models')
     ->toExtend('Illuminate\Database\Eloquent\Model');
 
-// Ensure strict blueprints in all files
-arch('strict blueprints everywhere')
+// Ensure strict types in all files
+arch('strict types everywhere')
     ->expect('Capell')
     ->toUseStrictTypes();
 

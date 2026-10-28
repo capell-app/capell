@@ -81,4 +81,7 @@ Inertia widget payloads must not expose:
 - signed URLs;
 - raw lazy target payloads.
 
-Use [Frontend widgets](../frontend/widgets.md), [Frontend extensions](../packages/frontend-extensions.md), and [Capell Interactions](capell-interactions.md) when combining Inertia widgets with lazy targets or runtime resources.
+## Next
+
+- [Inertia Bookings showcase](inertia-bookings-showcase.md) for a complete feature.
+- [Frontend widgets](../frontend/widgets.md), [Frontend extensions](../packages/frontend-extensions.md), and [Capell Interactions](capell-interactions.md) when combining Inertia widgets with lazy targets or runtime resources.

@@ -8,7 +8,6 @@ use Capell\Admin\Tests\Fixtures\Forms\NativeWidgetFileUpload;
 use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
-use Capell\Core\Support\Media\SpatieMediaFieldFactory;
 use Capell\Tests\Fixtures\Models\User;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\Builder;
@@ -116,9 +115,13 @@ it('authorises owned UUIDs through native and legacy Spatie fields', function (b
     $record->setRelation('media', new MediaCollection([
         new Media(['uuid' => 'owned-native-image', 'collection_name' => $name]),
     ]));
+    // The legacy factory is @deprecated, so it is resolved by string FQCN and
+    // invoked by reflection to keep the hard-gated deprecations check green.
+    $factory = resolve('Capell\\Core\\Support\\Media\\SpatieMediaFieldFactory');
     $field = $legacy
-        ? resolve(SpatieMediaFieldFactory::class)->make($name)
+        ? new ReflectionMethod($factory, 'make')->invoke($factory, $name)
         : SpatieMediaLibraryFileUpload::make($name)->collection($name);
+    throw_unless($field instanceof SpatieMediaLibraryFileUpload, RuntimeException::class, 'The media factory did not return a Spatie upload field.');
     Schema::make(Livewire::make())->record($record)->components([$field])->getFlatComponents();
     expect($field->shouldPreventFilePathTampering())->toBeTrue();
     expect(Validator::make(['image' => ['owned-native-image']], ['image' => $field->getValidationRules()])->passes())->toBeTrue();

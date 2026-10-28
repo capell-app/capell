@@ -218,7 +218,9 @@ class TitleWithSlugInput
                 TranslationLanguageSelect::make()
                     ->dehydratedWhenHidden()
                     ->withRelationship()
-                    ->hidden(fn (?int $state): bool => $state !== null && $state !== 0),
+                    // Raw state avoids Filament's relationship-aware state casts, which
+                    // cannot resolve the translation relationship from the page template.
+                    ->hidden(fn (TranslationLanguageSelect $component): bool => is_numeric($state = $component->getRawState()) && (int) $state !== 0),
             ]);
     }
 
