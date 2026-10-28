@@ -30,6 +30,7 @@ const pr = (number, extra = {}) => ({
 })
 async function run(pulls, options = {}) {
     const calls = []
+    const reads = new Map()
     const app = {
         rest: {
             pulls: {
@@ -89,11 +90,16 @@ async function run(pulls, options = {}) {
         rest: {
             pulls: {
                 list: () => {},
-                get: async ({ pull_number }) => ({
-                    data:
-                        options.fresh ||
-                        pulls.find((p) => p.number === pull_number),
-                }),
+                get: async ({ pull_number }) => {
+                    const count = (reads.get(pull_number) || 0) + 1
+                    reads.set(pull_number, count)
+                    return {
+                        data:
+                            (count > 1 && options.changedOnSecond) ||
+                            options.fresh ||
+                            pulls.find((p) => p.number === pull_number),
+                    }
+                },
             },
             repos: {
                 compareCommitsWithBasehead: async ({ basehead }) => ({
@@ -196,6 +202,15 @@ async function run(pulls, options = {}) {
             })
         ).calls,
         [['update', 1, a.head.sha]],
+    )
+    assert.deepEqual(
+        (
+            await run([a], {
+                behind: [a.head.sha],
+                changedOnSecond: { ...a, labels: [] },
+            })
+        ).calls,
+        [],
     )
     assert.deepEqual((await run([b, a], { busy: true })).calls, [])
     assert.deepEqual(

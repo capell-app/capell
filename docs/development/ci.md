@@ -249,9 +249,10 @@ or timed-out cell is incomplete evidence, not support proof.
 
 ## Enqueueing approved PRs by label
 
-After presenting the final diff and impact summary and obtaining Ben's explicit
-approval for a PR, add `ready-to-merge` to that open PR targeting `main`. The
-worker scans all labelled PRs, including existing labels, in PR creation order.
+Adding `ready-to-merge` to an open PR targeting `main` authorises the queue to
+update its branch and merge it after checks pass, without a further per-PR chat
+approval. This is an explicit exception to the normal PR merge approval rule.
+The worker scans all labelled PRs, including existing labels, in PR creation order.
 It excludes drafts and `awaiting-merge` PRs, and handles one PR at a time. If
 its branch is behind, the worker updates it from `main` and waits for checks on
 the new head. When checks pass, it adds the PR to GitHub's merge queue and waits
@@ -265,14 +266,12 @@ forks must be updated manually. Unexpected API failures stop the scan and retry
 later rather than being treated as test failures. A previously queued or merged
 newer PR cannot be reordered when an older PR is labelled later.
 
-The worker reads each PR's current head. The label does not prove that a later
-head was reviewed: remove it before pushing changes and reapply it only after
-approval. Audit existing labels and approvals before activation. An automatic
-update from `main` changes the head and can change the final diff; the worker
-cannot establish the separate per-PR approval required by the working contract.
-Removing the label does not dequeue an existing PR: remove it from GitHub's
-queue separately. Enqueueing can lead to an automatic merge and there is no
-direct-merge fallback. Monitor the workflow and queue.
+The label authorises the worker to process the PR's current head, including an
+automatic update from `main`. Remove it before pushing changes that should not
+be merged; reapply it when the PR is ready. Removing the label does not dequeue
+an existing PR: remove it from GitHub's queue separately. Enqueueing can lead to
+an automatic merge and there is no direct-merge fallback. Monitor the workflow
+and queue.
 
 An administrator must enable the `main` merge queue and install a dedicated
 GitHub App on this repository with Contents write, Pull requests write and Merge

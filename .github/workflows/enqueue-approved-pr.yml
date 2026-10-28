@@ -128,6 +128,12 @@ jobs:
                 ...context.repo, basehead: `main...${pr.head.sha}`,
               });
               if (comparison.data.behind_by > 0) {
+                const latest = await github.rest.pulls.get({ ...context.repo, pull_number: pr.number });
+                if (latest.data.head.sha !== pr.head.sha || latest.data.state !== 'open' || latest.data.draft
+                    || latest.data.base.ref !== 'main' || !latest.data.labels.some(label => label.name === 'ready-to-merge')
+                    || latest.data.labels.some(label => label.name === 'awaiting-merge')) {
+                  throw new Error(`PR #${pr.number} changed before branch update; retry.`);
+                }
                 await app.rest.pulls.updateBranch({ ...context.repo, pull_number: pr.number, expected_head_sha: pr.head.sha });
                 core.notice(`Updating PR #${pr.number}; waiting for the new head and its checks.`);
                 return;
