@@ -7,12 +7,12 @@ use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Tests\Support\BundleComposerFilesystem;
+use Capell\Core\Tests\Support\RemovalRuntimeFixtureProvider;
 use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
-use Illuminate\Support\ServiceProvider;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
@@ -655,8 +655,6 @@ it('removes package providers from every runtime role before Composer removes th
         app()->detectEnvironment(fn (): string => 'testing');
     }
 })->with([false, true]);
-
-class RemovalRuntimeFixtureProvider extends ServiceProvider {}
 
 it('rebuilds usable runtime manifests after removal or Composer failure', function (bool $composerFails): void {
     $paths = new OwnedApplicationPaths(app());
