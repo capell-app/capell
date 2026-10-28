@@ -160,6 +160,8 @@ return RectorConfig::configure()
             // contradict each other. Both go away with the classes in 2.0.
             __DIR__ . '/packages/frontend/tests/Unit/ParseUrlStepTest.php',
             __DIR__ . '/packages/frontend/tests/Unit/NormalizeDomainPathStepTest.php',
+            __DIR__ . '/packages/admin/tests/Feature/Support/Media/FileUploadPathTamperingTest.php',
+            __DIR__ . '/packages/core/tests/Feature/Diagnostics/CheckAdminPanelAccessActionTest.php',
             // These production compatibility boundaries deliberately keep
             // deprecated class names as strings for PHPStan's separate
             // deprecation analysis; the relative entries match the changed

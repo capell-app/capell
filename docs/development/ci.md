@@ -23,9 +23,9 @@ uses the same definitions and cell runner.
 
 Run `composer test:shards` when the timing manifest needs refreshing. Pest writes `tests/.pest/shards.json` directly.
 
-This checkout uses Pest 5 with its native sharding support. Composer excludes ParaTest 7.26.1 until a published Pest release contains the upstream compatibility fix and the required Fast PR cells pass with the newer dependency.
+This checkout uses Pest 5 with its native sharding support.
 
-Use `composer test:preflight:serial -- <paths or filter>` for focused selections. With the pinned Pest 5.3.1, a filter across the whole tree can report passing tests while its parallel result has `hasTests=false` and exits 1. Retain that exit as a tooling failure; use the serial runner for focused proof and require the full parallel suite and hosted matrix before merge.
+Use `composer test:preflight:serial -- <paths or filter>` for focused selections. With the locked Pest 5.3.x, a filter across the whole tree can report passing tests while its parallel result has `hasTests=false` and exits 1. Retain that exit as a tooling failure; use the serial runner for focused proof and require the full parallel suite and hosted matrix before merge.
 
 ## Immutable lock admission
 

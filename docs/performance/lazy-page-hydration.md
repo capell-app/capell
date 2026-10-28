@@ -22,7 +22,7 @@ These pieces are involved in lazy-safe rendering decisions:
 
 1. `RenderingStrategyMiddleware` reads the resolved page after the response has rendered and adds the `X-Rendering-Strategy` header.
 2. `RenderingStrategyViewComposer` is registered on `capell::app` and adds a `runtimeManifest` plus `livewireEnabled` flag when one has not already been supplied.
-3. `AbstractPage::pageRecordRequiresLivewire()` checks page meta first. It only consults page type meta or `is_livewire` when the `type` relation is already loaded.
+3. `AbstractPage::pageRecordRequiresLivewire()` checks page meta first. It only consults blueprint meta or `is_livewire` when the `blueprint` relation is already loaded.
 4. `ResolveFrontendRuntimeAction` owns the main Blade, Livewire, and Inertia runtime decision for normal frontend rendering.
 5. `LazyLoadedSiteContext` is an explicit helper for code paths that want a minimal `Site` wrapper. It is not currently part of the default frontend kernel pipeline.
 
@@ -36,7 +36,7 @@ The default frontend kernel steps are registered in `FrontendServiceProvider` th
 - **BladeWithIslands** (`blade-islands`): Blade output with isolated Livewire components where needed.
 - **FullLivewire** (`livewire`): the page itself renders as a Livewire component.
 
-Page-level `meta.rendering_strategy` is the safest source because it is already on the page record. Type-level strategy and `is_livewire` are valid only when the page type relation has been loaded by the resolver or page cache.
+Page-level `meta.rendering_strategy` is the safest source because it is already on the page record. Blueprint-level strategy and `is_livewire` are valid only when the page's `blueprint` relation has been loaded by the resolver or page cache.
 
 ## Loaded Type Rule
 
@@ -70,7 +70,7 @@ Because this helper is explicit, code that adopts it should document where the w
 
 Use query counts or strict lazy-loading tests for the code path you changed.
 
-- For rendering strategy checks, assert that an unloaded `type` relation stays unloaded.
+- For rendering strategy checks, assert that an unloaded `blueprint` relation stays unloaded.
 - For site wrappers, assert `LazyLoadedSiteContext::isFullyLoaded()` before and after the operation.
 - For cache-hit behavior, listen for database queries around the request and prove the expected query budget.
 
@@ -79,7 +79,7 @@ Use query counts or strict lazy-loading tests for the code path you changed.
 - Accessing `$page->blueprint` or `$site->relation` in public rendering code can trigger a query.
 - `FullLivewire` pages intentionally need Livewire runtime state. Do not treat that as a cache leak by itself.
 - `BladeWithIslands` should load Livewire assets for the island runtime, but it should not require full page Livewire hydration.
-- Cached page models may already include `type`; ad hoc models in tests or package code may not.
+- Cached page models may already include `blueprint`; ad hoc models in tests or package code may not.
 - `LazyLoadedSiteContext` does not cache individual relations. Once `site()` is called, it stores the fully loaded `Site` object.
 
 ## Related

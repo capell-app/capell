@@ -1,6 +1,5 @@
 # Local Development & Testing
 
-
 This guide explains how to set up local path repositories for Capell and related packages, enabling rapid development and testing with symlinked sources.
 
 ## When to Use
@@ -58,9 +57,7 @@ Techniques that help once drift is ruled out:
 - A shared primary checkout can show green while committed `main` is red, because uncommitted fixes in the working tree mask the failure. Check a pristine worktree of the commit before trusting it.
 - A scratch note left in the repository root fails `scripts/check-root-docs.php`.
 
----
-
-**Further Reading:**
+## Next
 
 - [README.md](../README.md)
 - [Configuration Reference](configuration.md)

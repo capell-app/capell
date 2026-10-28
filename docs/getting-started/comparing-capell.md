@@ -22,7 +22,7 @@ Capell is the strongest fit when a website is part of a Laravel product and cont
 
 ## Editorial and delivery trade-offs
 
-Capell favours developer-owned composition and predictable package contracts. It provides page trees, sites, languages, URLs, media boundaries, permissions, settings, publishing hooks, themes, widgets, and Layout Builder composition without moving the site out of Laravel.
+Capell favours developer-owned composition and predictable package contracts. It provides page trees, sites, languages, URLs, media boundaries, permissions, settings, publishing hooks, themes and, with the optional Layout Builder package, widget composition, without moving the site out of Laravel.
 
 WordPress is usually the fastest choice when a suitable plugin/theme combination already solves the brief. Application-specific workflows can, however, become a negotiation between plugin conventions, WordPress data, and the surrounding product.
 
@@ -38,4 +38,8 @@ Craft CMS is a strong choice for bespoke editorial sites where structured conten
 
 If the first two answers are yes, Capell's in-application model is usually the simpler long-term boundary. If the third answer dominates and integration is light, WordPress or Craft may be the more economical choice.
 
-Continue with [Why Capell](why-capell.md), the [install matrix](install-matrix.md), or the [export and exit plan](../operations/export-and-exit.md).
+## Next
+
+- [Why Capell](why-capell.md) for the decision in one minute.
+- [Install matrix](install-matrix.md) to choose an install path.
+- [Export and exit plan](../operations/export-and-exit.md) before committing a production site.

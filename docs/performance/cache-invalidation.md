@@ -33,7 +33,7 @@ The registry is a container-managed service. Register dependencies during servic
 **File locations:**
 
 - Registry: `packages/frontend/src/Support/Cache/CacheInvalidationRegistry.php`
-- Built-in registrations: inside the registry's `$modelDependencies` property
+- Built-in registrations: `packages/frontend/src/Support/Cache/CacheInvalidationDependencyRegistry.php` (`$modelDependencies`)
 
 ## Public API
 
@@ -49,12 +49,10 @@ Patterns are cache **keys or tags**, passed to Laravel's cache driver:
 - **Exact-key patterns** (no `*` wildcard): forwarded to `Cache::forget($pattern)`, matching exact cache keys
     - Example: `'sites'`, `'languages'`, `'page-error-404'`
 
-- **Wildcard patterns** (contain `*`): trigger a **full tag flush** instead
+- **Wildcard patterns** (contain `*`): invalidate every key matching the pattern
     - Example: `'page-*'`, `'site-related-*'`
-    - When any wildcard pattern is detected, the registry calls `Cache::tags(['capell-frontend'])->flush()` and returns early
-    - This is a safety mechanism: rather than implementing wildcard matching across cache backends, the registry opts for full flush
-
-**Why the conservative approach?** Different cache drivers (Redis, Memcached, file) handle wildcards differently. A full tag flush is predictable and avoids stale data.
+    - The registry turns the pattern into an `invalidatePattern` rule, and `CapellCacheManager::invalidateCachePattern()` bumps a per-pattern generation so matching keys miss on their next read; unrelated keys are kept
+    - Only the fallback (a Site root, or a failed dependency traversal) flushes the whole `capell-frontend` tag
 
 ## Example — registering a custom model
 
@@ -109,13 +107,13 @@ final class AppServiceProvider extends ServiceProvider
 }
 ```
 
-Now, when a `BlogPost` is saved or deleted, the observer calls `invalidateForModel()`, which flushes `'blog-posts'` and `'homepage-featured'` keys exactly, and (because `'blog-posts:*'` contains `*`) triggers a full `Cache::tags('capell-frontend')->flush()`.
+Now, when a `BlogPost` is saved or deleted, the observer calls `invalidateForModel()`, which flushes `'blog-posts'` and `'homepage-featured'` keys exactly, and (because `'blog-posts:*'` contains `*`) invalidates every key matching `blog-posts:*`.
 
 ## Companion APIs
 
 **Fragment caching vs. invalidation registry:**
 
-- **`FragmentCache::invalidateBySurrogateKey(string $surrogateKey)`** — Used **inside Blade templates** to tag fragments. Called manually from event listeners when you want surgical invalidation of specific fragments.
+- **`FragmentCache::invalidateBySurrogateKey(string $surrogateKey)`** — Invalidates fragments tagged (through the third `@cache` argument) with this surrogate key. Call it on the resolved service from event listeners or observers when you want surgical invalidation of specific fragments.
     - Example: `@cache('featured-posts', 3600, ['featured-posts:list'])`; later, `FragmentCache::invalidateBySurrogateKey('featured-posts:list')` clears just that fragment.
 
 - **`CacheInvalidationRegistry::registerDependency()` + `invalidateForModel()`** — Used for **model-driven invalidation**. Declares "when MODEL X changes, flush THESE cache keys." Typically called from model observers, not directly in templates.
@@ -134,7 +132,7 @@ $registry->registerDependency(
 // Observer: invalidate both registry keys and fragment surrogates
 public function saved(BlogPost $blogPost): void {
     resolve(CacheInvalidationRegistry::class)->invalidateForModel(BlogPost::class);
-    FragmentCache::invalidateBySurrogateKey('blog-featured');
+    resolve(FragmentCache::class)->invalidateBySurrogateKey('blog-featured');
 }
 ```
 
@@ -153,7 +151,7 @@ public function saved(BlogPost $blogPost): void {
     $registry->registerDependency(Post::class, ['featured']);  // Now Post maps to ['posts', 'featured']
     ```
 
-- **Wildcard triggers full flush** — if even one pattern contains `*`, the entire `capell-frontend` tag is flushed. Wildcard patterns are an all-or-nothing signal. Use sparingly if your app has many cache keys.
+- **Wildcards invalidate by pattern** — a pattern containing `*` invalidates every key that matches it, not the whole tag. Keep patterns narrow so unrelated keys stay warm.
 
 - **Observer must be wired** — the registry only works if your model observer is registered. Register it in a service provider:
 

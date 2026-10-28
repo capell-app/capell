@@ -2,6 +2,8 @@
 
 Start here if you are evaluating Capell, installing it, or opening the admin for the first time.
 
+> **New to Capell?** Follow [Learn Capell](capell-learn.md): eight stages, about 95 minutes, from deciding whether Capell fits to a published page you understand. The tables below are for finding one specific task.
+
 ## Evaluate
 
 | I need to...                        | Read                                                    |
@@ -27,7 +29,6 @@ Start here if you are evaluating Capell, installing it, or opening the admin for
 | Start editing content        | [Your first session](first-session.md)              |
 | Publish a first page         | [Create your first page](create-your-first-page.md) |
 | Choose how to compose a page | [Build a page](building-pages.md)                   |
-| Learn the concepts in order  | [Capell Learn](capell-learn.md)                     |
 | Understand blueprints        | [Blueprints](types.md)                              |
 
 ## Build
@@ -39,4 +40,7 @@ Start here if you are evaluating Capell, installing it, or opening the admin for
 | Render widgets through Inertia     | [Inertia widgets](inertia-widgets.md)                     |
 | Study a complete Inertia feature   | [Inertia Bookings Showcase](inertia-bookings-showcase.md) |
 
-After getting started, move to [Admin](../admin/index.md) for editor workflows, [Frontend](../frontend/index.md) for public rendering, or [Packages](../packages/README.md) to extend Capell.
+## Next
+
+- [Learn Capell](capell-learn.md) for the guided path.
+- [Admin](../admin/index.md) for editor workflows, [Frontend](../frontend/index.md) for public rendering, or [Packages](../packages/README.md) to extend Capell.
