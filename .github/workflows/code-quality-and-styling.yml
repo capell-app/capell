@@ -65,14 +65,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Setup PHP
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: '8.4'
           extensions: curl, dom, fileinfo, intl, json, libxml, mbstring, phar, simplexml, zip
           tools: composer:v2, pint
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
           node-version: '22.x'
           cache: npm
@@ -196,7 +196,7 @@ jobs:
 
       - name: Upload modernization artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: php-modernization-${{ github.run_id }}
           path: .build/php-modernization/
