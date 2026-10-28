@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "efa8b29724fec4d49aaaac257c09cb37",
+    "content-hash": "a3ef1e6413bd2f416e3f315ccc3bc6a2",
     "packages": [
         {
             "name": "aimeos/laravel-nestedset",
@@ -13463,24 +13463,50 @@
         },
         {
             "name": "driftingly/rector-laravel",
-            "version": "2.5.0",
+            "version": "2.7.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/driftingly/rector-laravel.git",
-                "reference": "0dbdd842dfdbc821cfe5f47ca7326e2502b2a107"
+                "reference": "64d0c56d948f81e80c40b813e33fc7a7d38bc74e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/driftingly/rector-laravel/zipball/0dbdd842dfdbc821cfe5f47ca7326e2502b2a107",
-                "reference": "0dbdd842dfdbc821cfe5f47ca7326e2502b2a107",
+                "url": "https://api.github.com/repos/driftingly/rector-laravel/zipball/64d0c56d948f81e80c40b813e33fc7a7d38bc74e",
+                "reference": "64d0c56d948f81e80c40b813e33fc7a7d38bc74e",
                 "shasum": ""
             },
             "require": {
-                "php": "^7.4 || ^8.0",
-                "rector/rector": "^2.2.7",
+                "php": ">=8.3",
+                "rector/rector": "^2.7",
+                "symplify/rule-doc-generator-contracts": "^11.2",
                 "webmozart/assert": "^1.11 || ^2.0"
             },
+            "require-dev": {
+                "boundwize/structarmed": "^0.19",
+                "illuminate/support": "^13.0",
+                "nette/utils": "^4.0",
+                "nikic/php-parser": "^5.6",
+                "phpstan/extension-installer": "^1.3",
+                "phpstan/phpstan": "^2.2",
+                "phpstan/phpstan-deprecation-rules": "^2.0",
+                "phpstan/phpstan-strict-rules": "^2.0",
+                "phpstan/phpstan-webmozart-assert": "^2.0",
+                "phpunit/phpunit": "^10.5",
+                "symplify/rule-doc-generator": "^12.2",
+                "tightenco/duster": "^3.1",
+                "tracy/tracy": "^2.10"
+            },
+            "suggest": {
+                "illuminate/support": "Required by RelationTableStringToPivotClassRector, which uses Illuminate\\Support\\Str at runtime to resolve pivot models from table names (^8.0 || ^9.0 || ^10.0 || ^11.0 || ^12.0 || ^13.0)."
+            },
             "type": "rector-extension",
+            "extra": {
+                "rector": {
+                    "includes": [
+                        "config/config.php"
+                    ]
+                }
+            },
             "autoload": {
                 "psr-4": {
                     "RectorLaravel\\": "src"
@@ -13491,11 +13517,18 @@
                 "MIT"
             ],
             "description": "Rector upgrades rules for Laravel Framework",
+            "keywords": [
+                "dev",
+                "laravel",
+                "rector",
+                "refactoring",
+                "upgrade"
+            ],
             "support": {
                 "issues": "https://github.com/driftingly/rector-laravel/issues",
-                "source": "https://github.com/driftingly/rector-laravel/tree/2.5.0"
+                "source": "https://github.com/driftingly/rector-laravel/tree/2.7.0"
             },
-            "time": "2026-06-02T16:22:14+00:00"
+            "time": "2026-10-20T13:43:25+00:00"
         },
         {
             "name": "entropy/entropy",
@@ -13746,19 +13779,21 @@
         },
         {
             "name": "hamcrest/hamcrest-php",
-            "version": "v2.1.1",
+            "version": "v3.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/hamcrest/hamcrest-php.git",
-                "reference": "f8b1c0173b22fa6ec77a81fe63e5b01eba7e6487"
+                "reference": "b61cd040da1a4925bc90a51c074f5297e7c0fa52"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/hamcrest/hamcrest-php/zipball/f8b1c0173b22fa6ec77a81fe63e5b01eba7e6487",
-                "reference": "f8b1c0173b22fa6ec77a81fe63e5b01eba7e6487",
+                "url": "https://api.github.com/repos/hamcrest/hamcrest-php/zipball/b61cd040da1a4925bc90a51c074f5297e7c0fa52",
+                "reference": "b61cd040da1a4925bc90a51c074f5297e7c0fa52",
                 "shasum": ""
             },
             "require": {
+                "ext-ctype": "*",
+                "ext-dom": "*",
                 "php": "^7.4|^8.0"
             },
             "replace": {
@@ -13767,13 +13802,15 @@
                 "kodova/hamcrest-php": "*"
             },
             "require-dev": {
+                "phpstan/phpstan": "^2.1",
+                "phpstan/phpstan-phpunit": "^2.0",
                 "phpunit/php-file-iterator": "^1.4 || ^2.0 || ^3.0",
                 "phpunit/phpunit": "^4.8.36 || ^5.7 || ^6.5 || ^7.0 || ^8.0 || ^9.0"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "2.1-dev"
+                    "dev-master": "3.0-dev"
                 }
             },
             "autoload": {
@@ -13791,9 +13828,9 @@
             ],
             "support": {
                 "issues": "https://github.com/hamcrest/hamcrest-php/issues",
-                "source": "https://github.com/hamcrest/hamcrest-php/tree/v2.1.1"
+                "source": "https://github.com/hamcrest/hamcrest-php/tree/v3.0.0"
             },
-            "time": "2025-04-30T06:54:44+00:00"
+            "time": "2026-03-17T11:56:53+00:00"
         },
         {
             "name": "iamcal/sql-parser",
@@ -14063,20 +14100,19 @@
         },
         {
             "name": "larastan/larastan",
-            "version": "v3.10.0",
+            "version": "v3.13.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/larastan/larastan.git",
-                "reference": "2970f83398154178a739609c244577267c7ee8eb"
+                "reference": "0de9aec250ab498f97171b43cd1192ce11a8c8fc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/larastan/larastan/zipball/2970f83398154178a739609c244577267c7ee8eb",
-                "reference": "2970f83398154178a739609c244577267c7ee8eb",
+                "url": "https://api.github.com/repos/larastan/larastan/zipball/0de9aec250ab498f97171b43cd1192ce11a8c8fc",
+                "reference": "0de9aec250ab498f97171b43cd1192ce11a8c8fc",
                 "shasum": ""
             },
             "require": {
-                "ext-json": "*",
                 "iamcal/sql-parser": "^0.7.0",
                 "illuminate/console": "^11.44.2 || ^12.4.1 || ^13",
                 "illuminate/container": "^11.44.2 || ^12.4.1 || ^13",
@@ -14086,7 +14122,7 @@
                 "illuminate/pipeline": "^11.44.2 || ^12.4.1 || ^13",
                 "illuminate/support": "^11.44.2 || ^12.4.1 || ^13",
                 "php": "^8.2",
-                "phpstan/phpstan": "^2.2.0"
+                "phpstan/phpstan": "^2.3.0"
             },
             "require-dev": {
                 "doctrine/coding-standard": "^14",
@@ -14096,7 +14132,7 @@
                 "orchestra/canvas": "^v9.2.2 || ^10.0.1 || ^11",
                 "orchestra/testbench-core": "^9.12.0 || ^10.1 || ^11",
                 "phpstan/phpstan-deprecation-rules": "^2.0.1",
-                "phpunit/phpunit": "^10.5.35 || ^11.5.15 || ^12.5.8 || ^13.1.8"
+                "phpunit/phpunit": "^10.5.35 || ^11.5.15 || ^12.5.8 || ^13.3.0"
             },
             "suggest": {
                 "orchestra/testbench": "Using Larastan for analysing a package needs Testbench",
@@ -14141,7 +14177,7 @@
             ],
             "support": {
                 "issues": "https://github.com/larastan/larastan/issues",
-                "source": "https://github.com/larastan/larastan/tree/v3.10.0"
+                "source": "https://github.com/larastan/larastan/tree/v3.13.2"
             },
             "funding": [
                 {
@@ -14149,7 +14185,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-05-28T08:00:58+00:00"
+            "time": "2026-10-23T21:03:09+00:00"
         },
         {
             "name": "laravel/agent-detector",
@@ -14608,29 +14644,28 @@
         },
         {
             "name": "mockery/mockery",
-            "version": "1.6.12",
+            "version": "1.6.15",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mockery/mockery.git",
-                "reference": "1f4efdd7d3beafe9807b08156dfcb176d18f1699"
+                "reference": "967a801bd188989a5669bd280f252d51c0fdc9ee"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mockery/mockery/zipball/1f4efdd7d3beafe9807b08156dfcb176d18f1699",
-                "reference": "1f4efdd7d3beafe9807b08156dfcb176d18f1699",
+                "url": "https://api.github.com/repos/mockery/mockery/zipball/967a801bd188989a5669bd280f252d51c0fdc9ee",
+                "reference": "967a801bd188989a5669bd280f252d51c0fdc9ee",
                 "shasum": ""
             },
             "require": {
-                "hamcrest/hamcrest-php": "^2.0.1",
-                "lib-pcre": ">=7.0",
+                "hamcrest/hamcrest-php": "^2.0 || ^3.0",
                 "php": ">=7.3"
             },
             "conflict": {
                 "phpunit/phpunit": "<8.0"
             },
             "require-dev": {
-                "phpunit/phpunit": "^8.5 || ^9.6.17",
-                "symplify/easy-coding-standard": "^12.1.14"
+                "phpunit/phpunit": "^9.6.36",
+                "symplify/easy-coding-standard": "^13.2.17"
             },
             "type": "library",
             "autoload": {
@@ -14687,7 +14722,7 @@
                 "security": "https://github.com/mockery/mockery/security/advisories",
                 "source": "https://github.com/mockery/mockery"
             },
-            "time": "2024-05-16T03:13:13+00:00"
+            "time": "2026-08-19T19:37:52+00:00"
         },
         {
             "name": "myclabs/deep-copy",
@@ -16296,11 +16331,11 @@
         },
         {
             "name": "phpstan/phpstan",
-            "version": "2.3.1",
+            "version": "2.3.2",
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/6155239b488e95d26d1ebd95c6b4bb294d7f09db",
-                "reference": "6155239b488e95d26d1ebd95c6b4bb294d7f09db",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/18bc23a0682f08591529377d271b5c4dfe9ed1dd",
+                "reference": "18bc23a0682f08591529377d271b5c4dfe9ed1dd",
                 "shasum": ""
             },
             "require": {
@@ -16356,7 +16391,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-10-08T21:09:11+00:00"
+            "time": "2026-10-24T11:36:00+00:00"
         },
         {
             "name": "phpstan/phpstan-deprecation-rules",
@@ -17014,30 +17049,27 @@
         },
         {
             "name": "rector/rector",
-            "version": "2.5.8",
+            "version": "2.7.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/rectorphp/rector.git",
-                "reference": "861c77fd2a6d45317a401f4e0b617f947e8b6f96"
+                "reference": "4d6a39b7fff302cac0ce90cd959a53c2f6a32776"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/rectorphp/rector/zipball/861c77fd2a6d45317a401f4e0b617f947e8b6f96",
-                "reference": "861c77fd2a6d45317a401f4e0b617f947e8b6f96",
+                "url": "https://api.github.com/repos/rectorphp/rector/zipball/4d6a39b7fff302cac0ce90cd959a53c2f6a32776",
+                "reference": "4d6a39b7fff302cac0ce90cd959a53c2f6a32776",
                 "shasum": ""
             },
             "require": {
                 "php": "^7.4|^8.0",
-                "phpstan/phpstan": "^2.2.6"
+                "phpstan/phpstan": "^2.3.0"
             },
             "conflict": {
                 "rector/rector-doctrine": "*",
                 "rector/rector-downgrade-php": "*",
                 "rector/rector-phpunit": "*",
                 "rector/rector-symfony": "*"
-            },
-            "suggest": {
-                "ext-dom": "To manipulate phpunit.xml via the custom-rule command"
             },
             "bin": [
                 "bin/rector"
@@ -17062,7 +17094,7 @@
             ],
             "support": {
                 "issues": "https://github.com/rectorphp/rector/issues",
-                "source": "https://github.com/rectorphp/rector/tree/2.5.8"
+                "source": "https://github.com/rectorphp/rector/tree/2.7.0"
             },
             "funding": [
                 {
@@ -17070,7 +17102,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-27T06:19:16+00:00"
+            "time": "2026-10-06T08:46:45+00:00"
         },
         {
             "name": "sebastian/cli-parser",
@@ -18246,16 +18278,16 @@
         },
         {
             "name": "sinnbeck/laravel-dom-assertions",
-            "version": "v3.1.1",
+            "version": "v3.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sinnbeck/laravel-dom-assertions.git",
-                "reference": "306e7d75b09852f7ecd419d452739084e971482a"
+                "reference": "2ebc548bb8d5623b75792e657bfd03aa8ba76cb1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sinnbeck/laravel-dom-assertions/zipball/306e7d75b09852f7ecd419d452739084e971482a",
-                "reference": "306e7d75b09852f7ecd419d452739084e971482a",
+                "url": "https://api.github.com/repos/sinnbeck/laravel-dom-assertions/zipball/2ebc548bb8d5623b75792e657bfd03aa8ba76cb1",
+                "reference": "2ebc548bb8d5623b75792e657bfd03aa8ba76cb1",
                 "shasum": ""
             },
             "require": {
@@ -18299,8 +18331,15 @@
                     "email": "rene.sinnbeck@gmail.com",
                     "homepage": "https://sinnbeck.dev",
                     "role": "Developer"
+                },
+                {
+                    "name": "Jack Bayliss",
+                    "email": "github@jackbayliss.com",
+                    "homepage": "https://jackbayliss.com",
+                    "role": "Developer"
                 }
             ],
+            "description": "Adds fluent DOM assertion helpers to Laravel's test responses",
             "homepage": "https://github.com/sinnbeck/laravel-dom-assertions",
             "keywords": [
                 "assertions",
@@ -18311,9 +18350,9 @@
             ],
             "support": {
                 "issues": "https://github.com/sinnbeck/laravel-dom-assertions/issues",
-                "source": "https://github.com/sinnbeck/laravel-dom-assertions/tree/v3.1.1"
+                "source": "https://github.com/sinnbeck/laravel-dom-assertions/tree/v3.3.0"
             },
-            "time": "2026-07-22T22:11:44+00:00"
+            "time": "2026-10-16T14:24:09+00:00"
         },
         {
             "name": "spatie/backtrace",
@@ -19048,6 +19087,66 @@
                 }
             ],
             "time": "2026-10-12T12:37:13+00:00"
+        },
+        {
+            "name": "symplify/rule-doc-generator-contracts",
+            "version": "11.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symplify/rule-doc-generator-contracts.git",
+                "reference": "479cfcfd46047f80624aba931d9789e50475b5c6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symplify/rule-doc-generator-contracts/zipball/479cfcfd46047f80624aba931d9789e50475b5c6",
+                "reference": "479cfcfd46047f80624aba931d9789e50475b5c6",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "php-parallel-lint/php-parallel-lint": "^1.3",
+                "phpstan/extension-installer": "^1.2",
+                "rector/rector": "^0.15.10",
+                "symplify/easy-ci": "^11.1",
+                "symplify/easy-coding-standard": "^11.1",
+                "symplify/easy-testing": "^11.1",
+                "symplify/phpstan-extensions": "^11.1",
+                "symplify/phpstan-rules": "11.2.3.72",
+                "tomasvotruba/unused-public": "^0.0.34"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "11.2-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Symplify\\RuleDocGenerator\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Contracts for production code of RuleDocGenerator",
+            "support": {
+                "source": "https://github.com/symplify/rule-doc-generator-contracts/tree/11.2.0"
+            },
+            "funding": [
+                {
+                    "url": "https://www.paypal.me/rectorphp",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/tomasvotruba",
+                    "type": "github"
+                }
+            ],
+            "abandoned": true,
+            "time": "2024-03-18T22:02:54+00:00"
         },
         {
             "name": "ta-tikoma/phpunit-architecture-test",
