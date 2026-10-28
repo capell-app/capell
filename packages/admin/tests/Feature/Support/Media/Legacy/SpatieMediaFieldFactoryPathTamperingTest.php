@@ -17,7 +17,7 @@ it('authorises owned UUIDs through legacy Spatie fields', function (string $name
         new Media(['uuid' => 'owned-native-image', 'collection_name' => $name]),
     ]));
     $field = LegacyAdapter::invoke('Capell\\Core\\Support\\Media\\SpatieMediaFieldFactory', 'make', $name);
-    assert($field instanceof SpatieMediaLibraryFileUpload);
+    throw_unless($field instanceof SpatieMediaLibraryFileUpload, RuntimeException::class, 'The media factory did not return a Spatie upload field.');
     Schema::make(Livewire::make())->record($record)->components([$field])->getFlatComponents();
     expect($field->shouldPreventFilePathTampering())->toBeTrue();
     expect(Validator::make(['image' => ['owned-native-image']], ['image' => $field->getValidationRules()])->passes())->toBeTrue();

@@ -2,9 +2,9 @@
 
 The dashboard shows role-aware widgets. To change which widgets appear and their order:
 
-1. Open **Settings → Dashboard**.
-2. Enable or disable widgets with the **enabled widgets** control.
-3. Reorder them with the **widget order** control.
+1. Open **Settings** and find the **Dashboard Filament widgets** section.
+2. Toggle **Enabled** for each widget.
+3. Set each widget's **Order**.
 4. Save. The dashboard reflects the change on next load.
 
 Some widgets only appear for users with the matching role or permission, so a teammate may see a different set.

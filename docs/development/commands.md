@@ -78,8 +78,9 @@ Do not use older schema publishing commands unless the installed package version
 | `capell:frontend-install`       | Run frontend install work                   |
 | `capell:frontend-after-install` | Build frontend assets after package install |
 | `capell:frontend-upgrade`       | Run frontend package upgrade work           |
+| `capell:frontend-tailwind-assets` | Aggregate package Tailwind sources and plugins |
 
-Static-site generation, sitemap generation, Tailwind aggregation, and demo commands are supplied by optional packages in a consuming app. Treat `php artisan list capell` as the source of truth for that install.
+Static-site generation, sitemap generation, and demo commands are supplied by optional packages in a consuming app. `capell:frontend-tailwind-assets` (Tailwind aggregation) ships in `capell-app/frontend`. Treat `php artisan list capell` as the source of truth for that install.
 
 Common optional owners:
 
@@ -87,7 +88,6 @@ Common optional owners:
 | --------------------------------- | --------------------------- |
 | `capell:static-site`              | `capell-app/html-cache`     |
 | `capell:xml-sitemap`              | `capell-app/site-discovery` |
-| `capell:frontend-tailwind-assets` | `capell-app/frontend`       |
 | `capell:admin-demo`               | `capell-app/demo-kit`       |
 | `capell:demo-kit-full-demo`       | `capell-app/demo-kit`       |
 

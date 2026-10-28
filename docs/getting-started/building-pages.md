@@ -1,8 +1,8 @@
 # Build a page
 
-Start with the smallest page-building path that gives editors what they need. Move from HTML to blocks when the page body needs typed, reorderable units; move to Layout Builder when the page needs approved section composition; use a custom Blade layout only when the page is genuinely bespoke.
+> **Learn Capell · Stage 6 of 8 · about 15 min** · Previous: [How Capell works](how-capell-works.md) · [All stages](capell-learn.md) · Next: [Theme Library](../admin/theme-library.md), then [page history](../development/page-event-history.md)
 
-A page does not have a direct `view_file` override. Give one page a custom Blade implementation by assigning it a dedicated layout with `master_file` and, where needed, `layout_file`. A widget can use its own `view_file`.
+Start with the smallest page-building path that gives editors what they need. Move from HTML to blocks when the page body needs typed, reorderable units; move to Layout Builder when the page needs approved section composition; use a custom Blade layout only when the page is genuinely bespoke.
 
 [![Diagram showing the progression from an HTML page body, through content blocks and Layout Builder widgets, to a dedicated Blade layout.](../images/generated/page-building-continuum.webp)](../images/generated/page-building-continuum.webp)
 
@@ -23,7 +23,7 @@ The page type supplies the default. A page can opt out for its own body with `co
 
 Use HTML content for ordinary prose: headings, paragraphs, lists, links, and a page body that does not need editor-managed modules. It is the normal starting point for a simple About, policy, or contact page.
 
-Set the page type's content structure to HTML when that is the normal shape for pages of that type. An editor can use the page's content mode control when one page needs a different shape; Capell records that as `content_structure_override`, rather than changing the type for every page.
+Set the page type's content structure to HTML when that is the normal shape for pages of that type. To change one page, use **Convert content to blocks** (or **Convert content to HTML**) in the page editor; Capell records that as `content_structure_override`, rather than changing the type for every page.
 
 Use the [Create your first page](create-your-first-page.md) guide for the basic page workflow. Keep public rendering on the normal frontend path: templates receive prepared page data and should not query models or lazy-load relationships.
 
@@ -47,7 +47,7 @@ The layout is shared by every page assigned to it. Create or clone a layout befo
 
 Layout Builder is a companion package, so its implementation details and screenshot evidence remain package-owned. Use the [Layout Builder documentation](https://docs.capell.app/packages/layout-builder) for its real container, widget, asset, and editor surfaces.
 
-## 4. Custom Blade rendering
+## 4. Custom Blade rendering (developers)
 
 Use a custom Blade layout when a page is genuinely bespoke: a design cannot be expressed safely by the approved containers and widgets, or it needs a dedicated public shell. This remains inside Capell's normal public response path, including its prepared render context and caching rules; do not add a parallel public controller or route just to render one page.
 
@@ -85,7 +85,10 @@ Start every new page with HTML unless the content itself needs structured blocks
 
 ## Next
 
-- [Create your first page](create-your-first-page.md) for the page editor workflow.
+- [Theme Library](../admin/theme-library.md) (Learn Capell stage 6, continued) to preview and apply how the site looks, then [Page history and rollback](../development/page-event-history.md) for stage 7.
+
+Dive deeper (optional):
+
+- [Layout Builder](../packages/layout-builder.md) for containers, widgets, and assets.
 - [Block Library](https://docs.capell.app/packages/block-library) for block definitions and package details.
-- [Layout Builder](https://docs.capell.app/packages/layout-builder) for containers, widgets, and assets.
 - [Frontend](../frontend/index.md) for public rendering and theme boundaries.

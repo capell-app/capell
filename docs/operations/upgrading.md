@@ -119,9 +119,9 @@ Site `logo_blade_view` metadata also requires `ThemeChromeRegistry::registerLogo
 
 ## Admin Upgrades
 
-Open **Administration → Upgrades** in the Capell admin when you want the most visible upgrade path. The page shows the installed Capell version, links to these docs, explains the upgrade safety rails, and exposes two actions:
+Open **System → Upgrade** in the Capell admin when you want the most visible upgrade path. The page shows the installed Capell version, links to these docs, explains the upgrade safety rails, and exposes three actions:
 
-- **Check for updates** sends the installed Capell package snapshot to the Capell Marketplace heartbeat API and stores the returned update/security advisory snapshot locally.
+- **Check now** sends the installed Capell package snapshot to the Capell Marketplace heartbeat API and stores the returned update/security advisory snapshot locally.
 - **Preview changes** creates a dry-run upgrade operation. If the server can run queue jobs safely, Capell queues it. If not, Capell records a manual-required operation and shows the exact command.
 - **Run safe update** creates a production upgrade operation. It follows the same queue-first/manual-fallback path.
 
@@ -171,7 +171,7 @@ php artisan capell:upgrade --force --no-clear-cache
 
 ## Update And Security Notices
 
-Capell shows WordPress-style notices without letting the browser run Composer. The installed site phones home to the marketplace, stores the latest response in `capell_update_advisory_snapshots`, and renders that local snapshot in the Upgrades page.
+Capell shows WordPress-style notices without letting the browser run Composer. The installed site phones home to the marketplace, stores the latest response in `marketplace_update_advisory_snapshots`, and renders that local snapshot in the Upgrades page.
 
 The heartbeat sends:
 
@@ -267,6 +267,7 @@ You can audit upgrades with plain SQL — no joins required.
 | `--only-migrations`            | Run only the migrations phase                       |
 | `--only-steps`                 | Run only the upgrade-steps phase                    |
 | `--no-clear-cache`             | Skip the cache-clear menu                           |
+| `--caches=`                    | Caches to clear after upgrade: `all`, `page`, `config`, `views` |
 
 ## Rollback
 

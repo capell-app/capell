@@ -38,12 +38,13 @@ Kernel registration:
 - `FrontendKernelInterface` is bound to `FrontendKernel` with the steps from `config('frontend.kernel.steps')`.
 - The default steps are:
     1. `SiteResolveStep`
-    2. `SetUrlGeneratorStep`
-    3. `PageResolveStep`
-    4. `LayoutResolverStep`
-    5. `ThemeResolverStep`
-    6. `RegisterThemeViewsStep`
-    7. `NotifySubscribersStep`
+    2. `ApplyLocaleStep`
+    3. `SetUrlGeneratorStep`
+    4. `PageResolveStep`
+    5. `LayoutResolverStep`
+    6. `ThemeResolverStep`
+    7. `RegisterThemeViewsStep`
+    8. `NotifySubscribersStep`
 
 Aux services:
 

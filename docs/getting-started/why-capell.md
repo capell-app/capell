@@ -1,5 +1,7 @@
 # Why Capell
 
+> **Learn Capell · Stage 1 of 8 · about 5 min** · [All stages](capell-learn.md) · Next: [Quickstart](quickstart.md)
+
 Capell is a Laravel CMS built on Filament. It lets the people who own a website's content manage its pages, addresses, images, and publishing themselves, without moving the whole product into a separate CMS.
 
 Its strongest practical difference is not another field builder. Capell makes change safer. Every page edit is kept, so a page can be compared against an earlier version and put back. Upgrades can be previewed before they run, are recorded when they do, and can be reversed where a step says that is safe.
@@ -24,7 +26,7 @@ Choose another approach when:
 - Craft's dedicated content-modelling ecosystem is the reason for the project;
 - a hosted no-code CMS or public content-delivery API is a hard requirement.
 
-Capell is not hosted software and does not ship a public content-delivery API. Public pages render through the Laravel application using Blade, Livewire, Inertia, Vue, or the host's own stack.
+Capell is not hosted software and does not ship a public content-delivery API. Public pages render through the Laravel application using Blade and Livewire, through Inertia and Vue with the optional Inertia packages, or through the host's own stack.
 
 ## What Laravel keeps and Capell adds
 
@@ -107,9 +109,12 @@ Capell helps when a team wants explicit answers to these questions:
 
 Read [Upgrading](../operations/upgrading.md), [Backups](../operations/backups.md), [Site Health](../operations/site-health.md), and [Export and exit](../operations/export-and-exit.md). A buyer should evaluate these alongside the page editor, not after launch.
 
-## Next step
+## Next
 
-- [Run the verified quickstart](quickstart.md)
+- [Run the verified quickstart](quickstart.md) (Learn Capell stage 2).
+
+Dive deeper (optional):
+
 - [Compare WordPress and Craft](comparing-capell.md)
-- [Create the first page](create-your-first-page.md)
 - [Inspect the package maturity catalogue](../packages/catalog.md)
+- [Export and exit](../operations/export-and-exit.md)

@@ -107,3 +107,8 @@ The showcase demo installer seeds portable content and real booking fixtures:
 - one blocked exception.
 
 The demo content should not store theme utility classes or designed markup in editable database fields. Presentation belongs in the theme and adapter components.
+
+## Next
+
+- [Capell Inertia runtime](inertia-runtime.md) and [Inertia widgets](inertia-widgets.md) for the contracts this showcase uses.
+- [Approved packages](../packages/catalog.md) for the package maturity catalogue.
