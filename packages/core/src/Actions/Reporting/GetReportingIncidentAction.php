@@ -12,6 +12,8 @@ use Lorisleiva\Actions\Concerns\AsObject;
 /**
  * Read a private operational snapshot by fingerprint; unknown IDs return null. Storage
  * failures propagate to the caller.
+ *
+ * @internal
  */
 final readonly class GetReportingIncidentAction
 {

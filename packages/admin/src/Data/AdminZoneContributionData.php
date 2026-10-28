@@ -11,6 +11,7 @@ use Closure;
 use Illuminate\Support\Facades\Gate;
 use LogicException;
 
+/** @api */
 final readonly class AdminZoneContributionData implements AdminZoneContribution
 {
     /**

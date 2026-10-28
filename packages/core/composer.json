@@ -48,6 +48,9 @@
         "symfony/html-sanitizer": "^7.0|^8.0",
         "symfony/process": "^7.2|^8.0"
     },
+    "suggest": {
+        "phpstan/phpstan": "Enables the opt-in extension-phpstan.neon rules that report use of @internal Capell classes and members."
+    },
     "autoload": {
         "files": [
             "src/Support/Activity/LogOptions.php",

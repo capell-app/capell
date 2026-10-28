@@ -18,12 +18,12 @@ final class ReportInstallFailureAction
     use AsObject;
 
     /** @param list<string> $completedSteps */
-    public function handle(InstallInputData $input, array $completedSteps, string $failedStep, ProgressReporter $reporter): void
+    public function handle(InstallInputData $input, array $completedSteps, string $failedStep, ProgressReporter $reporter, bool $frontendExpected = false): void
     {
         $reporter->error(__('capell-core::install.recovery.failed', ['step' => $failedStep]));
         $reporter->report(__('capell-core::install.recovery.completed', ['count' => count($completedSteps), 'steps' => implode(', ', $completedSteps)]));
         if ($failedStep === InstallPlan::STEP_REBUILD_RESOURCES) {
-            $command = array_key_exists('capell:frontend-after-install', Artisan::all())
+            $command = $frontendExpected || array_key_exists('capell:frontend-after-install', Artisan::all())
                 ? 'php artisan capell:frontend-after-install --apply --no-interaction'
                 : 'npm install && npm run build';
             $reporter->report(__('capell-core::install.recovery.assets', ['command' => $command]));

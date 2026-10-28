@@ -21,6 +21,7 @@ use Illuminate\Contracts\Container\Container;
 use RuntimeException;
 use Throwable;
 
+/** @internal */
 final readonly class DispatchSignalAction
 {
     private const int MAX_ARRAY_CLAIMS = 1000;

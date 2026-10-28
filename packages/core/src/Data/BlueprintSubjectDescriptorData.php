@@ -32,6 +32,8 @@ use Spatie\LaravelData\Data;
  * never closures, because descriptors are stored in `CapellCoreManager` and may
  * cross a Livewire boundary, where a closure dehydrates to `{}` and crashes the
  * component.
+ *
+ * @internal
  */
 final class BlueprintSubjectDescriptorData extends Data
 {

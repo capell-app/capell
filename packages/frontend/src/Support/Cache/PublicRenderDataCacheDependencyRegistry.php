@@ -11,7 +11,10 @@ use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
-/** Persists the exact public render cache destinations touched by a model. */
+/** Persists the exact public render cache destinations touched by a model.
+ *
+ * @internal
+ */
 final class PublicRenderDataCacheDependencyRegistry
 {
     private const string CACHE_PREFIX = 'capell.frontend.public-render-dependencies:';

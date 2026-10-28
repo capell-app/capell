@@ -8,6 +8,7 @@ use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Carbon\CarbonImmutable;
 use Spatie\LaravelData\Data;
 
+/** @internal */
 final class PublicationLocaleStatusData extends Data
 {
     public function __construct(

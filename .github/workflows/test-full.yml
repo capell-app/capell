@@ -21,6 +21,13 @@ on:
       - '.github/workflows/test-full.yml'
       - 'phpunit.xml'
       - 'phpunit-coverage.xml'
+  workflow_call:
+    inputs:
+      cell:
+        description: 'Optional exact behaviour, unit, or portability cell. Leave blank for the complete workflow.'
+        required: false
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       cell:
@@ -119,6 +126,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Release-plan tests read immutable trees from earlier commits.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup PHP
@@ -212,6 +221,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Release-plan tests read immutable trees from earlier commits.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup PHP
@@ -325,6 +336,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Release-plan tests read immutable trees from earlier commits.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup PHP
@@ -420,6 +433,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Release-plan tests read immutable trees from earlier commits.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup PHP

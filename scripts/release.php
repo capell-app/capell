@@ -22,10 +22,13 @@ if (! function_exists('throw_unless')) {
 }
 
 require __DIR__ . '/release/ReleaseEngine.php';
+require __DIR__ . '/release/BuildReleaseNotesAction.php';
 
 use Capell\Release\PlanValidator;
+use Capell\Release\ProcessCommandRunner;
 use Capell\Release\ReleaseEngine;
 use Capell\Release\ReleaseException;
+use Capell\Release\SourceReleaseNotesRunner;
 
 $configuredRoot = getenv('CAPELL_RELEASE_SOURCE_ROOT');
 $root = is_string($configuredRoot) && $configuredRoot !== ''
@@ -84,16 +87,27 @@ try {
         echo json_encode(new ReleaseEngine($root)->plan($version, $previous, $bumps, $externalLedger), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
         exit(0);
     }
+    if ($command === 'raise-floors') {
+        $version = $argv[2] ?? null;
+        throw_if($version === null, ReleaseException::class, 'raise-floors requires the release version.');
+        foreach (new ReleaseEngine($root)->raiseFloors($version) as $changedPath) {
+            echo $changedPath . PHP_EOL;
+        }
+
+        exit(0);
+    }
     $path = $argv[2] ?? null;
     throw_if($path === null, ReleaseException::class, $command . ' requires a plan path.');
     $plan = $normalizeMaturity(json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR));
     (new PlanValidator)->validate($plan);
+    new ReleaseEngine($root)->assertPlanFloors($plan);
     if ($command === 'validate') {
         PlanValidator::assertDeclaredMaturity($plan, json_decode((string) file_get_contents($root . '/config/release-packages.json'), true, 512, JSON_THROW_ON_ERROR));
         echo "Plan is valid.\n";
         exit(0);
     }
-    $engine = new ReleaseEngine($root);
+    $runner = new ProcessCommandRunner;
+    $engine = new ReleaseEngine($root, $command === 'publish' ? new SourceReleaseNotesRunner($runner, $root, $plan) : $runner);
     if ($command === 'publish') {
         $engine->publish($plan, $path);
         echo "Publication completed.\n";

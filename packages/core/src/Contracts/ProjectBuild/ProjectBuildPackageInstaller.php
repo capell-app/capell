@@ -7,6 +7,7 @@ namespace Capell\Core\Contracts\ProjectBuild;
 use Capell\Core\Data\ProjectBuild\ProjectBuildInstalledPackageData;
 use Capell\Core\Data\ProjectBuild\ProjectBuildPackageData;
 
+/** @api */
 interface ProjectBuildPackageInstaller
 {
     public function installedRelease(string $package): ?ProjectBuildInstalledPackageData;
