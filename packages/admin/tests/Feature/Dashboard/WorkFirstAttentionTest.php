@@ -3,12 +3,17 @@
 declare(strict_types=1);
 
 use Capell\Admin\Actions\Dashboard\BuildWorkFirstAttentionAction;
+use Capell\Admin\Contracts\Dashboard\DashboardAttentionContributor;
+use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\AttentionWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\UrgentSummaryWidget;
+use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\Request;
 use Livewire\Livewire;
 
 uses(CreatesAdminUser::class);
@@ -79,4 +84,33 @@ it('makes snoozed improvements visible again after the reminder expires', functi
     expect($widget->get('items'))->toBe([]);
     $this->travel(2)->days();
     expect(Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $draft->site_id]])->get('items'))->toHaveCount(1);
+});
+
+it('shares attention retrieval within a request and refreshes it on the next request', function (): void {
+    $this->actingAsAdmin();
+    $actor = $this->authenticatedUser();
+    Site::factory()->create();
+    $contributor = new class implements DashboardAttentionContributor
+    {
+        public int $calls = 0;
+
+        /** @return list<DashboardAttentionItemData> */
+        #[Override]
+        public function build(Authenticatable $actor, ?int $siteId, ?string $language): array
+        {
+            $this->calls++;
+
+            return [];
+        }
+    };
+    app()->instance('test.attention-contributor', $contributor);
+    app()->tag('test.attention-contributor', DashboardAttentionContributor::TAG);
+
+    $cache = resolve(AdminDashboardDataRequestCache::class);
+    expect($cache->attentionSnapshot($actor, null, null))->toBe([])
+        ->and($cache->attentionSnapshot($actor, null, null))->toBe([])
+        ->and($contributor->calls)->toBe(1);
+    app()->instance('request', Request::create('/next-dashboard-request'));
+    expect($cache->attentionSnapshot($actor, null, null))->toBe([])
+        ->and($contributor->calls)->toBe(2);
 });

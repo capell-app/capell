@@ -23,6 +23,76 @@
             "contractTestId": "admin.admin-zone-registry"
         },
         {
+            "id": "admin.contract.dashboard-activity-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardActivityContributor",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Permission-aware work-first dashboard activity contributor.",
+            "contractTestId": null
+        },
+        {
+            "id": "admin.contract.dashboard-approvals-data-provider",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardApprovalsDataProvider",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Permission-aware work-first dashboard approvals data provider.",
+            "contractTestId": null
+        },
+        {
+            "id": "admin.contract.dashboard-attention-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardAttentionContributor",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Permission-aware work-first dashboard attention contributor.",
+            "contractTestId": null
+        },
+        {
+            "id": "admin.contract.dashboard-page-ranking-provider",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardPageRankingProvider",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Permission-aware work-first dashboard page ranking provider.",
+            "contractTestId": null
+        },
+        {
+            "id": "admin.contract.dashboard-publishing-contributor",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardPublishingContributor",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Permission-aware work-first dashboard publishing contributor.",
+            "contractTestId": null
+        },
+        {
+            "id": "admin.contract.dashboard-visitors-provider",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardVisitorsProvider",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Permission-aware work-first dashboard visitors provider.",
+            "contractTestId": null
+        },
+        {
+            "id": "admin.contract.dashboard-work-data-provider",
+            "kind": "contract",
+            "identifier": "Capell\\Admin\\Contracts\\Dashboard\\DashboardWorkDataProvider",
+            "ownerPackage": "capell-app/admin",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Permission-aware work-first dashboard work data provider.",
+            "contractTestId": null
+        },
+        {
             "id": "admin.dto.admin-zone-context",
             "kind": "dto",
             "identifier": "Capell\\Admin\\Data\\AdminZoneContextData",
@@ -141,6 +211,16 @@
             "introducedVersion": "1.0.0",
             "summary": "Canonical detached-signature input for portable project manifests.",
             "contractTestId": "core.project-build-manifest-signing"
+        },
+        {
+            "id": "core.action.publication-blocking-checks",
+            "kind": "action",
+            "identifier": "Capell\\Core\\Actions\\Publishing\\GetPublicationBlockingChecksAction",
+            "ownerPackage": "capell-app/core",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Read-only publication blockers across authored page languages.",
+            "contractTestId": null
         },
         {
             "id": "core.action.publish-outbound-event",

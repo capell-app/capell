@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Enums\DashboardEnum;
+use Capell\Admin\Facades\CapellAdmin;
 use Capell\Admin\Filament\Pages\CapellDashboard;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\AttentionWidget;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\ContentStatusWidget;
@@ -11,6 +13,7 @@ use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\UrgentSummaryWidget;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Models\Site;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Filament\Widgets\Widget;
 use Filament\Widgets\WidgetConfiguration;
 use Livewire\Livewire;
 
@@ -119,3 +122,67 @@ it('adds an optional content widget from its group and rejects cross-group tampe
     Livewire::test(CapellDashboard::class)->callAction('editWorkFirstLayout', data: $form);
     expect($store->dashboardLayout($user, true))->toBe($saved);
 });
+
+it('offers configured extension metadata safely in its group without adding it by default', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    CapellAdmin::registerDashboardFilamentWidget(WorkFirstMetadataFixtureWidget::class, DashboardEnum::Main);
+    $dashboard = new CapellDashboard;
+    $group = new ReflectionMethod($dashboard, 'dashboardWidgetGroup');
+    expect($group->invoke($dashboard, WorkFirstMetadataFixtureWidget::class))->toBe('extensions');
+
+    config()->set('capell-admin.dashboard.work_first.widget_metadata', [WorkFirstMetadataFixtureWidget::class => [
+        'group' => 'performance', 'label' => '<img src=x>', 'description' => '<script>alert(1)</script>', 'requirements' => '<b>Provider</b>',
+    ]]);
+    $dashboard = new CapellDashboard;
+    $options = new ReflectionMethod($dashboard, 'groupWidgetOptions')->invoke($dashboard, 'performance');
+    $html = $options[WorkFirstMetadataFixtureWidget::class];
+    expect($html)->toContain('&lt;img src=x&gt;')->toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
+        ->toContain('&lt;b&gt;Provider&lt;/b&gt;')->not->toContain('<script>')
+        ->and($options[PageViewsWidget::class])->toContain('Added')->toContain('visitor provider and mapping');
+    $form = new ReflectionMethod($dashboard, 'layoutFormData')->invoke($dashboard);
+    expect($form['selected_performance'])->not->toContain(WorkFirstMetadataFixtureWidget::class);
+});
+
+it('applies class switches before visibility checks and preserves saved extension preferences', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    CapellAdmin::registerDashboardFilamentWidget(WorkFirstMetadataFixtureWidget::class, DashboardEnum::Main);
+    $user = test()->authenticatedUser();
+    $store = resolve(AdminWorkspacePreferenceStore::class);
+    $store->saveDashboardPreferences($user, true, [WorkFirstMetadataFixtureWidget::class], [], [WorkFirstMetadataFixtureWidget::class => 'wide']);
+
+    config()->set('capell-admin.dashboard.work_first.widgets', [WorkFirstMetadataFixtureWidget::class => false]);
+    WorkFirstMetadataFixtureWidget::$visibilityCalls = 0;
+    $dashboard = new CapellDashboard;
+    expect($dashboard->getWidgets())->not->toContain(WorkFirstMetadataFixtureWidget::class)
+        ->and($dashboard->getWidgetsSchemaComponents([WorkFirstMetadataFixtureWidget::class]))->toBe([])
+        ->and(WorkFirstMetadataFixtureWidget::$visibilityCalls)->toBe(0)
+        ->and($store->dashboardLayout($user, true))->toBe([WorkFirstMetadataFixtureWidget::class])
+        ->and($store->dashboardOptions($user, true)['sizes'][WorkFirstMetadataFixtureWidget::class])->toBe('wide');
+
+    $form = new ReflectionMethod($dashboard, 'layoutFormData')->invoke($dashboard);
+    Livewire::test(CapellDashboard::class)->callAction('editWorkFirstLayout', data: $form);
+    expect($store->dashboardLayout($user, true))->toContain(WorkFirstMetadataFixtureWidget::class)
+        ->and($store->dashboardOptions($user, true)['sizes'][WorkFirstMetadataFixtureWidget::class])->toBe('wide');
+    config()->set('capell-admin.dashboard.work_first.widgets', []);
+    $restored = new CapellDashboard;
+    $state = collect(new ReflectionMethod($restored, 'layoutFormState')->invoke($restored))->keyBy('key');
+    expect($restored->getWidgets())->toContain(WorkFirstMetadataFixtureWidget::class)
+        ->and($state->get(WorkFirstMetadataFixtureWidget::class)['visible'])->toBeTrue();
+});
+
+final class WorkFirstMetadataFixtureWidget extends Widget
+{
+    public static int $visibilityCalls = 0;
+
+    #[Override]
+    public static function canView(): bool
+    {
+        self::$visibilityCalls++;
+
+        return true;
+    }
+}

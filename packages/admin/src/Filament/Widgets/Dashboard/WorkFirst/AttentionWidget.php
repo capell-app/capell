@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
 use Capell\Admin\Actions\Dashboard\BuildDashboardPageBlockersAction;
-use Capell\Admin\Actions\Dashboard\BuildWorkFirstAttentionAction;
 use Capell\Admin\Data\Dashboard\DashboardAdvisoryDecisionData;
 use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasPersonalDashboardSize;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\HasStableDashboardOrder;
+use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Admin\Support\Workspace\AdminWorkspacePreferenceStore;
 use Capell\Core\Models\Page;
@@ -79,7 +79,7 @@ final class AttentionWidget extends Widget
             return [];
         }
 
-        $items = resolve(BuildWorkFirstAttentionAction::class)->handle($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage());
+        $items = resolve(AdminDashboardDataRequestCache::class)->attentionSnapshot($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage());
         $keys = array_map(static fn (DashboardAttentionItemData $item): string => $item->key, $items);
         $scope = $this->scopeKey();
         $this->issueResolved = $this->seenScope === $scope && $this->verifiedRecovery($actor, array_values(array_diff($this->seenIssueKeys, $keys)));
@@ -121,7 +121,7 @@ final class AttentionWidget extends Widget
             return;
         }
 
-        foreach (resolve(BuildWorkFirstAttentionAction::class)->handle($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()) as $item) {
+        foreach (resolve(AdminDashboardDataRequestCache::class)->attentionSnapshot($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()) as $item) {
             if ($item->key === $key && ! $item->urgent) {
                 resolve(AdminWorkspacePreferenceStore::class)->saveDashboardAdvisoryDecision($actor, $key, new DashboardAdvisoryDecisionData($item->fingerprint, $until));
                 unset($this->items, $this->currentItems, $this->pendingItems);

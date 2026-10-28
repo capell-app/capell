@@ -7,10 +7,12 @@ use Capell\Admin\Contracts\Dashboard\DashboardWorkDataProvider;
 use Capell\Admin\Data\Dashboard\DashboardWorkData;
 use Capell\Admin\Data\Dashboard\DashboardWorkItemData;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\PersonalDraftsWidget;
+use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\TeamActivityWidget;
 use Capell\Admin\Support\Dashboard\DashboardDeadline;
 use Capell\Core\Models\Page;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 
 uses(CreatesAdminUser::class);
@@ -61,4 +63,29 @@ it('compares deadline instants across different site time zones and ignores inva
     expect($early)->toBeLessThan($later)
         ->and(DashboardDeadline::timestamp('invalid'))->toBe(PHP_INT_MAX)
         ->and(DashboardDeadline::timestamp(null))->toBe(PHP_INT_MAX);
+});
+
+it('retains displayed activity while more than a hundred newer groups await confirmation', function (): void {
+    $this->actingAsAdmin();
+    $actor = $this->authenticatedUser();
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    $page = Page::withoutEvents(fn () => Page::factory()->create());
+    Activity::query()->delete();
+    $attributes = [
+        'log_name' => 'default', 'description' => 'updated', 'event' => 'updated',
+        'subject_type' => $page->getMorphClass(), 'subject_id' => $page->id,
+        'causer_type' => $actor->getMorphClass(), 'causer_id' => $actor->id,
+        'properties' => ['attributes' => ['name' => 'Changed']],
+    ];
+    Activity::query()->create([...$attributes, 'created_at' => now()->subDays(5)]);
+    $widget = Livewire::test(TeamActivityWidget::class);
+    $first = collect($widget->get('items'))->firstOrFail();
+    foreach (range(1, 105) as $number) {
+        Activity::query()->create([...$attributes, 'created_at' => now()->subMinutes($number * 31)]);
+    }
+
+    $widget->call('$refresh');
+    expect(collect($widget->get('items'))->firstOrFail()->key)->toBe($first->key);
+    $widget->call('applyDashboardUpdates');
+    expect(collect($widget->get('items'))->firstOrFail()->key)->not->toBe($first->key);
 });

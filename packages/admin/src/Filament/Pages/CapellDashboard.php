@@ -303,7 +303,9 @@ class CapellDashboard extends Dashboard
             ->values()
             ->filter(function (string|WidgetConfiguration $widget): bool {
                 /** @var class-string<Widget>|WidgetConfiguration $widget */
-                return $this->normalizeWidgetClass($widget)::canView();
+                $widgetClass = $this->normalizeWidgetClass($widget);
+
+                return $this->workFirstClassEnabled($widgetClass) && $widgetClass::canView();
             })
             ->map(function (string|WidgetConfiguration $widget, int $widgetKey) use ($data): Livewire {
                 /** @var class-string<Widget>|WidgetConfiguration $widget */
@@ -431,7 +433,7 @@ class CapellDashboard extends Dashboard
                             ->hiddenLabel()
                             ->allowHtml()
                             ->options(fn (): array => $this->groupWidgetOptions($group)),
-                    ]), ['work', 'content', 'performance', 'system']),
+                    ]), ['work', 'content', 'performance', 'system', 'extensions']),
                 Repeater::make('widgets')
                     ->label(__('capell-admin::dashboard.work_first_widget_order'))
                     ->helperText(__('capell-admin::dashboard.work_first_order_help'))
@@ -475,7 +477,7 @@ class CapellDashboard extends Dashboard
                 }
 
                 $selected = [];
-                foreach (['work', 'content', 'performance', 'system'] as $group) {
+                foreach (['work', 'content', 'performance', 'system', 'extensions'] as $group) {
                     $groupSelection = $data['selected_' . $group] ?? [];
                     if (! is_array($groupSelection)) {
                         return;
@@ -553,7 +555,7 @@ class CapellDashboard extends Dashboard
     {
         $items = $this->layoutFormState();
         $data = ['restore_defaults' => false, 'widgets' => $items];
-        foreach (['work', 'content', 'performance', 'system'] as $group) {
+        foreach (['work', 'content', 'performance', 'system', 'extensions'] as $group) {
             $data['selected_' . $group] = array_values(array_map(
                 static fn (array $item): string => $item['key'],
                 array_filter($items, fn (array $item): bool => $item['visible'] && $this->dashboardWidgetGroup($item['key']) === $group),
@@ -573,8 +575,9 @@ class CapellDashboard extends Dashboard
     private function groupWidgetOptions(string $group): array
     {
         $options = [];
+        $visible = array_column(array_filter($this->layoutFormState(), static fn (array $item): bool => $item['visible']), 'key');
         foreach ($this->groupWidgetKeys($group) as $key) {
-            $options[$key] = $this->dashboardWidgetPreview($key)->toHtml();
+            $options[$key] = $this->dashboardWidgetPreview($key, in_array($key, $visible, true))->toHtml();
         }
 
         return $options;
@@ -582,12 +585,41 @@ class CapellDashboard extends Dashboard
 
     private function dashboardWidgetGroup(string $key): string
     {
+        $group = $this->dashboardWidgetMetadata($key)['group'] ?? null;
+        if (is_string($group) && in_array($group, ['work', 'content', 'performance', 'system', 'extensions'], true)) {
+            return $group;
+        }
+
         return match ($key) {
             PersonalDraftsWidget::class, ApprovalsWidget::class, PublishingHealthWidget::class, TeamActivityWidget::class => 'work',
             PageViewsWidget::class, PopularPagesWidget::class, RisingPagesWidget::class => 'performance',
             AttentionWidget::class => 'system',
-            default => 'content',
+            ContentStatusWidget::class, RecentlyUpdatedWidget::class => 'content',
+            default => 'extensions',
         };
+    }
+
+    /** @return array<string, mixed> */
+    private function dashboardWidgetMetadata(string $key): array
+    {
+        $metadata = config('capell-admin.dashboard.work_first.widget_metadata', []);
+        $entry = is_array($metadata) ? ($metadata[$key] ?? null) : null;
+
+        return is_array($entry) ? $entry : [];
+    }
+
+    private function workFirstClassEnabled(string $widgetClass): bool
+    {
+        $switches = config('capell-admin.dashboard.work_first.widgets', []);
+        if (! $this->workFirstEnabled()) {
+            return true;
+        }
+
+        if (! is_array($switches)) {
+            return true;
+        }
+
+        return ($switches[$widgetClass] ?? true) !== false;
     }
 
     private function isWorkFirstAttentionVisible(): bool
@@ -609,6 +641,11 @@ class CapellDashboard extends Dashboard
 
     private function dashboardWidgetLabel(string $key): string
     {
+        $label = $this->dashboardWidgetMetadata($key)['label'] ?? null;
+        if (is_string($label) && trim($label) !== '') {
+            return $label;
+        }
+
         return match ($key) {
             PersonalDraftsWidget::class => (string) __('capell-admin::dashboard.work_first_drafts_heading'),
             ApprovalsWidget::class => (string) __('capell-admin::dashboard.work_first_approvals_heading'),
@@ -624,13 +661,15 @@ class CapellDashboard extends Dashboard
         };
     }
 
-    private function dashboardWidgetPreview(string $key): HtmlString
+    private function dashboardWidgetPreview(string $key, bool $added): HtmlString
     {
         $group = __('capell-admin::dashboard.work_first_group_' . $this->dashboardWidgetGroup($key));
         $label = e($this->dashboardWidgetLabel($key));
         $groupLabel = e((string) $group);
         $previewLabel = e((string) __('capell-admin::dashboard.work_first_preview'));
-        $purpose = e((string) match ($key) {
+        $metadata = $this->dashboardWidgetMetadata($key);
+        $description = $metadata['description'] ?? null;
+        $purpose = e(is_string($description) && trim($description) !== '' ? $description : (string) match ($key) {
             PersonalDraftsWidget::class => __('capell-admin::dashboard.work_first_purpose_work'),
             ApprovalsWidget::class => __('capell-admin::dashboard.work_first_purpose_approvals'),
             AttentionWidget::class => __('capell-admin::dashboard.work_first_purpose_attention'),
@@ -641,6 +680,13 @@ class CapellDashboard extends Dashboard
             ContentStatusWidget::class, RecentlyUpdatedWidget::class => __('capell-admin::dashboard.work_first_purpose_content'),
             default => __('capell-admin::dashboard.work_first_purpose_extension'),
         });
+        $requirements = $metadata['requirements'] ?? match ($key) {
+            PageViewsWidget::class => __('capell-admin::dashboard.work_first_requirements_audience'),
+            PopularPagesWidget::class, RisingPagesWidget::class => __('capell-admin::dashboard.work_first_requirements_rankings'),
+            default => null,
+        };
+        $requirementsText = is_string($requirements) && trim($requirements) !== '' ? '<span class="block text-xs text-gray-500">' . e($requirements) . '</span>' : '';
+        $addedText = $added ? '<span class="block text-xs font-medium">' . e((string) __('capell-admin::dashboard.work_first_show_widget')) . '</span>' : '';
 
         $shape = match ($key) {
             PageViewsWidget::class, PopularPagesWidget::class, RisingPagesWidget::class => '<span class="flex h-7 items-end gap-1"><span class="h-2 w-2 bg-gray-300"></span><span class="h-4 w-2 bg-gray-400"></span><span class="h-6 w-2 bg-gray-500"></span></span>',
@@ -648,7 +694,7 @@ class CapellDashboard extends Dashboard
             default => '<span class="flex flex-col gap-1"><span class="h-1 w-8 rounded bg-gray-400"></span><span class="h-1 w-10 rounded bg-gray-200 dark:bg-gray-700"></span><span class="h-1 w-6 rounded bg-gray-200 dark:bg-gray-700"></span></span>',
         };
 
-        return new HtmlString('<div class="flex items-center gap-3"><span aria-hidden="true" class="flex h-10 w-14 items-center rounded border border-gray-300 p-1 dark:border-gray-600">' . $shape . '</span><span><span class="block text-xs text-gray-500">' . $groupLabel . ' · ' . $previewLabel . '</span><span class="block font-medium">' . $label . '</span><span class="block text-xs text-gray-500">' . $purpose . '</span></span></div>');
+        return new HtmlString('<div class="flex items-center gap-3"><span aria-hidden="true" class="flex h-10 w-14 items-center rounded border border-gray-300 p-1 dark:border-gray-600">' . $shape . '</span><span><span class="block text-xs text-gray-500">' . $groupLabel . ' · ' . $previewLabel . '</span><span class="block font-medium">' . $label . '</span><span class="block text-xs text-gray-500">' . $purpose . '</span>' . $requirementsText . $addedText . '</span></div>');
     }
 
     /** @return array<string, string> */
@@ -793,6 +839,10 @@ class CapellDashboard extends Dashboard
 
         return array_values(collect($widgets)
             ->filter(function (string $widgetClass) use ($settings): bool {
+                if (! $this->workFirstClassEnabled($widgetClass)) {
+                    return false;
+                }
+
                 if ($this->workFirstEnabled() && in_array($widgetClass, [NeedsAttentionFilamentWidget::class, RecentlyPublishedFilamentWidget::class, RecentActivityFilamentWidget::class, CapellAccountFilamentWidget::class, CapellInfoFilamentWidget::class, ListPagesFilamentWidget::class, AnalyticsOverviewFilamentWidget::class, AnalyticsTrendFilamentWidget::class, AnalyticsInsightsFilamentWidget::class, AnalyticsRecentActivityFilamentWidget::class], true)) {
                     return false;
                 }

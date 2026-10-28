@@ -62,7 +62,10 @@ final class InstallStepExecutor
 
         try {
             $result = $this->executeStep($stepKey, $state);
-            InstallRunState::checkpointInitialInstallation();
+            if ($state->inputData->initialInstallation && $stepKey !== InstallPlan::STEP_PREFLIGHT_CHECKS) {
+                InstallRunState::checkpointInitialInstallation();
+            }
+
             if ($stepKey === InstallPlan::STEP_MARK_CORE_INSTALLED) {
                 InstallRunState::completeInitialInstallation();
             }
@@ -71,7 +74,9 @@ final class InstallStepExecutor
         } catch (Throwable $throwable) {
             $stepFailed = true;
             try {
-                InstallRunState::checkpointInitialInstallation();
+                if ($state->inputData->initialInstallation && $stepKey !== InstallPlan::STEP_PREFLIGHT_CHECKS) {
+                    InstallRunState::checkpointInitialInstallation();
+                }
             } catch (Throwable $checkpointFailure) {
                 report($checkpointFailure);
             }

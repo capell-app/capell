@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
 
-use Capell\Admin\Actions\Dashboard\BuildWorkFirstAttentionAction;
 use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
 use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
 use Capell\Admin\Filament\Widgets\Dashboard\WorkFirst\Concerns\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
 use Filament\Widgets\Widget;
 use Livewire\Attributes\Computed;
 use Override;
@@ -37,7 +37,7 @@ final class UrgentSummaryWidget extends Widget
         }
 
         return array_values(array_filter(
-            resolve(BuildWorkFirstAttentionAction::class)->handle($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()),
+            resolve(AdminDashboardDataRequestCache::class)->attentionSnapshot($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()),
             static fn (DashboardAttentionItemData $item): bool => $item->urgent,
         ));
     }
