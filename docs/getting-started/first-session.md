@@ -1,8 +1,10 @@
 # Your first session
 
-You've run `php artisan capell:install` and it finished without errors. This guide covers what to do next — from logging in for the first time through to publishing your first page.
+> **Learn Capell · Stage 3 of 8 · about 10 min** · Previous: [Quickstart](quickstart.md) · [All stages](capell-learn.md) · Next: [Create your first page](create-your-first-page.md)
 
-If you haven't installed Capell yet, start with the [Install guide](install.md). Before opening Admin, run `php artisan capell:frontend-after-install --apply --no-interaction` unless the installer recorded a successful resource rebuild. This existing command installs registered dependencies and builds production assets once, including on releases without the new preparation hook; then start the application. Frontend preparation and a passed doctor check do not by themselves verify built assets.
+You've run `php artisan capell:install` and it finished without errors. This guide covers what to do next — from logging in for the first time to finding your way around Admin. For the guided path, read "Log in", "The dashboard" and "Configure your site settings" now; the rest can wait until after your first page.
+
+If you haven't installed Capell yet, start with the [quickstart](quickstart.md), or the [Install guide](install.md) for an existing application. Before opening Admin, run `php artisan capell:frontend-after-install --apply --no-interaction` unless the installer recorded a successful resource rebuild. This command installs registered frontend dependencies and builds production assets once; then start the application. Frontend preparation and a passed doctor check do not by themselves verify built assets.
 
 ---
 
@@ -12,7 +14,7 @@ Open `/admin` in your browser. Log in with the account the installer created, or
 
 If the login screen appears, the Filament panel is registered.
 
-If you can't log in, check that your `APP_URL` in `.env` matches the address you're visiting, and that the `admin_panel_provider` role was assigned during installation.
+If you can't log in, check that your `APP_URL` in `.env` matches the address you're visiting, and that the account has the super-admin role (`super_admin` by default, configurable with `capell.roles.super_admin`).
 
 ---
 
@@ -20,13 +22,13 @@ If you can't log in, check that your `APP_URL` in `.env` matches the address you
 
 After logging in you land on the dashboard. Before clicking anything, take a moment to locate three things:
 
-The **site switcher** sits in the top-left corner of the screen. Capell is multi-site from the start, and everything you edit in the admin is scoped to whichever site is selected here. If you only have one site, it'll show its name. If you installed with `--demo`, there may be two or three demo sites. Pick the right one before you start editing.
+The **site switcher** sits in the top bar, just before the global search field (on small screens it moves to the top of the sidebar). Capell is multi-site from the start, and everything you edit in the admin is scoped to whichever site is selected here. If you only have one site, it'll show its name. If you installed with `--demo`, there may be two or three demo sites. Pick the right one before you start editing.
 
-The **sidebar** on the left is your main navigation: Pages, Media, Library, Settings, and anything your approved packages add.
+The **sidebar** on the left is your main navigation: **Website** (Pages), **Content library** (Media), **Design** (Layouts, Themes, Blueprints), **System** (Sites, Users, Roles, Settings), and anything your approved packages add.
 
-The **top bar** on the right side has a **Clear Cache** button, a global search field, and your user account menu.
+The **top bar** on the right side has a **Clear cache** button (shown to global administrators), a global search field, and your user account menu.
 
-Use **Clear Cache** when a saved or published change does not appear on the frontend. If that does not fix it, check [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). If the page never generates, check [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate) and confirm a queue worker is running.
+Use **Clear cache** when a saved or published change does not appear on the frontend. If that does not fix it, check [Published pages still show old content](../operations/troubleshooting.md#published-pages-still-show-old-content). If the page never generates, check [Published pages never generate](../operations/troubleshooting.md#published-pages-never-generate) and confirm a queue worker is running.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../../packages/admin/docs/images/screenshots/admin-dashboard-dark.png">
@@ -53,18 +55,18 @@ Go to **Pages** in the sidebar. You'll see either an empty tree (fresh install) 
 Before exploring the rest of Admin, publish one useful page:
 
 1. Select the intended site. Open an existing page to edit, or choose **New page** and a page type.
-2. Follow [Create your first page](create-your-first-page.md) to add a short piece of useful content and [optionally an image](create-your-first-page.md#optionally-add-an-image).
+2. Follow [Create your first page](create-your-first-page.md) to add a short piece of useful content and [optionally an image](create-your-first-page.md#add-an-image-optional).
 3. [Save a draft, preview and publish](create-your-first-page.md#preview-and-publish), then check the canonical public URL in a private browser window. Your new content should be visible without an Admin login.
 
 The page guide covers the fields and recovery steps. Continue this tour after that public check succeeds. See [Blueprints](types.md) for the rules that determine each page type’s fields.
 
 ---
 
-## Set up navigation
+## Set up navigation (after your first page)
 
 A published page is available at its URL before you add a menu link. If the Navigation package is installed, open **Navigation** in the sidebar to build a menu; otherwise return to this step when your site needs one.
 
-Navigation sits alongside the other library resources in the admin.
+Navigation appears in the **Website** group next to Pages.
 
 Create a navigation record (or edit the one the installer created), add items pointing to your pages, and save. How the navigation renders depends on your frontend theme — it's wired up in a Blade view or a navigation widget.
 
@@ -72,15 +74,15 @@ Navigation is multi-language. Each item stores a label per locale, so if you're 
 
 ---
 
-## Understand the content model
+## Understand the content model (optional)
 
-Before you build more pages, it's worth spending two minutes on how Capell organizes everything:
+Before you build more pages, it's worth spending two minutes on how Capell organises everything:
 
 ```
 Site → Page (page type / blueprint, layout) → body content
 ```
 
-Your **site** is a domain or path prefix. All pages belong to a site.
+Your **site** is a public website with its own domains, languages, settings and page tree. All pages belong to a site.
 
 **Pages** live in a tree. A page's URL is built by joining its ancestors' slugs — so a page with slug `team` nested under a page with slug `about` gets the URL `/about/team`. Move a page under a different parent and its URL changes automatically; Capell creates a redirect from the old URL.
 
@@ -101,13 +103,13 @@ You don't need any of this immediately. Start with flat pages, get comfortable w
 
 ## Configure your site settings
 
-Go to **Settings** in the sidebar. A few things worth setting up early:
+Two screens matter early on:
 
-**Site name** — appears in the admin and in generated `<title>` tags (usually as a suffix: "Page Title — Site Name").
+**System → Sites** holds each site's name, URL and domains, languages and active theme. Open your site and check these first; the site name and default language come from here.
 
-**Default language** — the locale used when no specific locale is detected.
+**System → Settings** holds installation-wide options: the HTML editor, dashboard widgets, image sources, frontend caching and minification. The "Host integration locale" field there does not choose the admin or public language.
 
-**SEO defaults** — a fallback meta description pattern and default Open Graph image for pages that don't set their own.
+SEO defaults such as a fallback description or Open Graph image come from the optional SEO Suite package, not from Settings.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/admin-settings-dark.png">
@@ -118,18 +120,20 @@ Go to **Settings** in the sidebar. A few things worth setting up early:
 
 ---
 
-## What to do next
+## Next
+
+- [Create your first page](create-your-first-page.md) (Learn Capell stage 4) walks through the editor field by field.
 
 From here, the path depends on what you're building.
 
 **Building a simple site?** Create your main pages, link them in Navigation, and work through the SEO fields once the content is settled. The [Admin interface guide](../admin/interface.md) covers every section of the admin in more detail.
 
-**Need reusable layout widgets or ready-made sections?** Install the [Layout Builder](../packages/layout-builder.md) and [ContentSections](../packages/content-sections.md) approved packages from the [catalogue](../packages/catalog.md#capell-foundation). Layout Builder adds the container-and-widget layer to the page editor; Content Sections adds the section library on top.
+**Need reusable layout widgets or ready-made sections?** Install the [Layout Builder](../packages/layout-builder.md) and [Content Sections](../packages/content-sections.md) approved packages from the [catalogue](../packages/catalog.md#capell-foundation). Layout Builder adds the container-and-widget layer to the page editor; Content Sections adds the section library on top.
 
-**Setting up for a team?** Configure roles under **Settings → Permissions**, then invite users from **Users** in the sidebar. The [Permissions & approval guide](https://docs.capell.app/packages/admin/permissions-and-approval/) covers how site-scoped roles work.
+**Setting up for a team?** Configure roles under **System → Roles**, then invite users from **System → Users**. The [Permissions & approval guide](../../packages/admin/docs/permissions-and-approval.md) covers how site-scoped roles work.
 
-**Running multiple sites or languages?** See [Multi-site & multi-lingual](https://docs.capell.app/multi-site-multi-lingual/) before creating more content.
+**Running multiple sites or languages?** See [Multi-site & multi-lingual](../../packages/core/docs/multi-site-multi-lingual.md) before creating more content.
 
-**Extending Capell with custom page types or widgets?** See [Extending Capell](https://docs.capell.app/extending-capell/) for the four extension points that let you add functionality without touching core code.
+**Extending Capell with custom page types or widgets?** See [Extending Capell](../../packages/core/docs/extending-capell.md) for the extension points that let you add functionality without touching core code.
 
 **Something isn't working?** [Troubleshooting](../operations/troubleshooting.md) covers the common first-run problems. For stale public pages, start with [Debugging public output](../frontend/debugging-public-output.md). For deployment and runtime checks, use [Site Health](../operations/site-health.md). For command ownership, use the [Capell CLI command index](../development/commands.md).

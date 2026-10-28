@@ -89,3 +89,8 @@ Start with the CMS foundation:
 6. Keep the [public HTML safety contract](../frontend/public-html-safety.md) close when touching public rendering, cache, themes, authoring, or AI-assisted output.
 
 The practical rule is simple: let Capell core describe the site, let AIOrchestrator coordinate AI work, and keep public output boring.
+
+## Next
+
+- [How Capell works](how-capell-works.md) for the model an agent describes.
+- [Extension point API reference](../packages/extension-point-api-reference.md) before exposing package capabilities.

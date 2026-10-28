@@ -4,7 +4,7 @@ Use this page to choose the right install path. For the full walkthrough, use th
 
 | Situation                     | Use                                                                             | Notes                                                                        |
 | ----------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Fast local demo               | [Quickstart](quickstart.md)                                                     | Uses demo-friendly defaults and optional package prompts.                    |
+| Fast local demo               | [Quickstart](quickstart.md)                                                     | Installs the full Foundation, default theme and demo content with explicit flags. |
 | Fresh Laravel app             | [Install guide: fresh application](install.md#fresh-laravel-application)        | Best route for a clean production app.                                       |
 | Existing Laravel app          | [Install guide: existing application](install.md#existing-laravel-applications) | Preserve users, routes, deploy flow, and existing data.                      |
 | Local monorepo development    | [Development](../development/index.md)                                          | Use sibling `capell-4` and `capell-packages-4` repos with path repositories. |

@@ -2,7 +2,7 @@
 
 This walkthrough shows how a real Capell project can be structured. The example is an independent music store with two branches, lessons, repairs, events, and editorial content.
 
-The goal is not to copy these exact names. It is to show how Capell turns a messy content brief into pages, widgets, settings, and workflows.
+The goal is not to copy these exact names. It is to show how Capell turns a messy content brief into pages, widgets, settings, and workflows. Every package named below is optional; check the [catalogue](../packages/catalog.md) for availability and licence before installing one.
 
 ## The brief
 
@@ -20,14 +20,9 @@ The store needs:
 
 Start with Capell core, then add the editorial packages:
 
-<!-- capell-docs-commands: optional-package -->
-
 ```bash
 composer require capell-app/content-sections capell-app/blog capell-app/address capell-app/site-discovery capell-app/seo-suite
-php artisan capell:content-sections-install
-php artisan capell:blog-install
-php artisan capell:address-install
-php artisan capell:seo-suite-install
+php artisan capell:extension-install capell-app/content-sections capell-app/blog capell-app/address capell-app/seo-suite
 ```
 
 For a demo environment, seed examples:
@@ -81,7 +76,7 @@ Capell builds URLs from the tree:
 
 If an editor moves `Piano lessons` under a different parent, Capell rebuilds the URL and can preserve the old path with a redirect.
 
-## Compose pages with ContentSections
+## Compose pages with Content Sections
 
 Use Content Sections (and Layout Builder widgets) for pages that need more than a rich text body.
 
@@ -156,10 +151,15 @@ Use Site Discovery for XML sitemaps. Use SEO Suite for:
 - robots controls;
 - AI-assisted title and description suggestions.
 
-For the music store, prioritize structured data for the organization, local branches, articles, breadcrumbs, and events.
+For the music store, prioritise structured data for the organisation, local branches, articles, breadcrumbs, and events.
 
 ## What this saves
 
 Without Capell, a team would build most of this manually: page nesting, redirects, media fields, content blocks, translations, permissions, previews, publishing, sitemaps, structured data, and cache invalidation.
 
 With Capell, the team spends that time on the parts that make the store unique: page types, theme design, ecommerce links, lesson booking, event integrations, and branch-specific content.
+
+## Next
+
+- [Build a page](../getting-started/building-pages.md) to choose how each page body is composed.
+- [Packages and extensions](../packages/catalog.md) for the packages this example relies on.
