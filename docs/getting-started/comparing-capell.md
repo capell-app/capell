@@ -38,4 +38,8 @@ Craft CMS is a strong choice for bespoke editorial sites where structured conten
 
 If the first two answers are yes, Capell's in-application model is usually the simpler long-term boundary. If the third answer dominates and integration is light, WordPress or Craft may be the more economical choice.
 
-Continue with [Why Capell](why-capell.md), the [install matrix](install-matrix.md), or the [export and exit plan](../operations/export-and-exit.md).
+## Next
+
+- [Why Capell](why-capell.md) for the decision in one minute.
+- [Install matrix](install-matrix.md) to choose an install path.
+- [Export and exit plan](../operations/export-and-exit.md) before committing a production site.

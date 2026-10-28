@@ -1,8 +1,12 @@
 # Create your first page
 
+> **Learn Capell · Stage 4 of 8 · about 20 min** · Previous: [Your first session](first-session.md) · [All stages](capell-learn.md) · Next: [How Capell works](how-capell-works.md#the-core-model)
+
 Create a useful About or Contact page, save a draft, check it, then publish it. Start after a successful install, with an account that can log in to `/admin`. The expected result is your new content at the page’s canonical public URL, visible to a visitor who is not signed in.
 
 If you have not installed Capell yet, start with the [quickstart](quickstart.md) or the full [install guide](install.md).
+
+The required steps are: start from Pages, choose the page context, add the title and slug, write the content, save as draft, then preview and publish. Images, extra content, layout timing and site configuration are marked optional below and can wait.
 
 ## Start from Pages
 
@@ -49,7 +53,7 @@ Capell builds URLs from the page tree.
 | Child page with slug `team` under `about`    | `/about/team`    |
 | Child page with slug `careers` under `about` | `/about/careers` |
 
-Moving a page to a different parent changes the URL path. Capell creates automatic redirect [Page URLs](../../packages/core/docs/page-management.md) when a published page's slug or parent path changes, so old URLs keep pointing at the current page. Use the Redirects or URL Manager package when you need manual redirects, imports, hit counts, or deeper redirect reporting.
+Moving a page to a different parent changes the URL path. Capell creates automatic redirect [Page URLs](../../packages/core/docs/page-management.md) when a published page's slug or parent path changes, so old URLs keep pointing at the current page. Add manual redirects, or import them, from **Redirects** in Admin (under Health). The optional URL Manager package adds hit counts and deeper redirect reporting.
 
 For more background, read [How Capell works](how-capell-works.md#the-core-model).
 
@@ -71,7 +75,7 @@ Good first-page examples:
 
 Keep slugs short, lowercase, and stable. Changing a slug after publishing changes the public URL.
 
-## Optionally add an image
+## Add an image (optional)
 
 If your page needs a photo or illustration, prepare it before attaching it to the page:
 
@@ -95,7 +99,7 @@ For your first page, keep it simple:
 3. Choose **Save as draft**.
 4. Follow [Preview and publish](#preview-and-publish) below.
 
-## Fill useful extra content
+## Fill useful extra content (optional)
 
 Open **Extra Content** when the page needs supporting fields.
 
@@ -109,7 +113,7 @@ The exact fields can vary by blueprint and installed packages, but the common id
 
 You do not need to fill every field on the first pass. Add the content that helps the frontend theme render the page well.
 
-## Pick a layout and publish timing
+## Pick a layout and publish timing (optional)
 
 **Layout** — which frontend template renders the page. A normal content page can use the default layout; a landing page, article, product page, or campaign page may use a different one if your project has registered it.
 
@@ -155,7 +159,7 @@ php artisan queue:work
 
 See [Troubleshooting](../operations/troubleshooting.md) if the page shows a 404, stale content, or a blank frontend screen.
 
-## Adjust settings after the page exists
+## Adjust settings after the page exists (optional)
 
 On edit screens, Capell shows additional page settings and package-provided fields. These can include SEO settings, canonical URL choices, cache behaviour, featured images, and other fields added by extensions.
 
@@ -169,7 +173,7 @@ The **URLs** relation lists the page's public paths and aliases. Use **New page 
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="../images/generated/admin/page-url-relation-actions-dark.png"><img src="../images/generated/admin/page-url-relation-actions.png" alt="Page URLs relation with create and edit actions"></picture>
 
-## Configure the Site once
+## Configure the Site once (optional)
 
 A **Site** is bigger than one page. It represents the public web property that all its pages belong to.
 
@@ -203,7 +207,6 @@ Do not install every package on day one. Add the next package when the page you 
 | [Layout Builder](../packages/layout-builder.md)                | Containers, reusable layout widgets, and approved section composition in a page layout.                    |
 | [ContentSections](../packages/content-sections.md)             | Ready-made, themeable page sections (hero, FAQ, pricing) built on Layout Builder.                          |
 | [Navigation](../packages/catalog.md#capell-foundation)         | Header, footer, sidebar, or utility menus that link your pages together.                                   |
-| [Redirects](../packages/catalog.md#capell-foundation)          | Manual redirects or safer URL changes after pages have been published.                                     |
 | Built-in Default Theme                                         | A practical frontend starting point provided by `capell-app/frontend` without installing a theme package.  |
 | [Frontend Authoring](../packages/catalog.md#capell-foundation) | Edit page title, description, or content from the public page after the admin-only beacon confirms access. |
 | [Media Library](../packages/catalog.md#capell-foundation)      | The Curator media backend and picker, instead of the default Spatie MediaLibrary backend.                  |
@@ -214,8 +217,10 @@ That order keeps the learning curve sane: create pages first, add structured blo
 
 ## Next
 
-- [Your first session](first-session.md) for the broader admin tour.
+- [How Capell works](how-capell-works.md#the-core-model) (Learn Capell stage 5) explains the Site, Page, URL, Blueprint, Layout and Theme behind the page you just published.
+
+Dive deeper (optional):
+
 - [Build a page](building-pages.md) to choose HTML, blocks, Layout Builder, or a dedicated Blade layout.
-- [How Capell works](how-capell-works.md) for Sites, Pages, Blueprints, Layouts, and extension points.
-- [Packages and extensions](../packages/catalog.md) for host package boundaries and extension documentation links.
 - [Glossary](../reference/glossary.md) for quick definitions.
+- [Packages and extensions](../packages/catalog.md) for host package boundaries and extension documentation links.

@@ -1,5 +1,7 @@
 # Capell quickstart
 
+> **Learn Capell · Stage 2 of 8 · about 20 min** · Previous: [Why Capell](why-capell.md) · [All stages](capell-learn.md) · Next: [Your first session](first-session.md)
+
 Use this path to install the current 1.x Foundation in a fresh Laravel application, open a styled Pages workspace, publish your own page, and inspect its history. It selects Core, Admin, Frontend, Installer, and Marketplace, with the default theme and demo content.
 
 The current 1.x Capell Foundation release is MIT-licensed and available through public Packagist packages without a Capell account. Paid marketplace packages use separate commercial terms and entitlement-scoped Composer access.
@@ -186,9 +188,11 @@ CI can persist the redacted install handoff with `--handoff-json=storage/app/cap
 
 ## Next
 
-- [First editor session](first-session.md)
-- [Create your first page](create-your-first-page.md)
-- [Theme Library](../admin/theme-library.md)
-- [Package catalogue and maturity](../packages/catalog.md)
-- [Upgrading and rollback](../operations/upgrading.md)
-- [Backups and scratch restores](../operations/backups.md)
+- [Your first session](first-session.md) (Learn Capell stage 3) tours Admin before you create a page.
+
+Dive deeper (optional):
+
+- [Install matrix](install-matrix.md) for the other install paths.
+- [Theme Library](../admin/theme-library.md) to change how the site looks.
+- [Troubleshooting](../operations/troubleshooting.md) for first-run problems.
+- [Upgrading and rollback](../operations/upgrading.md) and [Backups](../operations/backups.md) before the site is real.

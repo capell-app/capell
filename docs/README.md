@@ -2,7 +2,7 @@
 
 Capell is a Laravel CMS built on Filament, for teams building applications that outlive their first release. It ships the structure every Filament CMS project ends up rebuilding — page types, layouts, URLs, redirects, previews, undo history and publishing — so the work you do is the work only your application needs.
 
-New here? Start with the [verified quickstart](getting-started/quickstart.md), or use the paths below to find your next task.
+New here? Follow [Learn Capell](getting-started/capell-learn.md), a guided path from deciding whether Capell fits to a published page you understand. Already installed? Jump to [Create your first page](getting-started/create-your-first-page.md). The [glossary](reference/glossary.md) explains any term you meet on the way, and the tables below find one specific task.
 
 ## Choose Your Path
 
@@ -45,7 +45,7 @@ Use these pages to see a workflow before reading its implementation details.
 | Before I...                                        | Read                                                                                                                         |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Move or rename published content                   | [Page management: URL history and redirects](../packages/core/docs/page-management.md#url-history-and-redirects)             |
-| How should I build this page?                      | [Build a page](getting-started/building-pages.md)                                                                            |
+| Choose how to build a page                         | [Build a page](getting-started/building-pages.md)                                                                            |
 | Put feature code in the host, an add-on, or an app | [Host, package, or app code](development/package-boundaries.md)                                                              |
 | Change anonymous frontend output                   | [Public HTML safety contract](frontend/public-html-safety.md)                                                                |
 | Add or change an extension point                   | [Extension point chooser](packages/extension-point-chooser.md) and [unsafe patterns to avoid](development/do-not-do-this.md) |

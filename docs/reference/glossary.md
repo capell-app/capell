@@ -1,6 +1,6 @@
 # Glossary
 
-![Capell Glossary screenshot](../images/capell-core-composition-erd.svg)
+![Capell Core composition showing Core-owned records and optional package boundaries](../images/capell-core-composition-erd.svg)
 
 ## Editing terms
 
@@ -18,10 +18,21 @@ Plain-English definitions for everyday content work.
 | Alt text | A short text description of an image, used by screen readers and when the image fails to load. |
 | Site switcher | The admin control for choosing which site you are currently editing. |
 | Media | Uploaded files (images, documents) managed in the Media area. |
-| Blueprint | The reusable definition behind a page, theme or site. Admin labels: Page blueprint, Theme blueprint, Site blueprint. |
+| Blueprint | The reusable definition behind a page, theme or site. Admin labels: Page blueprint, Theme blueprint, Site blueprint. Older APIs call a page blueprint a page type. |
 | Site | A top-level publishing surface with its own domain(s), languages, and settings. |
 | Page | The primary routable content entity. Pages belong to a site and can have one or more language translations. |
-| Workspace | An isolated sandbox where edits are staged. One workspace may hold a single page change or hundreds of coordinated edits. |
+| Page URL | The site-scoped, per-language address of a page. A page keeps its old URLs as redirects when its slug or parent changes. |
+| Language | A locale a site publishes in. Each language has its own page URLs and translations. |
+| Layout | The template a page renders into. Changing a layout changes every page that uses it. |
+| Theme | The look of a site: templates, styles and assets. Managed in **Theme Library**. |
+| Theme Library | The admin screen for installed themes: **Customise → Preview → Apply**. See [Theme Library](../admin/theme-library.md). |
+| Page history | The recorded versions of a page. Compare any two, preview a rollback, then roll backward or forward without erasing history. Not a backup. See [Page history and rollback](../development/page-event-history.md). |
+| Clear Cache | The admin header action that refreshes cached pages and settings after a change that did not appear on the public site. |
+| Peek | An optional package that previews an unsaved snapshot of the editor through the real theme. |
+| Scratch recovery | Restoring an editor form from the last unsaved draft the admin kept for you. |
+| Foundation | The five MIT-licensed host packages: Core, Admin, Frontend, Installer and Marketplace. Everything else is an optional package. |
+| Package (extension) | A Composer package that adds a feature through Capell's extension points instead of changing core. See [Packages and extensions](../packages/catalog.md). |
+| Workspace | An isolated sandbox where edits are staged, provided by the optional Publishing Studio package. One workspace may hold a single page change or hundreds of coordinated edits. |
 
 ## Developer terms
 
@@ -42,7 +53,7 @@ Implementation-level definitions for package and theme authors.
 | Schema hook extender | A class that injects extra form fields at named positions in an existing schema, without overriding the full schema. See [Extending Capell §4](https://docs.capell.app/extending-capell/#4-schema-hook-extenders). |
 | Render hook | A registered extension that injects HTML into a named location inside a frontend Blade component. See [Render Hooks](https://docs.capell.app/extending-render-hooks/). |
 | Event registry | The Admin package's event bus for subscribing to admin lifecycle events (e.g. `afterSave`). See [Extending Capell §5](https://docs.capell.app/extending-capell/#5-event-registry-callbacks--subscribers). |
-| Settings Schema Registry | Runtime registry of settings form-builder shown on the admin **Settings** page. See [Settings Schema Registry](https://docs.capell.app/packages/admin/settings-schema-registry/). |
+| Settings Schema Registry | Runtime registry of the settings form schemas shown on the admin **Settings** page. See [Settings Schema Registry](https://docs.capell.app/packages/admin/settings-schema-registry/). |
 | `Layout` (core model) | The theme-scoped template structure a page renders into (`Capell\Core\Models\Layout`). An ordered, theme/site-scoped template record with a status flag, a default flag, and an attached image, selected per page. Part of core. |
 | Layout Builder | The optional `capell-app/layout-builder` package: containers, layout widgets and widget assets composed into a page layout. It builds on the core `Layout` model above. **Not part of core.** See [Layout Builder](../packages/layout-builder.md). |
 | Layout widget | A reusable rendered unit placed in a named area of a layout, owned by Layout Builder. Distinct from a body block. |
@@ -52,3 +63,10 @@ Implementation-level definitions for package and theme authors.
 | Static HTML cache | Rendered HTML written to disk and served directly by the web server before PHP runs. See [HTML Caching](https://docs.capell.app/cache/). |
 | Render hook context | The `RenderHookContext` DTO passed to every render-hook extension, exposing the location, the current item, and any extra data the host component provides. |
 | Workspace context | The active workspace for a request, set either by the admin switcher (session) or a signed preview link (cookie). Driven by the `ResolveWorkspaceContext` middleware. |
+
+The Draft, Live, Publish, Version, Rebase and Approval level rows above describe the optional Publishing Studio package where they mention workspaces; a Foundation-only install has the editing-term meanings.
+
+## Next
+
+- [Learn Capell](../getting-started/capell-learn.md) to return to the guided path.
+- [Core relationship map](core-erd.md) for the fuller model.

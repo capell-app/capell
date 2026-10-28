@@ -29,7 +29,7 @@ composer require capell-app/installer
 php artisan capell:install
 ```
 
-[Open the guided demo](https://capell.app/demo) · [Decide if Capell fits](docs/getting-started/why-capell.md) · [Follow the verified quickstart](docs/getting-started/quickstart.md)
+[Open the guided demo](https://capell.app/demo) · [Decide if Capell fits](docs/getting-started/why-capell.md) · [Follow the verified quickstart](docs/getting-started/quickstart.md) · [Learn Capell step by step](docs/getting-started/capell-learn.md) · [Documentation](docs/README.md)
 
 ## Verified quickstart
 
@@ -44,11 +44,11 @@ composer require capell-app/installer
 php artisan capell:install --demo
 ```
 
-The guided command asks for the site URL and first administrator. A successful run ends with `All checks passed` followed by `Installation complete`. If a required step fails, the command exits non-zero and does not print the success message.
+The guided command asks for the site URL and first administrator. A successful run prints `All checks passed` and `Installation complete`, followed by the Capell Install Handoff. If a required step fails, the command exits non-zero and does not print the success message.
 
 The canonical installation entry point for an existing Laravel application is `capell-app/installer`. The `capell-app/capell` package is the supported, version-aligned foundation aggregate for the Core, Admin, Frontend, Installer, and Marketplace code line; it does not replace the guided Installer workflow.
 
-Then run the application using your normal Laravel development workflow and open:
+Unless the install handoff recorded a successful resource rebuild, run `php artisan capell:frontend-after-install --apply --no-interaction` to install frontend dependencies and build assets. Then run the application using your normal Laravel development workflow and open:
 
 - `/admin` to sign in with the administrator created during installation;
 - `/` to inspect the seeded public page;
@@ -150,7 +150,7 @@ The public foundation is five packages:
 | Core        | `capell-app/core`        | Sites, languages, pages, URLs, layouts, themes, media, translations, settings, revision history, upgrade foundations, and registries       |
 | Admin       | `capell-app/admin`       | Filament resources, editor workflows, page recovery UI, settings, users, diagnostics, and admin extension points                           |
 | Frontend    | `capell-app/frontend`    | Public routing, site context, themes, [typed resources](packages/frontend/docs/frontend-resources.md), render hooks, and response delivery |
-| Installer   | `capell-app/installer`   | Guided browser and CLI installation, health review, and installer cleanup                                                                  |
+| Installer   | `capell-app/installer`   | Guided browser installation, install-guide patches, health review, and installer cleanup (the `capell:install` command ships in Core)      |
 | Marketplace | `capell-app/marketplace` | Extension discovery, install authorisation, and package acquisition contracts                                                              |
 
 ## Theme it

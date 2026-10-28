@@ -103,4 +103,5 @@ Use [How Capell works](how-capell-works.md#extension-points) for the high-level 
 
 ## Next
 
-- [Build a page](building-pages.md)
+- [Build a page](building-pages.md) to choose how a page body is composed.
+- [Learn Capell](capell-learn.md) to return to the guided path.

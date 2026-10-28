@@ -20,10 +20,18 @@ Use this section if you edit content, administer a site, or extend Capell's Fila
 | Install and manage Marketplace extensions | [Marketplace](marketplace.md)                                           |
 | Generate theme images                     | [Generated theme images](generated-theme-images.md)                     |
 | Recover from broken admin state           | [Recovery Center](recovery.md)                                          |
-| Review the record state UX design         | [Record state UX design](record-state-ux-design.md)                     |
-| Review the record state UX plan           | [Record state UX plan](record-state-ux-plan.md)                         |
-| Review the record state UX follow-up      | [Record state UX follow-up design](record-state-ux-follow-up-design.md) |
-| Track the record state UX follow-up       | [Record state UX follow-up plan](record-state-ux-follow-up-plan.md)     |
 | Find optional admin features              | [Packages and extensions](../packages/catalog.md)                       |
 
 Capell Admin owns the host panel and its shared extension contracts. Optional feature behaviour and documentation stay with the package that provides them.
+
+## Maintainer notes
+
+These are design and planning records for the record-state work, kept for maintainers. Editors do not need them.
+
+- [Record state UX design](record-state-ux-design.md) and its [plan](record-state-ux-plan.md)
+- [Record state UX follow-up design](record-state-ux-follow-up-design.md) and its [plan](record-state-ux-follow-up-plan.md)
+
+## Next
+
+- [Admin interface](interface.md) for a tour of every section.
+- [Learn Capell](../getting-started/capell-learn.md) for the guided path.

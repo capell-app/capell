@@ -1,8 +1,26 @@
 # How Capell Works
 
-Capell keeps reusable page structure separate from the content editors put into it. Layouts and approved widgets compose complex pages, while translated content remains data rather than presentation code; developers can change a shared structure once and editors can continue assembling pages from the permitted pieces.
+> **Learn Capell · Stage 5 of 8 · about 10 min** · Previous: [Create your first page](create-your-first-page.md) · [All stages](capell-learn.md) · Next: [Build a page](building-pages.md)
+
+Capell keeps reusable page structure separate from the content editors put into it. Layouts (and, with the optional Layout Builder package, approved widgets) compose complex pages, while translated content remains data rather than presentation code; developers can change a shared structure once and editors can continue assembling pages from the permitted pieces.
 
 Capell is built as a package-based CMS foundation for Laravel. The host packages in this repository own the main schema, admin surface, frontend surface, and plugin lifecycle support, while larger features ship as optional add-on packages.
+
+## Capell in five minutes
+
+Take the About page you published in [Create your first page](create-your-first-page.md). Seven records made it appear:
+
+| Record | Your About page | Decides |
+| --- | --- | --- |
+| Site | the site you were editing, with its domain and language | which domain and languages the page belongs to |
+| Page | "About", at the top level of the page tree | its place in the tree and its publishing state |
+| Page URL | `/about` in your default language | the address visitors use; old addresses redirect when it changes |
+| Blueprint | the default page blueprint | which fields you saw in the editor and how the page may be listed |
+| Layout | the default layout | where the content sits on the rendered page |
+| Theme | the active theme | how the page looks |
+| Translation | the paragraph you wrote | the content itself, per language |
+
+Change the layout and every page using it changes. Change the translation and only that page, in that language, changes. That separation is the whole idea; the rest of this page fills in the detail.
 
 ## The Core Model
 
@@ -34,7 +52,7 @@ The main concepts map to one idea each:
 | Page URL  | A site-scoped, language-aware path and slug. Each page can have several, including automatic [redirects](../../packages/core/docs/page-management.md) when slugs or parents change.                   |
 | Layout    | Connects content to frontend rendering. This is the core [`Layout`](../reference/glossary.md#developer-terms) template model. The optional Layout Builder package composes widgets into it. |
 | Blueprint | Reusable editing, rendering, and behaviour rules shared across pages, widgets, layouts, and package-owned content models.                                                                             |
-| Theme     | The active theme path and identity a site renders through.                                                                                                                                            |
+| Theme     | The look a site renders through: templates, styles and assets, chosen in Theme Library. Stored as the active theme path and identity.                                                                |
 
 The important product detail is that one visible page is not just one content record. It is a site-scoped, language-aware URL, a page record, type/blueprint rules, layout selection, media, settings, package contributions, cache dependencies, and public output safety checks working together.
 
@@ -117,7 +135,9 @@ Examples:
 
 Use [Approved packages](../packages/catalog.md) for the package registry.
 
-## Developer Deep Dive Example
+## Developer Deep Dive Example (developers)
+
+The sections from here to "Extension Points" are for package and theme developers. First-time readers can stop at this point and continue with [Build a page](building-pages.md).
 
 Imagine a package that adds an `Article` content type. A non-technical description is simple: editors can create articles, show latest articles on pages, and publish them safely. The developer implementation should stay split across the Capell surfaces.
 
@@ -276,12 +296,14 @@ Capell is meant to be extended through package-safe hooks.
 | Add Tailwind sources or imports | `TailwindAssetsRegistry::registerSource()` and `registerImport()`  |
 | Wire cache invalidation         | `CacheInvalidationRegistry::registerDependency()`                  |
 
-## Practical Reading Order
+Blueprints affect editor fields, frontend components, widgets, layouts, cache behaviour, and reuse. Use package extension points instead of editing host models directly.
 
-1. [Install guide](install.md)
-2. [Admin docs](../admin/index.md)
-3. [Frontend docs](../frontend/index.md)
-4. [Creating Capell packages](../packages/README.md)
-5. [Package authoring](../platform/package-authoring.md)
+## Next
 
-Blueprints affect editor fields, frontend components, widgets, layouts, cache behavior, and reuse. Use package extension points instead of editing host models directly.
+- [Build a page](building-pages.md) (Learn Capell stage 6) chooses how pages are composed.
+
+Dive deeper (optional):
+
+- [Blueprints](types.md) and the [Core relationship map](../reference/core-erd.md).
+- [Admin docs](../admin/index.md) and [Frontend docs](../frontend/index.md).
+- [Creating Capell packages](../packages/README.md) and [Package authoring](../platform/package-authoring.md).

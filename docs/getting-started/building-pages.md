@@ -1,5 +1,7 @@
 # Build a page
 
+> **Learn Capell · Stage 6 of 8 · about 15 min** · Previous: [How Capell works](how-capell-works.md) · [All stages](capell-learn.md) · Next: [Theme Library](../admin/theme-library.md), then [page history](../development/page-event-history.md)
+
 Start with the smallest page-building path that gives editors what they need. Move from HTML to blocks when the page body needs typed, reorderable units; move to Layout Builder when the page needs approved section composition; use a custom Blade layout only when the page is genuinely bespoke.
 
 A page does not have a direct `view_file` override. Give one page a custom Blade implementation by assigning it a dedicated layout with `master_file` and, where needed, `layout_file`. A widget can use its own `view_file`.
@@ -47,7 +49,7 @@ The layout is shared by every page assigned to it. Create or clone a layout befo
 
 Layout Builder is a companion package, so its implementation details and screenshot evidence remain package-owned. Use the [Layout Builder documentation](https://docs.capell.app/packages/layout-builder) for its real container, widget, asset, and editor surfaces.
 
-## 4. Custom Blade rendering
+## 4. Custom Blade rendering (developers)
 
 Use a custom Blade layout when a page is genuinely bespoke: a design cannot be expressed safely by the approved containers and widgets, or it needs a dedicated public shell. This remains inside Capell's normal public response path, including its prepared render context and caching rules; do not add a parallel public controller or route just to render one page.
 
@@ -75,7 +77,7 @@ Create a dedicated layout in the admin and assign it only to that page. Set its 
 - `layout_file` selects the outer document shell that receives the rendered body slot.
 - A widget's `view_file` can override that widget's view when the widget, rather than the whole page, needs a bespoke rendering.
 
-There is no page-level `view_file`. A page does not have a direct `view_file` override; assigning a dedicated layout with `master_file` and `layout_file` is the supported per-page route to full Blade control.
+There is no page-level `view_file`; assigning a dedicated layout with `master_file` and `layout_file` is the supported per-page route to full Blade control.
 
 Keep these views public-safe. Blade should use hydrated data prepared by Capell; do not run queries, call `loadMissing()`, or reach back into package state from a public view. Do not expose authoring IDs, field paths, selectors, package internals, permissions, or signed preview URLs. See the [public HTML safety contract](../frontend/public-html-safety.md) before changing public output.
 
@@ -85,7 +87,10 @@ Start every new page with HTML unless the content itself needs structured blocks
 
 ## Next
 
-- [Create your first page](create-your-first-page.md) for the page editor workflow.
+- [Theme Library](../admin/theme-library.md) (Learn Capell stage 6, continued) to preview and apply how the site looks, then [Page history and rollback](../development/page-event-history.md) for stage 7.
+
+Dive deeper (optional):
+
+- [Layout Builder](../packages/layout-builder.md) for containers, widgets, and assets.
 - [Block Library](https://docs.capell.app/packages/block-library) for block definitions and package details.
-- [Layout Builder](https://docs.capell.app/packages/layout-builder) for containers, widgets, and assets.
 - [Frontend](../frontend/index.md) for public rendering and theme boundaries.
