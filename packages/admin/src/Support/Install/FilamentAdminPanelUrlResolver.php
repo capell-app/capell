@@ -20,7 +20,7 @@ final class FilamentAdminPanelUrlResolver implements AdminPanelUrlResolver
             $applicationUrl = (string) config('app.url');
             $urls = clone resolve(UrlGenerator::class);
             $urls->setRequest(Request::create($applicationUrl));
-            $urls->forceRootUrl($applicationUrl);
+            $urls->useOrigin($applicationUrl);
             $urls->forceScheme((string) parse_url($applicationUrl, PHP_URL_SCHEME));
 
             // Use the registered panel, never the installer request's host or
@@ -34,7 +34,7 @@ final class FilamentAdminPanelUrlResolver implements AdminPanelUrlResolver
             }
 
             if ($domains !== []) {
-                $urls->forceRootUrl(parse_url($applicationUrl, PHP_URL_SCHEME) . '://' . $domains[0]);
+                $urls->useOrigin(parse_url($applicationUrl, PHP_URL_SCHEME) . '://' . $domains[0]);
             }
 
             return $urls->to($panel->getPath());
