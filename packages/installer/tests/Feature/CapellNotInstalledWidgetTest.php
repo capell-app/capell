@@ -261,3 +261,34 @@ it('appears on the dashboard page when no sites exist', function (): void {
         ->assertOk()
         ->assertSeeLivewire(CapellNotInstalledFilamentWidget::class);
 });
+
+it('explains why installer deletion is unavailable when server-side tooling is disabled', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    config(['capell.server_side_tooling' => false]);
+    Livewire::withoutLazyLoading();
+
+    Livewire::test(InstallerWarning::class)
+        ->assertSee('Server-side package changes are disabled')
+        ->assertSee('capell-app/installer');
+});
+
+it('does not display the disabled-tooling explanation when package changes are enabled', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    config(['capell.server_side_tooling' => true]);
+    Livewire::withoutLazyLoading();
+
+    Livewire::test(InstallerWarning::class)
+        ->assertDontSee('Server-side package changes are disabled');
+});
+
+it('explains when installer deletion requires global administrator access', function (): void {
+    test()->actingAsUser();
+    Site::factory()->createOne();
+    config(['capell.server_side_tooling' => true]);
+    Livewire::withoutLazyLoading();
+
+    Livewire::test(InstallerWarning::class)
+        ->assertSee('Only a global administrator can remove the installer');
+});
