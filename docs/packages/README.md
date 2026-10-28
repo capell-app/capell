@@ -29,7 +29,7 @@ Use [Extension surface vocabulary](extension-surface-vocabulary.md) when you nee
 | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | The feature has its own settings, routes, resources, widgets, jobs, or frontend output. | It is one-off project glue with no reuse value. |
 | It should be installable through Composer or Marketplace.                               | It depends heavily on private app models.       |
-| It needs its own tests and release cadence.                                             | The behavior is just app configuration.         |
+| It needs its own tests and release cadence.                                             | The behaviour is just app configuration.        |
 | It contributes through Capell extension points.                                         | It needs to patch host package classes.         |
 
 If you are unsure, use [Host, package, or app code](../development/package-boundaries.md).
@@ -128,7 +128,7 @@ Package providers should register only what the package owns:
 - render hooks, assets, frontend widgets, and cache invalidation rules
 - routes, commands, policies, events, and jobs
 
-Do not register optional-package behavior from the host repo. The package that owns the feature should register it.
+Do not register optional-package behaviour from the host repo. The package that owns the feature should register it.
 
 Use the [extension point chooser](extension-point-chooser.md) before adding a new registration path. Use the [extension point API reference](extension-point-api-reference.md) when you need exact contracts, tags, and test recipes. Use [extension troubleshooting](extension-troubleshooting.md) when a package is installed but its admin, frontend, settings, cache, or marketplace contribution does not appear.
 
@@ -139,7 +139,7 @@ Installer and Marketplace surfaces have their own narrow contracts:
 
 ## Actions, Data, And Settings
 
-- Put domain behavior in `src/Actions/*Action.php`.
+- Put domain behaviour in `src/Actions/*Action.php`.
 - Put structured inputs/outputs in `src/Data/*Data.php`.
 - Cast JSON settings/state to Data objects where practical.
 - Keep Filament resources, Livewire components, controllers, commands, and jobs thin.
@@ -211,15 +211,15 @@ Frontend package code must preserve public HTML safety. Anonymous output must no
 
 ## Tests
 
-Cover package behavior where it lives:
+Cover package behaviour where it lives:
 
-- Action tests for domain behavior.
+- Action tests for domain behaviour.
 - Feature tests for routes, commands, Filament pages/resources, and package install/setup.
 - Public rendering tests for frontend output and safety.
 - Architecture tests for package boundaries.
 - Manifest/provider tests so package discovery fails loudly.
 
-When testing commands or UI surfaces that only orchestrate Actions, fake the Action boundary with Laravel Actions fakes instead of running the Action again. The surface test should prove prompts, options, output, permissions, and Action invocation; the Action test should prove domain behavior.
+When testing commands or UI surfaces that only orchestrate Actions, fake the Action boundary with Laravel Actions fakes instead of running the Action again. The surface test should prove prompts, options, output, permissions, and Action invocation; the Action test should prove domain behaviour.
 
 Use the narrowest package Pest command during development, then broaden before release:
 
@@ -232,7 +232,7 @@ vendor/bin/pest packages/admin/tests --configuration=phpunit.xml
 Use the [package checklist](package-checklist.md) before release.
 
 - `composer.json` and `capell.json` match the package name.
-- Provider registers only package-owned behavior.
+- Provider registers only package-owned behaviour.
 - Visible strings use translations.
 - Actions and Data objects cover meaningful boundaries.
 - Migrations are idempotent for installed apps.

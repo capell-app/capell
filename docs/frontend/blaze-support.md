@@ -25,7 +25,7 @@ Folding may be enabled only after checking the component does not read global st
 ## Rollout
 
 In a consuming Laravel app, run `php artisan view:clear` after changing Blaze registrations. In this monorepo, run `composer clear:views`.
-Set `BLAZE_ENABLED=false` to compare against Blade rendering.
+Set `CAPELL_BLAZE_ENABLED=false` (or the fallback `BLAZE_ENABLED=false`) to compare against Blade rendering.
 Set `BLAZE_DEBUG=true` to use Blaze's debug overlay and profiler.
 Set `CAPELL_BLAZE_THROW=true` in local development when auditing fold candidates.
 

@@ -88,10 +88,10 @@ The generation counter `N` is stored separately under `listing-gen-{siteId}-{lan
 **Cache key:**
 
 ```
-page-model-{ClassBasename}-{id}-site-{siteId}-lang-{languageId}
+page-model-{FullyQualifiedClass with \ replaced by .}-{id}-site-{siteId}-lang-{languageId}
 ```
 
-Example: `page-model-Page-42-site-1-lang-3`
+Example: `page-model-Capell.Core.Models.Page-42-site-1-lang-3`
 
 **Why one entry per language?** Because `translation` is language-specific. An alternative would be to cache the model once without a language-specific translation and resolve translation separately, but that would require a second cache lookup per model on every request.
 
@@ -121,6 +121,7 @@ PageLoader::list(new PageListingRequestData(
     language: $lang,
     site: $site,
     limit: 10,
+    withPagination: true,
     paginationPage: 2,
     ordering: PageOrderEnum::Latest,
 ))
@@ -202,11 +203,11 @@ When a `Pageable` is saved or deleted, `PageCacheInvalidator::onSaved($model)` i
 PageCacheInvalidator::onSaved($page)
   │
   ├─ for each translation (language_id: 1):
-  │      PageModelCache::invalidate('page', 42, siteId: 1, languageId: 1)
+  │      PageModelCache::invalidate(Page::class, 42, siteId: 1, languageId: 1)
   │      PageListingCache::invalidateListings(siteId: 1, languageId: 1)
   │
   └─ for each translation (language_id: 3):
-         PageModelCache::invalidate('page', 42, siteId: 1, languageId: 3)
+         PageModelCache::invalidate(Page::class, 42, siteId: 1, languageId: 3)
          PageListingCache::invalidateListings(siteId: 1, languageId: 3)
 ```
 

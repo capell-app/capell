@@ -27,7 +27,7 @@ The path may be absolute or relative to the application working directory. The i
         "organisationType": "bookshop"
     },
     "theme": {
-        "key": "foundation",
+        "key": "default",
         "colors": {
             "primary": "#123456"
         }
@@ -89,7 +89,7 @@ Private imports publish only a neutral, noindex coming-soon homepage. A public i
 
 ## Package-Owned Blocks
 
-Core cannot depend on optional navigation or other companion package models. A package applies its own SiteSpec block by implementing the stable contract:
+Core cannot depend on models from optional packages such as navigation. A package applies its own SiteSpec block by implementing the stable contract:
 
 ```php
 <?php

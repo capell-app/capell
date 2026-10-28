@@ -27,7 +27,7 @@ Every in-scope class declares one of:
 
 `public int $tries = 1` is a violation, not a declaration. If a single attempt is genuinely correct — see the non-idempotent carve-out below — record it as an exemption with its reason rather than as a silent `1`.
 
-`packages/marketplace/src/Jobs/RunMarketplaceInstallAttemptJob.php` is the reference for the deadline-bounded form: `public int $tries = 0` with `retryUntil()` and `public int $maxExceptions = 3`, so an install waiting on a lock holder keeps retrying inside the window while a reproducibly throwing install still gives up after three exceptions. Its comment states why an attempt cap would be wrong there — an unlimited budget without a stated reason is not acceptable.
+`packages/marketplace/src/Jobs/AbstractMarketplaceOperationJob.php`, inherited by the install, update and uninstall attempt jobs, is the reference for the deadline-bounded form: `public int $tries = 0` with `retryUntil()` and `public int $maxExceptions = 3`, so an install waiting on a lock holder keeps retrying inside the window while a reproducibly throwing install still gives up after three exceptions. Its comment states why an attempt cap would be wrong there — an unlimited budget without a stated reason is not acceptable.
 
 ### QUEUE002 — pair retries with backoff
 
@@ -58,7 +58,7 @@ public function failed(EventType $event, ?Throwable $exception): void
 
 Without it, exhausting the retry budget writes a row to `failed_jobs` and nothing else. The handler owns the operational consequence of permanent failure: marking the domain record failed, releasing a lock or claim, emitting the structured log, and notifying whoever is waiting. It must be safe to run when the job never started successfully, so it may not assume any partial state.
 
-`packages/marketplace/src/Jobs/RunMarketplaceInstallAttemptJob.php` is the reference: it records the terminal state against the install operation so the dashboard shows a failed install rather than an install that appears to still be running.
+`packages/marketplace/src/Jobs/AbstractMarketplaceOperationJob.php` is the reference: its `failed()` records the terminal state against the install operation so the dashboard shows a failed install rather than an install that appears to still be running.
 
 Do not log-and-rethrow from `failed()`. The queue worker already owns the exception; the handler owns the domain and product consequences.
 

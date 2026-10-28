@@ -260,7 +260,7 @@ The Admin package provides an event registry that lets packages and applications
 ### Registering a callback
 
 ```php
-use Capell\Admin\Filament\Resources\Pages\EditPage;
+use Capell\Admin\Filament\Resources\Pages\Pages\EditPage;
 use Capell\Admin\Support\AdminEventHandlerInterface;
 use Capell\Admin\Support\AdminEventRegistry;
 use Livewire\Component;
