@@ -14,9 +14,9 @@ capell/
     capell-packages-4/
 ```
 
-The host repo owns Core, Admin, Frontend, Installer, and Marketplace. Add-on package behavior belongs in `../capell-packages-4` unless the host repo owns the contract or extension point.
+The host repo owns Core, Admin, Frontend, Installer, and Marketplace. Add-on package behaviour belongs in `../capell-packages-4` unless the host repo owns the contract or extension point.
 
-When more than one person or agent session works in this repo at once, use a [git worktree](worktrees.md) and set it up with `bash scripts/init-worktree.sh` — a fresh worktree has no `vendor/`, and symlinking one by hand silently makes tests run against the primary checkout.
+When more than one person or agent session works in this repo at once, use a [git worktree](worktrees.md) and provision it as that page describes (`./capell up` then `./capell composer install` with the Docker harness, or `bash scripts/init-worktree.sh --host-only` when PHP runs on the host) — a fresh worktree has no `vendor/`, and symlinking one by hand silently makes tests run against the primary checkout.
 
 Use Composer path repositories for local package development. Keep matching `1.x` branches in both repos when a change spans host and add-on packages.
 
@@ -28,9 +28,9 @@ Full suites and preflights join the [host release verification gate](../release-
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | `composer prepare`       | Run Testbench package discovery.                                                                                      |
 | `composer test:fast`     | Run the sharded fast Pest command while developing.                                                                   |
-| `composer test`          | Run the full Pest test suite.                                                                                         |
-| `composer lint`          | Run changed-file Pint formatting.                                                                                     |
-| `composer analyze`       | Run the fast PHPStan configuration.                                                                                   |
+| `composer test`          | Clear and prepare the workbench, then run the full Pest test suite.                                                   |
+| `composer lint`          | Run Pint across the repository; `composer lint:changed` formats only changed files.                                  |
+| `composer analyze`       | Run the full PHPStan configuration. Use `composer analyze:source` while iterating and `composer analyze:diff -- <path>` for a path-scoped run; never pass a path to plain `composer analyze`. |
 | `composer preflight`     | Run the standard static, contract, formatting, analysis, and test gates.                                              |
 | `composer preflight:all` | Run Composer path and contract checks, doc guards, Rector, Pint, Prettier, ESLint, PHPStan, security audit, and Pest. |
 | `composer serve`         | Build and serve the Testbench workbench.                                                                              |
@@ -68,7 +68,7 @@ Common host commands:
 | `capell:admin-cache-widgets`, `capell:admin-clear-widgets-cache`, `capell:admin-cache-configurators`, `capell:admin-clear-configurators-cache`                               | Warm or clear Admin registries.                                                      |
 | `capell:frontend-install`, `capell:frontend-after-install`, `capell:frontend-upgrade`                                                                                        | Frontend package lifecycle commands.                                                 |
 
-Optional-package commands such as `capell:static-site`, `capell:xml-sitemap`, and `capell:frontend-tailwind-assets` only exist when their package is installed.
+Optional-package commands such as `capell:static-site` and `capell:xml-sitemap` only exist when their package is installed.
 
 ## Development Routes
 
@@ -104,7 +104,7 @@ Host config lives in:
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `packages/core/config/capell.php`                    | Package discovery, cache flags, media backend, install tooling, roles, workspace preview/prune, release windows.            |
 | `packages/admin/config/capell-admin.php`             | Admin settings, update notices, cache refresh, security headers, preview containers.                                        |
-| `packages/frontend/config/capell-frontend.php`       | Asset build tool, home route registration, fallback site behavior, model-event registration, debug logging, HTML rendering. |
+| `packages/frontend/config/capell-frontend.php`       | Asset build tool, home route registration, fallback site behaviour, model-event registration, debug logging, HTML rendering. |
 | `packages/installer/config/capell-installer.php`     | Reinstall guard, Composer/PHP binaries, default install package selection.                                                  |
 | `packages/marketplace/config/capell-marketplace.php` | Marketplace enablement, API/web URLs, identity, webhook URL/secret, catalogue paging.                                       |
 
@@ -135,6 +135,6 @@ Settings migrations go in `database/settings/`, are registered by install/setup 
 Use maker commands for boring scaffolding, then write the real work by hand.
 
 - Reach for `capell:make-*` to stamp out the file and wiring.
-- Write domain behavior as explicit Actions, and structured boundaries as Data objects.
+- Write domain behaviour as explicit Actions, and structured boundaries as Data objects.
 
 Diagnostics should report state without mutating it. If a diagnostic can fix something, make the repair an explicit Action and call it from a separate command or admin action.

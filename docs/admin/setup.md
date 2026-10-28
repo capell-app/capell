@@ -17,7 +17,7 @@ php artisan capell:admin-setup --integration-only --force
 | Option                     | Description                                                                    |
 | -------------------------- | ------------------------------------------------------------------------------ |
 | `--panel=`                 | Panel provider filename, class name, panel ID, relative path, or absolute path |
-| `--schemas=`               | `auto` or comma-separated `path=namespace` pairs                               |
+| `--configurators=`         | `auto` or comma-separated `path=namespace` pairs                               |
 | `--no-colors`              | Skip `FilamentColorEnum::colors()`                                             |
 | `--no-widgets`             | Skip `CapellAdmin::getWidgets()`                                               |
 | `--no-navigation`          | Skip Capell navigation items and groups                                        |
@@ -28,7 +28,7 @@ php artisan capell:admin-setup --integration-only --force
 Schema discovery defaults to:
 
 ```sh
---schemas=Filament/Resources=App\\Filament\\Resources
+--configurators=Filament/Configurators=App\\Filament\\Configurators
 ```
 
 Create a Filament panel first if the command reports no panel providers:
@@ -60,10 +60,9 @@ return $panel
 ```
 
 `CapellAdminPlugin` also registers Capell's required Filament plugins when they
-are not already present, including Shield, translatable support, record
-switching, clear-cache, and the welcome tour plugin. Do not add
-`FilamentTourPlugin::make()` separately unless you need custom tour plugin
-configuration before Capell registers its default.
+are not already present: Shield, translatable support, and clear-cache.
+Register one of them yourself only when you need custom configuration before
+Capell adds its default.
 
 To change the admin URL, configure the panel entrypoint through
 `CAPELL_ADMIN_PATH` and `CAPELL_ADMIN_DOMAIN` rather than hard-coding `/admin`.
@@ -80,7 +79,7 @@ Reruns are idempotent. Existing custom colors are respected, existing Capell plu
 | `missing_panel`     | No Filament panel provider was discovered                          |
 | `unsupported_shape` | The `panel()` method is not a single fluent return chain           |
 | `existing_conflict` | Existing code needs manual review before Capell calls can be added |
-| `validation`        | Command input such as `--schemas` was invalid                      |
+| `validation`        | Command input such as `--configurators` was invalid                      |
 
 ## Next
 

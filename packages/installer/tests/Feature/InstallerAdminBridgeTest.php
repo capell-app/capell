@@ -85,7 +85,7 @@ it('resolves the configured panel independently of request host and current pane
 
     $urls = resolve(UrlGenerator::class);
     $urls->setRequest(Request::create('http://hostile.test/install?panel=unrelated'));
-    $urls->forceRootUrl(null);
+    $urls->useOrigin(null);
     $urls->forceScheme(null);
 
     $requestUrl = $urls->to('/unchanged');

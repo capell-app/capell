@@ -132,7 +132,7 @@ Three legacy Action classes intentionally do not have the suffix because their c
 
 | Surface                     | Canonical form                                                                            | Example                                           |
 | --------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Database tables and columns | `snake_case`, plural tables, `_id` foreign keys                                           | `public_render_contract_events`, `page_id`        |
+| Database tables and columns | `snake_case`, plural tables, `_id` foreign keys                                           | `capell_public_render_contract_events`, `page_id` |
 | Config namespace            | package name in kebab case                                                                | `capell-frontend`                                 |
 | Nested config keys          | dot-delimited path with `snake_case` segments                                             | `capell-frontend.public_view_query_guard.enabled` |
 | Translation namespace/group | package namespace plus dot-delimited group                                                | `capell-admin::reports.*`                         |
@@ -233,7 +233,7 @@ Narrow union or scalar inputs once near the top of the view, or preferably befor
 - Keep business operations in Actions; the component coordinates input, authorization, UI state, and notifications.
 - Public marketing output is static SSR unless a documented product requirement explicitly needs the frontend interaction runtime. Admin Livewire use is not affected by that rule.
 
-`packages/admin/src/Livewire/PageApprovalStatus.php` and the header components are representative typed admin components. Public page Blade remains query-free and Livewire-tag-free even though the frontend package supports controlled renderable widgets elsewhere.
+`packages/admin/src/Livewire/GlobalCommandPalette.php` and the `Header/` components are representative typed admin components. Public page Blade remains query-free and Livewire-tag-free even though the frontend package supports controlled renderable widgets elsewhere.
 
 ## Pest tests
 
