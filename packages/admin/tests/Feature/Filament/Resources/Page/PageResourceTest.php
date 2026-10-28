@@ -251,7 +251,7 @@ it('mounts quick create with layout defaults for the context site', function (st
 it('preserves unsupported content and clears stale choices when a creation form changes site', function (bool $quickCreate): void {
     test()->actingAsAdmin();
     $english = Language::factory()->createOne(['default' => true]);
-    $french = Language::factory()->createOne(['default' => false]);
+    $french = Language::factory()->createOne(['default' => false, 'name' => "Lao People's Democratic Republic"]);
     $siteA = Site::factory()->language($english)->withTranslations([$english, $french])->createOne();
     $siteB = Site::factory()->language($english)->withTranslations($english)->createOne();
     Blueprint::factory()->page()->default()->createOne();
@@ -289,7 +289,7 @@ it('preserves unsupported content and clears stale choices when a creation form 
     $siteSelect = expectPresent($schema)->getComponent('site_id');
     assert($siteSelect instanceof SiteSelect);
     expect(validator(['site_id' => $siteB->id], ['site_id' => $siteSelect->getValidationRules()])->fails())->toBeTrue();
-    expect($siteSelect->getChildSchema(SiteSelect::BELOW_CONTENT_SCHEMA_KEY)?->toHtml())->toContain($french->name);
+    expect($siteSelect->getChildSchema(SiteSelect::BELOW_CONTENT_SCHEMA_KEY)?->toHtml())->toContain(e($french->name));
 
     $form->set($statePath . '.site_id', $siteA->id);
     $restored = $form->get($statePath . '.translations');
