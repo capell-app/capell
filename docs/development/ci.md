@@ -257,7 +257,9 @@ It excludes drafts and `awaiting-merge` PRs, and handles one PR at a time. If
 its branch is behind, the worker updates it from `main` and waits for checks on
 the new head. When checks pass, it adds the PR to GitHub's merge queue and waits
 for that queue to finish before processing another PR. It runs when the label is
-added, every 15 minutes and by manual dispatch; GitHub may delay scheduled runs.
+added, a PR merges, or a relevant Actions workflow completes, as well as every
+15 minutes and by manual dispatch. The scheduled scan is a fallback; GitHub may
+delay scheduled runs.
 
 If a PR's checks fail, it conflicts, or GitHub removes it from the merge queue,
 the worker removes `ready-to-merge` and continues with the next candidate. Fix

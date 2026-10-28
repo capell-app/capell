@@ -2,7 +2,20 @@ name: Enqueue approved pull request
 
 on:
   pull_request_target:
-    types: [labeled]
+    types: [labeled, closed]
+  workflow_run:
+    workflows:
+      [
+        PHP Quality,
+        Workflow Lint,
+        Test All,
+        Asset Formatting,
+        Build Frontend Package,
+        Build Admin Package,
+        Extension contract audit,
+        Update Pest shards,
+      ]
+    types: [completed]
   workflow_dispatch:
   schedule:
     - cron: '*/15 * * * *'
@@ -20,7 +33,7 @@ concurrency:
 jobs:
   enqueue:
     if: >-
-      ${{ (github.event_name == 'pull_request_target' && github.event.pull_request.base.ref == 'main' && github.event.label.name == 'ready-to-merge') || (github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main') }}
+      ${{ (github.event_name == 'pull_request_target' && github.event.pull_request.base.ref == 'main' && ((github.event.action == 'labeled' && github.event.label.name == 'ready-to-merge') || (github.event.action == 'closed' && github.event.pull_request.merged))) || (github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     steps:
       - name: Check queue credential
