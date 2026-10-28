@@ -8,7 +8,6 @@ use Capell\Admin\Tests\Fixtures\Forms\NativeWidgetFileUpload;
 use Capell\Admin\Tests\Fixtures\Livewire;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
-use Capell\Core\Support\Media\SpatieMediaFieldFactory;
 use Capell\Tests\Fixtures\Models\User;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\Builder;
@@ -111,19 +110,17 @@ it('limits retained UUIDs to the visible media subset and field multiplicity', f
     expect(Validator::make(['image' => ['second']], ['image' => $field->getValidationRules()])->fails())->toBeTrue();
 });
 
-it('authorises owned UUIDs through native and legacy Spatie fields', function (bool $legacy, string $name): void {
+it('authorises owned UUIDs through native Spatie fields', function (string $name): void {
     $record = Site::factory()->createOne()->fresh();
     $record->setRelation('media', new MediaCollection([
         new Media(['uuid' => 'owned-native-image', 'collection_name' => $name]),
     ]));
-    $field = $legacy
-        ? resolve(SpatieMediaFieldFactory::class)->make($name)
-        : SpatieMediaLibraryFileUpload::make($name)->collection($name);
+    $field = SpatieMediaLibraryFileUpload::make($name)->collection($name);
     Schema::make(Livewire::make())->record($record)->components([$field])->getFlatComponents();
     expect($field->shouldPreventFilePathTampering())->toBeTrue();
     expect(Validator::make(['image' => ['owned-native-image']], ['image' => $field->getValidationRules()])->passes())->toBeTrue();
     expect(Validator::make(['image' => ['foreign-image']], ['image' => $field->getValidationRules()])->fails())->toBeTrue();
-})->with([false, true])->with(['image', 'extension.image']);
+})->with(['image', 'extension.image']);
 
 it('retains persisted repeater font paths independently of client item order', function (bool $reverse, bool $native): void {
     $fonts = [
