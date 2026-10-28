@@ -65,6 +65,9 @@ updates:
       - dependency-name: 'tomasvotruba/type-coverage'
       - dependency-name: 'pestphp/pest-plugin-type-coverage'
       - dependency-name: 'pestphp/pest-plugin-phpstan'
+      # 2.7.0 depends on the abandoned symplify/rule-doc-generator-contracts,
+      # which fails composer audit.
+      - dependency-name: 'driftingly/rector-laravel'
   - package-ecosystem: 'composer'
     directories:
       - '/packages/*'
