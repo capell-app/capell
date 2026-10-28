@@ -8,7 +8,7 @@ use Capell\Core\Data\OutboundEventDefinitionData;
 use Carbon\CarbonImmutable;
 use Spatie\LaravelData\Data;
 
-/** @internal */
+/** @experimental */
 final readonly class OutboundEventPublished
 {
     public function __construct(

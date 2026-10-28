@@ -6,6 +6,6 @@ namespace Capell\Core\Contracts\Extensions;
 
 /** Marks a class declared by a public render-data manifest contribution.
  *
- * @internal
+ * @experimental
  */
 interface RegistersExtensionPublicRenderData {}

@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Model;
  * package provider. A contributor must load all of its data before Blade
  * renders and declare every model dependency that can make that data stale.
  *
- * @internal
+ * @experimental
  */
 interface PublicRenderDataContributor extends RegistersExtensionPublicRenderData
 {

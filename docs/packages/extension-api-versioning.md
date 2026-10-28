@@ -95,7 +95,7 @@ The Capell release version and extension API version are separate. Bump the exte
 
 ## Stability markers and static analysis
 
-The catalogue is the source of truth for stability. Class-backed stable surfaces carry `@api`; class-backed experimental and internal surfaces carry `@internal`. A method, property or constant on any class may also carry `@internal`. The latter marker means that a class or member is not a stable extension API: an experimental surface remains available for experimentation, but may change without the stable-surface guarantees. Non-class surfaces such as hooks and configuration keys are classified in the catalogue rather than PHPDoc.
+The catalogue is the source of truth for stability. Class-backed stable surfaces carry `@api`, experimental surfaces carry `@experimental`, and internal surfaces carry `@internal`. Experimental surfaces remain available for experimentation but may change without the stable-surface guarantees. A method, property or constant on any class may also carry `@internal`. Non-class surfaces such as hooks and configuration keys are classified in the catalogue rather than PHPDoc.
 
 Package authors using PHPStan can opt in to the class-use rule by including the file shipped with Core in their own `phpstan.neon`:
 
@@ -104,7 +104,7 @@ includes:
     - vendor/capell-app/core/extension-phpstan.neon
 ```
 
-When using the foundation aggregate instead of the split Core package, use `vendor/capell-app/capell/packages/core/extension-phpstan.neon`. Install PHPStan separately in the consuming project. The rules report references to Capell classes marked `@internal` as `capell.internalClass`, and use of `@internal` methods, properties and constants as `capell.internalMember`; non-class surfaces are not inspected. Existing packages are not blocked at runtime, and analysis is opt-in so adoption can be managed by each package.
+When using the foundation aggregate instead of the split Core package, use `vendor/capell-app/capell/packages/core/extension-phpstan.neon`. Install PHPStan separately in the consuming project. The rules report references to Capell classes marked `@experimental` or `@internal` as `capell.internalClass`, and use of `@internal` methods, properties and constants as `capell.internalMember`; non-class surfaces are not inspected. Existing packages are not blocked at runtime, and this rule is opt-in so adoption can be managed by each package. PHPStan's own internal-API checks may still report `@internal` uses independently.
 
 ## Support matrix
 

@@ -11,6 +11,6 @@ namespace Capell\Core\Contracts\Extensions;
  * Capell validates this marker before the owning diagnostics subsystem
  * resolves the implementation.
  *
- * @internal
+ * @experimental
  */
 interface ChecksExtensionHealth extends ExtensionContribution {}

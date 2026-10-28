@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums\Database;
 
-/** @internal */
+/** @experimental */
 enum DatabaseDateOperation: string
 {
     case Year = 'year';

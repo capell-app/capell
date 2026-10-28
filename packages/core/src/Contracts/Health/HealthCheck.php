@@ -6,7 +6,7 @@ namespace Capell\Core\Contracts\Health;
 
 use Capell\Core\Data\Health\HealthCheckResultData;
 
-/** @internal */
+/** @experimental */
 interface HealthCheck
 {
     public const string TAG = 'capell.health-checks';

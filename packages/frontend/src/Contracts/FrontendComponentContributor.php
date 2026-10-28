@@ -11,7 +11,7 @@ use Capell\Frontend\Data\FrontendComponentContributionData;
  *
  * Bind implementations in the service container and tag them with TAG.
  *
- * @internal
+ * @experimental
  */
 interface FrontendComponentContributor
 {

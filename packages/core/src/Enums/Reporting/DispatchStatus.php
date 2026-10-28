@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums\Reporting;
 
-/** @internal */
+/** @experimental */
 enum DispatchStatus: string
 {
     case Reported = 'reported';

@@ -9,7 +9,7 @@ use InvalidArgumentException;
 
 /** Identifies one persisted model whose mutation invalidates a render entry.
  *
- * @internal
+ * @experimental
  */
 final readonly class PublicRenderDataCacheDependencyData
 {

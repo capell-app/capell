@@ -120,7 +120,7 @@ use Illuminate\Support\Facades\Facade;
  *
  * @mixin CapellCoreManager
  *
- * @internal
+ * @experimental
  */
 class CapellCore extends Facade
 {

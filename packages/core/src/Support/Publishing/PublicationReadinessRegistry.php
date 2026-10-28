@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use LogicException;
 
-/** @internal */
+/** @experimental */
 final class PublicationReadinessRegistry
 {
     /** @var list<PublicationReadinessContributor> */

@@ -13,7 +13,7 @@ use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use Spatie\LaravelData\Data;
 
-/** @internal */
+/** @experimental */
 final class PublishOutboundEventAction
 {
     use AsFake;
