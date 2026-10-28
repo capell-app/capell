@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Actions\GetFlatComponentKeysAction;
 use Capell\Admin\Filament\Components\Forms\Page\TranslationsRepeater as PageTranslationsRepeater;
 use Capell\Admin\Filament\Components\Forms\TranslationsRepeater;
 use Capell\Admin\Tests\Fixtures\Livewire;
@@ -15,6 +16,8 @@ use Capell\Core\Models\Translation;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonInterface;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
@@ -390,6 +393,57 @@ it('reserves the success badge for a translated and current language row', funct
         'color' => 'success',
         'tooltip' => __('capell-admin::generic.translation_complete_info'),
     ])->and($component->resolveItemBadge($englishTranslation, ['title' => null]))->toBeNull();
+});
+
+it('computes item badges from the translation row schema when a relationship select depends on its state', function (): void {
+    test()->actingAsAdmin();
+    $english = Language::factory()->english()->createOne();
+    $welsh = Language::factory()->forCountry('Welsh', 'cy', 'cy', 'gb-wls', order: 2)->createOne();
+
+    $site = Site::factory()->language($english)->createOne();
+    $blueprint = Blueprint::factory()->page()->createOne();
+    $page = Page::factory()->site($site)->type($blueprint)->createOne();
+
+    $englishTranslation = savedTranslationForTest($page, $english, 'Welcome', now()->subDay());
+    $englishTranslation->forceFill(['content' => 'Hello'])->saveQuietly();
+    $welshTranslation = savedTranslationForTest($page, $welsh, 'Croeso', now());
+
+    $schema = Schema::make(Livewire::make()->data([
+        'site_id' => $site->getKey(),
+        'blueprint_id' => $blueprint->getKey(),
+    ]))
+        ->statePath('data')
+        ->operation('edit')
+        ->model($page)
+        ->components([
+            TranslationsRepeater::make('translations')->schema([
+                Select::make('language_id')
+                    ->relationship('language', 'name')
+                    ->hidden(fn (mixed $state): bool => blank($state))
+                    ->dehydrated(false),
+                TextInput::make('title'),
+                TextInput::make('content')
+                    ->hidden()
+                    ->dehydrated(false),
+            ]),
+        ]);
+
+    $component = $schema->getComponents()[0];
+    assert($component instanceof TranslationsRepeater);
+    $component->fillFromRelationship();
+
+    $welshKey = 'record-' . $welshTranslation->getKey();
+    $welshItem = $component->getChildSchema($welshKey);
+    assert($welshItem instanceof Schema);
+
+    expect($welshItem->getRecord())->toBeInstanceOf(Translation::class)
+        ->and(GetFlatComponentKeysAction::run($welshItem))->toBe(['title' => true])
+        ->and($component->getItemBadge($welshKey))->toBe([
+            'label' => __('capell-admin::generic.translation_complete'),
+            'color' => 'success',
+            'tooltip' => __('capell-admin::generic.translation_complete_info'),
+        ])
+        ->and($component->getItemBadge('record-' . $englishTranslation->getKey()))->toBeNull();
 });
 
 it('resolves the missing required languages failure through the translator', function (): void {
