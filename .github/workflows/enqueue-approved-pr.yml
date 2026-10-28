@@ -11,6 +11,15 @@ jobs:
     if: github.event.label.name == 'ready-to-merge'
     runs-on: ubuntu-latest
     steps:
+      - name: Check queue credential
+        env:
+          QUEUE_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$QUEUE_TOKEN" ]]; then
+            echo '::error::MERGE_QUEUE_TOKEN is not configured; see docs/development/ci.md.'
+            exit 1
+          fi
       - name: Enqueue the approved commit
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
