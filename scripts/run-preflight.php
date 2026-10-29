@@ -143,6 +143,45 @@ if (array_intersect($skeletonStages, array_keys($stages)) !== [] && is_file($ske
     exit(2);
 }
 
+/**
+ * The test stage renders frontend pages against the Testbench skeleton, which
+ * needs the prebuilt capell-frontend assets published into its public/ directory.
+ * A freshly installed or reinstalled skeleton has none, and the missing Vite
+ * manifest then fails dozens of unrelated frontend tests. Publish them first and
+ * stop with the exact fix if that does not produce the manifest.
+ */
+$testbench = dirname(__DIR__) . '/vendor/bin/testbench';
+$frontendAssets = dirname(__DIR__) . '/vendor/orchestra/testbench-core/laravel/public/vendor/capell-frontend';
+
+if (isset($stages['tests']) && is_file($testbench) && ! is_file($frontendAssets . '/manifest.json')) {
+    fwrite(STDOUT, "Publishing the prebuilt capell-frontend assets into the Testbench skeleton.\n");
+
+    $publish = proc_open(
+        [PHP_BINARY, $testbench, 'vendor:publish', '--tag=capell-frontend-assets', '--force'],
+        [STDIN, STDOUT, STDERR],
+        $publishPipes,
+        dirname(__DIR__),
+    );
+
+    if (is_resource($publish)) {
+        proc_close($publish);
+    }
+
+    if (! is_file($frontendAssets . '/manifest.json')) {
+        fwrite(STDERR, <<<'MESSAGE'
+            The Testbench skeleton has no published frontend assets (public/vendor/capell-frontend/manifest.json),
+            so frontend tests would fail with "Vite manifest not found".
+
+            Publish them, then rerun preflight:
+
+                php vendor/bin/testbench vendor:publish --tag=capell-frontend-assets --force
+
+            MESSAGE);
+
+        exit(2);
+    }
+}
+
 $composer = getenv('COMPOSER_BINARY');
 $composer = is_string($composer) && $composer !== '' ? $composer : 'composer';
 $results = [];
