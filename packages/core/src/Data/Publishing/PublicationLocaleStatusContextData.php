@@ -11,7 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\LaravelData\Data;
 
-/** @internal */
+/** @experimental */
 final class PublicationLocaleStatusContextData extends Data
 {
     public function __construct(

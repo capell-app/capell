@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums;
 
-/** @internal */
+/** @experimental */
 enum FrontendRouteReservationType: string
 {
     case Domain = 'domain';

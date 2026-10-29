@@ -7,7 +7,7 @@ namespace Capell\Core\Contracts\Database;
 use Capell\Core\Data\Database\SqlFragment;
 use Capell\Core\Enums\Database\DatabaseDateOperation;
 
-/** @internal */
+/** @experimental */
 interface DatabaseQueryDialect
 {
     public function concatenate(SqlFragment ...$expressions): SqlFragment;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums;
 
-/** @internal */
+/** @experimental */
 enum MetricUnitEnum: string
 {
     case Count = 'count';

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums\Metrics;
 
-/** @internal */
+/** @experimental */
 enum MetricAggregation: string
 {
     case Sum = 'sum';

@@ -7,7 +7,7 @@ namespace Capell\Admin\Contracts\Dashboard;
 use Capell\Core\Models\Page;
 use Illuminate\Contracts\Auth\Authenticatable;
 
-/** @internal */
+/** @experimental */
 interface DashboardPageLanguageMatcher
 {
     /**
