@@ -176,6 +176,11 @@ body {
     background: var(--surface-soft);
 }
 
+.installer-screen-bootstrap .panel-header,
+.installer-screen-bootstrap .panel-body {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .installer-screen-progress .panel-body {
     grid-template-columns: minmax(0, 1fr) 320px;
 }

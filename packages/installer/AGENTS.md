@@ -5,3 +5,4 @@
 - Destructive paths require explicit confirmation or the documented force value. Preserve safe non-TTY defaults.
 - Pass structured state through Actions and Data objects, and surface actionable translated errors at the command or UI boundary.
 - Test fresh, resumed, and non-interactive paths when changing orchestration, package selection, or failure recovery.
+- Use [UI writing guidance](../../docs/standards/ui-writing.md) for installer prompts, errors and recovery steps; never show access codes or secrets in output.
