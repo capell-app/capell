@@ -246,6 +246,11 @@ case "$command_name" in
         usage
         ;;
     up|start)
+        if command -v python3 >/dev/null 2>&1; then
+            python3 scripts/check-harness-ports.py "${compose_command[@]}" -- "$@"
+        else
+            echo 'Python 3 unavailable; Compose will check port availability while starting.' >&2
+        fi
         "${compose_command[@]}" up -d "$@"
         ;;
     down|stop)
