@@ -3,10 +3,10 @@
 # lint-changed.sh: Lint changed files.
 # Usage: ./scripts/lint-changed.sh [--staged|--committed|--base <git-ref>]
 #
-# This script is kept byte-for-byte identical in capell-4 and capell-packages-4.
-# The two repositories share pre-commit habits, so any behavioural difference
-# between the copies surfaces as "it passed locally" on whichever repository the
-# author happened not to run.
+# The two repositories share pre-commit habits (capell-packages-4 has its own
+# copy, which already includes untracked files and has a --check mode), so any
+# behavioural difference between the copies surfaces as "it passed locally" on
+# whichever repository the author happened not to run.
 
 set -eo pipefail
 
