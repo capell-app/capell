@@ -14,6 +14,7 @@ use Capell\Core\Models\ExtensionHealthAlert;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Media;
 use Capell\Core\Models\Site;
+use Capell\Core\Models\SiteDomain;
 use Capell\Core\Models\Translation;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -138,6 +139,10 @@ final class SiteAccessQueryAllowList
             // operate only on the supplied record (or newly created replica),
             // while Admin entry points authorise the record before calling them.
             'packages/admin/src/Actions/CreatePageAction.php' => ['handle|$pageModel::create(' . Arr::class . '::except($data, [\'translations\']))'],
+            // A language route must be unique across every site, so the collision
+            // lookup deliberately ignores the editor's site access; the message
+            // names the owning site only after the route is already taken.
+            'packages/admin/src/Actions/SetupSiteLanguageAction.php' => ['assertRouteIsFree|' . SiteDomain::class . "::query()->where('routing_identity', \$identity)->with('site')->first()"],
             'packages/admin/src/Filament/Resources/Sites/Pages/CreateSite.php' => ['createSiteDomainsFromState|$this->record->siteDomains()->exists()'],
             // Generic replication also serves system callers. This reload is
             // restricted to the supplied record's key; the Admin action's policy
