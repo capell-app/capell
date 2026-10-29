@@ -10,16 +10,46 @@ use Capell\Core\Models\CapellExtension;
 use Capell\Marketplace\Actions\RunMarketplaceHeartbeatAction;
 use Capell\Marketplace\Data\PhoneHomeResultData;
 use Capell\Marketplace\Enums\MarketplacePermission;
+use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePurchasesPage;
 use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Sinnbeck\DomAssertions\Asserts\AssertElement;
 use Spatie\Permission\Models\Permission;
 
 uses(CreatesAdminUser::class);
+
+it('opens purchases at its URL instead of treating purchases as an extension slug', function (): void {
+    Http::fake();
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    $this->get('/admin/extensions/marketplace/purchases')
+        ->assertOk()
+        ->assertSee('data-capell-marketplace-purchases', false);
+});
+
+it('still routes other marketplace slugs to extension details', function (): void {
+    $route = resolve(Router::class)->getRoutes()->match(Request::create('/admin/extensions/marketplace/seo-suite'));
+
+    expect($route->getActionName())->toContain(MarketplaceExtensionDetailPage::class);
+});
+
+it('reserves the purchases path from the extension detail wildcard', function (): void {
+    $detail = Route::getRoutes()->getByName('filament.admin.pages.extensions.marketplace.{slug}');
+    throw_if($detail === null, RuntimeException::class, 'The Marketplace extension detail route is missing.');
+
+    expect($detail->matches(Request::create('/admin/extensions/marketplace/purchases')))->toBeFalse()
+        ->and($detail->matches(Request::create('/admin/extensions/marketplace/seo-suite')))->toBeTrue();
+});
 
 it('renders heartbeat purchases and renewal links', function (): void {
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');

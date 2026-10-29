@@ -255,6 +255,7 @@ final class InstallPackagesAction
     {
         return [
             'url' => $inputData->siteUrl,
+            'initial-installation' => $inputData->initialInstallation,
             'languages' => $inputData->demoContent ? $inputData->demoLanguages : $inputData->languages,
             'sites' => $inputData->demoContent ? $inputData->demoSites : [$this->defaultSiteName()],
             'user' => $user?->getAuthIdentifier() !== null ? (string) $user->getAuthIdentifier() : null,
@@ -315,7 +316,7 @@ final class InstallPackagesAction
             $result['--assets'] = $params['assets'];
         }
 
-        foreach (['skip-panel-integration', 'no-colors', 'no-widgets', 'no-navigation', 'skip-permission-sync', 'adopt-existing-site', 'skip-package-demos', 'quick', 'force'] as $flag) {
+        foreach (['initial-installation', 'skip-panel-integration', 'no-colors', 'no-widgets', 'no-navigation', 'skip-permission-sync', 'adopt-existing-site', 'skip-package-demos', 'quick', 'force'] as $flag) {
             if (in_array($flag, $allowedParams, true) && (bool) ($params[$flag] ?? false)) {
                 $result['--' . $flag] = true;
             }

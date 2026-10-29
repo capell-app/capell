@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use BezhanSalleh\FilamentShield\FilamentShieldServiceProvider;
 use Capell\Core\Actions\AfterInstallPackageAction;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\PackageData;
@@ -196,6 +197,7 @@ JS;
 }
 
 it('executes the manifest frontend hook from the install plan without starting Node', function (): void {
+    app()->register(FilamentShieldServiceProvider::class);
     expect(new ReflectionClass(InstallPlan::class)->getFileName())->toBe(realpath(__DIR__ . '/../../../../core/src/Support/Install/InstallPlan.php'));
     expect(new ReflectionClass(FrontendServiceProvider::class)->getFileName())
         ->toBe(realpath(__DIR__ . '/../../../src/Providers/FrontendServiceProvider.php'));

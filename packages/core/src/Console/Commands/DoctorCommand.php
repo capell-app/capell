@@ -14,6 +14,7 @@ use Capell\Core\Support\Json\JsonCodec;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
 class DoctorCommand extends Command
@@ -30,6 +31,7 @@ class DoctorCommand extends Command
         {--connection= : Use an existing database connection for isolated verification}
         {--database= : Override that connection database name or path for isolated verification}
         {--install-summary : Output the installer-focused health summary}
+        {--report-json= : Write the health report as JSON to this file}
         {--repair-page-url-domains : Create or restore missing site domains for page URLs before checking health}
         {--skip-package-doctors : Skip package-owned doctor commands when building the install summary}';
 
@@ -69,6 +71,11 @@ class DoctorCommand extends Command
             includePackageDoctors: ! $this->option('skip-package-doctors'),
         );
         $this->setOutput($output);
+
+        $reportPath = $this->option('report-json');
+        if (is_string($reportPath) && $reportPath !== '') {
+            throw_if(file_put_contents($reportPath, JsonCodec::encode($report->toArray(), JSON_PRETTY_PRINT)) === false, RuntimeException::class, 'Unable to write the health report.');
+        }
 
         if ($this->option('json')) {
             $this->line(JsonCodec::encode($report->toArray(), JSON_PRETTY_PRINT));
@@ -116,7 +123,8 @@ class DoctorCommand extends Command
         $this->newLine();
 
         if ($report->passed()) {
-            $this->info('All checks passed.');
+            $hasWarnings = $report->checks->contains(fn (DoctorCheckResultData $check): bool => ($check->evidence['warning_count'] ?? 0) > 0);
+            $this->info($hasWarnings ? 'Checks passed with warnings.' : 'All checks passed.');
 
             return;
         }

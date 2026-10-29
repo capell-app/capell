@@ -273,3 +273,17 @@ echo json_encode([
         rmSync(directory, { recursive: true, force: true })
     }
 })
+
+test('seeds a real scheduled page for the admin dashboard capture', () => {
+    assert.deepEqual(commandsForEntries([{ id: 'admin-dashboard' }]), [
+        'Workbench\\App\\Support\\RecordStateScreenshotFixture::initialize();',
+    ])
+});
+
+
+test('initialises action fixture only for action coverage entries', () => {
+    assert.deepEqual(commandsForEntries([{ id: 'action-coverage-parent' }]), [
+        'Workbench\\App\\Support\\ActionScreenshotFixture::initialize();',
+    ])
+    assert.deepEqual(commandsForEntries([{ id: 'ordinary-page' }]), [])
+})

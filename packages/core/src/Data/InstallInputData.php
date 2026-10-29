@@ -47,5 +47,6 @@ final class InstallInputData extends Data
         public readonly array $additionalUsers = [],
         public readonly ?string $selectedThemeKey = null,
         public readonly bool $seedDatabase = false,
+        public readonly bool $initialInstallation = false,
     ) {}
 }

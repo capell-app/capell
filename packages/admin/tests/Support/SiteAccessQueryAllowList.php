@@ -28,6 +28,22 @@ final class SiteAccessQueryAllowList
     public static function entries(): array
     {
         return [
+            // Language matching uses only Page morph owners selected by the caller's
+            // explicit SiteAccess boundary, preserving authorised non-live workspaces.
+            // Generic Translation scoping would silently force the live Page scope.
+            'packages/admin/src/Actions/Dashboard/ConstrainDashboardPageLanguageAction.php' => [
+                'handle|' . Translation::class . '::query()',
+            ],
+            // Workspace preferences belong to an authenticatable actor, not site content.
+            // Keep the host model's connection and global scopes, and restrict every
+            // read/update to that actor's primary key; available() rejects other models.
+            'packages/admin/src/Support/Workspace/AdminWorkspacePreferenceStore.php' => [
+                'dashboardScope|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
+                'dashboardAdvisoryDecision|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
+                'dashboardLayout|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
+                'dashboardOptions|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
+                'merge|$actor->newQuery()->whereKey($actor->getKey())',
+            ],
             // A media file is in use when any content, on any site, references it;
             // counting only the actor's visible sites would let the library trash
             // a file another site still displays.

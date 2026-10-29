@@ -12,8 +12,14 @@ return [
         'build_failed' => 'Frontend dependency installation or build failed.',
     ],
     'simple' => [
-        'continue' => 'How would you like to continue?',
-        'install' => 'Confirm all basics and install',
+        'continue' => 'Review or change your settings',
+        'review_label' => 'Confirm your installation settings',
+        'review_site' => 'Site address: :url',
+        'review_packages' => 'Packages and theme shown above',
+        'review_administrator' => 'Administrator shown above',
+        'review_other' => 'Other application changes shown above',
+        'review_hint' => 'Press Enter to install. Untick one item to change it, or Ctrl+A to cancel. Space toggles.',
+        'review_one_at_a_time' => 'Untick one item at a time to change it, or untick all to cancel.',
         'install_custom' => 'Install with these settings',
         'site' => 'Change the site address',
         'packages' => 'Choose packages and theme',
@@ -177,7 +183,12 @@ return [
         'services_site' => 'Capell Services',
     ],
     'handoff' => [
-        'title' => 'What next',
+        'completed_title' => 'Installation complete',
+        'incomplete_title' => 'Installation needs attention',
+        'warnings_title' => 'Items to review',
+        'build_prompt' => 'Install dependencies and build frontend assets now?',
+        'build_hint' => 'Runs the frontend preparation and production build. Choose No to run it later.',
+        'title' => 'Next steps',
         'tips' => [
             'review' => [
                 'label' => 'Review',
