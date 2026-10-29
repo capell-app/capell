@@ -36,7 +36,9 @@ it('saves an allowed personal order and rejects tampered widget keys', function 
     $form = new ReflectionMethod(CapellDashboard::class, 'layoutFormData')->invoke(new CapellDashboard);
     $form['widgets'] = array_map(static fn (string $key): array => ['key' => $key, 'size' => $key === PersonalDraftsWidget::class ? 'wide' : 'standard'], $order);
     $form['selected_performance'] = array_values(array_diff($form['selected_performance'], [PageViewsWidget::class]));
-    Livewire::test(CapellDashboard::class)->callAction('editWorkFirstLayout', data: $form);
+    $component = Livewire::test(CapellDashboard::class);
+    $component->callAction('editWorkFirstLayout', data: $form)
+        ->assertRedirect(CapellDashboard::getUrl(parameters: ['filters' => $component->get('filters')]));
 
     $store = resolve(AdminWorkspacePreferenceStore::class);
     expect($store->dashboardLayout($user, true))->toBe($order)

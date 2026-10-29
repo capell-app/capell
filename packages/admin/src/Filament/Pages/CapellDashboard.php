@@ -459,6 +459,7 @@ class CapellDashboard extends Dashboard
 
                 if (($data['restore_defaults'] ?? false) === true) {
                     resolve(AdminWorkspacePreferenceStore::class)->resetDashboardLayout($actor, $this->allSitesSelected());
+                    $this->redirect(static::getUrl(parameters: ['filters' => $this->filters]));
 
                     return;
                 }
@@ -506,6 +507,7 @@ class CapellDashboard extends Dashboard
                 }
 
                 $store->saveDashboardPreferences($actor, $this->allSitesSelected(), [...$submitted, ...array_values(array_diff($old, $allowed))], $hidden, $sizes);
+                $this->redirect(static::getUrl(parameters: ['filters' => $this->filters]));
             });
     }
 
