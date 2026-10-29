@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Dashboard;
 
+use Capell\Core\Actions\RuntimeRefresh\RefreshConfigurationCacheAction;
 use Capell\Core\Support\Patching\EnvFileEditor;
 use Illuminate\Support\Env;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use RuntimeException;
 
 final class EnableNewInstallationDashboardAction
 {
@@ -28,6 +30,11 @@ final class EnableNewInstallationDashboardAction
         $editor = new EnvFileEditor($path);
         if ($editor->get('CAPELL_WORK_FIRST_DASHBOARD') !== null) {
             return false;
+        }
+
+        $configuration = RefreshConfigurationCacheAction::run(rebuild: false);
+        if (! $configuration->passed) {
+            throw new RuntimeException($configuration->message);
         }
 
         $editor->backup();

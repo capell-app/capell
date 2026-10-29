@@ -6,10 +6,10 @@
         :heading="__('capell-admin::dashboard.work_first_drafts_heading')"
     >
         @if ($this->assignments->available && $this->assignments->total > 0)
-            <p class="text-xs text-gray-600 dark:text-gray-400">{{ __('capell-admin::dashboard.work_first_assigned_total', ['count' => $this->assignments->total]) }}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">{{ trans_choice('capell-admin::dashboard.work_first_assigned_total', $this->assignments->total, ['count' => $this->assignments->total]) }}</p>
         @endif
         @if ($this->data->total > 0)
-            <p class="text-xs text-gray-600 dark:text-gray-400">{{ __('capell-admin::dashboard.work_first_drafts_total', ['count' => $this->data->total]) }}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">{{ trans_choice('capell-admin::dashboard.work_first_drafts_total', $this->data->total, ['count' => $this->data->total]) }}</p>
         @endif
         @if ($this->pendingWork > 0)
             <p class="mb-2 text-sm">

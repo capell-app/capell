@@ -56,3 +56,32 @@ it('does not opt older sites in when they have no Core completion record', funct
     expect(EnableNewInstallationDashboardAction::run(DetectInitialInstallationAction::run(), $this->environmentPath))->toBeFalse()
         ->and(file_get_contents($this->environmentPath))->toBe("APP_NAME=Example\n");
 });
+
+it('invalidates cached configuration when enabling the fresh installation default', function (): void {
+    $bootstrapPath = app()->bootstrapPath();
+    app()->useBootstrapPath($this->environmentDirectory . '/bootstrap');
+    File::ensureDirectoryExists(dirname(app()->getCachedConfigPath()));
+    file_put_contents(app()->getCachedConfigPath(), '<?php return ["capell-admin" => ["dashboard" => ["work_first" => ["enabled" => false]]]];');
+
+    try {
+        expect(EnableNewInstallationDashboardAction::run(true, $this->environmentPath))->toBeTrue()
+            ->and(is_file(app()->getCachedConfigPath()))->toBeFalse();
+    } finally {
+        app()->useBootstrapPath($bootstrapPath);
+    }
+});
+
+it('preserves cached configuration when the fresh installation explicitly opts out', function (): void {
+    $bootstrapPath = app()->bootstrapPath();
+    app()->useBootstrapPath($this->environmentDirectory . '/bootstrap');
+    File::ensureDirectoryExists(dirname(app()->getCachedConfigPath()));
+    file_put_contents(app()->getCachedConfigPath(), '<?php return [];');
+    file_put_contents($this->environmentPath, "CAPELL_WORK_FIRST_DASHBOARD=false\n");
+
+    try {
+        expect(EnableNewInstallationDashboardAction::run(true, $this->environmentPath))->toBeFalse()
+            ->and(is_file(app()->getCachedConfigPath()))->toBeTrue();
+    } finally {
+        app()->useBootstrapPath($bootstrapPath);
+    }
+});
