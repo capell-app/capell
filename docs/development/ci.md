@@ -249,6 +249,13 @@ or timed-out cell is incomplete evidence, not support proof.
 
 ## Enqueueing approved PRs by label
 
+The `Merge queue full matrix` check runs the complete Test All matrix on each
+merge-group commit and validates a non-empty, passing JUnit report for every
+configured cell. Its pull-request run checks the validator; the matrix itself
+runs on the merge-group commit. To enforce this check, add it to the existing
+main-branch required checks only after this workflow is available on `main`
+and the queue is clear. Keep the existing required checks in place.
+
 Adding `ready-to-merge` to an open PR targeting `main` authorises the queue to
 update its branch and merge it after checks pass, without a further per-PR chat
 approval. This is an explicit exception to the normal PR merge approval rule.
