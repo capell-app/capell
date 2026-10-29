@@ -36,6 +36,27 @@ class MergeGroupEvidenceTest(unittest.TestCase):
         result = self.run_validator()
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_reads_unsuffixed_artefacts_of_a_pull_request_run(self):
+        plain = self.root / 'plain'
+        for report, relative in (
+            (self.sentinel, 'sentinel/sentinel.xml'),
+            (self.feature, 'junit/junit-feature-core/feature.xml'),
+        ):
+            target = plain / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(report.read_text())
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), '--plain', str(self.manifest), str(plain), '1'],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        (plain / 'junit/junit-feature-core/feature.xml').unlink()
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), '--plain', str(self.manifest), str(plain), '1'],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+
     def test_rejects_missing_and_invalid_reports(self):
         for content in (
             None, '', '<broken', '<testsuites/>', '<html><testcase/></html>',

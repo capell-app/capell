@@ -12,8 +12,14 @@ def local_name(element):
     return element.tag.rsplit('}', 1)[-1]
 
 
-def validate(matrix_path, evidence_root, attempt):
-    if not re.fullmatch(r'[1-9][0-9]*', attempt):
+def validate(matrix_path, evidence_root, attempt, plain=False):
+    """Check every cell's report.
+
+    Reports from a run that opted into attempt-bound names live under
+    `...-attempt-N`; `plain` reads an ordinary pull-request run, whose
+    artefacts carry no attempt suffix.
+    """
+    if not plain and not re.fullmatch(r'[1-9][0-9]*', attempt):
         raise ValueError('The run attempt must be a positive integer.')
 
     matrix = json.loads(Path(matrix_path).read_text(encoding='utf-8'))
@@ -35,10 +41,11 @@ def validate(matrix_path, evidence_root, attempt):
         if cell_id in seen_ids:
             raise ValueError(f'Duplicate Test All cell [{cell_id}].')
         seen_ids.add(cell_id)
+        suffix = '' if plain else f'-attempt-{attempt}'
         directory = (
-            Path(evidence_root) / f'sentinel-attempt-{attempt}'
+            Path(evidence_root) / f'sentinel{suffix}'
             if cell_id.startswith('sentinel-')
-            else Path(evidence_root) / 'junit' / f"junit-{cell['artifact_slug']}-attempt-{attempt}"
+            else Path(evidence_root) / 'junit' / f"junit-{cell['artifact_slug']}{suffix}"
         )
         report = directory / cell['junit']
         if report in seen_reports:
@@ -70,11 +77,13 @@ def validate(matrix_path, evidence_root, attempt):
 
 
 def main(argv):
-    if len(argv) != 4:
-        print('Usage: check-merge-group-test-evidence.py <matrix.json> <evidence-directory> <run-attempt>', file=sys.stderr)
+    plain = '--plain' in argv
+    args = [argument for argument in argv if argument != '--plain']
+    if len(args) != 4:
+        print('Usage: check-merge-group-test-evidence.py [--plain] <matrix.json> <evidence-directory> <run-attempt>', file=sys.stderr)
         return 2
     try:
-        count = validate(argv[1], argv[2], argv[3])
+        count = validate(args[1], args[2], args[3], plain)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(error, file=sys.stderr)
         return 1
