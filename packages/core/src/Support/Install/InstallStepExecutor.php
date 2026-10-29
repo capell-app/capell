@@ -489,10 +489,13 @@ final class InstallStepExecutor
 
     private function runDoctorSummaryInFreshProcess(InstallRunState $state): int
     {
-        $reportPath = tempnam(sys_get_temp_dir(), 'capell-doctor-');
-        throw_unless(is_string($reportPath), RuntimeException::class, 'Unable to create a temporary health report.');
+        $reportPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'capell-doctor-' . bin2hex(random_bytes(16));
+        $reportFile = fopen($reportPath, 'x+b');
+        throw_unless(is_resource($reportFile), RuntimeException::class, 'Unable to create a temporary health report.');
 
         try {
+            throw_unless(chmod($reportPath, 0600), RuntimeException::class, 'Unable to secure the temporary health report.');
+            fclose($reportFile);
             $exitCode = resolve(ArtisanSubprocessRunner::class)->run(
                 [
                     'capell:doctor',
@@ -525,6 +528,10 @@ final class InstallStepExecutor
 
             return $exitCode;
         } finally {
+            if (is_resource($reportFile)) {
+                fclose($reportFile);
+            }
+
             unlink($reportPath);
         }
     }

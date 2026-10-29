@@ -531,9 +531,12 @@ it('runs the final doctor summary in a fresh process even when the command is vi
 });
 
 it('retains warning totals from the fresh doctor process', function (): void {
-    $processes = FakeProcessFactory::bind()->push(onRun: function ($process): void {
+    $reportPath = null;
+    $processes = FakeProcessFactory::bind()->push(onRun: function ($process) use (&$reportPath): void {
         $argument = collect($process->command)->first(fn (string $value): bool => str_starts_with($value, '--report-json='));
-        file_put_contents(substr($argument, strlen('--report-json=')), json_encode(['checks' => [
+        $reportPath = substr($argument, strlen('--report-json='));
+        expect(fileperms($reportPath) & 0777)->toBe(0600);
+        file_put_contents($reportPath, json_encode(['checks' => [
             ['passed' => true, 'severity' => 'warning', 'message' => '198 manifest contract warning(s).', 'evidence' => ['warning_count' => 198]],
         ]], JSON_THROW_ON_ERROR));
     });
@@ -543,6 +546,7 @@ it('retains warning totals from the fresh doctor process', function (): void {
     resolve(InstallStepExecutor::class)->execute(InstallPlan::STEP_RUN_DOCTOR_SUMMARY, $state);
 
     expect($state->doctorWarnings)->toBe([['message' => '198 manifest contract warning(s).', 'count' => 198]])
+        ->and(file_exists($reportPath))->toBeFalse()
         ->and($processes->processes)->toHaveCount(1);
 });
 
