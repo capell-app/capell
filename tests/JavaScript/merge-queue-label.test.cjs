@@ -19,7 +19,6 @@ const execute = new (Object.getPrototypeOf(async function () {}).constructor)(
 )
 const pr = (number, extra = {}) => ({
     number,
-    created_at: `2026-01-${String(number).padStart(2, '0')}T00:00:00Z`,
     state: 'open',
     draft: false,
     base: { ref: 'main' },
@@ -28,225 +27,158 @@ const pr = (number, extra = {}) => ({
     node_id: `PR_${number}`,
     ...extra,
 })
+
 async function run(pulls, options = {}) {
     const calls = []
-    const reads = new Map()
+    const notices = []
+    const warnings = []
+    const byNumber = new Map(
+        pulls.map((candidate) => [candidate.number, candidate]),
+    )
     const app = {
-        rest: {
-            pulls: {
-                updateBranch: async (p) => {
-                    calls.push(['update', p.pull_number, p.expected_head_sha])
-                },
-            },
-            issues: {
-                removeLabel: async (p) => {
-                    calls.push(['failed', p.issue_number])
-                },
-            },
-        },
         graphql: async (query, vars) => {
-            if (query.includes('QueueState'))
+            if (query.includes('query State')) {
+                const state = options.states?.[vars.id] || {}
                 return {
                     node: {
-                        mergeQueue: options.noQueue
-                            ? null
-                            : {
-                                  id: 'queue',
-                                  entries: { totalCount: options.busy ? 1 : 0 },
-                              },
-                    },
-                }
-            if (query.includes('Candidate')) {
-                const state = options.states?.[Number(vars.id.slice(3))] || {}
-                return {
-                    node: {
-                        mergeStateStatus: state.mergeState || 'CLEAN',
+                        autoMergeRequest: state.autoMerge
+                            ? { enabledAt: 'now' }
+                            : null,
                         mergeQueueEntry: state.queued ? { id: 'entry' } : null,
-                        timelineItems: {
-                            nodes: state.removed
-                                ? [
-                                      {
-                                          __typename: 'LabeledEvent',
-                                          label: { name: 'ready-to-merge' },
-                                      },
-                                      {
-                                          __typename:
-                                              'RemovedFromMergeQueueEvent',
-                                          reason: 'Checks failed',
-                                      },
-                                  ]
-                                : [],
-                        },
                     },
                 }
             }
-            calls.push(['enqueue', vars.id, vars.sha])
-            return { enqueuePullRequest: { mergeQueueEntry: { id: 'entry' } } }
+            if (query.includes('disablePullRequestAutoMerge')) {
+                calls.push(['disable', vars.id])
+                return {}
+            }
+            if (query.includes('enablePullRequestAutoMerge')) {
+                if (options.cleanStatus) {
+                    throw new Error('Pull request is in clean status')
+                }
+                calls.push(['enable', vars.id, vars.sha])
+                return {}
+            }
+            if (query.includes('enqueuePullRequest')) {
+                calls.push(['enqueue', vars.id, vars.sha])
+                return {}
+            }
+            throw new Error(`Unexpected query: ${query}`)
         },
     }
-
     const github = {
-        paginate: async () => pulls,
         rest: {
             pulls: {
-                list: () => {},
-                get: async ({ pull_number }) => {
-                    const count = (reads.get(pull_number) || 0) + 1
-                    reads.set(pull_number, count)
-                    return {
-                        data:
-                            (count > 1 && options.changedOnSecond) ||
-                            options.fresh ||
-                            pulls.find((p) => p.number === pull_number),
-                    }
-                },
-            },
-            repos: {
-                compareCommitsWithBasehead: async ({ basehead }) => ({
-                    data: {
-                        behind_by: options.behind?.includes(
-                            basehead.split('...')[1],
-                        )
-                            ? 1
-                            : 0,
-                    },
+                list: 'list',
+                get: async ({ pull_number }) => ({
+                    data: byNumber.get(pull_number),
                 }),
             },
         },
-        graphql: async (query, vars) => {
-            assert.ok(query.includes('CheckState'))
-            const state = options.states?.[Number(vars.id.slice(3))] || {}
-            return {
-                node: {
-                    statusCheckRollup:
-                        state.rollup === null
-                            ? null
-                            : { state: state.rollup || 'SUCCESS' },
-                },
-            }
-        },
+        paginate: async () =>
+            pulls.filter((candidate) => candidate.state === 'open'),
     }
-
-    process.env.QUEUE_TOKEN = 'fixture'
-    let error
+    process.env.QUEUE_TOKEN = 'token'
+    process.env.PR_NUMBER =
+        options.number === undefined ? '' : String(options.number)
+    let error = null
     try {
         await execute(
             github,
             { repo: { owner: 'x', repo: 'y' } },
-            { notice: () => {}, info: () => {}, warning: () => {} },
+            {
+                notice: (message) => notices.push(message),
+                info: () => {},
+                warning: (message) => warnings.push(message),
+            },
             () => app,
         )
     } catch (e) {
         error = e
     }
-    return { calls, error }
+    return { calls, error, notices, warnings }
 }
+
 ;(async () => {
-    const a = pr(1),
-        b = pr(2)
-    assert.deepEqual((await run([b, a])).calls, [
+    const a = pr(1)
+    assert.deepEqual((await run([a], { number: 1 })).calls, [
+        ['enable', 'PR_1', a.head.sha],
+    ])
+    assert.deepEqual((await run([a], { number: 1, cleanStatus: true })).calls, [
         ['enqueue', 'PR_1', a.head.sha],
     ])
-    assert.deepEqual((await run([b, a], { behind: [a.head.sha] })).calls, [
-        ['update', 1, a.head.sha],
+    assert.deepEqual(
+        (await run([a], { number: 1, states: { PR_1: { autoMerge: true } } }))
+            .calls,
+        [],
+    )
+    assert.deepEqual(
+        (await run([a], { number: 1, states: { PR_1: { queued: true } } }))
+            .calls,
+        [],
+    )
+
+    const draft = pr(2, { draft: true })
+    assert.deepEqual((await run([draft], { number: 2 })).calls, [])
+    assert.deepEqual(
+        (
+            await run([draft], {
+                number: 2,
+                states: { PR_2: { autoMerge: true } },
+            })
+        ).calls,
+        [['disable', 'PR_2']],
+    )
+    const held = pr(3, {
+        labels: [{ name: 'ready-to-merge' }, { name: 'awaiting-merge' }],
+    })
+    assert.deepEqual(
+        (
+            await run([held], {
+                number: 3,
+                states: { PR_3: { autoMerge: true } },
+            })
+        ).calls,
+        [['disable', 'PR_3']],
+    )
+    const unlabelled = pr(4, { labels: [] })
+    assert.deepEqual(
+        (
+            await run([unlabelled], {
+                number: 4,
+                states: { PR_4: { autoMerge: true } },
+            })
+        ).calls,
+        [['disable', 'PR_4']],
+    )
+    assert.deepEqual(
+        (
+            await run([unlabelled], {
+                number: 4,
+                states: { PR_4: { queued: true } },
+            })
+        ).calls,
+        [],
+        'a queued pull request is left for GitHub to dequeue',
+    )
+
+    const fork = pr(5, {
+        head: { sha: 'b'.repeat(40), repo: { full_name: 'other/y' } },
+    })
+    const forked = await run([fork], { number: 5 })
+    assert.deepEqual(forked.calls, [])
+    assert.match(forked.warnings[0], /fork/)
+
+    const sweep = await run([
+        pr(6),
+        pr(7, { draft: true }),
+        pr(8, { labels: [] }),
     ])
-    assert.deepEqual(
-        (await run([b, a], { states: { 1: { rollup: 'PENDING' } } })).calls,
-        [],
-    )
-    assert.deepEqual(
-        (await run([b, a], { states: { 1: { rollup: 'FAILURE' } } })).calls,
-        [
-            ['failed', 1],
-            ['enqueue', 'PR_2', b.head.sha],
-        ],
-    )
-    assert.deepEqual(
-        (await run([b, a], { states: { 1: { removed: true } } })).calls,
-        [
-            ['failed', 1],
-            ['enqueue', 'PR_2', b.head.sha],
-        ],
-    )
-    assert.deepEqual(
-        (await run([b, a], { states: { 1: { rollup: null } } })).calls,
-        [],
-    )
-    assert.deepEqual(
-        (await run([b, a], { states: { 1: { rollup: 'ERROR' } } })).calls,
-        [
-            ['failed', 1],
-            ['enqueue', 'PR_2', b.head.sha],
-        ],
-    )
-    assert.deepEqual(
-        (await run([b, a], { states: { 1: { mergeState: 'UNKNOWN' } } })).calls,
-        [],
-    )
-    assert.deepEqual(
-        (
-            await run([
-                pr(1, {
-                    head: { ...a.head, repo: { full_name: 'fork/project' } },
-                }),
-                b,
-            ])
-        ).calls,
-        [['enqueue', 'PR_2', b.head.sha]],
-    )
-    assert.deepEqual(
-        (
-            await run([b, a], {
-                behind: [a.head.sha],
-                states: { 1: { rollup: 'FAILURE' } },
-            })
-        ).calls,
-        [['update', 1, a.head.sha]],
-    )
-    assert.deepEqual(
-        (
-            await run([a], {
-                behind: [a.head.sha],
-                changedOnSecond: { ...a, labels: [] },
-            })
-        ).calls,
-        [],
-    )
-    assert.deepEqual((await run([b, a], { busy: true })).calls, [])
-    assert.deepEqual(
-        (await run([b, a], { states: { 1: { mergeState: 'DIRTY' } } })).calls,
-        [
-            ['failed', 1],
-            ['enqueue', 'PR_2', b.head.sha],
-        ],
-    )
-    assert.deepEqual(
-        (
-            await run([a], {
-                fresh: { ...a, head: { ...a.head, sha: 'b'.repeat(40) } },
-            })
-        ).calls,
-        [],
-    )
-    assert.ok((await run([a], { noQueue: true })).error)
-    assert.deepEqual(
-        (
-            await run([
-                pr(3, { draft: true }),
-                pr(4, {
-                    labels: [
-                        { name: 'ready-to-merge' },
-                        { name: 'awaiting-merge' },
-                    ],
-                }),
-                b,
-            ])
-        ).calls,
-        [['enqueue', 'PR_2', b.head.sha]],
-    )
-    console.log(
-        'Queue processes one oldest eligible PR, updates stale branches, waits, and advances after failures.',
-    )
+    assert.deepEqual(sweep.calls, [['enable', 'PR_6', pr(6).head.sha]])
+
+    const failing = pr(9)
+    const broken = await run([failing], { number: 9, cleanStatus: false })
+    assert.equal(broken.error, null)
 })().catch((error) => {
     console.error(error)
     process.exitCode = 1
