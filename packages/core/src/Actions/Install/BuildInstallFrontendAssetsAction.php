@@ -15,10 +15,10 @@ final class BuildInstallFrontendAssetsAction
     use AsFake;
     use AsObject;
 
-    public function handle(?ProgressReporter $reporter = null): void
+    public function handle(?ProgressReporter $reporter = null, bool $frontendExpected = false): void
     {
         // Frontend owns package-manager detection, dependencies and Vite integration.
-        if (array_key_exists('capell:frontend-after-install', Artisan::all())) {
+        if ($frontendExpected || array_key_exists('capell:frontend-after-install', Artisan::all())) {
             RunArtisanCommandAction::run('capell:frontend-after-install', ['--apply' => true, '--no-interaction' => true], $reporter);
 
             return;

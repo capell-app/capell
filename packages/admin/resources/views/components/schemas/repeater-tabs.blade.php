@@ -23,6 +23,8 @@
     $syncActiveTab = $isActiveTabSyncedWithServer()
         ? '$watch(\'tab\', value => $wire.set(' . \Illuminate\Support\Js::from($field->getContainer()->getStatePath() . '.activeTab') . ', value))'
         : '';
+    $alpineData = 'capellRepeaterTabs({ activeTab: $wire.$entangle(' . \Illuminate\Support\Js::from($getActiveTabStatePath()) . ') })';
+    $refreshTabs = '$event.detail.statePath === ' . \Illuminate\Support\Js::from($statePath) . ' ? refresh($event.detail.tabId) : null';
     $label = $getLabel();
     $flagIconRenderer = app(FlagIconRenderer::class);
 @endphp
@@ -32,13 +34,9 @@
     :field="$field"
     x-load
     x-load-src="{{ FilamentAsset::getAlpineComponentSrc('capell-repeater-tabs', 'capell-admin') }}"
-    x-data="capellRepeaterTabs({ activeTab: $wire.$entangle(@js($getActiveTabStatePath())) })"
-    x-on:refresh-tabs.window="
-        $event.detail.statePath === @js($statePath)
-            ? refresh($event.detail.tabId)
-            : null
-    "
-    x-init="{{ $syncActiveTab }}"
+    :x-data="$alpineData"
+    :x-on:refresh-tabs.window="$refreshTabs"
+    :x-init="$syncActiveTab"
     x-cloak
     wire:key="{{ $livewireKey }}.nav"
     :attributes="

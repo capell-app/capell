@@ -52,7 +52,10 @@ final class InstallCommandPresenter
         Factory $components,
     ): void {
         $output->newLine();
-        $output->writeln('<fg=blue;options=bold>Capell Install Handoff</>');
+        $title = $handoff->status === 'completed'
+            ? __('capell-core::install.handoff.completed_title')
+            : __('capell-core::install.handoff.incomplete_title');
+        $output->writeln('<fg=blue;options=bold>' . OutputFormatter::escape($title) . '</>');
         $output->newLine();
 
         $components->twoColumnDetail(
@@ -65,7 +68,15 @@ final class InstallCommandPresenter
         $components->twoColumnDetail('Admin URL', $handoff->urls['admin'] ?? 'Unavailable');
         $components->twoColumnDetail('Public URL', $handoff->urls['public']);
         $components->twoColumnDetail('First page', $handoff->firstPage['status']);
-        $components->twoColumnDetail('Warnings', (string) count($handoff->warnings));
+        $components->twoColumnDetail('Warnings', (string) ($handoff->warningCount ?? count($handoff->warnings)));
+
+        if ($handoff->warnings !== []) {
+            $output->newLine();
+            $output->writeln('<options=bold>' . __('capell-core::install.handoff.warnings_title') . '</>');
+            foreach ($handoff->warnings as $warning) {
+                $output->writeln('  • ' . OutputFormatter::escape($warning));
+            }
+        }
 
         $this->outputTips($handoff, $output);
 

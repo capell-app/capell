@@ -71,11 +71,13 @@ repos:
         description: Fail when Rector would still rewrite a staged PHP file.
         entry: .pre-commit/rector.sh
         language: script
+        require_serial: true
         types: [php]
         stages: [pre-commit]
       - id: prettier
         name: Format code with Prettier
         entry: .pre-commit/prettier.sh
+        require_serial: true
         language: script
         files: \.blade\.php$|\.css$|\.js$|\.yml$
         stages: [pre-commit]

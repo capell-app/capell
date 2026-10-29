@@ -34,6 +34,7 @@
     },
     "commands": {
         "install": "capell:admin-install",
+        "installParams": ["initial-installation"],
         "setup": "capell:admin-setup",
         "upgrade": "capell:admin-upgrade",
         "setupParams": [

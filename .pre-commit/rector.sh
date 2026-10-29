@@ -31,7 +31,7 @@ fi
 # anything to apply; it never writes, so a passing commit is never silently
 # reformatted underneath the author.
 if ! XDEBUG_MODE=off ./vendor/bin/rector process --dry-run --no-progress-bar "$@"; then
-    echo -e "${BOLD_YELLOW} Rector would rewrite staged files.${YELLOW} Run 'composer rector', re-stage, and try again.${NC}"
+    echo -e "${BOLD_YELLOW} Rector check failed.${YELLOW} See the diagnostics above; if rewrites are listed, run 'composer rector' and re-stage.${NC}"
     exit 1
 fi
 

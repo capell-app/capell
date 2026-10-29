@@ -977,6 +977,128 @@
                     "selector": "table:has(th:has-text('URL'))"
                 }
             ]
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "scenario": "admin-form",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-parent",
+            "title": "Parent page language actions.",
+            "target": "PageResource/EditPage",
+            "url": "/screenshot-fixtures/actions/parent",
+            "waitFor": "form",
+            "docsPage": "docs/getting-started/create-your-first-page.md",
+            "output": "docs/images/generated/admin/action-parent-languages.png",
+            "interactions": [
+                {
+                    "type": "waitFor",
+                    "selector": "text=Edit parent translations"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "text=Recheck parent languages"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": "text=Recheck parent languages"
+                }
+            ],
+            "covers": [
+                "packages/admin/src/Filament/Components/Forms/Page/ParentSelect.php"
+            ],
+            "notes": "Selected parent on an authenticated page edit form exposes the parent language actions."
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "scenario": "admin-form",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-site",
+            "title": "Page site language reconciliation.",
+            "target": "PageResource/CreatePage",
+            "url": "/screenshot-fixtures/actions/site",
+            "waitFor": "form",
+            "docsPage": "docs/getting-started/create-your-first-page.md",
+            "output": "docs/images/generated/admin/action-site-languages.png",
+            "interactions": [
+                {
+                    "type": "click",
+                    "selector": "button[id=\"form.site_id\"]"
+                },
+                {
+                    "type": "click",
+                    "selector": "[role=option]:has-text(\"Screenshot French site\")"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "text=Use site languages"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": "text=Use site languages"
+                }
+            ],
+            "covers": [
+                "packages/admin/src/Filament/Components/Forms/Page/SiteSelect.php"
+            ],
+            "notes": "A site change with an unsupported translation exposes the reconciliation action."
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "scenario": "admin-form",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-dashboard-settings",
+            "title": "Dashboard widget settings.",
+            "target": "Settings",
+            "url": "/settings",
+            "waitFor": "form",
+            "docsPage": "docs/admin/interface.md",
+            "output": "docs/images/generated/admin/action-dashboard-settings.png",
+            "interactions": [
+                {
+                    "type": "click",
+                    "selector": "button[role=tab]:has-text('Dashboard')"
+                },
+                {
+                    "type": "waitFor",
+                    "selector": "text=Restore recommended main dashboard layout"
+                },
+                {
+                    "type": "scrollIntoView",
+                    "selector": "text=Restore recommended main dashboard layout"
+                }
+            ],
+            "covers": [
+                "packages/admin/src/Filament/Settings/Schemas/DashboardSettingsSchema.php"
+            ],
+            "notes": "The dashboard settings section displays its restore-layout action."
+        },
+        {
+            "package": "documentation",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "scenario": "admin-form",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-marketplace-purchases",
+            "title": "Marketplace purchases actions.",
+            "target": "MarketplacePurchasesPage",
+            "url": "/extensions/marketplace/purchases",
+            "waitFor": "text=Run heartbeat",
+            "docsPage": "docs/operations/debugging-marketplace.md",
+            "output": "docs/images/generated/admin/action-marketplace-purchases.png",
+            "covers": [
+                "packages/marketplace/src/Filament/Pages/MarketplacePurchasesPage.php"
+            ],
+            "notes": "The purchases page displays the heartbeat action without connecting a real account."
         }
     ]
 }
