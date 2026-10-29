@@ -7,11 +7,11 @@ namespace Capell\Core\Actions\Install;
 use Capell\Core\Data\Install\TableCollisionData;
 use Capell\Core\Support\Migration\MigrationRootRegistry;
 use Capell\Core\Support\TableName;
+use Composer\InstalledVersions;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
-use Spatie\Tags\Tag;
 
 final class FindTableCollisionsAction
 {
@@ -79,7 +79,7 @@ final class FindTableCollisionsAction
             ['stored_events', config('capell.database.external_tables.stored_events', 'stored_events'), 'capell.database.external_tables.stored_events', '2026_06_26_000001_create_stored_events_table'],
             ['snapshots', config('capell.database.external_tables.snapshots', 'snapshots'), 'capell.database.external_tables.snapshots', '2026_06_26_000002_create_snapshots_table'],
         ];
-        if (class_exists(Tag::class) || in_array('capell-app/tags', $packages, true)) {
+        if (InstalledVersions::isInstalled('spatie/laravel-tags') || in_array('capell-app/tags', $packages, true)) {
             $external[] = ['tags', config('capell.database.external_tables.tags', 'tags'), 'capell.database.external_tables.tags', 'create_tag_tables'];
             $external[] = ['taggables', config('tags.taggable.table_name', 'taggables'), 'tags.taggable.table_name', 'create_tag_tables'];
         }

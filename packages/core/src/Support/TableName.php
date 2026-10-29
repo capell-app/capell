@@ -10,6 +10,9 @@ use RuntimeException;
 
 final class TableName
 {
+    /** Spatie's tag model is an optional integration, so it is referenced by name. */
+    public const string SPATIE_TAG_MODEL = 'Spatie\\Tags\\Tag';
+
     public static function existsAndIsOwned(string $name, string $migration): bool
     {
         $table = self::resolve($name);

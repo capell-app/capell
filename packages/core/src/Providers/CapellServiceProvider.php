@@ -215,6 +215,7 @@ use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
+use Composer\InstalledVersions;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -233,7 +234,6 @@ use Override;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
 use Spatie\Permission\Models\Role;
-use Spatie\Tags\Tag;
 use Throwable;
 
 class CapellServiceProvider extends AbstractPackageServiceProvider
@@ -271,8 +271,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
 
         config(['media-library.media_model' => Media::class]);
         if (config('capell.database.external_tables.tags', 'tags') !== 'tags'
-            && class_exists(Tag::class)
-            && config('tags.tag_model', Tag::class) === Tag::class) {
+            && InstalledVersions::isInstalled('spatie/laravel-tags')
+            && config('tags.tag_model', TableName::SPATIE_TAG_MODEL) === TableName::SPATIE_TAG_MODEL) {
             require_once dirname(__DIR__, 2) . '/stubs/external-tag-model.php.stub';
             config(['tags.tag_model' => 'Capell\\Core\\Models\\ExternalTag']);
         }

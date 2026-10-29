@@ -70,13 +70,11 @@ final class WriteTableConfigurationAction
         $replaced = [];
         try {
             foreach ($outputs as $path => $content) {
-                $temporary = tempnam($directory, 'capell-table-');
-                throw_unless(is_string($temporary), RuntimeException::class, 'Cannot stage configuration: ' . $path);
+                $temporary = $directory . '/capell-table-' . bin2hex(random_bytes(8));
                 $staged[$path] = $temporary;
                 throw_unless(File::put($temporary, $content) === strlen($content), RuntimeException::class, 'Cannot stage configuration: ' . $path);
                 if (is_file($path)) {
-                    $backup = tempnam($directory, 'capell-backup-');
-                    throw_unless(is_string($backup), RuntimeException::class, 'Cannot back up configuration: ' . $path);
+                    $backup = $directory . '/capell-backup-' . bin2hex(random_bytes(8));
                     $backups[$path] = $backup;
                     throw_unless(copy($path, $backup), RuntimeException::class, 'Cannot back up configuration: ' . $path);
                     $permissions = fileperms($path);
