@@ -700,9 +700,9 @@ class CapellDashboard extends Dashboard
         $addedText = $added ? '<span class="block text-xs font-medium">' . e((string) __('capell-admin::dashboard.work_first_show_widget')) . '</span>' : '';
 
         $shape = match ($key) {
-            PageViewsWidget::class, PopularPagesWidget::class, RisingPagesWidget::class => '<span class="flex h-7 items-end gap-1"><span class="h-2 w-2 bg-gray-300"></span><span class="h-4 w-2 bg-gray-400"></span><span class="h-6 w-2 bg-gray-500"></span></span>',
-            AttentionWidget::class => '<span class="flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-gray-500"></span><span class="h-1 w-8 rounded bg-gray-300"></span></span>',
-            default => '<span class="flex flex-col gap-1"><span class="h-1 w-8 rounded bg-gray-400"></span><span class="h-1 w-10 rounded bg-gray-200 dark:bg-gray-700"></span><span class="h-1 w-6 rounded bg-gray-200 dark:bg-gray-700"></span></span>',
+            PageViewsWidget::class, PopularPagesWidget::class, RisingPagesWidget::class => '<svg width="48" height="28" viewBox="0 0 48 28" fill="currentColor" opacity="0.5"><rect x="3" y="20" width="8" height="6"/><rect x="17" y="12" width="8" height="14"/><rect x="31" y="2" width="8" height="24"/></svg>',
+            AttentionWidget::class => '<svg width="48" height="28" viewBox="0 0 48 28" fill="currentColor" opacity="0.5"><circle cx="5" cy="14" r="4"/><rect x="14" y="12" width="30" height="4" rx="2"/></svg>',
+            default => '<svg width="48" height="28" viewBox="0 0 48 28" fill="currentColor" opacity="0.5"><rect x="2" y="4" width="32" height="4" rx="2"/><rect x="2" y="12" width="42" height="4" rx="2" opacity="0.5"/><rect x="2" y="20" width="24" height="4" rx="2" opacity="0.5"/></svg>',
         };
 
         return new HtmlString('<div class="flex items-center gap-3"><span aria-hidden="true" class="flex h-10 w-14 items-center rounded border border-gray-300 p-1 dark:border-gray-600">' . $shape . '</span><span><span class="block text-xs text-gray-500">' . $groupLabel . ' · ' . $previewLabel . '</span><span class="block font-medium">' . $label . '</span><span class="block text-xs text-gray-500">' . $purpose . '</span>' . $requirementsText . $addedText . '</span></div>');
