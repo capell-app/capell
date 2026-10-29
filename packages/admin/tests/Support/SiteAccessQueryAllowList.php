@@ -40,6 +40,7 @@ final class SiteAccessQueryAllowList
             'packages/admin/src/Support/Workspace/AdminWorkspacePreferenceStore.php' => [
                 'dashboardScope|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'dashboardAdvisoryDecision|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
+                'dashboardRecoveryState|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'dashboardLayout|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'dashboardOptions|$actor->newQuery()->whereKey($actor->getKey())->value(self::COLUMN)',
                 'merge|$actor->newQuery()->whereKey($actor->getKey())',

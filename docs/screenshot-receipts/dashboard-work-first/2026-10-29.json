@@ -20,7 +20,7 @@
     "schemaVersion": 2,
     "generator": "shared-capell-screenshot-runner",
     "policy": "runner-only-v2",
-    "generatedAt": "2026-10-29T01:58:17.845Z",
+    "generatedAt": "2026-10-29T08:29:55.527Z",
     "dryRun": false,
     "runner": {
       "version": "0.1.0",
@@ -34,7 +34,7 @@
     "sources": [
       {
         "repository": "https://github.com/capell-app/capell.git",
-        "revision": "919c120aced6e00daa25ec3d877eeb65422db106",
+        "revision": "f74d5d917f054d6ab5eef64d2b70e340e6d80ea2",
         "clean": true,
         "lockFiles": [
           {
@@ -65,7 +65,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/admin-dashboard.png",
-          "sha256": "ce3e1bcb6e44bf606d319b5da2a4ef48468ecb1ded4253a1425a874bdd83c4e6"
+          "sha256": "f3f937cb6bef062c6b2ed742284da3d0c7750ece1a525ea5d9f93e2ccf8cd455"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -73,7 +73,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "919c120aced6e00daa25ec3d877eeb65422db106"
+          "revision": "f74d5d917f054d6ab5eef64d2b70e340e6d80ea2"
         },
         "capture": {
           "scenario": "admin-dashboard",
@@ -185,7 +185,7 @@
         "acceptance": "accepted",
         "output": {
           "path": "packages/admin/docs/images/screenshots/admin-dashboard-dark.png",
-          "sha256": "2fd9441dead61d34ebfc3b70513b21a2f5d52ceac2c2f9c762be8fd0cf905819"
+          "sha256": "3bae7dbbd7600f01a98558c943890bff9130317c84f0cef3231cdd4b74a5d693"
         },
         "manifest": {
           "path": "packages/admin/docs/screenshots.json",
@@ -193,7 +193,7 @@
         },
         "source": {
           "repository": "https://github.com/capell-app/capell.git",
-          "revision": "919c120aced6e00daa25ec3d877eeb65422db106"
+          "revision": "f74d5d917f054d6ab5eef64d2b70e340e6d80ea2"
         },
         "capture": {
           "scenario": "admin-dashboard",

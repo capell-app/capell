@@ -18,6 +18,8 @@ return [
     'contact_admin' => 'Ask a site administrator to resolve this.',
     'dismiss' => 'Not relevant to me',
     'snooze' => 'Remind me tomorrow',
+    'dismiss_confirmation' => 'Dismiss',
+    'recovery_history' => 'Resolved issues',
     'resolved' => 'A previously shown issue is now resolved.',
     'urgent_count' => '{1} :count urgent issue needs attention|[2,*] :count urgent issues need attention',
     'urgent_details' => 'Show urgent issues',
