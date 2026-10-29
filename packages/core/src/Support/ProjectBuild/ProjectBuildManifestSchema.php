@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\ProjectBuild;
 
-/** @internal */
+/** @experimental */
 final class ProjectBuildManifestSchema
 {
     /** @return array<string, mixed> */

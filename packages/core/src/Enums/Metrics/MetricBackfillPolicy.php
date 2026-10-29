@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Enums\Metrics;
 
-/** @internal */
+/** @experimental */
 enum MetricBackfillPolicy: string
 {
     case Supported = 'supported';

@@ -45,3 +45,35 @@ test('always passes the config, since the runner ignores it otherwise', () => {
     assert.deepEqual(args.slice(0, 2), ['--config', 'screenshots.config.mjs'])
     assert.equal(args.at(-1), '--skip-build')
 })
+
+test('screenshot configuration validates and applies its local port', () => {
+    const { spawnSync } = require('node:child_process')
+    const script = `import('./screenshots.config.mjs').then(({default: c}) => console.log(JSON.stringify([c.urls.frontend, c.app.serve.readyUrl, c.app.serve.args, c.environment.CAPELL_SCREENSHOT_PORT])))`
+    const run = (port) => {
+        const env = { ...process.env }
+        if (port === undefined) delete env.CAPELL_SCREENSHOT_PORT
+        else env.CAPELL_SCREENSHOT_PORT = port
+        return spawnSync(process.execPath, ['-e', script], {
+            cwd: require('node:path').resolve(__dirname, '..'),
+            env,
+            encoding: 'utf8',
+        })
+    }
+    for (const [port, expected] of [
+        [undefined, '8145'],
+        ['18147', '18147'],
+    ]) {
+        const result = run(port)
+        assert.equal(result.status, 0, result.stderr)
+        const [frontend, ready, args, environment] = JSON.parse(result.stdout)
+        assert.equal(frontend, `http://127.0.0.1:${expected}`)
+        assert.equal(ready, `${frontend}/__ping`)
+        assert.ok(args.includes(`--port=${expected}`))
+        assert.equal(environment, expected)
+    }
+    for (const port of ['0', '1023', '65536', '12abc', '']) {
+        const result = run(port)
+        assert.notEqual(result.status, 0)
+        assert.match(result.stderr, /CAPELL_SCREENSHOT_PORT must be an integer/)
+    }
+})

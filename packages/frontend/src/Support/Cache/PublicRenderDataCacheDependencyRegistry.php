@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Cache;
 
 /** Persists the exact public render cache destinations touched by a model.
  *
- * @internal
+ * @experimental
  */
 final class PublicRenderDataCacheDependencyRegistry
 {

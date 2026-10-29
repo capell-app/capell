@@ -6,7 +6,7 @@ namespace Capell\Frontend\Data;
 
 use Capell\Frontend\Enums\FrontendComponentTarget;
 
-/** @internal */
+/** @experimental */
 final readonly class FrontendComponentContributionData
 {
     public function __construct(

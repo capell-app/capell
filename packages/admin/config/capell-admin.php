@@ -21,6 +21,30 @@ $notificationEmails = array_values(array_filter(
 ));
 
 return [
+    'dashboard' => [
+        // Existing installations opt in explicitly; fresh-install wiring is separate.
+        'work_first' => [
+            'enabled' => env('CAPELL_WORK_FIRST_DASHBOARD', false),
+            // Keys may be a built-in widget key or a registered widget class.
+            'widgets' => [],
+            // Optional class-keyed label, description, group and requirements.
+            'widget_metadata' => [],
+            'site_timezones' => [],
+            'analytics' => [
+                'visitors' => [
+                    'enabled' => false,
+                    'measure' => null,
+                    'source' => null,
+                ],
+                'rankings' => [
+                    'enabled' => false,
+                    'measure' => null,
+                    'source' => null,
+                ],
+            ],
+        ],
+    ],
+
     'path' => env('CAPELL_ADMIN_PATH', 'admin'),
 
     'domain' => env('CAPELL_ADMIN_DOMAIN'),

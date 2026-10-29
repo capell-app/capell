@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Capell\Admin\Filament\Widgets\Dashboard\WorkFirst;
+
+use Capell\Admin\Contracts\CapellFilamentWidgetContract;
+use Capell\Admin\Data\Dashboard\DashboardAttentionItemData;
+use Capell\Admin\Filament\Concerns\HasDashboardDateRange;
+use Capell\Admin\Filament\Concerns\WorkFirst\ChecksWorkFirstWidgetAccess;
+use Capell\Admin\Support\Dashboard\AdminDashboardDataRequestCache;
+use Filament\Widgets\Widget;
+use Livewire\Attributes\Computed;
+use Override;
+
+final class UrgentSummaryWidget extends Widget implements CapellFilamentWidgetContract
+{
+    use ChecksWorkFirstWidgetAccess;
+    use HasDashboardDateRange;
+
+    protected static string $workFirstSettingsKey = 'urgent_summary';
+
+    protected string $view = 'capell-admin::widgets.dashboard.work-first-urgent-summary';
+
+    protected int|string|array $columnSpan = 'full';
+
+    #[Override]
+    public static function canView(): bool
+    {
+        return self::widgetEnabled('urgent_summary');
+    }
+
+    /** @return list<DashboardAttentionItemData> */
+    #[Computed]
+    public function items(): array
+    {
+        $actor = auth()->user();
+        if (! self::canView() || $actor === null) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            resolve(AdminDashboardDataRequestCache::class)->attentionSnapshot($actor, $this->getDashboardSiteId(), $this->getDashboardLanguage()),
+            static fn (DashboardAttentionItemData $item): bool => $item->urgent,
+        ));
+    }
+}

@@ -23,6 +23,8 @@
     $syncActiveTab = $isActiveTabSyncedWithServer()
         ? '$watch(\'tab\', value => $wire.set(' . \Illuminate\Support\Js::from($field->getContainer()->getStatePath() . '.activeTab') . ', value))'
         : '';
+    $alpineData = 'capellRepeaterTabs({ activeTab: $wire.$entangle(' . \Illuminate\Support\Js::from($getActiveTabStatePath()) . ') })';
+    $refreshTabs = '$event.detail.statePath === ' . \Illuminate\Support\Js::from($statePath) . ' ? refresh($event.detail.tabId) : null';
     $label = $getLabel();
     $flagIconRenderer = app(FlagIconRenderer::class);
 @endphp
@@ -32,13 +34,9 @@
     :field="$field"
     x-load
     x-load-src="{{ FilamentAsset::getAlpineComponentSrc('capell-repeater-tabs', 'capell-admin') }}"
-    x-data="capellRepeaterTabs({ activeTab: $wire.$entangle(@js($getActiveTabStatePath())) })"
-    x-on:refresh-tabs.window="
-        $event.detail.statePath === @js($statePath)
-            ? refresh($event.detail.tabId)
-            : null
-    "
-    x-init="{{ $syncActiveTab }}"
+    :x-data="$alpineData"
+    :x-on:refresh-tabs.window="$refreshTabs"
+    :x-init="$syncActiveTab"
     x-cloak
     wire:key="{{ $livewireKey }}.nav"
     :attributes="
@@ -194,14 +192,15 @@
                     $id = $item->getLivewireKey() . '.panel';
                 @endphp
 
+                {{-- Panels resolve their index from the DOM: Alpine's morph skips attribute patching on a shown element, so an index written into the markup goes stale when a translation is removed. --}}
                 <div
                     x-bind:class="{
-                        'fi-active': tab === @js($loop->iteration),
+                        'fi-active': isActive($el),
                     }"
-                    x-on:expand="activate(@js($loop->iteration))"
-                    x-show="tab === @js($loop->iteration)"
-                    x-bind:aria-hidden="tab !== @js($loop->iteration)"
-                    x-bind:hidden="tab !== @js($loop->iteration)"
+                    x-on:expand="activate(panelIndex($el))"
+                    x-show="isActive($el)"
+                    x-bind:aria-hidden="! isActive($el)"
+                    x-bind:hidden="! isActive($el)"
                     @if ($activeTab !== $loop->iteration) hidden @endif
                     aria-hidden="{{ $activeTab === $loop->iteration ? 'false' : 'true' }}"
                     x-cloak

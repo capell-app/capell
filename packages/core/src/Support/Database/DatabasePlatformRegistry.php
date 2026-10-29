@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
-/** @internal */
+/** @experimental */
 final class DatabasePlatformRegistry
 {
     /** @var array<string, DatabasePlatform> */

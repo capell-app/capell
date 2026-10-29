@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use Capell\Tests\Support\CommandFixture;
+use Capell\Tests\Support\WorkflowConditionEvaluator;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml\Yaml;
 
@@ -61,19 +62,35 @@ it('recreates only the current worker database before sharded tests', function (
 it('starts sentinel independently of the still failing fast PR gate', function (): void {
     $workflow = Yaml::parseFile(dirname(__DIR__, 2) . '/.github/workflows/test-full.yml');
     $jobs = $workflow['jobs'];
+    $sentinelRuns = static fn (array $context): bool => new WorkflowConditionEvaluator($context + [
+        'github.actor' => 'octocat',
+        'github.event_name' => 'merge_group',
+        'needs.matrix.result' => 'success',
+        'inputs.cell' => '',
+    ])->evaluate($jobs['sentinel']['if']);
+
     expect($jobs['sentinel']['needs'])->toBe(['matrix'])
-        ->and($jobs['sentinel']['if'])->not->toContain('needs.fast-pr')
-        ->and($jobs['sentinel']['if'])->toContain(
-            "github.actor != 'dependabot[bot]'",
-            'always()',
-            "needs.matrix.result == 'success'",
-            "(github.event_name != 'pull_request' || github.event.pull_request.draft == false)",
-            "!(github.event_name == 'workflow_dispatch' && inputs.cell != '')",
-        )
+        // Fast-gate failures cannot keep the sentinel from starting, and the full matrix
+        // is reserved for the merge queue, a manual dispatch or a reusable-workflow call.
+        ->and($sentinelRuns([]))->toBeTrue()
+        ->and($sentinelRuns(['github.event_name' => 'workflow_dispatch']))->toBeTrue()
+        ->and($sentinelRuns(['github.event_name' => 'pull_request']))->toBeFalse()
+        ->and($sentinelRuns(['github.event_name' => 'workflow_dispatch', 'inputs.cell' => 'unit-core']))->toBeFalse()
+        ->and($sentinelRuns(['needs.matrix.result' => 'failure']))->toBeFalse()
+        ->and($sentinelRuns(['github.actor' => 'dependabot[bot]']))->toBeFalse()
         ->and($jobs['fast-pr']['uses'])->toBe('./.github/workflows/test-fast-pr.yml')
-        ->and($jobs['fast-pr']['if'])->toBe("\${{ github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' && github.event.pull_request.draft == false) }}")
         ->and($jobs['fast-pr']['continue-on-error'] ?? false)->toBeFalse()
         ->and($workflow['concurrency']['cancel-in-progress'])->toBeTrue();
+
+    $fastPrRuns = static fn (array $context): bool => new WorkflowConditionEvaluator($context + [
+        'github.actor' => 'octocat',
+        'github.event_name' => 'pull_request',
+        'github.event.pull_request.draft' => false,
+    ])->evaluate($jobs['fast-pr']['if']);
+    expect($fastPrRuns([]))->toBeTrue()
+        ->and($fastPrRuns(['github.event.pull_request.draft' => true]))->toBeFalse()
+        ->and($fastPrRuns(['github.event_name' => 'merge_group']))->toBeFalse()
+        ->and($fastPrRuns(['github.actor' => 'dependabot[bot]']))->toBeFalse();
     foreach (['test-behaviour', 'test-unit', 'test-portability'] as $job) {
         expect($jobs[$job]['needs'])->toBe(['sentinel', 'matrix']);
     }
