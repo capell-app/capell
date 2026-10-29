@@ -100,6 +100,7 @@ final class MakeThemeCommand extends Command
             targetPath: $targetDirectory,
             extends: $extends,
             local: $this->option('local') === true,
+            projectRoot: getcwd() ?: null,
         ));
 
         $this->info(sprintf('Created Capell theme: %s', $themeKey));
