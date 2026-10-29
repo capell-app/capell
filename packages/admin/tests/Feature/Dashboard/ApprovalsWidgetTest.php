@@ -75,3 +75,27 @@ it('denies direct widget access when reviews are unavailable', function (): void
     config()->set('capell-admin.dashboard.work_first.enabled', true);
     Livewire::test(ApprovalsWidget::class)->assertForbidden();
 });
+
+it('stops a mounted approvals provider including capability probes when disabled by class', function (): void {
+    $this->actingAsAdmin();
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    $provider = new class implements DashboardApprovalsDataProvider
+    {
+        public int $calls = 0;
+
+        /** @param list<int> $retainedPageIds */
+        #[Override]
+        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardApprovalsData
+        {
+            $this->calls++;
+
+            return new DashboardApprovalsData(true, true, true, 0, 0, null, []);
+        }
+    };
+    app()->instance(DashboardApprovalsDataProvider::class, $provider);
+    $widget = Livewire::test(ApprovalsWidget::class)->assertOk();
+    $before = $provider->calls;
+    config()->set('capell-admin.dashboard.work_first.widgets', [ApprovalsWidget::class => false]);
+    $widget->call('$refresh');
+    expect($provider->calls)->toBe($before)->and(ApprovalsWidget::canView())->toBeFalse();
+});

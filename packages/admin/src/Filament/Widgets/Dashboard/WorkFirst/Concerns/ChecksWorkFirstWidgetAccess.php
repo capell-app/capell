@@ -17,7 +17,7 @@ trait ChecksWorkFirstWidgetAccess
         $actor = auth()->user();
 
         return config('capell-admin.dashboard.work_first.enabled', false) === true
-            && (! is_array($switches) || ($switches[$key] ?? true) !== false)
+            && (! is_array($switches) || (($switches[$key] ?? true) !== false && ($switches[static::class] ?? true) !== false))
             && $actor !== null && ((SiteAccess::forActor($actor)->isGlobal() && Gate::forUser($actor)->allows('viewAny', Page::class))
                 || collect(resolve(DashboardSiteEvaluator::class)->siteIds($actor))
                     ->contains(fn (int $siteId): bool => resolve(DashboardSiteEvaluator::class)->allows($actor, $siteId, fn (): bool => Gate::forUser($actor)->allows('viewAny', Page::class))));

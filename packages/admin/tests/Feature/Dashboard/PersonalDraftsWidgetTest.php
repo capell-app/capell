@@ -138,3 +138,28 @@ it('clears the remembered site filter when opening all sites own drafts', functi
     parse_str((string) parse_url((string) $data->listUrl, PHP_URL_QUERY), $query);
     expect(data_get($query, 'tableFilters.site_id.value'))->toBe('');
 });
+
+it('stops an already mounted personal work provider when its class switch is disabled', function (): void {
+    $this->actingAsAdmin();
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    $provider = new class implements DashboardWorkDataProvider
+    {
+        public int $calls = 0;
+
+        /** @param list<int> $retainedPageIds */
+        #[Override]
+        public function build(Authenticatable $actor, ?int $siteId, int $limit, ?string $language = null, array $retainedPageIds = []): DashboardWorkData
+        {
+            $this->calls++;
+
+            return new DashboardWorkData(true, 0, []);
+        }
+    };
+    app()->instance(DashboardWorkDataProvider::class, $provider);
+    $widget = Livewire::test(PersonalDraftsWidget::class)->assertOk();
+    $before = $provider->calls;
+    expect($before)->toBeGreaterThan(0);
+    config()->set('capell-admin.dashboard.work_first.widgets', [PersonalDraftsWidget::class => false]);
+    $widget->call('$refresh');
+    expect($provider->calls)->toBe($before)->and(PersonalDraftsWidget::canView())->toBeFalse();
+});

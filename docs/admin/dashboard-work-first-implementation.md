@@ -117,3 +117,17 @@ provider's labels. Unsupported engagement and conversion measures are omitted.
 Site and language choices, personal layouts and advisory decisions are stored
 per user in the existing `admin_workspace_preferences` JSON column. Site-specific
 layouts are shared across individual sites; the All-sites layout is separate.
+
+## Installation recovery boundary
+
+A normal new installation enables the dashboard once, and an explicit environment
+or configuration opt-out is preserved. Saved installer inputs and caught step
+failures preserve the verified origin. The pending origin is bound to the current
+database configuration and its site/extension records; attaching a different
+established database cannot turn an upgrade into a new installation.
+
+If the installer process is terminated between a database write and its origin
+checkpoint, the retry conservatively uses the existing dashboard. Set
+`CAPELL_WORK_FIRST_DASHBOARD=true` to opt in after completing recovery. This
+feature does not add a database identity table or claim recovery from every
+uncatchable installation interruption.

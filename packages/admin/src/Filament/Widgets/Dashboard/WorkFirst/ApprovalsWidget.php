@@ -42,7 +42,7 @@ final class ApprovalsWidget extends Widget
 
         $actor = auth()->user();
         if (config('capell-admin.dashboard.work_first.enabled', false) !== true
-            || (is_array($switches) && ($switches['approvals'] ?? true) === false)
+            || (is_array($switches) && (($switches['approvals'] ?? true) === false || ($switches[self::class] ?? true) === false))
             || $actor === null) {
             return false;
         }
