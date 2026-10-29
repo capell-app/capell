@@ -172,10 +172,21 @@ final class ServeStaticMaintenancePage extends PreventRequestsDuringMaintenance
             return null;
         }
 
-        $contents = file_get_contents($path);
+        try {
+            $contents = file_get_contents($path);
+        } catch (Throwable) {
+            // The host may turn a failed read into an exception.
+            return null;
+        }
+
+        if ($contents === false || $contents === '') {
+            // An unreadable or empty stored page is unresolved, so the caller
+            // falls through to the translated fallback rather than a blank 503.
+            return null;
+        }
 
         return response(
-            $contents !== false ? $contents : '',
+            $contents,
             $maintenanceData['status'] ?? 503,
             [
                 ...$this->getHeaders($maintenanceData),
