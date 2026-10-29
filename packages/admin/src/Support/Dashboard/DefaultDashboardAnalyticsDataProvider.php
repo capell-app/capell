@@ -7,6 +7,7 @@ namespace Capell\Admin\Support\Dashboard;
 use Capell\Admin\Actions\Dashboard\BuildDashboardAnalyticsSnapshotAction;
 use Capell\Admin\Contracts\Dashboard\DashboardAnalyticsDataProvider;
 use Capell\Admin\Data\Dashboard\DashboardAnalyticsSnapshotData;
+use Capell\Admin\Enums\DashboardAnalyticsAvailabilityEnum;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -22,7 +23,14 @@ final class DefaultDashboardAnalyticsDataProvider implements DashboardAnalyticsD
                 'exception' => $throwable::class,
             ]);
 
-            return resolve(NullDashboardAnalyticsDataProvider::class)->build($actor, $period, $siteId, $language);
+            // Zero values here would read as "no activity", so say the figures are unavailable.
+            return new DashboardAnalyticsSnapshotData(
+                totalViews: 0,
+                recentViews: 0,
+                searches: 0,
+                activePages: 0,
+                availability: DashboardAnalyticsAvailabilityEnum::Unavailable,
+            );
         }
     }
 }
