@@ -43,7 +43,7 @@ final class InternalClassRule implements Rule
         $class = $this->reflectionProvider->getClass($name);
         $comment = $class->getNativeReflection()->getDocComment();
 
-        if ($comment === false || preg_match('/@internal\b/', $comment) !== 1) {
+        if ($comment === false || preg_match('/@(?:internal|experimental)\b/', $comment) !== 1) {
             return [];
         }
 

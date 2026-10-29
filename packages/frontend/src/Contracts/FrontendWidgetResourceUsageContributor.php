@@ -12,7 +12,7 @@ use Capell\Frontend\Data\FrontendRenderContextData;
  *
  * Implementations should be resolved per request and tagged with TAG.
  *
- * @internal
+ * @experimental
  */
 interface FrontendWidgetResourceUsageContributor
 {

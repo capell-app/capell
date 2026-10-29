@@ -9,7 +9,7 @@ use Capell\Core\Data\Publishing\PublicationReadinessContextData;
 use Capell\Core\Models\Contracts\Publishable;
 use Illuminate\Database\Eloquent\Model;
 
-/** @internal */
+/** @experimental */
 interface PublicationReadinessContributor
 {
     public const string TAG = 'capell.publication-readiness-contributor';

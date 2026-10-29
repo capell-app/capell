@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Support\Install;
 
+use Capell\Core\Actions\Install\DetectInitialInstallationAction;
 use Capell\Core\Data\InstallInputData;
 use Capell\Core\Data\NewUserData;
 use Capell\Core\Data\PackageData;
@@ -99,6 +100,7 @@ final class InstallInputFactory
             configureBoostDeveloperTooling: $installDeveloperTooling && (bool) ($validated['configure_boost_developer_tooling'] ?? false),
             additionalUsers: $additionalUsers,
             selectedThemeKey: resolve(ThemePackageCandidates::class)->inputThemeKey($selectedThemeKey),
+            initialInstallation: DetectInitialInstallationAction::run(),
         );
     }
 
@@ -157,6 +159,7 @@ final class InstallInputFactory
             additionalUsers: $additionalUsers,
             selectedThemeKey: $selectedThemeKey,
             seedDatabase: $seedDatabase,
+            initialInstallation: DetectInitialInstallationAction::run(),
         );
     }
 

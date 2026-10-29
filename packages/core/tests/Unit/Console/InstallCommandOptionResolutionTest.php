@@ -640,6 +640,22 @@ it('keeps explicitly empty package selections out of the basic defaults', functi
     expect(callInstallCommandMethod(installCommandForOptions(['--packages' => ''], true), 'usesBasicInstall'))->toBeFalse();
 });
 
+it('preserves pending package downloads when editing the site address', function (): void {
+    $command = installCommandForOptions([], true);
+    new ReflectionProperty(InstallCommand::class, 'basicInstall')->setValue($command, true);
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false, extraPackages: ['capell-app/admin', 'capell-app/frontend', 'capell-app/theme-foundation']);
+    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
+    $previousFallback = $fallback->getValue();
+    Prompt::fake([Key::SPACE, Key::ENTER, 'https://changed.test', Key::ENTER]);
+    $fallback->setValue(null, false);
+    try {
+        expect(callInstallCommandMethod($command, 'reviewInstallation', $input))->toBeTrue()
+            ->and(explode(',', $command->option('packages')))->toBe(['capell-app/admin', 'capell-app/frontend', 'capell-app/theme-foundation']);
+    } finally {
+        $fallback->setValue(null, $previousFallback);
+    }
+});
+
 it('restores the saved site URL and downloads missing profile packages through Composer', function (): void {
     config(['capell.install_profiles' => ['owned-profile' => ['packages' => ['capell-app/admin', 'vendor/not-yet-downloaded'], 'site_url' => 'https://example.test:8443/blog']]]);
     $command = installCommandForOptions(['--profile' => 'owned-profile', '--plan' => true]);

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Upgrade\RunPublishedDatabaseMigrationsAction;
+use Capell\Core\Data\MigrationRunResult;
 use Capell\Core\Support\Migration\MigrationFilesystemInterface;
 use Capell\Core\Tests\Support\Stubs\FakeMigrationFilesystem;
 use Capell\Frontend\Actions\GenerateTailwindAssetsAction;
@@ -16,6 +18,9 @@ use Symfony\Component\Console\Output\BufferedOutput;
 it('fails frontend lifecycle commands when required asset publication fails', function (string $commandClass, string $failedTag): void {
     $filesystem = new FakeMigrationFilesystem;
     app()->instance(MigrationFilesystemInterface::class, $filesystem);
+    RunPublishedDatabaseMigrationsAction::mock()
+        ->shouldReceive('handle')
+        ->andReturn(new MigrationRunResult(Command::SUCCESS, ''));
     $generatedAssets = bindFakeAction(GenerateTailwindAssetsAction::class, []);
     bindFakeAction(WriteViteInputManifestAction::class);
     bindFakeAction(IntegrateViteInputsAction::class);

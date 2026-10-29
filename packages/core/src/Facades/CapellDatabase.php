@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Facade;
  *
  * @see DatabasePlatformRegistry
  *
- * @internal
+ * @experimental
  */
 final class CapellDatabase extends Facade
 {

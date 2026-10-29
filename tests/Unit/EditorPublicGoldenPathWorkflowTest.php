@@ -39,7 +39,7 @@ it('prepares an isolated cache-enabled consumer and dispatches the public lifecy
         }
         PHP);
     $fixture->fake('php', 'if (in_array("--version", $argv, true)) { echo "Laravel Framework 13.0.0"; }');
-    $fixture->files->write('node_modules/.bin/playwright', '#!' . PHP_BINARY . <<<'PHP'
+    $fixture->files->write('node_modules/.bin/playwright', '#!' . PHP_BINARY . ' -n' . <<<'PHP'
 
         <?php
         file_put_contents(getenv('CAPELL_GOLDEN_PATH_ARTIFACT_DIR') . '/journey.json', json_encode([

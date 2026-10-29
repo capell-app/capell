@@ -7,7 +7,12 @@ const inheritedPhpScanDirectory = process.env.PHP_INI_SCAN_DIR
 const phpScanDirectory = inheritedPhpScanDirectory
     ? `${inheritedPhpScanDirectory}:${workbenchPhpConfig}`
     : `:${workbenchPhpConfig}`
-const appUrl = 'http://127.0.0.1:8145'
+const portValue = process.env.CAPELL_SCREENSHOT_PORT ?? '8145'
+if (!/^\d+$/.test(portValue) || Number(portValue) < 1024 || Number(portValue) > 65535) {
+    throw new Error('CAPELL_SCREENSHOT_PORT must be an integer from 1024 to 65535.')
+}
+const screenshotPort = Number(portValue)
+const appUrl = `http://127.0.0.1:${screenshotPort}`
 
 // Absolute URLs the app renders end up visible in captures — Filament shows one
 // in the page URL badge and the slug field — and a localhost URL reads as
@@ -44,7 +49,7 @@ export default {
                 'vendor/bin/testbench',
                 'serve',
                 '--host=127.0.0.1',
-                '--port=8145',
+                `--port=${screenshotPort}`,
                 '--no-reload',
                 '--no-interaction',
             ],
@@ -69,6 +74,7 @@ export default {
         APP_DEBUG: 'false',
         APP_URL: displayUrl,
         CAPELL_SCREENSHOT_DISPLAY_ORIGIN: displayUrl,
+        CAPELL_SCREENSHOT_PORT: String(screenshotPort),
         APP_KEY: 'base64:/MjiNkPfjAngJBfuMDsnFBxDynZGOKk3O6P0u0MhvJE=',
         DB_CONNECTION: 'sqlite',
         DB_DATABASE: join(

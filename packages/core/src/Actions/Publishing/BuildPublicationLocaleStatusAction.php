@@ -9,7 +9,7 @@ use Capell\Core\Data\Publishing\PublicationLocaleStatusData;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
-/** @internal */
+/** @experimental */
 final class BuildPublicationLocaleStatusAction
 {
     // AsFake is part of the Core action contract and keeps this action testable.

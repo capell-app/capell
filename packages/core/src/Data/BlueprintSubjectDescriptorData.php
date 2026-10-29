@@ -33,7 +33,7 @@ use Spatie\LaravelData\Data;
  * cross a Livewire boundary, where a closure dehydrates to `{}` and crashes the
  * component.
  *
- * @internal
+ * @experimental
  */
 final class BlueprintSubjectDescriptorData extends Data
 {
