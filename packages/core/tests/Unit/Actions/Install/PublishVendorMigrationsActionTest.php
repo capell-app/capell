@@ -236,47 +236,38 @@ it('removes a pending canonical vendor migration when a non-canonical one alread
     });
 });
 
-it('publishes activity log column migrations when the base activity log migration already exists', function (): void {
-    $migrationDirectory = database_path('migrations');
-    File::ensureDirectoryExists($migrationDirectory);
-
-    $eventColumnMigrations = File::glob($migrationDirectory . '/*_add_event_column_to_activity_log_table.php') ?? [];
-    $batchUuidColumnMigrations = File::glob($migrationDirectory . '/*_add_batch_uuid_column_to_activity_log_table.php') ?? [];
-    $activityLogColumnMigrations = [
-        ...$eventColumnMigrations,
-        ...$batchUuidColumnMigrations,
-    ];
-
-    foreach ($activityLogColumnMigrations as $activityLogColumnMigration) {
-        File::delete($activityLogColumnMigration);
+it('publishes host activity log column migrations when the base activity log migration already exists', function (): void {
+    $originalBasePath = app()->basePath();
+    $originalDatabasePath = app()->databasePath();
+    $originalConnection = DB::getDefaultConnection();
+    $sandbox = storage_path('framework/testing/vendor-column-publish-' . bin2hex(random_bytes(8)));
+    $hostMigrations = $sandbox . '/host/vendor/spatie/laravel-activitylog/database/migrations';
+    File::ensureDirectoryExists($hostMigrations);
+    File::ensureDirectoryExists($sandbox . '/migrations');
+    $stubs = ['add_event_column_to_activity_log_table', 'add_batch_uuid_column_to_activity_log_table'];
+    foreach ($stubs as $name) {
+        File::put($hostMigrations . '/' . $name . '.php.stub', '<?php /* host ' . $name . ' */');
     }
 
-    $existingMigrationPath = $migrationDirectory . '/2026_01_01_000000_create_activity_log_table.php';
-    File::put($existingMigrationPath, "<?php\n\ndeclare(strict_types=1);\n");
-
-    $existingFiles = File::glob($migrationDirectory . '/*.php') ?? [];
+    File::put($sandbox . '/migrations/2026_01_01_000000_create_activity_log_table.php', '<?php /* existing activity log */');
+    config()->set('database.connections.vendor_columns_fixture', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']);
+    DB::setDefaultConnection('vendor_columns_fixture');
+    app()->setBasePath($sandbox . '/host');
+    app()->useDatabasePath($sandbox);
 
     try {
         PublishVendorMigrationsAction::run(new NullProgressReporter);
-
-        $currentFiles = File::glob($migrationDirectory . '/*.php') ?? [];
-        $newFiles = array_values(array_diff($currentFiles, $existingFiles));
-        $newFilenames = array_map(basename(...), $newFiles);
-
-        foreach (['add_event_column_to_activity_log_table', 'add_batch_uuid_column_to_activity_log_table'] as $name) {
-            $stubExists = is_file(dirname(__DIR__, 6) . '/vendor/spatie/laravel-activitylog/database/migrations/' . $name . '.php.stub');
-
-            expect(array_any($newFilenames, fn (string $filename): bool => str_ends_with($filename, $name . '.php')))->toBe($stubExists);
+        foreach ($stubs as $name) {
+            $paths = File::glob(database_path('migrations/*_' . $name . '.php')) ?: [];
+            expect($paths)->toHaveCount(1)
+                ->and(File::get($paths[0]))->toBe('<?php /* host ' . $name . ' */');
         }
     } finally {
-        $currentFiles = File::glob($migrationDirectory . '/*.php') ?? [];
-        $filesToDelete = array_diff($currentFiles, $existingFiles);
-
-        foreach ($filesToDelete as $fileToDelete) {
-            File::delete($fileToDelete);
-        }
-
-        File::delete($existingMigrationPath);
+        app()->setBasePath($originalBasePath);
+        app()->useDatabasePath($originalDatabasePath);
+        DB::setDefaultConnection($originalConnection);
+        DB::purge('vendor_columns_fixture');
+        File::deleteDirectory($sandbox);
     }
 });
 

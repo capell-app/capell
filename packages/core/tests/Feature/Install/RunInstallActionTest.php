@@ -22,6 +22,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -502,10 +503,23 @@ it('fails an install step when admin panel integration command fails', function 
     ))->toThrow(RuntimeException::class, "Command 'capell:admin-setup' failed with exit code 1.");
 });
 
-it('restores real published migrations and preserves existing file bytes across repeated teardown', function (): void {
+it('restores published migrations and honours the host vendor stubs across repeated teardown', function (bool $hasHostStub): void {
+    $originalBasePath = app()->basePath();
     $originalDatabasePath = app()->databasePath();
+    $originalConnection = DB::getDefaultConnection();
     $sandbox = storage_path('framework/testing/install-published-migrations-' . bin2hex(random_bytes(8)));
+    $hostPackage = $sandbox . '/host/vendor/spatie/laravel-activitylog';
     File::ensureDirectoryExists($sandbox . '/migrations');
+    File::ensureDirectoryExists($hostPackage . '/database/migrations');
+    $stub = $hostPackage . '/database/migrations/add_event_column_to_activity_log_table.php.stub';
+    $hostStubContents = '<?php /* host event migration */';
+    if ($hasHostStub) {
+        File::put($stub, $hostStubContents);
+    }
+
+    config()->set('database.connections.install_publish_fixture', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']);
+    DB::setDefaultConnection('install_publish_fixture');
+    app()->setBasePath($sandbox . '/host');
     app()->useDatabasePath($sandbox);
     try {
         $existing = database_path('migrations/existing.php');
@@ -513,15 +527,22 @@ it('restores real published migrations and preserves existing file bytes across 
         File::chmod($existing, 0640);
         $snapshot = snapshotRunInstallPublishedMigrations();
         PublishVendorMigrationsAction::run(new NullProgressReporter);
-        $eventStubExists = is_file(dirname(__DIR__, 5) . '/vendor/spatie/laravel-activitylog/database/migrations/add_event_column_to_activity_log_table.php.stub');
-        expect(File::exists(database_path('migrations/2026_05_10_190828_add_event_column_to_activity_log_table.php')))->toBe($eventStubExists);
+        $published = database_path('migrations/2026_05_10_190828_add_event_column_to_activity_log_table.php');
+        expect(File::exists($published))->toBe($hasHostStub);
+        if ($hasHostStub) {
+            expect(File::get($published))->toBe($hostStubContents);
+        }
+
         File::put($existing, '<?php /* changed by fixture */');
         restoreRunInstallPublishedMigrations($snapshot);
         expect(snapshotRunInstallPublishedMigrations())->toBe($snapshot);
         restoreRunInstallPublishedMigrations($snapshot);
         expect(snapshotRunInstallPublishedMigrations())->toBe($snapshot);
     } finally {
+        app()->setBasePath($originalBasePath);
         app()->useDatabasePath($originalDatabasePath);
+        DB::setDefaultConnection($originalConnection);
+        DB::purge('install_publish_fixture');
         File::deleteDirectory($sandbox);
     }
-});
+})->with(['host stub present' => true, 'host stub absent' => false]);
