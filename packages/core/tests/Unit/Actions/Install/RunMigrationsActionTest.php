@@ -185,3 +185,61 @@ PHP;
         File::deleteDirectory($directory);
     }
 })->with(['schema only' => true, 'settings only' => false]);
+
+it('orders registered and application schema migrations together without running settings', function (bool $registeredCreatesUsers): void {
+    $originalDatabasePath = database_path();
+    $migrator = resolve('migrator');
+    $pathsProperty = new ReflectionProperty($migrator, 'paths');
+    $originalPaths = $pathsProperty->getValue($migrator);
+    $originalSettingsPaths = config('settings.migrations_paths');
+    $originalSettingsPath = config('settings.migrations_path');
+    $directory = sys_get_temp_dir() . '/capell-schema-order-' . bin2hex(random_bytes(8));
+    foreach (['migrations', 'registered', 'settings', 'registered-settings'] as $name) {
+        File::ensureDirectoryExists($directory . '/' . $name);
+    }
+
+    $create = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::create('wave_order_users', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->id()); }
+};
+PHPFILE;
+    $alter = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::table('wave_order_users', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->json('admin_workspace_preferences')->nullable()); }
+};
+PHPFILE;
+    $settings = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::create('wave_order_settings', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->id()); }
+};
+PHPFILE;
+    $createDir = $registeredCreatesUsers ? 'registered' : 'migrations';
+    $alterDir = $registeredCreatesUsers ? 'migrations' : 'registered';
+    File::put($directory . '/' . $createDir . '/2036_01_01_000001_create_wave_order_users.php', $create);
+    File::put($directory . '/' . $alterDir . '/2036_01_01_000002_add_wave_order_preferences.php', $alter);
+    File::put($directory . '/registered-settings/2036_01_01_000003_wave_order_settings.php', $settings);
+    $pathsProperty->setValue($migrator, [$directory . '/registered', $directory . '/registered-settings']);
+    config()->set('settings.migrations_path');
+    config()->set('settings.migrations_paths', [$directory . '/registered-settings']);
+
+    app()->useDatabasePath($directory);
+
+    try {
+        RunMigrationsAction::run(new NullProgressReporter, includeSettings: false);
+        expect(Schema::hasTable('wave_order_users'))->toBeTrue()
+            ->and(Schema::hasColumn('wave_order_users', 'admin_workspace_preferences'))->toBeTrue()
+            ->and(Schema::hasTable('wave_order_settings'))->toBeFalse();
+    } finally {
+        app()->useDatabasePath($originalDatabasePath);
+        $pathsProperty->setValue($migrator, $originalPaths);
+        config()->set('settings.migrations_paths', $originalSettingsPaths);
+        config()->set('settings.migrations_path', $originalSettingsPath);
+        Schema::dropIfExists('wave_order_users');
+        Schema::dropIfExists('wave_order_settings');
+        DB::table('migrations')->whereIn('migration', ['2036_01_01_000001_create_wave_order_users', '2036_01_01_000002_add_wave_order_preferences', '2036_01_01_000003_wave_order_settings'])->delete();
+        File::deleteDirectory($directory);
+    }
+})->with(['registered user migration' => true, 'application user migration' => false]);
