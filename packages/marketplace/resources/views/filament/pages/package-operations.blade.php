@@ -99,6 +99,20 @@
                     </div>
                 </x-slot>
 
+                @if ($this->selectedOperationIsOutsideActiveTab())
+                    <p
+                        class="mb-4 rounded-lg bg-warning-50 p-3 text-sm text-warning-700 dark:bg-warning-400/10 dark:text-warning-300"
+                        data-capell-marketplace-operation-outside-tab
+                    >
+                        {{
+                            __('capell-marketplace::marketplace.operations.detail_outside_tab', [
+                                'status' => $selectedOperation->status->getLabel(),
+                                'tab' => $this->activeTabLabel(),
+                            ])
+                        }}
+                    </p>
+                @endif
+
                 <dl class="grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
                     <div>
                         <dt
@@ -286,7 +300,11 @@
                 @endif
             @else
                 <div class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ __('capell-marketplace::marketplace.operations.empty') }}
+                    @if ($this->selectedOperationId !== null)
+                        {{ __('capell-marketplace::marketplace.operations.detail_not_found') }}
+                    @else
+                        {{ __('capell-marketplace::marketplace.operations.detail_empty_tab', ['tab' => $this->activeTabLabel()]) }}
+                    @endif
                 </div>
             @endif
         </x-filament::section>

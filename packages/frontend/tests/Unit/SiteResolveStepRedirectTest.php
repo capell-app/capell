@@ -131,3 +131,39 @@ it('redirects root hostless default domains to the request host', function (): v
     expect($result->getRedirect())->not()->toBeNull()
         ->and($result->getRedirect()->getTargetUrl())->toBe('https://tenant.test/path');
 });
+
+it('keeps a non-standard configured port in the default site redirect', function (): void {
+    config()->set('capell-frontend.redirect_default_site', true);
+
+    SiteDomain::factory()->enabled()->state([
+        'default' => true,
+        'domain' => 'example.com',
+        'scheme' => 'https',
+        'port' => 8443,
+        'path' => null,
+    ])->create();
+
+    $work = new FrontendWork(Request::create('http://unknown.test/page?a=1'), new FrontendState);
+
+    $result = resolve(SiteResolveStep::class)->handle($work, fn (FrontendWork $w): FrontendWork => $w);
+
+    expect($result->getRedirect()?->getTargetUrl())->toBe('https://example.com:8443/page?a=1');
+});
+
+it('omits the port from the default site redirect when it is the scheme default', function (): void {
+    config()->set('capell-frontend.redirect_default_site', true);
+
+    SiteDomain::factory()->enabled()->state([
+        'default' => true,
+        'domain' => 'example.com',
+        'scheme' => 'https',
+        'port' => 443,
+        'path' => null,
+    ])->create();
+
+    $work = new FrontendWork(Request::create('http://unknown.test/page'), new FrontendState);
+
+    $result = resolve(SiteResolveStep::class)->handle($work, fn (FrontendWork $w): FrontendWork => $w);
+
+    expect($result->getRedirect()?->getTargetUrl())->toBe('https://example.com/page');
+});
