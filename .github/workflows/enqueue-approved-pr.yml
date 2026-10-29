@@ -14,6 +14,7 @@ on:
         Build Admin Package,
         Extension contract audit,
         Update Pest shards,
+        Merge queue test safety,
       ]
     types: [completed]
   workflow_dispatch:
