@@ -248,6 +248,116 @@ it('lists every operation type together and can filter down to one of them', fun
         ->assertCanNotSeeTableRecords([$install, $update]);
 });
 
+it('does not show a completed attempt as the detail of an empty active tab', function (): void {
+    marketplacePackageOperationsPageAttempt([
+        'extension_name' => 'Finished Suite',
+        'composer_name' => 'capell-app/finished-suite',
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'completed_at' => now(),
+    ]);
+
+    Livewire::test(MarketplacePackageOperationsPage::class)
+        ->assertSet('activeTab', 'active')
+        ->assertDontSee('Finished Suite')
+        ->assertDontSee('capell-app/finished-suite')
+        ->assertSee(__('capell-marketplace::marketplace.operations.detail_empty_tab', [
+            'tab' => __('capell-marketplace::marketplace.operations.tab_active'),
+        ]));
+});
+
+it('follows the visible tab when no operation has been chosen', function (): void {
+    marketplacePackageOperationsPageAttempt([
+        'extension_name' => 'Running Suite',
+        'composer_name' => 'capell-app/running-suite',
+        'status' => MarketplaceInstallIntentStatus::Running,
+        'started_at' => now(),
+    ]);
+    marketplacePackageOperationsPageAttempt([
+        'extension_name' => 'Finished Suite',
+        'composer_name' => 'capell-app/finished-suite',
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'completed_at' => now(),
+    ]);
+
+    Livewire::test(MarketplacePackageOperationsPage::class)
+        ->assertSee('capell-app/running-suite')
+        ->assertDontSee('capell-app/finished-suite')
+        ->set('activeTab', 'succeeded')
+        ->assertSee('capell-app/finished-suite')
+        ->assertDontSee('capell-app/running-suite');
+});
+
+it('drops a chosen operation that does not belong to the tab the person switches to', function (): void {
+    $failed = marketplacePackageOperationsPageAttempt([
+        'extension_name' => 'Broken Suite',
+        'composer_name' => 'capell-app/broken-suite',
+        'status' => MarketplaceInstallIntentStatus::Failed,
+        'completed_at' => now(),
+    ]);
+    marketplacePackageOperationsPageAttempt([
+        'extension_name' => 'Finished Suite',
+        'composer_name' => 'capell-app/finished-suite',
+        'status' => MarketplaceInstallIntentStatus::Succeeded,
+        'completed_at' => now(),
+    ]);
+
+    Livewire::test(MarketplacePackageOperationsPage::class)
+        ->set('activeTab', 'failed')
+        ->call('selectOperation', $failed->getKey())
+        ->assertSee('capell-app/broken-suite')
+        ->set('activeTab', 'succeeded')
+        ->assertSet('selectedOperationId', null)
+        ->assertSee('capell-app/finished-suite')
+        ->assertDontSee('capell-app/broken-suite');
+});
+
+it('keeps a chosen operation when it belongs to the tab the person switches to', function (): void {
+    $failed = marketplacePackageOperationsPageAttempt([
+        'composer_name' => 'capell-app/broken-suite',
+        'status' => MarketplaceInstallIntentStatus::Failed,
+        'completed_at' => now(),
+    ]);
+
+    Livewire::test(MarketplacePackageOperationsPage::class)
+        ->set('activeTab', 'failed')
+        ->call('selectOperation', $failed->getKey())
+        ->set('activeTab', 'all')
+        ->assertSet('selectedOperationId', $failed->getKey())
+        ->assertSee('capell-app/broken-suite');
+});
+
+it('explains a deep-linked attempt that lies outside the visible tab instead of presenting it as active', function (): void {
+    $failed = marketplacePackageOperationsPageAttempt([
+        'extension_name' => 'Broken Suite',
+        'composer_name' => 'capell-app/broken-suite',
+        'status' => MarketplaceInstallIntentStatus::Failed,
+        'completed_at' => now(),
+    ]);
+
+    Livewire::withQueryParams(['tab' => 'active', 'operation' => $failed->getKey()])
+        ->test(MarketplacePackageOperationsPage::class)
+        ->assertSet('selectedOperationId', $failed->getKey())
+        ->assertSee('capell-app/broken-suite')
+        ->assertSee(__('capell-marketplace::marketplace.operations.detail_outside_tab', [
+            'status' => MarketplaceInstallIntentStatus::Failed->getLabel(),
+            'tab' => __('capell-marketplace::marketplace.operations.tab_active'),
+        ]));
+
+    Livewire::withQueryParams(['tab' => 'failed', 'operation' => $failed->getKey()])
+        ->test(MarketplacePackageOperationsPage::class)
+        ->assertSee('capell-app/broken-suite')
+        ->assertDontSee(__('capell-marketplace::marketplace.operations.detail_outside_tab', [
+            'status' => MarketplaceInstallIntentStatus::Failed->getLabel(),
+            'tab' => __('capell-marketplace::marketplace.operations.tab_failed'),
+        ]));
+});
+
+it('says so when a chosen operation no longer exists', function (): void {
+    Livewire::test(MarketplacePackageOperationsPage::class)
+        ->set('selectedOperationId', 987654)
+        ->assertSee(__('capell-marketplace::marketplace.operations.detail_not_found'));
+});
+
 function marketplacePackageOperationsPageAttempt(array $overrides = []): MarketplaceInstallAttempt
 {
     return MarketplaceInstallAttempt::query()->create([

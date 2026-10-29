@@ -22,10 +22,12 @@ final class BuildMediaUsageItemsAction
     use AsFake;
     use AsObject;
 
+    public const int DEFAULT_LIMIT = 12;
+
     /**
      * @return list<array{label: string, title: string, url: string|null}>
      */
-    public function handle(?Media $media): array
+    public function handle(?Media $media, bool $showAll = false): array
     {
         if (! $media instanceof Media) {
             return [];
@@ -41,11 +43,12 @@ final class BuildMediaUsageItemsAction
             );
         }
 
-        $relations = SiteAccess::current()->scopeAssetAttachments($media->assetRelations()->getQuery())
+        $query = SiteAccess::current()->scopeAssetAttachments($media->assetRelations()->getQuery())
             ->with('related')
             ->orderBy('order')
-            ->limit(12)
-            ->get();
+            ->orderBy('id');
+
+        $relations = ($showAll ? $query : $query->limit(self::DEFAULT_LIMIT))->get();
 
         foreach ($relations as $relation) {
             if (! $relation instanceof AssetAttachment) {

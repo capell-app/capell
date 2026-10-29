@@ -1173,6 +1173,10 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
 
         $snapshot = resolve(AdminDashboardDataRequestCache::class)->analyticsSnapshot($actor, 'this_week');
 
+        if (! $snapshot->isAvailable()) {
+            return __('capell-admin::dashboard.overview_stat_unavailable');
+        }
+
         if (! $snapshot->collecting) {
             return __('capell-admin::dashboard.overview_stat_collection_disabled');
         }
