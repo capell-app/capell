@@ -267,6 +267,7 @@ it('records page recovery only after the actual blockers are cleared', function 
     $page->pageUrls()->create(['site_id' => $site->id, 'language_id' => $language->id, 'url' => '/recovered', 'status' => true]);
     $this->app->instance('request', Request::create('/after-page-repair'));
     $after = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $site->id]]);
+    $after->assertSee(__('capell-admin::work-first.resolved'));
     expect($after->get('issueResolved'))->toBeTrue()
         ->and(collect($after->get('recoveryHistory'))->pluck('title'))->toContain('Needs a URL')
         ->and($after->get('recoveryHistory')[0]['site_name'])->toBe($site->name)
@@ -284,6 +285,29 @@ it('records page recovery only after the actual blockers are cleared', function 
         return $state;
     });
     expect(resolve(TrackDashboardAttentionRecoveryAction::class)->history($actor, (int) $site->id, null))->toBe([]);
+});
+
+it('retains recovery for an authorised same-site replacement page', function (): void {
+    $this->actingAsAdmin();
+    config()->set('capell-admin.dashboard.work_first.enabled', true);
+    $language = Language::factory()->createOne();
+    $site = Site::factory()->language($language)->createOne();
+    $page = Page::withoutEvents(fn () => Page::factory()->site($site)->withTranslations($language)->createOne(['name' => 'Replacement', 'uuid' => 'a715f0e9-2746-46c7-8ea8-0a61a22bd230', 'visible_from' => PublishSentinel::draftValue()]));
+    Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $site->id]])->get('items');
+    $uuid = $page->uuid;
+    $page->delete();
+    $this->app->instance('request', Request::create('/missing-replacement'));
+    $missing = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $site->id]]);
+    expect($missing->get('recoveryHistory'))->toBe([]);
+    $replacement = Page::withoutEvents(fn () => Page::factory()->site($site)->withTranslations($language)->createOne(['uuid' => $uuid, 'visible_from' => PublishSentinel::draftValue()]));
+    $replacement->pageUrls()->create(['site_id' => $site->id, 'language_id' => $language->id, 'url' => '/replacement', 'status' => true]);
+    $this->app->instance('request', Request::create('/replacement'));
+    $recovered = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $site->id]]);
+    $recovered->get('items');
+
+    expect($recovered->get('recoveryHistory'))->toHaveCount(1);
+    $otherSite = Site::factory()->language($language)->createOne();
+    expect(resolve(TrackDashboardAttentionRecoveryAction::class)->history($this->authenticatedUser(), (int) $otherSite->id, null))->toBe([]);
 });
 
 it('verifies urgent recovery across the selected language while retaining its scope', function (): void {

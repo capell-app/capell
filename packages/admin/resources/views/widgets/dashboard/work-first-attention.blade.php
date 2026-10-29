@@ -13,7 +13,7 @@
                 >{{ __('capell-admin::work-first.show_updates', ['count' => $this->pendingItems]) }}</x-filament::button
             >
         @endif
-        @if ($issueResolved)
+        @if ($this->issueResolved)
             <p role="status" class="mb-2 text-sm">{{ __('capell-admin::work-first.resolved') }} <button type="button"
                 class="underline"
                 wire:click="acknowledgeRecovery">{{ __('capell-admin::work-first.dismiss_confirmation') }}</button></p>

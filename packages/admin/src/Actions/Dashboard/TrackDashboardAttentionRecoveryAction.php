@@ -29,9 +29,14 @@ final class TrackDashboardAttentionRecoveryAction
         $scope = $this->scope($siteId, $language);
         $state = $store->dashboardRecoveryState($actor);
         $observed = is_array($state['observed'][$scope] ?? null) ? $state['observed'][$scope] : [];
+        $pageIds = array_values(array_unique(array_filter(array_map(static fn (DashboardAttentionItemData $item): ?int => $item->pageId, $items))));
+        $pages = SiteAccess::forActor($actor, acrossAssignedSites: true)->scope(Page::query()->withoutGlobalScopes())
+            ->whereNull('deleted_at')->whereIn('id', $pageIds)->get()->keyBy('id');
         $active = [];
         foreach ($items as $item) {
-            $active[$item->key] = ['key' => $item->key, 'fingerprint' => $item->fingerprint, 'site_id' => $item->siteId, 'page_id' => $item->pageId, 'language' => $item->urgent ? null : $language, 'title' => $item->title];
+            $page = $pages->get($item->pageId);
+            $uuid = $page instanceof Page && (int) $page->site_id === $item->siteId ? $page->uuid : null;
+            $active[$item->key] = ['key' => $item->key, 'fingerprint' => $item->fingerprint, 'site_id' => $item->siteId, 'page_id' => $item->pageId, 'page_uuid' => $uuid, 'language' => $item->urgent ? null : $language, 'title' => $item->title];
         }
 
         $resolved = [];
@@ -132,7 +137,7 @@ final class TrackDashboardAttentionRecoveryAction
                 continue;
             }
 
-            if (! resolve(CanViewDashboardItemAction::class)->handle($actor, $candidate->siteId, $siteId, $candidate->pageId, $candidate->language)) {
+            if (! $this->canViewCandidate($actor, $siteId, $candidate)) {
                 continue;
             }
 
@@ -176,11 +181,43 @@ final class TrackDashboardAttentionRecoveryAction
         if (! is_string($record['key'] ?? null) || ! is_string($record['fingerprint'] ?? null)
             || ! is_int($record['site_id'] ?? null) || $record['site_id'] < 1
             || (isset($record['page_id']) && ! is_int($record['page_id']))
+            || (isset($record['page_uuid']) && ! is_string($record['page_uuid']))
             || (isset($record['language']) && ! is_string($record['language']))) {
             return null;
         }
 
-        return new DashboardAttentionRecoveryCandidateData($record['key'], $record['fingerprint'], $record['site_id'], $record['page_id'] ?? null, $record['language'] ?? null);
+        return new DashboardAttentionRecoveryCandidateData($record['key'], $record['fingerprint'], $record['site_id'], $record['page_id'] ?? null, $record['language'] ?? null, $record['page_uuid'] ?? null);
+    }
+
+    private function currentPage(Model&Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): ?Page
+    {
+        if ($candidate->pageId === null) {
+            return null;
+        }
+
+        $query = SiteAccess::forActor($actor, acrossAssignedSites: true)->scope(Page::query()->withoutGlobalScopes())
+            ->whereNull('deleted_at')->where('site_id', $candidate->siteId);
+        $original = (clone $query)->find($candidate->pageId);
+        if ($original instanceof Page) {
+            return $original;
+        }
+
+        if ($candidate->pageUuid === null) {
+            return null;
+        }
+
+        return $query->where('uuid', $candidate->pageUuid)->get()
+            ->sortBy(static fn (Page $page): int => (int) ($page->getAttributes()['workspace_id'] ?? 0) === 0 ? 0 : 1)->first();
+    }
+
+    private function canViewCandidate(Model&Authenticatable $actor, ?int $selectedSiteId, DashboardAttentionRecoveryCandidateData $candidate): bool
+    {
+        $page = $this->currentPage($actor, $candidate);
+        if ($candidate->pageId !== null && ! $page instanceof Page) {
+            return false;
+        }
+
+        return resolve(CanViewDashboardItemAction::class)->handle($actor, $candidate->siteId, $selectedSiteId, $page?->getKey(), $candidate->language);
     }
 
     private function canViewContributorHistory(Model&Authenticatable $actor, DashboardAttentionRecoveryCandidateData $candidate): bool
@@ -207,7 +244,7 @@ final class TrackDashboardAttentionRecoveryAction
     private function isRecovered(Model&Authenticatable $actor, ?int $selectedSiteId, DashboardAttentionRecoveryCandidateData $candidate): bool
     {
         try {
-            if (! resolve(CanViewDashboardItemAction::class)->handle($actor, $candidate->siteId, $selectedSiteId, $candidate->pageId, $candidate->language)) {
+            if (! $this->canViewCandidate($actor, $selectedSiteId, $candidate)) {
                 return false;
             }
 
@@ -217,7 +254,7 @@ final class TrackDashboardAttentionRecoveryAction
                         return false;
                     }
 
-                    $page = SiteAccess::forActor($actor)->query(Page::class)->where('site_id', $candidate->siteId)->find($candidate->pageId);
+                    $page = $this->currentPage($actor, $candidate);
 
                     return $page instanceof Page && Gate::forUser($actor)->allows('view', $page)
                         && resolve(BuildDashboardPageBlockersAction::class)->handle($page) === [];

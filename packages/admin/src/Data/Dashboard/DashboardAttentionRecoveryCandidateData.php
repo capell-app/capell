@@ -14,5 +14,6 @@ final class DashboardAttentionRecoveryCandidateData extends Data
         public readonly int $siteId,
         public readonly ?int $pageId,
         public readonly ?string $language,
+        public readonly ?string $pageUuid = null,
     ) {}
 }
