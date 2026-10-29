@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions;
 
+use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
+use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Composer\ComposerAutoloaderReloader;
 use Capell\Core\Support\Composer\ComposerProcessEnvironment;
@@ -45,14 +47,6 @@ class RemovePackageAction
         throw_if($timeoutSeconds !== null && $timeoutSeconds < 1, RuntimeException::class, 'No job time remains for the Composer package removal.');
 
         $this->assertReleaseRootWritable($requiresServerSideTooling);
-        // Keep Laravel's current provider manifest valid while Composer still
-        // has the package on disk. Clearing it here lets a concurrent request
-        // rebuild the old provider list immediately before Composer removes the
-        // provider class, leaving a stale packages.php and a fatal boot until
-        // this operation reaches its post-Composer refresh.
-        $this->clearPackageManifestCacheFiles(preserveLaravelPackageManifests: true);
-        $this->prepareLaravelPackageManifestForRemoval($name);
-
         $snapshot = ComposerStateSnapshot::capture($this->files);
         $composerPath = $snapshot->composerPath;
         $lockPath = $snapshot->lockPath;
@@ -60,6 +54,20 @@ class RemovePackageAction
         $composer = new RuntimeBinaryResolver()->composer();
         $command = [...$composer, 'remove', $name, '--no-interaction', '--no-scripts', '--no-audit', '--no-progress'];
         $composerSucceeded = false;
+
+        // Keep Laravel's current provider manifest valid while Composer still
+        // has the package on disk. Clearing it here lets a concurrent request
+        // rebuild the old provider list immediately before Composer removes the
+        // provider class, leaving a stale packages.php and a fatal boot until
+        // this operation reaches its post-Composer refresh.
+        $this->clearPackageManifestCacheFiles(preserveLaravelPackageManifests: true);
+        try {
+            $this->prepareLaravelPackageManifestForRemoval($name);
+        } catch (Throwable $throwable) {
+            $this->restoreLaravelPackageManifest();
+
+            throw $throwable;
+        }
 
         try {
             $bundleUpdate = $this->prepareBundleDeletion($name, $composerPath, $originalComposer);
@@ -99,6 +107,7 @@ class RemovePackageAction
             throw_if(($standardOutput === '' || $standardOutput === '0') && ($errorOutput === '' || $errorOutput === '0'), RuntimeException::class, sprintf("Package '%s' removal produced no output.", $name));
 
             $this->assertPackageAbsentFromLock($name, $lockPath);
+            $this->refreshRuntimeRoleManifests();
             if ($finalize !== null) {
                 $finalize();
             }
@@ -282,9 +291,9 @@ class RemovePackageAction
      * Composer runs with --no-scripts here too, so nothing replays the
      * application's post-autoload-dump chain after a removal.
      *
-     * The two manifests that would name the removed package's providers —
-     * Laravel's packages.php and services.php — are deleted here, which is the
-     * part that would otherwise fatal the next request.
+     * Laravel's package and service manifests, including generated role-specific
+     * copies, are invalidated here. Role manifests are rebuilt after removal so
+     * a later request cannot load a provider whose package is gone.
      *
      * The rest was left open by Task 2 and is settled as follows.
      *
@@ -325,6 +334,11 @@ class RemovePackageAction
             base_path('bootstrap/cache/services.php'),
         ];
 
+        foreach (RuntimeRole::deploymentRoles() as $role) {
+            $paths[] = app()->bootstrapPath('cache/capell-runtime/' . $role->value . '/packages.php');
+            $paths[] = app()->bootstrapPath('cache/capell-runtime/' . $role->value . '/services.php');
+        }
+
         if ($preserveLaravelPackageManifests || $this->shouldPreserveLaravelPackageManifestCacheFiles()) {
             $paths = array_values(array_filter(
                 $paths,
@@ -333,6 +347,9 @@ class RemovePackageAction
         }
 
         $this->files->delete($paths);
+        foreach ($paths as $path) {
+            $this->invalidateOpcache($path);
+        }
     }
 
     /**
@@ -373,9 +390,29 @@ class RemovePackageAction
         $this->invalidateOpcache($manifestPath);
 
         $servicesPath = base_path('bootstrap/cache/services.php');
-        $this->files->delete($servicesPath);
+        $servicesExisted = $this->files->exists($servicesPath);
+        $servicesDeleted = $this->files->delete($servicesPath);
+        throw_if($servicesExisted && ! $servicesDeleted, RuntimeException::class, 'Unable to clear the Laravel service manifest before package removal.');
         $this->invalidateOpcache($servicesPath);
         $packageManifest->manifest = $packages;
+
+        foreach (RuntimeRole::deploymentRoles() as $role) {
+            $directory = app()->bootstrapPath('cache/capell-runtime/' . $role->value);
+            $rolePackagesPath = $directory . '/packages.php';
+            if ($this->files->exists($rolePackagesPath)) {
+                $rolePackages = $this->files->getRequire($rolePackagesPath);
+                throw_unless(is_array($rolePackages), RuntimeException::class, 'The runtime role package manifest is invalid.');
+                unset($rolePackages[$name]);
+                $this->files->replace($rolePackagesPath, '<?php return ' . var_export($rolePackages, return: true) . ';' . PHP_EOL);
+                $this->invalidateOpcache($rolePackagesPath);
+            }
+
+            $roleServicesPath = $directory . '/services.php';
+            $roleServicesExisted = $this->files->exists($roleServicesPath);
+            $roleServicesDeleted = $this->files->delete($roleServicesPath);
+            throw_if($roleServicesExisted && ! $roleServicesDeleted, RuntimeException::class, 'Unable to clear a runtime role service manifest before package removal.');
+            $this->invalidateOpcache($roleServicesPath);
+        }
     }
 
     /** Restore the provider cache when Composer did not complete the removal. */
@@ -404,6 +441,27 @@ class RemovePackageAction
         $servicesPath = base_path('bootstrap/cache/services.php');
         $this->files->delete($servicesPath);
         $this->invalidateOpcache($servicesPath);
+
+        foreach (RuntimeRole::deploymentRoles() as $role) {
+            foreach (['packages.php', 'services.php'] as $file) {
+                $path = app()->bootstrapPath('cache/capell-runtime/' . $role->value . '/' . $file);
+                $this->files->delete($path);
+                $this->invalidateOpcache($path);
+            }
+        }
+
+        $this->refreshRuntimeRoleManifests();
+    }
+
+    private function refreshRuntimeRoleManifests(): void
+    {
+        if ($this->shouldPreserveLaravelPackageManifestCacheFiles()
+            || ! $this->files->exists(app()->bootstrapPath('cache/capell-runtime/manifest.php'))) {
+            return;
+        }
+
+        ComposerAutoloaderReloader::reload();
+        BuildRuntimeRoleProviderManifestsAction::run();
     }
 
     /**

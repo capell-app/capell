@@ -8,6 +8,8 @@ return [
     'active_install_heading' => 'Install in progress',
     'active_install_progress_link' => 'Open progress',
     'active_install_report_link' => 'Download report',
+    'delete_installer_global_access_required' => 'Only a global administrator can remove the installer.',
+    'delete_installer_tooling_disabled' => 'Server-side package changes are disabled. Ask your deployment operator to remove capell-app/installer.',
     'delete_installer_action' => 'Delete installer',
     'delete_installer_confirm' => 'Delete the installer package now? You can add it again later with Composer.',
     'delete_installer_modal_heading' => 'Delete installer package',
