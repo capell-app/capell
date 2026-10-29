@@ -243,3 +243,45 @@ PHPFILE;
         File::deleteDirectory($directory);
     }
 })->with(['registered user migration' => true, 'application user migration' => false]);
+
+it('prefers the application migration when its directory was registered before a package', function (bool $useAlias): void {
+    $originalDatabasePath = database_path();
+    $migrator = resolve('migrator');
+    $pathsProperty = new ReflectionProperty($migrator, 'paths');
+    $originalPaths = $pathsProperty->getValue($migrator);
+    $directory = sys_get_temp_dir() . '/capell-migration-precedence-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($directory . '/migrations');
+    File::ensureDirectoryExists($directory . '/package');
+    $alias = $directory . '/application-alias';
+    throw_if($useAlias && ! symlink($directory . '/migrations', $alias), RuntimeException::class, 'Could not create the migration directory alias.');
+
+    $name = '2037_01_01_000001_create_wave_precedence.php';
+    $template = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::create('%s', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->id()); }
+};
+PHPFILE;
+    File::put($directory . '/migrations/' . $name, sprintf($template, 'wave_host_precedence'));
+    File::put($directory . '/package/' . $name, sprintf($template, 'wave_package_precedence'));
+    $registeredPaths = $useAlias ? [$directory . '/migrations', $alias, $directory . '/package'] : [$directory . '/migrations', $directory . '/package'];
+    $pathsProperty->setValue($migrator, $registeredPaths);
+    app()->useDatabasePath($directory);
+
+    try {
+        RunMigrationsAction::run(new NullProgressReporter, includeSettings: false);
+        expect(Schema::hasTable('wave_host_precedence'))->toBeTrue()
+            ->and(Schema::hasTable('wave_package_precedence'))->toBeFalse();
+    } finally {
+        app()->useDatabasePath($originalDatabasePath);
+        $pathsProperty->setValue($migrator, $originalPaths);
+        Schema::dropIfExists('wave_host_precedence');
+        Schema::dropIfExists('wave_package_precedence');
+        DB::table('migrations')->where('migration', basename($name, '.php'))->delete();
+        if ($useAlias) {
+            unlink($alias);
+        }
+
+        File::deleteDirectory($directory);
+    }
+})->with(['registered application path' => false, 'registered application alias' => true]);
