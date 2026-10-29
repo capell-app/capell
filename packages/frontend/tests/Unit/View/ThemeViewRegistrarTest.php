@@ -110,10 +110,10 @@ it('does not reuse a located view after the active theme changes in one process'
         $viewFinder = new FileViewFinder(new Filesystem, []);
         $registrar = new ThemeViewRegistrar($viewFinder, []);
         $registrar->register([$first], 'first');
-        expect($viewFinder->find('capell::widget'))->toBe($first . '/widget.blade.php');
+        expect($viewFinder->find('capell::widget'))->toBe(realpath($first . '/widget.blade.php'));
 
         $registrar->register([$second], 'second');
-        expect($viewFinder->find('capell::widget'))->toBe($second . '/widget.blade.php');
+        expect($viewFinder->find('capell::widget'))->toBe(realpath($second . '/widget.blade.php'));
     } finally {
         @unlink($first . '/widget.blade.php');
         @unlink($second . '/widget.blade.php');

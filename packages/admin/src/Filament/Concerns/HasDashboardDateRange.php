@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Filament\Concerns;
 
 use Capell\Admin\Settings\AdminSettings;
+use Capell\Admin\Support\Dashboard\WorkFirstScopeBoundary;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Livewire\Attributes\On;
@@ -55,6 +56,16 @@ trait HasDashboardDateRange
     protected function getDashboardSiteId(): ?int
     {
         $siteId = data_get($this->pageFilters, 'site_id');
+
+        if (WorkFirstScopeBoundary::applies($this)) {
+            if ($siteId !== null && $siteId !== '') {
+                $validated = filter_var($siteId, FILTER_VALIDATE_INT);
+
+                return $validated !== false && $validated > 0 ? $validated : -1;
+            }
+
+            return $this->dashboardSiteId;
+        }
 
         return is_numeric($siteId) && (int) $siteId > 0 ? (int) $siteId : $this->dashboardSiteId;
     }

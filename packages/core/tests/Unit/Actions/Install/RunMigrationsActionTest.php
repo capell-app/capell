@@ -185,3 +185,142 @@ PHP;
         File::deleteDirectory($directory);
     }
 })->with(['schema only' => true, 'settings only' => false]);
+
+it('orders registered and application schema migrations together without running settings', function (bool $registeredCreatesUsers): void {
+    $originalDatabasePath = database_path();
+    $migrator = resolve('migrator');
+    $pathsProperty = new ReflectionProperty($migrator, 'paths');
+    $originalPaths = $pathsProperty->getValue($migrator);
+    $originalSettingsPaths = config('settings.migrations_paths');
+    $originalSettingsPath = config('settings.migrations_path');
+    $directory = sys_get_temp_dir() . '/capell-schema-order-' . bin2hex(random_bytes(8));
+    foreach (['migrations', 'registered', 'settings', 'registered-settings'] as $name) {
+        File::ensureDirectoryExists($directory . '/' . $name);
+    }
+
+    $create = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::create('wave_order_users', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->id()); }
+};
+PHPFILE;
+    $alter = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::table('wave_order_users', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->json('admin_workspace_preferences')->nullable()); }
+};
+PHPFILE;
+    $settings = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::create('wave_order_settings', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->id()); }
+};
+PHPFILE;
+    $createDir = $registeredCreatesUsers ? 'registered' : 'migrations';
+    $alterDir = $registeredCreatesUsers ? 'migrations' : 'registered';
+    File::put($directory . '/' . $createDir . '/2036_01_01_000001_create_wave_order_users.php', $create);
+    File::put($directory . '/' . $alterDir . '/2036_01_01_000002_add_wave_order_preferences.php', $alter);
+    File::put($directory . '/registered-settings/2036_01_01_000003_wave_order_settings.php', $settings);
+    $pathsProperty->setValue($migrator, [$directory . '/registered', $directory . '/registered-settings']);
+    config()->set('settings.migrations_path');
+    config()->set('settings.migrations_paths', [$directory . '/registered-settings']);
+
+    app()->useDatabasePath($directory);
+
+    try {
+        RunMigrationsAction::run(new NullProgressReporter, includeSettings: false);
+        expect(Schema::hasTable('wave_order_users'))->toBeTrue()
+            ->and(Schema::hasColumn('wave_order_users', 'admin_workspace_preferences'))->toBeTrue()
+            ->and(Schema::hasTable('wave_order_settings'))->toBeFalse();
+    } finally {
+        app()->useDatabasePath($originalDatabasePath);
+        $pathsProperty->setValue($migrator, $originalPaths);
+        config()->set('settings.migrations_paths', $originalSettingsPaths);
+        config()->set('settings.migrations_path', $originalSettingsPath);
+        Schema::dropIfExists('wave_order_users');
+        Schema::dropIfExists('wave_order_settings');
+        DB::table('migrations')->whereIn('migration', ['2036_01_01_000001_create_wave_order_users', '2036_01_01_000002_add_wave_order_preferences', '2036_01_01_000003_wave_order_settings'])->delete();
+        File::deleteDirectory($directory);
+    }
+})->with(['registered user migration' => true, 'application user migration' => false]);
+
+it('prefers the application migration when its directory was registered before a package', function (bool $useAlias): void {
+    $originalDatabasePath = database_path();
+    $migrator = resolve('migrator');
+    $pathsProperty = new ReflectionProperty($migrator, 'paths');
+    $originalPaths = $pathsProperty->getValue($migrator);
+    $directory = sys_get_temp_dir() . '/capell-migration-precedence-' . bin2hex(random_bytes(8));
+    File::ensureDirectoryExists($directory . '/migrations');
+    File::ensureDirectoryExists($directory . '/package');
+    $alias = $directory . '/application-alias';
+    throw_if($useAlias && ! symlink($directory . '/migrations', $alias), RuntimeException::class, 'Could not create the migration directory alias.');
+
+    $name = '2037_01_01_000001_create_wave_precedence.php';
+    $template = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::create('%s', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->id()); }
+};
+PHPFILE;
+    File::put($directory . '/migrations/' . $name, sprintf($template, 'wave_host_precedence'));
+    File::put($directory . '/package/' . $name, sprintf($template, 'wave_package_precedence'));
+    $registeredPaths = $useAlias ? [$directory . '/migrations', $alias, $directory . '/package'] : [$directory . '/migrations', $directory . '/package'];
+    $pathsProperty->setValue($migrator, $registeredPaths);
+    app()->useDatabasePath($directory);
+
+    try {
+        RunMigrationsAction::run(new NullProgressReporter, includeSettings: false);
+        expect(Schema::hasTable('wave_host_precedence'))->toBeTrue()
+            ->and(Schema::hasTable('wave_package_precedence'))->toBeFalse();
+    } finally {
+        app()->useDatabasePath($originalDatabasePath);
+        $pathsProperty->setValue($migrator, $originalPaths);
+        Schema::dropIfExists('wave_host_precedence');
+        Schema::dropIfExists('wave_package_precedence');
+        DB::table('migrations')->where('migration', basename($name, '.php'))->delete();
+        if ($useAlias) {
+            unlink($alias);
+        }
+
+        File::deleteDirectory($directory);
+    }
+})->with(['registered application path' => false, 'registered application alias' => true]);
+
+it('preserves the last registered package alias precedence for duplicate migration names', function (): void {
+    $originalDatabasePath = database_path();
+    $migrator = resolve('migrator');
+    $pathsProperty = new ReflectionProperty($migrator, 'paths');
+    $originalPaths = $pathsProperty->getValue($migrator);
+    $directory = sys_get_temp_dir() . '/capell-package-precedence-' . bin2hex(random_bytes(8));
+    foreach (['migrations', 'package-a', 'package-b'] as $name) {
+        File::ensureDirectoryExists($directory . '/' . $name);
+    }
+
+    $alias = $directory . '/package-a-alias';
+    throw_if(! symlink($directory . '/package-a', $alias), RuntimeException::class, 'Could not create the migration directory alias.');
+    $name = '2038_01_01_000001_create_wave_package_precedence.php';
+    $template = <<<'PHPFILE'
+<?php
+return new class extends \Illuminate\Database\Migrations\Migration {
+    public function up(): void { \Illuminate\Support\Facades\Schema::create('%s', fn (\Illuminate\Database\Schema\Blueprint $table) => $table->id()); }
+};
+PHPFILE;
+    File::put($directory . '/package-a/' . $name, sprintf($template, 'wave_package_a'));
+    File::put($directory . '/package-b/' . $name, sprintf($template, 'wave_package_b'));
+    $pathsProperty->setValue($migrator, [$directory . '/package-a', $directory . '/package-b', $alias]);
+    app()->useDatabasePath($directory);
+
+    try {
+        RunMigrationsAction::run(new NullProgressReporter, includeSettings: false);
+        expect(Schema::hasTable('wave_package_a'))->toBeTrue()
+            ->and(Schema::hasTable('wave_package_b'))->toBeFalse();
+    } finally {
+        app()->useDatabasePath($originalDatabasePath);
+        $pathsProperty->setValue($migrator, $originalPaths);
+        Schema::dropIfExists('wave_package_a');
+        Schema::dropIfExists('wave_package_b');
+        DB::table('migrations')->where('migration', basename($name, '.php'))->delete();
+        unlink($alias);
+        File::deleteDirectory($directory);
+    }
+});

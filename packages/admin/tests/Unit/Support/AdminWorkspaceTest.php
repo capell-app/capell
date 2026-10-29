@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Admin\Data\AdminWorkspaceItemData;
+use Capell\Admin\Data\Dashboard\DashboardAdvisoryDecisionData;
+use Capell\Admin\Data\Dashboard\DashboardScopePreferenceData;
 use Capell\Admin\Enums\AdminWorkspaceEnum;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Facades\CapellAdmin;
@@ -353,4 +355,49 @@ it('renders workspace action arguments without leaking Blade directives into HTM
 
     Livewire::test(AdminWorkspaceSwitcher::class)
         ->assertDontSee('@js(', false);
+});
+
+it('preserves dashboard layouts and navigation preferences across interleaved writes', function (): void {
+    $user = test()->createUser();
+    $store = new AdminWorkspacePreferenceStore;
+
+    $store->togglePin($user, 'allowed', ['allowed']);
+    $store->saveDashboardLayout($user, false, ['work', 'attention']);
+    $store->recordVisit($user, 'allowed', ['allowed']);
+    $store->saveDashboardLayout($user, true, ['attention', 'work']);
+
+    expect($store->dashboardLayout($user, false))->toBe(['work', 'attention'])
+        ->and($store->dashboardLayout($user, true))->toBe(['attention', 'work'])
+        ->and($store->read($user))->toBe(['pinned' => ['allowed'], 'recent' => ['allowed']]);
+
+    $store->resetDashboardLayout($user, false);
+    expect($store->dashboardLayout($user, false))->toBeNull()
+        ->and($store->dashboardLayout($user, true))->toBe(['attention', 'work'])
+        ->and($store->read($user))->toBe(['pinned' => ['allowed'], 'recent' => ['allowed']]);
+});
+
+it('preserves personal advisory decisions alongside dashboard and navigation preferences', function (): void {
+    $user = test()->createUser();
+    $store = new AdminWorkspacePreferenceStore;
+    $store->saveDashboardPreferences($user, false, ['work'], ['work'], ['work' => 'wide']);
+    $store->saveDashboardAdvisoryDecision($user, 'site:123', new DashboardAdvisoryDecisionData('fingerprint', '2026-11-02T00:00:00+00:00'));
+    $store->recordVisit($user, 'allowed', ['allowed']);
+
+    expect($store->dashboardLayout($user, false))->toBe(['work'])
+        ->and($store->dashboardOptions($user, false))->toBe(['hidden' => ['work'], 'sizes' => ['work' => 'wide']])
+        ->and($store->dashboardAdvisoryDecision($user, 'site:123')?->fingerprint)->toBe('fingerprint')
+        ->and($store->dashboardAdvisoryDecision($user, 'site:123')?->until)->toBe('2026-11-02T00:00:00+00:00')
+        ->and($store->read($user)['recent'])->toBe(['allowed']);
+});
+
+it('preserves remembered dashboard scope across layout and navigation writes', function (): void {
+    $user = test()->createUser();
+    $store = new AdminWorkspacePreferenceStore;
+    $store->saveDashboardScope($user, new DashboardScopePreferenceData(7, 'fr'));
+    $store->saveDashboardLayout($user, false, ['work']);
+    $store->recordVisit($user, 'allowed', ['allowed']);
+
+    expect($store->dashboardScope($user)?->siteId)->toBe(7)
+        ->and($store->dashboardScope($user)?->language)->toBe('fr')
+        ->and($store->dashboardLayout($user, false))->toBe(['work']);
 });

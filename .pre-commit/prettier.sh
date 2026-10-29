@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-FILES=$(git diff --cached --name-only --diff-filter=ACMR | sed 's| |\\ |g')
-[ -z "$FILES" ] && exit 0
 
-# Prettify all selected files
-echo "$FILES" | xargs ./node_modules/.bin/prettier --ignore-unknown --write
+# Pre-commit supplies an isolated staged snapshot and owns index restoration.
+# Formatting may change working files, but a hook must never stage them itself.
+if [[ $# -eq 0 ]]; then
+    exit 0
+fi
 
-# Add back the modified/prettified files to staging
-echo "$FILES" | xargs git add
-
-exit 0
+./node_modules/.bin/prettier --ignore-unknown --write "$@"
