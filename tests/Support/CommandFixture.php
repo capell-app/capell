@@ -26,7 +26,8 @@ final class CommandFixture
             $record = ['command' => basename($argv[0]), 'cwd' => getcwd(), 'arguments' => array_slice($argv, 1)];
             file_put_contents(getenv('COMMAND_FIXTURE_LOG'), json_encode($record, JSON_THROW_ON_ERROR) . "\n", FILE_APPEND);
             PHP;
-        $this->files->write('bin/' . $command, '#!' . PHP_BINARY . "\n<?php\n" . $recorder . "\n" . $body);
+        // Fakes use built-in functions and must not load host PHP configuration.
+        $this->files->write('bin/' . $command, '#!' . PHP_BINARY . " -n\n<?php\n" . $recorder . "\n" . $body);
         chmod($this->files->root . '/bin/' . $command, 0755);
     }
 
