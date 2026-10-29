@@ -64,7 +64,7 @@ final class TrackDashboardAttentionRecoveryAction
             }
         }
 
-        if ($resolved === [] && array_slice(array_replace($observed, $active), -100, null, true) === $observed) {
+        if ($resolved === [] && array_slice($active + $observed, 0, 100, true) === $observed) {
             return;
         }
 
@@ -81,7 +81,7 @@ final class TrackDashboardAttentionRecoveryAction
                 $history[] = [...$record, 'scope' => $scope, 'resolved_at' => now()->toIso8601String(), 'acknowledged' => false];
             }
 
-            $scopes[$scope] = array_slice(array_replace($previous, $active), -100, null, true);
+            $scopes[$scope] = array_slice($active + $previous, 0, 100, true);
             $state['observed'] = array_slice($scopes, -20, null, true);
             $state['history'] = array_slice($history, -50);
 

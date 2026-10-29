@@ -393,12 +393,26 @@ it('bounds retained observations and verified history', function (): void {
     $tracker = resolve(TrackDashboardAttentionRecoveryAction::class);
     $items = [];
     foreach (range(1, 110) as $number) {
-        $items[] = new DashboardAttentionItemData('bounded-' . $number, 'v1', false, 'Issue ' . $number, (int) $page->site_id, 'Site', 'Issue', [], null, pageId: (int) $page->id);
+        $items[] = new DashboardAttentionItemData('bounded-' . $number, 'v1', $number === 1, 'Issue ' . $number, (int) $page->site_id, 'Site', 'Issue', [], null, pageId: (int) $page->id);
     }
 
     $tracker->handle($actor, (int) $page->site_id, null, $items);
     $state = resolve(AdminWorkspacePreferenceStore::class)->dashboardRecoveryState($actor);
-    expect(array_values($state['observed'])[0])->toHaveCount(100);
+    expect(array_values($state['observed'])[0])->toHaveCount(100)
+        ->and(array_values($state['observed'])[0])->toHaveKey('bounded-1')
+        ->and(array_values($state['observed'])[0])->not->toHaveKey('bounded-110');
+    $connection = DB::connection();
+    $connection->enableQueryLog();
+    try {
+        $connection->flushQueryLog();
+        $tracker->handle($actor, (int) $page->site_id, null, $items);
+        expect(collect($connection->getQueryLog())->pluck('query')->filter(fn (string $query): bool => str_starts_with(strtolower($query), 'update'))->all())->toBe([]);
+    } finally {
+        $connection->disableQueryLog();
+    }
+
+    $tracker->handle($actor, (int) $page->site_id, null, array_slice($items, 1));
+    expect(collect($tracker->history($actor, (int) $page->site_id, null))->pluck('key')->all())->toContain('bounded-1');
     $tracker->handle($actor, (int) $page->site_id, null, []);
     expect($tracker->history($actor, (int) $page->site_id, null))->toHaveCount(50);
 });
