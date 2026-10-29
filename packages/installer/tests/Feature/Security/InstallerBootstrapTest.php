@@ -127,3 +127,26 @@ it('allows bootstrap proof for installer removal after installation without perm
         ->assertSee(__('capell-installer::installer.already_installed_heading'));
     $this->postJson(route('capell-installer.store'))->assertNotFound();
 });
+
+it('explains how to obtain an installer access code without exposing it', function (): void {
+    $response = $this->get(route('capell-installer.show'))
+        ->assertOk()
+        ->assertSee('Installer access code')
+        ->assertSee('Create an installer access code')
+        ->assertDontSee(str_repeat('a', 64));
+
+    $document = new DOMDocument;
+    @$document->loadHTML($response->getContent());
+    $xpath = new DOMXPath($document);
+    expect($xpath->evaluate('count(//label[@for="bootstrap-secret"])'))->toBe(1.0)
+        ->and($xpath->evaluate('count(//input[@id="bootstrap-secret" and @type="password" and @aria-describedby="bootstrap-help"])'))->toBe(1.0)
+        ->and($xpath->evaluate('count(//a[@href="https://docs.capell.app/core/getting-started/install/#browser-installer"])'))->toBe(1.0);
+});
+
+it('keeps the access-code guidance available after an invalid code', function (): void {
+    $this->post(route('capell-installer.unlock'), ['bootstrap_secret' => str_repeat('b', 64)])
+        ->assertForbidden()
+        ->assertSee('The installer access code is missing, expired or incorrect')
+        ->assertSee('Create an installer access code')
+        ->assertDontSee(str_repeat('b', 64));
+});
