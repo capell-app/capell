@@ -6,6 +6,8 @@ This guide installs the current 1.x Capell foundation into a Laravel application
 
 Use the [Quickstart](quickstart.md) for a disposable demo. For an existing application, start at [Existing Laravel applications](#existing-laravel-applications).
 
+Working locally? Start with [Mac and Windows local development](local-development.md) for Docker setup and links to the container recipe.
+
 ## Requirements
 
 | Requirement | Supported value                                    |
@@ -243,6 +245,8 @@ Browser setup preserves existing database data. A destructive refresh is availab
 
 After requiring `capell-app/installer`, the temporary `/install` route offers the same guided setup in a browser. Use it when the web process has permission to write the application files that the selected plan changes.
 
+After a successful install with Frontend, the completion page offers to remove the default Laravel welcome route if it is still unchanged. Choose it before removing the Installer if Capell should serve the homepage. The route is checked again when you confirm; customised routes are left in place. The web process must be allowed to update `routes/web.php`, `.env` and Laravel caches.
+
 The browser path is not a way around server permissions or Composer restrictions. On immutable deployments, shared hosting, or containers where PHP-FPM cannot change the release, use the CLI during the build/deploy phase instead.
 
 Remove the Installer only after a green review. The CLI can do that at the end of a successful run:
@@ -307,33 +311,33 @@ This is a Core/Admin installation, not a headless CMS product and not a public c
 
 ## Useful installer options
 
-| Option                             | Purpose                                                          |
-| ---------------------------------- | ---------------------------------------------------------------- |
+| Option                             | Purpose                                                           |
+| ---------------------------------- | ----------------------------------------------------------------- |
 | `--customise`                      | Open the full installation questionnaire                          |
 | `--build-assets`                   | Install frontend dependencies and build with the detected manager |
-| `--update-app-url`                 | Update APP_URL to the reviewed site URL after confirmation         |
+| `--update-app-url`                 | Update APP_URL to the reviewed site URL after confirmation        |
 | `--save-profile=name`              | Save reusable settings without administrator credentials          |
-| `--profile=name`                   | Reuse a saved or configured installation profile                 |
-| `--recommendation=key`             | Select a deterministic install bundle (for example `blog`)       |
+| `--profile=name`                   | Reuse a saved or configured installation profile                  |
+| `--recommendation=key`             | Select a deterministic install bundle (for example `blog`)        |
 | `--recommendation-action=...`      | Answer the bundle prompt: `select`, `confirm`, `custom` or `skip` |
-| `--spec=path`                      | Install from a site spec file                                    |
-| `--plan`                           | Print the resolved install plan without changing the application |
-| `--demo`                           | Seed the verified evaluation content                             |
-| `--package-mode=core\|all\|custom` | Select the distribution scope                                    |
-| `--packages=...`                   | Select installed Capell package names explicitly                 |
-| `--all-packages`                   | Run lifecycle setup for every Composer-installed Capell package  |
-| `--theme=default`                  | Use the verified default theme                                   |
-| `--theme=none`                     | Install without activating a theme                               |
-| `--url=https://...`                | Set the site URL without a prompt                                |
-| `--name= --email= --password=`     | Create the first administrator; pass all three                   |
-| `--user=email-or-id`               | Select an existing default author                                |
-| `--seed`                           | Run the host application's database seeder                       |
-| `--clear-cache`                    | Clear Laravel and Capell caches after installation               |
-| `--install-welcome-route`          | Remove Laravel's stock welcome route so Capell can own `/`       |
-| `--remove-installer`               | Remove the temporary Installer only after success                |
-| `--handoff-json=path`              | Write a redacted machine-readable install handoff                |
-| `--fresh` / `--fresh=force`        | Rebuild the database; destructive                                |
-| `--production`                     | Force unattended production-safe mode and refuse `--fresh`       |
+| `--spec=path`                      | Install from a site spec file                                     |
+| `--plan`                           | Print the resolved install plan without changing the application  |
+| `--demo`                           | Seed the verified evaluation content                              |
+| `--package-mode=core\|all\|custom` | Select the distribution scope                                     |
+| `--packages=...`                   | Select installed Capell package names explicitly                  |
+| `--all-packages`                   | Run lifecycle setup for every Composer-installed Capell package   |
+| `--theme=default`                  | Use the verified default theme                                    |
+| `--theme=none`                     | Install without activating a theme                                |
+| `--url=https://...`                | Set the site URL without a prompt                                 |
+| `--name= --email= --password=`     | Create the first administrator; pass all three                    |
+| `--user=email-or-id`               | Select an existing default author                                 |
+| `--seed`                           | Run the host application's database seeder                        |
+| `--clear-cache`                    | Clear Laravel and Capell caches after installation                |
+| `--install-welcome-route`          | Remove Laravel's stock welcome route so Capell can own `/`        |
+| `--remove-installer`               | Remove the temporary Installer only after success                 |
+| `--handoff-json=path`              | Write a redacted machine-readable install handoff                 |
+| `--fresh` / `--fresh=force`        | Rebuild the database; destructive                                 |
+| `--production`                     | Force unattended production-safe mode and refuse `--fresh`        |
 
 Use `php artisan capell:install --help` for the authoritative option list in the installed release.
 

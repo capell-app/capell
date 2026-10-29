@@ -12,6 +12,7 @@ use Capell\Core\Support\Install\InstallPlan;
 use Capell\Core\Support\Install\InstallProfileRepository;
 use Capell\Core\Tests\Support\Fixtures\Autoload\InstallSupportActionReporter;
 use Capell\Tests\Support\Fakes\FakeConsoleKernel;
+use Capell\Tests\Support\Fakes\FakeProcessFactory;
 use Illuminate\Support\Facades\Artisan;
 
 function wizardInput(): InstallInputData
@@ -51,6 +52,19 @@ it('delegates dependency installation and builds to the existing frontend packag
     });
     BuildInstallFrontendAssetsAction::run();
     expect($completed)->toBeTrue();
+});
+
+it('runs frontend preparation in a fresh process when the newly installed command is not registered yet', function (): void {
+    FakeConsoleKernel::bind();
+    Artisan::clearResolvedInstances();
+    $processes = FakeProcessFactory::bind();
+    $processes->push(output: '{}')->push();
+
+    BuildInstallFrontendAssetsAction::run(frontendExpected: true);
+
+    $commands = $processes->commands();
+    expect($commands)->toHaveCount(2)
+        ->and($commands[1])->toContain('capell:frontend-after-install', '--apply', '--no-interaction');
 });
 
 it('reports completed steps and offers asset recovery without repeating package or demo setup', function (bool $frontendAvailable, string $command): void {

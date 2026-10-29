@@ -47,7 +47,7 @@ final class OrchestrateInstallAction
             try {
                 $host->buildFrontendAssets();
             } catch (Throwable $failure) {
-                ReportInstallFailureAction::run($inputData, $result->completedSteps, InstallPlan::STEP_REBUILD_RESOURCES, $reporter);
+                ReportInstallFailureAction::run($inputData, $result->completedSteps, InstallPlan::STEP_REBUILD_RESOURCES, $reporter, frontendExpected: in_array('capell-app/frontend', [...$inputData->packages, ...$inputData->extraPackages], true));
 
                 throw $failure;
             }

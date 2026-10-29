@@ -22,6 +22,7 @@ use Capell\Core\Support\Install\UnavailableAdminPanelUrlResolver;
 use Capell\Core\Support\Plugins\PluginPackagesFetcher;
 use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Installer\Actions\BuildInstallerPageDataAction;
+use Capell\Installer\Actions\RemoveWelcomeRouteAfterInstallAction;
 use Capell\Installer\Support\InstallerSessionRepository;
 use Capell\Installer\Support\Preflight\InstallerPreflight;
 use Capell\Tests\Fixtures\Models\User;
@@ -3073,5 +3074,142 @@ it('renders ordered native step controls for a named workspace with hidden inact
             assert($section instanceof DOMElement);
             expect($section->hasAttribute('hidden'))->toBe($step !== 'readiness');
         }
+    }
+});
+
+it('offers to remove the untouched Laravel welcome route after a successful install', function (): void {
+    $routesPath = tempnam(sys_get_temp_dir(), 'capell-welcome-');
+    file_put_contents($routesPath, "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/', fn () => view('welcome'));\n");
+    config(['capell.install.welcome_routes_web_path' => $routesPath]);
+    CapellCore::forcePackageInstalled('capell-app/frontend');
+    $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+    Cache::put(sprintf('capell.install.%s.success', $installId), []);
+
+    try {
+        $response = withSession(installerAccessSessionData($installId))
+            ->get(route('capell-installer.success', ['installId' => $installId]))
+            ->assertOk()
+            ->assertSee('Remove the default Laravel welcome route');
+        $page = installerMarkup($response->content());
+        $action = route('capell-installer.remove-welcome-route', ['installId' => $installId]);
+        expect(domCount($page, '//form[@method="POST" and @action="' . $action . '"]//input[@name="_token"]'))->toBe(1)
+            ->and(file_get_contents($routesPath))->toContain("view('welcome')");
+    } finally {
+        unlink($routesPath);
+    }
+});
+
+it('does not offer to remove a modified home route after installation', function (): void {
+    $routesPath = tempnam(sys_get_temp_dir(), 'capell-welcome-');
+    file_put_contents($routesPath, "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/', fn () => view('custom'));\n");
+    config(['capell.install.welcome_routes_web_path' => $routesPath]);
+    CapellCore::forcePackageInstalled('capell-app/frontend');
+    $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+    Cache::put(sprintf('capell.install.%s.success', $installId), []);
+
+    try {
+        withSession(installerAccessSessionData($installId))
+            ->get(route('capell-installer.success', ['installId' => $installId]))
+            ->assertOk()
+            ->assertDontSee('Remove the default Laravel welcome route');
+    } finally {
+        unlink($routesPath);
+    }
+});
+
+it('removes the stock route only after confirmation on the completion screen', function (): void {
+    $routesPath = tempnam(sys_get_temp_dir(), 'capell-welcome-');
+    $envPath = tempnam(sys_get_temp_dir(), 'capell-env-');
+    file_put_contents($routesPath, "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/', fn () => view('welcome'));\n");
+    config(['capell.install.welcome_routes_web_path' => $routesPath, 'capell.install.welcome_env_path' => $envPath]);
+    CapellCore::forcePackageInstalled('capell-app/frontend');
+    $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+
+    try {
+        withSession(installerAccessSessionData($installId))
+            ->post('/install/' . $installId . '/remove-welcome-route')
+            ->assertOk();
+        expect(file_get_contents($routesPath))->not->toContain("view('welcome')")
+            ->and(file_get_contents($envPath))->toContain('CAPELL_FRONTEND_REGISTER_HOME_ROUTE=true');
+    } finally {
+        unlink($routesPath);
+        unlink($envPath);
+    }
+});
+
+it('does not remove a route changed before the completion action', function (): void {
+    $routesPath = tempnam(sys_get_temp_dir(), 'capell-welcome-');
+    $customRoute = "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/', fn () => view('custom'));\n";
+    file_put_contents($routesPath, $customRoute);
+    config(['capell.install.welcome_routes_web_path' => $routesPath]);
+    CapellCore::forcePackageInstalled('capell-app/frontend');
+    $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+
+    try {
+        withSession(installerAccessSessionData($installId))
+            ->post('/install/' . $installId . '/remove-welcome-route')
+            ->assertStatus(409);
+        expect(file_get_contents($routesPath))->toBe($customRoute);
+    } finally {
+        unlink($routesPath);
+    }
+});
+
+it('rejects completion route removal without access to the completed install', function (): void {
+    $routesPath = tempnam(sys_get_temp_dir(), 'capell-welcome-');
+    $stockRoute = "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/', fn () => view('welcome'));\n";
+    file_put_contents($routesPath, $stockRoute);
+    config(['capell.install.welcome_routes_web_path' => $routesPath]);
+    CapellCore::forcePackageInstalled('capell-app/frontend');
+    $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+
+    try {
+        post('/install/' . $installId . '/remove-welcome-route')->assertNotFound();
+        Cache::put(sprintf('capell.install.%s.status', $installId), 'running');
+        withSession(installerAccessSessionData($installId))
+            ->post('/install/' . $installId . '/remove-welcome-route')->assertNotFound();
+        expect(file_get_contents($routesPath))->toBe($stockRoute);
+    } finally {
+        unlink($routesPath);
+    }
+});
+
+it('preserves the welcome route when the release root is immutable', function (): void {
+    $routesPath = tempnam(sys_get_temp_dir(), 'capell-welcome-');
+    $stockRoute = "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/', fn () => view('welcome'));\n";
+    file_put_contents($routesPath, $stockRoute);
+    config(['capell.install.welcome_routes_web_path' => $routesPath, 'capell.release_root_mode' => 'immutable']);
+
+    try {
+        expect(fn (): mixed => RemoveWelcomeRouteAfterInstallAction::run())
+            ->toThrow(RuntimeException::class);
+        expect(file_get_contents($routesPath))->toBe($stockRoute);
+    } finally {
+        unlink($routesPath);
+    }
+});
+
+it('explains when the completion route update cannot be applied', function (): void {
+    $routesPath = tempnam(sys_get_temp_dir(), 'capell-welcome-');
+    $stockRoute = "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/', fn () => view('welcome'));\n";
+    file_put_contents($routesPath, $stockRoute);
+    config(['capell.install.welcome_routes_web_path' => $routesPath, 'capell.release_root_mode' => 'immutable']);
+    CapellCore::forcePackageInstalled('capell-app/frontend');
+    $installId = '6b1af98b-bfd5-46da-9aa8-765d94f17d7c';
+    Cache::put(sprintf('capell.install.%s.status', $installId), 'complete');
+
+    try {
+        withSession(installerAccessSessionData($installId))
+            ->post('/install/' . $installId . '/remove-welcome-route')
+            ->assertStatus(500)
+            ->assertSee('Check routes/web.php and .env before retrying');
+        expect(file_get_contents($routesPath))->toBe($stockRoute);
+    } finally {
+        unlink($routesPath);
     }
 });

@@ -230,7 +230,7 @@ it('runs the release validator without a Laravel bootstrap', function (): void {
         escapeshellarg($root . '/release-plan.json'),
     ), $output, $exitCode);
 
-    expect($exitCode)->toBe(0)
+    expect($exitCode)->toBe(0, implode(PHP_EOL, $output))
         ->and(implode(PHP_EOL, $output))->toContain('Plan is valid.');
 });
 
