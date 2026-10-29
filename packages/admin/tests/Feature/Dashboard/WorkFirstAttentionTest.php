@@ -20,9 +20,11 @@ use Capell\Core\Support\Publishing\PublishSentinel;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 
 uses(CreatesAdminUser::class);
@@ -289,6 +291,9 @@ it('records page recovery only after the actual blockers are cleared', function 
 
 it('retains recovery for an authorised same-site replacement page', function (): void {
     $this->actingAsAdmin();
+    Schema::table('pages', static function (Blueprint $table): void {
+        $table->unsignedBigInteger('workspace_id')->default(0);
+    });
     config()->set('capell-admin.dashboard.work_first.enabled', true);
     $language = Language::factory()->createOne();
     $site = Site::factory()->language($language)->createOne();
@@ -296,6 +301,9 @@ it('retains recovery for an authorised same-site replacement page', function ():
     Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $site->id]])->get('items');
     $uuid = $page->uuid;
     $page->delete();
+    $draft = Page::withoutEvents(fn () => Page::factory()->site($site)->withTranslations($language)->createOne(['uuid' => $uuid, 'visible_from' => PublishSentinel::draftValue()]));
+    DB::table('pages')->where('id', $draft->id)->update(['workspace_id' => 123]);
+    $draft->pageUrls()->create(['site_id' => $site->id, 'language_id' => $language->id, 'url' => '/draft-replacement', 'status' => true]);
     $this->app->instance('request', Request::create('/missing-replacement'));
     $missing = Livewire::test(AttentionWidget::class, ['pageFilters' => ['site_id' => $site->id]]);
     expect($missing->get('recoveryHistory'))->toBe([]);

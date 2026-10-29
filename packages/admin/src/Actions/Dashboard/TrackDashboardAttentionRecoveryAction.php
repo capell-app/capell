@@ -207,7 +207,7 @@ final class TrackDashboardAttentionRecoveryAction
         }
 
         return $query->where('uuid', $candidate->pageUuid)->get()
-            ->sortBy(static fn (Page $page): int => (int) ($page->getAttributes()['workspace_id'] ?? 0) === 0 ? 0 : 1)->first();
+            ->first(static fn (Page $page): bool => (int) ($page->getAttributes()['workspace_id'] ?? 0) === 0);
     }
 
     private function canViewCandidate(Model&Authenticatable $actor, ?int $selectedSiteId, DashboardAttentionRecoveryCandidateData $candidate): bool
