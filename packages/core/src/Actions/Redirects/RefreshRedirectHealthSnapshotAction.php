@@ -54,7 +54,7 @@ class RefreshRedirectHealthSnapshotAction
     private function hasChainWarning(array $warnings): bool
     {
         $chainWarningMessage = __('capell::message.redirect_chain_detected', [
-            'final_target' => $this->chainTargetPlaceholder(),
+            'next_target' => $this->chainTargetPlaceholder(),
         ]);
         $chainWarningParts = explode($this->chainTargetPlaceholder(), $chainWarningMessage, 2);
         $chainWarningPrefix = $chainWarningParts[0];
