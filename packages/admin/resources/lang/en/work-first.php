@@ -23,7 +23,7 @@ return [
     'urgent_details' => 'Show urgent issues',
     'publishing' => 'Publishing health',
     'publishing_clear' => 'No publishing blockers found by the enabled checks.',
-    'publishing_blockers' => ':count publishing blockers need attention.',
+    'publishing_blockers' => '{1} :count publishing blocker needs attention.|[0,*] :count publishing blockers need attention.',
     'upcoming' => 'Upcoming publications · next 7 days',
     'no_upcoming' => 'No publications are scheduled for the next 7 days.',
     'ready' => 'Ready',

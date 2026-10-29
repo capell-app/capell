@@ -2,7 +2,7 @@
 @php($limit = $dashboardSize === 'wide' ? 8 : 5)
 <x-filament-widgets::widget>
     <x-filament::section :heading="__('capell-admin::work-first.publishing')">
-        <p class="mb-3 text-sm">{{ $this->blockerCount === 0 ? __('capell-admin::work-first.publishing_clear') : __('capell-admin::work-first.publishing_blockers', ['count' => $this->blockerCount]) }}</p>
+        <p class="mb-3 text-sm">{{ $this->blockerCount === 0 ? __('capell-admin::work-first.publishing_clear') : trans_choice('capell-admin::work-first.publishing_blockers', $this->blockerCount, ['count' => $this->blockerCount]) }}</p>
         <p class="text-sm text-gray-500">{{ __('capell-admin::work-first.upcoming') }} · {{ count($items) }}</p>
         @if ($items === [])
             <p class="mt-2 text-sm text-gray-500">{{ __('capell-admin::work-first.no_upcoming') }}</p>

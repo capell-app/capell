@@ -2,7 +2,7 @@
     <x-filament::section
         :heading="__('capell-admin::dashboard.work_first_recently_updated')"
     >
-        <p class="text-xs text-gray-600 dark:text-gray-400">{{ __('capell-admin::dashboard.work_first_page_total', ['count' => $this->data->total]) }}</p>
+        <p class="text-xs text-gray-600 dark:text-gray-400">{{ trans_choice('capell-admin::dashboard.work_first_page_total', $this->data->total, ['count' => $this->data->total]) }}</p>
         @forelse ($this->data->items as $item)
             <div class="py-2 text-sm">
                 @if ($item->editUrl)
