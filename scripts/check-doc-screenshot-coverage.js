@@ -34,7 +34,7 @@ const ignoredMarkdownFiles = new Set([
     'FULL-AUDIT-REPORT.md',
     'LICENSE.md',
     'SECURITY.md',
-    // Parsed versioned upgrade instructions are runtime text, not a visual guide.
+    // Versioned operational instructions, also consumed by the upgrade command.
     'packages/core/resources/upgrade-guide.md',
 ])
 
