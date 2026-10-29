@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use Capell\Core\Actions\RemovePackageAction;
+use Capell\Core\Actions\Runtime\BuildRuntimeRoleProviderManifestsAction;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Support\Process\SymfonyProcessFactory;
 use Capell\Core\Tests\Support\BundleComposerFilesystem;
+use Capell\Core\Tests\Support\RemovalRuntimeFixtureProvider;
 use Capell\Tests\Support\Fakes\FakeProcess;
 use Capell\Tests\Support\Fakes\FakeProcessFactory;
+use Capell\Tests\Support\OwnedApplicationPaths;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\PackageManifest;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -565,4 +568,206 @@ it('refuses a removal that declares itself an unattended web-triggered Composer 
     expect(fn (): array => RemovePackageAction::run('vendor/package', requiresServerSideTooling: true))
         ->toThrow(RuntimeException::class, 'CAPELL_SERVER_SIDE_TOOLING is disabled');
     $this->processes->assertNothingRan();
+});
+
+it('removes package providers from every runtime role before Composer removes the package', function (bool $composerFails): void {
+    $filesystem = new class extends Filesystem
+    {
+        /** @var array<string, array<string, mixed>> */
+        public array $manifests = [];
+
+        /** @var list<string> */
+        public array $deleted = [];
+
+        #[Override]
+        public function exists($path): bool
+        {
+            return array_key_exists((string) $path, $this->manifests) || parent::exists($path);
+        }
+
+        #[Override]
+        public function getRequire($path, array $data = []): mixed
+        {
+            return $this->manifests[(string) $path] ?? parent::getRequire($path, $data);
+        }
+
+        #[Override]
+        public function replace($path, $content, $mode = null): void
+        {
+            if (str_starts_with($content, '<?php')) {
+                $this->manifests[(string) $path] = eval(substr($content, 5));
+            }
+        }
+
+        #[Override]
+        public function delete($paths): bool
+        {
+            array_push($this->deleted, ...array_values((array) $paths));
+
+            return true;
+        }
+    };
+    $packageManifestPath = base_path('bootstrap/cache/packages.php');
+    $packages = [
+        'vendor/package' => ['providers' => ['Vendor\\PackageServiceProvider']],
+        'vendor/other' => ['providers' => ['Vendor\\OtherServiceProvider']],
+    ];
+    foreach (['combined', 'authoring', 'public'] as $role) {
+        $filesystem->manifests[base_path(sprintf('bootstrap/cache/capell-runtime/%s/packages.php', $role))] = $packages;
+    }
+
+    app()->instance(Filesystem::class, $filesystem);
+    app()->instance(PackageManifest::class, new class($filesystem, base_path(), $packageManifestPath, $packages) extends PackageManifest
+    {
+        public function __construct(Filesystem $files, string $basePath, string $manifestPath, private readonly array $packages)
+        {
+            parent::__construct($files, $basePath, $manifestPath);
+        }
+
+        #[Override]
+        public function build(): void
+        {
+            $this->files->replace($this->manifestPath, '<?php return ' . var_export($this->packages, true) . ';');
+        }
+    });
+    app()->detectEnvironment(fn (): string => 'production');
+
+    $this->processes->push(exitCode: $composerFails ? 1 : 0, output: 'Package vendor/package removed', onRun: function () use ($filesystem): void {
+        foreach (['combined', 'authoring', 'public'] as $role) {
+            $rolePackages = $filesystem->manifests[base_path(sprintf('bootstrap/cache/capell-runtime/%s/packages.php', $role))];
+            expect($rolePackages)->not->toHaveKey('vendor/package')
+                ->toHaveKey('vendor/other')
+                ->and($filesystem->deleted)->toContain(base_path(sprintf('bootstrap/cache/capell-runtime/%s/services.php', $role)));
+        }
+    });
+
+    try {
+        if ($composerFails) {
+            expect(fn () => RemovePackageAction::run('vendor/package'))->toThrow(RuntimeException::class);
+        } else {
+            RemovePackageAction::run('vendor/package');
+        }
+
+        foreach (['combined', 'authoring', 'public'] as $role) {
+            expect($filesystem->deleted)->toContain(base_path(sprintf('bootstrap/cache/capell-runtime/%s/packages.php', $role)));
+        }
+    } finally {
+        app()->detectEnvironment(fn (): string => 'testing');
+    }
+})->with([false, true]);
+
+it('rebuilds usable runtime manifests after removal or Composer failure', function (bool $composerFails): void {
+    $paths = new OwnedApplicationPaths(app());
+    $originalProviders = config('app.providers');
+    app()->useBootstrapPath($paths->root . '/bootstrap');
+    $files = new Filesystem;
+    $files->ensureDirectoryExists($paths->root . '/bootstrap/cache');
+    $files->ensureDirectoryExists($paths->root . '/vendor/composer');
+
+    $installedPath = $paths->root . '/vendor/composer/installed.json';
+    $package = ['name' => 'vendor/package', 'extra' => ['laravel' => ['providers' => [RemovalRuntimeFixtureProvider::class]]]];
+    file_put_contents($installedPath, json_encode(['packages' => [$package]], JSON_THROW_ON_ERROR));
+    config(['app.providers' => []]);
+    app()->instance(Filesystem::class, $files);
+    app()->detectEnvironment(fn (): string => 'production');
+
+    try {
+        BuildRuntimeRoleProviderManifestsAction::run();
+        $this->processes->push(exitCode: $composerFails ? 1 : 0, output: 'Package removed', onRun: function () use ($paths, $installedPath, $composerFails): void {
+            $prepared = require $paths->root . '/bootstrap/cache/capell-runtime/combined/packages.php';
+            expect($prepared)->not->toHaveKey('vendor/package');
+            if (! $composerFails) {
+                file_put_contents($installedPath, '{"packages":[]}');
+            }
+        });
+
+        if ($composerFails) {
+            expect(fn (): array => RemovePackageAction::run('vendor/package'))->toThrow(RuntimeException::class);
+        } else {
+            RemovePackageAction::run('vendor/package');
+        }
+
+        foreach (['combined', 'authoring', 'public'] as $role) {
+            $roleDir = $paths->root . '/bootstrap/cache/capell-runtime/' . $role;
+            $packages = require $roleDir . '/packages.php';
+            $services = require $roleDir . '/services.php';
+            expect(array_key_exists('vendor/package', $packages))->toBe($composerFails)
+                ->and(in_array(RemovalRuntimeFixtureProvider::class, $services['providers'], true))->toBe($composerFails);
+        }
+
+        expect(is_file($paths->root . '/bootstrap/cache/capell-runtime/manifest.php'))->toBeTrue();
+    } finally {
+        config(['app.providers' => $originalProviders]);
+        app()->detectEnvironment(fn (): string => 'testing');
+        $paths->restore();
+    }
+})->with([false, true]);
+
+it('restores runtime manifests when preparing package removal fails', function (): void {
+    $paths = new OwnedApplicationPaths(app());
+    $originalProviders = config('app.providers');
+    app()->useBootstrapPath($paths->root . '/bootstrap');
+    $files = new Filesystem;
+    $files->ensureDirectoryExists($paths->root . '/bootstrap/cache');
+    $files->ensureDirectoryExists($paths->root . '/vendor/composer');
+
+    $package = ['name' => 'vendor/package', 'extra' => ['laravel' => ['providers' => [RemovalRuntimeFixtureProvider::class]]]];
+    file_put_contents($paths->root . '/vendor/composer/installed.json', json_encode(['packages' => [$package]], JSON_THROW_ON_ERROR));
+    config(['app.providers' => []]);
+    app()->instance(Filesystem::class, $files);
+    app()->detectEnvironment(fn (): string => 'production');
+
+    try {
+        BuildRuntimeRoleProviderManifestsAction::run();
+        file_put_contents($paths->root . '/bootstrap/cache/capell-runtime/authoring/packages.php', "<?php return 'invalid';");
+        expect(fn (): array => RemovePackageAction::run('vendor/package'))->toThrow(RuntimeException::class);
+        expect($this->processes->processes)->toBeEmpty();
+        foreach (['combined', 'authoring', 'public'] as $role) {
+            $packages = require $paths->root . '/bootstrap/cache/capell-runtime/' . $role . '/packages.php';
+            expect($packages)->toHaveKey('vendor/package');
+        }
+    } finally {
+        config(['app.providers' => $originalProviders]);
+        app()->detectEnvironment(fn (): string => 'testing');
+        $paths->restore();
+    }
+});
+
+it('does not run Composer when a role service manifest cannot be cleared', function (): void {
+    $paths = new OwnedApplicationPaths(app());
+    $originalProviders = config('app.providers');
+    app()->useBootstrapPath($paths->root . '/bootstrap');
+    $files = new class extends Filesystem
+    {
+        #[Override]
+        public function delete($paths): bool
+        {
+            if (is_string($paths) && str_ends_with($paths, '/authoring/services.php')) {
+                return false;
+            }
+
+            return parent::delete($paths);
+        }
+    };
+    $files->ensureDirectoryExists($paths->root . '/bootstrap/cache');
+    $files->ensureDirectoryExists($paths->root . '/vendor/composer');
+
+    $package = ['name' => 'vendor/package', 'extra' => ['laravel' => ['providers' => [RemovalRuntimeFixtureProvider::class]]]];
+    file_put_contents($paths->root . '/vendor/composer/installed.json', json_encode(['packages' => [$package]], JSON_THROW_ON_ERROR));
+    config(['app.providers' => []]);
+    app()->instance(Filesystem::class, $files);
+    app()->detectEnvironment(fn (): string => 'production');
+
+    try {
+        BuildRuntimeRoleProviderManifestsAction::run();
+        expect(fn (): array => RemovePackageAction::run('vendor/package'))
+            ->toThrow(RuntimeException::class, 'Unable to clear a runtime role service manifest');
+        expect($this->processes->processes)->toBeEmpty();
+        $packages = require $paths->root . '/bootstrap/cache/capell-runtime/combined/packages.php';
+        expect($packages)->toHaveKey('vendor/package');
+    } finally {
+        config(['app.providers' => $originalProviders]);
+        app()->detectEnvironment(fn (): string => 'testing');
+        $paths->restore();
+    }
 });
