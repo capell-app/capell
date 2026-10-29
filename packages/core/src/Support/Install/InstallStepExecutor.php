@@ -509,17 +509,51 @@ final class InstallStepExecutor
 
     private function runDoctorSummaryInFreshProcess(InstallRunState $state): int
     {
-        return resolve(ArtisanSubprocessRunner::class)->run(
-            [
-                'capell:doctor',
-                '--install-summary',
-                '--skip-package-doctors',
-                '--no-interaction',
-            ],
-            function (string $line) use ($state): void {
-                $state->reporter->report($line);
-            },
-        );
+        $reportPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'capell-doctor-' . bin2hex(random_bytes(16));
+        $reportFile = fopen($reportPath, 'x+b');
+        throw_unless(is_resource($reportFile), RuntimeException::class, 'Unable to create a temporary health report.');
+
+        try {
+            throw_unless(chmod($reportPath, 0600), RuntimeException::class, 'Unable to secure the temporary health report.');
+            fclose($reportFile);
+            $exitCode = resolve(ArtisanSubprocessRunner::class)->run(
+                [
+                    'capell:doctor',
+                    '--install-summary',
+                    '--skip-package-doctors',
+                    '--no-interaction',
+                    '--report-json=' . $reportPath,
+                ],
+                function (string $line) use ($state): void {
+                    $state->reporter->report($line);
+                },
+            );
+            $report = json_decode((string) file_get_contents($reportPath), true);
+            if ($exitCode === 0 && (! is_array($report) || ! is_array($report['checks'] ?? null))) {
+                $state->doctorWarnings[] = ['message' => 'The health report could not be read; run php artisan capell:doctor.', 'count' => 1];
+            } elseif (is_array($report) && is_array($report['checks'] ?? null)) {
+                foreach ($report['checks'] as $check) {
+                    if (! is_array($check)) {
+                        continue;
+                    }
+
+                    $count = $check['evidence']['warning_count'] ?? 0;
+                    if (is_int($count) && $count > 0 && is_string($check['message'] ?? null)) {
+                        $state->doctorWarnings[] = ['message' => $check['message'], 'count' => $count];
+                    } elseif (($check['passed'] ?? true) === false && ($check['severity'] ?? null) === 'warning' && is_string($check['message'] ?? null)) {
+                        $state->doctorWarnings[] = ['message' => $check['message'], 'count' => 1];
+                    }
+                }
+            }
+
+            return $exitCode;
+        } finally {
+            if (is_resource($reportFile)) {
+                fclose($reportFile);
+            }
+
+            unlink($reportPath);
+        }
     }
 
     private function syncAdminPermissions(InstallRunState $state): void

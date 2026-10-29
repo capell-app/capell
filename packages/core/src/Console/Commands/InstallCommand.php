@@ -320,6 +320,8 @@ class InstallCommand extends Command implements InstallOrchestrationHost
     public function finalizeInstall(InstallInputData $inputData, InstallRunResultData $result): void
     {
         if ($this->input->isInteractive() && ! $this->basicInstall && ! $this->shouldUseFreshDemoDefaults()) {
+            // Nested Artisan calls can leave Prompts bound to their buffered output.
+            $this->configurePrompts($this->input);
             $this->logInstallDebug('prompting for github star');
             $this->askToStarRepoOnGitHub('capell-app/capell');
             $this->processStarRepo();
@@ -335,6 +337,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         $frontendSelected = in_array('capell-app/frontend', $result->selectedPackages, true)
             || in_array(InstallPlan::packageAfterInstallStepKey('capell-app/frontend'), $result->completedSteps, true);
         $this->orchestratedFrontendExpected = $frontendSelected;
+        if ($this->input->isInteractive()) {
+            // Nested Artisan calls reconfigure the shared Prompts output and input state.
+            $this->configurePrompts($this->input);
+        }
+
         if ($this->basicInstall && $this->input->isInteractive() && $frontendSelected
             && ! in_array(InstallPlan::STEP_REBUILD_RESOURCES, $result->completedSteps, true)
             && confirm(label: __('capell-core::install.handoff.build_prompt'), default: true, hint: __('capell-core::install.handoff.build_hint'))
@@ -351,6 +358,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
                 selectedPackages: $result->selectedPackages,
                 completedSteps: [...$result->completedSteps, InstallPlan::STEP_REBUILD_RESOURCES],
                 doctorStatus: $result->doctorStatus,
+                doctorWarnings: $result->doctorWarnings,
             );
         }
 
@@ -930,7 +938,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
         }
 
         $this->input->setOption('url', $input->siteUrl);
-        $this->input->setOption('packages', implode(',', $input->packages));
+        $this->input->setOption('packages', implode(',', array_unique([...$input->packages, ...$input->extraPackages])));
         $this->input->setOption('theme', $input->selectedThemeKey);
         if ($input->newUser instanceof NewUserData) {
             $this->input->setOption('name', $input->newUser->name);

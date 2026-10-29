@@ -30,6 +30,7 @@ final class InstallHandoffData extends Data
         public readonly array $nextAction,
         public readonly array $publicImpact,
         public readonly array $tips = [],
+        public readonly ?int $warningCount = null,
     ) {}
 
     /**
@@ -43,7 +44,8 @@ final class InstallHandoffData extends Data
      *     warnings: list<string>,
      *     nextAction: array{label: string, url: string},
      *     publicImpact: array{summary: string, accountConnection: string, telemetrySubmission: string},
-     *     tips: list<array{key: string, label: string, detail: string}>
+     *     tips: list<array{key: string, label: string, detail: string}>,
+     *     warningCount: int
      * }
      */
     #[Override]
@@ -60,6 +62,7 @@ final class InstallHandoffData extends Data
             'nextAction' => $this->nextAction,
             'publicImpact' => $this->publicImpact,
             'tips' => $this->tips,
+            'warningCount' => $this->warningCount ?? count($this->warnings),
         ];
     }
 }

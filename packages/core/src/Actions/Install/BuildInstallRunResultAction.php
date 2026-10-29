@@ -15,8 +15,10 @@ final class BuildInstallRunResultAction
     use AsFake;
     use AsObject;
 
-    /** @param list<string>|null $completedSteps */
-    public function handle(InstallInputData $inputData, ?array $completedSteps = null): InstallRunResultData
+    /** @param list<string>|null $completedSteps
+     * @param  list<array{message: string, count: int}>  $doctorWarnings
+     */
+    public function handle(InstallInputData $inputData, ?array $completedSteps = null, array $doctorWarnings = []): InstallRunResultData
     {
         $selectedPackages = array_values(collect([
             ...$inputData->packages,
@@ -32,6 +34,7 @@ final class BuildInstallRunResultAction
             selectedPackages: $selectedPackages,
             completedSteps: $completedSteps ?? array_values(InstallPlan::steps($inputData)->pluck('key')->all()),
             doctorStatus: 'passed',
+            doctorWarnings: $doctorWarnings,
         );
     }
 }

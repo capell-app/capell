@@ -74,6 +74,7 @@ it('builds a stable redacted install handoff without account or telemetry requir
                 'detail' => 'Your homepage is live at https://example.test/. Edit it under Admin → Pages.',
             ],
         ],
+        'warningCount' => 1,
     ])->and(json_encode($handoff->toArray(), JSON_THROW_ON_ERROR))
         ->not->toContain('secret')
         ->not->toContain('hunter2')
@@ -108,6 +109,18 @@ it('fails closed for incomplete outcomes and unsupported first page states', fun
             'doctor' => 'unknown',
         ])->and($handoff->firstPage)->toBe(['status' => 'unavailable'])
         ->and(array_column($handoff->tips, 'key'))->toBe(['review']);
+});
+
+it('includes the actual number of doctor warnings in the handoff', function (): void {
+    $input = new InstallInputData(siteUrl: 'https://example.test', packages: [], languages: [], demoContent: false, cachesToClear: [], generateSitemap: false, generateStaticSite: false);
+    $result = new InstallRunResultData([], [InstallPlan::STEP_RUN_MIGRATIONS_POST, InstallPlan::STEP_MARK_CORE_INSTALLED], 'passed', [
+        ['message' => '198 manifest contract warning(s).', 'count' => 198],
+    ]);
+    $handoff = BuildInstallHandoffAction::run($input, $result, null, 'missing', ['A manual change is required.']);
+
+    expect($handoff->warningCount)->toBe(199)
+        ->and($handoff->warnings)->toHaveCount(2)
+        ->and($handoff->warnings[1])->toContain('198 manifest contract warning(s).');
 });
 
 it('requires an asset build before the first page when frontend preparation has not been rebuilt', function (bool $rebuilt): void {
