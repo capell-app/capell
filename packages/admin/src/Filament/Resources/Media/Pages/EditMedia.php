@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Resources\Media\Pages;
 use Capell\Admin\Actions\Media\UpdateMediaAction;
 use Capell\Admin\Contracts\Extenders\MediaEditActionExtender;
 use Capell\Admin\Enums\ResourceEnum;
+use Capell\Admin\Exceptions\MediaDerivativesFailedException;
 use Capell\Admin\Filament\Concerns\HasConfigurableFormActionPosition;
 use Capell\Admin\Filament\Resources\Media\MediaResource;
 use Capell\Admin\Filament\Resources\Media\Tables\MediaTable;
@@ -25,6 +26,7 @@ use Filament\Forms\Components\Slider;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -33,6 +35,7 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Override;
@@ -43,6 +46,9 @@ use Override;
 class EditMedia extends EditRecord
 {
     use HasConfigurableFormActionPosition;
+
+    /** Whether the tracked usage list shows every permitted reference instead of the first few. */
+    public bool $showAllMediaUsage = false;
 
     /** @return class-string<MediaResource> */
     #[Override]
@@ -76,6 +82,11 @@ class EditMedia extends EditRecord
                     ->tabs($tabs)
                     ->columnSpanFull(),
             ]);
+    }
+
+    public function showAllUsage(): void
+    {
+        $this->showAllMediaUsage = true;
     }
 
     /**
@@ -157,12 +168,15 @@ class EditMedia extends EditRecord
                 ]),
             Section::make(__('capell-admin::media.external_video_heading'))
                 ->description(__('capell-admin::media.external_video_description'))
+                // Uploaded files keep their file identity; videos are created as videos.
+                ->visible(fn (): bool => ! $this->record->isFileBacked())
                 ->schema([
                     TextInput::make('external_video_url')
                         ->label(__('capell-admin::media.external_video_url'))
                         ->helperText(__('capell-admin::media.external_video_url_helper'))
                         ->placeholder(__('capell-admin::media.external_video_url_placeholder'))
                         ->url()
+                        ->required()
                         ->maxLength(2048),
                 ]),
             Section::make(__('capell-admin::media.localized_metadata_heading'))
@@ -235,7 +249,8 @@ class EditMedia extends EditRecord
 
         $data['focal_point_x'] = $focalPoint['x'];
         $data['focal_point_y'] = $focalPoint['y'];
-        $data['crop_presets'] = $cropPresetNames !== []
+        // Only unset media falls back to every preset; an explicitly empty selection stays empty.
+        $data['crop_presets'] = $this->record->hasCropPresetSelection()
             ? $cropPresetNames
             : resolve(MediaCropPresetRepository::class)->names();
         $data['translations'] = $this->translationsQuery()
@@ -276,7 +291,18 @@ class EditMedia extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Media $record */
-        return UpdateMediaAction::run($record, $data);
+        try {
+            return UpdateMediaAction::run($record, $data);
+        } catch (MediaDerivativesFailedException $mediaDerivativesFailedException) {
+            Notification::make()
+                ->title(__('capell-admin::media.save_failed'))
+                ->body($mediaDerivativesFailedException->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw (new Halt)->rollBackDatabaseTransaction();
+        }
     }
 
     #[Override]
